@@ -11,7 +11,7 @@ import { getDashboardStats } from "@/app/data/admin/admin-get-dashboard-stats";
 
 export async function SectionCards() {
 
-  const { totalSignups, totalCustomers, totalCourses, totalLessons } = await getDashboardStats();
+  // const { totalSignups, totalCustomers, totalCourses, totalLessons } = await getDashboardStats();
   return (
     <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
       <Card className="@container/card">
@@ -19,7 +19,7 @@ export async function SectionCards() {
           <div>
             <CardDescription>Total Siginups</CardDescription>
             <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-              {totalSignups}
+              {/* {totalSignups} */}
             </CardTitle>
           </div>
           <IconUsers className="size-6 text-muted-foreground" />
@@ -33,7 +33,7 @@ export async function SectionCards() {
           <div>
             <CardDescription>Total Customers</CardDescription>
             <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-              {totalCustomers}
+              {/* {totalCustomers} */}
             </CardTitle>
           </div>
           <IconShoppingCart className="size-6 text-muted-foreground" />
@@ -47,7 +47,7 @@ export async function SectionCards() {
           <div>
             <CardDescription>Total Courses</CardDescription>
             <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-              {totalCourses}
+              {/* {totalCourses} */}
             </CardTitle>
           </div>
           <IconBook className="size-6 text-muted-foreground" />
@@ -61,7 +61,7 @@ export async function SectionCards() {
           <div>
             <CardDescription>Total Lessons</CardDescription>
             <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-              {totalLessons}
+              {/* {totalLessons} */}
             </CardTitle>
           </div>
           <IconPlaylistX className="size-6 text-muted-foreground" />

@@ -11,7 +11,7 @@ const signInPage = async() => {
   });
 
   if(session){
-    return redirect("/");
+    return redirect("/create-workspace");
   }
 
   return (

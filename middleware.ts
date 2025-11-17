@@ -1,46 +1,26 @@
-// middleware.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 
-/**
- * Auth guard used for /admin routes.
- * Returns a redirect to "/" if no session cookie is present.
- */
-export async function authMiddleware(request: NextRequest): Promise<NextResponse> {
+export async function authMiddleware(request: NextRequest) {
   const sessionCookie = getSessionCookie(request);
 
   if (!sessionCookie) {
-    // Redirect to home if not authenticated
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(new URL("/sign-in", request.url));
   }
 
   return NextResponse.next();
 }
 
-/**
- * Next.js middleware entrypoint (no Arcjet).
- * Only enforces authentication for routes beginning with /admin.
- */
-export function middleware(request: NextRequest) {
-  // Protect only /admin and subpaths
-  if (request.nextUrl.pathname.startsWith("/admin")) {
-    // authMiddleware is async; we can return the Promise directly
+export const config = {
+  matcher: ["/((?!_next/static|_next/image/favicon.ico|api/auth).*)"]
+};
+
+// Default middleware without Arcjet
+export default async function middleware(request: NextRequest) {
+  // Protect admin routes
+  if (request.nextUrl.pathname.startsWith("/workspace")) {
     return authMiddleware(request);
   }
 
-  // Allow all other routes to pass through
   return NextResponse.next();
 }
-
-/**
- * Optional: limit the middleware to only run for /admin routes.
- * This prevents it from running for every request (recommended).
- */
-export const config = {
-  matcher: ["/admin/:path*"],
-};
-
-/**
- * If you deploy to the Edge runtime, uncomment the next line:
- */
-// export const runtime = "edge";

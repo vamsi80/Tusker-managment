@@ -29,7 +29,7 @@ export const auth = betterAuth({
         const { data, error } = await resend.emails.send({
           from: 'LMS <onboarding@resend.dev>',
           to: [email],
-          subject: 'Tusker LMS - Verify your email',
+          subject: 'Tusker Managment - Verify your email',
           html: `<p>YourOTP is <strong>${otp}</strong></p>`,
         });
       }

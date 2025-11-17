@@ -51,6 +51,19 @@ export const courseSchema = z.object({
         .enum(CourseStatus, { message: "status is Required" }),
 });
 
+export const workSpaceSchema = z.object({
+    name: z
+        .string()
+        .min(3, { message: "Name must be at least 3 charcters long" })
+        .max(100, { message: "Name must be at most 100 character long" }),
+    description: z
+        .string()
+        .min(3, { message: "description must be at least 3 charcters long" }),
+    slug: z
+        .string()
+        .min(3, { message: "slug must be at least 3 charcters long" }),
+});
+
 export const chapterSchema = z.object({
     name: z
         .string()
@@ -85,5 +98,6 @@ export const lessonSchema = z.object({
 });
 
 export type CourseSchemaType = z.infer<typeof courseSchema>;
+export type WorkSpaceSchemaType = z.infer<typeof workSpaceSchema>;
 export type ChapterSchemaType = z.infer<typeof chapterSchema>;
 export type LessonSchemaType = z.infer<typeof lessonSchema>;

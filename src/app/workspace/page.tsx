@@ -2,7 +2,6 @@ import { ChartAreaInteractive } from "@/components/sidebar/chart-area-interactiv
 import { SectionCards } from "@/components/sidebar/section-cards";
 import { getRecentCourses } from "../data/admin/admin-get-recent-courses";
 import { EmptyState } from "@/components/general/emptyState";
-import { AdminCourseCard, AdminCourseCardSkeleton } from "./courses/_components/adminCoursesCard";
 import { Suspense } from "react";
 
 
@@ -47,22 +46,4 @@ async function RenderRecentCourses() {
       />
     );
   }
-
-  return (
-    <div className=" grid grid-cols-1 md:grid-cols-2 gap-6">
-      {data.map((course: any) => (
-        <AdminCourseCard key={course.id} data={course} />
-      ))}
-    </div>
-  )
-}
-
-function RenderRecentCoursesSkeleton() {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      {Array.from({ length: 2 }).map((_, index) => (
-        <AdminCourseCardSkeleton key={index} />
-      ))}
-    </div>
-  )
 }

@@ -6,10 +6,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { authClient } from '@/lib/auth-clint'
 import { Loader, Loader2, Send } from 'lucide-react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
-import { FaGithub } from 'react-icons/fa'
+import { FaGithub, FaGoogle } from 'react-icons/fa'
 import { toast } from 'sonner'
 
 export const LoginForm = () => {
@@ -17,6 +16,7 @@ export const LoginForm = () => {
   const router = useRouter()
 
   const [githubPending, startGithubTransition] = useTransition()
+  const [googlePending, startGoogleTransition] = useTransition()
   const [emailPending, startEmailTransition] = useTransition()
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
@@ -27,10 +27,27 @@ export const LoginForm = () => {
     startGithubTransition(async () => {
       await authClient.signIn.social({
         provider: 'github',
-        callbackURL: "/",
+        callbackURL: "/create-workspace",
         fetchOptions: {
           onSuccess: () => {
             toast.success('Signed in with Github, you will be redirected...')
+          },
+          onError: (error) => {
+            toast.error('Internal server error')
+          }
+        }
+      })
+    })
+  }
+
+  async function signInWithGoogle() {
+    startGoogleTransition(async () => {
+      await authClient.signIn.social({
+        provider: 'google',
+        callbackURL: "/create-workspace",
+        fetchOptions: {
+          onSuccess: () => {
+            toast.success('Signed in with google, you will be redirected...')
           },
           onError: (error) => {
             toast.error('Internal server error')
@@ -111,7 +128,7 @@ export const LoginForm = () => {
           </div>
 
           <Button
-            onClick={signUpWithEmail}
+            onClick={signInWithEmail}
             disabled={emailPending}
           >
             {emailPending ? (
@@ -138,7 +155,7 @@ export const LoginForm = () => {
             disabled={githubPending}
             title="Sign up with GitHub"
             className="h-8 w-8 flex items-center justify-center rounded-full cursor-pointer"
-            onClick={signUpWithGithub}
+            onClick={signInWithGithub}
           >
             {githubPending ? (
               <Loader className="size-5 animate-spin" />
@@ -152,7 +169,7 @@ export const LoginForm = () => {
             disabled={googlePending}
             title="Sign up with Google"
             className="h-8 w-8 flex items-center justify-center rounded-full cursor-pointer"
-            onClick={signUpWithGoogle}
+            onClick={signInWithGoogle}
           >
             {googlePending ? (
               <Loader className="size-5 animate-spin" />
