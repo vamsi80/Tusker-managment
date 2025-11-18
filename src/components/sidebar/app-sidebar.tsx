@@ -28,10 +28,8 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { useRouter } from "next/navigation";
-import { NavWorkspaces } from "./nav-workspaces";
-import { MainWorkspaceType } from "@/app/data/workspace/get-all-workspaces";
-
-
+import { UserWorkspacesType } from "@/app/data/workspace/get-user-workspace";
+import { NavWorkspacesSelector } from "./nav-workspaces-selector";
 
 const data = {
   navMain: [
@@ -79,10 +77,10 @@ const data = {
 };
 
 interface iAppProps {
-    workSpaceData: MainWorkspaceType[];
+  workspaceData: UserWorkspacesType;
 }
 
-export function AppSidebar({ workSpaceData, ...props }: React.ComponentProps<typeof Sidebar> & iAppProps ) {
+export function AppSidebar({ workspaceData, ...props }: React.ComponentProps<typeof Sidebar> & iAppProps) {
   const router = useRouter();
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -90,8 +88,8 @@ export function AppSidebar({ workSpaceData, ...props }: React.ComponentProps<typ
         <SidebarMenu>
           <SidebarMenuItem>
             {/* SidebarMenuButton expects a child element; we render a compact dropdown */}
+            <NavWorkspacesSelector data={workspaceData} />
             <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:!p-1.5">
-              <NavWorkspaces workspace={workSpaceData} />
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

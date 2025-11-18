@@ -2,9 +2,13 @@ import "server-only";
 
 import prisma from "@/lib/db";
 
-export async function getAllWorkspaces() {
+export async function getAllWorkspaces(slug: string) {
     await new Promise((resolve) => setTimeout(resolve, 2000));
     const data = await prisma.workspace.findMany({
+
+        where: {
+            slug: slug,
+        },
 
         orderBy: {
             createdAt: "desc",

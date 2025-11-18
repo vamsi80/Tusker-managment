@@ -1,49 +1,10 @@
-import { ChartAreaInteractive } from "@/components/sidebar/chart-area-interactive";
-import { SectionCards } from "@/components/sidebar/section-cards";
-import { getRecentCourses } from "../data/admin/admin-get-recent-courses";
-import { EmptyState } from "@/components/general/emptyState";
-import { Suspense } from "react";
+
+import { getUserWorkspaces } from "../data/workspace/get-user-workspace";
+import { redirect } from "next/navigation";
 
 
 export default async function AdminIndexPage() {
-
-  // const enrollmentDate = await getEnrollmentsStats();
-  return (
-    <>
-      <SectionCards />
-      <h1>Welcome to workspace</h1>
-      {/* <ChartAreaInteractive data={enrollmentDate} />
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">
-            Recent Courses
-          </h2>
-          <Link
-            href="/admin/courses"
-            className={buttonVariants({ variant: "outline" })}
-          >
-            View All Courses
-          </Link>
-        </div>
-        <Suspense fallback={<RenderRecentCoursesSkeleton />}>
-          <RenderRecentCourses />
-        </Suspense>
-      </div> */}
-    </>
-  )
-}
-
-async function RenderRecentCourses() {
-  const data = await getRecentCourses();
-
-  if (data.length === 0) {
-    return (
-      <EmptyState
-        title="You don't have any courses"
-        description="You don't have any courses.create some to see them here."
-        buttonText="Create New Courses"
-        href="/admin/courses/create"
-      />
-    );
-  }
+  const workspaces = await getUserWorkspaces();
+  if (!workspaces.length) return redirect('/create-workspace');
+  return redirect(`/workspace/${workspaces[0].slug}`);
 }

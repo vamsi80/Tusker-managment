@@ -6,8 +6,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { admin } from "better-auth/plugins"
-import { getDashboardStats } from "@/app/data/admin/admin-get-dashboard-stats";
 
 export async function SectionCards() {
 

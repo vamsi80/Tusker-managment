@@ -11,7 +11,7 @@ const CourseSlugRoute = async({ params, children }: iAppProps) => {
 
   const { slug } = await params;
 
-  const course = await getCourseSidebarData(slug); // Obtiene los datos del curso en base al slug de la url para un usuario suscrito  
+  const course = await getCourseSidebarData(slug);
   const firstChapter = course.course.chapters[0];
   const firstLesson = firstChapter.lessons[0];
 

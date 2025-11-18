@@ -1,10 +1,14 @@
 import { AppSidebar } from "@/components/sidebar/app-sidebar"
 import { SiteHeader } from "@/components/sidebar/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
-import { getAllWorkspaces } from "../data/workspace/get-all-workspaces";
+import { getUserWorkspaces } from "../../data/workspace/get-user-workspace";
 
-export default async function WorkSpaceLayout({ children }: { children: React.ReactNode }) {
-    const workspaces = await getAllWorkspaces();
+interface Props {
+  children: React.ReactNode;
+}
+
+export default async function WorkSpaceLayout({ children }: Props) {
+    const workspaces = await getUserWorkspaces();
     return (
         <SidebarProvider
             style={
@@ -14,7 +18,7 @@ export default async function WorkSpaceLayout({ children }: { children: React.Re
                 } as React.CSSProperties
             }
         >
-            <AppSidebar variant="inset" workSpaceData={workspaces} />
+           <AppSidebar variant="inset" workspaceData={workspaces} />
             <SidebarInset>
                 <SiteHeader />
                 <div className="flex flex-1 flex-col">
