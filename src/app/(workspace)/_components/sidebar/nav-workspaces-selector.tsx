@@ -8,10 +8,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Check, ChevronsUpDown } from "lucide-react";
-import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "../ui/sidebar";
-import { WorkspaceAvatar } from "@/app/workspace/_components/workspace-avatar";
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "../../../../components/ui/sidebar";
 import { useRouter } from "next/navigation";
 import { UserWorkspacesType } from "@/app/data/workspace/get-user-workspace";
+import { WorkspaceAvatar } from "../workspace-avatar";
 
 interface iAppProps {
   data: UserWorkspacesType;
@@ -44,7 +44,7 @@ export const NavWorkspacesSelector: React.FC<iAppProps> = ({ data }) => {
   function onWorkspaceSelect(slug: string) {
     if (!slug) return;
     setWorkspaceSlug(slug);
-    router.push(`/workspace/${slug}`);
+    router.push(`/${slug}`);
   }
 
   // find currently selected workspace by slug (fall back to id if slug missing)

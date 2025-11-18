@@ -1,5 +1,5 @@
-import { ChartAreaInteractive } from "@/components/sidebar/chart-area-interactive";
-import { SectionCards } from "@/components/sidebar/section-cards";
+import { ChartAreaInteractive } from "@/app/workspace/_components/sidebar/chart-area-interactive";
+import { SectionCards } from "@/app/workspace/_components/sidebar/section-cards";
 import { getRecentCourses } from "../data/admin/admin-get-recent-courses";
 import { EmptyState } from "@/components/general/emptyState";
 import { AdminCourseCard, AdminCourseCardSkeleton } from "./courses/_components/adminCoursesCard";

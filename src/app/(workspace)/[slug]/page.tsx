@@ -1,11 +1,12 @@
-import { SectionCards } from "@/components/sidebar/section-cards";
+import { SectionCards } from "../_components/sidebar/section-cards";
+
 
 export default function WorkSpacePage() {
-    return (
-        <>
-            <SectionCards />
-            <h1>Welcome to workspace</h1>
-            {/* <ChartAreaInteractive data={enrollmentDate} />
+  return (
+    <>
+      <SectionCards />
+      <h1>Welcome to workspace</h1>
+      {/* <ChartAreaInteractive data={enrollmentDate} />
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-semibold">
@@ -22,6 +23,6 @@ export default function WorkSpacePage() {
                   <RenderRecentCourses />
                 </Suspense>
               </div> */}
-        </>
-    )
+    </>
+  )
 }

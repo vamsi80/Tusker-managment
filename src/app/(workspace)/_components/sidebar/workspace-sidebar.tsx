@@ -5,19 +5,18 @@ import {
   IconCamera,
   IconChartBar,
   IconDashboard,
+  IconDatabase,
   IconFileAi,
   IconFileDescription,
+  IconFileWord,
   IconFolder,
   IconHelp,
   IconListDetails,
+  IconReport,
   IconSearch,
   IconSettings,
   IconUsers,
 } from "@tabler/icons-react";
-
-import { NavMain } from "@/components/sidebar/nav-main";
-import { NavSecondary } from "@/components/sidebar/nav-secondary";
-import { NavUser } from "@/components/sidebar/nav-user";
 import {
   Sidebar,
   SidebarContent,
@@ -30,10 +29,14 @@ import {
 import { useRouter } from "next/navigation";
 import { UserWorkspacesType } from "@/app/data/workspace/get-user-workspace";
 import { NavWorkspacesSelector } from "./nav-workspaces-selector";
+import { NavDocuments } from "./nav-documents";
+import { NavMain } from "./nav-main";
+import { NavSecondary } from "./nav-secondary";
+import { NavUser } from "./nav-user";
 
 const data = {
   navMain: [
-    { title: "Dashboard", url: "/workspace", icon: IconDashboard },
+    { title: "Dashboard", url: "/", icon: IconDashboard },
     { title: "Projects", url: "#", icon: IconListDetails },
     { title: "Team", url: "#", icon: IconChartBar },
     { title: "Projects", url: "#", icon: IconFolder },
@@ -74,6 +77,23 @@ const data = {
     { title: "Get Help", url: "#", icon: IconHelp },
     { title: "Search", url: "#", icon: IconSearch },
   ],
+  documents: [
+    {
+      name: "Data Library",
+      url: "#",
+      icon: IconDatabase,
+    },
+    {
+      name: "Reports",
+      url: "#",
+      icon: IconReport,
+    },
+    {
+      name: "Word Assistant",
+      url: "#",
+      icon: IconFileWord,
+    },
+  ],
 };
 
 interface iAppProps {
@@ -97,6 +117,7 @@ export function AppSidebar({ workspaceData, ...props }: React.ComponentProps<typ
 
       <SidebarContent>
         <NavMain items={data.navMain} />
+        <NavDocuments items={data.documents} />
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
 

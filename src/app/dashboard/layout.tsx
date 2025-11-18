@@ -1,4 +1,4 @@
-import { SiteHeader } from "@/components/sidebar/site-header"
+import { SiteHeader } from "@/app/workspace/_components/sidebar/site-header"
 import {
     SidebarInset,
     SidebarProvider,

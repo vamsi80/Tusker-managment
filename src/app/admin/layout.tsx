@@ -1,5 +1,5 @@
-import { AppSidebar } from "@/components/sidebar/app-sidebar"
-import { SiteHeader } from "@/components/sidebar/site-header"
+import { AppSidebar } from "@/app/workspace/_components/sidebar/workspace-sidebar"
+import { SiteHeader } from "@/app/workspace/_components/sidebar/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

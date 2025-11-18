@@ -1,7 +1,8 @@
-import { AppSidebar } from "@/components/sidebar/app-sidebar"
-import { SiteHeader } from "@/components/sidebar/site-header"
+
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { getUserWorkspaces } from "../../data/workspace/get-user-workspace";
+import { AppSidebar } from "../_components/sidebar/workspace-sidebar";
+import { SiteHeader } from "../_components/sidebar/site-header";
 
 interface Props {
   children: React.ReactNode;
