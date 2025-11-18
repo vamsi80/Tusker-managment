@@ -28,11 +28,11 @@ import {
 } from "@/components/ui/sidebar";
 import { useRouter } from "next/navigation";
 import { UserWorkspacesType } from "@/app/data/workspace/get-user-workspace";
-import { NavWorkspacesSelector } from "./nav-workspaces-selector";
 import { NavDocuments } from "./nav-documents";
 import { NavMain } from "./nav-main";
 import { NavSecondary } from "./nav-secondary";
 import { NavUser } from "./nav-user";
+import { NavWorkspacesSelector } from "./nav-workspaces-selector";
 
 const data = {
   navMain: [

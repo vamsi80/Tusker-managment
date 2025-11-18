@@ -5,6 +5,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -12,13 +13,15 @@ import { Check, ChevronsUpDown, Plus } from "lucide-react";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "../../../../components/ui/sidebar";
 import { useRouter } from "next/navigation";
 import { UserWorkspacesType } from "@/app/data/workspace/get-user-workspace";
+import GradientAvatar from "../workspace-avatar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface iAppProps {
   data: UserWorkspacesType;
 }
 
-export const NavWorkspacesSelector: React.FC<iAppProps> = ({ data }) => {
+
+export const NavWorkspacesSelectors: React.FC<iAppProps> = ({ data }) => {
   const router = useRouter();
   const [workspaces, setWorkspaces] = useState<UserWorkspacesType>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -53,7 +56,6 @@ export const NavWorkspacesSelector: React.FC<iAppProps> = ({ data }) => {
     workspaces.find((w) => w.slug && w.slug === workspaceSlug) ??
     workspaces.find((w) => w.id === workspaceSlug) ??
     workspaces[0];
-
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -63,38 +65,30 @@ export const NavWorkspacesSelector: React.FC<iAppProps> = ({ data }) => {
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
-              <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarImage src={`https://avatar.vercel.sh/${current?.slug}`} alt={current?.name} />
-                <AvatarFallback className="rounded-lg">
-                  {current?.name && current?.name.length > 0
-                    ? current?.name.charAt(0).toLocaleUpperCase()
-                    : (current?.slug ?? current?.id ?? "W").charAt(0).toLocaleUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-
-              <div className="flex flex-col ml-2">
-                <div className="font-semibold text-muted-foreground">
-                  {current?.name ?? (loading ? "Loading…" : "No Workspaces")}
-                </div>
-                <div className="text-xs text-muted-foreground/70">
-                  {loading ? "Loading…" : `${workspaces?.length ?? 0} workspace${(workspaces?.length ?? 0) === 1 ? "" : "s"}`}
-                </div>
+              <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
+                <Avatar className="h-8 w-8 rounded-lg">
+                  <AvatarImage src={`https://avatar.vercel.sh/${current?.slug}`} alt={current?.name} />
+                  <AvatarFallback className="rounded-lg">
+                    {current?.name && current?.name.length > 0 ? current?.name.charAt(0).toUpperCase() : (current?.slug ?? current?.id).charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
               </div>
-
+              <div className="grid flex-1 text-left text-sm leading-tight">
+                <span className="truncate font-medium">{current?.name}</span>
+                <span className="truncate text-xs">{current?.members?.length}</span>
+              </div>
               <ChevronsUpDown className="ml-auto" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
-
-          {/* disable portal so CSS custom property is in same DOM context */}
           <DropdownMenuContent
-            className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+            className="w-(--radix-dropdown-menu-trigger-width) min-w-60 items-center rounded-lg"
             align="start"
-            sideOffset={5}
+            // side={isMobile ? "bottom" : "right"}
+            sideOffset={4}
           >
-            {loading && <DropdownMenuItem>Loading…</DropdownMenuItem>}
-            {error && <DropdownMenuItem>{error}</DropdownMenuItem>}
-            {!loading && !workspaces?.length && <DropdownMenuItem>No workspaces</DropdownMenuItem>}
-
+            <DropdownMenuLabel className="text-muted-foreground text-xs">
+              Workspaces
+            </DropdownMenuLabel>
             {workspaces?.map((ws) => {
               const routeKey = ws.slug ?? ws.id;
               return (
@@ -131,5 +125,5 @@ export const NavWorkspacesSelector: React.FC<iAppProps> = ({ data }) => {
         </DropdownMenu>
       </SidebarMenuItem>
     </SidebarMenu>
-  );
-};
+  )
+}
