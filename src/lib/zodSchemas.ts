@@ -1,22 +1,26 @@
 
-import { z } from 'zod'
+import { file, z } from 'zod'
 
-export const CourseLevel = [ "Biginner", "Intermediate", "Advance" ] as const
+export const CourseLevel = ["Biginner", "Intermediate", "Advance"] as const
 
-export const CourseStatus = [ "Draft", "Published", "Archive" ] as const
+export const CourseStatus = ["Draft", "Published", "Archive"] as const
 
 export const CourseCategories = [
-    'Development', 
-    'Busincess', 
-    'Finance', 
-    'It & Software', 
-    'Office Productivity', 
-    'Personal Development', 
+    'Development',
+    'Busincess',
+    'Finance',
+    'It & Software',
+    'Office Productivity',
+    'Personal Development',
     'Design',
     'Music ',
     'Health & Fitness',
     'Teaching & Academics'
 ] as const
+
+export const ProjectPriority = ["LOW", "MEDIUM", "HIGH"] as const
+
+export const ProjectStatus = ["ACTIVE", "PLANNING", "COMPLETED", "ON_HOLD", "CANCELLED"] as const
 
 export const courseSchema = z.object({
     title: z
@@ -64,6 +68,28 @@ export const workSpaceSchema = z.object({
         .min(3, { message: "slug must be at least 3 charcters long" }),
 });
 
+export const projectSchema = z.object({
+    name: z
+        .string()
+        .min(3, { message: "Name must be at least 3 charcters long" })
+        .max(100, { message: "Name must be at most 100 character long" }),
+    description: z
+        .string()
+        .min(3, { message: "description must be at least 3 charcters long" }),
+    fileKey: z
+        .string()
+        .min(1, { message: "File is Required" }),
+    priority: z
+        .enum(ProjectPriority, { message: "Priority is Required" }),
+
+    status: z
+        .enum(ProjectStatus, { message: "Status is Required" }),
+
+    teteam_lead: z
+        .string()
+        .min(3, { message: "Team Lead is Required" }),
+});
+
 export const chapterSchema = z.object({
     name: z
         .string()
@@ -99,5 +125,6 @@ export const lessonSchema = z.object({
 
 export type CourseSchemaType = z.infer<typeof courseSchema>;
 export type WorkSpaceSchemaType = z.infer<typeof workSpaceSchema>;
+export type ProjectSchemaType = z.infer<typeof projectSchema>;
 export type ChapterSchemaType = z.infer<typeof chapterSchema>;
 export type LessonSchemaType = z.infer<typeof lessonSchema>;

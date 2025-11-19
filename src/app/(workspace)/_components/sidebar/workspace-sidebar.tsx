@@ -39,8 +39,6 @@ const data = {
     { title: "Dashboard", url: "/", icon: IconDashboard },
     { title: "Projects", url: "#", icon: IconListDetails },
     { title: "Team", url: "#", icon: IconChartBar },
-    { title: "Projects", url: "#", icon: IconFolder },
-    { title: "Team", url: "#", icon: IconUsers },
   ],
   navClouds: [
     {

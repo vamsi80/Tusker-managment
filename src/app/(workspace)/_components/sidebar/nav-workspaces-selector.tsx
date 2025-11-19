@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Check, ChevronsUpDown, Plus } from "lucide-react";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "../../../../components/ui/sidebar";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { UserWorkspacesType } from "@/app/data/workspace/get-user-workspace";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -20,9 +20,14 @@ interface iAppProps {
 
 export const NavWorkspacesSelector: React.FC<iAppProps> = ({ data }) => {
   const router = useRouter();
+  const params = useParams(); // <<< get slug from URL
+  const urlSlug = (params.slug as string | undefined) ?? undefined;
+
   const [workspaces, setWorkspaces] = useState<UserWorkspacesType>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  // keep workspaceSlug in state for optimistic UI, but always prefer urlSlug when available
   const [workspaceSlug, setWorkspaceSlug] = useState<string | undefined>(undefined);
 
   useEffect(() => {
@@ -33,25 +38,34 @@ export const NavWorkspacesSelector: React.FC<iAppProps> = ({ data }) => {
       } else {
         setWorkspaces(data);
         const firstSlug = data[0]?.slug ?? data[0]?.id;
-        setWorkspaceSlug((prev) => prev ?? firstSlug);
+        // prefer URL slug if present, otherwise default to first workspace
+        setWorkspaceSlug((prev) => prev ?? urlSlug ?? firstSlug);
       }
     } catch (err: any) {
       setError(err?.message ?? "Failed to load workspaces");
     } finally {
       setLoading(false);
     }
-  }, [data]);
+  }, [data, urlSlug]);
+
+  // keep state synced when route param changes (handles back/forward & external navigation)
+  useEffect(() => {
+    if (urlSlug && urlSlug !== workspaceSlug) {
+      setWorkspaceSlug(urlSlug);
+    }
+  }, [urlSlug, workspaceSlug]);
 
   function onWorkspaceSelect(slug: string) {
     if (!slug) return;
+    // optimistic UI: highlight immediately
     setWorkspaceSlug(slug);
+    // navigate (replace if you don't want a history entry)
     router.push(`/${slug}`);
   }
 
-  // find currently selected workspace by slug (fall back to id if slug missing)
   const current =
-    workspaces.find((w) => w.slug && w.slug === workspaceSlug) ??
-    workspaces.find((w) => w.id === workspaceSlug) ??
+    workspaces.find((w) => w.slug && w.slug === (urlSlug ?? workspaceSlug)) ??
+    workspaces.find((w) => w.id === (urlSlug ?? workspaceSlug)) ??
     workspaces[0];
 
   return (
@@ -77,10 +91,9 @@ export const NavWorkspacesSelector: React.FC<iAppProps> = ({ data }) => {
                   {current?.name ?? (loading ? "Loading…" : "No Workspaces")}
                 </div>
                 <div className="text-xs text-muted-foreground/70">
-                  {loading ? "Loading…" : `${workspaces?.length ?? 0} workspace${(workspaces?.length ?? 0) === 1 ? "" : "s"}`}
+                  {loading ? "Loading…" : `${current?.members?.length ?? 0} member${(current?.members?.length ?? 0) === 1 ? "" : "s"}`}
                 </div>
               </div>
-
               <ChevronsUpDown className="ml-auto" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
@@ -108,24 +121,27 @@ export const NavWorkspacesSelector: React.FC<iAppProps> = ({ data }) => {
                     </Avatar>
                     <div className="flex flex-col ml-2">
                       <div className="font-semibold text-muted-foreground">
-                        {current?.name ?? (loading ? "Loading…" : "No Workspaces")}
+                        {ws?.name ?? (loading ? "Loading…" : "No Workspaces")}
                       </div>
                       <div className="text-xs text-muted-foreground/70">
-                        {loading ? "Loading…" : `${workspaces?.length ?? 0} workspace${(workspaces?.length ?? 0) === 1 ? "" : "s"}`}
+                        {loading ? "Loading…" : `${ws.members?.length ?? 0} member${(ws?.members?.length ?? 0) === 1 ? "" : "s"}`}
                       </div>
                     </div>
                   </div>
-
                   {routeKey === workspaceSlug && <Check className="ml-auto" />}
                 </DropdownMenuItem>
               );
             })}
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 p-2">
-              <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
-                <Plus className="size-4" />
-              </div>
-              <div className="text-muted-foreground font-medium">Add team</div>
+            <DropdownMenuItem
+              className="gap-2 p-2 cursor-pointer"
+              onSelect={(e) => {
+                e.preventDefault();        // prevent dropdown from closing instantly (optional)
+                router.push(`/create-workspace`);
+              }}
+            >
+              <Plus className="size-4" />
+              <span className="text-muted-foreground font-medium">Create Workspace</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

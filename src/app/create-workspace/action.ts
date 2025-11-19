@@ -45,3 +45,15 @@ export async function createWorkSpace(values: WorkSpaceSchemaType): Promise<ApiR
         }
     }
 }
+
+export async function getUserWorkspaces() {
+  const userWorkspace = await getUserWorkspaces();
+
+  if(!userWorkspace) {
+    return {
+      status: "error",
+      message: "You don't have any workspace.",
+      workspaces: [],
+    };
+  }
+}

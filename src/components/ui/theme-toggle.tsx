@@ -20,32 +20,34 @@ export default function ThemeToggle() {
   const toggleTheme = () => setTheme(isDark ? 'light' : 'dark')
 
   return (
-    <div aria-hidden={!mounted}>
-      <Toggle
-        variant="outline"
-        pressed={isDark}
-        onPressedChange={toggleTheme}
-        aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
-        className="relative inline-flex items-center justify-center w-9 h-9 rounded-full border-none p-0 focus:outline-none"
-      >
-        {/* Sun (light) */}
-        <SunIcon
-          size={16}
-          aria-hidden="true"
-          className={`transition-transform transition-opacity duration-200 ease-out
+    <>
+      <div aria-hidden={!mounted}>
+        <Toggle
+          variant="outline"
+          pressed={isDark}
+          onPressedChange={toggleTheme}
+          aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+          className="relative inline-flex items-center justify-center w-9 h-9 rounded-full border-none p-0 focus:outline-none"
+        >
+          {/* Sun (light) */}
+          <SunIcon
+            size={16}
+            aria-hidden="true"
+            className={`transition-transform transition-opacity duration-200 ease-out
             ${isDark ? 'opacity-0 scale-75' : 'opacity-100 scale-100'}
             `}
-        />
+          />
 
-        {/* Moon (dark) — positioned absolutely so they overlap nicely */}
-        <MoonIcon
-          size={16}
-          aria-hidden="true"
-          className={`absolute transition-transform transition-opacity duration-200 ease-out
+          {/* Moon (dark) — positioned absolutely so they overlap nicely */}
+          <MoonIcon
+            size={16}
+            aria-hidden="true"
+            className={`absolute transition-transform transition-opacity duration-200 ease-out
             ${isDark ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}
             `}
-        />
-      </Toggle>
-    </div>
+          />
+        </Toggle>
+      </div>
+    </>
   )
 }

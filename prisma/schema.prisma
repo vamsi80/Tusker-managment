@@ -116,7 +116,8 @@ enum WorkspaceRole {
 model Project {
   id          String          @id @default(uuid())
   name        String
-  description String?
+  description String
+  fileKey     String
   priority    Priority        @default(MEDIUM)
   status      ProjectStatus   @default(ACTIVE)
   start_date  DateTime?
