@@ -7,5 +7,5 @@ export default async function AdminIndexPage() {
   if (!workspaces.length) {
     redirect("/create-workspace?noWorkspace=1");
   }
-  return redirect(`/${workspaces[0].slug}`);
+  return redirect(`/${workspaces[0].id}`);
 }

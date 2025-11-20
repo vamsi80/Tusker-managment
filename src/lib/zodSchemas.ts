@@ -88,6 +88,9 @@ export const projectSchema = z.object({
     teteam_lead: z
         .string()
         .min(3, { message: "Team Lead is Required" }),
+    workspaceId: z
+        .string(),
+    memberAccess: z.array(z.string()).optional(),
 });
 
 export const chapterSchema = z.object({

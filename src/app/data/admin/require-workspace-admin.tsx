@@ -7,7 +7,7 @@ import { cache } from "react"
 import prisma from "@/lib/db"
 
 export const requireWorkspaceAdmin = cache(
-    async (slug: string) => {
+    async ({ slug }: { slug: string }) => {
         const session = await auth.api.getSession({
             headers: await headers(),
         })
@@ -23,12 +23,12 @@ export const requireWorkspaceAdmin = cache(
                     slug: slug,
                 },
                 role: "ADMIN",
-            }
+            },
         })
 
         if (!workspaceAdmin || workspaceAdmin.role !== "ADMIN") {
             return redirect("/not-admin")
         }
-        return session;
+        return {session, workspace: workspaceAdmin}
     }
 );

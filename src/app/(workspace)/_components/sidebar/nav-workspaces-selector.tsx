@@ -20,52 +20,52 @@ interface iAppProps {
 
 export const NavWorkspacesSelector: React.FC<iAppProps> = ({ data }) => {
   const router = useRouter();
-  const params = useParams(); // <<< get slug from URL
-  const urlSlug = (params.slug as string | undefined) ?? undefined;
+  const params = useParams(); // expects route like /[id]
+  const urlId = (params.id as string | undefined) ?? undefined;
 
   const [workspaces, setWorkspaces] = useState<UserWorkspacesType>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // keep workspaceSlug in state for optimistic UI, but always prefer urlSlug when available
-  const [workspaceSlug, setWorkspaceSlug] = useState<string | undefined>(undefined);
+  // keep workspaceId in state for optimistic UI, but always prefer urlId when available
+  const [workspaceId, setWorkspaceId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     try {
       if (!data) {
         setWorkspaces([]);
-        setWorkspaceSlug(undefined);
+        setWorkspaceId(undefined);
       } else {
         setWorkspaces(data);
-        const firstSlug = data[0]?.slug ?? data[0]?.id;
-        // prefer URL slug if present, otherwise default to first workspace
-        setWorkspaceSlug((prev) => prev ?? urlSlug ?? firstSlug);
+        const firstId = data[0]?.id;
+        // prefer existing state, then url, then first workspace id
+        setWorkspaceId((prev) => prev ?? urlId ?? firstId);
       }
     } catch (err: any) {
       setError(err?.message ?? "Failed to load workspaces");
     } finally {
       setLoading(false);
     }
-  }, [data, urlSlug]);
+  }, [data, urlId]);
 
   // keep state synced when route param changes (handles back/forward & external navigation)
   useEffect(() => {
-    if (urlSlug && urlSlug !== workspaceSlug) {
-      setWorkspaceSlug(urlSlug);
+    if (urlId && urlId !== workspaceId) {
+      setWorkspaceId(urlId);
     }
-  }, [urlSlug, workspaceSlug]);
+  }, [urlId, workspaceId]);
 
-  function onWorkspaceSelect(slug: string) {
-    if (!slug) return;
+  function onWorkspaceSelect(id: string) {
+    if (!id) return;
     // optimistic UI: highlight immediately
-    setWorkspaceSlug(slug);
-    // navigate (replace if you don't want a history entry)
-    router.push(`/${slug}`);
+    setWorkspaceId(id);
+    // navigate using id (creates a history entry)
+    router.push(`/${id}`);
   }
 
+  // choose current workspace: prefer a workspace whose id matches the urlId or local workspaceId
   const current =
-    workspaces.find((w) => w.slug && w.slug === (urlSlug ?? workspaceSlug)) ??
-    workspaces.find((w) => w.id === (urlSlug ?? workspaceSlug)) ??
+    workspaces.find((w) => w.id === (urlId ?? workspaceId)) ??
     workspaces[0];
 
   return (
@@ -78,11 +78,11 @@ export const NavWorkspacesSelector: React.FC<iAppProps> = ({ data }) => {
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarImage src={`https://avatar.vercel.sh/${current?.slug}`} alt={current?.name} />
+                <AvatarImage src={`https://avatar.vercel.sh/${current?.id}`} alt={current?.name} />
                 <AvatarFallback className="rounded-lg">
                   {current?.name && current?.name.length > 0
                     ? current?.name.charAt(0).toLocaleUpperCase()
-                    : (current?.slug ?? current?.id ?? "W").charAt(0).toLocaleUpperCase()}
+                    : (current?.id ?? "W").charAt(0).toLocaleUpperCase()}
                 </AvatarFallback>
               </Avatar>
 
@@ -109,14 +109,14 @@ export const NavWorkspacesSelector: React.FC<iAppProps> = ({ data }) => {
             {!loading && !workspaces?.length && <DropdownMenuItem>No workspaces</DropdownMenuItem>}
 
             {workspaces?.map((ws) => {
-              const routeKey = ws.slug ?? ws.id;
+              const routeKey = ws.id; // <-- always use id
               return (
                 <DropdownMenuItem key={ws.id} onSelect={() => onWorkspaceSelect(routeKey)}>
                   <div className="flex flex-row items-center gap-2">
                     <Avatar className="h-8 w-8 rounded-lg">
-                      <AvatarImage src={`https://avatar.vercel.sh/${ws?.slug}`} alt={ws.name} />
+                      <AvatarImage src={`https://avatar.vercel.sh/${ws.id}`} alt={ws.name} />
                       <AvatarFallback className="rounded-lg">
-                        {ws.name && ws.name.length > 0 ? ws.name.charAt(0).toUpperCase() : (ws.slug ?? ws.id).charAt(0).toUpperCase()}
+                        {ws.name && ws.name.length > 0 ? ws.name.charAt(0).toUpperCase() : ws.id.charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col ml-2">
@@ -128,7 +128,7 @@ export const NavWorkspacesSelector: React.FC<iAppProps> = ({ data }) => {
                       </div>
                     </div>
                   </div>
-                  {routeKey === workspaceSlug && <Check className="ml-auto" />}
+                  {routeKey === workspaceId && <Check className="ml-auto" />}
                 </DropdownMenuItem>
               );
             })}
@@ -136,7 +136,7 @@ export const NavWorkspacesSelector: React.FC<iAppProps> = ({ data }) => {
             <DropdownMenuItem
               className="gap-2 p-2 cursor-pointer"
               onSelect={(e) => {
-                e.preventDefault();        // prevent dropdown from closing instantly (optional)
+                e.preventDefault(); // prevent dropdown from closing instantly (optional)
                 router.push(`/create-workspace`);
               }}
             >

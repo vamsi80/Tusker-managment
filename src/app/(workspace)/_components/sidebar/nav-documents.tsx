@@ -35,7 +35,7 @@ export function NavDocuments({
 }) {
   const { isMobile } = useSidebar()
   const params = useParams();
-  const slug = params.slug;
+  const workspaceId = params.workspaceId;
   const router = useRouter();
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
@@ -45,7 +45,7 @@ export function NavDocuments({
 
           <button
             onClick={() => {
-              router.push(`/${slug}/projects`);
+              router.push(`/${workspaceId}/projects`);
             }}
             className="p-1 rounded hover:bg-accent"
           >
