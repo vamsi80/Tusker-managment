@@ -4,8 +4,8 @@ import { redirect } from "next/navigation";
 
 export default async function AdminIndexPage() {
   const workspaces = await getUserWorkspaces();
-  if (!workspaces.length) {
+  if (!workspaces?.workspaces?.length) {
     redirect("/create-workspace?noWorkspace=1");
   }
-  return redirect(`/${workspaces[0].id}`);
+  return redirect(`/${workspaces.workspaces[0].id}`);
 }

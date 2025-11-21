@@ -4,6 +4,7 @@ import { PrismaClient } from "@/generated/prisma";
 import { ApiResponse } from "@/lib/types";
 import { workSpaceSchema, WorkSpaceSchemaType } from "@/lib/zodSchemas";
 import { requireUser } from "@/app/data/user/require-user";
+import { generateInviteCode } from "@/utils/get-invite-code";
 
 const prisma = new PrismaClient();
 
@@ -23,11 +24,12 @@ export async function createWorkSpace(values: WorkSpaceSchemaType): Promise<ApiR
         await prisma.workspace.create({
             data: {
                 ...validation.data,
-                ownerId: user.id as string,
+                ownerId: user.id,
+                inviteCode:generateInviteCode(),
                 members:{
                     create:{
-                        userId: user.id as string,
-                        role: "ADMIN",
+                        userId: user.id,
+                        accessLevel: "ADMIN",
                     }
                 }
             },

@@ -1,5 +1,5 @@
 
-import { file, z } from 'zod'
+import { z } from 'zod'
 
 export const CourseLevel = ["Biginner", "Intermediate", "Advance"] as const
 
@@ -63,9 +63,6 @@ export const workSpaceSchema = z.object({
     description: z
         .string()
         .min(3, { message: "description must be at least 3 charcters long" }),
-    slug: z
-        .string()
-        .min(3, { message: "slug must be at least 3 charcters long" }),
 });
 
 export const projectSchema = z.object({

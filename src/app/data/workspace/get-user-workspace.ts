@@ -1,35 +1,35 @@
 import prisma from "@/lib/db";
 import { requireUser } from "../user/require-user";
 import { toast } from "sonner";
+import { notFound } from "next/navigation";
 
 export async function getUserWorkspaces() {
     const user = await requireUser();
 
-    const data = await prisma.workspace.findMany({
+    const data = await prisma.user.findUnique({
         where: {
-            members: {
-                some: {
-                    userId: user.id,
-                },
-            },
+            id: user.id,
         },
-        orderBy: {
-            createdAt: "desc",
-        },
-        select: {
-            id: true,
-            name: true,
-            slug: true,
-            description: true,
-            members: {
+        include: {
+            workspaces: {
                 select: {
-                    role: true,
-                    workspaceId: true,
+                    id: true,
                     userId: true,
-                },
-            },
-        },
+                    workspaceId: true,
+                    accessLevel: true,
+                    workspace: {
+                        select: {
+                            name: true,
+                        }
+                    }
+                }
+            }
+        }
     });
+
+    if (!data) {
+        return notFound();
+    }
     return data;
 }
 
