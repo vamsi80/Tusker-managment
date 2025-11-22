@@ -87,7 +87,8 @@ model Workspace {
   updatedAt   DateTime @updatedAt
   owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
-  members WorkspaceMember[]
+  members  WorkspaceMember[]
+  projects Project[]
 }
 
 model WorkspaceMember {
@@ -98,7 +99,8 @@ model WorkspaceMember {
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  accessLevel AccessLevel @default(MEMBER)
+  accessLevel   AccessLevel     @default(MEMBER)
+  projectAccess ProjectAccess[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -110,4 +112,37 @@ enum AccessLevel {
   ADMIN
   MEMBER
   VIEWER
+}
+
+model Project {
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projectAccess ProjectAccess[]
+
+  @@index([workspaceId])
+}
+
+model ProjectAccess {
+  id String @id @default(uuid())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  WorkspaceMemberId String
+  workspaceMember   WorkspaceMember @relation(fields: [WorkspaceMemberId], references: [id], onDelete: Cascade)
+
+  hasAccess Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([WorkspaceMemberId, projectId])
 }

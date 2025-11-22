@@ -28,11 +28,12 @@ import {
 } from "@/components/ui/sidebar";
 import { useRouter } from "next/navigation";
 import { UserWorkspacesType } from "@/app/data/workspace/get-user-workspace";
-import { NavDocuments } from "./nav-documents";
+import { NavProjects } from "./nav-projects";
 import { NavMain } from "./nav-main";
 import { NavSecondary } from "./nav-secondary";
 import { NavUser } from "./nav-user";
 import { NavWorkspacesSelector } from "./nav-workspaces-selector";
+import { WorkspaceProjectsType } from "@/app/data/workspace/get-workspace-members";
 
 const data = {
   navMain: [
@@ -95,10 +96,13 @@ const data = {
 };
 
 interface iAppProps {
-  workspaceData: UserWorkspacesType;
+  data: UserWorkspacesType;
+  // workspaceId: string;
+  // members: WorkspaceProjectsType["workspaceMembers"];
+  // projects: WorkspaceProjectsType["workspaceProjects"];
 }
 
-export function AppSidebar({ workspaceData, ...props }: React.ComponentProps<typeof Sidebar> & iAppProps) {
+export function AppSidebar({ data, ...props }: React.ComponentProps<typeof Sidebar> & iAppProps) {
   const router = useRouter();
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -106,7 +110,7 @@ export function AppSidebar({ workspaceData, ...props }: React.ComponentProps<typ
         <SidebarMenu>
           <SidebarMenuItem>
             {/* SidebarMenuButton expects a child element; we render a compact dropdown */}
-            <NavWorkspacesSelector data={workspaceData} />
+            <NavWorkspacesSelector data={data} />
             <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:!p-1.5">
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -114,9 +118,9 @@ export function AppSidebar({ workspaceData, ...props }: React.ComponentProps<typ
       </SidebarHeader>
 
       <SidebarContent>
-        <NavMain items={data.navMain} />
-        <NavDocuments items={data.documents} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        {/* <NavMain items={data.navMain} /> */}
+        <NavProjects />
+        {/* <NavSecondary items={data.navSecondary} className="mt-auto" /> */}
       </SidebarContent>
 
       <SidebarFooter>

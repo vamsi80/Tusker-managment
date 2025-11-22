@@ -3,13 +3,19 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { getUserWorkspaces } from "../../data/workspace/get-user-workspace";
 import { AppSidebar } from "../_components/sidebar/workspace-sidebar";
 import { SiteHeader } from "../_components/sidebar/site-header";
+import { getWorkspacesProjects } from "@/app/data/workspace/get-workspace-members";
+import { redirect } from "next/navigation";
 
 interface Props {
-  children: React.ReactNode;
+    children: React.ReactNode;
+    // params: Promise<{ workspaceId: string }>;
 }
 
-export default async function WorkSpaceLayout({ children }: Props) {
-    const workspaces = await getUserWorkspaces();
+export default async function WorkSpaceLayout({  children }: Props) {
+    // const { workspaceId } = await params;
+    const data = await getUserWorkspaces();
+    // const { workspaceMembers, workspaceProjects } = await getWorkspacesProjects(workspaceId);
+
     return (
         <SidebarProvider
             style={
@@ -19,7 +25,7 @@ export default async function WorkSpaceLayout({ children }: Props) {
                 } as React.CSSProperties
             }
         >
-           <AppSidebar variant="inset" workspaceData={workspaces} />
+            <AppSidebar variant="inset" data={data as any} />
             <SidebarInset>
                 <SiteHeader />
                 <div className="flex flex-1 flex-col">
