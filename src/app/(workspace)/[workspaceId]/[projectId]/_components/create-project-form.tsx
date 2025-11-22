@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { projectSchema, ProjectSchemaType, WorkSpaceSchemaType } from "@/lib/zodSchemas";
 import { tryCatch } from "@/hooks/try-catch";
-import { createProject } from "../action";
+import { createNewProject } from "../action";
 import { useConfetti } from "@/hooks/use-confetti";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -43,7 +43,7 @@ export const CreateProjectForm = () => {
 
     function onSubmit(data: ProjectSchemaType) {
         startTransition(async () => {
-            const { data: result, error } = await tryCatch(createProject(data));
+            const { data: result, error } = await tryCatch(createNewProject(data));
             console.log("results", { result });
 
             if (error) {
@@ -56,7 +56,7 @@ export const CreateProjectForm = () => {
                 toast.success(result.message);
                 triggerConfetti();
                 form.reset();
-                router.push("/workspace");
+                router.push("/");
             } else (
                 toast.error(result.message)
             )

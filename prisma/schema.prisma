@@ -136,13 +136,13 @@ model ProjectAccess {
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  WorkspaceMemberId String
-  workspaceMember   WorkspaceMember @relation(fields: [WorkspaceMemberId], references: [id], onDelete: Cascade)
+  workspaceMemberId String
+  workspaceMember   WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
 
   hasAccess Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([WorkspaceMemberId, projectId])
+  @@unique([workspaceMemberId, projectId])
 }

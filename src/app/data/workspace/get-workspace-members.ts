@@ -1,9 +1,8 @@
 import prisma from "@/lib/db";
 import { requireUser } from "../user/require-user";
-import { toast } from "sonner";
 import { notFound } from "next/navigation";
 
-export async function getWorkspacesProjects(workspaceId: string) {
+export async function getWorkspacesProjectsByWorkspaceId(workspaceId: string) {
     const user = await requireUser();
 
     const isUserMember = await prisma.workspaceMember.findUnique({
@@ -19,7 +18,7 @@ export async function getWorkspacesProjects(workspaceId: string) {
         return notFound();
     }
 
-    const [workspaceMembers , workspaceProjects] = await Promise.all([
+    const [workspaceMembers, Projects] = await Promise.all([
         prisma.workspaceMember.findMany({
             where: {
                 workspaceId,
@@ -51,14 +50,13 @@ export async function getWorkspacesProjects(workspaceId: string) {
                 name: true,
             }
         }),
-        
     ])
 
     return {
         workspaceMembers,
-        workspaceProjects
+        Projects,
     };
 }
 
-export type WorkspaceProjectsType = NonNullable<Awaited<ReturnType<typeof getWorkspacesProjects>>>;
+export type WorkspaceProjectsType = NonNullable<Awaited<ReturnType<typeof getWorkspacesProjectsByWorkspaceId>>>;
 export type WorkspaceMemberType = WorkspaceProjectsType["workspaceMembers"][number];

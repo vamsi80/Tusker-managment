@@ -2,12 +2,12 @@
 
 import { PrismaClient } from "@/generated/prisma";
 import { ApiResponse } from "@/lib/types";
-import { projectSchema, ProjectSchemaType, workSpaceSchema } from "@/lib/zodSchemas";
+import { projectSchema, ProjectSchemaType } from "@/lib/zodSchemas";
 import { requireUser } from "@/app/data/user/require-user";
 
 const prisma = new PrismaClient();
 
-export async function createProject(values: ProjectSchemaType): Promise<ApiResponse> {
+export async function createNewProject(values: ProjectSchemaType): Promise<ApiResponse> {
 
     const user = await requireUser();
 
@@ -70,7 +70,7 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
                 workspaceId: values.workspaceId,
                 projectAccess: {
                     create: values.memberAccess?.map((userId) => ({
-                        WorkspaceMemberId: workspaceMembers.find(
+                        workspaceMemberId: workspaceMembers.find(
                             (member) => member.userId === userId
                         )?.id!,
                         hasAccess: true,

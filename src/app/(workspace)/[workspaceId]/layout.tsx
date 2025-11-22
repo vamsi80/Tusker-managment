@@ -3,7 +3,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { getUserWorkspaces } from "../../data/workspace/get-user-workspace";
 import { AppSidebar } from "../_components/sidebar/workspace-sidebar";
 import { SiteHeader } from "../_components/sidebar/site-header";
-import { getWorkspacesProjects } from "@/app/data/workspace/get-workspace-members";
+import { getWorkspacesProjectsByWorkspaceId } from "@/app/data/workspace/get-workspace-members";
 import { redirect } from "next/navigation";
 
 interface Props {
