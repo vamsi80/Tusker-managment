@@ -1,22 +1,5 @@
-"use client";
 
 import * as React from "react";
-import {
-  IconCamera,
-  IconChartBar,
-  IconDashboard,
-  IconDatabase,
-  IconFileAi,
-  IconFileDescription,
-  IconFileWord,
-  IconFolder,
-  IconHelp,
-  IconListDetails,
-  IconReport,
-  IconSearch,
-  IconSettings,
-  IconUsers,
-} from "@tabler/icons-react";
 import {
   Sidebar,
   SidebarContent,
@@ -26,84 +9,80 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { useRouter } from "next/navigation";
 import { UserWorkspacesType } from "@/app/data/workspace/get-user-workspace";
 import { NavProjects } from "./nav-projects";
-import { NavMain } from "./nav-main";
-import { NavSecondary } from "./nav-secondary";
 import { NavUser } from "./nav-user";
 import { NavWorkspacesSelector } from "./nav-workspaces-selector";
 import { WorkspaceProjectsType } from "@/app/data/workspace/get-workspace-members";
 
-const data = {
-  navMain: [
-    { title: "Dashboard", url: "/", icon: IconDashboard },
-    { title: "Projects", url: "#", icon: IconListDetails },
-    { title: "Team", url: "#", icon: IconChartBar },
-  ],
-  navClouds: [
-    {
-      title: "Capture",
-      icon: IconCamera,
-      isActive: true,
-      url: "#",
-      items: [
-        { title: "Active Proposals", url: "#" },
-        { title: "Archived", url: "#" },
-      ],
-    },
-    {
-      title: "Proposal",
-      icon: IconFileDescription,
-      url: "#",
-      items: [
-        { title: "Active Proposals", url: "#" },
-        { title: "Archived", url: "#" },
-      ],
-    },
-    {
-      title: "Prompts",
-      icon: IconFileAi,
-      url: "#",
-      items: [
-        { title: "Active Proposals", url: "#" },
-        { title: "Archived", url: "#" },
-      ],
-    },
-  ],
-  navSecondary: [
-    { title: "Settings", url: "#", icon: IconSettings },
-    { title: "Get Help", url: "#", icon: IconHelp },
-    { title: "Search", url: "#", icon: IconSearch },
-  ],
-  documents: [
-    {
-      name: "Data Library",
-      url: "#",
-      icon: IconDatabase,
-    },
-    {
-      name: "Reports",
-      url: "#",
-      icon: IconReport,
-    },
-    {
-      name: "Word Assistant",
-      url: "#",
-      icon: IconFileWord,
-    },
-  ],
-};
+// const data = {
+//   navMain: [
+//     { title: "Dashboard", url: "/", icon: IconDashboard },
+//     { title: "Projects", url: "#", icon: IconListDetails },
+//     { title: "Team", url: "#", icon: IconChartBar },
+//   ],
+//   navClouds: [
+//     {
+//       title: "Capture",
+//       icon: IconCamera,
+//       isActive: true,
+//       url: "#",
+//       items: [
+//         { title: "Active Proposals", url: "#" },
+//         { title: "Archived", url: "#" },
+//       ],
+//     },
+//     {
+//       title: "Proposal",
+//       icon: IconFileDescription,
+//       url: "#",
+//       items: [
+//         { title: "Active Proposals", url: "#" },
+//         { title: "Archived", url: "#" },
+//       ],
+//     },
+//     {
+//       title: "Prompts",
+//       icon: IconFileAi,
+//       url: "#",
+//       items: [
+//         { title: "Active Proposals", url: "#" },
+//         { title: "Archived", url: "#" },
+//       ],
+//     },
+//   ],
+//   navSecondary: [
+//     { title: "Settings", url: "#", icon: IconSettings },
+//     { title: "Get Help", url: "#", icon: IconHelp },
+//     { title: "Search", url: "#", icon: IconSearch },
+//   ],
+//   documents: [
+//     {
+//       name: "Data Library",
+//       url: "#",
+//       icon: IconDatabase,
+//     },
+//     {
+//       name: "Reports",
+//       url: "#",
+//       icon: IconReport,
+//     },
+//     {
+//       name: "Word Assistant",
+//       url: "#",
+//       icon: IconFileWord,
+//     },
+//   ],
+// };
 
 interface iAppProps {
   data: UserWorkspacesType;
-  // workspaceId: string;
-  // members: WorkspaceProjectsType["workspaceMembers"];
-  // projects: WorkspaceProjectsType["workspaceProjects"];
+  workspaceId: string;
+  members: WorkspaceProjectsType["workspaceMembers"];
+  projects: WorkspaceProjectsType["Projects"];
 }
 
-export function AppSidebar({ data, ...props }: React.ComponentProps<typeof Sidebar> & iAppProps) {
-  const router = useRouter();
+export function AppSidebar({ data, members, projects,workspaceId, ...props }: React.ComponentProps<typeof Sidebar> & iAppProps) {
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -119,7 +98,7 @@ export function AppSidebar({ data, ...props }: React.ComponentProps<typeof Sideb
 
       <SidebarContent>
         {/* <NavMain items={data.navMain} /> */}
-        <NavProjects />
+        <NavProjects projects={projects} members={members} workspaceId={workspaceId}/>
         {/* <NavSecondary items={data.navSecondary} className="mt-auto" /> */}
       </SidebarContent>
 

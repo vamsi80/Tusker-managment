@@ -1,6 +1,5 @@
 import prisma from "@/lib/db";
 import { requireUser } from "../user/require-user";
-import { toast } from "sonner";
 import { notFound } from "next/navigation";
 
 export async function getUserWorkspaces() {

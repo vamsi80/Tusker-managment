@@ -4,17 +4,17 @@ import { getUserWorkspaces } from "../../data/workspace/get-user-workspace";
 import { AppSidebar } from "../_components/sidebar/workspace-sidebar";
 import { SiteHeader } from "../_components/sidebar/site-header";
 import { getWorkspacesProjectsByWorkspaceId } from "@/app/data/workspace/get-workspace-members";
-import { redirect } from "next/navigation";
 
 interface Props {
     children: React.ReactNode;
-    // params: Promise<{ workspaceId: string }>;
+    params:  {workspaceId: string};
 }
 
-export default async function WorkSpaceLayout({  children }: Props) {
-    // const { workspaceId } = await params;
+export default async function WorkSpaceLayout({ children, params }: Props) {
+    const { workspaceId } = await params;
     const data = await getUserWorkspaces();
-    // const { workspaceMembers, workspaceProjects } = await getWorkspacesProjects(workspaceId);
+    const { workspaceMembers, Projects } = await getWorkspacesProjectsByWorkspaceId(workspaceId);
+    console.log("getting the projects and members");
 
     return (
         <SidebarProvider
@@ -25,7 +25,7 @@ export default async function WorkSpaceLayout({  children }: Props) {
                 } as React.CSSProperties
             }
         >
-            <AppSidebar variant="inset" data={data as any} />
+            <AppSidebar variant="inset" data={data as any} members={workspaceMembers} projects={Projects} workspaceId={workspaceId} />
             <SidebarInset>
                 <SiteHeader />
                 <div className="flex flex-1 flex-col">

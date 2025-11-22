@@ -1,32 +1,29 @@
 "use client";
 
-import { useWorkspaceId } from "@/hooks/use-workspace-id";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { startTransition, useState, useTransition } from "react";
+import { useTransition } from "react";
 import { Resolver, useForm } from "react-hook-form";
-import { z } from "zod";
 import { Loader2, Plus, PlusIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { projectSchema, ProjectSchemaType, WorkSpaceSchemaType } from "@/lib/zodSchemas";
+import { projectSchema, ProjectSchemaType } from "@/lib/zodSchemas";
 import { tryCatch } from "@/hooks/try-catch";
 import { createNewProject } from "../action";
 import { useConfetti } from "@/hooks/use-confetti";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
-import { WorkspaceMemberType, WorkspaceProjectsType } from "@/app/data/workspace/get-workspace-members";
+import { WorkspaceProjectsType } from "@/app/data/workspace/get-workspace-members";
 
 interface iAppProps {
     members: WorkspaceProjectsType["workspaceMembers"]
+    workspaceId: string
 }
 
-export const CreateProjectForm = () => {
-    const workspaceId = useWorkspaceId();
+export const CreateProjectForm = ({ members, workspaceId }: iAppProps) => {
     const [pending, startTransition] = useTransition();
     const router = useRouter();
     const { triggerConfetti } = useConfetti();
@@ -34,8 +31,8 @@ export const CreateProjectForm = () => {
     const form = useForm<ProjectSchemaType>({
         resolver: zodResolver(projectSchema) as unknown as Resolver<ProjectSchemaType>,
         defaultValues: {
-            name: " ",
-            description: '',
+            name: "",
+            description: "",
             workspaceId: workspaceId as string,
             memberAccess: [],
         },
@@ -56,7 +53,7 @@ export const CreateProjectForm = () => {
                 toast.success(result.message);
                 triggerConfetti();
                 form.reset();
-                router.push("/");
+                router.push(`/${workspaceId}`);
             } else (
                 toast.error(result.message)
             )
@@ -125,7 +122,7 @@ export const CreateProjectForm = () => {
                                                     this project
                                                 </FormDescription>
 
-                                                {/* <div>
+                                                <div>
                                                     {members?.map((member) => (
                                                         <div
                                                             key={member?.userId}
@@ -160,7 +157,7 @@ export const CreateProjectForm = () => {
                                                             </label>
                                                         </div>
                                                     ))}
-                                                </div> */}
+                                                </div>
                                             </FormItem>
                                         )}
                                     />

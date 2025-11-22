@@ -11,12 +11,14 @@ import {
 import { usePathname } from "next/navigation"
 import { CreateProjectForm } from "../../[workspaceId]/[projectId]/_components/create-project-form"
 import { WorkspaceProjectsType } from "@/app/data/workspace/get-workspace-members"
-import { useWorkspaceId } from "@/hooks/use-workspace-id"
+import Link from "next/link"
 
 interface iAppProps {
   members: WorkspaceProjectsType["workspaceMembers"];
+  projects: WorkspaceProjectsType["Projects"]
+  workspaceId: string
 }
-export function NavProjects() {
+export function NavProjects({ members, projects, workspaceId }: iAppProps) {
   const { isMobile } = useSidebar();
   const pathname = usePathname();
 
@@ -27,30 +29,23 @@ export function NavProjects() {
         <div className="flex text-sm items-center justify-between w-full cursor-pointer">
           <span>Projects</span>
 
-          <CreateProjectForm />
+          <CreateProjectForm members={members} workspaceId={workspaceId} />
         </div>
       </SidebarGroupLabel>
-      {/* <SidebarMenu>
+      <SidebarMenu>
         {projects?.map((proj) => {
           const href = `${workspaceId}/${proj.id}`;
           return (
             <SidebarMenuItem key={proj?.id}>
               <SidebarMenuButton>
-                <a
-                  href={href}
-                  className={
-                    pathname === href
-                      ? "text-blue-500 font-semibold"
-                      : "text-muted-foreground"
-                  }
-                >
-                  {proj?.name}
-                </a>
+                <Link href={href} className={pathname === href ? "text-blue-500 font-semibold" : "text-muted-foreground"}>
+                  {proj.name}
+                </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
           );
         })}
-      </SidebarMenu> */}
+      </SidebarMenu>
     </SidebarGroup>
   )
 }
