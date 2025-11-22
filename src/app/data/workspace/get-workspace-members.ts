@@ -1,5 +1,6 @@
 import prisma from "@/lib/db";
 import { requireUser } from "../user/require-user";
+import { toast } from "sonner";
 import { notFound } from "next/navigation";
 
 export async function getWorkspacesProjectsByWorkspaceId(workspaceId: string) {
@@ -15,10 +16,11 @@ export async function getWorkspacesProjectsByWorkspaceId(workspaceId: string) {
     });
 
     if (!isUserMember) {
+        toast.error("You are not a member of this workspace");
         return notFound();
     }
 
-    const [workspaceMembers, Projects] = await Promise.all([
+    const [workspaceMembers , Projects] = await Promise.all([
         prisma.workspaceMember.findMany({
             where: {
                 workspaceId,
@@ -50,11 +52,12 @@ export async function getWorkspacesProjectsByWorkspaceId(workspaceId: string) {
                 name: true,
             }
         }),
+        
     ])
 
     return {
         workspaceMembers,
-        Projects,
+        Projects
     };
 }
 

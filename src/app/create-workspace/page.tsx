@@ -47,7 +47,7 @@ const CreateWorkspace = () => {
                 toast.success(result.message);
                 triggerConfetti();
                 form.reset();
-                router.push("/workspace");
+                router.push("/");
             } else (
                 toast.error(result.message)
             )

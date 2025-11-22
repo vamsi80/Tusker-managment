@@ -12,6 +12,7 @@ interface Props {
 
 export default async function WorkSpaceLayout({ children, params }: Props) {
     const { workspaceId } = await params;
+    console.log("workspaceId", workspaceId);
     const data = await getUserWorkspaces();
     const { workspaceMembers, Projects } = await getWorkspacesProjectsByWorkspaceId(workspaceId);
     console.log("getting the projects and members");
