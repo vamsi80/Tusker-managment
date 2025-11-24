@@ -15,7 +15,7 @@ import Link from "next/link"
 
 interface iAppProps {
   members: WorkspaceProjectsType["workspaceMembers"];
-  projects: WorkspaceProjectsType["Projects"]
+  projects: WorkspaceProjectsType["projects"]
   workspaceId: string
 }
 export function NavProjects({ members, projects, workspaceId }: iAppProps) {

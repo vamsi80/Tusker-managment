@@ -20,7 +20,7 @@ export async function getWorkspacesProjectsByWorkspaceId(workspaceId: string) {
         return notFound();
     }
 
-    const [workspaceMembers , Projects] = await Promise.all([
+    const [workspaceMembers , projects] = await Promise.all([
         prisma.workspaceMember.findMany({
             where: {
                 workspaceId,
@@ -57,7 +57,7 @@ export async function getWorkspacesProjectsByWorkspaceId(workspaceId: string) {
 
     return {
         workspaceMembers,
-        Projects
+        projects
     };
 }
 

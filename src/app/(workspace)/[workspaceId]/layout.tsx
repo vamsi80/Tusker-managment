@@ -14,7 +14,7 @@ export default async function WorkSpaceLayout({ children, params }: Props) {
     const { workspaceId } = await params;
     console.log("workspaceId", workspaceId);
     const data = await getUserWorkspaces();
-    const { workspaceMembers, Projects } = await getWorkspacesProjectsByWorkspaceId(workspaceId);
+    const { workspaceMembers, projects } = await getWorkspacesProjectsByWorkspaceId(workspaceId);
     console.log("getting the projects and members");
 
     return (
@@ -26,7 +26,7 @@ export default async function WorkSpaceLayout({ children, params }: Props) {
                 } as React.CSSProperties
             }
         >
-            <AppSidebar variant="inset" data={data as any} members={workspaceMembers} projects={Projects} workspaceId={workspaceId} />
+            <AppSidebar variant="inset" data={data as any} members={workspaceMembers} projects={projects} workspaceId={workspaceId} />
             <SidebarInset>
                 <SiteHeader />
                 <div className="flex flex-1 flex-col">

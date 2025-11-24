@@ -1,65 +1,73 @@
 import Link from "next/link";
-
-// import { getProjectDetails } from "@/app/data/project/get-project-details";
-// import { ProjectDashboard } from "@/components/project/project-dashboard";
-// import { ProjectKanban } from "@/components/project/project-kanban";
-// import { ProjectTableContainer } from "@/components/project/project-table-container";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-// import { CommentProps, ProjectProps, ProjectTaskProps } from "@/utils/types";
+import { ProjectDashboard } from "./_components/project-dashboard";
+import {
+  getWorkspacesProjectsByWorkspaceId,
+  WorkspaceProjectsType,
+} from "@/app/data/workspace/get-workspace-members";
 
 interface ProjectPageProps {
-  params: Promise<{ workspaceId: string; projectId: string }>;
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+  params: { workspaceId: string; projectId: string };
+  searchParams: { [key: string]: string | string[] | undefined };
 }
-const ProjectPage = async (props: ProjectPageProps) => {
-  const { workspaceId, projectId } = await props.params;
-  const searchParams = await props.searchParams;
 
-//   const { project, tasks, comments, activities, totalWorkspaceMembers }
-    // await getProjectDetails(workspaceId, projectId);
+const ProjectPage = async ({ params, searchParams }: ProjectPageProps) => {
+  const { workspaceId, projectId } = params;
+
+  // fetch workspace projects & members
+  const { projects } = await getWorkspacesProjectsByWorkspaceId(
+    workspaceId
+  );
+
+  // Projects is an array; find the project that matches projectId
+  const project = projects?.find(p => p.id === projectId);
+
+  // normalize view param (could be string | string[] | undefined)
+  const rawView = searchParams?.view;
+  const view =
+    typeof rawView === "string" ? rawView : Array.isArray(rawView) ? rawView[0] : "dashboard";
+
   return (
-    <div className="flex flex-col gap-6 pb-3 px-3">
-      <Tabs
-        defaultValue={(searchParams.view as string) || "dashboard"}
-        className="w-full"
-      >
-        <TabsList className="mb-4">
-          <Link href="?view=dashboard">
-            <TabsTrigger value="dashboard" className="px-1.5 md:px-3">
-              Dashboard
-            </TabsTrigger>
-          </Link>
-          <Link href="?view=table">
-            <TabsTrigger value="table" className="px-1.5 md:px-3">
-              Table
-            </TabsTrigger>
-          </Link>
-          <Link href="?view=kanban">
-            <TabsTrigger value="kanban" className="px-1.5 md:px-3">
-              Kanban
-            </TabsTrigger>
-          </Link>
-        </TabsList>
+    <>
+      <div className="flex flex-col gap-6 pb-3 px-3">
+        <div>
+          <h1 className="text-3xl font-semibold leading-tight tracking-tighter md:text-4xl">
+            {project?.name ?? "Project not found"}
+          </h1>
+          <p className="text-muted-foreground">Here you can manage your project</p>
+        </div>
 
-        <TabsContent value="dashboard">
-          {/* <ProjectDashboard
-            project={project as unknown as ProjectProps}
-            tasks={tasks as any}
-            activities={activities!}
-            totalWorkspaceMembers={totalWorkspaceMembers!}
-            comments={comments as CommentProps[]}
-          /> */}
-        </TabsContent>
-        <TabsContent value="table">
-          {/* <ProjectTableContainer projectId={projectId} /> */}
-        </TabsContent>
-        <TabsContent value="kanban">
-          {/* <ProjectKanban
-            initialTasks={tasks?.items as unknown as ProjectTaskProps[]}
-          /> */}
-        </TabsContent>
-      </Tabs>
-    </div>
+        <Tabs defaultValue={view} className="w-full">
+          <TabsList className="mb-4">
+            <Link href="?view=dashboard">
+              <TabsTrigger value="dashboard" className="px-1.5 md:px-3">
+                Dashboard
+              </TabsTrigger>
+            </Link>
+
+            <Link href="?view=tasks">
+              <TabsTrigger value="table" className="px-1.5 md:px-3">
+                Tasks
+              </TabsTrigger>
+            </Link>
+
+            <Link href="?view=kanban">
+              <TabsTrigger value="kanban" className="px-1.5 md:px-3">
+                Kanban
+              </TabsTrigger>
+            </Link>
+          </TabsList>
+
+          <TabsContent value="dashboard">
+            <ProjectDashboard /* pass props as needed: project={project} */ />
+          </TabsContent>
+
+          <TabsContent value="table">{/* <ProjectTableContainer projectId={projectId} /> */}</TabsContent>
+
+          <TabsContent value="kanban">{/* <ProjectKanban initialTasks={...} /> */}</TabsContent>
+        </Tabs>
+      </div>
+    </>
   );
 };
 

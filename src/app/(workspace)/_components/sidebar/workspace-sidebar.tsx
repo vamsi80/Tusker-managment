@@ -79,7 +79,7 @@ interface iAppProps {
   data: UserWorkspacesType;
   workspaceId: string;
   members: WorkspaceProjectsType["workspaceMembers"];
-  projects: WorkspaceProjectsType["Projects"];
+  projects: WorkspaceProjectsType["projects"];
 }
 
 export function AppSidebar({ data, members, projects,workspaceId, ...props }: React.ComponentProps<typeof Sidebar> & iAppProps) {
