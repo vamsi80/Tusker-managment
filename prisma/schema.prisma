@@ -25,6 +25,7 @@ model User {
 
   workspaces     WorkspaceMember[]
   workspaceOwner Workspace[]
+  subTasks       SubTask[]
 
   @@unique([email])
   @@map("user")
@@ -126,6 +127,7 @@ model Project {
   updatedAt DateTime @updatedAt
 
   projectAccess ProjectAccess[]
+  tasks         Task[]
 
   @@index([workspaceId])
 }
@@ -145,4 +147,46 @@ model ProjectAccess {
   updatedAt DateTime @updatedAt
 
   @@unique([workspaceMemberId, projectId])
+}
+
+model Task {
+  id          String   @id @default(uuid())
+  name        String
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  subTasks SubTask[]
+}
+
+model SubTask {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  status      Status   @default(TO_DO)
+  priority    Priority @default(MEDIUM)
+  startedAt   DateTime
+  dueDate     DateTime
+  taskId      String
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum Status {
+  TO_DO
+  IN_PROGRESS
+  BLOCKED
+  REVIEW
+  DONE
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
 }

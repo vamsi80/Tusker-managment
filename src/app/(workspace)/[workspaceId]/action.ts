@@ -5,7 +5,7 @@ import { ApiResponse } from "@/lib/types";
 import { projectSchema, ProjectSchemaType } from "@/lib/zodSchemas";
 import { requireUser } from "@/app/data/user/require-user";
 
-export async function createNewProject(values: ProjectSchemaType): Promise<ApiResponse> {
+export async function createProject(values: ProjectSchemaType): Promise<ApiResponse> {
     const user = await requireUser();
 
     // validation

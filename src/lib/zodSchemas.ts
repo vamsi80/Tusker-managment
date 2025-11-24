@@ -24,20 +24,12 @@ export const projectSchema = z.object({
     memberAccess: z.array(z.string()).optional(),
 });
 
-export const chapterSchema = z.object({
+export const taskSchema = z.object({
     name: z
         .string()
         .min(3, { message: "Title must be at least 3 charcters long" })
         .max(100, { message: "Title must be at most 100 character long" }),
-    courseId: z.string().uuid({ message: "Invalid course id" }),
-    // duration: z
-    //     .coerce.number()
-    //     .min(1, { message: "duration must be at least 3 hour" })
-    //     .max(500, { message: "duration must be at most 500 hour" }),
-    // position: z
-    //     .coerce.number()
-    //     .min(1, { message: "position must be at least 1" })
-    //     .max(500, { message: "position must be at most 500" }),
+    projectId: z.string().uuid({ message: "Invalid project id" }),
 });
 
 export const lessonSchema = z.object({
@@ -59,5 +51,5 @@ export const lessonSchema = z.object({
 
 export type WorkSpaceSchemaType = z.infer<typeof workSpaceSchema>;
 export type ProjectSchemaType = z.infer<typeof projectSchema>;
-export type ChapterSchemaType = z.infer<typeof chapterSchema>;
+export type TaskSchemaType = z.infer<typeof taskSchema>;
 export type LessonSchemaType = z.infer<typeof lessonSchema>;

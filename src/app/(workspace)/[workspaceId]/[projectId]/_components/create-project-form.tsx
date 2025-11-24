@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { projectSchema, ProjectSchemaType } from "@/lib/zodSchemas";
 import { tryCatch } from "@/hooks/try-catch";
-import { createNewProject } from "../action";
+import { createProject } from "../../action";
 import { useConfetti } from "@/hooks/use-confetti";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -20,7 +20,7 @@ import { WorkspaceProjectsType } from "@/app/data/workspace/get-workspace-member
 
 interface iAppProps {
     members: WorkspaceProjectsType["workspaceMembers"]
-    workspaceId: string
+    workspaceId: string,
 }
 
 export const CreateProjectForm = ({ members, workspaceId }: iAppProps) => {
@@ -40,7 +40,7 @@ export const CreateProjectForm = ({ members, workspaceId }: iAppProps) => {
 
     function onSubmit(data: ProjectSchemaType) {
         startTransition(async () => {
-            const { data: result, error } = await tryCatch(createNewProject(data));
+            const { data: result, error } = await tryCatch(createProject(data));
             console.log("results", { result });
 
             if (error) {

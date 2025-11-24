@@ -3,8 +3,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProjectDashboard } from "./_components/project-dashboard";
 import {
   getWorkspacesProjectsByWorkspaceId,
-  WorkspaceProjectsType,
 } from "@/app/data/workspace/get-workspace-members";
+import { ProjectTaskTab } from "./_components/project-Task-Tab";
 
 interface ProjectPageProps {
   params: { workspaceId: string; projectId: string };
@@ -12,20 +12,14 @@ interface ProjectPageProps {
 }
 
 const ProjectPage = async ({ params, searchParams }: ProjectPageProps) => {
-  const { workspaceId, projectId } = params;
+  const { workspaceId, projectId } = await params;
 
-  // fetch workspace projects & members
   const { projects } = await getWorkspacesProjectsByWorkspaceId(
     workspaceId
   );
 
   // Projects is an array; find the project that matches projectId
   const project = projects?.find(p => p.id === projectId);
-
-  // normalize view param (could be string | string[] | undefined)
-  const rawView = searchParams?.view;
-  const view =
-    typeof rawView === "string" ? rawView : Array.isArray(rawView) ? rawView[0] : "dashboard";
 
   return (
     <>
@@ -37,7 +31,9 @@ const ProjectPage = async ({ params, searchParams }: ProjectPageProps) => {
           <p className="text-muted-foreground">Here you can manage your project</p>
         </div>
 
-        <Tabs defaultValue={view} className="w-full">
+        <Tabs 
+        // defaultValue={view} 
+        className="w-full">
           <TabsList className="mb-4">
             <Link href="?view=dashboard">
               <TabsTrigger value="dashboard" className="px-1.5 md:px-3">
@@ -46,7 +42,7 @@ const ProjectPage = async ({ params, searchParams }: ProjectPageProps) => {
             </Link>
 
             <Link href="?view=tasks">
-              <TabsTrigger value="table" className="px-1.5 md:px-3">
+              <TabsTrigger value="tasks" className="px-1.5 md:px-3">
                 Tasks
               </TabsTrigger>
             </Link>
@@ -62,7 +58,10 @@ const ProjectPage = async ({ params, searchParams }: ProjectPageProps) => {
             <ProjectDashboard /* pass props as needed: project={project} */ />
           </TabsContent>
 
-          <TabsContent value="table">{/* <ProjectTableContainer projectId={projectId} /> */}</TabsContent>
+          <TabsContent value="tasks">
+            <ProjectTaskTab projectId={projectId}/>
+            {/* <ProjectTableContainer projectId={projectId} /> */}
+            </TabsContent>
 
           <TabsContent value="kanban">{/* <ProjectKanban initialTasks={...} /> */}</TabsContent>
         </Tabs>
