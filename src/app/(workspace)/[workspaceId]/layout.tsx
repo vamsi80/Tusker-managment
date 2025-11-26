@@ -15,7 +15,6 @@ export default async function WorkSpaceLayout({ children, params }: Props) {
     console.log("workspaceId", workspaceId);
     const data = await getUserWorkspaces();
     const { workspaceMembers, projects } = await getWorkspacesProjectsByWorkspaceId(workspaceId);
-    console.log("getting the projects and members");
 
     return (
         <SidebarProvider

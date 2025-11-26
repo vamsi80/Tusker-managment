@@ -1,28 +1,19 @@
-"use client"
+import { getProjectDetails } from "@/app/data/project/getProjectDetails";
 import { CreateTaskForm } from "./create-task-form"
-import { DndContext, DragEndEvent, DraggableSyntheticListeners, KeyboardSensor, PointerSensor, rectIntersection, useSensor, useSensors } from "@dnd-kit/core";
-import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { ChevronDown, ChevronRight, FileText, GripVertical } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { CSS } from "@dnd-kit/utilities";
-import { useState } from "react";
 import { DataTable } from "./data-table";
-import data from "./data.json"
-import SubtasksDropdownSimple from "./SubtasksDropdownSimple";
+// import data from "./data.json"
 
 interface iAppProps {
     projectId: string
 }
 
-interface SortableItemProps {
-    id: string;
-    children: (listeners: any) => React.ReactNode;
-}
+// interface SortableItemProps {
+//     id: string;
+//     children: (listeners: any) => React.ReactNode;
+// }
 
-
-export const ProjectTaskTab = ({ projectId }: iAppProps) => {
+export async function ProjectTaskTab({ projectId }: iAppProps) {
+    const  task  = await getProjectDetails(projectId);
     return (
         <>
             <div className="flex items-center justify-between">
@@ -32,8 +23,8 @@ export const ProjectTaskTab = ({ projectId }: iAppProps) => {
                 </a>
             </div>
             <div>
-                {/* <DataTable data={data} /> */}
-                <SubtasksDropdownSimple/>
+                <DataTable data={task} />
+                {/* <CourseStracture/> */}
             </div>
         </>
     )

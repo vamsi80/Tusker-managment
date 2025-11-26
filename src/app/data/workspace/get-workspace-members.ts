@@ -52,7 +52,6 @@ export async function getWorkspacesProjectsByWorkspaceId(workspaceId: string) {
                 name: true,
             }
         }),
-        
     ])
 
     return {

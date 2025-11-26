@@ -150,12 +150,12 @@ model ProjectAccess {
 }
 
 model Task {
-  id          String   @id @default(uuid())
-  name        String
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(uuid())
+  name      String
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   subTasks SubTask[]
 }
@@ -168,6 +168,7 @@ model SubTask {
   priority    Priority @default(MEDIUM)
   startedAt   DateTime
   dueDate     DateTime
+  position    Int
   taskId      String
   task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
   createdById String?
