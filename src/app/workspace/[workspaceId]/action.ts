@@ -7,7 +7,7 @@ import { requireUser } from "@/app/data/user/require-user";
 
 export async function createProject(values: ProjectSchemaType): Promise<ApiResponse> {
     const user = await requireUser();
-
+    
     // validation
     const validation = projectSchema.safeParse(values);
     if (!validation.success) {
@@ -92,10 +92,25 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
             prisma.project.create({
                 data: {
                     name: validation.data.name,
-                    description: validation.data.description ?? null,
+                    description: validation.data.description,
                     workspaceId: values.workspaceId,
                     projectAccess: {
                         create: projectAccessCreates,
+                    },
+                    clint: {
+                        create: {
+                            name: validation.data.companyName,
+                            registeredCompanyName: validation.data.registeredCompanyName,
+                            directorName: validation.data.directorName,
+                            address: validation.data.address,
+                            gstNumber: validation.data.gstNumber,
+                            clintMembers:{
+                                create:{
+                                    name: validation.data.contactPerson,
+                                    contactNumber: validation.data.contactNumber,
+                                }
+                            }
+                        },
                     },
                 },
             }),
@@ -103,8 +118,7 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
 
         return {
             status: "success",
-            message: "Project created successfully"
-
+            message: "Project created successfully",
         };
     } catch (err) {
         console.error("createNewProject error:", err);

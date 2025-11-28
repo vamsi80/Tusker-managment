@@ -126,6 +126,7 @@ model Project {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  clint         Clints[]
   projectAccess ProjectAccess[]
   tasks         Task[]
 
@@ -149,11 +150,42 @@ model ProjectAccess {
   @@unique([workspaceMemberId, projectId])
 }
 
+model Clints {
+  id                    String @id @default(uuid())
+  name                  String
+  registeredCompanyName String?
+  gstNumber             String?
+  directorName          String?
+  address               String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clintMembers ClintMembers[]
+  project      Project?       @relation(fields: [projectId], references: [id])
+  projectId    String?
+}
+
+model ClintMembers {
+  id            String  @id @default(uuid())
+  name          String
+  email         String?
+  contactNumber String?
+
+  clintId String?
+  clints  Clints? @relation(fields: [clintId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Task {
-  id        String   @id @default(uuid())
-  name      String
+  id   String @id @default(uuid())
+  name String
+
   projectId String
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -169,12 +201,17 @@ model SubTask {
   startedAt   DateTime
   dueDate     DateTime
   position    Int
-  taskId      String
-  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  createdById String?
-  createdBy   User?    @relation(fields: [createdById], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  assigneeId String?
+  assignedTo User?   @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  attachments String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum Status {

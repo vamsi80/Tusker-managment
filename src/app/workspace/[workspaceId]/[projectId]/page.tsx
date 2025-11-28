@@ -31,9 +31,9 @@ const ProjectPage = async ({ params, searchParams }: ProjectPageProps) => {
           <p className="text-muted-foreground">Here you can manage your project</p>
         </div>
 
-        <Tabs 
-        // defaultValue={view} 
-        className="w-full">
+        <Tabs
+          // defaultValue={view} 
+          className="w-full">
           <TabsList className="mb-4">
             <Link href="?view=dashboard">
               <TabsTrigger value="dashboard" className="px-1.5 md:px-3">
@@ -59,9 +59,9 @@ const ProjectPage = async ({ params, searchParams }: ProjectPageProps) => {
           </TabsContent>
 
           <TabsContent value="tasks">
-            <ProjectTaskTab projectId={projectId}/>
+            <ProjectTaskTab projectId={projectId} />
             {/* <ProjectTableContainer projectId={projectId} /> */}
-            </TabsContent>
+          </TabsContent>
 
           <TabsContent value="kanban">{/* <ProjectKanban initialTasks={...} /> */}</TabsContent>
         </Tabs>

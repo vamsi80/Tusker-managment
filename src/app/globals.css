@@ -174,3 +174,28 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Minimal thin scrollbar */
+.thin-scrollbar {
+  scrollbar-width: thin;            /* Firefox */
+  scrollbar-color: #c1c1c1 transparent;
+
+}
+
+/* Chrome / Edge / Safari */
+.thin-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #c1c1c1;
+  border-radius: 2px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #a8a8a8;
+}

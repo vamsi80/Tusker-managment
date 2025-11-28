@@ -1,97 +1,25 @@
 "use client"
 import * as React from "react"
 import {
-  closestCenter,
-  DndContext,
-  KeyboardSensor,
-  MouseSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
+  closestCenter, DndContext, KeyboardSensor, MouseSensor, TouchSensor, useSensor, useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core"
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers"
-import {
-  arrayMove,
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable"
+import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import {
-  IconGripVertical,
-  IconPlus,
-  IconDotsVertical,
-  IconChevronLeft,
-  IconChevronRight,
-  IconChevronsLeft,
-  IconChevronsRight,
-  IconChevronDown,
+  IconGripVertical, IconPlus, IconDotsVertical,
   IconChevronRight as TablerChevronRight,
   IconChevronDown as TablerChevronDown,
 } from "@tabler/icons-react"
-import {
-  ColumnDef,
-  ColumnFiltersState,
-  flexRender,
-  getCoreRowModel,
-  getFacetedRowModel,
-  getFacetedUniqueValues,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  Row,
-  SortingState,
-  useReactTable,
-  VisibilityState,
-} from "@tanstack/react-table"
-import { toast } from "sonner"
+import { ColumnDef, ColumnFiltersState, flexRender, getCoreRowModel, getFacetedRowModel, getFacetedUniqueValues, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, Row, SortingState, useReactTable, VisibilityState, } from "@tanstack/react-table"
 import { z } from "zod"
 import { useIsMobile } from "@/hooks/use-mobile"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerTrigger,
-} from "@/components/ui/drawer"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuCheckboxItem,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Separator } from "@/components/ui/separator"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs"
+import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger, } from "@/components/ui/drawer"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, } from "@/components/ui/dropdown-menu"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, } from "@/components/ui/table"
+import { Tabs, TabsContent, } from "@/components/ui/tabs"
 import { ProjectDetailsType } from "@/app/data/project/getProjectDetails"
 import { Checkbox } from "@/components/ui/checkbox"
 
@@ -155,6 +83,27 @@ function SubDragHandle({ id }: { id: number }) {
 export function DataTable({ data }: iAppProps) {
   // 'data' here is AdminGetTasks (from your getTasksProjectId)
   // Map server task shape -> RowType[]
+  // Note: `data` is an array of projects; we access the first project below in initialRows.
+  // The `initialItems` variable was unused and accessed `data.tasks` incorrectly, so it has been removed.
+  // const project = data[0]
+  // const tasks = project.tasks[0]
+
+  // const intialItems = project.tasks.map((task)=>({
+  //   id: task.id,
+  //   name: task.name,
+  //   subTasks:tasks.subTasks.map((subTask) => ({
+  //     id: subTask.id,
+  //     name: subTask.name,
+  //     description: subTask.description,
+  //     createdAt: subTask.createdAt,
+  //     dueDate: subTask.dueDate,
+  //     priority: subTask.priority,
+  //     status: subTask.status
+  //   }))
+  // })) || []
+
+  // const [rows, setRows] = useState(intialItems);
+
   const initialRows = React.useMemo((): RowType[] => {
     if (!data || !Array.isArray(data) || data.length === 0) return []
     const project = data[0]
@@ -316,8 +265,16 @@ export function DataTable({ data }: iAppProps) {
         },
       },
 
-      { accessorKey: "dueDate", header: () => <div className="w-full text-center">Due Date</div>, cell: ({ row }) => <div className="text-center">{(row.original as any).dueDate ?? ""}</div> },
-      { accessorKey: "startDate", header: () => <div className="w-full text-right">Start Date</div>, cell: ({ row }) => <div className="text-right">{(row.original as any).startDate ?? ""}</div> },
+      {
+        accessorKey: "dueDate",
+        header: () => <div className="w-full text-center">Due Date</div>,
+        cell: ({ row }) => <div className="text-center">{(row.original as any).dueDate ?? ""}</div>
+      },
+      {
+        accessorKey: "startDate",
+        header: () => <div className="w-full text-right">Start Date</div>,
+        cell: ({ row }) => <div className="text-right">{(row.original as any).startDate ?? ""}</div>
+      },
       {
         id: "actions",
         header: () => null,

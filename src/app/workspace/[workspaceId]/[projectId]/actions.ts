@@ -2,7 +2,7 @@
 
 import prisma from "@/lib/db"; // use the shared client
 import { ApiResponse } from "@/lib/types";
-import { taskSchema, TaskSchemaType } from "@/lib/zodSchemas";
+import { subTaskSchema, SubTaskSchemaType, taskSchema, TaskSchemaType } from "@/lib/zodSchemas";
 import { requireUser } from "@/app/data/user/require-user";
 import { requireWorkspaceAdmin } from "@/utils/workspaceAdmin";
 
@@ -51,7 +51,7 @@ export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
         }
 
         try {
-            await requireWorkspaceAdmin(project.workspaceId, user.id);
+            await requireWorkspaceAdmin(project.workspaceId);
         } catch (err: any) {
             return { status: "error", message: err.message ?? "Access denied" };
         }
@@ -97,6 +97,67 @@ export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
         return {
             status: "error",
             message: "Failed to create Task"
+        }
+    }
+}
+
+export async function createSubTask(values: SubTaskSchemaType, workspaceId: string): Promise<ApiResponse> {
+
+    const admin = await requireWorkspaceAdmin(workspaceId);
+
+    if (!admin) {
+        return {
+            status: "error",
+            message: "You are not a member of the workspace that owns this project"
+        }
+    }
+
+    try {
+        const result = subTaskSchema.safeParse(values);
+
+        if (!result.success) {
+            return {
+                status: "error",
+                message: "Invalid validation data"
+            }
+        }
+
+        await prisma.$transaction(async (tx) => {
+            const maxPos = await tx.subTask.findFirst({
+                where: {
+                    taskId: result.data.taskId,
+                },
+                select: {
+                    position: true,
+                },
+                orderBy: {
+                    position: "desc",
+                },
+            });
+
+            await tx.subTask.create({
+                data: {
+                    name: result.data.name,
+                    taskId: result.data.taskId,
+                    description: result.data.description,
+                    dueDate: result.data.dueDate,
+                    startDate: new Date(result.data.startDate),
+                    status: result.data.status,
+                    priority: result.data.priority,
+                    assignee: result.data.assignee,
+                    position: (maxPos?.position ?? 0) + 1,
+                },
+            });
+        });
+
+        return {
+            status: "success",
+            message: "Task deleted successfully"
+        }
+    } catch {
+        return {
+            status: "error",
+            message: "Failed to delete Task"
         }
     }
 }
