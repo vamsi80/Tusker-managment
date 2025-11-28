@@ -4,6 +4,7 @@ import { getUserWorkspaces } from "../../data/workspace/get-user-workspace";
 import { AppSidebar } from "../_components/sidebar/workspace-sidebar";
 import { SiteHeader } from "../_components/sidebar/site-header";
 import { getWorkspacesProjectsByWorkspaceId } from "@/app/data/workspace/get-workspace-members";
+import { requireUser } from "@/app/data/user/require-user";
 
 interface Props {
     children: React.ReactNode;
@@ -12,7 +13,8 @@ interface Props {
 
 export default async function WorkSpaceLayout({ children, params }: Props) {
     const { workspaceId } = await params;
-    const data = await getUserWorkspaces();
+    const session = await requireUser();
+    const data = await getUserWorkspaces(session.id);
     const { workspaceMembers, projects } = await getWorkspacesProjectsByWorkspaceId(workspaceId);
 
     return (
