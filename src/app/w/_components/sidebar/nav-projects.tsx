@@ -23,7 +23,6 @@ export function NavProjects({ members, projects, workspaceId }: iAppProps) {
   const pathname = usePathname();
 
   return (
-
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
       <SidebarGroupLabel>
         <div className="flex text-sm items-center justify-between w-full cursor-pointer">
