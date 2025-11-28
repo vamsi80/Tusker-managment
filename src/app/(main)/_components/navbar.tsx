@@ -15,7 +15,7 @@ const navigationItems =[
   },
   {
     name: "Workspace",
-    href: "/workspace",
+    href: "/w",
   }
 ]
 

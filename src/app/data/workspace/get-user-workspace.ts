@@ -3,11 +3,10 @@ import { requireUser } from "../user/require-user";
 import { notFound } from "next/navigation";
 
 export async function getUserWorkspaces() {
-    const user = await requireUser();
-
+    const session = await requireUser();
     const data = await prisma.user.findUnique({
         where: {
-            id: user.id,
+            id: session.id,
         },
         include: {
             workspaces: {
@@ -19,10 +18,12 @@ export async function getUserWorkspaces() {
                     workspace: {
                         select: {
                             name: true,
+                            slug: true,
                         }
                     }
                 }
             }
+
         }
     });
 

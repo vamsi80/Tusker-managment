@@ -15,6 +15,7 @@ import { useConfetti } from '@/hooks/use-confetti'
 import { tryCatch } from '@/hooks/try-catch'
 import { Textarea } from '@/components/ui/textarea'
 import { createWorkSpace } from './action'
+import slugify from "slugify";
 
 const CreateWorkspace = () => {
 
@@ -29,6 +30,7 @@ const CreateWorkspace = () => {
         defaultValues: {
             name: " ",
             description: '',
+            slug:'',
         },
     })
     function onSubmit(values: WorkSpaceSchemaType) {
@@ -47,7 +49,7 @@ const CreateWorkspace = () => {
                 toast.success(result.message);
                 triggerConfetti();
                 form.reset();
-                router.push("/workspace/");
+                router.push("/w");
             } else (
                 toast.error(result.message)
             )
@@ -90,6 +92,29 @@ const CreateWorkspace = () => {
                                     </FormItem>
                                 )}
                             />
+                            <div className=" flex gap-4 items-end">
+                                <FormField
+                                    control={form.control}
+                                    name="slug"
+                                    render={({ field }) => (
+                                        <FormItem className="w-full">
+                                            <FormLabel>Slug</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="Slug"{...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <Button type="button" className="w-fit" onClick={() => {
+                                    const nameValue = form.getValues("name");
+                                    const slug = slugify(nameValue)
+
+                                    form.setValue('slug', slug, { shouldValidate: true })
+                                }}>
+                                    Generate Slug <SparkleIcon className="ml-1" size={16} />
+                                </Button>
+                            </div>
                             <FormField
                                 control={form.control}
                                 name="description"

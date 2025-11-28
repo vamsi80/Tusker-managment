@@ -61,7 +61,7 @@ export const CreateProjectForm = ({ members, workspaceId }: iAppProps) => {
                 toast.success(result.message);
                 triggerConfetti();
                 form.reset();
-                router.push(`/${workspaceId}`);
+                router.push(`/w/${workspaceId}`);
             } else (
                 toast.error(result.message)
             )

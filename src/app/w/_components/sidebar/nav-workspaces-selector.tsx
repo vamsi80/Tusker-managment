@@ -43,7 +43,7 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data }) => {
   const onWorkspaceSelect = (workspaceIdToGo: string) => {
     const found = workspaces.find((w) => w.workspaceId === workspaceIdToGo);
     setSelected(found);
-    router.push(`workspace/${workspaceIdToGo}`);
+    router.push(`/w/${workspaceIdToGo}`);
   };
 
   return (
