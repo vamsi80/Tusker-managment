@@ -81,7 +81,7 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data }) => {
             {workspaces.map((ws) => {
               const routeKey = ws.workspaceId;
               return (
-                <DropdownMenuItem key={ws.id} onClick={() => onWorkspaceSelect(routeKey)}>
+                <DropdownMenuItem key={ws.workspaceId} onClick={() => onWorkspaceSelect(routeKey)}>
                   <div className="flex flex-row items-center gap-2">
                     <Avatar className="h-8 w-8 rounded-lg">
                       <AvatarImage src={`https://avatar.vercel.sh/${ws.workspaceId}`} alt={ws.workspace?.name ?? ""} />

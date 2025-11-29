@@ -14,71 +14,9 @@ import { UserWorkspacesType } from "@/app/data/workspace/get-user-workspace";
 import { NavProjects } from "./nav-projects";
 import { NavUser } from "./nav-user";
 import { NavWorkspacesSelector } from "./nav-workspaces-selector";
-import { getWorkspacesProjectsByWorkspaceId, WorkspaceProjectsType } from "@/app/data/workspace/get-workspace-members";
+import { getWorkspacesProjectsByWorkspaceId } from "@/app/data/workspace/get-workspace-members";
 import { NavMain } from "./nav-main";
-import { IconCamera, IconChartBar, IconDashboard, IconDatabase, IconFileAi, IconFileDescription, IconFileWord, IconHelp, IconListDetails, IconReport, IconSearch, IconSettings } from "@tabler/icons-react";
-import { Suspense } from "react";
 import { CreateProjectForm } from "../../[workspaceId]/p/_components/create-project-form";
-
-const data1 = {
-  navMain: [
-    { title: "Dashboard", url: "/", icon: IconDashboard },
-    { title: "Projects", url: "#", icon: IconListDetails },
-    { title: "Team", url: "#", icon: IconChartBar },
-  ],
-  navClouds: [
-    {
-      title: "Capture",
-      icon: IconCamera,
-      isActive: true,
-      url: "#",
-      items: [
-        { title: "Active Proposals", url: "#" },
-        { title: "Archived", url: "#" },
-      ],
-    },
-    {
-      title: "Proposal",
-      icon: IconFileDescription,
-      url: "#",
-      items: [
-        { title: "Active Proposals", url: "#" },
-        { title: "Archived", url: "#" },
-      ],
-    },
-    {
-      title: "Prompts",
-      icon: IconFileAi,
-      url: "#",
-      items: [
-        { title: "Active Proposals", url: "#" },
-        { title: "Archived", url: "#" },
-      ],
-    },
-  ],
-  navSecondary: [
-    { title: "Settings", url: "#", icon: IconSettings },
-    { title: "Get Help", url: "#", icon: IconHelp },
-    { title: "Search", url: "#", icon: IconSearch },
-  ],
-  documents: [
-    {
-      name: "Data Library",
-      url: "#",
-      icon: IconDatabase,
-    },
-    {
-      name: "Reports",
-      url: "#",
-      icon: IconReport,
-    },
-    {
-      name: "Word Assistant",
-      url: "#",
-      icon: IconFileWord,
-    },
-  ],
-};
 
 interface iAppProps {
   data: UserWorkspacesType;
@@ -100,20 +38,12 @@ export async function AppSidebar({ data, workspaceId, ...props }: React.Componen
       </SidebarHeader>
 
       <SidebarContent>
-        {/* <NavMain items={data1.navMain} /> */}
-        <SidebarGroupLabel>
-          <div className="flex text-sm items-center justify-between w-full cursor-pointer">
-            <span>Projects</span>
-            <CreateProjectForm members={workspaceMembers} workspaceId={workspaceId} />
-          </div>
-        </SidebarGroupLabel>
-          <div className="mt-0 space-y-1">
-            <NavProjects
-              projects={projects}
-              workspaceId={workspaceId}
-            />
-          </div>
-        {/* <NavSecondary items={data.navSecondary} className="mt-auto" /> */}
+        <NavMain workspaceId={workspaceId} />
+        <NavProjects
+          projects={projects}
+          workspaceId={workspaceId}
+          members={workspaceMembers}
+        />
       </SidebarContent>
 
       <SidebarFooter>
