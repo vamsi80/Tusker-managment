@@ -1,5 +1,3 @@
-'use clint'
-
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth-clint";
 import { useRouter } from "next/navigation";

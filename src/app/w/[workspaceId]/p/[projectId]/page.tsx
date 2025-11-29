@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ProjectDashboard } from "./_components/project-dashboard";
+import { ProjectDashboard } from "../_components/project-dashboard";
 import {
   getWorkspacesProjectsByWorkspaceId,
 } from "@/app/data/workspace/get-workspace-members";
-import { ProjectTaskTab } from "./_components/project-Task-Tab";
+import { ProjectTaskTab } from "../_components/project-Task-Tab";
 
 interface ProjectPageProps {
   params: { workspaceId: string; projectId: string };

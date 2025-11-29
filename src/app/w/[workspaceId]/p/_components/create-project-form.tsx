@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTransition } from "react";
 import { Resolver, useForm } from "react-hook-form";
-import { Loader2, Plus, PlusIcon } from "lucide-react";
+import { Loader2, Plus, PlusIcon, SparkleIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { useConfetti } from "@/hooks/use-confetti";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { WorkspaceProjectsType } from "@/app/data/workspace/get-workspace-members";
+import slugify  from "slugify";
 
 interface iAppProps {
     members: WorkspaceProjectsType["workspaceMembers"]
@@ -33,6 +34,7 @@ export const CreateProjectForm = ({ members, workspaceId }: iAppProps) => {
         defaultValues: {
             name: "",
             description: "",
+            slug: "",
             address: "",
             directorName: "",
             companyName: "",
@@ -42,7 +44,7 @@ export const CreateProjectForm = ({ members, workspaceId }: iAppProps) => {
             contactNumber: "",
             workspaceId: workspaceId as string,
             projectLead: [],
-            memberAccess: [],
+            memberAccess: [] as string[],
         },
     })
 
@@ -102,6 +104,30 @@ export const CreateProjectForm = ({ members, workspaceId }: iAppProps) => {
                                         </FormItem>
                                     )}
                                 />
+
+                                <div className=" flex gap-4 items-end">
+                                    <FormField
+                                        control={form.control}
+                                        name="slug"
+                                        render={({ field }) => (
+                                            <FormItem className="w-full">
+                                                <FormLabel>Slug</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="Slug"{...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <Button type="button" className="w-fit" onClick={() => {
+                                        const nameValue = form.getValues("name");
+                                        const slug = slugify(nameValue)
+
+                                        form.setValue('slug', slug, { shouldValidate: true })
+                                    }}>
+                                        Generate Slug <SparkleIcon className="ml-1" size={16} />
+                                    </Button>
+                                </div>
 
                                 {/* Description */}
                                 <FormField
@@ -248,37 +274,41 @@ export const CreateProjectForm = ({ members, workspaceId }: iAppProps) => {
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Project Lead</FormLabel>
-                                            <FormDescription className="text-xs text-muted-foreground mb-4">
+                                            <FormDescription className="text-xs text-muted-foreground mb-2">
                                                 Select which workspace members should have Lead the project.
                                             </FormDescription>
                                             <div className="space-y-2">
-                                                {members?.map((member) => (
-                                                    <div
-                                                        key={member.userId}
-                                                        className="flex items-center space-x-2"
-                                                    >
-                                                        <Checkbox
-                                                            id={member.userId}
-                                                            checked={field.value?.includes(member.userId)}
-                                                            onCheckedChange={(checked) => {
-                                                                const currentValue = field.value || [];
-                                                                if (checked) {
-                                                                    field.onChange([...currentValue, member.userId]);
-                                                                } else {
-                                                                    field.onChange(
-                                                                        currentValue.filter((id) => id !== member.userId)
-                                                                    );
-                                                                }
-                                                            }}
-                                                        />
-                                                        <label
-                                                            htmlFor={member.userId}
-                                                            className="text-sm font-medium leading-none capitalize cursor-pointer"
-                                                        >
-                                                            {member.user.name} ({member.accessLevel.toLowerCase()})
-                                                        </label>
-                                                    </div>
-                                                ))}
+                                                {members?.map((member) => {
+                                                    // safe values with fallbacks
+                                                    const userName = member.user?.name ?? member.userId ?? "Unknown user";
+                                                    // accessLevel may not exist on the type — fallback to 'member' (string)
+                                                    const accessLevelRaw = (member as any)?.accessLevel ?? (member as any)?.role ?? "MEMBER";
+                                                    const accessLevel = typeof accessLevelRaw === "string" ? accessLevelRaw.toLowerCase() : "member";
+
+                                                    return (
+                                                        <div key={member.userId} className="flex items-center space-x-2">
+                                                            <Checkbox
+                                                                id={member.userId}
+                                                                checked={field.value?.includes(member.userId)}
+                                                                onCheckedChange={(checked) => {
+                                                                    const currentValue = field.value || [];
+                                                                    if (checked) {
+                                                                        field.onChange([...currentValue, member.userId]);
+                                                                    } else {
+                                                                        field.onChange(currentValue.filter((id) => id !== member.userId));
+                                                                    }
+                                                                }}
+                                                            />
+                                                            <label
+                                                                htmlFor={member.userId}
+                                                                className="text-sm font-medium leading-none capitalize cursor-pointer"
+                                                            >
+                                                                {userName} ({accessLevel})
+                                                            </label>
+                                                        </div>
+                                                    );
+                                                })}
+
                                             </div>
                                             <FormMessage />
                                         </FormItem>
@@ -292,37 +322,40 @@ export const CreateProjectForm = ({ members, workspaceId }: iAppProps) => {
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Project Access</FormLabel>
-                                            <FormDescription className="text-xs text-muted-foreground mb-4">
+                                            <FormDescription className="text-xs text-muted-foreground mb-2">
                                                 Select which workspace members should have access to this project.
                                             </FormDescription>
                                             <div className="space-y-2">
-                                                {members?.map((member) => (
-                                                    <div
-                                                        key={member.userId}
-                                                        className="flex items-center space-x-2"
-                                                    >
-                                                        <Checkbox
-                                                            id={member.userId}
-                                                            checked={field.value?.includes(member.userId)}
-                                                            onCheckedChange={(checked) => {
-                                                                const currentValue = field.value || [];
-                                                                if (checked) {
-                                                                    field.onChange([...currentValue, member.userId]);
-                                                                } else {
-                                                                    field.onChange(
-                                                                        currentValue.filter((id) => id !== member.userId)
-                                                                    );
-                                                                }
-                                                            }}
-                                                        />
-                                                        <label
-                                                            htmlFor={member.userId}
-                                                            className="text-sm font-medium leading-none capitalize cursor-pointer"
-                                                        >
-                                                            {member.user.name} ({member.accessLevel.toLowerCase()})
-                                                        </label>
-                                                    </div>
-                                                ))}
+                                                {members?.map((member) => {
+                                                    // safe values with fallbacks
+                                                    const userName = member.user?.name ?? member.userId ?? "Unknown user";
+                                                    // accessLevel may not exist on the type — fallback to 'member' (string)
+                                                    const accessLevelRaw = (member as any)?.accessLevel ?? (member as any)?.role ?? "MEMBER";
+                                                    const accessLevel = typeof accessLevelRaw === "string" ? accessLevelRaw.toLowerCase() : "member";
+
+                                                    return (
+                                                        <div key={member.userId} className="flex items-center space-x-2">
+                                                            <Checkbox
+                                                                id={member.userId}
+                                                                checked={field.value?.includes(member.userId)}
+                                                                onCheckedChange={(checked) => {
+                                                                    const currentValue = field.value || [];
+                                                                    if (checked) {
+                                                                        field.onChange([...currentValue, member.userId]);
+                                                                    } else {
+                                                                        field.onChange(currentValue.filter((id) => id !== member.userId));
+                                                                    }
+                                                                }}
+                                                            />
+                                                            <label
+                                                                htmlFor={member.userId}
+                                                                className="text-sm font-medium leading-none capitalize cursor-pointer"
+                                                            >
+                                                                {userName} ({accessLevel})
+                                                            </label>
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                             <FormMessage />
                                         </FormItem>
@@ -330,7 +363,7 @@ export const CreateProjectForm = ({ members, workspaceId }: iAppProps) => {
                                 />
 
                                 {/* submit footer (kept inside scroll area so user can submit when scrolled) */}
-                                <div className="flex justify-end items-center gap-4 pt-2 mb-5">
+                                <div className="flex justify-end items-center gap-4 pt-2 mb-2">
                                     <Button type="submit" disabled={pending}>
                                         {pending ? (
                                             <>

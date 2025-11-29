@@ -93,6 +93,7 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
                 data: {
                     name: validation.data.name,
                     description: validation.data.description,
+                    slug: validation.data.slug,
                     workspaceId: values.workspaceId,
                     projectAccess: {
                         create: projectAccessCreates,

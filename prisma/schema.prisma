@@ -102,7 +102,7 @@ model WorkspaceMember {
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  accessLevel   AccessLevel     @default(MEMBER)
+  WorkspaceRole WorkspaceRole   @default(MEMBER)
   projectAccess ProjectAccess[]
 
   createdAt DateTime @default(now())
@@ -111,7 +111,7 @@ model WorkspaceMember {
   @@unique([userId, workspaceId])
 }
 
-enum AccessLevel {
+enum WorkspaceRole {
   ADMIN
   MEMBER
   VIEWER
@@ -121,6 +121,7 @@ model Project {
   id          String  @id @default(uuid())
   name        String
   description String?
+  slug        String  @unique
 
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -136,7 +137,8 @@ model Project {
 }
 
 model ProjectAccess {
-  id String @id @default(uuid())
+  id          String      @id @default(uuid())
+  projectRole ProjectRole @default(MEMBER)
 
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -152,8 +154,14 @@ model ProjectAccess {
   @@unique([workspaceMemberId, projectId])
 }
 
+enum ProjectRole {
+  LEAD
+  MEMBER
+  VIEWER
+}
+
 model Clints {
-  id                    String @id @default(uuid())
+  id                    String  @id @default(uuid())
   name                  String
   registeredCompanyName String?
   gstNumber             String?

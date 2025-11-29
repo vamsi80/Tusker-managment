@@ -13,7 +13,7 @@ type Props = {
 };
 
 export default async function WorkSpacePage({ params }: Props) {
-  const { workspaceId } = params;
+  const { workspaceId } = await params;
 
   // 1) Load the user's workspaces (this helper is expected to use requireUser internally)
   // If your getUserWorkspaces requires a userId param instead, adapt this call accordingly.

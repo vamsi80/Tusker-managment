@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import {
   SidebarGroup,
@@ -11,13 +11,14 @@ import {
 import { usePathname } from "next/navigation"
 import { WorkspaceProjectsType } from "@/app/data/workspace/get-workspace-members"
 import Link from "next/link"
-import { CreateProjectForm } from "../../[workspaceId]/[projectId]/_components/create-project-form"
+import { CreateProjectForm } from "../../[workspaceId]/p/_components/create-project-form"
 
 interface iAppProps {
   members: WorkspaceProjectsType["workspaceMembers"];
   projects: WorkspaceProjectsType["projects"]
   workspaceId: string
 }
+
 export function NavProjects({ members, projects, workspaceId }: iAppProps) {
   const { isMobile } = useSidebar();
   const pathname = usePathname();
@@ -32,7 +33,7 @@ export function NavProjects({ members, projects, workspaceId }: iAppProps) {
       </SidebarGroupLabel>
       <SidebarMenu>
         {projects?.map((proj) => {
-          const href = `/w/${workspaceId}/${proj.id}`;
+          const href = `/w/${workspaceId}/p/${proj.id}`;
           return (
             <SidebarMenuItem key={proj.id}>
               <SidebarMenuButton asChild>

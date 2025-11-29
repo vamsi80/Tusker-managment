@@ -103,3 +103,5 @@ export async function getUserWorkspaces(
 
   return result;
 }
+
+export type UserWorkspacesType = Awaited<ReturnType<typeof getUserWorkspaces>>;

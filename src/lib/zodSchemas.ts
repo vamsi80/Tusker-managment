@@ -27,6 +27,10 @@ export const projectSchema = z.object({
     description: z
         .string()
         .min(3, { message: "description must be at least 3 charcters long" }),
+    slug: z
+        .string()
+        .min(3, { message: "Slug must be at least 3 charcters long" })
+        .max(50, { message: "Slug must be at most 50 character long" }),
     companyName: z
         .string()
         .min(3, { message: "Company Name must be at least 3 charcters long" })

@@ -13,9 +13,10 @@ import { UserWorkspacesType } from "@/app/data/workspace/get-user-workspace";
 import { NavProjects } from "./nav-projects";
 import { NavUser } from "./nav-user";
 import { NavWorkspacesSelector } from "./nav-workspaces-selector";
-import { WorkspaceProjectsType } from "@/app/data/workspace/get-workspace-members";
+import { getWorkspacesProjectsByWorkspaceId, WorkspaceProjectsType } from "@/app/data/workspace/get-workspace-members";
 import { NavMain } from "./nav-main";
 import { IconCamera, IconChartBar, IconDashboard, IconDatabase, IconFileAi, IconFileDescription, IconFileWord, IconHelp, IconListDetails, IconReport, IconSearch, IconSettings } from "@tabler/icons-react";
+import { Suspense } from "react";
 
 const data1 = {
   navMain: [
@@ -80,17 +81,15 @@ const data1 = {
 interface iAppProps {
   data: UserWorkspacesType;
   workspaceId: string;
-  members: WorkspaceProjectsType["workspaceMembers"];
-  projects: WorkspaceProjectsType["projects"];
 }
 
-export function AppSidebar({ data, members, projects,workspaceId, ...props }: React.ComponentProps<typeof Sidebar> & iAppProps) {
+export async function AppSidebar({ data, workspaceId, ...props }: React.ComponentProps<typeof Sidebar> & iAppProps) {
+  const { workspaceMembers, projects } = await getWorkspacesProjectsByWorkspaceId(workspaceId);
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            {/* SidebarMenuButton expects a child element; we render a compact dropdown */}
             <NavWorkspacesSelector data={data} />
             <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:!p-1.5">
             </SidebarMenuButton>
@@ -100,7 +99,9 @@ export function AppSidebar({ data, members, projects,workspaceId, ...props }: Re
 
       <SidebarContent>
         {/* <NavMain items={data1.navMain} /> */}
-        <NavProjects projects={projects} members={members} workspaceId={workspaceId}/>
+        <Suspense fallback={<div>Loading Projects...</div>}>
+          <NavProjects projects={projects} members={workspaceMembers} workspaceId={workspaceId} />
+        </Suspense>
         {/* <NavSecondary items={data.navSecondary} className="mt-auto" /> */}
       </SidebarContent>
 

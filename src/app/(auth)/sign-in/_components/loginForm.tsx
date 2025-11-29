@@ -27,7 +27,7 @@ export const LoginForm = () => {
     startGithubTransition(async () => {
       await authClient.signIn.social({
         provider: 'github',
-        callbackURL: "/create-workspace",
+        callbackURL: "/",
         fetchOptions: {
           onSuccess: () => {
             toast.success('Signed in with Github, you will be redirected...')
@@ -44,7 +44,7 @@ export const LoginForm = () => {
     startGoogleTransition(async () => {
       await authClient.signIn.social({
         provider: 'google',
-        callbackURL: "/create-workspace",
+        callbackURL: "/",
         fetchOptions: {
           onSuccess: () => {
             toast.success('Signed in with google, you will be redirected...')
