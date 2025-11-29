@@ -4,6 +4,7 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -17,6 +18,7 @@ import { getWorkspacesProjectsByWorkspaceId, WorkspaceProjectsType } from "@/app
 import { NavMain } from "./nav-main";
 import { IconCamera, IconChartBar, IconDashboard, IconDatabase, IconFileAi, IconFileDescription, IconFileWord, IconHelp, IconListDetails, IconReport, IconSearch, IconSettings } from "@tabler/icons-react";
 import { Suspense } from "react";
+import { CreateProjectForm } from "../../[workspaceId]/p/_components/create-project-form";
 
 const data1 = {
   navMain: [
@@ -99,9 +101,18 @@ export async function AppSidebar({ data, workspaceId, ...props }: React.Componen
 
       <SidebarContent>
         {/* <NavMain items={data1.navMain} /> */}
-        <Suspense fallback={<div>Loading Projects...</div>}>
-          <NavProjects projects={projects} members={workspaceMembers} workspaceId={workspaceId} />
-        </Suspense>
+        <SidebarGroupLabel>
+          <div className="flex text-sm items-center justify-between w-full cursor-pointer">
+            <span>Projects</span>
+            <CreateProjectForm members={workspaceMembers} workspaceId={workspaceId} />
+          </div>
+        </SidebarGroupLabel>
+          <div className="mt-0 space-y-1">
+            <NavProjects
+              projects={projects}
+              workspaceId={workspaceId}
+            />
+          </div>
         {/* <NavSecondary items={data.navSecondary} className="mt-auto" /> */}
       </SidebarContent>
 

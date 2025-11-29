@@ -18,6 +18,7 @@ export type WorkspaceMemberRow = {
 export type ProjectRow = {
   id: string;
   name: string;
+  slug: string | null;
 };
 
 export type WorkspaceProjectsResult = {
@@ -92,6 +93,7 @@ export const _fetchWorkspaceMembersAndProjects = cache(
         select: {
           id: true,
           name: true,
+          slug: true,
         },
       }),
     ]);
@@ -105,7 +107,7 @@ export const _fetchWorkspaceMembersAndProjects = cache(
       user: m.user ?? undefined,
     }));
 
-    const projs = projects.map((p) => ({ id: p.id, name: p.name }));
+    const projs = projects.map((p) => ({ id: p.id, name: p.name, slug: p.slug }));
 
     return { workspaceMembers: members, projects: projs };
   }

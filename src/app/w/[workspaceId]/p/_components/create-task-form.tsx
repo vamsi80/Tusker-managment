@@ -13,7 +13,7 @@ import { taskSchema, TaskSchemaType } from "@/lib/zodSchemas";
 import { tryCatch } from "@/hooks/try-catch";
 import { useConfetti } from "@/hooks/use-confetti";
 import { toast } from "sonner";
-import { createTask } from "../[projectId]/actions";
+import { createTask } from "../[slug]/actions";
 
 interface iAppProps {
     projectId: string
