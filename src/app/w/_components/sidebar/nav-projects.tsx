@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import { WorkspaceProjectsType } from "@/app/data/workspace/get-workspace-members"
 import Link from "next/link"
 import { CreateProjectForm } from "../../[workspaceId]/p/_components/create-project-form";
+import { Building, Building2Icon } from "lucide-react";
 
 interface iAppProps {
   projects: WorkspaceProjectsType["projects"]
@@ -38,6 +39,7 @@ export function NavProjects({ projects, members, workspaceId }: iAppProps) {
                       : "text-muted-foreground"
                   }
                 >
+                  <Building2Icon />
                   {proj.name}
                 </Link>
               </SidebarMenuButton>
@@ -45,7 +47,6 @@ export function NavProjects({ projects, members, workspaceId }: iAppProps) {
           );
         })}
       </SidebarMenu>
-
     </SidebarGroup>
   )
 }

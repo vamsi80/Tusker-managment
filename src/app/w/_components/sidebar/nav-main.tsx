@@ -1,23 +1,16 @@
-"use client"
-import { IconCirclePlusFilled } from "@tabler/icons-react"
-import {
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-} from "@/components/ui/sidebar"
+import { Icon, IconCirclePlusFilled } from "@tabler/icons-react"
+import { SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuButton, SidebarMenuItem, } from "@/components/ui/sidebar"
 import Link from "next/link";
-import { Users2Icon } from "lucide-react";
 
-interface iAppProps {
-  workspaceId: string;
-}
-
-export function NavMain({ workspaceId }: iAppProps) {
-  const items = [
-    { title: "Team", url: "/team", icon: Users2Icon },
-  ]
+export function NavMain({
+  items,
+}: {
+  items: {
+    title: string
+    url: string
+    icon?: Icon | undefined
+  }[]
+}) {
   return (
     <SidebarGroup>
       <SidebarGroupContent className="flex flex-col gap-2">
@@ -46,9 +39,13 @@ export function NavMain({ workspaceId }: iAppProps) {
           <SidebarMenu>
             {items.map((item) => (
               <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton tooltip={item.title}>
-                  {item.icon && <item.icon />}
-                  <span>{item.title}</span>
+                <SidebarMenuButton tooltip={item.title} asChild>
+                  <Link href={item.url} className="flex items-center gap-2">
+                    <div>
+                      {item.icon && <item.icon size={18} />}
+                    </div>
+                    <span>{item.title}</span>
+                  </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             ))}
