@@ -1,96 +1,124 @@
-"use client"
+"use client";
 
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { authClient } from '@/lib/auth-clint'
-import { Loader, Loader2, Send } from 'lucide-react'
-import { useRouter } from 'next/navigation'
-import { useState, useTransition } from 'react'
-import { FaGithub, FaGoogle } from 'react-icons/fa'
-import { toast } from 'sonner'
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { authClient } from "@/lib/auth-clint";
+import { Loader, Loader2 } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useTransition, useEffect } from "react";
+import { FaGithub, FaGoogle } from "react-icons/fa";
+import { toast } from "sonner";
 
 export const LoginForm = () => {
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const router = useRouter()
+  const [githubPending, startGithubTransition] = useTransition();
+  const [googlePending, startGoogleTransition] = useTransition();
+  const [emailPending, startEmailTransition] = useTransition();
+  // const [firstName, setFirstName] = useState("");
+  // const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
-  const [githubPending, startGithubTransition] = useTransition()
-  const [googlePending, startGoogleTransition] = useTransition()
-  const [emailPending, startEmailTransition] = useTransition()
-  const [firstName, setFirstName] = useState("")
-  const [lastName, setLastName] = useState("")
-  const [email, setEmail] = useState("")
+  const workspaceId = searchParams.get("workspaceId");
+  const role = searchParams.get("role");
+  const inviteEmail = searchParams.get("email");
 
+  useEffect(() => {
+    if (inviteEmail) {
+      setEmail(inviteEmail);
+    }
+  }, [inviteEmail]);
 
   async function signInWithGithub() {
     startGithubTransition(async () => {
+      const callbackURL = workspaceId && role
+        ? `/api/verify?workspaceId=${workspaceId}&role=${role}`
+        : "/";
+
       await authClient.signIn.social({
-        provider: 'github',
-        callbackURL: "/",
+        provider: "github",
+        callbackURL,
         fetchOptions: {
           onSuccess: () => {
-            toast.success('Signed in with Github, you will be redirected...')
+            toast.success("Signed in with Github, you will be redirected...");
           },
           onError: (error) => {
-            toast.error('Internal server error')
-          }
-        }
-      })
-    })
+            toast.error("Internal server error");
+          },
+        },
+      });
+    });
   }
 
   async function signInWithGoogle() {
     startGoogleTransition(async () => {
+      const callbackURL = workspaceId && role
+        ? `/api/verify?workspaceId=${workspaceId}&role=${role}`
+        : "/";
+
       await authClient.signIn.social({
-        provider: 'google',
-        callbackURL: "/",
+        provider: "google",
+        callbackURL,
         fetchOptions: {
           onSuccess: () => {
-            toast.success('Signed in with google, you will be redirected...')
+            toast.success("Signed in with google, you will be redirected...");
           },
           onError: (error) => {
-            toast.error('Internal server error')
-          }
-        }
-      })
-    })
+            toast.error("Internal server error");
+          },
+        },
+      });
+    });
   }
 
-  function signInWithEmail() {
+  async function signInWithEmail() {
     startEmailTransition(async () => {
-      await authClient.emailOtp.sendVerificationOtp({
-        email: email,
-        type: "sign-in",
-        fetchOptions: {
-          onSuccess: () => {
-            toast.success('Email sent')
-            router.push(`/verify-request?email=${email}`)
-          },
-          onError: (error) => {
-            toast.error('Internal server error')
-            toast.error("Error sending email")
-          }
+      try {
+        const callbackURL = workspaceId && role
+          ? `/api/verify?workspaceId=${workspaceId}&role=${role}`
+          : "/";
 
-        }
-      })
-    })
+        await authClient.signIn.email({
+          email,
+          password,
+          callbackURL,
+          fetchOptions: {
+            onSuccess: () => {
+              toast.success("Signed in successfully!");
+              router.push(callbackURL);
+            },
+            onError: (ctx) => {
+              toast.error(ctx.error.message || "Failed to sign in");
+            },
+          },
+        });
+      } catch (error) {
+        toast.error("An error occurred during sign in");
+        console.error(error);
+      }
+    });
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className='text-xl'>
-          Welcome back!
+        <CardTitle className="text-xl">
+          {workspaceId ? "Join Workspace" : "Welcome back!"}
         </CardTitle>
         <CardDescription>
-          Login with your Github or email account
+          {workspaceId
+            ? "Sign in to join the workspace"
+            : "Login with your Github, Google or email account"}
         </CardDescription>
       </CardHeader>
 
-      <CardContent className='flex flex-col gap-4'>
-        <div className='grid gap-3'>
-          <div className="grid grid-cols-2 gap-4">
+      <CardContent className="flex flex-col gap-4">
+        <div className="grid gap-3">
+          {/* <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
               <Label htmlFor="firstName">First Name</Label>
               <Input
@@ -99,7 +127,6 @@ export const LoginForm = () => {
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 placeholder="John"
-                required
               />
             </div>
 
@@ -111,49 +138,57 @@ export const LoginForm = () => {
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
                 placeholder="Doe"
-                required
               />
             </div>
-          </div>
-          <div className='grid gap-2'>
+          </div> */}
+
+          <div className="grid gap-2">
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
-              type='email'
+              type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder='your@email.com'
+              placeholder="your@email.com"
+              required
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
               required
             />
           </div>
 
           <Button
             onClick={signInWithEmail}
-            disabled={emailPending}
+            disabled={emailPending || !email || !password}
           >
             {emailPending ? (
               <>
-                <Loader2 className='size-4 animate-spin' />
-                <span>Loading...</span>
+                <Loader2 className="size-4 animate-spin" />
+                <span>Signing in...</span>
               </>
             ) : (
-              <>
-                <Send className='size-4' />
-                <span>Continue with Email</span>
-              </>
+              <span>Sign In</span>
             )}
           </Button>
         </div>
 
-        <div className='relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border'>
-          <span className='relative z-10 bg-card px-2 text-muted-foreground'>Or</span>
+        <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
+          <span className="relative z-10 bg-card px-2 text-muted-foreground">Or</span>
         </div>
 
         <div className="flex items-center justify-center gap-5">
-          {/* GitHub */}
           <Button
             disabled={githubPending}
-            title="Sign up with GitHub"
+            title="Sign in with GitHub"
             className="h-8 w-8 flex items-center justify-center rounded-full cursor-pointer"
             onClick={signInWithGithub}
           >
@@ -164,10 +199,9 @@ export const LoginForm = () => {
             )}
           </Button>
 
-          {/* Google */}
           <Button
             disabled={googlePending}
-            title="Sign up with Google"
+            title="Sign in with Google"
             className="h-8 w-8 flex items-center justify-center rounded-full cursor-pointer"
             onClick={signInWithGoogle}
           >
@@ -180,5 +214,5 @@ export const LoginForm = () => {
         </div>
       </CardContent>
     </Card>
-  )
-}
+  );
+};
