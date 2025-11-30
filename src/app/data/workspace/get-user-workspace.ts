@@ -59,7 +59,7 @@ export const _fetchUserWorkspaces = cache(
         workspaces: {
           select: {
             workspaceId: true,
-            accessLevel: true,
+            WorkspaceRole: true,
             workspace: {
               select: {
                 id: true,

@@ -30,9 +30,9 @@ export default function Home() {
                 size: "lg", 
                 variant: "outline"
               })}
-              href="/sign-up"
+              href="/sign-in"
             >
-              {/* sign up */}
+              Log In
             </Link>
           </div>
         </div>

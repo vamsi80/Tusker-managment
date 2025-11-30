@@ -11,7 +11,11 @@ import { UserDropdown } from "./userDropdown";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
-export const Navbar: React.FC = () => {
+interface iAppProps {
+  workspaceId: string;
+}
+
+export function Navbar({ workspaceId }: iAppProps) {
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
 
@@ -29,7 +33,7 @@ export const Navbar: React.FC = () => {
       router.push("/sign-in?next=/w");
       return;
     }
-    router.push("/w");
+    router.push(`/w/${workspaceId}`);
   };
 
   return (
