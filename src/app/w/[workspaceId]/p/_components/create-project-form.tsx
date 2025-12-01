@@ -279,15 +279,15 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin }: iAppProps) 
                                         <FormItem>
                                             <FormLabel>Project Lead</FormLabel>
                                             <FormDescription className="text-xs text-muted-foreground mb-2">
-                                                Select which workspace members should have Lead the project.
+                                                Select the project lead (only one allowed).
                                             </FormDescription>
                                             <div className="space-y-2">
                                                 <Popover>
                                                     <PopoverTrigger asChild>
-                                                        <Button variant="outline" className="w-full justify-between">
-                                                            {field.value?.length
-                                                                ? `${field.value.length} member(s) selected`
-                                                                : "Select members"}
+                                                        <Button variant="outline" className="w-full justify-between font-normal">
+                                                            {field.value?.length && field.value[0]
+                                                                ? members?.find((m) => m.userId === field.value?.[0])?.user?.name ?? "Unknown user"
+                                                                : "Select project lead"}
                                                         </Button>
                                                     </PopoverTrigger>
 
@@ -309,18 +309,16 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin }: iAppProps) 
                                                                             ? accessLevelRaw.toLowerCase()
                                                                             : "member";
 
+                                                                    // Check if this member is the one selected
                                                                     const isSelected = field.value?.includes(member.userId);
 
                                                                     return (
                                                                         <CommandItem
                                                                             key={member.userId}
+                                                                            value={userName}
                                                                             onSelect={() => {
-                                                                                const current = field.value || [];
-                                                                                if (isSelected) {
-                                                                                    field.onChange(current.filter((id) => id !== member.userId));
-                                                                                } else {
-                                                                                    field.onChange([...current, member.userId]);
-                                                                                }
+                                                                                // Single select: replace entire array with this one user
+                                                                                field.onChange([member.userId]);
                                                                             }}
                                                                         >
                                                                             <Check
@@ -355,10 +353,16 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin }: iAppProps) 
                                             <div className="space-y-2">
                                                 <Popover>
                                                     <PopoverTrigger asChild>
-                                                        <Button variant="outline" className="w-full justify-between">
-                                                            {field.value?.length
-                                                                ? `${field.value.length} member(s) selected`
-                                                                : "Select members"}
+                                                        <Button variant="outline" className="w-full justify-between font-normal">
+                                                            {field.value?.length ? (
+                                                                <span className="truncate">
+                                                                    {field.value
+                                                                        .map((id) => members?.find((m) => m.userId === id)?.user?.name ?? "Unknown")
+                                                                        .join(", ")}
+                                                                </span>
+                                                            ) : (
+                                                                "Select members"
+                                                            )}
                                                         </Button>
                                                     </PopoverTrigger>
 
@@ -385,6 +389,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin }: iAppProps) 
                                                                     return (
                                                                         <CommandItem
                                                                             key={member.userId}
+                                                                            value={userName}
                                                                             onSelect={() => {
                                                                                 const current = field.value || [];
                                                                                 if (isSelected) {

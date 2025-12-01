@@ -13,14 +13,14 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
   if (!validation.success) {
     return {
       status: "error",
-      message: "Invalid form data",
+      message: "Please check the form details and try again.",
     };
   }
 
   if (!values?.workspaceId) {
     return {
       status: "error",
-      message: "Invalid workspace id",
+      message: "We couldn't identify the workspace. Please refresh the page and try again.",
     };
   }
 
@@ -35,7 +35,7 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
     });
 
     if (!workspace) {
-      return { status: "error", message: "Workspace not found" };
+      return { status: "error", message: "The requested workspace could not be found." };
     }
 
     const workspaceMembers = workspace.members || [];
@@ -43,7 +43,7 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
     if (workspaceMembers.length === 0) {
       return {
         status: "error",
-        message: "No workspace members found for this workspace.",
+        message: "This workspace doesn't have any members yet.",
       };
     }
 
@@ -54,7 +54,7 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
     if (!currentMemberRecord) {
       return {
         status: "error",
-        message: "Unauthorized to create project in this workspace. (not a workspace member)",
+        message: "You must be a member of this workspace to create a project.",
       };
     }
 
@@ -63,7 +63,7 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
     if (!isUserAdmin) {
       return {
         status: "error",
-        message: "Unauthorized to create project in this workspace.",
+        message: "Only workspace admins can create projects.",
       };
     }
 
@@ -71,17 +71,16 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
     const incomingMemberAccess = Array.isArray(values.memberAccess) ? values.memberAccess.map(String) : [];
     const incomingProjectLeads = Array.isArray(values.projectLead) ? values.projectLead.map(String) : [];
 
-    // Ensure memberAccess contains the current user
+    // Ensure memberAccess contains the current user (creator)
     if (!incomingMemberAccess || incomingMemberAccess.length === 0) {
       incomingMemberAccess.push(String(user.id));
     } else if (!incomingMemberAccess.includes(String(user.id))) {
       incomingMemberAccess.push(String(user.id));
     }
 
-    // Default lead to admin if none provided
+    // Default lead to admin (current user) if none provided
     if (!incomingProjectLeads || incomingProjectLeads.length === 0) {
       incomingProjectLeads.push(String(user.id));
-      console.log("👑 Auto-assigned admin as project lead:", user.id);
     }
 
     // Ensure every lead is also in memberAccess
@@ -91,11 +90,11 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
       }
     }
 
-    // Deduplicate
+    // Deduplicate IDs
     const uniqueMemberAccess = Array.from(new Set(incomingMemberAccess)).map(String);
     const uniqueProjectLeads = Array.from(new Set(incomingProjectLeads)).map(String);
 
-    // Build map userId -> workspaceMemberId
+    // Build map userId -> workspaceMemberId for quick lookup
     const workspaceMemberMap = new Map<string, string>();
     for (const wm of workspaceMembers) {
       if (wm?.userId && wm?.id) workspaceMemberMap.set(String(wm.userId), String(wm.id));
@@ -108,7 +107,6 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
       .map((userId) => {
         const wmId = workspaceMemberMap.get(String(userId));
         if (!wmId) {
-          console.warn("⚠️ Skipping userId (not a workspace member):", userId);
           return null;
         }
 
@@ -125,17 +123,16 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
         return accessRow;
       })
       .filter(Boolean) as Array<
-      { workspaceMember: { connect: { id: string } }; hasAccess: boolean; projectRole?: ProjectRole }
-    >;
+        { workspaceMember: { connect: { id: string } }; hasAccess: boolean; projectRole?: ProjectRole }
+      >;
 
     if (mergedProjectAccessCreates.length === 0) {
-      console.log("❌ No valid workspace members found for provided memberAccess");
       return {
         status: "error",
-        message: "No valid workspace members found for the provided memberAccess list.",
+        message: "We couldn't find the selected members in this workspace.",
       };
     }
-    
+
     // Create project with nested create using relation connect form
     await prisma.$transaction([
       prisma.project.create({
@@ -166,17 +163,15 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
       }),
     ]);
 
-    console.log("✅ Project created successfully");
-
     return {
       status: "success",
-      message: "Project created successfully",
+      message: "Project created successfully! You can now start adding tasks.",
     };
   } catch (err) {
-    console.error("❌ createProject Error:", err);
+    console.error("Error creating project:", err);
     return {
       status: "error",
-      message: "Something went wrong while creating the project.",
+      message: "An unexpected error occurred while creating the project. Please try again later.",
     };
   }
 }
