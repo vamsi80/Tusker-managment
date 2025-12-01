@@ -12,6 +12,7 @@ model User {
   id            String    @id
   name          String
   surname       String?
+  contactNumber String?
   email         String
   emailVerified Boolean   @default(false)
   image         String?
@@ -102,7 +103,7 @@ model WorkspaceMember {
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  WorkspaceRole WorkspaceRole   @default(MEMBER)
+  workspaceRole WorkspaceRole   @default(MEMBER)
   projectAccess ProjectAccess[]
 
   createdAt DateTime @default(now())

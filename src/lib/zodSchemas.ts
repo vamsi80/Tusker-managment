@@ -5,6 +5,36 @@ export const SubTaskStatus = ["TO_DO", "IN_PROGRESS", "BLOCKED", "REVIEW", "DONE
 
 export const SubTaskPriority = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const
 
+export const workspaceMemberRole = ["ADMIN", "MEMBER", "VIEWER"] as const
+
+export const inviteUserSchema = z.object({
+    name: z
+        .string()
+        .min(3, { message: "Name must be at least 3 charcters long" })
+        .max(100, { message: "Name must be at most 100 character long" }),
+    niceName: z
+        .string()
+        .min(1, { message: "Name must be at least 1 charcters long" })
+        .max(100, { message: "Name must be at most 100 character long" }),
+    email: z
+        .string()
+        .min(3, { message: "Email must be at least 3 charcters long" })
+        .max(100, { message: "Email must be at most 100 character long" }),
+    contactNumber: z
+        .string()
+        .min(10, { message: "Contact Number must be at least 10 charcters long" })
+        .max(15, { message: "Contact Number must be at most 15 character long" }),
+    password: z
+        .string()
+        .min(8, "Password must be at least 8 characters")
+        .regex(
+            /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
+            "Password must contain at least one uppercase letter, one lowercase letter, and one number"
+        ),
+    role: z.enum(workspaceMemberRole, { message: "Role is required" }),
+    workspaceId: z.string().uuid({ message: "Invalid workspace id" }),
+});
+
 export const workSpaceSchema = z.object({
     name: z
         .string()
@@ -104,6 +134,7 @@ export const subTaskSchema = z.object({
         .optional(),
 });
 
+export type InviteUserSchemaType = z.infer<typeof inviteUserSchema>;
 export type WorkSpaceSchemaType = z.infer<typeof workSpaceSchema>;
 export type ProjectSchemaType = z.infer<typeof projectSchema>;
 export type TaskSchemaType = z.infer<typeof taskSchema>;

@@ -10,6 +10,7 @@ export async function inviteUser({
   name: string;
   email: string;
   password: string;
+
   role: "ADMIN" | "MEMBER" | "VIEWER";
   workspaceId: string;
 }) {
@@ -27,7 +28,7 @@ export async function inviteUser({
       data: {
         userId: result.user.id,
         workspaceId,
-        WorkspaceRole: role,
+        workspaceRole: role,
       }
     });
   }

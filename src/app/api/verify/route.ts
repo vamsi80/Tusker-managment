@@ -15,12 +15,33 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(new URL("/sign-in", req.url));
     }
 
+    const userId = session.user.id;
+
+    // try {
+    //   // Only update if needed
+    //   if (!session.user.emailVerified) {
+    //     await prisma.user.update({
+    //       where: { id: userId },
+    //       data: { emailVerified: true },
+    //     });
+    //   } else {
+    //     // optionally ensure DB is consistent even if session has true but DB doesn't
+    //     await prisma.user.update({
+    //       where: { id: userId },
+    //       data: { emailVerified: true },
+    //     });
+    //   }
+    // } catch (uErr) {
+    //   // don't break the whole flow on update failure; log for debugging
+    //   console.error("Failed to set emailVerified:", uErr);
+    // }
+
     const { searchParams } = new URL(req.url);
     const workspaceId = searchParams.get("workspaceId");
     const role = searchParams.get("role");
 
     if (!workspaceId || !role) {
-      return NextResponse.redirect(new URL("/dashboard", req.url));
+      return NextResponse.redirect(new URL("/", req.url));
     }
 
     // Check if user already exists in workspace
@@ -39,7 +60,7 @@ export async function GET(req: NextRequest) {
         data: {
           workspaceId,
           userId: session.user.id,
-          WorkspaceRole: role as "ADMIN" | "MEMBER" | "VIEWER",
+          workspaceRole: role as "ADMIN" | "MEMBER" | "VIEWER",
         },
       });
     }

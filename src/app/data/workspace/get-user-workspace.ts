@@ -8,7 +8,7 @@ import { NotFoundError } from "../user/errors";
  */
 type WorkspaceSelect = {
   workspaceId: string;
-  accessLevel: string | null;
+  workspaceRole: string | null;
   workspace: { id: string; name: string | null; slug: string | null };
 };
 
@@ -59,7 +59,7 @@ export const _fetchUserWorkspaces = cache(
         workspaces: {
           select: {
             workspaceId: true,
-            WorkspaceRole: true,
+            workspaceRole: true,
             workspace: {
               select: {
                 id: true,

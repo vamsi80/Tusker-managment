@@ -1,0 +1,154 @@
+// app/actions/inviteUserTransactional.ts
+"use server";
+
+import prisma from "@/lib/db";
+import { auth } from "@/lib/auth";
+import { resend } from "@/lib/resend";
+import { inviteUserSchema, InviteUserSchemaType } from "@/lib/zodSchemas";
+import { ApiResponse } from "@/lib/types";
+import { requireUser } from "@/app/data/user/require-user";
+import { getUserWorkspaces } from "@/app/data/workspace/get-user-workspace";
+import { requireAdmin } from "@/app/data/workspace/requireAdmin";
+
+/**
+ * Invite a user: create auth user, upsert app user, upsert workspace membership,
+ * send invite email. Uses a Prisma transaction for DB operations and attempts
+ * to clean up the auth user if DB operations fail.
+ */
+
+export async function inviteUserToWorkspace(
+    values: InviteUserSchemaType
+): Promise<ApiResponse> {
+
+    await requireAdmin(values.workspaceId);
+
+    // Validate input
+    const parsed = inviteUserSchema.safeParse(values);
+    if (!parsed.success) {
+        return {
+            status: "error",
+            message: "Invalid input data",
+        };
+    }
+
+    const {
+        name,
+        niceName,
+        contactNumber,
+        email,
+        password,
+        role,
+        workspaceId,
+    } = parsed.data;
+
+    let createdAuthUserId: string | undefined;
+
+    try {
+        // 1) Create the auth user in BetterAuth
+        const authResult = await auth.api.signUpEmail({
+            body: {
+                email,
+                password,
+                name,
+            },
+        });
+
+        const authUserId = authResult?.user?.id;
+        if (!authUserId) {
+            throw new Error("Failed to create auth user");
+        }
+        createdAuthUserId = authUserId;
+
+        // 2) Prisma transaction: upsert user and workspaceMember
+        // NOTE: This assumes your Prisma User.id can be set to the provider id.
+        // If your User.id is generated, use a providerId column and adapt accordingly.
+        await prisma.$transaction([
+            prisma.user.upsert({
+                where: { id: authUserId },
+                create: {
+                    id: authUserId,
+                    name,
+                    surname: niceName ?? null,
+                    contactNumber: contactNumber ?? null,
+                    email,
+                    emailVerified: false,
+                },
+                update: {
+                    name,
+                    surname: niceName ?? null,
+                    contactNumber: contactNumber ?? null,
+                    email,
+                },
+            }),
+
+            prisma.workspaceMember.upsert({
+                where: {
+                    // composite unique: ensure this exists in your prisma schema
+                    userId_workspaceId: {
+                        userId: authUserId,
+                        workspaceId,
+                    },
+                },
+                create: {
+                    userId: authUserId,
+                    workspaceId,
+                    workspaceRole: role,
+                },
+                update: {
+                    workspaceRole: role,
+                },
+            }),
+        ]);
+
+        // 3) Send invitation email after DB success
+        const verificationLink = `${process.env.BETTER_AUTH_URL}/sign-in?workspaceId=${encodeURIComponent(
+            workspaceId
+        )}&role=${encodeURIComponent(role)}&email=${encodeURIComponent(email)}`;
+
+        console.log("Verification link:", verificationLink); // for debugging
+
+        await resend.emails.send({
+            from: "onboarding@yourdomain.com",
+            to: email,
+            subject: "You've been invited to join a workspace",
+            html: `
+        <p>Hi ${name},</p>
+        <p>You've been invited to join workspace <strong>${workspaceId}</strong> as <strong>${role}</strong>.</p>
+        <p>Click the link below to sign in and join:</p>
+        <p><a href="${verificationLink}">Join Workspace</a></p>
+      `,
+        });
+
+        return {
+            status: "success",
+            message: "Invitation sent successfully",
+        };
+    } catch (err: any) {
+        console.error("inviteUserTransactional error:", err);
+
+        // If auth user was created but DB work failed, try to delete the created auth user to avoid orphan accounts
+        if (createdAuthUserId) {
+            try {
+                // Replace with the correct BetterAuth admin delete call if available.
+                // Example placeholder: await auth.api.admin.deleteUser({ userId: createdAuthUserId })
+                if ((auth.api as any).deleteUser) {
+                    await (auth.api as any).deleteUser({ userId: createdAuthUserId });
+                } else if ((auth.api as any).admin?.deleteUser) {
+                    await (auth.api as any).admin.deleteUser({ userId: createdAuthUserId });
+                } else {
+                    console.warn(
+                        "No admin deleteUser available on auth.api — manual cleanup may be required for",
+                        createdAuthUserId
+                    );
+                }
+            } catch (cleanupErr) {
+                console.error("Failed to delete auth user after DB error:", cleanupErr);
+            }
+        }
+
+        return {
+            status: "error",
+            message: "Failed to invite user",
+        };
+    }
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { Loader2, Plus } from "lucide-react";
 import { z } from "zod";
@@ -31,39 +31,21 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { inviteUserToWorkspace } from "@/lib/actions/invite-user";
-
-// Enum matching your Prisma schema
-enum WorkspaceRole {
-    ADMIN = "ADMIN",
-    MEMBER = "MEMBER",
-    VIEWER = "VIEWER",
-}
-
-// Correct schema for user invitation
-const inviteUserSchema = z.object({
-    name: z.string().min(2, "Name must be at least 2 characters"),
-    email: z.string().email("Please enter a valid email address"),
-    password: z
-        .string()
-        .min(8, "Password must be at least 8 characters")
-        .regex(
-            /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-            "Password must contain at least one uppercase letter, one lowercase letter, and one number"
-        ),
-    role: z.enum(WorkspaceRole),
-    workspaceId: z.string(),
-});
-
-type InviteUserSchemaType = z.infer<typeof inviteUserSchema>;
+import { inviteUserToWorkspace } from "../actions";
+import { inviteUserSchema, InviteUserSchemaType, workspaceMemberRole } from "@/lib/zodSchemas";
+import { tryCatch } from "@/hooks/try-catch";
+import { useConfetti } from "@/hooks/use-confetti";
 
 interface InviteUserFormProps {
     workspaceId: string;
+    isAdmin: boolean;
 }
 
-export const InviteUserForm = ({ workspaceId }: InviteUserFormProps) => {
+export const InviteUserForm = ({ workspaceId, isAdmin }: InviteUserFormProps) => {
     const [open, setOpen] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    // const [isSubmitting, setIsSubmitting] = useState(false);
+    const [pending, startTransition] = useTransition();
+    const { triggerConfetti } = useConfetti();
 
     const form = useForm<InviteUserSchemaType>({
         resolver: zodResolver(inviteUserSchema),
@@ -71,23 +53,46 @@ export const InviteUserForm = ({ workspaceId }: InviteUserFormProps) => {
             name: "",
             email: "",
             password: "",
-            role: WorkspaceRole.MEMBER,
+            niceName: "",
+            contactNumber: "",
+            role: "MEMBER",
             workspaceId,
         },
     });
-    async function onSubmit(values: InviteUserSchemaType) {
-        setIsSubmitting(true);
-        try {
-            await inviteUserToWorkspace(values);
-            toast.success("User invited successfully!");
-            form.reset();
-            setOpen(false);
-        } catch (error) {
-            toast.error("Failed to invite user. Please try again.");
-            console.error("Submission error:", error);
-        } finally {
-            setIsSubmitting(false);
-        }
+    // async function onSubmit(values: InviteUserSchemaType) {
+    //     setIsSubmitting(true);
+    //     try {
+    //         await inviteUserToWorkspace(values);
+    //         toast.success("User invited successfully!");
+    //         form.reset();
+    //         setOpen(false);
+    //     } catch (error) {
+    //         toast.error("Failed to invite user. Please try again.");
+    //         console.error("Submission error:", error);
+    //     } finally {
+    //         setIsSubmitting(false);
+    //     }
+    // }
+
+    function onSubmit(data: InviteUserSchemaType) {
+        startTransition(async () => {
+            const { data: result, error } = await tryCatch(inviteUserToWorkspace(data));
+            console.log("results", { result });
+
+            if (error) {
+                toast.error(error.message);
+                console.error(error);
+                return;
+            }
+
+            if (result.status === "success") {
+                toast.success(result.message);
+                triggerConfetti();
+                form.reset();
+            } else (
+                toast.error(result.message)
+            )
+        });
     }
 
 
@@ -98,12 +103,14 @@ export const InviteUserForm = ({ workspaceId }: InviteUserFormProps) => {
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button>
-                    Invite User
-                    <Plus className="ml-2" size={16} />
-                </Button>
-            </DialogTrigger>
+            {isAdmin && (
+                <DialogTrigger asChild>
+                    <Button>
+                        Invite User
+                        <Plus className="ml-2" size={16} />
+                    </Button>
+                </DialogTrigger>
+            )}
             <DialogContent className="sm:max-w-[480px]">
                 <DialogHeader>
                     <DialogTitle>Invite New User</DialogTitle>
@@ -130,13 +137,54 @@ export const InviteUserForm = ({ workspaceId }: InviteUserFormProps) => {
                                         <Input
                                             placeholder="John Doe"
                                             {...field}
-                                            disabled={isSubmitting}
+                                            disabled={pending}
                                         />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}
                         />
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField
+                                control={form.control}
+                                name="niceName"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Nick Name</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                placeholder="John"
+                                                {...field}
+                                                disabled={pending}
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                // control={form.control}s
+                                name="contactNumber"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Contact Number</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                placeholder="e.g. +91 98765 43210"
+                                                {...field}
+                                                type="tel"
+                                                inputMode="tel"
+                                            />
+                                        </FormControl>
+                                        <FormDescription className="text-xs text-muted-foreground">
+                                            {/* Include country code. (Validate with pattern or phone library.) */}
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
 
                         <FormField
                             control={form.control}
@@ -149,7 +197,7 @@ export const InviteUserForm = ({ workspaceId }: InviteUserFormProps) => {
                                             type="email"
                                             placeholder="john@example.com"
                                             {...field}
-                                            disabled={isSubmitting}
+                                            disabled={pending}
                                         />
                                     </FormControl>
                                     <FormMessage />
@@ -168,7 +216,7 @@ export const InviteUserForm = ({ workspaceId }: InviteUserFormProps) => {
                                             type="password"
                                             placeholder="••••••••"
                                             {...field}
-                                            disabled={isSubmitting}
+                                            disabled={pending}
                                         />
                                     </FormControl>
                                     <FormDescription className="text-xs">
@@ -184,27 +232,22 @@ export const InviteUserForm = ({ workspaceId }: InviteUserFormProps) => {
                             name="role"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Role</FormLabel>
+                                    <FormLabel>Category</FormLabel>
                                     <Select
                                         onValueChange={field.onChange}
                                         defaultValue={field.value}
-                                        disabled={isSubmitting}
                                     >
                                         <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select a role" />
+                                            <SelectTrigger className="w-full">
+                                                <SelectValue placeholder="Select Category" />
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                            <SelectItem value={WorkspaceRole.MEMBER}>
-                                                Member
-                                            </SelectItem>
-                                            <SelectItem value={WorkspaceRole.ADMIN}>
-                                                Admin
-                                            </SelectItem>
-                                            <SelectItem value={WorkspaceRole.VIEWER}>
-                                                Viewer
-                                            </SelectItem>
+                                            {workspaceMemberRole.map((role) => (
+                                                <SelectItem key={role} value={role}>
+                                                    {role}
+                                                </SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                     <FormMessage />
@@ -212,8 +255,8 @@ export const InviteUserForm = ({ workspaceId }: InviteUserFormProps) => {
                             )}
                         />
 
-                        <Button type="submit" disabled={isSubmitting} className="w-full">
-                            {isSubmitting ? (
+                        <Button type="submit" disabled={pending} className="w-full">
+                            {pending ? (
                                 <>
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                     Inviting...

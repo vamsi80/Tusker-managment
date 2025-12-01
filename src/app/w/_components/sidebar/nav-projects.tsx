@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation"
 import { WorkspaceProjectsType } from "@/app/data/workspace/get-workspace-members"
 import Link from "next/link"
 import { CreateProjectForm } from "../../[workspaceId]/p/_components/create-project-form";
-import { Building, Building2Icon } from "lucide-react";
+import { Building2Icon } from "lucide-react";
 
 interface iAppProps {
   projects: WorkspaceProjectsType["projects"]
