@@ -11,9 +11,10 @@ interface iAppProps {
   projects: WorkspaceProjectsType["projects"]
   members: WorkspaceProjectsType["workspaceMembers"]
   workspaceId: string,
+  isAdmin: boolean;
 }
 
-export function NavProjects({ projects, members, workspaceId }: iAppProps) {
+export function NavProjects({ projects, members, workspaceId, isAdmin }: iAppProps) {
   const { isMobile } = useSidebar();
   const pathname = usePathname();
 
@@ -22,7 +23,7 @@ export function NavProjects({ projects, members, workspaceId }: iAppProps) {
       <SidebarGroupLabel>
         <div className="flex text-sm items-center justify-between w-full cursor-pointer mb-4">
           <span>Projects</span>
-          <CreateProjectForm members={members} workspaceId={workspaceId} />
+          <CreateProjectForm members={members} workspaceId={workspaceId} isAdmin={isAdmin} />
         </div>
       </SidebarGroupLabel>
       <SidebarMenu>

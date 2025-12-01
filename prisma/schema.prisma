@@ -104,7 +104,7 @@ model WorkspaceMember {
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   workspaceRole WorkspaceRole   @default(MEMBER)
-  projectAccess ProjectAccess[]
+  projectAccess ProjectMember[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -131,13 +131,13 @@ model Project {
   updatedAt DateTime @updatedAt
 
   clint         Clints[]
-  projectAccess ProjectAccess[]
+  projectAccess ProjectMember[]
   tasks         Task[]
 
   @@index([workspaceId])
 }
 
-model ProjectAccess {
+model ProjectMember {
   id          String      @id @default(uuid())
   projectRole ProjectRole @default(MEMBER)
 

@@ -7,6 +7,7 @@ import { IconDashboard, IconUsersPlus } from "@tabler/icons-react";
 import { UserWorkspacesType } from "@/app/data/workspace/get-user-workspace";
 import { getWorkspacesProjectsByWorkspaceId } from "@/app/data/workspace/get-workspace-members";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
+import { isAdminServer } from "@/lib/isAdminServer";
 
 interface iAppProps {
   data: UserWorkspacesType;
@@ -19,6 +20,8 @@ export async function AppSidebar({ data, workspaceId, ...props }: React.Componen
     { title: "Dashboard", url: `/w/${workspaceId}`, icon: IconDashboard },
     { title: "Team", url: `/w/${workspaceId}/team`, icon: IconUsersPlus },
   ];
+
+  const isAdmin = await isAdminServer(workspaceId);
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -38,6 +41,7 @@ export async function AppSidebar({ data, workspaceId, ...props }: React.Componen
           projects={projects}
           workspaceId={workspaceId}
           members={workspaceMembers}
+          isAdmin={isAdmin}
         />
       </SidebarContent>
 

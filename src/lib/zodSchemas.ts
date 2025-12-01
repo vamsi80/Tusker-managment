@@ -7,6 +7,8 @@ export const SubTaskPriority = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const
 
 export const workspaceMemberRole = ["ADMIN", "MEMBER", "VIEWER"] as const
 
+export const projectRole = ["LEAD", "MEMBER", "VIEWER"] as const
+
 export const inviteUserSchema = z.object({
     name: z
         .string()

@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTransition } from "react";
 import { Resolver, useForm } from "react-hook-form";
-import { Loader2, Plus, PlusIcon, SparkleIcon } from "lucide-react";
+import { Check, Loader2, Plus, PlusIcon, SparkleIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -15,16 +15,19 @@ import { tryCatch } from "@/hooks/try-catch";
 import { createProject } from "../../action";
 import { useConfetti } from "@/hooks/use-confetti";
 import { toast } from "sonner";
-import { Checkbox } from "@/components/ui/checkbox";
 import { WorkspaceProjectsType } from "@/app/data/workspace/get-workspace-members";
-import slugify  from "slugify";
+import slugify from "slugify";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 
 interface iAppProps {
     members: WorkspaceProjectsType["workspaceMembers"]
     workspaceId: string,
+    isAdmin: boolean;
 }
 
-export const CreateProjectForm = ({ members, workspaceId }: iAppProps) => {
+export const CreateProjectForm = ({ members, workspaceId, isAdmin }: iAppProps) => {
     const [pending, startTransition] = useTransition();
     const router = useRouter();
     const { triggerConfetti } = useConfetti();
@@ -74,12 +77,13 @@ export const CreateProjectForm = ({ members, workspaceId }: iAppProps) => {
     return (
         <>
             <Dialog>
-                <DialogTrigger asChild>
-                    <button className="cursor-pointer">
-                        <Plus size={16} />
-                    </button>
-                </DialogTrigger>
-
+                {isAdmin && (
+                    <DialogTrigger asChild>
+                        <button className="cursor-pointer">
+                            <Plus size={16} />
+                        </button>
+                    </DialogTrigger>
+                )}
                 {/* Make the dialog content scrollable when form grows */}
                 <DialogContent className="max-h-[98vh] w-[min(900px,95vw)] overflow-hidden">
                     <DialogHeader>
@@ -278,84 +282,132 @@ export const CreateProjectForm = ({ members, workspaceId }: iAppProps) => {
                                                 Select which workspace members should have Lead the project.
                                             </FormDescription>
                                             <div className="space-y-2">
-                                                {members?.map((member) => {
-                                                    // safe values with fallbacks
-                                                    const userName = member.user?.name ?? member.userId ?? "Unknown user";
-                                                    // accessLevel may not exist on the type — fallback to 'member' (string)
-                                                    const accessLevelRaw = (member as any)?.accessLevel ?? (member as any)?.role ?? "MEMBER";
-                                                    const accessLevel = typeof accessLevelRaw === "string" ? accessLevelRaw.toLowerCase() : "member";
+                                                <Popover>
+                                                    <PopoverTrigger asChild>
+                                                        <Button variant="outline" className="w-full justify-between">
+                                                            {field.value?.length
+                                                                ? `${field.value.length} member(s) selected`
+                                                                : "Select members"}
+                                                        </Button>
+                                                    </PopoverTrigger>
 
-                                                    return (
-                                                        <div key={member.userId} className="flex items-center space-x-2">
-                                                            <Checkbox
-                                                                id={member.userId}
-                                                                checked={field.value?.includes(member.userId)}
-                                                                onCheckedChange={(checked) => {
-                                                                    const currentValue = field.value || [];
-                                                                    if (checked) {
-                                                                        field.onChange([...currentValue, member.userId]);
-                                                                    } else {
-                                                                        field.onChange(currentValue.filter((id) => id !== member.userId));
-                                                                    }
-                                                                }}
-                                                            />
-                                                            <label
-                                                                htmlFor={member.userId}
-                                                                className="text-sm font-medium leading-none capitalize cursor-pointer"
-                                                            >
-                                                                {userName} ({accessLevel})
-                                                            </label>
-                                                        </div>
-                                                    );
-                                                })}
+                                                    <PopoverContent className="p-0 w-64">
+                                                        <Command>
+                                                            <CommandInput placeholder="Search members…" />
+                                                            <CommandEmpty>No members found.</CommandEmpty>
 
+                                                            <CommandGroup>
+                                                                {members?.map((member) => {
+                                                                    const userName = member.user?.name ?? member.userId ?? "Unknown user";
+                                                                    const accessLevelRaw =
+                                                                        (member as any)?.accessLevel ??
+                                                                        (member as any)?.role ??
+                                                                        "Lead";
+
+                                                                    const accessLevel =
+                                                                        typeof accessLevelRaw === "string"
+                                                                            ? accessLevelRaw.toLowerCase()
+                                                                            : "member";
+
+                                                                    const isSelected = field.value?.includes(member.userId);
+
+                                                                    return (
+                                                                        <CommandItem
+                                                                            key={member.userId}
+                                                                            onSelect={() => {
+                                                                                const current = field.value || [];
+                                                                                if (isSelected) {
+                                                                                    field.onChange(current.filter((id) => id !== member.userId));
+                                                                                } else {
+                                                                                    field.onChange([...current, member.userId]);
+                                                                                }
+                                                                            }}
+                                                                        >
+                                                                            <Check
+                                                                                className={cn(
+                                                                                    "mr-2 h-4 w-4",
+                                                                                    isSelected ? "opacity-100" : "opacity-0"
+                                                                                )}
+                                                                            />
+                                                                            {userName} ({accessLevel})
+                                                                        </CommandItem>
+                                                                    );
+                                                                })}
+                                                            </CommandGroup>
+                                                        </Command>
+                                                    </PopoverContent>
+                                                </Popover>
                                             </div>
                                             <FormMessage />
                                         </FormItem>
                                     )}
                                 />
 
-                                {/* Project access (checkbox list) */}
                                 <FormField
                                     control={form.control}
                                     name="memberAccess"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Project Access</FormLabel>
+                                            <FormLabel>Project Members</FormLabel>
                                             <FormDescription className="text-xs text-muted-foreground mb-2">
                                                 Select which workspace members should have access to this project.
                                             </FormDescription>
                                             <div className="space-y-2">
-                                                {members?.map((member) => {
-                                                    // safe values with fallbacks
-                                                    const userName = member.user?.name ?? member.userId ?? "Unknown user";
-                                                    // accessLevel may not exist on the type — fallback to 'member' (string)
-                                                    const accessLevelRaw = (member as any)?.accessLevel ?? (member as any)?.role ?? "MEMBER";
-                                                    const accessLevel = typeof accessLevelRaw === "string" ? accessLevelRaw.toLowerCase() : "member";
+                                                <Popover>
+                                                    <PopoverTrigger asChild>
+                                                        <Button variant="outline" className="w-full justify-between">
+                                                            {field.value?.length
+                                                                ? `${field.value.length} member(s) selected`
+                                                                : "Select members"}
+                                                        </Button>
+                                                    </PopoverTrigger>
 
-                                                    return (
-                                                        <div key={member.userId} className="flex items-center space-x-2">
-                                                            <Checkbox
-                                                                id={member.userId}
-                                                                checked={field.value?.includes(member.userId)}
-                                                                onCheckedChange={(checked) => {
-                                                                    const currentValue = field.value || [];
-                                                                    if (checked) {
-                                                                        field.onChange([...currentValue, member.userId]);
-                                                                    } else {
-                                                                        field.onChange(currentValue.filter((id) => id !== member.userId));
-                                                                    }
-                                                                }}
-                                                            />
-                                                            <label
-                                                                htmlFor={member.userId}
-                                                                className="text-sm font-medium leading-none capitalize cursor-pointer"
-                                                            >
-                                                                {userName} ({accessLevel})
-                                                            </label>
-                                                        </div>
-                                                    );
-                                                })}
+                                                    <PopoverContent className="p-0 w-64">
+                                                        <Command>
+                                                            <CommandInput placeholder="Search members…" />
+                                                            <CommandEmpty>No members found.</CommandEmpty>
+
+                                                            <CommandGroup>
+                                                                {members?.map((member) => {
+                                                                    const userName = member.user?.name ?? member.userId ?? "Unknown user";
+                                                                    const accessLevelRaw =
+                                                                        (member as any)?.accessLevel ??
+                                                                        (member as any)?.role ??
+                                                                        "Member";
+
+                                                                    const accessLevel =
+                                                                        typeof accessLevelRaw === "string"
+                                                                            ? accessLevelRaw.toLowerCase()
+                                                                            : "member";
+
+                                                                    const isSelected = field.value?.includes(member.userId);
+
+                                                                    return (
+                                                                        <CommandItem
+                                                                            key={member.userId}
+                                                                            onSelect={() => {
+                                                                                const current = field.value || [];
+                                                                                if (isSelected) {
+                                                                                    field.onChange(current.filter((id) => id !== member.userId));
+                                                                                } else {
+                                                                                    field.onChange([...current, member.userId]);
+                                                                                }
+                                                                            }}
+                                                                        >
+                                                                            <Check
+                                                                                className={cn(
+                                                                                    "mr-2 h-4 w-4",
+                                                                                    isSelected ? "opacity-100" : "opacity-0"
+                                                                                )}
+                                                                            />
+                                                                            {userName} ({accessLevel})
+                                                                        </CommandItem>
+                                                                    );
+                                                                })}
+                                                            </CommandGroup>
+                                                        </Command>
+                                                    </PopoverContent>
+                                                </Popover>
                                             </div>
                                             <FormMessage />
                                         </FormItem>
