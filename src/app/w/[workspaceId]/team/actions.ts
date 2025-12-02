@@ -56,9 +56,6 @@ export async function inviteUserToWorkspace(
         }
         createdAuthUserId = authUserId;
 
-        // 2) Prisma transaction: upsert user and workspaceMember
-        // NOTE: This assumes your Prisma User.id can be set to the provider id.
-        // If your User.id is generated, use a providerId column and adapt accordingly.
         await prisma.$transaction([
             prisma.user.upsert({
                 where: { id: authUserId },
@@ -117,9 +114,10 @@ export async function inviteUserToWorkspace(
         // Invalidate caches
         revalidatePath(`/w/${workspaceId}/team`);
 
-        // Invalidate the new user's workspace cache
-        const { invalidateUserWorkspaces } = await import("@/app/data/user/invalidate-project-cache");
+        // Invalidate the new user's workspace cache and workspace members cache
+        const { invalidateUserWorkspaces, invalidateWorkspaceMembers } = await import("@/app/data/user/invalidate-project-cache");
         await invalidateUserWorkspaces(authUserId);
+        await invalidateWorkspaceMembers(workspaceId);
 
         return {
             status: "success",
@@ -131,8 +129,6 @@ export async function inviteUserToWorkspace(
         // If auth user was created but DB work failed, try to delete the created auth user to avoid orphan accounts
         if (createdAuthUserId) {
             try {
-                // Replace with the correct BetterAuth admin delete call if available.
-                // Example placeholder: await auth.api.admin.deleteUser({ userId: createdAuthUserId })
                 if ((auth.api as any).deleteUser) {
                     await (auth.api as any).deleteUser({ userId: createdAuthUserId });
                 } else if ((auth.api as any).admin?.deleteUser) {

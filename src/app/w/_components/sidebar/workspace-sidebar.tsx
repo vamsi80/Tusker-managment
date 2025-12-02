@@ -5,9 +5,10 @@ import { NavProjects } from "./nav-projects";
 import { NavWorkspacesSelector } from "./nav-workspaces-selector";
 import { IconDashboard, IconUsersPlus } from "@tabler/icons-react";
 import { UserWorkspacesType } from "@/app/data/workspace/get-user-workspace";
-import { getWorkspacesProjectsByWorkspaceId } from "@/app/data/workspace/get-workspace-members";
+import { getWorkspaceMembers } from "@/app/data/workspace/get-workspace-members";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
 import { isAdminServer } from "@/lib/isAdminServer";
+import { getUserProjects } from "@/app/data/user/get-user-projects";
 
 interface iAppProps {
   data: UserWorkspacesType;
@@ -15,7 +16,8 @@ interface iAppProps {
 }
 
 export async function AppSidebar({ data, workspaceId, ...props }: React.ComponentProps<typeof Sidebar> & iAppProps) {
-  const { workspaceMembers, projects } = await getWorkspacesProjectsByWorkspaceId(workspaceId);
+  const projects = await getUserProjects(workspaceId);
+  const { workspaceMembers } = await getWorkspaceMembers(workspaceId);
   const mainNavItems = [
     { title: "Dashboard", url: `/w/${workspaceId}`, icon: IconDashboard },
     { title: "Team", url: `/w/${workspaceId}/team`, icon: IconUsersPlus },

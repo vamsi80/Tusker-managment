@@ -14,14 +14,14 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { WorkspaceMemberType } from "@/app/data/workspace/get-workspace-members";
+import { WorkspaceMemberRow } from "@/app/data/workspace/get-workspace-members";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface iAppProps {
-    data: WorkspaceMemberType[];
+    data: WorkspaceMemberRow[];
 }
 
-export const columns: ColumnDef<WorkspaceMemberType>[] = [
+export const columns: ColumnDef<WorkspaceMemberRow>[] = [
     {
         accessorKey: "user.name",
         header: "Name",

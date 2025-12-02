@@ -2,14 +2,15 @@
 
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar, } from "@/components/ui/sidebar"
 import { usePathname } from "next/navigation"
-import { WorkspaceProjectsType } from "@/app/data/workspace/get-workspace-members"
+import { WorkspaceMembersType } from "@/app/data/workspace/get-workspace-members"
 import Link from "next/link"
 import { CreateProjectForm } from "../../[workspaceId]/p/_components/create-project-form";
 import { Building2Icon } from "lucide-react";
+import { UserProjectsType } from "@/app/data/user/get-user-projects";
 
 interface iAppProps {
-  projects: WorkspaceProjectsType["projects"]
-  members: WorkspaceProjectsType["workspaceMembers"]
+  projects: UserProjectsType
+  members: WorkspaceMembersType
   workspaceId: string,
   isAdmin: boolean;
 }

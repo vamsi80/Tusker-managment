@@ -15,14 +15,14 @@ import { tryCatch } from "@/hooks/try-catch";
 import { createProject } from "../../action";
 import { useConfetti } from "@/hooks/use-confetti";
 import { toast } from "sonner";
-import { WorkspaceProjectsType } from "@/app/data/workspace/get-workspace-members";
+import { WorkspaceMembersResult } from "@/app/data/workspace/get-workspace-members";
 import slugify from "slugify";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 
 interface iAppProps {
-    members: WorkspaceProjectsType["workspaceMembers"]
+    members: WorkspaceMembersResult["workspaceMembers"]
     workspaceId: string,
     isAdmin: boolean;
 }

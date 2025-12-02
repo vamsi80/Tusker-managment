@@ -1,5 +1,9 @@
+import { Suspense } from "react";
 import { InviteUserForm } from "./_components/create-user";
 import { isAdminServer } from "@/lib/isAdminServer";
+import { getWorkspaceMembers } from "@/app/data/workspace/get-workspace-members";
+import { TeamMembers } from "./_components/team-members";
+import { TeamMembersSkeleton } from "./_components/team-members-skeleton";
 
 interface TeamPageProps {
     params: Promise<{
@@ -7,13 +11,9 @@ interface TeamPageProps {
     }>;
 }
 
-import { getWorkspacesProjectsByWorkspaceId } from "@/app/data/workspace/get-workspace-members";
-import { TeamMembers } from "./_components/team-members";
-
 export default async function TeamPage({ params }: TeamPageProps) {
     const { workspaceId } = await params;
     const isAdmin = await isAdminServer(workspaceId);
-    const data = await getWorkspacesProjectsByWorkspaceId(workspaceId);
 
     return (
         <div className="flex flex-col gap-5">
@@ -23,15 +23,16 @@ export default async function TeamPage({ params }: TeamPageProps) {
                 </h1>
                 <InviteUserForm workspaceId={workspaceId} isAdmin={isAdmin} />
             </div>
-            <TeamMembers data={data.workspaceMembers} />
+
+            <Suspense fallback={<TeamMembersSkeleton />}>
+                <TeamMembersList workspaceId={workspaceId} />
+            </Suspense>
         </div>
     );
 }
 
-// export async function userInvitation(workspaceId: string) {
-//     const isAdmin = await isAdminServer(workspaceId);
-
-//     return (
-//         <InviteUserForm workspaceId={workspaceId} isAdmin={isAdmin} />
-//     )
-// }
+// Separate component for data fetching
+async function TeamMembersList({ workspaceId }: { workspaceId: string }) {
+    const data = await getWorkspaceMembers(workspaceId);
+    return <TeamMembers data={data.workspaceMembers} />;
+}
