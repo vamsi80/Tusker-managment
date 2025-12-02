@@ -104,6 +104,10 @@ export const taskSchema = z.object({
         .string()
         .min(3, { message: "Title must be at least 3 charcters long" })
         .max(100, { message: "Title must be at most 100 character long" }),
+    taskSlug: z
+        .string()
+        .min(3, { message: "Title must be at least 3 charcters long" })
+        .max(100, { message: "Title must be at most 100 character long" }),
     projectId: z.string().uuid({ message: "Invalid project id" }),
 });
 

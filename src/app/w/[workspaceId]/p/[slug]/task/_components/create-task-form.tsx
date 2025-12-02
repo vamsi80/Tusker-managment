@@ -3,8 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState, useTransition } from "react";
 import { Resolver, useForm } from "react-hook-form";
-import { Loader2, Plus, PlusIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { Loader2, Plus, PlusIcon, SparkleIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -13,7 +12,8 @@ import { taskSchema, TaskSchemaType } from "@/lib/zodSchemas";
 import { tryCatch } from "@/hooks/try-catch";
 import { useConfetti } from "@/hooks/use-confetti";
 import { toast } from "sonner";
-import { createTask } from "../[slug]/actions";
+import slugify from "slugify";
+import { createTask } from "../action";
 
 interface iAppProps {
     projectId: string
@@ -24,43 +24,60 @@ export const CreateTaskForm = ({ projectId }: iAppProps) => {
     const { triggerConfetti } = useConfetti();
     const [open, setOpen] = useState(false);
 
+    // this state reflects the actual network request lifecycle (unlike `pending`)
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
     const form = useForm<TaskSchemaType>({
         resolver: zodResolver(taskSchema) as unknown as Resolver<TaskSchemaType>,
         defaultValues: {
             name: "",
+            taskSlug: "",
             projectId: projectId,
         },
     })
 
-    function onSubmit(values: TaskSchemaType) {
+    console.log("pending", pending);
+    console.log("isSubmitting", isSubmitting);
+
+    async function onSubmit(values: TaskSchemaType) {
+        // set the real "network" submitting flag
+        setIsSubmitting(true);
+
+        // keep your startTransition wrapper (it marks state updates as low-priority)
         startTransition(async () => {
-            console.log("button clicked");
-            const { data: result, error } = await tryCatch(createTask(values));
-            console.log("results", { result });
+            try {
+                // If your tryCatch expects a function, pass a function; otherwise this awaits the promise result.
+                const { data: result, error } = await tryCatch(createTask(values));
 
-            if (error) {
-                toast.error(error.message);
-                console.error(error);
-                return;
+                if (error) {
+                    toast.error(error.message ?? "Something went wrong");
+                    console.error(error);
+                    return;
+                }
+
+                if (result?.status === "success") {
+                    toast.success(result.message ?? "Task created");
+                    triggerConfetti();
+                    form.reset();
+                    setOpen(false);
+                } else {
+                    toast.error(result?.message ?? "Failed to create task");
+                }
+            } catch (err) {
+                console.error("createTask error:", err);
+                toast.error((err as Error)?.message ?? "Unexpected error");
+            } finally {
+                // unset the real submitting flag
+                setIsSubmitting(false);
             }
-
-            if (result.status === "success") {
-                toast.success(result.message);
-                triggerConfetti();
-                form.reset();
-                setOpen(false);
-            } else (
-                toast.error(result.message)
-            )
         });
     }
 
     return (
         <>
-            <Dialog>
+            <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
                     <Button
-                        onClick={() => setOpen(true)}
                         className="cursor-pointer">
                         Create Task
                         <Plus size={16} />
@@ -83,24 +100,47 @@ export const CreateTaskForm = ({ projectId }: iAppProps) => {
                                         <FormItem>
                                             <FormLabel>Task Title</FormLabel>
                                             <FormControl>
-                                                <Input placeholder="Enter workspace name" {...field} />
+                                                <Input placeholder="Enter task title" {...field} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}
                                 />
+                                <div className=" flex gap-4 items-end">
+                                    <FormField
+                                        control={form.control}
+                                        name="taskSlug"
+                                        render={({ field }) => (
+                                            <FormItem className="w-full">
+                                                <FormLabel>Slug</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="Slug"{...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <Button type="button" className="w-fit" onClick={() => {
+                                        const nameValue = form.getValues("name") || "";
+                                        const slug = slugify(nameValue, { lower: true, strict: true });
+
+                                        form.setValue('taskSlug', slug, { shouldValidate: true })
+                                    }}>
+                                        Generate Slug <SparkleIcon className="ml-1" size={16} />
+                                    </Button>
+                                </div>
 
                                 <div className="flex flex-row items-center gap-4 cursor-pointer">
-                                    <Button type="submit" disabled={pending}>
+                                    <Button type="submit" disabled={isSubmitting || pending}>
                                         {
-                                            pending ? (
+                                            (isSubmitting || pending) ? (
                                                 <>
                                                     Creating...
                                                     <Loader2 className="ml-1 h-4 w-4 animate-spin" />
                                                 </>
                                             ) : (
                                                 <>
-                                                    Create Course
+                                                    Create Task
                                                     <PlusIcon className="ml-1" size={16} />
                                                 </>
                                             )
