@@ -46,7 +46,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin }: iAppProps) 
             contactPerson: "",
             contactNumber: "",
             workspaceId: workspaceId as string,
-            projectLead: [],
+            projectLead: "",
             memberAccess: [] as string[],
         },
     })
@@ -285,9 +285,12 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin }: iAppProps) 
                                                 <Popover>
                                                     <PopoverTrigger asChild>
                                                         <Button variant="outline" className="w-full justify-between font-normal">
-                                                            {field.value?.length && field.value[0]
-                                                                ? members?.find((m) => m.userId === field.value?.[0])?.user?.name ?? "Unknown user"
-                                                                : "Select project lead"}
+                                                            {field.value
+                                                                ? (() => {
+                                                                    const m = members?.find((m) => m.userId === field.value);
+                                                                    return `${m?.user?.surname}`;
+                                                                })()
+                                                                : "Select a team lead"}
                                                         </Button>
                                                     </PopoverTrigger>
 
@@ -297,8 +300,8 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin }: iAppProps) 
                                                             <CommandEmpty>No members found.</CommandEmpty>
 
                                                             <CommandGroup>
-                                                                {members?.map((member) => {
-                                                                    const userName = member.user?.name ?? member.userId ?? "Unknown user";
+                                                                {members?.filter(m => m.workspaceRole === "MEMBER").map((member) => {
+                                                                    const userName = `${member.user?.surname}`;
                                                                     const accessLevelRaw =
                                                                         (member as any)?.accessLevel ??
                                                                         (member as any)?.role ??
@@ -310,15 +313,15 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin }: iAppProps) 
                                                                             : "member";
 
                                                                     // Check if this member is the one selected
-                                                                    const isSelected = field.value?.includes(member.userId);
+                                                                    const isSelected = field.value === member.userId;
 
                                                                     return (
                                                                         <CommandItem
                                                                             key={member.userId}
                                                                             value={userName}
                                                                             onSelect={() => {
-                                                                                // Single select: replace entire array with this one user
-                                                                                field.onChange([member.userId]);
+                                                                                // Single select: set the value to this user
+                                                                                field.onChange(member.userId);
                                                                             }}
                                                                         >
                                                                             <Check
@@ -357,7 +360,10 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin }: iAppProps) 
                                                             {field.value?.length ? (
                                                                 <span className="truncate">
                                                                     {field.value
-                                                                        .map((id) => members?.find((m) => m.userId === id)?.user?.name ?? "Unknown")
+                                                                        .map((id) => {
+                                                                            const m = members?.find((m) => m.userId === id);
+                                                                            return `${m?.user?.surname}`;
+                                                                        })
                                                                         .join(", ")}
                                                                 </span>
                                                             ) : (
@@ -370,10 +376,9 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin }: iAppProps) 
                                                         <Command>
                                                             <CommandInput placeholder="Search members…" />
                                                             <CommandEmpty>No members found.</CommandEmpty>
-
                                                             <CommandGroup>
-                                                                {members?.map((member) => {
-                                                                    const userName = member.user?.name ?? member.userId ?? "Unknown user";
+                                                                {members?.filter(m => m.userId !== form.watch("projectLead") && m.workspaceRole === "MEMBER").map((member) => {
+                                                                    const userName = `${member.user?.surname}`;
                                                                     const accessLevelRaw =
                                                                         (member as any)?.accessLevel ??
                                                                         (member as any)?.role ??
@@ -419,7 +424,6 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin }: iAppProps) 
                                     )}
                                 />
 
-                                {/* submit footer (kept inside scroll area so user can submit when scrolled) */}
                                 <div className="flex justify-end items-center gap-4 pt-2 mb-2">
                                     <Button type="submit" disabled={pending}>
                                         {pending ? (

@@ -67,9 +67,20 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
       };
     }
 
+    const membersWithRoleMember = workspaceMembers.filter(
+      (member) => member.workspaceRole === "MEMBER"
+    );
+
+    if (membersWithRoleMember.length < 2) {
+      return {
+        status: "error",
+        message: "At least 2 members with the 'MEMBER' role are required to create a project.",
+      };
+    }
+
     // Normalize incoming arrays of IDs (strings)
     const incomingMemberAccess = Array.isArray(values.memberAccess) ? values.memberAccess.map(String) : [];
-    const incomingProjectLeads = Array.isArray(values.projectLead) ? values.projectLead.map(String) : [];
+    const incomingProjectLeads = values.projectLead ? [String(values.projectLead)] : [];
 
     // Ensure memberAccess contains the current user (creator)
     if (!incomingMemberAccess || incomingMemberAccess.length === 0) {

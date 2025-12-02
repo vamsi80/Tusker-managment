@@ -95,8 +95,8 @@ export const projectSchema = z.object({
         .max(15, { message: "Contact Number must be at most 15 character long" }),
     workspaceId: z
         .string().optional(),
-    projectLead: z.array(z.string()).optional(),
-    memberAccess: z.array(z.string()).optional(),
+    projectLead: z.string(),
+    memberAccess: z.array(z.string()),
 });
 
 export const taskSchema = z.object({

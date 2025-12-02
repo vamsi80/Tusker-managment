@@ -13,7 +13,7 @@ export type WorkspaceMemberRow = {
   userId: string;
   workspaceRole: string;
   projectAccess?: { id: string; projectId: string; hasAccess: boolean }[];
-  user?: { id: string; name?: string | null; email?: string | null; image?: string | null };
+  user?: { id: string; name?: string | null; surname?: string | null; email?: string | null; image?: string | null };
 };
 
 export type ProjectRow = {
@@ -76,6 +76,7 @@ export const _fetchWorkspaceMembersAndProjects = cache(
             select: {
               id: true,
               name: true,
+              surname: true,
               email: true,
               image: true,
             },
