@@ -47,14 +47,20 @@ export const columns: ColumnDef<WorkspaceMemberRow>[] = [
         },
     },
     {
+        accessorKey: "user.surname",
+        header: "Surname",
+        cell: ({ row }) => {
+            const user = row.original.user;
+            const surname = user?.surname || " ";
+            return <div>{surname}</div>;
+        },
+    },
+    {
         accessorKey: "workspaceRole",
         header: "Role",
         cell: ({ row }) => {
-            return (
-                <div className="capitalize">
-                    {row.getValue("workspaceRole")?.toString().toLowerCase()}
-                </div>
-            );
+            const workspaceRole = row.original.workspaceRole || " ";
+            return <div>{workspaceRole}</div>;
         },
     },
     {

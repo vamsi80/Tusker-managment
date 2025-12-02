@@ -7,7 +7,7 @@ import { requireUser } from "@/app/data/user/require-user";
 
 interface Props {
     children: React.ReactNode;
-    params:  {workspaceId: string};
+    params: { workspaceId: string };
 }
 
 export default async function WorkSpaceLayout({ children, params }: Props) {
