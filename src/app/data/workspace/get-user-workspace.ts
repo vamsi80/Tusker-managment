@@ -1,5 +1,6 @@
 // src/app/data/workspace/get-user-workspace.ts
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import prisma from "@/lib/db";
 import { NotFoundError } from "../user/errors";
 
@@ -18,90 +19,61 @@ type UserWorkspacesResult = {
 };
 
 /**
- * TTL config
+ * Internal function that does the actual data fetching
  */
-const DEFAULT_TTL_SECONDS = Number(process.env.WORKSPACE_CACHE_TTL ?? 60);
-const CACHE_CLEAN_INTERVAL = 1000 * 60 * 5; // 5 minutes
-
-type CacheEntry = { value: UserWorkspacesResult; expiresAt: number };
-const cacheMap = new Map<string, CacheEntry>();
-
-let cleanupScheduled = false;
-function scheduleCleanup() {
-  if (cleanupScheduled) return;
-  cleanupScheduled = true;
-  setInterval(() => {
-    const now = Date.now();
-    for (const [key, entry] of cacheMap.entries()) {
-      if (entry.expiresAt <= now) cacheMap.delete(key);
-    }
-  }, CACHE_CLEAN_INTERVAL);
-}
-scheduleCleanup();
-
-/**
- * Exported invalidation helper — call this after you modify a user's workspace membership.
- */
-export function invalidateWorkspaceCacheForUser(userId: string) {
-  if (!userId) return;
-  cacheMap.delete(userId);
-}
-
-/**
- * Stable DB fetcher wrapped with react's cache for stable identity across HMR
- */
-export const _fetchUserWorkspaces = cache(
-  async (userId: string): Promise<UserWorkspacesResult | null> => {
-    const data = await prisma.user.findFirst({
-      where: { id: userId },
-      select: {
-        id: true,
-        workspaces: {
-          select: {
-            workspaceId: true,
-            workspaceRole: true,
-            workspace: {
-              select: {
-                id: true,
-                name: true,
-                slug: true,
-              },
+async function _fetchUserWorkspacesInternal(userId: string): Promise<UserWorkspacesResult | null> {
+  const data = await prisma.user.findFirst({
+    where: { id: userId },
+    select: {
+      id: true,
+      workspaces: {
+        select: {
+          workspaceId: true,
+          workspaceRole: true,
+          workspace: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
             },
           },
         },
+        orderBy: {
+          createdAt: "desc",
+        },
       },
-    });
-    return data as UserWorkspacesResult | null;
-  }
-);
+    },
+  });
+  return data as UserWorkspacesResult | null;
+}
 
 /**
+ * Cached version with Next.js unstable_cache (persists across requests)
+ */
+const getCachedUserWorkspaces = (userId: string) =>
+  unstable_cache(
+    async () => _fetchUserWorkspacesInternal(userId),
+    [`user-workspaces-${userId}`],
+    {
+      tags: [`user-workspaces-${userId}`],
+      revalidate: 60 * 60 * 24, // Revalidate every 24 hours
+    }
+  )();
+
+/**
+ * React cache wrapper (deduplicates requests within the same render)
  * Public accessor: always requires a valid sessionUserId (non-empty)
  * Throws NotFoundError if user missing.
  */
-export async function getUserWorkspaces(
-  sessionUserId: string,
-  options?: { ttlSeconds?: number }
-) {
-  const ttlSeconds = options?.ttlSeconds ?? DEFAULT_TTL_SECONDS;
-  const now = Date.now();
+export const getUserWorkspaces = cache(async (sessionUserId: string) => {
+  const result = await getCachedUserWorkspaces(sessionUserId);
 
-  const cached = cacheMap.get(sessionUserId);
-  if (cached && cached.expiresAt > now) {
-    return cached.value;
-  }
-
-  const result = await _fetchUserWorkspaces(sessionUserId);
   if (!result) {
     throw new NotFoundError(`User ${sessionUserId} not found`);
   }
 
-  cacheMap.set(sessionUserId, {
-    value: result,
-    expiresAt: now + ttlSeconds * 1000,
-  });
-
   return result;
-}
+});
 
 export type UserWorkspacesType = Awaited<ReturnType<typeof getUserWorkspaces>>;
+

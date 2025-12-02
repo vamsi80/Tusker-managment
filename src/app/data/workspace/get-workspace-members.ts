@@ -12,8 +12,8 @@ export type WorkspaceMemberRow = {
   workspaceId: string;
   userId: string;
   workspaceRole: string;
-  projectAccess?: { id: string; projectId: string; hasAccess: boolean }[];
-  user?: { id: string; name?: string | null; surname?: string | null; email?: string | null; image?: string | null };
+  projectAccess?: { id: string; projectId: string }[];
+  user?: { id: string; name?: string | null; surname?: string | null; email: string; image?: string | null; contactNumber?: string | null };
 };
 
 export type ProjectRow = {
@@ -77,6 +77,7 @@ export const _fetchWorkspaceMembersAndProjects = cache(
               id: true,
               name: true,
               surname: true,
+              contactNumber: true,
               email: true,
               image: true,
             },
@@ -85,7 +86,6 @@ export const _fetchWorkspaceMembersAndProjects = cache(
             select: {
               id: true,
               projectId: true,
-              hasAccess: true,
             },
           },
         },
@@ -184,13 +184,14 @@ export async function getWorkspacesProjectsByWorkspaceId(
 
   // 3. Filter projects
   //    - If ADMIN, show all
-  //    - Else, show only if projectAccess contains the project with hasAccess=true
+  //    - Else, show only if user has projectAccess entry for that project
   const filteredProjects = result.projects.filter((p) => {
     if (currentMember.workspaceRole === "ADMIN") {
       return true;
     }
+    // Check if user has any projectAccess entry for this project
     const access = currentMember.projectAccess?.find((a) => a.projectId === p.id);
-    return access?.hasAccess === true;
+    return !!access;
   });
 
   return {

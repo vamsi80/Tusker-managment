@@ -1,13 +1,12 @@
-// app/actions/inviteUserTransactional.ts
 "use server";
+
+import { revalidatePath } from "next/cache";
 
 import prisma from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { resend } from "@/lib/resend";
 import { inviteUserSchema, InviteUserSchemaType } from "@/lib/zodSchemas";
 import { ApiResponse } from "@/lib/types";
-import { requireUser } from "@/app/data/user/require-user";
-import { getUserWorkspaces } from "@/app/data/workspace/get-user-workspace";
 import { requireAdmin } from "@/app/data/workspace/requireAdmin";
 
 /**
@@ -22,7 +21,6 @@ export async function inviteUserToWorkspace(
 
     await requireAdmin(values.workspaceId);
 
-    // Validate input
     const parsed = inviteUserSchema.safeParse(values);
     if (!parsed.success) {
         return {
@@ -44,7 +42,6 @@ export async function inviteUserToWorkspace(
     let createdAuthUserId: string | undefined;
 
     try {
-        // 1) Create the auth user in BetterAuth
         const authResult = await auth.api.signUpEmail({
             body: {
                 email,
@@ -68,9 +65,9 @@ export async function inviteUserToWorkspace(
                 create: {
                     id: authUserId,
                     name,
+                    email,
                     surname: niceName ?? null,
                     contactNumber: contactNumber ?? null,
-                    email,
                     emailVerified: false,
                 },
                 update: {
@@ -83,7 +80,6 @@ export async function inviteUserToWorkspace(
 
             prisma.workspaceMember.upsert({
                 where: {
-                    // composite unique: ensure this exists in your prisma schema
                     userId_workspaceId: {
                         userId: authUserId,
                         workspaceId,
@@ -100,12 +96,11 @@ export async function inviteUserToWorkspace(
             }),
         ]);
 
-        // 3) Send invitation email after DB success
         const verificationLink = `${process.env.BETTER_AUTH_URL}/sign-in?workspaceId=${encodeURIComponent(
             workspaceId
         )}&role=${encodeURIComponent(role)}&email=${encodeURIComponent(email)}`;
 
-        console.log("Verification link:", verificationLink); // for debugging
+        console.log("Verification link:", verificationLink);
 
         await resend.emails.send({
             from: "onboarding@yourdomain.com",
@@ -118,6 +113,13 @@ export async function inviteUserToWorkspace(
         <p><a href="${verificationLink}">Join Workspace</a></p>
       `,
         });
+
+        // Invalidate caches
+        revalidatePath(`/w/${workspaceId}/team`);
+
+        // Invalidate the new user's workspace cache
+        const { invalidateUserWorkspaces } = await import("@/app/data/user/invalidate-project-cache");
+        await invalidateUserWorkspaces(authUserId);
 
         return {
             status: "success",

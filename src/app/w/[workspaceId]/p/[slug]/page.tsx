@@ -1,27 +1,26 @@
-// app/(...)/[workspaceId]/projects/[slug]/page.tsx  (or wherever)
 import Link from "next/link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getWorkspacesProjectsByWorkspaceId } from "@/app/data/workspace/get-workspace-members";
 import { ProjectTaskTab } from "../_components/project-Task-Tab";
+import { getUserProjects } from "@/app/data/user/get-user-projects";
 
 interface ProjectPageProps {
   params: { workspaceId: string; slug: string };
 }
 
 const ProjectPage = async ({ params }: ProjectPageProps) => {
-  const { workspaceId, slug } = await params; // no need to await params
+  const { workspaceId, slug } = await params;
 
-  // fetch projects for the workspace (or better: fetch single project by slug)
-  const { projects } = await getWorkspacesProjectsByWorkspaceId(workspaceId);
+  const userProjects = await getUserProjects(workspaceId);
 
-  // find by slug (or if your slug is the id use p.id === slug)
-  const project = projects?.find((p) => p.slug === slug || p.id === slug);
+  const project = userProjects.find((p) => p.slug === slug || p.id === slug);
 
   if (!project) {
     return (
       <div className="p-6">
-        <h1 className="text-2xl font-semibold">Project not found</h1>
-        <p className="text-muted-foreground">Project with slug "{slug}" not found in this workspace.</p>
+        <h1 className="text-2xl font-semibold">Access Denied</h1>
+        <p className="text-muted-foreground">
+          You don't have permission to access this project or it doesn't exist.
+        </p>
       </div>
     );
   }

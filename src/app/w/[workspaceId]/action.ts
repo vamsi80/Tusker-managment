@@ -174,6 +174,10 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
       }),
     ]);
 
+    // Invalidate project cache for all users in the workspace
+    const { invalidateWorkspaceProjects } = await import("@/app/data/user/invalidate-project-cache");
+    await invalidateWorkspaceProjects(values.workspaceId);
+
     return {
       status: "success",
       message: "Project created successfully! You can now start adding tasks.",
