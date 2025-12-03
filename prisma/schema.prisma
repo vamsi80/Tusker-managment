@@ -130,9 +130,9 @@ model Project {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  clint         Clints[]
-  projectAccess ProjectMember[]
-  tasks         Task[]
+  clint          Clints[]
+  projectMembers ProjectMember[]
+  tasks          Task[]
 
   @@index([workspaceId])
 }

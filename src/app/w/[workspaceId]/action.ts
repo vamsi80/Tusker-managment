@@ -114,7 +114,7 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
     // Build lead set for quick membership test
     const leadUserSet = new Set(uniqueProjectLeads);
 
-    const mergedProjectAccessCreates = uniqueMemberAccess
+    const mergedprojectMembersCreates = uniqueMemberAccess
       .map((userId) => {
         const wmId = workspaceMemberMap.get(String(userId));
         if (!wmId) {
@@ -137,7 +137,7 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
         { workspaceMember: { connect: { id: string } }; hasAccess: boolean; projectRole?: ProjectRole }
       >;
 
-    if (mergedProjectAccessCreates.length === 0) {
+    if (mergedprojectMembersCreates.length === 0) {
       return {
         status: "error",
         message: "We couldn't find the selected members in this workspace.",
@@ -152,8 +152,8 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
           description: validation.data.description,
           slug: validation.data.slug,
           workspaceId: values.workspaceId,
-          projectAccess: {
-            create: mergedProjectAccessCreates,
+          projectMembers: {
+            create: mergedprojectMembersCreates,
           },
           clint: {
             create: {

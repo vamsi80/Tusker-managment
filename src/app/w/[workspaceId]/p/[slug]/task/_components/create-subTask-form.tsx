@@ -163,15 +163,15 @@ export const CreateSubTaskForm = ({ members, workspaceId, projectId, parentTaskI
                                                 <div
                                                     key={tag.value}
                                                     className={cn(
-                                                        "flex flex-row items-center gap-2 cursor-pointer px-3 py-2 rounded-lg border-2 transition-all",
+                                                        "flex flex-row items-center gap-2 cursor-pointer px-3 py-1 rounded-full border-2 transition-all",
                                                         field.value === tag.value
                                                             ? "border-primary bg-primary/10"
                                                             : "border-muted hover:border-primary/50"
                                                     )}
                                                     onClick={() => field.onChange(tag.value)}
                                                 >
-                                                    <tag.icon className="size-4" />
-                                                    <span className="text-sm font-medium">{tag.label}</span>
+                                                    <tag.icon className="size-3" />
+                                                    <span className="text-xs font-normal">{tag.label}</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -239,7 +239,10 @@ export const CreateSubTaskForm = ({ members, workspaceId, projectId, parentTaskI
                                                         <CommandList>
                                                             <CommandEmpty>No members found.</CommandEmpty>
                                                             <CommandGroup>
-                                                                {members?.map((member) => {
+                                                                {members?.filter((member) => {
+                                                                    const role = member.workspaceMember.workspaceRole;
+                                                                    return role !== "VIEWER" && role !== "ADMIN";
+                                                                }).map((member) => {
                                                                     const user = member.workspaceMember.user;
                                                                     const userName = `${user.name} ${user.surname || ''}`;
                                                                     const userId = user.id;

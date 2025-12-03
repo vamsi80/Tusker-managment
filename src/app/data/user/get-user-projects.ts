@@ -18,7 +18,7 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
         select: {
             id: true,
             workspaceRole: true,
-            projectAccess: {
+            projectMembers: {
                 select: {
                     project: {
                         select: {
@@ -55,7 +55,7 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
     }
 
     // Otherwise, return only projects they have access to
-    return workspaceMember.projectAccess.map((access) => access.project);
+    return workspaceMember.projectMembers.map((access) => access.project);
 }
 
 // Cached version with Next.js unstable_cache (persists across requests)

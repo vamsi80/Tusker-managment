@@ -13,7 +13,7 @@ export type WorkspaceMemberRow = {
   workspaceId: string;
   userId: string;
   workspaceRole: string;
-  projectAccess?: { id: string; projectId: string }[];
+  projectMembers?: { id: string; projectId: string }[];
   user?: {
     id: string;
     name?: string | null;
@@ -45,7 +45,7 @@ async function _fetchWorkspaceMembersInternal(workspaceId: string): Promise<Work
           image: true,
         },
       },
-      projectAccess: {
+      projectMembers: {
         select: {
           id: true,
           projectId: true,
@@ -60,7 +60,7 @@ async function _fetchWorkspaceMembersInternal(workspaceId: string): Promise<Work
     workspaceId: m.workspaceId,
     userId: m.userId,
     workspaceRole: m.workspaceRole,
-    projectAccess: m.projectAccess ?? [],
+    projectMembers: m.projectMembers ?? [],
     user: m.user ?? undefined,
   }));
 
