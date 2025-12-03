@@ -1,7 +1,6 @@
 
 import { CreateTaskForm } from "./_components/create-task-form"
 import { getUserProjects } from "@/app/data/user/get-user-projects"
-import { DataTable } from "./_components/data-table";
 import { getProjectTasks } from "@/app/data/task/get-project-tasks";
 import { getProjectMembers } from "@/app/data/project/get-project-members";
 import { getUserPermissions } from "@/app/data/user/get-user-permissions";
@@ -32,11 +31,6 @@ export default async function ProjectTask({ params }: iAppProps) {
     const projectMembers = await getProjectMembers(project.id);
     const userPermissions = await getUserPermissions(workspaceId, project.id);
 
-    // Format data for DataTable (wrapping in array with project structure)
-    const tableData = [{
-        ...project,
-        tasks: tasks
-    }];
 
     return (
         <>
@@ -45,14 +39,6 @@ export default async function ProjectTask({ params }: iAppProps) {
                 <CreateTaskForm projectId={project.id} />
             </div>
             <div>
-                {/* <DataTable
-                    data={tableData as any}
-                    members={projectMembers}
-                    workspaceId={workspaceId}
-                    projectId={project.id}
-                    canCreateSubTask={userPermissions.canCreateSubTask}
-                /> */}
-
                 <TaskData
                     tasks={tasks}
                     members={projectMembers}
