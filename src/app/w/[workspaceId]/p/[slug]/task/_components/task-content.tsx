@@ -1,9 +1,10 @@
 import { getUserProjects, UserProjectsType } from "@/app/data/user/get-user-projects";
-import { getProjectTasks } from "@/app/data/task/get-project-tasks";
+import { Suspense } from "react";
 import { getProjectMembers } from "@/app/data/project/get-project-members";
 import { getUserPermissions } from "@/app/data/user/get-user-permissions";
-import { CreateTaskForm } from "./create-task-form";
-import { TaskData } from "./taskData";
+import { CreateTaskForm } from "./forms/create-task-form";
+import { TaskTableSkeleton } from "./task-page-skeleton";
+import { TaskTableContainer } from "./task-table-container";
 
 interface TaskContentProps {
     workspaceId: string;
@@ -25,9 +26,8 @@ export async function TaskContent({ workspaceId, slug }: TaskContentProps) {
         );
     }
 
-    // Fetch all data in parallel for better performance
-    const [tasks, projectMembers, userPermissions] = await Promise.all([
-        getProjectTasks(project.id),
+    // Fetch members and permissions in parallel
+    const [projectMembers, userPermissions] = await Promise.all([
         getProjectMembers(project.id),
         getUserPermissions(workspaceId, project.id),
     ]);
@@ -39,13 +39,14 @@ export async function TaskContent({ workspaceId, slug }: TaskContentProps) {
                 <CreateTaskForm projectId={project.id} />
             </div>
             <div>
-                <TaskData
-                    initialTasksData={tasks}
-                    members={projectMembers}
-                    workspaceId={workspaceId}
-                    projectId={project.id}
-                    canCreateSubTask={userPermissions.canCreateSubTask}
-                />
+                <Suspense fallback={<TaskTableSkeleton />}>
+                    <TaskTableContainer
+                        workspaceId={workspaceId}
+                        projectId={project.id}
+                        members={projectMembers}
+                        canCreateSubTask={userPermissions.canCreateSubTask}
+                    />
+                </Suspense>
             </div>
         </>
     );

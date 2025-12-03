@@ -1,0 +1,124 @@
+"use client";
+
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { TableCell, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Loader2, ChevronsDown } from "lucide-react";
+import { ProjectMembersType } from "@/app/data/project/get-project-members";
+import { CreateSubTaskForm } from "../forms/create-subTask-form";
+import { SubTaskRow } from "./subtask-row";
+import { ColumnVisibility } from "./task-table-toolbar";
+import { TaskWithSubTasks } from "./types";
+
+interface SubTaskListProps {
+    task: TaskWithSubTasks;
+    members: ProjectMembersType;
+    workspaceId: string;
+    projectId: string;
+    canCreateSubTask: boolean;
+    columnVisibility: ColumnVisibility;
+    isLoading: boolean;
+    isLoadingMore: boolean;
+    onLoadMore: () => void;
+}
+
+export function SubTaskList({
+    task,
+    members,
+    workspaceId,
+    projectId,
+    canCreateSubTask,
+    columnVisibility,
+    isLoading,
+    isLoadingMore,
+    onLoadMore,
+}: SubTaskListProps) {
+    const visibleColumnsCount = 2 + Object.values(columnVisibility).filter(Boolean).length + 1;
+
+    if (isLoading) {
+        return (
+            <TableRow className="bg-muted/10">
+                <TableCell colSpan={visibleColumnsCount} className="p-4">
+                    <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="text-sm text-muted-foreground">Loading subtasks...</span>
+                    </div>
+                </TableCell>
+            </TableRow>
+        );
+    }
+
+    if (!task.subTasks || task.subTasks.length === 0) {
+        return (
+            <TableRow className="bg-muted/30 hover:bg-muted/30">
+                <TableCell colSpan={visibleColumnsCount} className="p-2 pl-12">
+                    {canCreateSubTask && (
+                        <CreateSubTaskForm
+                            members={members}
+                            workspaceId={workspaceId}
+                            projectId={projectId}
+                            parentTaskId={task.id}
+                        />
+                    )}
+                </TableCell>
+            </TableRow>
+        );
+    }
+
+    return (
+        <>
+            <SortableContext
+                items={task.subTasks.map((sub) => sub.id)}
+                strategy={verticalListSortingStrategy}
+            >
+                {task.subTasks.map((subTask) => (
+                    <SubTaskRow
+                        key={subTask.id}
+                        subTask={subTask}
+                        columnVisibility={columnVisibility}
+                    />
+                ))}
+            </SortableContext>
+
+            {/* Load More Subtasks Button */}
+            {task.subTasksHasMore && (
+                <TableRow className="bg-muted/10">
+                    <TableCell colSpan={visibleColumnsCount} className="p-2 pl-12">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={onLoadMore}
+                            disabled={isLoadingMore}
+                            className="w-full"
+                        >
+                            {isLoadingMore ? (
+                                <>
+                                    <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                                    Loading more subtasks...
+                                </>
+                            ) : (
+                                <>
+                                    <ChevronsDown className="mr-2 h-3 w-3" />
+                                    Load More Subtasks
+                                </>
+                            )}
+                        </Button>
+                    </TableCell>
+                </TableRow>
+            )}
+
+            <TableRow className="bg-muted/30 hover:bg-muted/30">
+                <TableCell colSpan={visibleColumnsCount} className="p-2 pl-12">
+                    {canCreateSubTask && (
+                        <CreateSubTaskForm
+                            members={members}
+                            workspaceId={workspaceId}
+                            projectId={projectId}
+                            parentTaskId={task.id}
+                        />
+                    )}
+                </TableCell>
+            </TableRow>
+        </>
+    );
+}

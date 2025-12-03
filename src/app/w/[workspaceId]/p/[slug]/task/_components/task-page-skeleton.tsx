@@ -20,7 +20,7 @@ export function TaskTableSkeleton() {
             </div>
 
             {/* Table skeleton */}
-            <div className="rounded-md border">
+            <div className="rounded-md border mt-4">
                 <div className="p-4 space-y-3">
                     {/* Table header */}
                     <div className="flex items-center gap-4 pb-3 border-b">

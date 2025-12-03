@@ -13,7 +13,7 @@ import { tryCatch } from "@/hooks/try-catch";
 import { useConfetti } from "@/hooks/use-confetti";
 import { toast } from "sonner";
 import slugify from "slugify";
-import { createTask } from "../action";
+import { createTask } from "../../action";
 
 interface iAppProps {
     projectId: string
