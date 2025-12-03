@@ -25,11 +25,11 @@ export async function createWorkSpace(values: WorkSpaceSchemaType): Promise<ApiR
             data: {
                 ...validation.data,
                 ownerId: user.id,
-                inviteCode:generateInviteCode(),
-                members:{
-                    create:{
+                inviteCode: generateInviteCode(),
+                members: {
+                    create: {
                         userId: user.id,
-                        accessLevel: "ADMIN",
+                        workspaceRole: "ADMIN",
                     }
                 }
             },
@@ -49,13 +49,13 @@ export async function createWorkSpace(values: WorkSpaceSchemaType): Promise<ApiR
 }
 
 export async function getUserWorkspaces() {
-  const userWorkspace = await getUserWorkspaces();
+    const userWorkspace = await getUserWorkspaces();
 
-  if(!userWorkspace) {
-    return {
-      status: "error",
-      message: "You don't have any workspace.",
-      workspaces: [],
-    };
-  }
+    if (!userWorkspace) {
+        return {
+            status: "error",
+            message: "You don't have any workspace.",
+            workspaces: [],
+        };
+    }
 }

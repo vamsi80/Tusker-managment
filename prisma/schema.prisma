@@ -199,6 +199,9 @@ model Task {
   status       TaskStatus? @default(TO_DO)
   position     Int?
   parentTaskId String?
+  dueDate      DateTime?
+
+  tag TaskTag?
 
   assigneeTo String?
   assignee   ProjectMember? @relation(fields: [assigneeTo], references: [id], onDelete: Cascade)
@@ -227,4 +230,10 @@ enum TaskStatus {
   BLOCKED
   REVIEW
   COMPLETED
+}
+
+enum TaskTag {
+  DESIGN
+  PROCUREMENT
+  CONTRACTOR
 }

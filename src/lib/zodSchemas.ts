@@ -1,9 +1,9 @@
 
 import { z } from 'zod'
 
-export const SubTaskStatus = ["TO_DO", "IN_PROGRESS", "BLOCKED", "REVIEW", "DONE"] as const
+export const SubTaskStatus = ["TO_DO", "IN_PROGRESS", "BLOCKED", "REVIEW", "COMPLETED"] as const
 
-export const SubTaskPriority = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const
+export const TaskTag = ["DESIGN", "PROCUREMENT", "CONTRACTOR"] as const
 
 export const workspaceMemberRole = ["ADMIN", "MEMBER", "VIEWER"] as const
 
@@ -116,16 +116,16 @@ export const subTaskSchema = z.object({
         .string()
         .min(3, { message: "Title must be at least 3 charcters long" })
         .max(100, { message: "Title must be at most 100 character long" }),
-    projectId: z.string().uuid({ message: "Invalid project id" }),
-    taskId: z.string().uuid({ message: "Invalid task id" }),
     description: z
         .string()
         .min(3, { message: "description must be at least 3 charcters long" })
         .optional(),
+    taskSlug: z
+        .string()
+        .min(3, { message: "Title must be at least 3 charcters long" })
+        .max(100, { message: "Title must be at most 100 character long" }),
     status: z
         .enum(SubTaskStatus, { message: "status is Required" }),
-    priority: z
-        .enum(SubTaskPriority, { message: "priority is Required" }),
     assignee: z
         .string()
         .min(3, { message: "At least task should assign to one person" })
@@ -134,10 +134,10 @@ export const subTaskSchema = z.object({
         .string()
         .min(3, { message: "Due date should select" })
         .optional(),
-    startDate: z
-        .string()
-        .min(3, { message: "Start date should select" })
-        .optional(),
+    tag: z
+        .enum(TaskTag, { message: "Tag is Required" }),
+    projectId: z.string().uuid({ message: "Invalid project id" }),
+    parentTaskId: z.string().uuid({ message: "Invalid parent task id" }),
 });
 
 export type InviteUserSchemaType = z.infer<typeof inviteUserSchema>;

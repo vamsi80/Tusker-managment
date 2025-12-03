@@ -65,7 +65,7 @@ const getCachedUserProjects = (userId: string, workspaceId: string) =>
         [`user-projects-${userId}-${workspaceId}`],
         {
             tags: [`user-projects-${userId}`, `workspace-projects-${workspaceId}`],
-            revalidate: 60 * 60 * 24, // Revalidate every 24 hours
+            revalidate: 60, // Disable cache for now to reflect DB changes immediately
         }
     )();
 

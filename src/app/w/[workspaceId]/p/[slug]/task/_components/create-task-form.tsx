@@ -20,12 +20,9 @@ interface iAppProps {
 }
 
 export const CreateTaskForm = ({ projectId }: iAppProps) => {
-    const [pending, startTransition] = useTransition();
+    const [Pending, startTransition] = useTransition();
     const { triggerConfetti } = useConfetti();
     const [open, setOpen] = useState(false);
-
-    // this state reflects the actual network request lifecycle (unlike `pending`)
-    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const form = useForm<TaskSchemaType>({
         resolver: zodResolver(taskSchema) as unknown as Resolver<TaskSchemaType>,
@@ -35,43 +32,27 @@ export const CreateTaskForm = ({ projectId }: iAppProps) => {
             projectId: projectId,
         },
     })
-
-    console.log("pending", pending);
-    console.log("isSubmitting", isSubmitting);
-
-    async function onSubmit(values: TaskSchemaType) {
-        // set the real "network" submitting flag
-        setIsSubmitting(true);
-
-        // keep your startTransition wrapper (it marks state updates as low-priority)
+    function onSubmit(values: TaskSchemaType) {
         startTransition(async () => {
-            try {
-                // If your tryCatch expects a function, pass a function; otherwise this awaits the promise result.
-                const { data: result, error } = await tryCatch(createTask(values));
+            const { data: result, error } = await tryCatch(createTask(values));
 
-                if (error) {
-                    toast.error(error.message ?? "Something went wrong");
-                    console.error(error);
-                    return;
-                }
-
-                if (result?.status === "success") {
-                    toast.success(result.message ?? "Task created");
-                    triggerConfetti();
-                    form.reset();
-                    setOpen(false);
-                } else {
-                    toast.error(result?.message ?? "Failed to create task");
-                }
-            } catch (err) {
-                console.error("createTask error:", err);
-                toast.error((err as Error)?.message ?? "Unexpected error");
-            } finally {
-                // unset the real submitting flag
-                setIsSubmitting(false);
+            if (error) {
+                toast.error(error.message);
+                console.error(error);
+                return;
             }
+
+            if (result.status === "success") {
+                toast.success(result.message);
+                triggerConfetti();
+                form.reset();
+                setOpen(false);
+            } else (
+                toast.error(result.message)
+            )
         });
     }
+
 
     return (
         <>
@@ -90,7 +71,7 @@ export const CreateTaskForm = ({ projectId }: iAppProps) => {
                     <div className="mt-4">
                         <Form {...form}>
                             <form
-                                onSubmit={form.handleSubmit(onSubmit)}
+                                onSubmit={form.handleSubmit(onSubmit, (errors) => console.log("Validation Errors:", errors))}
                                 className="space-y-5"
                             >
                                 <FormField
@@ -130,10 +111,10 @@ export const CreateTaskForm = ({ projectId }: iAppProps) => {
                                     </Button>
                                 </div>
 
-                                <div className="flex flex-row items-center gap-4 cursor-pointer">
-                                    <Button type="submit" disabled={isSubmitting || pending}>
+                                <div className="flex flex-row items-center gap-4">
+                                    <Button type="submit" disabled={Pending} className="cursor-pointer">
                                         {
-                                            (isSubmitting || pending) ? (
+                                            Pending ? (
                                                 <>
                                                     Creating...
                                                     <Loader2 className="ml-1 h-4 w-4 animate-spin" />

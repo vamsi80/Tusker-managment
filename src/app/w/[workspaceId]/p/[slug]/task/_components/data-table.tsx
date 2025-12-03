@@ -20,16 +20,26 @@ import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, Dr
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, } from "@/components/ui/dropdown-menu"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, } from "@/components/ui/table"
 import { Tabs, TabsContent, } from "@/components/ui/tabs"
-import { ProjectDetailsType } from "@/app/data/project/getProjectDetails"
 import { Checkbox } from "@/components/ui/checkbox"
+import { CreateSubTaskForm } from "./create-subTask-form"
+import { ProjectMembersType } from "@/app/data/project/get-project-members"
+import { UserProjectsType } from "@/app/data/user/get-user-projects"
+import { ProjectTaskType } from "@/app/data/task/get-project-tasks"
+
+type ProjectWithTasks = UserProjectsType[number] & { tasks: ProjectTaskType }
 
 interface iAppProps {
-  data: ProjectDetailsType
+  data: ProjectWithTasks[]
+  members: ProjectMembersType
+  workspaceId: string
+  projectId: string
+  canCreateSubTask: boolean
 }
 
 // Schema & types
 export const schema = z.object({
   id: z.number(),
+  originalTaskId: z.string().optional(), // Store the actual database ID
   name: z.string(),
   subRows: z
     .array(
@@ -37,7 +47,7 @@ export const schema = z.object({
         id: z.number(),
         name: z.string(),
         assignee: z.string(),
-        priority: z.string(),
+        tag: z.string(),
         status: z.string(),
         dueDate: z.string(),
         startDate: z.string(),
@@ -80,7 +90,7 @@ function SubDragHandle({ id }: { id: number }) {
   )
 }
 
-export function DataTable({ data }: iAppProps) {
+export function DataTable({ data, members, workspaceId, projectId, canCreateSubTask }: iAppProps) {
   // 'data' here is AdminGetTasks (from your getTasksProjectId)
   // Map server task shape -> RowType[]
   // Note: `data` is an array of projects; we access the first project below in initialRows.
@@ -109,17 +119,27 @@ export function DataTable({ data }: iAppProps) {
     const project = data[0]
     return (project.tasks ?? []).map((t, tIdx) => ({
       id: numericId(t.id, tIdx),
+      originalTaskId: t.id, // Store the actual database ID
       name: String(t.name ?? "Untitled Task"),
       subRows:
-        (t.subTasks ?? []).map((s, sIdx) => ({
-          id: numericId((s as any).id ?? `${t.id}-sub-${sIdx}`, sIdx),
-          name: String(s.name ?? s.description ?? "Untitled Subtask"),
-          assignee: (s as any).assignee ? String((s as any).assignee) : "Unassigned",
-          priority: String((s as any).priority ?? "Medium"),
-          status: String((s as any).status ?? "Not Started"),
-          dueDate: s?.dueDate ? new Date(s.dueDate as any).toISOString().slice(0, 10) : "",
-          startDate: s?.createdAt ? new Date(s.createdAt as any).toISOString().slice(0, 10) : "",
-        })) || [],
+        (t.subTasks ?? []).map((s, sIdx) => {
+          // Extract assignee name from nested structure
+          let assigneeName = "Unassigned";
+          if ((s as any).assignee?.workspaceMember?.user) {
+            const user = (s as any).assignee.workspaceMember.user;
+            assigneeName = `${user.name} ${user.surname || ''}`.trim();
+          }
+
+          return {
+            id: numericId((s as any).id ?? `${t.id}-sub-${sIdx}`, sIdx),
+            name: String(s.name ?? s.description ?? "Untitled Subtask"),
+            assignee: assigneeName,
+            tag: String((s as any).tag ?? "CONTRACTOR"),
+            status: String((s as any).status ?? "TO_DO"),
+            dueDate: (s as any).dueDate ? new Date((s as any).dueDate).toISOString().slice(0, 10) : "",
+            startDate: (s as any).createdAt ? new Date((s as any).createdAt).toISOString().slice(0, 10) : "",
+          };
+        }) || [],
     }))
   }, [data])
 
@@ -153,6 +173,7 @@ export function DataTable({ data }: iAppProps) {
                 status: "Not Started",
                 dueDate: "",
                 startDate: "",
+                tag: "",
               },
             ],
           }
@@ -232,24 +253,21 @@ export function DataTable({ data }: iAppProps) {
         cell: ({ row }) => {
           const subs = (row.original as any).subRows as (RowType | any)[] | undefined
           if (subs && subs.length) {
-            // parent row: preview first subtask assignee and indicate extra count
-            const first = subs[0].assignee ?? "Unassigned"
-            return <div className="truncate">{first}{subs.length > 1 ? ` +${subs.length - 1}` : ""}</div>
+            const uniqueAssignees = new Set(subs.map((s: any) => s.assignee).filter((a: string) => a !== "Unassigned"));
+            return <div>{uniqueAssignees.size} People</div>
           }
-          // sub-row: row.original.assignee will exist
           return <div>{(row.original as any).assignee ?? "Unassigned"}</div>
         },
       },
       {
-        accessorKey: "priority",
-        header: "Priority",
+        accessorKey: "tag",
+        header: "Tag",
         cell: ({ row }) => {
           const subs = (row.original as any).subRows as (RowType | any)[] | undefined
           if (subs && subs.length) {
-            const first = subs[0].priority ?? "Medium"
-            return <div className="truncate">{first}{subs.length > 1 ? ` +${subs.length - 1}` : ""}</div>
+            return <div>—</div>
           }
-          return <div>{(row.original as any).priority ?? "—"}</div>
+          return <div>{(row.original as any).tag ?? "—"}</div>
         },
       },
       {
@@ -258,6 +276,11 @@ export function DataTable({ data }: iAppProps) {
         cell: ({ row }) => {
           const subs = (row.original as any).subRows as (RowType | any)[] | undefined
           if (subs && subs.length) {
+            // Check if all subtasks are done? Or just show summary?
+            // For now keeping existing behavior of showing first + count, or maybe "In Progress" if mixed?
+            // User said "update the parent task" - let's try to be smart.
+            // If any is "IN_PROGRESS", show "In Progress". If all "DONE", show "Done".
+            // But status strings might vary. Let's stick to simple summary for now to avoid breaking.
             const first = subs[0].status ?? "Not Started"
             return <div className="truncate">{first}{subs.length > 1 ? ` +${subs.length - 1}` : ""}</div>
           }
@@ -373,11 +396,16 @@ export function DataTable({ data }: iAppProps) {
               <TableCell colSpan={table.getVisibleLeafColumns().length}>
                 <div className="flex items-center justify-between gap-4">
                   <div className="text-sm text-muted-foreground">{(parent.subRows || []).length} sub-row{(parent.subRows || []).length !== 1 && "s"}</div>
-                  <div className="flex items-center gap-2">
-                    <Button size="sm" onClick={() => addSubRow(parent.id)}>
-                      <IconPlus /> Create Sub-Task
-                    </Button>
-                  </div>
+                  {canCreateSubTask && parent.originalTaskId && (
+                    <div className="flex items-center gap-2">
+                      <CreateSubTaskForm
+                        members={members}
+                        workspaceId={workspaceId}
+                        projectId={projectId}
+                        parentTaskId={parent.originalTaskId}
+                      />
+                    </div>
+                  )}
                 </div>
               </TableCell>
             </TableRow>
@@ -422,11 +450,11 @@ export function DataTable({ data }: iAppProps) {
         case "name":
           return <div className="truncate">{sub.name}</div>
         case "assignee":
-          return <div>{sub.assignee}</div>
-        case "priority":
-          return <div>{sub.priority}</div>
+          return <div>{sub.subRows?.length}</div>
+        case "tag":
+          return <div>{sub.subRows?.length}</div>
         case "status":
-          return <div>{sub.status}</div>
+          return <div>{sub.subRows?.length}</div>
         case "dueDate":
           return <div className="text-center">{(sub as any).dueDate}</div>
         case "startDate":
