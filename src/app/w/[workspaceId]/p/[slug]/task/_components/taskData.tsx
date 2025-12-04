@@ -265,7 +265,6 @@ export function TaskData({
                                     <TaskRow
                                         task={task}
                                         isExpanded={!!expanded[task.id]}
-                                        isLoading={!!loadingSubTasks[task.id]}
                                         onToggleExpand={() => toggleExpand(task.id)}
                                         columnVisibility={columnVisibility}
                                     />

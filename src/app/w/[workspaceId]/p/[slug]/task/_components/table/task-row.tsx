@@ -10,14 +10,13 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChevronDown, ChevronRight, MoreHorizontal, Calendar, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronRight, MoreHorizontal, Calendar } from "lucide-react";
 import { ColumnVisibility } from "./task-table-toolbar";
 import { TaskWithSubTasks } from "./types";
 
 interface TaskRowProps {
     task: TaskWithSubTasks;
     isExpanded: boolean;
-    isLoading: boolean;
     onToggleExpand: () => void;
     columnVisibility: ColumnVisibility;
 }
@@ -25,7 +24,6 @@ interface TaskRowProps {
 export function TaskRow({
     task,
     isExpanded,
-    isLoading,
     onToggleExpand,
     columnVisibility,
 }: TaskRowProps) {
@@ -47,11 +45,8 @@ export function TaskRow({
                     size="icon"
                     className="h-8 w-8"
                     onClick={onToggleExpand}
-                    disabled={isLoading}
                 >
-                    {isLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : isExpanded ? (
+                    {isExpanded ? (
                         <ChevronDown className="h-4 w-4" />
                     ) : (
                         <ChevronRight className="h-4 w-4" />

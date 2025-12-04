@@ -9,6 +9,7 @@ import { CreateSubTaskForm } from "../forms/create-subTask-form";
 import { SubTaskRow } from "./subtask-row";
 import { ColumnVisibility } from "./task-table-toolbar";
 import { TaskWithSubTasks } from "./types";
+import { SubTaskSkeleton } from "./subtask-skeleton";
 
 interface SubTaskListProps {
     task: TaskWithSubTasks;
@@ -37,14 +38,7 @@ export function SubTaskList({
 
     if (isLoading) {
         return (
-            <TableRow className="bg-muted/10">
-                <TableCell colSpan={visibleColumnsCount} className="p-4">
-                    <div className="flex items-center justify-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span className="text-sm text-muted-foreground">Loading subtasks...</span>
-                    </div>
-                </TableCell>
-            </TableRow>
+            <SubTaskSkeleton columnVisibility={columnVisibility} />
         );
     }
 
