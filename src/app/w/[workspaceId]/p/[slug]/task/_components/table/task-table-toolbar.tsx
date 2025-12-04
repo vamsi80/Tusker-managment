@@ -15,8 +15,9 @@ import { Filter, Settings2, X } from "lucide-react";
 
 export type ColumnVisibility = {
     assignee: boolean;
-    dueDate: boolean;
+    startDate: boolean;
     tag: boolean;
+    description: boolean;
 };
 
 interface TaskTableToolbarProps {
@@ -97,16 +98,22 @@ export function TaskTableToolbar({
                     <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuCheckboxItem
+                        checked={columnVisibility.description}
+                        onCheckedChange={() => toggleColumn("description")}
+                    >
+                        Description
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem
                         checked={columnVisibility.assignee}
                         onCheckedChange={() => toggleColumn("assignee")}
                     >
                         Assignee
                     </DropdownMenuCheckboxItem>
                     <DropdownMenuCheckboxItem
-                        checked={columnVisibility.dueDate}
-                        onCheckedChange={() => toggleColumn("dueDate")}
+                        checked={columnVisibility.startDate}
+                        onCheckedChange={() => toggleColumn("startDate")}
                     >
-                        Due Date
+                        Start Date
                     </DropdownMenuCheckboxItem>
                     <DropdownMenuCheckboxItem
                         checked={columnVisibility.tag}

@@ -1,6 +1,5 @@
 "use client";
 
-import { CSS } from "@dnd-kit/utilities";
 import { useSortable } from "@dnd-kit/sortable";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -18,9 +17,10 @@ import { ColumnVisibility } from "./task-table-toolbar";
 interface SubTaskRowProps {
     subTask: SubTaskType[number];
     columnVisibility: ColumnVisibility;
+    onClick?: (subTask: SubTaskType[number]) => void;
 }
 
-export function SubTaskRow({ subTask, columnVisibility }: SubTaskRowProps) {
+export function SubTaskRow({ subTask, columnVisibility, onClick }: SubTaskRowProps) {
     const {
         attributes,
         listeners,
@@ -46,7 +46,8 @@ export function SubTaskRow({ subTask, columnVisibility }: SubTaskRowProps) {
         <TableRow
             ref={setNodeRef}
             style={style}
-            className="bg-muted/10 hover:bg-muted/20"
+            className="bg-muted/10 hover:bg-muted/20 cursor-pointer"
+            onClick={() => onClick && onClick(subTask)}
         >
             <TableCell className="pl-4">
                 <Button
@@ -55,6 +56,7 @@ export function SubTaskRow({ subTask, columnVisibility }: SubTaskRowProps) {
                     className="h-6 w-6 cursor-grab active:cursor-grabbing"
                     {...attributes}
                     {...listeners}
+                    onClick={(e) => e.stopPropagation()}
                 >
                     <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
                 </Button>
@@ -65,6 +67,17 @@ export function SubTaskRow({ subTask, columnVisibility }: SubTaskRowProps) {
                     <span className="text-sm">{subTask.name}</span>
                 </div>
             </TableCell>
+            {columnVisibility.description && (
+                <TableCell>
+                    <span
+                        className="truncate text-muted-foreground text-sm max-w-[200px] block"
+                        title={(subTask as any).description}
+                    >
+                        {(subTask as any).description || "-"}
+                    </span>
+                </TableCell>
+            )}
+
             {columnVisibility.assignee && (
                 <TableCell>
                     {assignee ? (
@@ -74,7 +87,7 @@ export function SubTaskRow({ subTask, columnVisibility }: SubTaskRowProps) {
                                 <AvatarFallback className="text-[10px]">{assignee.name?.[0]}</AvatarFallback>
                             </Avatar>
                             <span className="text-xs text-muted-foreground">
-                                {assignee.name}
+                                {assignee.surname}
                             </span>
                         </div>
                     ) : (
@@ -82,12 +95,12 @@ export function SubTaskRow({ subTask, columnVisibility }: SubTaskRowProps) {
                     )}
                 </TableCell>
             )}
-            {columnVisibility.dueDate && (
+            {columnVisibility.startDate && (
                 <TableCell>
-                    {subTask.dueDate ? (
+                    {subTask.startDate ? (
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <Calendar className="h-3 w-3" />
-                            {new Date(subTask.dueDate).toLocaleDateString('en-GB')}
+                            {new Date(subTask.startDate).toLocaleDateString('en-GB')}
                         </div>
                     ) : (
                         <span className="text-muted-foreground text-xs">-</span>

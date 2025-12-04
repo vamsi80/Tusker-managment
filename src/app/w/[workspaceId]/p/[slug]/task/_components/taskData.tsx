@@ -52,8 +52,9 @@ export function TaskData({
     const [tagFilter, setTagFilter] = useState<string | null>(null);
     const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
         assignee: true,
-        dueDate: true,
+        startDate: true,
         tag: true,
+        description: true,
     });
 
     const loadMoreTasks = async () => {
@@ -217,9 +218,10 @@ export function TaskData({
                         <TableHeader>
                             <TableRow>
                                 <TableHead className="w-[50px]"></TableHead>
-                                <TableHead className="min-w-[400px]">Task Name</TableHead>
+                                <TableHead className="min-w-[250px]">Task Name</TableHead>
+                                {columnVisibility.description && <TableHead className="w-[200px]">Description</TableHead>}
                                 {columnVisibility.assignee && <TableHead className="w-[200px]">Assignee</TableHead>}
-                                {columnVisibility.dueDate && <TableHead className="w-[180px]">Due Date</TableHead>}
+                                {columnVisibility.startDate && <TableHead className="w-[180px]">Start Date</TableHead>}
                                 {columnVisibility.tag && <TableHead className="w-[150px]">Tag</TableHead>}
                                 <TableHead className="w-[50px]"></TableHead>
                             </TableRow>

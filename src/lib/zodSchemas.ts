@@ -130,9 +130,13 @@ export const subTaskSchema = z.object({
         .string()
         .min(3, { message: "At least task should assign to one person" })
         .optional(),
-    dueDate: z
+    startDate: z
         .string()
         .min(3, { message: "Due date should select" })
+        .optional(),
+    days: z
+        .number()
+        .min(1, { message: "Days should be at least 1" })
         .optional(),
     tag: z
         .enum(TaskTag, { message: "Tag is Required" }),

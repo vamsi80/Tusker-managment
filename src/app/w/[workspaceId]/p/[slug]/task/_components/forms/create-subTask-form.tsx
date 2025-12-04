@@ -4,7 +4,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useTransition, useState } from "react";
 import { Resolver, useForm } from "react-hook-form";
 import { Check, Loader2, PlusIcon, SparkleIcon, PenTool, ShoppingCart, Hammer } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -30,7 +29,6 @@ interface iAppProps {
 
 export const CreateSubTaskForm = ({ members, workspaceId, projectId, parentTaskId }: iAppProps) => {
     const [pending, startTransition] = useTransition();
-    const router = useRouter();
     const { triggerConfetti } = useConfetti();
     const [open, setOpen] = useState(false);
 
@@ -40,7 +38,8 @@ export const CreateSubTaskForm = ({ members, workspaceId, projectId, parentTaskI
             name: "",
             description: "",
             taskSlug: "",
-            dueDate: "",
+            startDate: "",
+            days: 0,
             assignee: "",
             status: "TO_DO",
             tag: "CONTRACTOR",
@@ -184,12 +183,26 @@ export const CreateSubTaskForm = ({ members, workspaceId, projectId, parentTaskI
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <FormField
                                     control={form.control}
-                                    name="dueDate"
+                                    name="startDate"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Due Date</FormLabel>
+                                            <FormLabel>Start Date</FormLabel>
                                             <FormControl>
                                                 <Input type="date" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+
+                                <FormField
+                                    control={form.control}
+                                    name="days"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Duration</FormLabel>
+                                            <FormControl>
+                                                <Input type="number" {...field} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>

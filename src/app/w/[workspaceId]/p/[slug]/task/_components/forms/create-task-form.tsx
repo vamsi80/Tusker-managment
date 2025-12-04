@@ -14,6 +14,8 @@ import { useConfetti } from "@/hooks/use-confetti";
 import { toast } from "sonner";
 import slugify from "slugify";
 import { createTask } from "../../action";
+import { useRouter } from "next/navigation";
+import { useTaskContext } from "../task-context";
 
 interface iAppProps {
     projectId: string
@@ -23,6 +25,8 @@ export const CreateTaskForm = ({ projectId }: iAppProps) => {
     const [Pending, startTransition] = useTransition();
     const { triggerConfetti } = useConfetti();
     const [open, setOpen] = useState(false);
+    const router = useRouter();
+    const { addNewTask, setIsAddingTask } = useTaskContext();
 
     const form = useForm<TaskSchemaType>({
         resolver: zodResolver(taskSchema) as unknown as Resolver<TaskSchemaType>,
@@ -34,22 +38,28 @@ export const CreateTaskForm = ({ projectId }: iAppProps) => {
     })
     function onSubmit(values: TaskSchemaType) {
         startTransition(async () => {
+            setIsAddingTask(true); // Show skeleton
             const { data: result, error } = await tryCatch(createTask(values));
 
             if (error) {
                 toast.error(error.message);
                 console.error(error);
+                setIsAddingTask(false);
                 return;
             }
 
-            if (result.status === "success") {
+            if (result.status === "success" && result.data) {
                 toast.success(result.message);
                 triggerConfetti();
                 form.reset();
                 setOpen(false);
-            } else (
-                toast.error(result.message)
-            )
+
+                // Add the new task to the list
+                addNewTask(result.data as any);
+            } else {
+                toast.error(result.message);
+                setIsAddingTask(false);
+            }
         });
     }
 

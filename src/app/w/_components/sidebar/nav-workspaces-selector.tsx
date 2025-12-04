@@ -13,17 +13,16 @@ import { Check, ChevronsUpDown, Plus } from "lucide-react";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "../../../../components/ui/sidebar";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useWorkspaceId } from "@/hooks/use-workspace-id";
 import type { UserWorkspacesType } from "@/app/data/workspace/get-user-workspace";
 
 interface Props {
   // matches your getUserWorkspaces() return: user object or null/undefined
   data: UserWorkspacesType;
+  workspaceId: string;
 }
 
-export const NavWorkspacesSelector: React.FC<Props> = ({ data }) => {
+export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) => {
   const router = useRouter();
-  const workspaceId = useWorkspaceId(); // current workspaceId from app state / route
   const workspaces = data?.workspaces ?? []; // array of workspace links
   const [selected, setSelected] = useState<typeof workspaces[number] | undefined>(undefined);
 

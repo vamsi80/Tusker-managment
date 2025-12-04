@@ -21,6 +21,15 @@ export function TaskRow({
     columnVisibility,
 }: TaskRowProps) {
     const subtaskCount = task._count?.subTasks || 0;
+
+    // Calculate the number of columns to span
+    // 1 (expand button) + 1 (task name) + visible columns + 1 (actions)
+    let colSpan = 2; // Start with task name cell + actions cell
+    if (columnVisibility.description) colSpan++;
+    if (columnVisibility.assignee) colSpan++;
+    if (columnVisibility.startDate) colSpan++;
+    if (columnVisibility.tag) colSpan++;
+
     return (
         <TableRow className="group">
             <TableCell>
@@ -37,7 +46,7 @@ export function TaskRow({
                     )}
                 </Button>
             </TableCell>
-            <TableCell className="font-medium">
+            <TableCell className="font-medium" colSpan={colSpan}>
                 <div className="flex items-center gap-2">
                     <span>{task.name}</span>
                     {subtaskCount > 0 && (
@@ -47,10 +56,6 @@ export function TaskRow({
                     )}
                 </div>
             </TableCell>
-            {columnVisibility.assignee && <TableCell></TableCell>}
-            {columnVisibility.dueDate && <TableCell></TableCell>}
-            {columnVisibility.tag && <TableCell></TableCell>}
-            <TableCell></TableCell>
         </TableRow>
     );
 }

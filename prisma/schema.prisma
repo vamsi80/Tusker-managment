@@ -199,7 +199,8 @@ model Task {
   status       TaskStatus? @default(TO_DO)
   position     Int?
   parentTaskId String?
-  dueDate      DateTime?
+  startDate    DateTime?
+  days         Int?
 
   tag TaskTag?
 

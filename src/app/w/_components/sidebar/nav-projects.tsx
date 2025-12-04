@@ -36,7 +36,7 @@ export function NavProjects({ projects, members, workspaceId, isAdmin }: iAppPro
                 <Link
                   href={href}
                   className={
-                    pathname === href
+                    pathname === href || pathname.startsWith(`${href}/`)
                       ? "bg-foreground/10 dark:bg-foreground/20 border-foreground/50 hover:bg-foreground/20 dark:hover:bg-foreground/30 text-foreground hover:text-primary"
                       : "text-muted-foreground"
                   }

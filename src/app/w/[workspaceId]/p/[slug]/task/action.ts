@@ -49,13 +49,18 @@ export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
         }
 
         // 3. Create the task
-        await prisma.task.create({
+        const newTask = await prisma.task.create({
             data: {
                 name: validation.data.name,
                 taskSlug: validation.data.taskSlug,
                 projectId: validation.data.projectId,
                 createdById: workspaceMember.id,
             },
+            include: {
+                _count: {
+                    select: { subTasks: true }
+                }
+            }
         });
 
         // 4. Revalidate cache
@@ -64,6 +69,7 @@ export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
         return {
             status: "success",
             message: "Task created successfully",
+            data: newTask,
         };
 
     } catch {
@@ -158,7 +164,7 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
                 createdById: workspaceMember.id,
                 assigneeTo: assigneeId,
                 tag: validation.data.tag,
-                dueDate: validation.data.dueDate ? new Date(validation.data.dueDate) : null,
+                startDate: validation.data.startDate ? new Date(validation.data.startDate) : null,
             },
         });
 

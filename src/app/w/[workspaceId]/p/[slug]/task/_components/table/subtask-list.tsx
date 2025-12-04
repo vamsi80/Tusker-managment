@@ -5,6 +5,7 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Loader2, ChevronsDown } from "lucide-react";
 import { ProjectMembersType } from "@/app/data/project/get-project-members";
+import { SubTaskType } from "@/app/data/task/get-project-tasks";
 import { CreateSubTaskForm } from "../forms/create-subTask-form";
 import { SubTaskRow } from "./subtask-row";
 import { ColumnVisibility } from "./task-table-toolbar";
@@ -21,6 +22,7 @@ interface SubTaskListProps {
     isLoading: boolean;
     isLoadingMore: boolean;
     onLoadMore: () => void;
+    onSubTaskClick?: (subTask: SubTaskType[number]) => void;
 }
 
 export function SubTaskList({
@@ -33,6 +35,7 @@ export function SubTaskList({
     isLoading,
     isLoadingMore,
     onLoadMore,
+    onSubTaskClick,
 }: SubTaskListProps) {
     const visibleColumnsCount = 2 + Object.values(columnVisibility).filter(Boolean).length + 1;
 
@@ -70,6 +73,7 @@ export function SubTaskList({
                         key={subTask.id}
                         subTask={subTask}
                         columnVisibility={columnVisibility}
+                        onClick={onSubTaskClick}
                     />
                 ))}
             </SortableContext>
