@@ -56,41 +56,6 @@ export function TaskData({
         tag: true,
     });
 
-    // Auto-load subtasks for all initial tasks on mount
-    useEffect(() => {
-        const loadInitialSubTasks = async () => {
-            // Load subtasks for all initially loaded parent tasks
-            const taskIds = initialTasksData.tasks.map(t => t.id);
-
-            for (const taskId of taskIds) {
-                setLoadingSubTasks((prev) => ({ ...prev, [taskId]: true }));
-
-                try {
-                    const result = await getTaskSubTasks(taskId, 1, 10);
-
-                    setTasks((prevTasks) =>
-                        prevTasks.map((t) =>
-                            t.id === taskId
-                                ? {
-                                    ...t,
-                                    subTasks: result.subTasks,
-                                    subTasksHasMore: result.hasMore,
-                                    subTasksPage: 1,
-                                }
-                                : t
-                        )
-                    );
-                } catch (error) {
-                    console.error(`Error loading subtasks for task ${taskId}:`, error);
-                } finally {
-                    setLoadingSubTasks((prev) => ({ ...prev, [taskId]: false }));
-                }
-            }
-        };
-
-        loadInitialSubTasks();
-    }, [initialTasksData.tasks]);
-
     const loadMoreTasks = async () => {
         setLoadingMoreTasks(true);
         try {

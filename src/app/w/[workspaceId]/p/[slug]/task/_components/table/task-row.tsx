@@ -20,16 +20,7 @@ export function TaskRow({
     onToggleExpand,
     columnVisibility,
 }: TaskRowProps) {
-    const assignee = task.assignee?.workspaceMember?.user;
-
-    const subtaskAssignees = task.subTasks
-        ?.map((st) => st.assignee?.workspaceMember?.user)
-        .filter((user, index, self) =>
-            user && self.findIndex((u) => u?.id === user.id) === index
-        ) || [];
-
     const subtaskCount = task._count?.subTasks || 0;
-
     return (
         <TableRow className="group">
             <TableCell>

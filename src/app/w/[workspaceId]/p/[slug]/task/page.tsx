@@ -3,6 +3,9 @@ import { TaskHeader } from "./_components/task-header";
 import { TaskTable } from "./_components/task-table";
 import { TaskHeaderSkeleton, TaskTableSkeleton } from "./_components/task-page-skeleton";
 
+// Prevent automatic revalidation when switching tabs
+export const revalidate = false;
+
 interface iAppProps {
     params: { workspaceId: string; slug: string }
 }
