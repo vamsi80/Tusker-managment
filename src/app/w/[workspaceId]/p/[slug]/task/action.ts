@@ -165,6 +165,7 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
                 assigneeTo: assigneeId,
                 tag: validation.data.tag,
                 startDate: validation.data.startDate ? new Date(validation.data.startDate) : null,
+                days: validation.data.days,
             },
         });
 

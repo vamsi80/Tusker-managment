@@ -28,6 +28,8 @@ export function TaskRow({
     if (columnVisibility.description) colSpan++;
     if (columnVisibility.assignee) colSpan++;
     if (columnVisibility.startDate) colSpan++;
+    if (columnVisibility.dueDate) colSpan++;
+    if (columnVisibility.progress) colSpan++;
     if (columnVisibility.tag) colSpan++;
 
     return (

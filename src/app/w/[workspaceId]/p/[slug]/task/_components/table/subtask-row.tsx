@@ -42,12 +42,56 @@ export function SubTaskRow({ subTask, columnVisibility, onClick }: SubTaskRowPro
 
     const assignee = subTask.assignee?.workspaceMember?.user;
 
+    // Calculate due date and progress
+    const calculateDueDate = () => {
+        if (!subTask.startDate || !subTask.days) return null;
+        const start = new Date(subTask.startDate);
+        const due = new Date(start);
+        due.setDate(due.getDate() + subTask.days);
+        return due;
+    };
+
+    const calculateRemainingDays = () => {
+        if (!subTask.startDate || !subTask.days) return null;
+
+        const start = new Date(subTask.startDate);
+        const now = new Date();
+        const dueDate = new Date(start);
+        dueDate.setDate(dueDate.getDate() + subTask.days);
+
+        // Calculate difference in days
+        const diffTime = dueDate.getTime() - now.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        return diffDays;
+    };
+
+    const getProgressColor = () => {
+        if (!subTask.startDate || !subTask.days) return "bg-gray-300";
+
+        const remainingDays = calculateRemainingDays();
+        if (remainingDays === null) return "bg-gray-300";
+
+        const totalDays = subTask.days;
+        const percentRemaining = (remainingDays / totalDays) * 100;
+
+        // Color based on remaining time (quarters)
+        if (remainingDays < 0) return "bg-red-500"; // Overdue
+        if (percentRemaining > 75) return "bg-green-500"; // 75-100% time left
+        if (percentRemaining > 50) return "bg-yellow-500"; // 50-75% time left
+        if (percentRemaining > 25) return "bg-orange-500"; // 25-50% time left
+        return "bg-red-500"; // 0-25% time left
+    };
+
+    const dueDate = calculateDueDate();
+    const remainingDays = calculateRemainingDays();
+    const progressColor = getProgressColor();
+
     return (
         <TableRow
             ref={setNodeRef}
             style={style}
-            className="bg-muted/10 hover:bg-muted/20 cursor-pointer"
-            onClick={() => onClick && onClick(subTask)}
+            className="bg-muted/10 hover:bg-muted/20"
         >
             <TableCell className="pl-4">
                 <Button
@@ -64,7 +108,12 @@ export function SubTaskRow({ subTask, columnVisibility, onClick }: SubTaskRowPro
             <TableCell className="pl-3">
                 <div className="flex items-center gap-2">
                     <CornerDownRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <span className="text-sm">{subTask.name}</span>
+                    <span
+                        className="truncate text-muted-foreground text-sm max-w-[200px] block cursor-pointer hover:text-foreground transition-colors"
+                        onClick={() => onClick && onClick(subTask)}
+                    >
+                        {subTask.name}
+                    </span>
                 </div>
             </TableCell>
             {columnVisibility.description && (
@@ -101,6 +150,37 @@ export function SubTaskRow({ subTask, columnVisibility, onClick }: SubTaskRowPro
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <Calendar className="h-3 w-3" />
                             {new Date(subTask.startDate).toLocaleDateString('en-GB')}
+                        </div>
+                    ) : (
+                        <span className="text-muted-foreground text-xs">-</span>
+                    )}
+                </TableCell>
+            )}
+            {columnVisibility.dueDate && (
+                <TableCell>
+                    {dueDate ? (
+                        <div className="flex items-center gap-2 text-xs font-medium">
+                            <Calendar className="h-3 w-3" />
+                            {dueDate.toLocaleDateString('en-GB')}
+                        </div>
+                    ) : (
+                        <span className="text-muted-foreground text-xs">-</span>
+                    )}
+                </TableCell>
+            )}
+            {columnVisibility.progress && (
+                <TableCell>
+                    {subTask.startDate && subTask.days && remainingDays !== null ? (
+                        <div className="flex items-center gap-2">
+                            <div className={`h-3 w-3 rounded-full ${progressColor}`} />
+                            <span className="text-xs text-muted-foreground">
+                                {remainingDays > 0
+                                    ? `${remainingDays} day${remainingDays !== 1 ? 's' : ''} left`
+                                    : remainingDays === 0
+                                        ? 'Due today'
+                                        : `${remainingDays} day${remainingDays !== -1 ? 's' : ''}`
+                                }
+                            </span>
                         </div>
                     ) : (
                         <span className="text-muted-foreground text-xs">-</span>

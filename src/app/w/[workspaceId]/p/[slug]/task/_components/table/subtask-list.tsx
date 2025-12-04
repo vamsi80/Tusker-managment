@@ -10,7 +10,7 @@ import { CreateSubTaskForm } from "../forms/create-subTask-form";
 import { SubTaskRow } from "./subtask-row";
 import { ColumnVisibility } from "./task-table-toolbar";
 import { TaskWithSubTasks } from "./types";
-import { SubTaskSkeleton } from "./subtask-skeleton";
+import { SubTaskSkeleton } from "../task-page-skeleton";
 
 interface SubTaskListProps {
     task: TaskWithSubTasks;

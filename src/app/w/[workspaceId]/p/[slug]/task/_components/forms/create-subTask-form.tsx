@@ -179,13 +179,13 @@ export const CreateSubTaskForm = ({ members, workspaceId, projectId, parentTaskI
                                 )}
                             />
 
-                            {/* two-column block */}
+                            {/* Date and Duration */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <FormField
                                     control={form.control}
                                     name="startDate"
                                     render={({ field }) => (
-                                        <FormItem>
+                                        <FormItem >
                                             <FormLabel>Start Date</FormLabel>
                                             <FormControl>
                                                 <Input type="date" {...field} />
@@ -200,29 +200,38 @@ export const CreateSubTaskForm = ({ members, workspaceId, projectId, parentTaskI
                                     name="days"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Duration</FormLabel>
+                                            <FormLabel>Duration (Days)</FormLabel>
                                             <FormControl>
-                                                <Input type="number" {...field} />
+                                                <Input
+                                                    type="number"
+                                                    placeholder="Days"
+                                                    {...field}
+                                                    onChange={(e) => field.onChange(e.target.valueAsNumber || 0)}
+                                                />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}
                                 />
 
-                                <FormField
-                                    control={form.control}
-                                    name="status"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Status</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="Status" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
                             </div>
+                            <FormField
+                                control={form.control}
+                                name="status"
+                                render={({ field }) => (
+                                    <FormItem >
+                                        <FormLabel>Status</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                value="TO DO"
+                                                disabled
+                                                className="bg-muted cursor-not-allowed"
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
 
                             <FormField
                                 control={form.control}
