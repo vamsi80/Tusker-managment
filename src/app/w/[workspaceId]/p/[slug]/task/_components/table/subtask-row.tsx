@@ -178,7 +178,7 @@ export function SubTaskRow({ subTask, columnVisibility, onClick }: SubTaskRowPro
                                     ? `${remainingDays} day${remainingDays !== 1 ? 's' : ''} left`
                                     : remainingDays === 0
                                         ? 'Due today'
-                                        : `${remainingDays} day${remainingDays !== -1 ? 's' : ''}`
+                                        : `Delay by ${Math.abs(remainingDays)} day${Math.abs(remainingDays) !== 1 ? 's' : ''}`
                                 }
                             </span>
                         </div>

@@ -17,12 +17,13 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Loader2, ChevronsDown } from "lucide-react";
-import { ProjectTasksResponse, getProjectTasks, getTaskSubTasks } from "@/app/data/task/get-project-tasks";
+import { ProjectTasksResponse, getProjectTasks, getTaskSubTasks, SubTaskType } from "@/app/data/task/get-project-tasks";
 import { ProjectMembersType } from "@/app/data/project/get-project-members";
 import { TaskTableToolbar, ColumnVisibility } from "./table/task-table-toolbar";
 import { TaskRow } from "./table/task-row";
 import { SubTaskList } from "./table/subtask-list";
 import { TaskWithSubTasks } from "./table/types";
+import { SubTaskDetailsSheet } from "./subtask-details-sheet";
 
 interface TaskDataProps {
     initialTasksData: ProjectTasksResponse;
@@ -58,6 +59,21 @@ export function TaskData({
         tag: true,
         description: true,
     });
+
+    // SubTask details sheet state
+    const [selectedSubTask, setSelectedSubTask] = useState<SubTaskType[number] | null>(null);
+    const [isSheetOpen, setIsSheetOpen] = useState(false);
+
+    const handleSubTaskClick = (subTask: SubTaskType[number]) => {
+        setSelectedSubTask(subTask);
+        setIsSheetOpen(true);
+    };
+
+    const handleCloseSheet = () => {
+        setIsSheetOpen(false);
+        // Delay clearing the selected subtask to allow sheet close animation
+        setTimeout(() => setSelectedSubTask(null), 300);
+    };
 
     const loadMoreTasks = async () => {
         setLoadingMoreTasks(true);
@@ -225,7 +241,7 @@ export function TaskData({
                                 {columnVisibility.assignee && <TableHead className="w-[200px]">Assignee</TableHead>}
                                 {columnVisibility.startDate && <TableHead className="w-[150px]">Start Date</TableHead>}
                                 {columnVisibility.dueDate && <TableHead className="w-[150px]">Due Date</TableHead>}
-                                {columnVisibility.progress && <TableHead className="w-[120px]">Progress</TableHead>}
+                                {columnVisibility.progress && <TableHead className="w-[120px]">Status</TableHead>}
                                 {columnVisibility.tag && <TableHead className="w-[150px]">Tag</TableHead>}
                                 <TableHead className="w-[50px]"></TableHead>
                             </TableRow>
@@ -250,6 +266,7 @@ export function TaskData({
                                             isLoading={!!loadingSubTasks[task.id]}
                                             isLoadingMore={!!loadingMoreSubTasks[task.id]}
                                             onLoadMore={() => loadMoreSubTasks(task.id)}
+                                            onSubTaskClick={handleSubTaskClick}
                                         />
                                     )}
                                 </React.Fragment>
@@ -291,6 +308,13 @@ export function TaskData({
                     </Table>
                 </DndContext>
             </div>
+
+            {/* SubTask Details Sheet */}
+            <SubTaskDetailsSheet
+                subTask={selectedSubTask}
+                isOpen={isSheetOpen}
+                onClose={handleCloseSheet}
+            />
         </div>
     );
 }

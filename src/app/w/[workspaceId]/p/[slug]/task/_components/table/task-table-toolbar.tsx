@@ -127,7 +127,7 @@ export function TaskTableToolbar({
                         checked={columnVisibility.progress}
                         onCheckedChange={() => toggleColumn("progress")}
                     >
-                        Progress
+                        Status
                     </DropdownMenuCheckboxItem>
                     <DropdownMenuCheckboxItem
                         checked={columnVisibility.tag}

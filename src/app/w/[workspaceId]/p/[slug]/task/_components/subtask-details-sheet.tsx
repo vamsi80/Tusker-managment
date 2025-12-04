@@ -65,7 +65,7 @@ export function SubTaskDetailsSheet({ subTask, isOpen, onClose }: SubTaskDetails
     const assignee = subTask.assignee?.workspaceMember?.user;
 
     return (
-        <Sheet open={isOpen} onOpenChange={onClose}>
+        <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <SheetContent className="w-full sm:max-w-2xl p-0 flex flex-col">
                 <SheetHeader className="px-6 pt-6 pb-4 border-b">
                     <div className="flex items-start justify-between">
@@ -77,14 +77,14 @@ export function SubTaskDetailsSheet({ subTask, isOpen, onClose }: SubTaskDetails
                                 Subtask Details & Activity
                             </SheetDescription>
                         </div>
-                        <Button
+                        {/* <Button
                             variant="ghost"
                             size="icon"
                             onClick={onClose}
                             className="h-8 w-8"
                         >
                             <X className="h-4 w-4" />
-                        </Button>
+                        </Button> */}
                     </div>
                 </SheetHeader>
 

@@ -1,9 +1,10 @@
 "use server";
 
+import { cache } from "react";
 import prisma from "@/lib/db";
 import { requireUser } from "@/app/data/user/require-user";
 
-export async function getUserPermissions(workspaceId: string, projectId: string) {
+export const getUserPermissions = cache(async (workspaceId: string, projectId: string) => {
     const user = await requireUser();
 
     try {
@@ -50,6 +51,6 @@ export async function getUserPermissions(workspaceId: string, projectId: string)
             canCreateSubTask: false,
         };
     }
-}
+});
 
 export type UserPermissionsType = Awaited<ReturnType<typeof getUserPermissions>>;

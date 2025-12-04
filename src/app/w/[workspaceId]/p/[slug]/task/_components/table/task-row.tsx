@@ -2,7 +2,13 @@
 
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, MoreHorizontal } from "lucide-react";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ColumnVisibility } from "./task-table-toolbar";
 import { TaskWithSubTasks } from "./types";
 import { Badge } from "@/components/ui/badge";
@@ -23,8 +29,8 @@ export function TaskRow({
     const subtaskCount = task._count?.subTasks || 0;
 
     // Calculate the number of columns to span
-    // 1 (expand button) + 1 (task name) + visible columns + 1 (actions)
-    let colSpan = 2; // Start with task name cell + actions cell
+    // 1 (expand button) + 1 (task name) + visible columns (not including actions)
+    let colSpan = 1; // Start with just task name cell
     if (columnVisibility.description) colSpan++;
     if (columnVisibility.assignee) colSpan++;
     if (columnVisibility.startDate) colSpan++;
@@ -57,6 +63,21 @@ export function TaskRow({
                         </Badge>
                     )}
                 </div>
+            </TableCell>
+            <TableCell>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem>Edit</DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive">
+                            Delete
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </TableCell>
         </TableRow>
     );
