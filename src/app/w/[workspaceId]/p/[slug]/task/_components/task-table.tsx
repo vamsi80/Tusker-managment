@@ -40,11 +40,28 @@ export function TaskTable({
     const [hasMoreTasks, setHasMoreTasks] = useState(initialTasksData.hasMore);
     const [loadingMoreTasks, setLoadingMoreTasks] = useState(false);
 
-    // Context for new tasks
-    const { isAddingTask } = useTaskContext();
     const { newTask, clearNewTask } = useNewTask();
 
-    // Add new task to the list when it's created
+    useEffect(() => {
+        setTasks(prevTasks => {
+            return initialTasksData.tasks.map(serverTask => {
+                const existingTask = prevTasks.find(t => t.id === serverTask.id);
+                if (existingTask?.subTasks) {
+                    return {
+                        ...serverTask,
+                        subTasks: existingTask.subTasks,
+                        subTasksHasMore: existingTask.subTasksHasMore,
+                        subTasksPage: existingTask.subTasksPage,
+                    };
+                }
+
+                return serverTask;
+            });
+        });
+        setCurrentPage(initialTasksData.currentPage);
+        setHasMoreTasks(initialTasksData.hasMore);
+    }, [initialTasksData]);
+
     useEffect(() => {
         if (newTask) {
             setTasks(prev => [newTask, ...prev]);
@@ -52,15 +69,61 @@ export function TaskTable({
         }
     }, [newTask, clearNewTask]);
 
-    // Expand/collapse state
+    const handleSubTaskUpdated = (taskId: string, subTaskId: string, updatedData: Partial<SubTaskType[number]>) => {
+        setTasks(prevTasks =>
+            prevTasks.map(task => {
+                if (task.id === taskId && task.subTasks) {
+                    return {
+                        ...task,
+                        subTasks: task.subTasks.map(subTask =>
+                            subTask.id === subTaskId
+                                ? { ...subTask, ...updatedData }
+                                : subTask
+                        ),
+                    };
+                }
+                return task;
+            })
+        );
+    };
+
+    const handleSubTaskDeleted = (taskId: string, subTaskId: string) => {
+        setTasks(prevTasks =>
+            prevTasks.map(task => {
+                if (task.id === taskId && task.subTasks) {
+                    const newSubTasks = task.subTasks.filter(subTask => subTask.id !== subTaskId);
+                    return {
+                        ...task,
+                        subTasks: newSubTasks,
+                        _count: { subTasks: newSubTasks.length },
+                    };
+                }
+                return task;
+            })
+        );
+    };
+
+    const handleSubTaskCreated = (taskId: string, newSubTask: any) => {
+        setTasks(prevTasks =>
+            prevTasks.map(task => {
+                if (task.id === taskId) {
+                    const currentSubTasks = task.subTasks || [];
+                    return {
+                        ...task,
+                        subTasks: [...currentSubTasks, newSubTask],
+                        _count: { subTasks: currentSubTasks.length + 1 },
+                    };
+                }
+                return task;
+            })
+        );
+    };
+
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
     const [loadingSubTasks, setLoadingSubTasks] = useState<Record<string, boolean>>({});
     const [loadingMoreSubTasks, setLoadingMoreSubTasks] = useState<Record<string, boolean>>({});
-
-    // Track which task is being updated
     const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
 
-    // Filter state
     const [searchQuery, setSearchQuery] = useState("");
     const [tagFilter, setTagFilter] = useState<string | null>(null);
     const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
@@ -72,7 +135,6 @@ export function TaskTable({
         description: true,
     });
 
-    // SubTask details sheet state
     const [selectedSubTask, setSelectedSubTask] = useState<SubTaskType[number] | null>(null);
     const [isSheetOpen, setIsSheetOpen] = useState(false);
 
@@ -290,6 +352,15 @@ export function TaskTable({
                                             isLoadingMore={!!loadingMoreSubTasks[task.id]}
                                             onLoadMore={() => loadMoreSubTasks(task.id)}
                                             onSubTaskClick={handleSubTaskClick}
+                                            onSubTaskUpdated={(subTaskId, updatedData) =>
+                                                handleSubTaskUpdated(task.id, subTaskId, updatedData)
+                                            }
+                                            onSubTaskDeleted={(subTaskId) =>
+                                                handleSubTaskDeleted(task.id, subTaskId)
+                                            }
+                                            onSubTaskCreated={(newSubTask) =>
+                                                handleSubTaskCreated(task.id, newSubTask)
+                                            }
                                         />
                                     )}
                                 </React.Fragment>

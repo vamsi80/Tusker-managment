@@ -5,6 +5,7 @@ import { getUserProjects, UserProjectsType } from "@/app/data/user/get-user-proj
 import { getProjectMembers } from "@/app/data/project/get-project-members";
 import { getUserPermissions } from "@/app/data/user/get-user-permissions";
 import { CreateTaskForm } from "./_components/forms/create-task-form";
+import { RefreshTasksButton } from "./_components/forms/refresh-tasks-button";
 import { TaskTableContainer } from "./_components/task-table-container";
 
 // Prevent automatic revalidation when switching tabs
@@ -43,7 +44,10 @@ export default async function ProjectTask({ params }: iAppProps) {
             {/* Task Header */}
             <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-bold">Your Tasks</h1>
-                <CreateTaskForm projectId={project.id} />
+                <div className="flex items-center gap-3">
+                    <RefreshTasksButton />
+                    <CreateTaskForm projectId={project.id} />
+                </div>
             </div>
 
             {/* Task Table */}

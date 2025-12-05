@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -41,7 +41,6 @@ export function SubTaskRow({
     onSubTaskDeleted,
 }: SubTaskRowProps) {
     const [isUpdating, setIsUpdating] = useState(false);
-    const previousSubTaskRef = useRef(subTask);
 
     const {
         attributes,
@@ -62,28 +61,22 @@ export function SubTaskRow({
         opacity: isDragging ? 0.5 : 1,
     };
 
-    // Handle subtask update with skeleton display
+    // Handle subtask update
     const handleSubTaskUpdated = (updatedData: Partial<SubTaskType[number]>) => {
-        // Store current subtask before update
-        previousSubTaskRef.current = subTask;
-
-        // Show skeleton immediately
+        // Show skeleton briefly
         setIsUpdating(true);
 
         // Update the subtask in parent state immediately (optimistic update)
         if (onSubTaskUpdated) {
             onSubTaskUpdated(subTask.id, updatedData);
         }
-    };
 
-    // Hide skeleton when subtask data actually changes from server
-    useEffect(() => {
-        if (isUpdating && previousSubTaskRef.current !== subTask) {
-            // Data has changed from server, hide skeleton
+        // Hide skeleton after parent state is updated
+        // The parent's useEffect will sync with server data when router.refresh() completes
+        requestAnimationFrame(() => {
             setIsUpdating(false);
-            previousSubTaskRef.current = subTask;
-        }
-    }, [subTask, isUpdating]);
+        });
+    };
 
     const assignee = subTask.assignee?.workspaceMember?.user;
 

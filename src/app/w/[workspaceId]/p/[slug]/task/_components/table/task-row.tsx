@@ -51,23 +51,22 @@ export function TaskRow({
     if (columnVisibility.tag) colSpan++;
 
     const handleTaskUpdated = (updatedTask: { name: string; taskSlug: string }) => {
-        // Show skeleton first
+        // Show skeleton briefly
         if (onUpdateStart) {
             onUpdateStart();
         }
 
         // Update the task in parent state immediately
-        // Pass the updated data up to task-table
         if (onTaskUpdated) {
             onTaskUpdated(updatedTask);
         }
 
-        // Hide skeleton after a short delay
-        setTimeout(() => {
+        // Hide skeleton after parent state is updated
+        requestAnimationFrame(() => {
             if (onUpdateEnd) {
                 onUpdateEnd();
             }
-        }, 300);
+        });
     };
 
     // Show skeleton while updating OR while refresh is pending

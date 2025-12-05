@@ -44,7 +44,7 @@ export function EditSubTaskForm({
         defaultValues: {
             name: subTask.name,
             description: subTask.description || "",
-            taskSlug: subTask.taskSlug || "placeholder-slug", // Use existing slug or placeholder
+            taskSlug: subTask.taskSlug || "placeholder-slug",
             projectId: projectId,
             parentTaskId: parentTaskId,
             assignee: subTask.assignee?.workspaceMember?.user?.id || "",
@@ -83,8 +83,6 @@ export function EditSubTaskForm({
             if (result.status === "success") {
                 toast.success(result.message);
 
-                // Pass updated data to callback for optimistic UI update
-                // This will trigger skeleton in parent component
                 if (onSubTaskUpdated) {
                     onSubTaskUpdated({
                         name: values.name,
@@ -97,7 +95,6 @@ export function EditSubTaskForm({
 
                 setOpen(false);
 
-                // Refresh to get server data
                 router.refresh();
             } else {
                 toast.error(result.message);

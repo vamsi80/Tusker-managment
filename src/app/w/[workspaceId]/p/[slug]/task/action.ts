@@ -147,7 +147,7 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
         // Create unique slug for subtask by combining parent slug with subtask slug
         const uniqueSubtaskSlug = `${parentTask.taskSlug}-${validation.data.taskSlug}`;
 
-        await prisma.task.create({
+        const newSubTask = await prisma.task.create({
             data: {
                 name: validation.data.name,
                 taskSlug: uniqueSubtaskSlug, // Use unique slug
@@ -161,6 +161,24 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
                 startDate: validation.data.startDate ? new Date(validation.data.startDate) : null,
                 days: validation.data.days,
             },
+            include: {
+                assignee: {
+                    include: {
+                        workspaceMember: {
+                            include: {
+                                user: {
+                                    select: {
+                                        id: true,
+                                        name: true,
+                                        surname: true,
+                                        image: true,
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         });
 
         revalidatePath(`/w/${project.workspaceId}/p/${project.slug}/task`);
@@ -168,6 +186,7 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
         return {
             status: "success",
             message: "Subtask created successfully",
+            data: newSubTask,
         };
 
     } catch (err) {

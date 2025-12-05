@@ -19,19 +19,22 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { createSubTask } from "../../action";
+import { useRouter } from "next/navigation";
 
 interface iAppProps {
     members: ProjectMembersType
     workspaceId: string,
     projectId: string;
     parentTaskId: string;
+    onSubTaskCreated?: (subTask: any) => void;
 }
 
-export const CreateSubTaskForm = ({ members, workspaceId, projectId, parentTaskId }: iAppProps) => {
+export const CreateSubTaskForm = ({ members, workspaceId, projectId, parentTaskId, onSubTaskCreated }: iAppProps) => {
     const [pending, startTransition] = useTransition();
     const { triggerConfetti } = useConfetti();
     const [open, setOpen] = useState(false);
     const [autoSlugEnabled, setAutoSlugEnabled] = useState(true);
+    const router = useRouter();
 
     const form = useForm<SubTaskSchemaType>({
         resolver: zodResolver(subTaskSchema) as unknown as Resolver<SubTaskSchemaType>,
@@ -86,6 +89,14 @@ export const CreateSubTaskForm = ({ members, workspaceId, projectId, parentTaskI
                 triggerConfetti();
                 form.reset();
                 setOpen(false);
+
+                // Notify parent to add subtask to state immediately
+                if (onSubTaskCreated && result.data) {
+                    onSubTaskCreated(result.data);
+                }
+
+                // Refresh to sync with server
+                router.refresh();
             } else (
                 toast.error(result.message)
             )

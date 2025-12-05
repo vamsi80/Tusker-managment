@@ -23,6 +23,9 @@ interface SubTaskListProps {
     isLoadingMore: boolean;
     onLoadMore: () => void;
     onSubTaskClick?: (subTask: SubTaskType[number]) => void;
+    onSubTaskUpdated?: (subTaskId: string, updatedData: Partial<SubTaskType[number]>) => void;
+    onSubTaskDeleted?: (subTaskId: string) => void;
+    onSubTaskCreated?: (subTask: any) => void;
 }
 
 export function SubTaskList({
@@ -36,6 +39,9 @@ export function SubTaskList({
     isLoadingMore,
     onLoadMore,
     onSubTaskClick,
+    onSubTaskUpdated,
+    onSubTaskDeleted,
+    onSubTaskCreated,
 }: SubTaskListProps) {
     const visibleColumnsCount = 2 + Object.values(columnVisibility).filter(Boolean).length + 1;
 
@@ -55,6 +61,7 @@ export function SubTaskList({
                             workspaceId={workspaceId}
                             projectId={projectId}
                             parentTaskId={task.id}
+                            onSubTaskCreated={onSubTaskCreated}
                         />
                     )}
                 </TableCell>
@@ -77,14 +84,8 @@ export function SubTaskList({
                         members={members}
                         projectId={projectId}
                         parentTaskId={task.id}
-                        onSubTaskUpdated={(subTaskId, updatedData) => {
-                            // TODO: Handle subtask update in parent
-                            console.log('SubTask updated:', subTaskId, updatedData);
-                        }}
-                        onSubTaskDeleted={(subTaskId) => {
-                            // TODO: Handle subtask deletion in parent
-                            console.log('SubTask deleted:', subTaskId);
-                        }}
+                        onSubTaskUpdated={onSubTaskUpdated}
+                        onSubTaskDeleted={onSubTaskDeleted}
                     />
                 ))}
             </SortableContext>
@@ -124,6 +125,7 @@ export function SubTaskList({
                             workspaceId={workspaceId}
                             projectId={projectId}
                             parentTaskId={task.id}
+                            onSubTaskCreated={onSubTaskCreated}
                         />
                     )}
                 </TableCell>
