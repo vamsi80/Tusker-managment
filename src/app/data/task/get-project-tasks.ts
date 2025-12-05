@@ -1,25 +1,30 @@
 "use server";
 
+import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import prisma from "@/lib/db";
 import { requireUser } from "@/app/data/user/require-user";
 
-// Get parent tasks with pagination
-export async function getProjectTasks(projectId: string, page: number = 1, pageSize: number = 10) {
-    const user = await requireUser();
+// ============================================
+// INTERNAL FUNCTIONS (Actual DB queries)
+// ============================================
 
-    try {
-        const skip = (page - 1) * pageSize;
+/**
+ * Internal function to fetch project tasks with pagination
+ * Uses $transaction to combine count + data queries into a single DB round-trip
+ */
+async function _getProjectTasksInternal(projectId: string, page: number, pageSize: number) {
+    const skip = (page - 1) * pageSize;
 
-        // Get total count for pagination
-        const totalCount = await prisma.task.count({
+    // Use $transaction to combine count and data queries (reduces DB round trips by 50%)
+    const [totalCount, tasks] = await prisma.$transaction([
+        prisma.task.count({
             where: {
                 projectId: projectId,
                 parentTaskId: null,
             },
-        });
-
-        // Get tasks for the project (only parent tasks, not subtasks)
-        const tasks = await prisma.task.findMany({
+        }),
+        prisma.task.findMany({
             where: {
                 projectId: projectId,
                 parentTaskId: null, // Only get parent tasks
@@ -54,7 +59,7 @@ export async function getProjectTasks(projectId: string, page: number = 1, pageS
                 },
                 _count: {
                     select: {
-                        subTasks: true, // Just get the count, not the actual subtasks
+                        subTasks: true,
                     },
                 },
             },
@@ -63,42 +68,33 @@ export async function getProjectTasks(projectId: string, page: number = 1, pageS
             },
             skip,
             take: pageSize,
-        });
+        }),
+    ]);
 
-        return {
-            tasks,
-            totalCount,
-            totalPages: Math.ceil(totalCount / pageSize),
-            currentPage: page,
-            hasMore: skip + tasks.length < totalCount,
-        };
-    } catch (error) {
-        console.error("Error fetching project tasks:", error);
-        return {
-            tasks: [],
-            totalCount: 0,
-            totalPages: 0,
-            currentPage: 1,
-            hasMore: false,
-        };
-    }
+    return {
+        tasks,
+        totalCount,
+        totalPages: Math.ceil(totalCount / pageSize),
+        currentPage: page,
+        hasMore: skip + tasks.length < totalCount,
+    };
 }
 
-// Get subtasks for a specific parent task with pagination
-export async function getTaskSubTasks(parentTaskId: string, page: number = 1, pageSize: number = 10) {
-    const user = await requireUser();
+/**
+ * Internal function to fetch subtasks with pagination
+ * Uses $transaction to combine count + data queries
+ */
+async function _getTaskSubTasksInternal(parentTaskId: string, page: number, pageSize: number) {
+    const skip = (page - 1) * pageSize;
 
-    try {
-        const skip = (page - 1) * pageSize;
-
-        // Get total count for pagination
-        const totalCount = await prisma.task.count({
+    // Use $transaction to combine count and data queries
+    const [totalCount, subTasks] = await prisma.$transaction([
+        prisma.task.count({
             where: {
                 parentTaskId: parentTaskId,
             },
-        });
-
-        const subTasks = await prisma.task.findMany({
+        }),
+        prisma.task.findMany({
             where: {
                 parentTaskId: parentTaskId,
             },
@@ -125,14 +121,101 @@ export async function getTaskSubTasks(parentTaskId: string, page: number = 1, pa
             },
             skip,
             take: pageSize,
-        });
+        }),
+    ]);
 
+    return {
+        subTasks,
+        totalCount,
+        hasMore: skip + subTasks.length < totalCount,
+        currentPage: page,
+    };
+}
+
+// ============================================
+// CACHED VERSIONS (Next.js unstable_cache)
+// ============================================
+
+/**
+ * Cached version of getProjectTasks using Next.js unstable_cache
+ * - Persists across requests for 60 seconds
+ * - Tagged for targeted invalidation
+ */
+const getCachedProjectTasks = (projectId: string, page: number, pageSize: number) =>
+    unstable_cache(
+        async () => _getProjectTasksInternal(projectId, page, pageSize),
+        [`project-tasks-${projectId}-page-${page}-size-${pageSize}`],
+        {
+            tags: [`project-tasks-${projectId}`, `project-tasks-all`],
+            revalidate: 60, // Cache for 60 seconds
+        }
+    )();
+
+/**
+ * Cached version of getTaskSubTasks using Next.js unstable_cache
+ * - Persists across requests for 60 seconds
+ * - Tagged for targeted invalidation
+ */
+const getCachedTaskSubTasks = (parentTaskId: string, page: number, pageSize: number) =>
+    unstable_cache(
+        async () => _getTaskSubTasksInternal(parentTaskId, page, pageSize),
+        [`task-subtasks-${parentTaskId}-page-${page}-size-${pageSize}`],
+        {
+            tags: [`task-subtasks-${parentTaskId}`, `task-subtasks-all`],
+            revalidate: 60, // Cache for 60 seconds
+        }
+    )();
+
+// ============================================
+// PUBLIC API (React cache for request deduplication)
+// ============================================
+
+/**
+ * Get parent tasks with pagination
+ * 
+ * Caching Strategy:
+ * 1. React cache() - Deduplicates identical requests within the same render
+ * 2. unstable_cache() - Persists data across requests for 60 seconds
+ * 3. $transaction - Combines count + data queries into single DB call
+ * 
+ * Cache Invalidation:
+ * - Use revalidateTag(`project-tasks-${projectId}`) to invalidate specific project
+ * - Use revalidateTag(`project-tasks-all`) to invalidate all projects
+ */
+export const getProjectTasks = cache(async (projectId: string, page: number = 1, pageSize: number = 10) => {
+    await requireUser(); // Auth check (cached via React cache)
+
+    try {
+        return await getCachedProjectTasks(projectId, page, pageSize);
+    } catch (error) {
+        console.error("Error fetching project tasks:", error);
         return {
-            subTasks,
-            totalCount,
-            hasMore: skip + subTasks.length < totalCount,
-            currentPage: page,
+            tasks: [],
+            totalCount: 0,
+            totalPages: 0,
+            currentPage: 1,
+            hasMore: false,
         };
+    }
+});
+
+/**
+ * Get subtasks for a specific parent task with pagination
+ * 
+ * Caching Strategy:
+ * 1. React cache() - Deduplicates identical requests within the same render
+ * 2. unstable_cache() - Persists data across requests for 60 seconds
+ * 3. $transaction - Combines count + data queries into single DB call
+ * 
+ * Cache Invalidation:
+ * - Use revalidateTag(`task-subtasks-${parentTaskId}`) to invalidate specific task's subtasks
+ * - Use revalidateTag(`task-subtasks-all`) to invalidate all subtasks
+ */
+export const getTaskSubTasks = cache(async (parentTaskId: string, page: number = 1, pageSize: number = 10) => {
+    await requireUser(); // Auth check (cached via React cache)
+
+    try {
+        return await getCachedTaskSubTasks(parentTaskId, page, pageSize);
     } catch (error) {
         console.error("Error fetching subtasks:", error);
         return {
@@ -142,7 +225,11 @@ export async function getTaskSubTasks(parentTaskId: string, page: number = 1, pa
             currentPage: 1,
         };
     }
-}
+});
+
+// ============================================
+// TYPE EXPORTS
+// ============================================
 
 export type ProjectTasksResponse = Awaited<ReturnType<typeof getProjectTasks>>;
 export type ProjectTaskType = ProjectTasksResponse['tasks'];

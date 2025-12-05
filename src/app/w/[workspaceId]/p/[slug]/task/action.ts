@@ -6,6 +6,7 @@ import { ApiResponse } from "@/lib/types";
 import { SubTaskSchemaType, taskSchema, TaskSchemaType, subTaskSchema } from "@/lib/zodSchemas";
 import { revalidatePath } from "next/cache";
 import { getUserPermissions } from "@/app/data/user/get-user-permissions";
+import { invalidateProjectTasks, invalidateTaskSubTasks } from "@/app/data/user/invalidate-project-cache";
 
 export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
     const user = await requireUser();
@@ -57,8 +58,9 @@ export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
             }
         });
 
-        // 4. Revalidate cache
+        // 4. Revalidate cache (path + task cache)
         revalidatePath(`/w/${project.workspaceId}/p/${project.slug}/task`);
+        await invalidateProjectTasks(values.projectId);
 
         return {
             status: "success",
@@ -181,7 +183,10 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
             }
         });
 
+        // Revalidate cache (path + task/subtask caches)
         revalidatePath(`/w/${project.workspaceId}/p/${project.slug}/task`);
+        await invalidateProjectTasks(values.projectId);
+        await invalidateTaskSubTasks(values.parentTaskId);
 
         return {
             status: "success",
@@ -283,8 +288,9 @@ export async function editTask(
             },
         });
 
-        // Revalidate cache
+        // Revalidate cache (path + task cache)
         revalidatePath(`/w/${existingTask.project.workspaceId}/p/${existingTask.project.slug}/task`);
+        await invalidateProjectTasks(existingTask.projectId);
 
         return {
             status: "success",
@@ -344,8 +350,9 @@ export async function deleteTask(
             where: { id: taskId },
         });
 
-        // 4. Revalidate cache
+        // 4. Revalidate cache (path + task cache)
         revalidatePath(`/w/${existingTask.project.workspaceId}/p/${existingTask.project.slug}/task`);
+        await invalidateProjectTasks(existingTask.projectId);
 
         return {
             status: "success",
@@ -442,8 +449,12 @@ export async function editSubTask(
             },
         });
 
-        // Revalidate cache
+        // Revalidate cache (path + subtask cache)
         revalidatePath(`/w/${existingSubTask.project.workspaceId}/p/${existingSubTask.project.slug}/task`);
+        if (existingSubTask.parentTaskId) {
+            await invalidateTaskSubTasks(existingSubTask.parentTaskId);
+        }
+        await invalidateProjectTasks(existingSubTask.projectId);
 
         return {
             status: "success",
@@ -502,8 +513,12 @@ export async function deleteSubTask(
             where: { id: subTaskId },
         });
 
-        // Revalidate cache
+        // Revalidate cache (path + subtask cache)
         revalidatePath(`/w/${existingSubTask.project.workspaceId}/p/${existingSubTask.project.slug}/task`);
+        if (existingSubTask.parentTaskId) {
+            await invalidateTaskSubTasks(existingSubTask.parentTaskId);
+        }
+        await invalidateProjectTasks(existingSubTask.projectId);
 
         return {
             status: "success",

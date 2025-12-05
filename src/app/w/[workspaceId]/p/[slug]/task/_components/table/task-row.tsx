@@ -11,7 +11,6 @@ import { EditTaskDialog } from "../forms/edit-task-form";
 import { DeleteTaskDialog } from "../forms/delete-task-form";
 import { useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useTransition } from "react";
 
 interface TaskRowProps {
     task: TaskWithSubTasks;
@@ -36,8 +35,6 @@ export function TaskRow({
     onTaskUpdated,
     onTaskDeleted,
 }: TaskRowProps) {
-    const router = useRouter();
-    const [isPending, startTransition] = useTransition();
     const subtaskCount = task._count?.subTasks || 0;
 
     // Calculate the number of columns to span
@@ -70,7 +67,7 @@ export function TaskRow({
     };
 
     // Show skeleton while updating OR while refresh is pending
-    if (isUpdating || isPending) {
+    if (isUpdating) {
         return (
             <TableRow className="group">
                 <TableCell>

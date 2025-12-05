@@ -134,7 +134,6 @@ export function SubTaskRow({
                 </TableCell>
                 <TableCell className="pl-3">
                     <div className="flex items-center gap-2">
-                        <CornerDownRight className="h-4 w-4 text-muted-foreground shrink-0" />
                         <Skeleton className="h-4 w-32" />
                     </div>
                 </TableCell>

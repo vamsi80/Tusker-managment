@@ -101,7 +101,6 @@ export const CreateTaskForm = ({ projectId }: iAppProps) => {
                     <Button
                         className="cursor-pointer">
                         Create Task
-                        <Plus size={16} />
                     </Button>
                 </DialogTrigger>
                 <DialogContent >
