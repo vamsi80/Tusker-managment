@@ -39,7 +39,7 @@ Implemented a multi-layer caching strategy for user projects, workspaces, admin 
 - **Tags**: 
   - `admin-check-{userId}`
   - `workspace-admin-{workspaceId}`
-- **Revalidation**: 24 hours
+- **Revalidation**: 5 minutes
 
 ### Project Tasks ⭐ NEW
 - **Function**: `getProjectTasks(projectId, page, pageSize)`

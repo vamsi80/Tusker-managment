@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { InviteUserForm } from "./_components/create-user";
-import { isAdminServer } from "@/lib/isAdminServer";
+import { requireAdmin } from "@/lib/requireAdmin";
 import { getWorkspaceMembers } from "@/app/data/workspace/get-workspace-members";
 import { TeamMembers } from "./_components/team-members";
 import { TeamMembersSkeleton } from "./_components/team-members-skeleton";
@@ -29,7 +29,7 @@ function TeamHeaderSkeleton() {
  * Wrapped in Suspense so page loads instantly
  */
 async function TeamHeader({ workspaceId }: { workspaceId: string }) {
-    const isAdmin = await isAdminServer(workspaceId);
+    const isAdmin = await requireAdmin(workspaceId);
 
     return (
         <div className="flex items-center justify-between">
@@ -46,8 +46,17 @@ async function TeamHeader({ workspaceId }: { workspaceId: string }) {
  * Wrapped in Suspense with skeleton fallback
  */
 async function TeamMembersList({ workspaceId }: { workspaceId: string }) {
-    const data = await getWorkspaceMembers(workspaceId);
-    return <TeamMembers data={data.workspaceMembers} />;
+    const [data, isAdmin] = await Promise.all([
+        getWorkspaceMembers(workspaceId),
+        requireAdmin(workspaceId),
+    ]);
+    return (
+        <TeamMembers
+            data={data.workspaceMembers}
+            isAdmin={isAdmin}
+            workspaceId={workspaceId}
+        />
+    );
 }
 
 /**
