@@ -1,9 +1,10 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useTransition, useState, useEffect } from "react";
+import { useState, useTransition } from "react";
 import { Resolver, useForm } from "react-hook-form";
-import { Check, Loader2, PlusIcon, SparkleIcon, PenTool, ShoppingCart, Hammer } from "lucide-react";
+import { Check, Loader2, Pencil, PenTool, ShoppingCart, Hammer } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -11,69 +12,67 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { subTaskSchema, SubTaskSchemaType } from "@/lib/zodSchemas";
 import { tryCatch } from "@/hooks/try-catch";
-import { useConfetti } from "@/hooks/use-confetti";
 import { toast } from "sonner";
+import { editSubTask } from "../../action";
+import { SubTaskType } from "@/app/data/task/get-project-tasks";
 import { ProjectMembersType } from "@/app/data/project/get-project-members";
-import slugify from "slugify";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import { createSubTask } from "../../action";
 
-interface iAppProps {
-    members: ProjectMembersType
-    workspaceId: string,
+interface EditSubTaskFormProps {
+    subTask: SubTaskType[number];
+    members: ProjectMembersType;
     projectId: string;
     parentTaskId: string;
+    onSubTaskUpdated?: (updatedData: Partial<SubTaskType[number]>) => void;
 }
 
-export const CreateSubTaskForm = ({ members, workspaceId, projectId, parentTaskId }: iAppProps) => {
+export function EditSubTaskForm({
+    subTask,
+    members,
+    projectId,
+    parentTaskId,
+    onSubTaskUpdated,
+}: EditSubTaskFormProps) {
     const [pending, startTransition] = useTransition();
-    const { triggerConfetti } = useConfetti();
     const [open, setOpen] = useState(false);
-    const [autoSlugEnabled, setAutoSlugEnabled] = useState(true);
+    const router = useRouter();
 
     const form = useForm<SubTaskSchemaType>({
         resolver: zodResolver(subTaskSchema) as unknown as Resolver<SubTaskSchemaType>,
         defaultValues: {
-            name: "",
-            description: "",
-            taskSlug: "",
-            startDate: "",
-            days: 0,
-            assignee: "",
-            status: "TO_DO",
-            tag: "CONTRACTOR",
+            name: subTask.name,
+            description: subTask.description || "",
+            taskSlug: subTask.taskSlug || "placeholder-slug", // Use existing slug or placeholder
             projectId: projectId,
             parentTaskId: parentTaskId,
+            assignee: subTask.assignee?.workspaceMember?.user?.id || "",
+            tag: subTask.tag || "CONTRACTOR",
+            status: subTask.status || "TO_DO",
+            startDate: subTask.startDate ? new Date(subTask.startDate).toISOString().split('T')[0] : "",
+            days: subTask.days || 0,
         },
-    })
+    });
 
-    // Auto-update slug when subtask name changes
-    useEffect(() => {
-        if (!autoSlugEnabled || !open) return;
+    function onSubmit(values: SubTaskSchemaType) {
+        // Check if there are any actual changes
+        const hasChanges =
+            values.name !== subTask.name ||
+            values.description !== (subTask.description || "") ||
+            values.assignee !== (subTask.assignee?.workspaceMember?.user?.id || "") ||
+            values.tag !== subTask.tag ||
+            values.startDate !== (subTask.startDate ? new Date(subTask.startDate).toISOString().split('T')[0] : "") ||
+            values.days !== subTask.days;
 
-        const subscription = form.watch((value, { name: fieldName }) => {
-            if (fieldName === 'name' && value.name) {
-                const newSlug = slugify(value.name, { lower: true, strict: true });
-                form.setValue('taskSlug', newSlug, { shouldValidate: false });
-            }
-        });
-
-        return () => subscription.unsubscribe();
-    }, [form, autoSlugEnabled, open]);
-
-    // Reset auto-slug when dialog opens
-    useEffect(() => {
-        if (open) {
-            setAutoSlugEnabled(true);
+        if (!hasChanges) {
+            toast.info("No changes detected");
+            setOpen(false);
+            return;
         }
-    }, [open]);
 
-    function onSubmit(data: SubTaskSchemaType) {
         startTransition(async () => {
-            const { data: result, error } = await tryCatch(createSubTask(data));
-            console.log("results", { result });
+            const { data: result, error } = await tryCatch(editSubTask(values, subTask.id));
 
             if (error) {
                 toast.error(error.message);
@@ -83,40 +82,52 @@ export const CreateSubTaskForm = ({ members, workspaceId, projectId, parentTaskI
 
             if (result.status === "success") {
                 toast.success(result.message);
-                triggerConfetti();
-                form.reset();
+
+                // Pass updated data to callback for optimistic UI update
+                // This will trigger skeleton in parent component
+                if (onSubTaskUpdated) {
+                    onSubTaskUpdated({
+                        name: values.name,
+                        description: values.description,
+                        tag: values.tag,
+                        startDate: values.startDate ? new Date(values.startDate) : null,
+                        days: values.days,
+                    });
+                }
+
                 setOpen(false);
-            } else (
-                toast.error(result.message)
-            )
+
+                // Refresh to get server data
+                router.refresh();
+            } else {
+                toast.error(result.message);
+            }
         });
     }
-
-    const handleManualSlugGenerate = () => {
-        const nameValue = form.getValues("name") || "";
-        const slug = slugify(nameValue, { lower: true, strict: true });
-        form.setValue('taskSlug', slug, { shouldValidate: true });
-        setAutoSlugEnabled(true); // Re-enable auto-slug
-    };
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button size="sm">
-                    <PlusIcon className="mr-2 size-4" /> Create Sub-Task
+                <Button variant="ghost" size="sm" className="w-full justify-start">
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Edit SubTask
                 </Button>
             </DialogTrigger>
             <DialogContent className="max-h-[98vh] w-[min(900px,95vw)] overflow-hidden">
                 <DialogHeader>
-                    <DialogTitle>Create New SubTask</DialogTitle>
+                    <DialogTitle>Edit SubTask</DialogTitle>
                 </DialogHeader>
 
                 <div className="mt-4 overflow-y-auto px-2 py-1 max-h-[70vh] thin-scrollbar">
                     <Form {...form}>
                         <form
-                            onSubmit={form.handleSubmit(onSubmit)}
+                            onSubmit={form.handleSubmit(onSubmit, (error) => {
+                                console.error(error);
+                                toast.error("Failed to update subtask");
+                            })}
                             className="space-y-5"
                         >
+                            {/* SubTask Name */}
                             <FormField
                                 control={form.control}
                                 name="name"
@@ -130,46 +141,6 @@ export const CreateSubTaskForm = ({ members, workspaceId, projectId, parentTaskI
                                     </FormItem>
                                 )}
                             />
-
-                            <div className=" flex gap-4 items-end">
-                                <FormField
-                                    control={form.control}
-                                    name="taskSlug"
-                                    render={({ field }) => (
-                                        <FormItem className="w-full">
-                                            <FormLabel>
-                                                Slug
-                                                {autoSlugEnabled && (
-                                                    <span className="text-xs text-muted-foreground ml-2">
-                                                        (auto-updating)
-                                                    </span>
-                                                )}
-                                            </FormLabel>
-                                            <FormControl>
-                                                <Input
-                                                    placeholder="Slug"
-                                                    {...field}
-                                                    onChange={(e) => {
-                                                        field.onChange(e);
-                                                        // Disable auto-slug if user manually edits
-                                                        setAutoSlugEnabled(false);
-                                                    }}
-                                                />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    className="w-fit shrink-0"
-                                    onClick={handleManualSlugGenerate}
-                                >
-                                    <SparkleIcon className="mr-1" size={16} />
-                                    Generate
-                                </Button>
-                            </div>
 
                             {/* Description */}
                             <FormField
@@ -230,7 +201,7 @@ export const CreateSubTaskForm = ({ members, workspaceId, projectId, parentTaskI
                                     control={form.control}
                                     name="startDate"
                                     render={({ field }) => (
-                                        <FormItem >
+                                        <FormItem>
                                             <FormLabel>Start Date</FormLabel>
                                             <FormControl>
                                                 <Input type="date" {...field} />
@@ -258,17 +229,18 @@ export const CreateSubTaskForm = ({ members, workspaceId, projectId, parentTaskI
                                         </FormItem>
                                     )}
                                 />
-
                             </div>
+
+                            {/* Status (Read-only) */}
                             <FormField
                                 control={form.control}
                                 name="status"
                                 render={({ field }) => (
-                                    <FormItem >
+                                    <FormItem>
                                         <FormLabel>Status</FormLabel>
                                         <FormControl>
                                             <Input
-                                                value="TO DO"
+                                                value={field.value?.replace('_', ' ') || "TO DO"}
                                                 disabled
                                                 className="bg-muted cursor-not-allowed"
                                             />
@@ -278,6 +250,7 @@ export const CreateSubTaskForm = ({ members, workspaceId, projectId, parentTaskI
                                 )}
                             />
 
+                            {/* Assignee */}
                             <FormField
                                 control={form.control}
                                 name="assignee"
@@ -344,17 +317,18 @@ export const CreateSubTaskForm = ({ members, workspaceId, projectId, parentTaskI
                                 )}
                             />
 
+                            {/* Submit Button */}
                             <div className="flex justify-end items-center gap-4 pt-2 mb-2">
                                 <Button type="submit" disabled={pending}>
                                     {pending ? (
                                         <>
-                                            Creating...
+                                            Updating...
                                             <Loader2 className="ml-1 h-4 w-4 animate-spin" />
                                         </>
                                     ) : (
                                         <>
-                                            Create SubTask
-                                            <PlusIcon className="ml-1" size={16} />
+                                            Update SubTask
+                                            <Pencil className="ml-1" size={16} />
                                         </>
                                     )}
                                 </Button>
@@ -365,4 +339,4 @@ export const CreateSubTaskForm = ({ members, workspaceId, projectId, parentTaskI
             </DialogContent>
         </Dialog>
     );
-};
+}

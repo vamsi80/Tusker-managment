@@ -1,6 +1,6 @@
 import { getProjectTasks } from "@/app/data/task/get-project-tasks";
-import { TaskData } from "./taskData";
 import { ProjectMembersType } from "@/app/data/project/get-project-members";
+import { TaskTable } from "./task-table";
 
 interface TaskTableContainerProps {
     workspaceId: string;
@@ -9,6 +9,9 @@ interface TaskTableContainerProps {
     canCreateSubTask: boolean;
 }
 
+/**
+ * Server component that fetches initial task data and passes it to the client TaskTable component
+ */
 export async function TaskTableContainer({
     workspaceId,
     projectId,
@@ -18,7 +21,7 @@ export async function TaskTableContainer({
     const tasks = await getProjectTasks(projectId);
 
     return (
-        <TaskData
+        <TaskTable
             initialTasksData={tasks}
             members={members}
             workspaceId={workspaceId}

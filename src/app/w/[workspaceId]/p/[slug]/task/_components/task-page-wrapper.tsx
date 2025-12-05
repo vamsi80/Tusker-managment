@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, createContext, useContext } from "react";
 import { TaskProvider } from "./task-context";
 import { TaskWithSubTasks } from "./table/types";
 
@@ -8,16 +8,37 @@ interface TaskPageWrapperProps {
     children: React.ReactNode;
 }
 
-export function TaskPageWrapper({ children }: TaskPageWrapperProps) {
-    const [tasks, setTasks] = useState<TaskWithSubTasks[]>([]);
+interface NewTaskContextType {
+    newTask: TaskWithSubTasks | null;
+    clearNewTask: () => void;
+}
 
-    const handleAddTask = useCallback((newTask: TaskWithSubTasks) => {
-        setTasks(prev => [newTask, ...prev]);
+const NewTaskContext = createContext<NewTaskContextType | undefined>(undefined);
+
+export function useNewTask() {
+    const context = useContext(NewTaskContext);
+    if (!context) {
+        throw new Error("useNewTask must be used within TaskPageWrapper");
+    }
+    return context;
+}
+
+export function TaskPageWrapper({ children }: TaskPageWrapperProps) {
+    const [newTask, setNewTask] = useState<TaskWithSubTasks | null>(null);
+
+    const handleAddTask = useCallback((task: TaskWithSubTasks) => {
+        setNewTask(task);
+    }, []);
+
+    const clearNewTask = useCallback(() => {
+        setNewTask(null);
     }, []);
 
     return (
-        <TaskProvider onAddTask={handleAddTask}>
-            {children}
-        </TaskProvider>
+        <NewTaskContext.Provider value={{ newTask, clearNewTask }}>
+            <TaskProvider onAddTask={handleAddTask}>
+                {children}
+            </TaskProvider>
+        </NewTaskContext.Provider>
     );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { Resolver, useForm } from "react-hook-form";
 import { Loader2, Plus, PlusIcon, SparkleIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -25,6 +25,7 @@ export const CreateTaskForm = ({ projectId }: iAppProps) => {
     const [Pending, startTransition] = useTransition();
     const { triggerConfetti } = useConfetti();
     const [open, setOpen] = useState(false);
+    const [autoSlugEnabled, setAutoSlugEnabled] = useState(true);
     const router = useRouter();
     const { addNewTask, setIsAddingTask } = useTaskContext();
 
@@ -36,6 +37,28 @@ export const CreateTaskForm = ({ projectId }: iAppProps) => {
             projectId: projectId,
         },
     })
+
+    // Auto-update slug when task name changes
+    useEffect(() => {
+        if (!autoSlugEnabled || !open) return;
+
+        const subscription = form.watch((value, { name: fieldName }) => {
+            if (fieldName === 'name' && value.name) {
+                const newSlug = slugify(value.name, { lower: true, strict: true });
+                form.setValue('taskSlug', newSlug, { shouldValidate: false });
+            }
+        });
+
+        return () => subscription.unsubscribe();
+    }, [form, autoSlugEnabled, open]);
+
+    // Reset auto-slug when dialog opens
+    useEffect(() => {
+        if (open) {
+            setAutoSlugEnabled(true);
+        }
+    }, [open]);
+
     function onSubmit(values: TaskSchemaType) {
         startTransition(async () => {
             setIsAddingTask(true); // Show skeleton
@@ -62,6 +85,13 @@ export const CreateTaskForm = ({ projectId }: iAppProps) => {
             }
         });
     }
+
+    const handleManualSlugGenerate = () => {
+        const nameValue = form.getValues("name") || "";
+        const slug = slugify(nameValue, { lower: true, strict: true });
+        form.setValue('taskSlug', slug, { shouldValidate: true });
+        setAutoSlugEnabled(true); // Re-enable auto-slug
+    };
 
 
     return (
@@ -103,21 +133,37 @@ export const CreateTaskForm = ({ projectId }: iAppProps) => {
                                         name="taskSlug"
                                         render={({ field }) => (
                                             <FormItem className="w-full">
-                                                <FormLabel>Slug</FormLabel>
+                                                <FormLabel>
+                                                    Slug
+                                                    {autoSlugEnabled && (
+                                                        <span className="text-xs text-muted-foreground ml-2">
+                                                            (auto-updating)
+                                                        </span>
+                                                    )}
+                                                </FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="Slug"{...field} />
+                                                    <Input
+                                                        placeholder="Slug"
+                                                        {...field}
+                                                        onChange={(e) => {
+                                                            field.onChange(e);
+                                                            // Disable auto-slug if user manually edits
+                                                            setAutoSlugEnabled(false);
+                                                        }}
+                                                    />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
                                     />
-                                    <Button type="button" className="w-fit" onClick={() => {
-                                        const nameValue = form.getValues("name") || "";
-                                        const slug = slugify(nameValue, { lower: true, strict: true });
-
-                                        form.setValue('taskSlug', slug, { shouldValidate: true })
-                                    }}>
-                                        Generate Slug <SparkleIcon className="ml-1" size={16} />
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="w-fit shrink-0"
+                                        onClick={handleManualSlugGenerate}
+                                    >
+                                        <SparkleIcon className="mr-1" size={16} />
+                                        Generate
                                     </Button>
                                 </div>
 

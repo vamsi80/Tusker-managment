@@ -1,9 +1,11 @@
 "use client";
 
+import { useState, useEffect, useRef } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -13,14 +15,34 @@ import {
 import { CornerDownRight, GripVertical, Calendar, Tag, MoreHorizontal } from "lucide-react";
 import { SubTaskType } from "@/app/data/task/get-project-tasks";
 import { ColumnVisibility } from "./task-table-toolbar";
+import { EditSubTaskForm } from "../forms/edit-subtask-form";
+import { DeleteSubTaskForm } from "../forms/delete-subtask-form";
+import { ProjectMembersType } from "@/app/data/project/get-project-members";
 
 interface SubTaskRowProps {
     subTask: SubTaskType[number];
     columnVisibility: ColumnVisibility;
     onClick?: (subTask: SubTaskType[number]) => void;
+    members: ProjectMembersType;
+    projectId: string;
+    parentTaskId: string;
+    onSubTaskUpdated?: (subTaskId: string, updatedData: Partial<SubTaskType[number]>) => void;
+    onSubTaskDeleted?: (subTaskId: string) => void;
 }
 
-export function SubTaskRow({ subTask, columnVisibility, onClick }: SubTaskRowProps) {
+export function SubTaskRow({
+    subTask,
+    columnVisibility,
+    onClick,
+    members,
+    projectId,
+    parentTaskId,
+    onSubTaskUpdated,
+    onSubTaskDeleted,
+}: SubTaskRowProps) {
+    const [isUpdating, setIsUpdating] = useState(false);
+    const previousSubTaskRef = useRef(subTask);
+
     const {
         attributes,
         listeners,
@@ -39,6 +61,29 @@ export function SubTaskRow({ subTask, columnVisibility, onClick }: SubTaskRowPro
         zIndex: isDragging ? 10 : "auto",
         opacity: isDragging ? 0.5 : 1,
     };
+
+    // Handle subtask update with skeleton display
+    const handleSubTaskUpdated = (updatedData: Partial<SubTaskType[number]>) => {
+        // Store current subtask before update
+        previousSubTaskRef.current = subTask;
+
+        // Show skeleton immediately
+        setIsUpdating(true);
+
+        // Update the subtask in parent state immediately (optimistic update)
+        if (onSubTaskUpdated) {
+            onSubTaskUpdated(subTask.id, updatedData);
+        }
+    };
+
+    // Hide skeleton when subtask data actually changes from server
+    useEffect(() => {
+        if (isUpdating && previousSubTaskRef.current !== subTask) {
+            // Data has changed from server, hide skeleton
+            setIsUpdating(false);
+            previousSubTaskRef.current = subTask;
+        }
+    }, [subTask, isUpdating]);
 
     const assignee = subTask.assignee?.workspaceMember?.user;
 
@@ -86,6 +131,51 @@ export function SubTaskRow({ subTask, columnVisibility, onClick }: SubTaskRowPro
     const dueDate = calculateDueDate();
     const remainingDays = calculateRemainingDays();
     const progressColor = getProgressColor();
+
+    // Show skeleton while updating
+    if (isUpdating) {
+        return (
+            <TableRow className="bg-muted/10">
+                <TableCell className="pl-4">
+                    <Skeleton className="h-6 w-6" />
+                </TableCell>
+                <TableCell className="pl-3">
+                    <div className="flex items-center gap-2">
+                        <CornerDownRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <Skeleton className="h-4 w-32" />
+                    </div>
+                </TableCell>
+                {columnVisibility.assignee && (
+                    <TableCell>
+                        <Skeleton className="h-8 w-8 rounded-full" />
+                    </TableCell>
+                )}
+                {columnVisibility.tag && (
+                    <TableCell>
+                        <Skeleton className="h-5 w-20" />
+                    </TableCell>
+                )}
+                {columnVisibility.startDate && (
+                    <TableCell>
+                        <Skeleton className="h-4 w-24" />
+                    </TableCell>
+                )}
+                {columnVisibility.dueDate && (
+                    <TableCell>
+                        <Skeleton className="h-4 w-24" />
+                    </TableCell>
+                )}
+                {columnVisibility.progress && (
+                    <TableCell>
+                        <Skeleton className="h-2 w-full" />
+                    </TableCell>
+                )}
+                <TableCell>
+                    <Skeleton className="h-7 w-7" />
+                </TableCell>
+            </TableRow>
+        );
+    }
 
     return (
         <TableRow
@@ -207,9 +297,20 @@ export function SubTaskRow({ subTask, columnVisibility, onClick }: SubTaskRowPro
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">
-                            Delete
+                        <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
+                            <EditSubTaskForm
+                                subTask={subTask}
+                                members={members}
+                                projectId={projectId}
+                                parentTaskId={parentTaskId}
+                                onSubTaskUpdated={handleSubTaskUpdated}
+                            />
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
+                            <DeleteSubTaskForm
+                                subTask={subTask}
+                                onSubTaskDeleted={onSubTaskDeleted}
+                            />
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>

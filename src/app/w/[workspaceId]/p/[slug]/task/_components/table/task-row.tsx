@@ -3,21 +3,26 @@
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronRight, MoreHorizontal } from "lucide-react";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ColumnVisibility } from "./task-table-toolbar";
 import { TaskWithSubTasks } from "./types";
 import { Badge } from "@/components/ui/badge";
+import { EditTaskDialog } from "../forms/edit-task-form";
+import { DeleteTaskDialog } from "../forms/delete-task-form";
+import { useRouter } from "next/navigation";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useTransition } from "react";
 
 interface TaskRowProps {
     task: TaskWithSubTasks;
     isExpanded: boolean;
     onToggleExpand: () => void;
     columnVisibility: ColumnVisibility;
+    isUpdating?: boolean;
+    onUpdateStart?: () => void;
+    onUpdateEnd?: () => void;
+    onTaskUpdated?: (updatedTask: { name: string; taskSlug: string }) => void;
+    onTaskDeleted?: (taskId: string) => void;
 }
 
 export function TaskRow({
@@ -25,7 +30,14 @@ export function TaskRow({
     isExpanded,
     onToggleExpand,
     columnVisibility,
+    isUpdating = false,
+    onUpdateStart,
+    onUpdateEnd,
+    onTaskUpdated,
+    onTaskDeleted,
 }: TaskRowProps) {
+    const router = useRouter();
+    const [isPending, startTransition] = useTransition();
     const subtaskCount = task._count?.subTasks || 0;
 
     // Calculate the number of columns to span
@@ -37,6 +49,43 @@ export function TaskRow({
     if (columnVisibility.dueDate) colSpan++;
     if (columnVisibility.progress) colSpan++;
     if (columnVisibility.tag) colSpan++;
+
+    const handleTaskUpdated = (updatedTask: { name: string; taskSlug: string }) => {
+        // Show skeleton first
+        if (onUpdateStart) {
+            onUpdateStart();
+        }
+
+        // Update the task in parent state immediately
+        // Pass the updated data up to task-table
+        if (onTaskUpdated) {
+            onTaskUpdated(updatedTask);
+        }
+
+        // Hide skeleton after a short delay
+        setTimeout(() => {
+            if (onUpdateEnd) {
+                onUpdateEnd();
+            }
+        }, 300);
+    };
+
+    // Show skeleton while updating OR while refresh is pending
+    if (isUpdating || isPending) {
+        return (
+            <TableRow className="group">
+                <TableCell>
+                    <Skeleton className="h-8 w-8" />
+                </TableCell>
+                <TableCell className="font-medium" colSpan={colSpan}>
+                    <Skeleton className="h-5 w-[200px]" />
+                </TableCell>
+                <TableCell>
+                    <Skeleton className="h-8 w-8" />
+                </TableCell>
+            </TableRow>
+        );
+    }
 
     return (
         <TableRow className="group">
@@ -72,9 +121,19 @@ export function TaskRow({
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">
-                            Delete
+                        <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
+                            <EditTaskDialog
+                                task={task}
+                                onTaskUpdated={handleTaskUpdated}
+                                onUpdateStart={onUpdateStart}
+                                onUpdateEnd={onUpdateEnd}
+                            />
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
+                            <DeleteTaskDialog
+                                task={task}
+                                onTaskDeleted={onTaskDeleted}
+                            />
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>

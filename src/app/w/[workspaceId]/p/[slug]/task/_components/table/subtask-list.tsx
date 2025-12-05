@@ -74,6 +74,17 @@ export function SubTaskList({
                         subTask={subTask}
                         columnVisibility={columnVisibility}
                         onClick={onSubTaskClick}
+                        members={members}
+                        projectId={projectId}
+                        parentTaskId={task.id}
+                        onSubTaskUpdated={(subTaskId, updatedData) => {
+                            // TODO: Handle subtask update in parent
+                            console.log('SubTask updated:', subTaskId, updatedData);
+                        }}
+                        onSubTaskDeleted={(subTaskId) => {
+                            // TODO: Handle subtask deletion in parent
+                            console.log('SubTask deleted:', subTaskId);
+                        }}
                     />
                 ))}
             </SortableContext>

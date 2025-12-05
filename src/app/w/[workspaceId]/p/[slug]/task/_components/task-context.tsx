@@ -29,7 +29,10 @@ export function TaskProvider({ children, onAddTask }: TaskProviderProps) {
 
     const addNewTask = useCallback((task: TaskWithSubTasks) => {
         onAddTask(task);
-        setIsAddingTask(false);
+        // Delay hiding skeleton to ensure task is added to UI first
+        setTimeout(() => {
+            setIsAddingTask(false);
+        }, 300);
     }, [onAddTask]);
 
     return (
