@@ -9,8 +9,6 @@ import { getUserPermissions } from "@/app/data/user/get-user-permissions";
 import { invalidateProjectTasks, invalidateTaskSubTasks } from "@/app/data/user/invalidate-project-cache";
 
 export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
-    const user = await requireUser();
-
     try {
         const validation = taskSchema.safeParse(values);
         if (!validation.success) {
@@ -72,6 +70,107 @@ export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
         return {
             status: "error",
             message: "We couldn't create the task. Please try again.",
+        }
+    }
+}
+
+export async function bulkCreateTasks(data: {
+    projectId: string;
+    tasks: { name: string; taskSlug: string }[];
+}): Promise<ApiResponse> {
+    const user = await requireUser();
+
+    try {
+        if (!data.tasks || data.tasks.length === 0) {
+            return {
+                status: "error",
+                message: "No tasks provided"
+            };
+        }
+
+        // Validate each task
+        for (const task of data.tasks) {
+            if (!task.name || !task.taskSlug) {
+                return {
+                    status: "error",
+                    message: "All tasks must have a name and slug"
+                };
+            }
+        }
+
+        // 1. Get the project to find the workspaceId
+        const project = await prisma.project.findUnique({
+            where: { id: data.projectId },
+            select: { workspaceId: true, slug: true }
+        });
+
+        if (!project) {
+            return {
+                status: "error",
+                message: "Project not found",
+            };
+        }
+
+        // 2. Verify user is a member of the workspace using cached function
+        const permissions = await getUserPermissions(project.workspaceId, data.projectId);
+
+        if (!permissions.workspaceMember) {
+            return {
+                status: "error",
+                message: "You are not a member of this workspace",
+            };
+        }
+
+        // 3. Check for duplicate slugs in the database
+        const slugs = data.tasks.map(t => t.taskSlug);
+        const existingSlugs = await prisma.task.findMany({
+            where: {
+                taskSlug: { in: slugs }
+            },
+            select: { taskSlug: true }
+        });
+
+        if (existingSlugs.length > 0) {
+            return {
+                status: "error",
+                message: `The following slugs already exist: ${existingSlugs.map(s => s.taskSlug).join(", ")}`,
+            };
+        }
+
+        // 4. Create all tasks in a transaction
+        const createdTasks = await prisma.$transaction(
+            data.tasks.map(task =>
+                prisma.task.create({
+                    data: {
+                        name: task.name,
+                        taskSlug: task.taskSlug,
+                        projectId: data.projectId,
+                        createdById: permissions.workspaceMember.id,
+                    },
+                    include: {
+                        _count: {
+                            select: { subTasks: true }
+                        }
+                    }
+                })
+            )
+        );
+
+        // 5. Revalidate cache (path + task cache)
+        revalidatePath(`/w/${project.workspaceId}/p/${project.slug}/task`);
+        await invalidateProjectTasks(data.projectId);
+
+        return {
+            status: "success",
+            message: `${createdTasks.length} tasks created successfully`,
+            data: createdTasks,
+        };
+
+    } catch (err) {
+        console.error("Error bulk creating tasks:", err);
+        return {
+            status: "error",
+            message: "We couldn't create the tasks. Please try again.",
         }
     }
 }
@@ -199,6 +298,184 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
         return {
             status: "error",
             message: "We couldn't create the subtask. Please try again.",
+        }
+    }
+}
+
+export async function bulkCreateSubTasks(data: {
+    projectId: string;
+    parentTaskId: string;
+    subTasks: {
+        name: string;
+        taskSlug: string;
+        description?: string;
+        tag?: "DESIGN" | "PROCUREMENT" | "CONTRACTOR";
+        startDate?: string;
+        days?: number;
+        assignee?: string;
+        status: "TO_DO" | "IN_PROGRESS" | "COMPLETED";
+    }[];
+}): Promise<ApiResponse> {
+    const user = await requireUser();
+
+    try {
+        if (!data.subTasks || data.subTasks.length === 0) {
+            return {
+                status: "error",
+                message: "No subtasks provided"
+            };
+        }
+
+        // Validate each subtask
+        for (const subTask of data.subTasks) {
+            if (!subTask.name || !subTask.taskSlug) {
+                return {
+                    status: "error",
+                    message: "All subtasks must have a name and slug"
+                };
+            }
+        }
+
+        // Get the project
+        const project = await prisma.project.findUnique({
+            where: { id: data.projectId },
+            select: { workspaceId: true, slug: true }
+        });
+
+        if (!project) {
+            return {
+                status: "error",
+                message: "Project not found",
+            };
+        }
+
+        // Get user permissions
+        const permissions = await getUserPermissions(project.workspaceId, data.projectId);
+
+        if (!permissions.workspaceMember) {
+            return {
+                status: "error",
+                message: "You are not a member of this workspace",
+            };
+        }
+
+        // Check if user has permission to create subtasks
+        if (!permissions.canCreateSubTask) {
+            return {
+                status: "error",
+                message: "You don't have permission to create subtasks. Only workspace admins and project leads can create subtasks.",
+            };
+        }
+
+        // Get parent task to create unique slugs
+        const parentTask = await prisma.task.findUnique({
+            where: { id: data.parentTaskId },
+            select: { taskSlug: true }
+        });
+
+        if (!parentTask) {
+            return {
+                status: "error",
+                message: "Parent task not found",
+            };
+        }
+
+        // Create unique slugs and check for duplicates
+        const uniqueSlugs = data.subTasks.map(st => `${parentTask.taskSlug}-${st.taskSlug}`);
+        const existingSlugs = await prisma.task.findMany({
+            where: {
+                taskSlug: { in: uniqueSlugs }
+            },
+            select: { taskSlug: true }
+        });
+
+        if (existingSlugs.length > 0) {
+            return {
+                status: "error",
+                message: `The following slugs already exist: ${existingSlugs.map(s => s.taskSlug).join(", ")}`,
+            };
+        }
+
+        // Resolve assignees
+        const subTasksWithAssignees = await Promise.all(
+            data.subTasks.map(async (subTask) => {
+                let assigneeId: string | null = null;
+                if (subTask.assignee) {
+                    const assigneeProjectMember = await prisma.projectMember.findFirst({
+                        where: {
+                            projectId: data.projectId,
+                            workspaceMember: {
+                                userId: subTask.assignee
+                            }
+                        }
+                    });
+                    if (assigneeProjectMember) {
+                        assigneeId = assigneeProjectMember.id;
+                    }
+                }
+                return {
+                    ...subTask,
+                    assigneeId,
+                    uniqueSlug: `${parentTask.taskSlug}-${subTask.taskSlug}`
+                };
+            })
+        );
+
+        // Create all subtasks in a transaction
+        const createdSubTasks = await prisma.$transaction(
+            subTasksWithAssignees.map(subTask =>
+                prisma.task.create({
+                    data: {
+                        name: subTask.name,
+                        taskSlug: subTask.uniqueSlug,
+                        description: subTask.description,
+                        status: subTask.status,
+                        projectId: data.projectId,
+                        parentTaskId: data.parentTaskId,
+                        createdById: permissions.workspaceMember.id,
+                        assigneeTo: subTask.assigneeId,
+                        tag: subTask.tag,
+                        startDate: subTask.startDate ? new Date(subTask.startDate) : null,
+                        days: subTask.days,
+                    },
+                    include: {
+                        assignee: {
+                            include: {
+                                workspaceMember: {
+                                    include: {
+                                        user: {
+                                            select: {
+                                                id: true,
+                                                name: true,
+                                                surname: true,
+                                                image: true,
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                })
+            )
+        );
+
+        // Revalidate cache
+        revalidatePath(`/w/${project.workspaceId}/p/${project.slug}/task`);
+        await invalidateProjectTasks(data.projectId);
+        await invalidateTaskSubTasks(data.parentTaskId);
+
+        return {
+            status: "success",
+            message: `${createdSubTasks.length} subtasks created successfully`,
+            data: createdSubTasks,
+        };
+
+    } catch (err) {
+        console.error("Error bulk creating subtasks:", err);
+        return {
+            status: "error",
+            message: "We couldn't create the subtasks. Please try again.",
         }
     }
 }

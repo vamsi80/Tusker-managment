@@ -367,7 +367,7 @@ export function TaskTable({
                             ))}
                             {filteredTasks.length === 0 && (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="h-24 text-center">
+                                    <TableCell colSpan={9} className="h-24 text-center">
                                         No tasks found.
                                     </TableCell>
                                 </TableRow>
@@ -375,7 +375,7 @@ export function TaskTable({
 
                             {hasMoreTasks && (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center p-4">
+                                    <TableCell colSpan={9} className="text-center p-4">
                                         <Button
                                             variant="outline"
                                             onClick={loadMoreTasks}

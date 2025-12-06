@@ -16,18 +16,52 @@ type SessionData = {
 } | null;
 
 export async function authMiddleware(request: NextRequest) {
-  const { data: session } = await betterFetch<SessionData>(
-    "/api/auth/get-session",
-    {
-      baseURL: request.nextUrl.origin,
-      headers: {
-        cookie: request.headers.get("cookie") || "",
-      },
-    }
-  );
+  let session: SessionData = null;
+  let retries = 3;
 
-  // If no session, redirect to sign-in
+  // Retry session fetch with exponential backoff
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      const response = await betterFetch<SessionData>(
+        "/api/auth/get-session",
+        {
+          baseURL: request.nextUrl.origin,
+          headers: {
+            cookie: request.headers.get("cookie") || "",
+          },
+        }
+      );
+
+      session = response.data;
+      break; // Success, exit retry loop
+    } catch (error) {
+      console.error(`[authMiddleware] Session fetch attempt ${attempt + 1} failed`, {
+        error: error instanceof Error ? error.message : String(error),
+        url: request.nextUrl.pathname,
+        attempt: attempt + 1,
+        maxRetries: retries
+      });
+
+      if (attempt < retries - 1) {
+        // Exponential backoff: 100ms, 200ms, 400ms
+        const delay = 100 * Math.pow(2, attempt);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        // All retries failed, log and redirect
+        console.error('[authMiddleware] All session fetch attempts failed, redirecting to sign-in', {
+          url: request.nextUrl.pathname,
+          timestamp: new Date().toISOString()
+        });
+        return NextResponse.redirect(new URL("/sign-in?error=session-timeout", request.url));
+      }
+    }
+  }
+
+  // If no session after retries, redirect to sign-in
   if (!session) {
+    console.warn('[authMiddleware] No session found after retries', {
+      url: request.nextUrl.pathname
+    });
     return NextResponse.redirect(new URL("/sign-in", request.url));
   }
 

@@ -5,6 +5,7 @@ import { getUserProjects, UserProjectsType } from "@/app/data/user/get-user-proj
 import { getProjectMembers } from "@/app/data/project/get-project-members";
 import { getUserPermissions } from "@/app/data/user/get-user-permissions";
 import { CreateTaskForm } from "./_components/forms/create-task-form";
+import { BulkCreateTaskForm } from "./_components/forms/bulk-create-task-form";
 import { TaskTableContainer } from "./_components/task-table-container";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -32,6 +33,7 @@ async function TaskHeader({ workspaceId, slug }: { workspaceId: string; slug: st
         <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold">Your Tasks</h1>
             <div className="flex items-center gap-3">
+                <BulkCreateTaskForm projectId={project.id} />
                 <CreateTaskForm projectId={project.id} />
             </div>
         </div>

@@ -11,6 +11,14 @@ export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),
+  session: {
+    expiresIn: 60 * 60 * 24 * 7, // 7 days
+    updateAge: 60 * 60 * 24, // 1 day
+    cookieCache: {
+      enabled: true,
+      maxAge: 5 * 60, // 5 minutes
+    },
+  },
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true, // Require email verification before login - Better Auth blocks unverified users
@@ -67,7 +75,7 @@ export const auth = betterAuth({
         });
       }
     }),
-    admin() // Da toda la lógica de backend para un panel de administración, permitiéndote a ti centrarte únicamente en construir la interfaz de usuario (UI) que consuma estos servicios.
+    admin()
   ]
 })
 
