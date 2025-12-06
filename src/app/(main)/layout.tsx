@@ -1,16 +1,18 @@
 
 import React from "react"
 import { Navbar } from "./_components/navbar"
-import { requireUser } from "../data/user/require-user";
-import { getUserWorkspaces } from "../data/workspace/get-user-workspace";
-
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 export default async function LayoutMain({ children }: { children: React.ReactNode }) {
-    const session = await requireUser();
-    const userWorkspaces = await getUserWorkspaces(session.id);
+    // Get session if exists, but don't require it
+    const session = await auth.api.getSession({
+        headers: await headers()
+    });
+
     return (
         <div>
-            <Navbar workspaceId={userWorkspaces.workspaces[0].workspaceId} />
+            <Navbar session={session} />
             <main className="container mx-auto px-4 md:px-6 lg:px-8 mb-32">
                 {children}
             </main>

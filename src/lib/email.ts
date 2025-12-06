@@ -1,27 +1,21 @@
 import nodemailer from 'nodemailer';
+import { env } from './env';
 
 interface EmailOptions {
-  to: string;
+  to: string | string[];
   subject: string;
   html: string;
+  from?: string;
 }
 
-// Validate required environment variables
-const requiredEnvVars = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD', 'SMTP_FROM'];
-const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
-
-if (missingEnvVars.length > 0) {
-  console.error('Missing required environment variables:', missingEnvVars);
-  throw new Error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
-}
-
+// Create reusable SMTP transporter
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT),
-  secure: process.env.SMTP_SECURE === 'true',
+  host: env.SMTP_HOST,
+  port: Number(env.SMTP_PORT),
+  secure: env.SMTP_SECURE === 'true',
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASSWORD,
+    user: env.SMTP_USER,
+    pass: env.SMTP_PASSWORD,
   },
   tls: {
     // Do not fail on invalid certs
@@ -29,29 +23,40 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-transporter.verify(function(error, success) {
+// Verify transporter configuration on startup
+transporter.verify(function (error, success) {
   if (error) {
     console.error('SMTP Connection Error:', error);
   } else {
-    console.log('SMTP Server is ready to take our messages');
+    console.log('SMTP Server is ready to send emails');
   }
 });
 
-export async function sendEmail({ to, subject, html }: EmailOptions) {
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
-    throw new Error('SMTP credentials are not properly configured');
-  }
-
+/**
+ * Send an email using the configured SMTP server
+ */
+export async function sendEmail({ to, subject, html, from }: EmailOptions) {
   try {
     const info = await transporter.sendMail({
-      from: process.env.SMTP_FROM,
-      to,
+      from: from || `"Tusker Management" <${env.SMTP_FROM}>`,
+      to: Array.isArray(to) ? to.join(', ') : to,
       subject,
       html,
     });
-    return info;
+
+    console.log('Email sent successfully:', info.messageId);
+    return {
+      success: true,
+      messageId: info.messageId,
+      data: info,
+    };
   } catch (error) {
     console.error('Error sending email:', error);
-    throw new Error('Failed to send email');
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to send email',
+    };
   }
-} 
+}
+
+export default transporter;

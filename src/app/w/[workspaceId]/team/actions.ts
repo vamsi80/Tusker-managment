@@ -4,18 +4,17 @@ import { revalidatePath } from "next/cache";
 
 import prisma from "@/lib/db";
 import { auth } from "@/lib/auth";
-import { resend } from "@/lib/resend";
 import { inviteUserSchema, InviteUserSchemaType } from "@/lib/zodSchemas";
 import { ApiResponse } from "@/lib/types";
 import { requireAdmin } from "@/app/data/workspace/requireAdmin";
 import { requireUser } from "@/app/data/user/require-user";
 
 /**
- * Invite a user: create auth user, upsert app user, upsert workspace membership,
- * send invite email. Uses a Prisma transaction for DB operations and attempts
+ * Invite a user: create auth user, upsert app user, upsert workspace membership.
+ * Better Auth automatically sends verification email on signup.
+ * Uses a Prisma transaction for DB operations and attempts
  * to clean up the auth user if DB operations fail.
  */
-
 export async function inviteUserToWorkspace(
     values: InviteUserSchemaType
 ): Promise<ApiResponse> {
@@ -43,6 +42,8 @@ export async function inviteUserToWorkspace(
     let createdAuthUserId: string | undefined;
 
     try {
+        // Create auth user - Better Auth will automatically send verification email
+        // due to emailVerification.sendOnSignUp: true in auth config
         const authResult = await auth.api.signUpEmail({
             body: {
                 email,
@@ -57,6 +58,7 @@ export async function inviteUserToWorkspace(
         }
         createdAuthUserId = authUserId;
 
+        // Create user and workspace member records
         await prisma.$transaction([
             prisma.user.upsert({
                 where: { id: authUserId },
@@ -66,7 +68,7 @@ export async function inviteUserToWorkspace(
                     email,
                     surname: niceName ?? null,
                     contactNumber: contactNumber ?? null,
-                    emailVerified: false,
+                    // Don't manually set emailVerified - Better Auth manages this
                 },
                 update: {
                     name,
@@ -94,23 +96,11 @@ export async function inviteUserToWorkspace(
             }),
         ]);
 
-        const verificationLink = `${process.env.BETTER_AUTH_URL}/sign-in?workspaceId=${encodeURIComponent(
-            workspaceId
-        )}&role=${encodeURIComponent(role)}&email=${encodeURIComponent(email)}`;
+        // Better Auth automatically sends verification email on signup
+        // The verification email is the only email sent - no separate invitation email
 
-        console.log("Verification link:", verificationLink);
-
-        await resend.emails.send({
-            from: "onboarding@yourdomain.com",
-            to: email,
-            subject: "You've been invited to join a workspace",
-            html: `
-        <p>Hi ${name},</p>
-        <p>You've been invited to join workspace <strong>${workspaceId}</strong> as <strong>${role}</strong>.</p>
-        <p>Click the link below to sign in and join:</p>
-        <p><a href="${verificationLink}">Join Workspace</a></p>
-      `,
-        });
+        console.log(`Invitation sent to ${email} for workspace ${workspaceId} as ${role}`);
+        console.log("User will receive verification email and must verify before signing in");
 
         // Invalidate caches
         revalidatePath(`/w/${workspaceId}/team`);
@@ -122,7 +112,7 @@ export async function inviteUserToWorkspace(
 
         return {
             status: "success",
-            message: "Invitation sent successfully",
+            message: "Invitation sent successfully. User must verify their email before signing in.",
         };
     } catch (err: any) {
         console.error("inviteUserTransactional error:", err);
@@ -152,6 +142,10 @@ export async function inviteUserToWorkspace(
     }
 }
 
+/**
+ * Delete a workspace member and completely remove the user from the system.
+ * This includes deleting from: users table, workspace members, project members, tasks, and Better Auth.
+ */
 export async function deleteWorkspaceMember(
     workspaceMemberId: string,
     workspaceId: string
@@ -221,19 +215,72 @@ export async function deleteWorkspaceMember(
             };
         }
 
-        // 6. Delete the workspace member (cascades to project members)
-        await prisma.workspaceMember.delete({
-            where: { id: workspaceMemberId },
+        const userIdToDelete = memberToDelete.userId;
+        const userName = memberToDelete.user?.name || "User";
+
+        // 7. Check if user owns any other workspaces
+        const ownedWorkspaces = await prisma.workspace.count({
+            where: {
+                ownerId: userIdToDelete,
+                id: { not: workspaceId },
+            },
         });
 
-        // 7. Invalidate caches
+        if (ownedWorkspaces > 0) {
+            return {
+                status: "error",
+                message: `Cannot delete user "${userName}" because they own other workspaces. Please transfer ownership first.`,
+            };
+        }
+
+        // 8. Delete the user completely from the system
+        // The cascade relationships will handle:
+        // - Sessions (onDelete: Cascade)
+        // - Accounts (onDelete: Cascade)
+        // - WorkspaceMembers (onDelete: Cascade)
+        //   - ProjectMembers (onDelete: Cascade via WorkspaceMember)
+        //   - Tasks created by this member (onDelete: Cascade via WorkspaceMember)
+        // - Workspace ownership (onDelete: Cascade if they own the current workspace)
+
+        await prisma.$transaction(async (tx) => {
+            // First, delete all workspace members for this user
+            // This will cascade to project members and tasks
+            await tx.workspaceMember.deleteMany({
+                where: { userId: userIdToDelete },
+            });
+
+            // Then delete the user from the users table
+            // This will cascade to sessions and accounts
+            await tx.user.delete({
+                where: { id: userIdToDelete },
+            });
+        });
+
+        // 9. Delete the user from Better Auth
+        try {
+            if ((auth.api as any).deleteUser) {
+                await (auth.api as any).deleteUser({ userId: userIdToDelete });
+            } else if ((auth.api as any).admin?.deleteUser) {
+                await (auth.api as any).admin.deleteUser({ userId: userIdToDelete });
+            } else {
+                console.warn(
+                    "No admin deleteUser available on auth.api — auth user may need manual cleanup for",
+                    userIdToDelete
+                );
+            }
+        } catch (authDeleteErr) {
+            console.error("Failed to delete auth user (user already deleted from DB):", authDeleteErr);
+            // Continue anyway since the DB user is already deleted
+        }
+
+        // 10. Invalidate caches
         const { revalidateTag } = await import("next/cache");
         revalidateTag(`workspace-members-${workspaceId}`);
-        revalidateTag(`user-workspaces-${memberToDelete.userId}`);
+        revalidateTag(`user-workspaces-${userIdToDelete}`);
 
         return {
             status: "success",
-            message: `Member "${memberToDelete.user?.name}" has been removed from the workspace.`,
+            message: `User "${userName}" has been completely removed from the system.`,
         };
     } catch (err) {
         console.error("Error removing workspace member:", err);

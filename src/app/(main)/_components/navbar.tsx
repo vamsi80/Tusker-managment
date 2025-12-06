@@ -12,12 +12,15 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
 interface iAppProps {
-  workspaceId: string;
+  session?: any; // Optional session from server
 }
 
-export function Navbar({ workspaceId }: iAppProps) {
+export function Navbar({ session: serverSession }: iAppProps) {
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
+
+  // Use client session if available, otherwise use server session
+  const currentSession = session || serverSession;
 
   // Protected click handler for Workspace link
   const handleWorkspaceClick = (e: React.MouseEvent) => {
@@ -28,12 +31,14 @@ export function Navbar({ workspaceId }: iAppProps) {
       return;
     }
 
-    if (!session) {
+    if (!currentSession) {
       toast.error("Please login to access your workspace");
-      router.push("/sign-in?next=/w");
+      router.push("/sign-in?next=/workspace");
       return;
     }
-    router.push(`/w/${workspaceId}`);
+
+    // Navigate directly - the workspace page will show its own loading skeleton
+    router.push("/w");
   };
 
   return (
@@ -49,11 +54,11 @@ export function Navbar({ workspaceId }: iAppProps) {
             <Link href="/" className="text-sm font-medium transition-colors hover:text-primary">
               Home
             </Link>
-            
+
             <a
               href="/w"
               onClick={handleWorkspaceClick}
-              className="text-sm font-medium transition-colors hover:text-primary"
+              className="text-sm font-medium transition-colors hover:text-primary cursor-pointer"
             >
               Workspace
             </a>
