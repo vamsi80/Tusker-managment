@@ -6,6 +6,7 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -28,6 +29,8 @@ interface SubTaskRowProps {
     parentTaskId: string;
     onSubTaskUpdated?: (subTaskId: string, updatedData: Partial<SubTaskType[number]>) => void;
     onSubTaskDeleted?: (subTaskId: string) => void;
+    isSelected?: boolean;
+    onSelectChange?: (checked: boolean) => void;
 }
 
 export function SubTaskRow({
@@ -39,6 +42,8 @@ export function SubTaskRow({
     parentTaskId,
     onSubTaskUpdated,
     onSubTaskDeleted,
+    isSelected = false,
+    onSelectChange,
 }: SubTaskRowProps) {
     const [isUpdating, setIsUpdating] = useState(false);
 
@@ -130,6 +135,9 @@ export function SubTaskRow({
         return (
             <TableRow className="bg-muted/10">
                 <TableCell className="pl-4">
+                    <Skeleton className="h-4 w-4" />
+                </TableCell>
+                <TableCell className="pl-4">
                     <Skeleton className="h-6 w-6" />
                 </TableCell>
                 <TableCell className="pl-3">
@@ -137,6 +145,11 @@ export function SubTaskRow({
                         <Skeleton className="h-4 w-32" />
                     </div>
                 </TableCell>
+                {columnVisibility.description && (
+                    <TableCell>
+                        <Skeleton className="h-4 w-32" />
+                    </TableCell>
+                )}
                 {columnVisibility.assignee && (
                     <TableCell>
                         <Skeleton className="h-8 w-8 rounded-full" />
@@ -175,6 +188,13 @@ export function SubTaskRow({
             style={style}
             className="bg-muted/10 hover:bg-muted/20"
         >
+            <TableCell className="pl-4">
+                <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={onSelectChange}
+                    aria-label={`Select ${subTask.name}`}
+                />
+            </TableCell>
             <TableCell className="pl-4">
                 <Button
                     variant="ghost"

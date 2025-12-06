@@ -27,6 +27,8 @@ interface SubTaskListProps {
     onSubTaskUpdated?: (subTaskId: string, updatedData: Partial<SubTaskType[number]>) => void;
     onSubTaskDeleted?: (subTaskId: string) => void;
     onSubTaskCreated?: (subTask: any) => void;
+    selectedSubTasks?: Set<string>;
+    onSelectSubTask?: (subTaskId: string, checked: boolean) => void;
 }
 
 export function SubTaskList({
@@ -43,6 +45,8 @@ export function SubTaskList({
     onSubTaskUpdated,
     onSubTaskDeleted,
     onSubTaskCreated,
+    selectedSubTasks = new Set(),
+    onSelectSubTask,
 }: SubTaskListProps) {
     const visibleColumnsCount = 2 + Object.values(columnVisibility).filter(Boolean).length + 1;
 
@@ -97,6 +101,8 @@ export function SubTaskList({
                         members={members}
                         projectId={projectId}
                         parentTaskId={task.id}
+                        isSelected={selectedSubTasks.has(subTask.id)}
+                        onSelectChange={(checked) => onSelectSubTask?.(subTask.id, checked)}
                         onSubTaskUpdated={onSubTaskUpdated}
                         onSubTaskDeleted={onSubTaskDeleted}
                     />

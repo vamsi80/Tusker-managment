@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { betterFetch } from "@better-fetch/fetch";
 
 type SessionData = {
   session: {
@@ -22,17 +21,19 @@ export async function authMiddleware(request: NextRequest) {
   // Retry session fetch with exponential backoff
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
-      const response = await betterFetch<SessionData>(
-        "/api/auth/get-session",
+      // Make HTTP request to get session (Edge Runtime compatible)
+      const response = await fetch(
+        new URL("/api/auth/get-session", request.nextUrl.origin),
         {
-          baseURL: request.nextUrl.origin,
           headers: {
             cookie: request.headers.get("cookie") || "",
           },
         }
       );
 
-      session = response.data;
+      if (response.ok) {
+        session = await response.json();
+      }
       break; // Success, exit retry loop
     } catch (error) {
       console.error(`[authMiddleware] Session fetch attempt ${attempt + 1} failed`, {
@@ -110,8 +111,7 @@ export default async function middleware(request: NextRequest) {
 
   // Protect workspace and admin routes - require authentication and email verification
   if (
-    pathname.startsWith("/w/") ||
-    pathname.startsWith("/workspace")
+    pathname.startsWith("/w/")
   ) {
     return authMiddleware(request);
   }

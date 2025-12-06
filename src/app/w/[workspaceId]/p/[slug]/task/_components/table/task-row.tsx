@@ -4,6 +4,7 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronRight, MoreHorizontal } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ColumnVisibility } from "./task-table-toolbar";
 import { TaskWithSubTasks } from "./types";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +23,8 @@ interface TaskRowProps {
     onUpdateEnd?: () => void;
     onTaskUpdated?: (updatedTask: { name: string; taskSlug: string }) => void;
     onTaskDeleted?: (taskId: string) => void;
+    isSelected?: boolean;
+    onSelectChange?: (checked: boolean) => void;
 }
 
 export function TaskRow({
@@ -34,6 +37,8 @@ export function TaskRow({
     onUpdateEnd,
     onTaskUpdated,
     onTaskDeleted,
+    isSelected = false,
+    onSelectChange,
 }: TaskRowProps) {
     const subtaskCount = task._count?.subTasks || 0;
 
@@ -71,6 +76,9 @@ export function TaskRow({
         return (
             <TableRow className="group">
                 <TableCell>
+                    <Skeleton className="h-4 w-4" />
+                </TableCell>
+                <TableCell>
                     <Skeleton className="h-8 w-8" />
                 </TableCell>
                 <TableCell className="font-medium" colSpan={colSpan}>
@@ -85,6 +93,13 @@ export function TaskRow({
 
     return (
         <TableRow className="group">
+            <TableCell>
+                <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={onSelectChange}
+                    aria-label={`Select ${task.name}`}
+                />
+            </TableCell>
             <TableCell>
                 <Button
                     variant="ghost"

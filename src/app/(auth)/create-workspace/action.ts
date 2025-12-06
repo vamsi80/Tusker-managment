@@ -1,12 +1,10 @@
 "use server";
 
-import { PrismaClient } from "@/generated/prisma";
+import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
 import { workSpaceSchema, WorkSpaceSchemaType } from "@/lib/zodSchemas";
 import { requireUser } from "@/app/data/user/require-user";
 import { generateInviteCode } from "@/utils/get-invite-code";
-
-const prisma = new PrismaClient();
 
 export async function createWorkSpace(values: WorkSpaceSchemaType): Promise<ApiResponse> {
 

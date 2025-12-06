@@ -810,3 +810,200 @@ export async function deleteSubTask(
         }
     }
 }
+
+/**
+ * Bulk delete tasks
+ * Deletes multiple tasks at once (will cascade delete their subtasks)
+ */
+export async function bulkDeleteTasks(data: {
+    taskIds: string[];
+    projectId: string;
+}): Promise<ApiResponse> {
+    try {
+        if (!data.taskIds || data.taskIds.length === 0) {
+            return {
+                status: "error",
+                message: "No tasks provided for deletion"
+            };
+        }
+
+        // Get the project to find workspace info
+        const project = await prisma.project.findUnique({
+            where: { id: data.projectId },
+            select: {
+                id: true,
+                workspaceId: true,
+                slug: true
+            }
+        });
+
+        if (!project) {
+            return {
+                status: "error",
+                message: "Project not found",
+            };
+        }
+
+        // Check permissions - only workspace admin or project lead can delete tasks
+        const permissions = await getUserPermissions(
+            project.workspaceId,
+            project.id
+        );
+
+        if (!permissions.isWorkspaceAdmin && !permissions.isProjectLead) {
+            return {
+                status: "error",
+                message: "You don't have permission to delete tasks. Only workspace admins and project leads can delete tasks.",
+            };
+        }
+
+        // Verify all tasks belong to this project
+        const tasksToDelete = await prisma.task.findMany({
+            where: {
+                id: { in: data.taskIds },
+                projectId: data.projectId,
+                parentTaskId: null, // Only allow deleting parent tasks (not subtasks)
+            },
+            select: { id: true }
+        });
+
+        if (tasksToDelete.length !== data.taskIds.length) {
+            return {
+                status: "error",
+                message: "Some tasks were not found or don't belong to this project",
+            };
+        }
+
+        // Delete all tasks in a transaction (will cascade delete subtasks)
+        await prisma.$transaction(
+            data.taskIds.map(taskId =>
+                prisma.task.delete({
+                    where: { id: taskId },
+                })
+            )
+        );
+
+        // Revalidate cache
+        revalidatePath(`/w/${project.workspaceId}/p/${project.slug}/task`);
+        await invalidateProjectTasks(data.projectId);
+
+        return {
+            status: "success",
+            message: `${data.taskIds.length} task(s) deleted successfully`,
+        };
+
+    } catch (err) {
+        console.error("Error bulk deleting tasks:", err);
+        return {
+            status: "error",
+            message: "We couldn't delete the tasks. Please try again.",
+        }
+    }
+}
+
+/**
+ * Bulk delete subtasks
+ * Deletes multiple subtasks at once
+ */
+export async function bulkDeleteSubTasks(data: {
+    subTaskIds: string[];
+    projectId: string;
+}): Promise<ApiResponse> {
+    try {
+        if (!data.subTaskIds || data.subTaskIds.length === 0) {
+            return {
+                status: "error",
+                message: "No subtasks provided for deletion"
+            };
+        }
+
+        // Get the project to find workspace info
+        const project = await prisma.project.findUnique({
+            where: { id: data.projectId },
+            select: {
+                id: true,
+                workspaceId: true,
+                slug: true
+            }
+        });
+
+        if (!project) {
+            return {
+                status: "error",
+                message: "Project not found",
+            };
+        }
+
+        // Check permissions - only workspace admin or project lead can delete subtasks
+        const permissions = await getUserPermissions(
+            project.workspaceId,
+            project.id
+        );
+
+        if (!permissions.isWorkspaceAdmin && !permissions.isProjectLead) {
+            return {
+                status: "error",
+                message: "You don't have permission to delete subtasks. Only workspace admins and project leads can delete subtasks.",
+            };
+        }
+
+        // Verify all subtasks belong to this project and get their parent task IDs
+        const subTasksToDelete = await prisma.task.findMany({
+            where: {
+                id: { in: data.subTaskIds },
+                projectId: data.projectId,
+                parentTaskId: { not: null }, // Only allow deleting subtasks (not parent tasks)
+            },
+            select: {
+                id: true,
+                parentTaskId: true
+            }
+        });
+
+        if (subTasksToDelete.length !== data.subTaskIds.length) {
+            return {
+                status: "error",
+                message: "Some subtasks were not found or don't belong to this project",
+            };
+        }
+
+        // Get unique parent task IDs for cache invalidation
+        const parentTaskIds = Array.from(
+            new Set(
+                subTasksToDelete
+                    .map(st => st.parentTaskId)
+                    .filter((id): id is string => id !== null)
+            )
+        );
+
+        // Delete all subtasks in a transaction
+        await prisma.$transaction(
+            data.subTaskIds.map(subTaskId =>
+                prisma.task.delete({
+                    where: { id: subTaskId },
+                })
+            )
+        );
+
+        // Revalidate cache
+        revalidatePath(`/w/${project.workspaceId}/p/${project.slug}/task`);
+        await invalidateProjectTasks(data.projectId);
+
+        // Invalidate cache for all affected parent tasks
+        for (const parentTaskId of parentTaskIds) {
+            await invalidateTaskSubTasks(parentTaskId);
+        }
+
+        return {
+            status: "success",
+            message: `${data.subTaskIds.length} subtask(s) deleted successfully`,
+        };
+
+    } catch (err) {
+        console.error("Error bulk deleting subtasks:", err);
+        return {
+            status: "error",
+            message: "We couldn't delete the subtasks. Please try again.",
+        }
+    }
+}
