@@ -369,10 +369,23 @@ export async function editProject(values: EditProjectSchemaType): Promise<ApiRes
 
       // Update project members if memberAccess is provided
       if (validation.data.memberAccess && validation.data.memberAccess.length > 0) {
-        const uniqueMemberAccess = Array.from(new Set(validation.data.memberAccess)).map(String);
+        let uniqueMemberAccess = Array.from(new Set(validation.data.memberAccess)).map(String);
         const uniqueProjectLeads = validation.data.projectLead
           ? [String(validation.data.projectLead)]
           : [];
+
+        // Ensure project lead is included in memberAccess
+        // If a workspace member is assigned as lead but not in memberAccess, add them
+        for (const leadUserId of uniqueProjectLeads) {
+          if (!uniqueMemberAccess.includes(leadUserId)) {
+            // Check if this user is a workspace member
+            const wmId = workspaceMemberMap.get(leadUserId);
+            if (wmId) {
+              uniqueMemberAccess.push(leadUserId);
+            }
+          }
+        }
+
         const leadUserSet = new Set(uniqueProjectLeads);
 
         // Remove existing project members

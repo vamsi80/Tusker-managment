@@ -185,8 +185,25 @@ export const BulkCreateSubTaskForm = ({
                     };
                 });
 
-                setParsedData(parsedTasks);
-                toast.success(`Loaded ${parsedTasks.length} tasks from Excel!`);
+                // Handle duplicate slugs by appending numbers
+                const slugCounts = new Map<string, number>();
+                const uniqueParsedTasks = parsedTasks.map((task) => {
+                    const baseSlug = task.slug;
+                    const count = slugCounts.get(baseSlug) || 0;
+                    slugCounts.set(baseSlug, count + 1);
+
+                    // If this is a duplicate, append a number
+                    if (count > 0) {
+                        return {
+                            ...task,
+                            slug: `${baseSlug}-${count}`
+                        };
+                    }
+                    return task;
+                });
+
+                setParsedData(uniqueParsedTasks);
+                toast.success(`Loaded ${uniqueParsedTasks.length} tasks from Excel!`);
             } catch (error) {
                 console.error("Error parsing Excel file:", error);
                 toast.error("Failed to parse Excel file. Please check the format.");
@@ -238,13 +255,6 @@ export const BulkCreateSubTaskForm = ({
             return;
         }
 
-        // Check for duplicate slugs
-        const slugs = validSubTasks.map((t) => t.slug);
-        const duplicateSlugs = slugs.filter((slug, index) => slugs.indexOf(slug) !== index);
-        if (duplicateSlugs.length > 0) {
-            toast.error(`Duplicate slugs found: ${duplicateSlugs.join(", ")}`);
-            return;
-        }
 
         // Initialize progress
         setUploadProgress({

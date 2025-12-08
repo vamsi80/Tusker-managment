@@ -199,3 +199,13 @@
 .thin-scrollbar::-webkit-scrollbar-thumb:hover {
   background-color: #a8a8a8;
 }
+
+/* Hide scrollbar completely while maintaining scroll functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}

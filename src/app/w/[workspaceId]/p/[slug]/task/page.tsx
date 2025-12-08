@@ -8,6 +8,8 @@ import { CreateTaskForm } from "./_components/forms/create-task-form";
 import { BulkCreateTaskForm } from "./_components/forms/bulk-create-task-form";
 import { TaskTableContainer } from "./_components/task-table-container";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ReloadButton } from "./_components/reload-button";
+import { ReloadableTaskTable } from "./_components/reloadable-task-table";
 
 interface iAppProps {
     params: { workspaceId: string; slug: string }
@@ -33,6 +35,7 @@ async function TaskHeader({ workspaceId, slug }: { workspaceId: string; slug: st
         <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold">Your Tasks</h1>
             <div className="flex items-center gap-3">
+                <ReloadButton />
                 <BulkCreateTaskForm projectId={project.id} />
                 <CreateTaskForm projectId={project.id} />
             </div>
@@ -94,11 +97,13 @@ export default async function ProjectTask({ params }: iAppProps) {
             </Suspense>
 
             {/* Task Table - loads independently, shows table skeleton while fetching */}
-            <div>
-                <Suspense fallback={<TaskTableSkeleton />}>
-                    <TaskTableWithData workspaceId={workspaceId} slug={slug} />
-                </Suspense>
-            </div>
+            <ReloadableTaskTable>
+                <div>
+                    <Suspense fallback={<TaskTableSkeleton />}>
+                        <TaskTableWithData workspaceId={workspaceId} slug={slug} />
+                    </Suspense>
+                </div>
+            </ReloadableTaskTable>
         </TaskPageWrapper>
     );
 }

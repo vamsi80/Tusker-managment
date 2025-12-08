@@ -99,7 +99,7 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
               );
             })}
 
-            <DropdownMenuSeparator />
+            {/* <DropdownMenuSeparator />
             <DropdownMenuItem
               className="gap-2 p-2 cursor-pointer"
               onClick={(e) => {
@@ -109,7 +109,7 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
             >
               <Plus className="size-4" />
               <span className="text-muted-foreground font-medium">Create Workspace</span>
-            </DropdownMenuItem>
+            </DropdownMenuItem> */}
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

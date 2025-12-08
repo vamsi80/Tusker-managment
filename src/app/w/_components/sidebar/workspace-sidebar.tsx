@@ -3,7 +3,7 @@ import { NavUser } from "./nav-user";
 import { NavMain } from "./nav-main";
 import { NavProjectsAsync } from "./nav-projects-async";
 import { NavWorkspacesSelector } from "./nav-workspaces-selector";
-import { IconDashboard, IconUsersPlus } from "@tabler/icons-react";
+import { IconDashboard, IconPackageImport, IconUsersPlus } from "@tabler/icons-react";
 import { UserWorkspacesType } from "@/app/data/workspace/get-user-workspace";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
 import { NavProjectsSkeleton } from "./projects-skeleton";
@@ -17,6 +17,7 @@ export async function AppSidebar({ data, workspaceId, ...props }: React.Componen
   const mainNavItems = [
     { title: "Dashboard", url: `/w/${workspaceId}`, icon: IconDashboard },
     { title: "Team", url: `/w/${workspaceId}/team`, icon: IconUsersPlus },
+    { title: "Procurement", url: `/w/${workspaceId}/procurement`, icon: IconPackageImport },
   ];
 
   return (
@@ -24,7 +25,7 @@ export async function AppSidebar({ data, workspaceId, ...props }: React.Componen
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <NavWorkspacesSelector data={data} />
+            <NavWorkspacesSelector data={data} workspaceId={workspaceId} />
             <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:!p-1.5">
             </SidebarMenuButton>
           </SidebarMenuItem>

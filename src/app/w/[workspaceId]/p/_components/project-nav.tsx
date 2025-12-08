@@ -14,14 +14,16 @@ export function ProjectNav({ workspaceId, slug }: ProjectNavProps) {
     const baseUrl = `/w/${workspaceId}/p/${slug}`;
 
     const tabs = [
-        { name: "Dashboard", href: `${baseUrl}/dashboard` },
+        { name: "Dashboard", href: `${baseUrl}` },
         { name: "Tasks", href: `${baseUrl}/task` },
         { name: "Kanban", href: `${baseUrl}/kanban` },
+        { name: "Gantt", href: `${baseUrl}/gantt` },
+        { name: "Calendar", href: `${baseUrl}/calendar` },
     ];
 
     return (
         <div className="border-b">
-            <div className="flex h-10 items-center gap-4">
+            <div className="flex h-10 items-center gap-4 overflow-x-auto scrollbar-hide">
                 {tabs.map((tab) => {
                     const isActive = pathname === tab.href;
                     return (
@@ -29,7 +31,7 @@ export function ProjectNav({ workspaceId, slug }: ProjectNavProps) {
                             key={tab.href}
                             href={tab.href}
                             className={cn(
-                                "flex h-full items-center border-b-2 px-4 text-sm font-medium transition-colors hover:text-primary",
+                                "flex h-full items-center border-b-2 px-4 text-sm font-medium transition-colors hover:text-primary whitespace-nowrap flex-shrink-0",
                                 isActive
                                     ? "border-primary text-primary"
                                     : "border-transparent text-muted-foreground"

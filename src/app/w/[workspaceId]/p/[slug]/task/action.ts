@@ -7,6 +7,7 @@ import { SubTaskSchemaType, taskSchema, TaskSchemaType, subTaskSchema } from "@/
 import { revalidatePath } from "next/cache";
 import { getUserPermissions } from "@/app/data/user/get-user-permissions";
 import { invalidateProjectTasks, invalidateTaskSubTasks } from "@/app/data/user/invalidate-project-cache";
+import { generateUniqueSlugs } from "@/lib/slug-generator";
 
 export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
     try {
@@ -380,25 +381,47 @@ export async function bulkCreateSubTasks(data: {
             };
         }
 
-        // Create unique slugs and check for duplicates
+        // Create unique slugs and check for duplicates in database
         const uniqueSlugs = data.subTasks.map(st => `${parentTask.taskSlug}-${st.taskSlug}`);
+
+        // Get all existing slugs that start with any of our base slugs
+        const baseSlugPatterns = [...new Set(uniqueSlugs)];
         const existingSlugs = await prisma.task.findMany({
             where: {
-                taskSlug: { in: uniqueSlugs }
+                OR: baseSlugPatterns.map(baseSlug => ({
+                    taskSlug: {
+                        startsWith: baseSlug
+                    }
+                }))
             },
             select: { taskSlug: true }
         });
 
-        if (existingSlugs.length > 0) {
-            return {
-                status: "error",
-                message: `The following slugs already exist: ${existingSlugs.map(s => s.taskSlug).join(", ")}`,
-            };
-        }
+        const existingSlugSet = new Set(existingSlugs.map(s => s.taskSlug));
+
+        // Generate unique slugs by appending numbers if conflicts exist
+        const finalSlugs = uniqueSlugs.map(slug => {
+            if (!existingSlugSet.has(slug)) {
+                return slug; // No conflict, use original
+            }
+
+            // Find next available number
+            let counter = 1;
+            let newSlug = `${slug}-${counter}`;
+            while (existingSlugSet.has(newSlug)) {
+                counter++;
+                newSlug = `${slug}-${counter}`;
+            }
+
+            // Add to set to prevent duplicates within this batch
+            existingSlugSet.add(newSlug);
+            return newSlug;
+        });
+
 
         // Resolve assignees
         const subTasksWithAssignees = await Promise.all(
-            data.subTasks.map(async (subTask) => {
+            data.subTasks.map(async (subTask, index) => {
                 let assigneeId: string | null = null;
                 if (subTask.assignee) {
                     const assigneeProjectMember = await prisma.projectMember.findFirst({
@@ -416,10 +439,11 @@ export async function bulkCreateSubTasks(data: {
                 return {
                     ...subTask,
                     assigneeId,
-                    uniqueSlug: `${parentTask.taskSlug}-${subTask.taskSlug}`
+                    uniqueSlug: finalSlugs[index] // Use the unique slug from finalSlugs
                 };
             })
         );
+
 
         // Create all subtasks in a transaction
         const createdSubTasks = await prisma.$transaction(
