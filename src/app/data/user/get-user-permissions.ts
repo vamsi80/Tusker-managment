@@ -20,7 +20,10 @@ export const getUserPermissions = cache(async (workspaceId: string, projectId: s
             return {
                 isWorkspaceAdmin: false,
                 isProjectLead: false,
+                isMember: false,
                 canCreateSubTask: false,
+                canPerformBulkOperations: false,
+                workspaceMemberId: null,
             };
         }
 
@@ -34,12 +37,17 @@ export const getUserPermissions = cache(async (workspaceId: string, projectId: s
 
         const isWorkspaceAdmin = workspaceMember.workspaceRole === "ADMIN";
         const isProjectLead = projectMember?.projectRole === "LEAD";
+        const isMember = workspaceMember.workspaceRole === "MEMBER" && (!projectMember || projectMember.projectRole === "MEMBER");
         const canCreateSubTask = isWorkspaceAdmin || isProjectLead;
+        const canPerformBulkOperations = isWorkspaceAdmin || isProjectLead;
 
         return {
             isWorkspaceAdmin,
             isProjectLead,
+            isMember,
             canCreateSubTask,
+            canPerformBulkOperations,
+            workspaceMemberId: workspaceMember.id,
             workspaceMember,
             projectMember,
         };
@@ -48,7 +56,10 @@ export const getUserPermissions = cache(async (workspaceId: string, projectId: s
         return {
             isWorkspaceAdmin: false,
             isProjectLead: false,
+            isMember: false,
             canCreateSubTask: false,
+            canPerformBulkOperations: false,
+            workspaceMemberId: null,
         };
     }
 });

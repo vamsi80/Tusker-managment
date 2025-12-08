@@ -4,34 +4,68 @@ import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import prisma from "@/lib/db";
 import { requireUser } from "@/app/data/user/require-user";
+import { getUserPermissions } from "@/app/data/user/get-user-permissions";
 
 // ============================================
 // INTERNAL FUNCTIONS (Actual DB queries)
 // ============================================
 
 /**
- * Internal function to fetch project tasks with pagination
- * Uses $transaction to combine count + data queries into a single DB round-trip
+ * Internal function to fetch project tasks with role-based filtering
+ * - ADMINs and LEADs see all parent tasks with all subtasks
+ * - MEMBERs only see parent tasks that have at least one subtask assigned to them
  */
-async function _getProjectTasksInternal(projectId: string, page: number, pageSize: number) {
+async function _getProjectTasksInternal(
+    projectId: string,
+    workspaceId: string,
+    userId: string,
+    workspaceMemberId: string,
+    isMember: boolean,
+    page: number,
+    pageSize: number
+) {
     const skip = (page - 1) * pageSize;
 
-    // Use $transaction to combine count and data queries (reduces DB round trips by 50%)
+    // Build the where clause based on user role
+    const whereClause = isMember
+        ? {
+            projectId: projectId,
+            parentTaskId: null,
+            // Only show parent tasks that have at least one subtask assigned to this user
+            subTasks: {
+                some: {
+                    assignee: {
+                        workspaceMemberId: workspaceMemberId,
+                    },
+                },
+            },
+        }
+        : {
+            projectId: projectId,
+            parentTaskId: null,
+        };
+
+    // Use $transaction to combine count and data queries
     const [totalCount, tasks] = await prisma.$transaction([
         prisma.task.count({
-            where: {
-                projectId: projectId,
-                parentTaskId: null,
-            },
+            where: whereClause,
         }),
         prisma.task.findMany({
-            where: {
-                projectId: projectId,
-                parentTaskId: null, // Only get parent tasks
-            },
-            include: {
+            where: whereClause,
+            select: {
+                id: true,
+                name: true,
+                taskSlug: true,
+                description: true,
+                status: true,
+                position: true,
+                startDate: true,
+                days: true,
+                tag: true,
+                createdAt: true,
+                updatedAt: true,
                 createdBy: {
-                    include: {
+                    select: {
                         user: {
                             select: {
                                 name: true,
@@ -42,9 +76,9 @@ async function _getProjectTasksInternal(projectId: string, page: number, pageSiz
                     },
                 },
                 assignee: {
-                    include: {
+                    select: {
                         workspaceMember: {
-                            include: {
+                            select: {
                                 user: {
                                     select: {
                                         id: true,
@@ -57,9 +91,88 @@ async function _getProjectTasksInternal(projectId: string, page: number, pageSiz
                         },
                     },
                 },
+                // Include subtasks with filtering for members
+                subTasks: isMember
+                    ? {
+                        where: {
+                            assignee: {
+                                workspaceMemberId: workspaceMemberId,
+                            },
+                        },
+                        select: {
+                            id: true,
+                            name: true,
+                            taskSlug: true,
+                            description: true,
+                            status: true,
+                            position: true,
+                            startDate: true,
+                            days: true,
+                            tag: true,
+                            assignee: {
+                                select: {
+                                    workspaceMember: {
+                                        select: {
+                                            user: {
+                                                select: {
+                                                    id: true,
+                                                    name: true,
+                                                    surname: true,
+                                                    image: true,
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                        orderBy: {
+                            position: 'asc',
+                        },
+                    }
+                    : {
+                        select: {
+                            id: true,
+                            name: true,
+                            taskSlug: true,
+                            description: true,
+                            status: true,
+                            position: true,
+                            startDate: true,
+                            days: true,
+                            tag: true,
+                            assignee: {
+                                select: {
+                                    workspaceMember: {
+                                        select: {
+                                            user: {
+                                                select: {
+                                                    id: true,
+                                                    name: true,
+                                                    surname: true,
+                                                    image: true,
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                        orderBy: {
+                            position: 'asc',
+                        },
+                    },
                 _count: {
                     select: {
-                        subTasks: true,
+                        subTasks: isMember
+                            ? {
+                                where: {
+                                    assignee: {
+                                        workspaceMemberId: workspaceMemberId,
+                                    },
+                                },
+                            }
+                            : true,
                     },
                 },
             },
@@ -81,28 +194,52 @@ async function _getProjectTasksInternal(projectId: string, page: number, pageSiz
 }
 
 /**
- * Internal function to fetch subtasks with pagination
- * Uses $transaction to combine count + data queries
+ * Internal function to fetch subtasks with role-based filtering
  */
-async function _getTaskSubTasksInternal(parentTaskId: string, page: number, pageSize: number) {
+async function _getTaskSubTasksInternal(
+    parentTaskId: string,
+    workspaceId: string,
+    projectId: string,
+    workspaceMemberId: string,
+    isMember: boolean,
+    page: number,
+    pageSize: number
+) {
     const skip = (page - 1) * pageSize;
+
+    // Build the where clause based on user role
+    const whereClause = isMember
+        ? {
+            parentTaskId: parentTaskId,
+            assignee: {
+                workspaceMemberId: workspaceMemberId,
+            },
+        }
+        : {
+            parentTaskId: parentTaskId,
+        };
 
     // Use $transaction to combine count and data queries
     const [totalCount, subTasks] = await prisma.$transaction([
         prisma.task.count({
-            where: {
-                parentTaskId: parentTaskId,
-            },
+            where: whereClause,
         }),
         prisma.task.findMany({
-            where: {
-                parentTaskId: parentTaskId,
-            },
-            include: {
+            where: whereClause,
+            select: {
+                id: true,
+                name: true,
+                taskSlug: true,
+                description: true,
+                status: true,
+                position: true,
+                startDate: true,
+                days: true,
+                tag: true,
                 assignee: {
-                    include: {
+                    select: {
                         workspaceMember: {
-                            include: {
+                            select: {
                                 user: {
                                     select: {
                                         id: true,
@@ -137,32 +274,45 @@ async function _getTaskSubTasksInternal(parentTaskId: string, page: number, page
 // ============================================
 
 /**
- * Cached version of getProjectTasks using Next.js unstable_cache
- * - Persists across requests for 60 seconds
- * - Tagged for targeted invalidation
+ * Cached version of getProjectTasks with role-based filtering
  */
-const getCachedProjectTasks = (projectId: string, page: number, pageSize: number) =>
+const getCachedProjectTasks = (
+    projectId: string,
+    workspaceId: string,
+    userId: string,
+    workspaceMemberId: string,
+    isMember: boolean,
+    page: number,
+    pageSize: number
+) =>
     unstable_cache(
-        async () => _getProjectTasksInternal(projectId, page, pageSize),
-        [`project-tasks-${projectId}-page-${page}-size-${pageSize}`],
+        async () =>
+            _getProjectTasksInternal(projectId, workspaceId, userId, workspaceMemberId, isMember, page, pageSize),
+        [`project-tasks-${projectId}-user-${userId}-page-${page}-size-${pageSize}`],
         {
-            tags: [`project-tasks-${projectId}`, `project-tasks-all`],
-            revalidate: 60, // Cache for 60 seconds
+            tags: [`project-tasks-${projectId}`, `project-tasks-user-${userId}`, `project-tasks-all`],
+            revalidate: 60,
         }
     )();
 
 /**
- * Cached version of getTaskSubTasks using Next.js unstable_cache
- * - Persists across requests for 60 seconds
- * - Tagged for targeted invalidation
+ * Cached version of getTaskSubTasks with role-based filtering
  */
-const getCachedTaskSubTasks = (parentTaskId: string, page: number, pageSize: number) =>
+const getCachedTaskSubTasks = (
+    parentTaskId: string,
+    workspaceId: string,
+    projectId: string,
+    workspaceMemberId: string,
+    isMember: boolean,
+    page: number,
+    pageSize: number
+) =>
     unstable_cache(
-        async () => _getTaskSubTasksInternal(parentTaskId, page, pageSize),
-        [`task-subtasks-${parentTaskId}-page-${page}-size-${pageSize}`],
+        async () => _getTaskSubTasksInternal(parentTaskId, workspaceId, projectId, workspaceMemberId, isMember, page, pageSize),
+        [`task-subtasks-${parentTaskId}-member-${workspaceMemberId}-page-${page}-size-${pageSize}`],
         {
-            tags: [`task-subtasks-${parentTaskId}`, `task-subtasks-all`],
-            revalidate: 60, // Cache for 60 seconds
+            tags: [`task-subtasks-${parentTaskId}`, `task-subtasks-member-${workspaceMemberId}`, `task-subtasks-all`],
+            revalidate: 60,
         }
     )();
 
@@ -171,61 +321,88 @@ const getCachedTaskSubTasks = (parentTaskId: string, page: number, pageSize: num
 // ============================================
 
 /**
- * Get parent tasks with pagination
+ * Get parent tasks with role-based filtering and pagination
  * 
- * Caching Strategy:
- * 1. React cache() - Deduplicates identical requests within the same render
- * 2. unstable_cache() - Persists data across requests for 60 seconds
- * 3. $transaction - Combines count + data queries into single DB call
+ * Filtering Rules:
+ * - ADMINs and LEADs: See all parent tasks with all subtasks
+ * - MEMBERs: Only see parent tasks that have at least one subtask assigned to them
+ *           and only see their assigned subtasks
  * 
- * Cache Invalidation:
- * - Use revalidateTag(`project-tasks-${projectId}`) to invalidate specific project
- * - Use revalidateTag(`project-tasks-all`) to invalidate all projects
+ * Returns minimal task fields for performance
  */
-export const getProjectTasks = cache(async (projectId: string, page: number = 1, pageSize: number = 10) => {
-    await requireUser(); // Auth check (cached via React cache)
+export const getProjectTasks = cache(
+    async (projectId: string, workspaceId: string, page: number = 1, pageSize: number = 10) => {
+        const user = await requireUser();
 
-    try {
-        return await getCachedProjectTasks(projectId, page, pageSize);
-    } catch (error) {
-        console.error("Error fetching project tasks:", error);
-        return {
-            tasks: [],
-            totalCount: 0,
-            totalPages: 0,
-            currentPage: 1,
-            hasMore: false,
-        };
+        try {
+            // Get user's permissions using the centralized function
+            const permissions = await getUserPermissions(workspaceId, projectId);
+
+            if (!permissions.workspaceMemberId) {
+                throw new Error("User does not have access to this project");
+            }
+
+            return await getCachedProjectTasks(
+                projectId,
+                workspaceId,
+                user.id,
+                permissions.workspaceMemberId,
+                permissions.isMember,
+                page,
+                pageSize
+            );
+        } catch (error) {
+            console.error("Error fetching project tasks:", error);
+            return {
+                tasks: [],
+                totalCount: 0,
+                totalPages: 0,
+                currentPage: 1,
+                hasMore: false,
+            };
+        }
     }
-});
+);
 
 /**
- * Get subtasks for a specific parent task with pagination
+ * Get subtasks for a specific parent task with role-based filtering
  * 
- * Caching Strategy:
- * 1. React cache() - Deduplicates identical requests within the same render
- * 2. unstable_cache() - Persists data across requests for 60 seconds
- * 3. $transaction - Combines count + data queries into single DB call
- * 
- * Cache Invalidation:
- * - Use revalidateTag(`task-subtasks-${parentTaskId}`) to invalidate specific task's subtasks
- * - Use revalidateTag(`task-subtasks-all`) to invalidate all subtasks
+ * Filtering Rules:
+ * - ADMINs and LEADs: See all subtasks
+ * - MEMBERs: Only see subtasks assigned to them
  */
-export const getTaskSubTasks = cache(async (parentTaskId: string, page: number = 1, pageSize: number = 10) => {
-    await requireUser(); // Auth check (cached via React cache)
+export const getTaskSubTasks = cache(
+    async (parentTaskId: string, workspaceId: string, projectId: string, page: number = 1, pageSize: number = 10) => {
+        const user = await requireUser();
 
-    try {
-        return await getCachedTaskSubTasks(parentTaskId, page, pageSize);
-    } catch (error) {
-        console.error("Error fetching subtasks:", error);
-        return {
-            subTasks: [],
-            totalCount: 0,
-            hasMore: false,
-            currentPage: 1,
-        };
+        try {
+            // Get user's permissions using the centralized function
+            const permissions = await getUserPermissions(workspaceId, projectId);
+
+            if (!permissions.workspaceMemberId) {
+                throw new Error("User does not have access to this project");
+            }
+
+            return await getCachedTaskSubTasks(
+                parentTaskId,
+                workspaceId,
+                projectId,
+                permissions.workspaceMemberId,
+                permissions.isMember,
+                page,
+                pageSize
+            );
+        } catch (error) {
+            console.error("Error fetching subtasks:", error);
+            return {
+                subTasks: [],
+                totalCount: 0,
+                hasMore: false,
+                currentPage: 1,
+            };
+        }
     }
-});
+);
 
 // ============================================
 // TYPE EXPORTS

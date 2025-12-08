@@ -31,13 +31,21 @@ async function TaskHeader({ workspaceId, slug }: { workspaceId: string; slug: st
         );
     }
 
+    // Get user permissions using the centralized function
+    const permissions = await getUserPermissions(workspaceId, project.id);
+
     return (
         <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold">Your Tasks</h1>
             <div className="flex items-center gap-3">
                 <ReloadButton />
-                <BulkCreateTaskForm projectId={project.id} />
-                <CreateTaskForm projectId={project.id} />
+                {/* Only show Create and Bulk Upload for ADMINs and LEADs */}
+                {permissions.canPerformBulkOperations && (
+                    <>
+                        <BulkCreateTaskForm projectId={project.id} />
+                        <CreateTaskForm projectId={project.id} />
+                    </>
+                )}
             </div>
         </div>
     );

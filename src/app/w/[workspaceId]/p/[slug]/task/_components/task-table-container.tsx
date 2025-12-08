@@ -18,7 +18,7 @@ export async function TaskTableContainer({
     members,
     canCreateSubTask,
 }: TaskTableContainerProps) {
-    const tasks = await getProjectTasks(projectId);
+    const tasks = await getProjectTasks(projectId, workspaceId);
 
     return (
         <TaskTable

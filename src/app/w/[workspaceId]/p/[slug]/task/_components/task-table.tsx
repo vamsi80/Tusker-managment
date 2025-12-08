@@ -165,7 +165,7 @@ export function TaskTable({
         setLoadingMoreTasks(true);
         try {
             const nextPage = currentPage + 1;
-            const result = await getProjectTasks(projectId, nextPage, 10);
+            const result = await getProjectTasks(projectId, workspaceId, nextPage, 10);
 
             setTasks((prev) => [...prev, ...result.tasks]);
             setCurrentPage(nextPage);
@@ -187,7 +187,7 @@ export function TaskTable({
                 setLoadingSubTasks((prev) => ({ ...prev, [taskId]: true }));
 
                 try {
-                    const result = await getTaskSubTasks(taskId, 1, 10);
+                    const result = await getTaskSubTasks(taskId, workspaceId, projectId, 1, 10);
                     setTasks((prevTasks) =>
                         prevTasks.map((t) =>
                             t.id === taskId
@@ -217,7 +217,7 @@ export function TaskTable({
 
         try {
             const nextPage = (task.subTasksPage || 1) + 1;
-            const result = await getTaskSubTasks(taskId, nextPage, 10);
+            const result = await getTaskSubTasks(taskId, workspaceId, projectId, nextPage, 10);
 
             setTasks((prevTasks) =>
                 prevTasks.map((t) =>
