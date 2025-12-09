@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useCallback, createContext, useContext } from "react";
+import { TaskWithSubTasks } from "../list/types";
 import { TaskProvider } from "./task-context";
-import { TaskWithSubTasks } from "./table/types";
 
 interface TaskPageWrapperProps {
     children: React.ReactNode;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import {
     Sheet,
     SheetContent,
@@ -54,6 +55,10 @@ export function SubTaskDetailsSheet({ subTask, isOpen, onClose }: SubTaskDetails
     const [isSending, setIsSending] = useState(false);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
@@ -63,6 +68,23 @@ export function SubTaskDetailsSheet({ subTask, isOpen, onClose }: SubTaskDetails
     useEffect(() => {
         scrollToBottom();
     }, [comments]);
+
+    // Sync URL with sheet state
+    useEffect(() => {
+        if (isOpen && subTask) {
+            // Add subtask ID to URL when opening
+            const params = new URLSearchParams(searchParams.toString());
+            params.set('subtask', subTask.id);
+            router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+        } else if (!isOpen) {
+            // Remove subtask ID from URL when closing
+            const params = new URLSearchParams(searchParams.toString());
+            if (params.has('subtask')) {
+                params.delete('subtask');
+                router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+            }
+        }
+    }, [isOpen, subTask, pathname, searchParams, router]);
 
     // Fetch comments when subtask changes or sheet opens
     useEffect(() => {

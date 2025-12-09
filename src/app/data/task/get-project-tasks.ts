@@ -404,6 +404,92 @@ export const getTaskSubTasks = cache(
     }
 );
 
+/**
+ * Get all subtasks across all tasks in a project for Kanban view
+ * Includes parent task information for filtering
+ */
+export const getAllProjectSubTasks = cache(
+    async (projectId: string, workspaceId: string) => {
+        const user = await requireUser();
+
+        try {
+            // Get user's permissions
+            const permissions = await getUserPermissions(workspaceId, projectId);
+
+            if (!permissions.workspaceMemberId) {
+                throw new Error("User does not have access to this project");
+            }
+
+            // Build where clause based on role
+            const whereClause = permissions.isMember
+                ? {
+                    parentTask: {
+                        projectId: projectId,
+                    },
+                    assignee: {
+                        workspaceMemberId: permissions.workspaceMemberId,
+                    },
+                }
+                : {
+                    parentTask: {
+                        projectId: projectId,
+                    },
+                };
+
+            const subTasks = await prisma.task.findMany({
+                where: {
+                    ...whereClause,
+                    parentTaskId: { not: null }, // Only subtasks
+                },
+                select: {
+                    id: true,
+                    name: true,
+                    taskSlug: true,
+                    description: true,
+                    status: true,
+                    position: true,
+                    startDate: true,
+                    days: true,
+                    tag: true,
+                    parentTaskId: true,
+                    parentTask: {
+                        select: {
+                            id: true,
+                            name: true,
+                            taskSlug: true,
+                        },
+                    },
+                    assignee: {
+                        select: {
+                            id: true,
+                            workspaceMember: {
+                                select: {
+                                    user: {
+                                        select: {
+                                            id: true,
+                                            name: true,
+                                            surname: true,
+                                            image: true,
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                orderBy: {
+                    position: 'asc',
+                },
+            });
+
+            return { subTasks };
+        } catch (error) {
+            console.error("Error fetching all subtasks:", error);
+            return { subTasks: [] };
+        }
+    }
+);
+
 // ============================================
 // TYPE EXPORTS
 // ============================================
@@ -412,3 +498,5 @@ export type ProjectTasksResponse = Awaited<ReturnType<typeof getProjectTasks>>;
 export type ProjectTaskType = ProjectTasksResponse['tasks'];
 export type SubTasksResponse = Awaited<ReturnType<typeof getTaskSubTasks>>;
 export type SubTaskType = SubTasksResponse['subTasks'];
+export type AllSubTasksResponse = Awaited<ReturnType<typeof getAllProjectSubTasks>>;
+export type AllSubTaskType = AllSubTasksResponse['subTasks'];

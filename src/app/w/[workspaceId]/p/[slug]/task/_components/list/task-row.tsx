@@ -23,8 +23,6 @@ interface TaskRowProps {
     onUpdateEnd?: () => void;
     onTaskUpdated?: (updatedTask: { name: string; taskSlug: string }) => void;
     onTaskDeleted?: (taskId: string) => void;
-    isSelected?: boolean;
-    onSelectChange?: (checked: boolean) => void;
 }
 
 export function TaskRow({
@@ -37,18 +35,17 @@ export function TaskRow({
     onUpdateEnd,
     onTaskUpdated,
     onTaskDeleted,
-    isSelected = false,
-    onSelectChange,
 }: TaskRowProps) {
     const subtaskCount = task._count?.subTasks || 0;
 
     // Calculate the number of columns to span
     // 2 (expand button) + 1 (task name) + visible columns (not including actions)
-    let colSpan = 2; // Start with just task name cell
+    let colSpan = 1; // Start with just task name cell
     if (columnVisibility.description) colSpan++;
     if (columnVisibility.assignee) colSpan++;
     if (columnVisibility.startDate) colSpan++;
     if (columnVisibility.dueDate) colSpan++;
+    if (columnVisibility.status) colSpan++;
     if (columnVisibility.progress) colSpan++;
     if (columnVisibility.tag) colSpan++;
 

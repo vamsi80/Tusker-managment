@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import slugify from "slugify";
 import { createTask } from "../../action";
 import { useRouter } from "next/navigation";
-import { useTaskContext } from "../task-context";
+import { useTaskContext } from "../shared/task-context";
 
 interface iAppProps {
     projectId: string

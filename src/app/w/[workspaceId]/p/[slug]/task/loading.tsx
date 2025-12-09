@@ -1,5 +1,5 @@
-import { TaskHeaderSkeleton, TaskTableSkeleton } from "./_components/task-page-skeleton";
-import { TaskPageWrapper } from "./_components/task-page-wrapper";
+import { TaskHeaderSkeleton, TaskTableSkeleton } from "./_components/shared/task-page-skeleton";
+import { TaskPageWrapper } from "./_components/shared/task-page-wrapper";
 
 /**
  * Loading UI for the Task Page

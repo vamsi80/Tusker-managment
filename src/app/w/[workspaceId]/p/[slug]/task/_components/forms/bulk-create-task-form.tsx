@@ -12,8 +12,8 @@ import { toast } from "sonner";
 import slugify from "slugify";
 import { bulkCreateTasks } from "../../action";
 import { useRouter } from "next/navigation";
-import { useTaskContext } from "../task-context";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useTaskContext } from "../shared/task-context";
 
 interface BulkCreateTaskFormProps {
     projectId: string;

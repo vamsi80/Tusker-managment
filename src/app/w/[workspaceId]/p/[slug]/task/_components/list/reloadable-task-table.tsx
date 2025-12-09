@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
-import { TaskTableSkeleton } from "./task-page-skeleton";
+import { TaskTableSkeleton } from "../shared/task-page-skeleton";
 import { useRouter } from "next/navigation";
 
 interface ReloadableTaskTableProps {
@@ -17,10 +17,8 @@ export function ReloadableTaskTable({ children }: ReloadableTaskTableProps) {
         const handleReload = () => {
             setIsReloading(true);
 
-            // Use startTransition to track actual loading state
             startTransition(() => {
                 router.refresh();
-                // This will automatically complete when refresh is done
                 setIsReloading(false);
             });
         };
@@ -32,7 +30,6 @@ export function ReloadableTaskTable({ children }: ReloadableTaskTableProps) {
         };
     }, [router]);
 
-    // Show skeleton while reloading OR while transition is pending
     if (isReloading || isPending) {
         return <TaskTableSkeleton />;
     }

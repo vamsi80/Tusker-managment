@@ -16,9 +16,6 @@ export function ProjectNav({ workspaceId, slug }: ProjectNavProps) {
     const tabs = [
         { name: "Dashboard", href: `${baseUrl}` },
         { name: "Tasks", href: `${baseUrl}/task` },
-        { name: "Kanban", href: `${baseUrl}/kanban` },
-        { name: "Gantt", href: `${baseUrl}/gantt` },
-        { name: "Calendar", href: `${baseUrl}/calendar` },
     ];
 
     return (

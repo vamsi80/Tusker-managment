@@ -11,7 +11,7 @@ import { BulkCreateSubTaskForm } from "../forms/bulk-create-subtask-form";
 import { SubTaskRow } from "./subtask-row";
 import { ColumnVisibility } from "./task-table-toolbar";
 import { TaskWithSubTasks } from "./types";
-import { SubTaskSkeleton } from "../task-page-skeleton";
+import { SubTaskSkeleton } from "../shared/task-page-skeleton";
 
 interface SubTaskListProps {
     task: TaskWithSubTasks;

@@ -9,15 +9,15 @@ import { Loader2, ChevronsDown } from "lucide-react";
 
 import { ProjectTasksResponse, getProjectTasks, getTaskSubTasks, SubTaskType } from "@/app/data/task/get-project-tasks";
 import { ProjectMembersType } from "@/app/data/project/get-project-members";
-import { TaskTableToolbar, ColumnVisibility } from "./table/task-table-toolbar";
-import { TaskRow } from "./table/task-row";
-import { SubTaskList } from "./table/subtask-list";
-import { TaskWithSubTasks } from "./table/types";
-import { SubTaskDetailsSheet } from "./subtask-details-sheet";
-import { useNewTask } from "./task-page-wrapper";
+import { TaskTableToolbar, ColumnVisibility } from "./task-table-toolbar";
+import { TaskRow } from "./task-row";
+import { SubTaskList } from "./subtask-list";
+import { TaskWithSubTasks } from "./types";
+import { SubTaskDetailsSheet } from "../shared/subtask-details-sheet";
+import { useNewTask } from "../shared/task-page-wrapper";
 
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 
 interface TaskTableProps {
@@ -43,10 +43,8 @@ export function TaskTable({
     const [currentPage, setCurrentPage] = useState(initialTasksData.currentPage);
     const [hasMoreTasks, setHasMoreTasks] = useState(initialTasksData.hasMore);
     const [loadingMoreTasks, setLoadingMoreTasks] = useState(false);
-
     const { newTask, clearNewTask } = useNewTask();
-    const router = useRouter();
-
+    const searchParams = useSearchParams();
 
     useEffect(() => {
         setTasks(prevTasks => {
@@ -129,7 +127,6 @@ export function TaskTable({
     const [loadingSubTasks, setLoadingSubTasks] = useState<Record<string, boolean>>({});
     const [loadingMoreSubTasks, setLoadingMoreSubTasks] = useState<Record<string, boolean>>({});
     const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
-
     const [searchQuery, setSearchQuery] = useState("");
     const [tagFilter, setTagFilter] = useState<string | null>(null);
     const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
@@ -145,12 +142,27 @@ export function TaskTable({
     const [selectedSubTask, setSelectedSubTask] = useState<SubTaskType[number] | null>(null);
     const [isSheetOpen, setIsSheetOpen] = useState(false);
 
-    // Bulk selection state
-    const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
-    const [selectedSubTasks, setSelectedSubTasks] = useState<Set<string>>(new Set());
-    const [isDeletingBulk, setIsDeletingBulk] = useState(false);
-    const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-
+    // Handle URL-based subtask opening
+    useEffect(() => {
+        const subtaskId = searchParams.get('subtask');
+        if (subtaskId && tasks.length > 0) {
+            // Find the subtask in all tasks
+            for (const task of tasks) {
+                if (task.subTasks) {
+                    const foundSubTask = task.subTasks.find(st => st.id === subtaskId);
+                    if (foundSubTask) {
+                        setSelectedSubTask(foundSubTask);
+                        setIsSheetOpen(true);
+                        // Expand the parent task if not already expanded
+                        if (!expanded[task.id]) {
+                            setExpanded(prev => ({ ...prev, [task.id]: true }));
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+    }, [searchParams, tasks]);
 
     const handleSubTaskClick = (subTask: SubTaskType[number]) => {
         setSelectedSubTask(subTask);
@@ -274,7 +286,6 @@ export function TaskTable({
             });
 
             setTasks(newTasks);
-            // TODO: Call server action to save new order
         }
     };
 
@@ -294,9 +305,6 @@ export function TaskTable({
 
     const uniqueTags = Array.from(new Set(tasks.map((t) => t.tag as string).filter(Boolean)));
 
-    const totalSelected = selectedTasks.size + selectedSubTasks.size;
-    // const allTasksSelected = filteredTasks.length > 0 && selectedTasks.size === filteredTasks.length;
-
     return (
         <div className="space-y-4 mt-4">
             <TaskTableToolbar
@@ -308,27 +316,6 @@ export function TaskTable({
                 columnVisibility={columnVisibility}
                 setColumnVisibility={setColumnVisibility}
             />
-
-            {/* Bulk Delete Toolbar */}
-            {totalSelected > 0 && (
-                <div className="flex items-center justify-between p-3 bg-muted rounded-md border">
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">
-                            {totalSelected} item{totalSelected !== 1 ? 's' : ''} selected
-                        </span>
-                        {selectedTasks.size > 0 && (
-                            <span className="text-xs text-muted-foreground">
-                                ({selectedTasks.size} task{selectedTasks.size !== 1 ? 's' : ''})
-                            </span>
-                        )}
-                        {selectedSubTasks.size > 0 && (
-                            <span className="text-xs text-muted-foreground">
-                                ({selectedSubTasks.size} subtask{selectedSubTasks.size !== 1 ? 's' : ''})
-                            </span>
-                        )}
-                    </div>
-                </div>
-            )}
 
             <div className="rounded-md border">
                 <DndContext
@@ -362,10 +349,7 @@ export function TaskTable({
                                         isUpdating={updatingTaskId === task.id}
                                         onUpdateStart={() => setUpdatingTaskId(task.id)}
                                         onUpdateEnd={() => setUpdatingTaskId(null)}
-                                        isSelected={selectedTasks.has(task.id)}
-                                        // onSelectChange={(checked) => handleSelectTask(task.id, checked)}
                                         onTaskUpdated={(updatedTask) => {
-                                            // Update the task in state immediately
                                             setTasks(prevTasks =>
                                                 prevTasks.map(t =>
                                                     t.id === task.id
@@ -375,7 +359,6 @@ export function TaskTable({
                                             );
                                         }}
                                         onTaskDeleted={(taskId) => {
-                                            // Remove the task from state immediately
                                             setTasks(prevTasks =>
                                                 prevTasks.filter(t => t.id !== taskId)
                                             );
@@ -393,8 +376,6 @@ export function TaskTable({
                                             isLoadingMore={!!loadingMoreSubTasks[task.id]}
                                             onLoadMore={() => loadMoreSubTasks(task.id)}
                                             onSubTaskClick={handleSubTaskClick}
-                                            selectedSubTasks={selectedSubTasks}
-                                            // onSelectSubTask={handleSelectSubTask}
                                             onSubTaskUpdated={(subTaskId, updatedData) =>
                                                 handleSubTaskUpdated(task.id, subTaskId, updatedData)
                                             }
@@ -450,19 +431,6 @@ export function TaskTable({
                 isOpen={isSheetOpen}
                 onClose={handleCloseSheet}
             />
-
-            {/* <BulkDeleteDialog
-                open={showDeleteDialog}
-                onOpenChange={setShowDeleteDialog}
-                onConfirm={() => {
-                    // TODO: Implement bulk delete functionality
-                    console.log('Bulk delete confirmed');
-                    setShowDeleteDialog(false);
-                }}
-                taskCount={selectedTasks.size}
-                subtaskCount={selectedSubTasks.size}
-                isDeleting={isDeletingBulk}
-            /> */}
         </div>
     );
 }

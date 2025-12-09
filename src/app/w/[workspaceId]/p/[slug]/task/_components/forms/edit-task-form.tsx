@@ -13,7 +13,7 @@ import { tryCatch } from "@/hooks/try-catch";
 import { toast } from "sonner";
 import slugify from "slugify";
 import { editTask } from "../../action";
-import { TaskWithSubTasks } from "../table/types";
+import { TaskWithSubTasks } from "../list/types";
 
 interface EditTaskDialogProps {
     task: TaskWithSubTasks;

@@ -1,0 +1,160 @@
+"use client";
+
+import { Button } from "@/components/ui/button";
+import {
+    DropdownMenu,
+    DropdownMenuCheckboxItem,
+    DropdownMenuContent,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { ListFilter, User, Layers, X } from "lucide-react";
+import { ProjectMembersType } from "@/app/data/project/get-project-members";
+
+type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "COMPLETED";
+
+interface ParentTask {
+    id: string;
+    name: string;
+    taskSlug: string;
+}
+
+interface KanbanToolbarProps {
+    parentTasks: ParentTask[];
+    projectMembers: ProjectMembersType;
+    selectedParentTask: string | null;
+    selectedAssignee: string | null;
+    visibleColumns: Record<TaskStatus, boolean>;
+    onParentTaskChange: (taskId: string | null) => void;
+    onAssigneeChange: (assigneeId: string | null) => void;
+    onVisibleColumnsChange: (columns: Record<TaskStatus, boolean>) => void;
+}
+
+const COLUMN_LABELS: Record<TaskStatus, string> = {
+    TO_DO: "To Do",
+    IN_PROGRESS: "In Progress",
+    BLOCKED: "Blocked",
+    REVIEW: "Review",
+    COMPLETED: "Completed",
+};
+
+export function KanbanToolbar({
+    parentTasks,
+    projectMembers,
+    selectedParentTask,
+    selectedAssignee,
+    visibleColumns,
+    onParentTaskChange,
+    onAssigneeChange,
+    onVisibleColumnsChange,
+}: KanbanToolbarProps) {
+    const handleColumnToggle = (column: TaskStatus, checked: boolean) => {
+        onVisibleColumnsChange({
+            ...visibleColumns,
+            [column]: checked,
+        });
+    };
+
+    const visibleColumnsCount = Object.values(visibleColumns).filter(Boolean).length;
+
+    return (
+        <div className="flex items-center justify-between gap-4 p-1 rounded-lg">
+            <div className="flex items-center gap-3 flex-1">
+                {/* Parent Task Filter */}
+                <div className="flex items-center gap-2">
+                    <Layers className="h-4 w-4 text-muted-foreground" />
+                    <Select
+                        value={selectedParentTask || "all"}
+                        onValueChange={(value) => onParentTaskChange(value === "all" ? null : value)}
+                    >
+                        <SelectTrigger className="w-[200px] h-9">
+                            <SelectValue placeholder="All Tasks" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Tasks</SelectItem>
+                            {parentTasks.map((task) => (
+                                <SelectItem key={task.id} value={task.id}>
+                                    {task.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    {selectedParentTask && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => onParentTaskChange(null)}
+                        >
+                            <X className="h-4 w-4" />
+                        </Button>
+                    )}
+                </div>
+
+                {/* Assignee Filter */}
+                <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <Select
+                        value={selectedAssignee || "all"}
+                        onValueChange={(value) => onAssigneeChange(value === "all" ? null : value)}
+                    >
+                        <SelectTrigger className="w-[200px] h-9">
+                            <SelectValue placeholder="All Assignees" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Assignees</SelectItem>
+                            {projectMembers
+                                .filter((member) => member.workspaceMember.workspaceRole !== "ADMIN")
+                                .map((member) => (
+                                    <SelectItem key={member.id} value={member.id}>
+                                        {member.workspaceMember.user.surname || ""}
+                                    </SelectItem>
+                                ))}
+                        </SelectContent>
+                    </Select>
+                    {selectedAssignee && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => onAssigneeChange(null)}
+                        >
+                            <X className="h-4 w-4" />
+                        </Button>
+                    )}
+                </div>
+            </div>
+
+            {/* Column Visibility */}
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-9">
+                        <ListFilter className="mr-2 h-4 w-4" />
+                        Columns ({visibleColumnsCount}/5)
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-[200px]">
+                    <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {(Object.keys(COLUMN_LABELS) as TaskStatus[]).map((column) => (
+                        <DropdownMenuCheckboxItem
+                            key={column}
+                            checked={visibleColumns[column]}
+                            onCheckedChange={(checked) => handleColumnToggle(column, checked)}
+                        >
+                            {COLUMN_LABELS[column]}
+                        </DropdownMenuCheckboxItem>
+                    ))}
+                </DropdownMenuContent>
+            </DropdownMenu>
+        </div>
+    );
+}

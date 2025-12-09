@@ -1,17 +1,17 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { TaskHeaderSkeleton, TaskTableSkeleton } from "./_components/task-page-skeleton";
-import { TaskPageWrapper } from "./_components/task-page-wrapper";
+import { TaskHeaderSkeleton, TaskTableSkeleton } from "./_components/shared/task-page-skeleton";
+import { TaskPageWrapper } from "./_components/shared/task-page-wrapper";
 import { getUserProjects, UserProjectsType } from "@/app/data/user/get-user-projects";
 import { getProjectMembers } from "@/app/data/project/get-project-members";
 import { getUserPermissions } from "@/app/data/user/get-user-permissions";
 import { CreateTaskForm } from "./_components/forms/create-task-form";
 import { BulkCreateTaskForm } from "./_components/forms/bulk-create-task-form";
-import { TaskTableContainer } from "./_components/task-table-container";
-import { ReloadButton } from "./_components/reload-button";
-import { ReloadableTaskTable } from "./_components/reloadable-task-table";
+import { ReloadButton } from "./_components/shared/reload-button";
 import { LayoutList, LayoutGrid, GanttChartSquare } from "lucide-react";
+import { TaskTableContainer } from "./_components/list/task-table-container";
+import { ReloadableTaskTable } from "./_components/list/reloadable-task-table";
 
 interface iAppProps {
     params: { workspaceId: string; slug: string };
@@ -133,23 +133,9 @@ async function TaskKanbanView({ workspaceId, slug }: { workspaceId: string; slug
         );
     }
 
-    // TODO: Import and use KanbanBoard component
-    // const { KanbanBoard } = await import("../kanban/_components/kanban-board");
+    const { KanbanContainer } = await import("./_components/kanban/kanban-container");
 
-    return (
-        <div className="flex items-center justify-center h-96 border-2 border-dashed rounded-lg">
-            <div className="text-center space-y-2">
-                <LayoutGrid className="h-12 w-12 mx-auto text-muted-foreground" />
-                <h3 className="text-lg font-semibold">Kanban View</h3>
-                <p className="text-sm text-muted-foreground">
-                    Kanban board will be integrated here
-                </p>
-                <p className="text-xs text-muted-foreground">
-                    Navigate to /kanban route to see the full Kanban board
-                </p>
-            </div>
-        </div>
-    );
+    return <KanbanContainer workspaceId={workspaceId} projectId={project.id} />;
 }
 
 /**
