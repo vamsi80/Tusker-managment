@@ -15,6 +15,7 @@ import { Filter, Settings2, X } from "lucide-react";
 
 export type ColumnVisibility = {
     assignee: boolean;
+    status: boolean;
     startDate: boolean;
     dueDate: boolean;
     progress: boolean;

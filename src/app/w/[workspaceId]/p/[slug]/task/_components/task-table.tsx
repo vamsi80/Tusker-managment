@@ -5,8 +5,8 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Loader2, ChevronsDown, Trash2 } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Loader2, ChevronsDown } from "lucide-react";
+
 import { ProjectTasksResponse, getProjectTasks, getTaskSubTasks, SubTaskType } from "@/app/data/task/get-project-tasks";
 import { ProjectMembersType } from "@/app/data/project/get-project-members";
 import { TaskTableToolbar, ColumnVisibility } from "./table/task-table-toolbar";
@@ -15,10 +15,10 @@ import { SubTaskList } from "./table/subtask-list";
 import { TaskWithSubTasks } from "./table/types";
 import { SubTaskDetailsSheet } from "./subtask-details-sheet";
 import { useNewTask } from "./task-page-wrapper";
-import { bulkDeleteTasks, bulkDeleteSubTasks } from "../action";
+
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { BulkDeleteDialog } from "./bulk-delete-dialog";
+
 
 interface TaskTableProps {
     initialTasksData: ProjectTasksResponse;
@@ -137,6 +137,7 @@ export function TaskTable({
         startDate: true,
         dueDate: true,
         progress: true,
+        status: true,
         tag: true,
         description: true,
     });
@@ -293,133 +294,8 @@ export function TaskTable({
 
     const uniqueTags = Array.from(new Set(tasks.map((t) => t.tag as string).filter(Boolean)));
 
-    // Bulk selection handlers
-    const handleSelectAllTasks = (checked: boolean) => {
-        if (checked) {
-            setSelectedTasks(new Set(filteredTasks.map(t => t.id)));
-        } else {
-            setSelectedTasks(new Set());
-        }
-    };
-
-    const handleSelectTask = (taskId: string, checked: boolean) => {
-        const newSelected = new Set(selectedTasks);
-        if (checked) {
-            newSelected.add(taskId);
-        } else {
-            newSelected.delete(taskId);
-        }
-        setSelectedTasks(newSelected);
-    };
-
-    const handleSelectSubTask = (subTaskId: string, checked: boolean) => {
-        const newSelected = new Set(selectedSubTasks);
-        if (checked) {
-            newSelected.add(subTaskId);
-        } else {
-            newSelected.delete(subTaskId);
-        }
-        setSelectedSubTasks(newSelected);
-    };
-
-    const handleBulkDelete = () => {
-        if (selectedTasks.size === 0 && selectedSubTasks.size === 0) return;
-        setShowDeleteDialog(true);
-    };
-
-    const confirmBulkDelete = async () => {
-        const taskCount = selectedTasks.size;
-        const subtaskCount = selectedSubTasks.size;
-
-        setIsDeletingBulk(true);
-
-        try {
-            let tasksDeleted = false;
-            let subtasksDeleted = false;
-
-            // Delete tasks
-            if (selectedTasks.size > 0) {
-                // Optimistic update
-                setTasks(prevTasks => prevTasks.filter(t => !selectedTasks.has(t.id)));
-
-                const result = await bulkDeleteTasks({
-                    taskIds: Array.from(selectedTasks),
-                    projectId: projectId,
-                });
-
-                if (result.status === "success") {
-                    tasksDeleted = true;
-                } else {
-                    toast.error(result.message || "Failed to delete tasks");
-                    // Revert optimistic update by refreshing
-                    router.refresh();
-                    setShowDeleteDialog(false);
-                    return;
-                }
-            }
-
-            // Delete subtasks
-            if (selectedSubTasks.size > 0) {
-                // Optimistic update
-                setTasks(prevTasks =>
-                    prevTasks.map(task => {
-                        if (task.subTasks) {
-                            const newSubTasks = task.subTasks.filter(st => !selectedSubTasks.has(st.id));
-                            return {
-                                ...task,
-                                subTasks: newSubTasks,
-                                _count: { subTasks: newSubTasks.length },
-                            };
-                        }
-                        return task;
-                    })
-                );
-
-                const result = await bulkDeleteSubTasks({
-                    subTaskIds: Array.from(selectedSubTasks),
-                    projectId: projectId,
-                });
-
-                if (result.status === "success") {
-                    subtasksDeleted = true;
-                } else {
-                    toast.error(result.message || "Failed to delete subtasks");
-                    // Revert optimistic update by refreshing
-                    router.refresh();
-                    setShowDeleteDialog(false);
-                    return;
-                }
-            }
-
-            // Clear selections
-            setSelectedTasks(new Set());
-            setSelectedSubTasks(new Set());
-
-            // Show success message
-            const messages = [];
-            if (tasksDeleted) messages.push(`${taskCount} task(s)`);
-            if (subtasksDeleted) messages.push(`${subtaskCount} subtask(s)`);
-            toast.success(`Successfully deleted ${messages.join(" and ")}`);
-
-            // Close dialog
-            setShowDeleteDialog(false);
-
-            // Refresh to get updated data from server
-            router.refresh();
-
-        } catch (error) {
-            console.error("Error deleting items:", error);
-            toast.error("An unexpected error occurred. Please try again.");
-            // Refresh to restore correct state
-            router.refresh();
-            setShowDeleteDialog(false);
-        } finally {
-            setIsDeletingBulk(false);
-        }
-    };
-
     const totalSelected = selectedTasks.size + selectedSubTasks.size;
-    const allTasksSelected = filteredTasks.length > 0 && selectedTasks.size === filteredTasks.length;
+    // const allTasksSelected = filteredTasks.length > 0 && selectedTasks.size === filteredTasks.length;
 
     return (
         <div className="space-y-4 mt-4">
@@ -451,36 +327,6 @@ export function TaskTable({
                             </span>
                         )}
                     </div>
-                    <div className="flex items-center gap-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                                setSelectedTasks(new Set());
-                                setSelectedSubTasks(new Set());
-                            }}
-                        >
-                            Clear Selection
-                        </Button>
-                        <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={handleBulkDelete}
-                            disabled={isDeletingBulk}
-                        >
-                            {isDeletingBulk ? (
-                                <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Deleting...
-                                </>
-                            ) : (
-                                <>
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Delete Selected
-                                </>
-                            )}
-                        </Button>
-                    </div>
                 </div>
             )}
 
@@ -493,20 +339,14 @@ export function TaskTable({
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="w-[50px]">
-                                    <Checkbox
-                                        checked={allTasksSelected}
-                                        onCheckedChange={handleSelectAllTasks}
-                                        aria-label="Select all tasks"
-                                    />
-                                </TableHead>
                                 <TableHead className="w-[50px]"></TableHead>
                                 <TableHead className="min-w-[250px]">Task Name</TableHead>
                                 {columnVisibility.description && <TableHead className="w-[200px]">Description</TableHead>}
                                 {columnVisibility.assignee && <TableHead className="w-[200px]">Assignee</TableHead>}
                                 {columnVisibility.startDate && <TableHead className="w-[150px]">Start Date</TableHead>}
                                 {columnVisibility.dueDate && <TableHead className="w-[150px]">Due Date</TableHead>}
-                                {columnVisibility.progress && <TableHead className="w-[120px]">Status</TableHead>}
+                                {columnVisibility.progress && <TableHead className="w-[120px]">Progress</TableHead>}
+                                {columnVisibility.status && <TableHead className="w-[120px]">Status</TableHead>}
                                 {columnVisibility.tag && <TableHead className="w-[150px]">Tag</TableHead>}
                                 <TableHead className="w-[50px]"></TableHead>
                             </TableRow>
@@ -523,7 +363,7 @@ export function TaskTable({
                                         onUpdateStart={() => setUpdatingTaskId(task.id)}
                                         onUpdateEnd={() => setUpdatingTaskId(null)}
                                         isSelected={selectedTasks.has(task.id)}
-                                        onSelectChange={(checked) => handleSelectTask(task.id, checked)}
+                                        // onSelectChange={(checked) => handleSelectTask(task.id, checked)}
                                         onTaskUpdated={(updatedTask) => {
                                             // Update the task in state immediately
                                             setTasks(prevTasks =>
@@ -554,7 +394,7 @@ export function TaskTable({
                                             onLoadMore={() => loadMoreSubTasks(task.id)}
                                             onSubTaskClick={handleSubTaskClick}
                                             selectedSubTasks={selectedSubTasks}
-                                            onSelectSubTask={handleSelectSubTask}
+                                            // onSelectSubTask={handleSelectSubTask}
                                             onSubTaskUpdated={(subTaskId, updatedData) =>
                                                 handleSubTaskUpdated(task.id, subTaskId, updatedData)
                                             }
@@ -611,14 +451,18 @@ export function TaskTable({
                 onClose={handleCloseSheet}
             />
 
-            <BulkDeleteDialog
+            {/* <BulkDeleteDialog
                 open={showDeleteDialog}
                 onOpenChange={setShowDeleteDialog}
-                onConfirm={confirmBulkDelete}
+                onConfirm={() => {
+                    // TODO: Implement bulk delete functionality
+                    console.log('Bulk delete confirmed');
+                    setShowDeleteDialog(false);
+                }}
                 taskCount={selectedTasks.size}
                 subtaskCount={selectedSubTasks.size}
                 isDeleting={isDeletingBulk}
-            />
+            /> */}
         </div>
     );
 }

@@ -48,6 +48,7 @@ export function SubTaskList({
     selectedSubTasks = new Set(),
     onSelectSubTask,
 }: SubTaskListProps) {
+    // Calculate total columns: drag + name + visible columns + actions (no checkbox anymore)
     const visibleColumnsCount = 2 + Object.values(columnVisibility).filter(Boolean).length + 1;
 
     if (isLoading) {

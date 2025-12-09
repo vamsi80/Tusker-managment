@@ -6,7 +6,9 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Checkbox } from "@/components/ui/checkbox";
+
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -188,13 +190,13 @@ export function SubTaskRow({
             style={style}
             className="bg-muted/10 hover:bg-muted/20"
         >
-            <TableCell className="pl-4">
+            {/* <TableCell className="pl-4">
                 <Checkbox
                     checked={isSelected}
                     onCheckedChange={onSelectChange}
                     aria-label={`Select ${subTask.name}`}
                 />
-            </TableCell>
+            </TableCell> */}
             <TableCell className="pl-4">
                 <Button
                     variant="ghost"
@@ -283,6 +285,18 @@ export function SubTaskRow({
                                         : `Delay by ${Math.abs(remainingDays)} day${Math.abs(remainingDays) !== 1 ? 's' : ''}`
                                 }
                             </span>
+                        </div>
+                    ) : (
+                        <span className="text-muted-foreground text-xs">-</span>
+                    )}
+                </TableCell>
+            )}
+            {columnVisibility.status && (
+                <TableCell>
+                    {subTask.status ? (
+                        <div className="flex items-center gap-1">
+                            <Tag className="h-3 w-3 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">{subTask.status}</span>
                         </div>
                     ) : (
                         <span className="text-muted-foreground text-xs">-</span>

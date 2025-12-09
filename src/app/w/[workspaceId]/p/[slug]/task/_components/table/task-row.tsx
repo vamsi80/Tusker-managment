@@ -4,7 +4,7 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronRight, MoreHorizontal } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Checkbox } from "@/components/ui/checkbox";
+
 import { ColumnVisibility } from "./task-table-toolbar";
 import { TaskWithSubTasks } from "./types";
 import { Badge } from "@/components/ui/badge";
@@ -43,8 +43,8 @@ export function TaskRow({
     const subtaskCount = task._count?.subTasks || 0;
 
     // Calculate the number of columns to span
-    // 1 (expand button) + 1 (task name) + visible columns (not including actions)
-    let colSpan = 1; // Start with just task name cell
+    // 2 (expand button) + 1 (task name) + visible columns (not including actions)
+    let colSpan = 2; // Start with just task name cell
     if (columnVisibility.description) colSpan++;
     if (columnVisibility.assignee) colSpan++;
     if (columnVisibility.startDate) colSpan++;
@@ -93,13 +93,6 @@ export function TaskRow({
 
     return (
         <TableRow className="group">
-            <TableCell>
-                <Checkbox
-                    checked={isSelected}
-                    onCheckedChange={onSelectChange}
-                    aria-label={`Select ${task.name}`}
-                />
-            </TableCell>
             <TableCell>
                 <Button
                     variant="ghost"
