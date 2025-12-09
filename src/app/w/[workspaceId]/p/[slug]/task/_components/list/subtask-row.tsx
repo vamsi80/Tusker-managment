@@ -295,7 +295,6 @@ export function SubTaskRow({
                 <TableCell>
                     {subTask.status ? (
                         <div className="flex items-center gap-1">
-                            <Tag className="h-3 w-3 text-muted-foreground" />
                             <span className="text-xs text-muted-foreground">{subTask.status}</span>
                         </div>
                     ) : (

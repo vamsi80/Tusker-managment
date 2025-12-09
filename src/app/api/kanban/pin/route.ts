@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { pinSubTask, generateOperationId } from "@/app/actions/subtask-pin-actions";
+import { pinSubTask, generateOperationId } from "@/app/w/[workspaceId]/p/[slug]/task/_components/kanban/actions/subtask-pin-actions";
 
 interface PinCardRequest {
     subTaskId: string;

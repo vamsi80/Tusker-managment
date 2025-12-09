@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { updateSubTaskStatus } from "@/app/actions/subtask-status-actions";
+import { updateSubTaskStatus } from "@/app/w/[workspaceId]/p/[slug]/task/_components/kanban/actions/subtask-status-actions";
 import { generateMoveOperationId } from "@/utils/operation-id";
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED";

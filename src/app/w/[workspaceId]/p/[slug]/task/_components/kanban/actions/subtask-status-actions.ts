@@ -174,7 +174,7 @@ export async function updateSubTaskStatus(
         const ipAddress = headersList.get("x-forwarded-for") || headersList.get("x-real-ip") || "unknown";
         const userAgent = headersList.get("user-agent") || "unknown";
 
-        // 11. Update subtask status and create audit logs in a transaction
+        // 11. Update subtask status and create audit log in a transaction
         const result = await prisma.$transaction(async (tx) => {
             // Update the subtask
             const updated = await tx.task.update({
@@ -187,19 +187,7 @@ export async function updateSubTaskStatus(
                 },
             });
 
-            // Create legacy audit log (for backward compatibility)
-            await tx.subTaskStatusAuditLog.create({
-                data: {
-                    subTaskId: subTaskId,
-                    fromStatus: subTask.status,
-                    toStatus: newStatus,
-                    changedBy: user.id,
-                    workspaceMemberId: permissions.workspaceMemberId,
-                    timestamp: new Date(),
-                },
-            });
-
-            // Create comprehensive audit log
+            // Create comprehensive audit log with idempotency support
             const auditLog = await tx.auditLog.create({
                 data: {
                     operationId: opId,

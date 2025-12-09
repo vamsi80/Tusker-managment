@@ -12,6 +12,7 @@ import { ReloadButton } from "./_components/shared/reload-button";
 import { LayoutList, LayoutGrid, GanttChartSquare } from "lucide-react";
 import { TaskTableContainer } from "./_components/list/task-table-container";
 import { ReloadableTaskTable } from "./_components/list/reloadable-task-table";
+import { KanbanBoardSkeleton } from "./_components/kanban/kanban-skeleton";
 
 interface iAppProps {
     params: { workspaceId: string; slug: string };
@@ -204,7 +205,7 @@ export default async function ProjectTask({ params, searchParams }: iAppProps) {
                 )}
 
                 {currentView === 'kanban' && (
-                    <Suspense fallback={<TaskTableSkeleton />}>
+                    <Suspense fallback={<KanbanBoardSkeleton />}>
                         <TaskKanbanView workspaceId={workspaceId} slug={slug} />
                     </Suspense>
                 )}

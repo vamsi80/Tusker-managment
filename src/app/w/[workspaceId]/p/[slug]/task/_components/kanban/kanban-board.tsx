@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { KanbanCard } from "./kanban-card";
 import { KanbanToolbar } from "./kanban-toolbar";
 import { SubTaskDetailsSheet } from "../shared/subtask-details-sheet";
-import { updateSubTaskStatus } from "@/app/actions/subtask-status-actions";
+import { updateSubTaskStatus } from "@/app/w/[workspaceId]/p/[slug]/task/_components/kanban/actions/subtask-status-actions";
 import { toast } from "sonner";
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED";

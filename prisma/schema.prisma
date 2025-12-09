@@ -108,11 +108,10 @@ model WorkspaceMember {
   workspaceRole  WorkspaceRole   @default(MEMBER)
   projectMembers ProjectMember[]
 
-  createdAt              DateTime                @default(now())
-  updatedAt              DateTime                @updatedAt
-  tasks                  Task[]
-  subTaskStatusAuditLogs SubTaskStatusAuditLog[]
-  auditLogs              AuditLog[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  tasks     Task[]
+  auditLogs AuditLog[]
 
   @@unique([userId, workspaceId])
 }
@@ -227,11 +226,10 @@ model Task {
   pinnedAt DateTime?
   pinnedBy String?
 
-  createdAt              DateTime                @default(now())
-  updatedAt              DateTime                @updatedAt
-  comments               Comment[]
-  subTaskStatusAuditLogs SubTaskStatusAuditLog[]
-  auditLogs              AuditLog[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  comments  Comment[]
+  auditLogs AuditLog[]
 
   @@index([parentTaskId])
   @@index([projectId])
@@ -338,26 +336,4 @@ model AuditLog {
   @@index([timestamp])
   @@index([operationId])
   @@map("audit_log")
-}
-
-// Legacy audit log for subtask status changes (kept for backward compatibility)
-// TODO: Migrate to AuditLog and deprecate
-model SubTaskStatusAuditLog {
-  id                String      @id @default(cuid())
-  subTaskId         String
-  fromStatus        TaskStatus?
-  toStatus          TaskStatus
-  changedBy         String // User ID who made the change
-  workspaceMemberId String // Workspace member ID for additional context
-  timestamp         DateTime    @default(now())
-
-  // Relations
-  subTask         Task            @relation(fields: [subTaskId], references: [id], onDelete: Cascade)
-  workspaceMember WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
-
-  // Indexes for efficient querying
-  @@index([subTaskId])
-  @@index([changedBy])
-  @@index([timestamp])
-  @@map("subtask_status_audit_log")
 }
