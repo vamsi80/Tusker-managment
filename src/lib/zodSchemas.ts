@@ -1,7 +1,7 @@
 
 import { z } from 'zod'
 
-export const SubTaskStatus = ["TO_DO", "IN_PROGRESS", "BLOCKED", "REVIEW", "COMPLETED"] as const
+export const SubTaskStatus = ["TO_DO", "IN_PROGRESS", "BLOCKED", "REVIEW", "COMPLETED", "HOLD"] as const
 
 export const TaskTag = ["DESIGN", "PROCUREMENT", "CONTRACTOR"] as const
 

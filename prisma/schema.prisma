@@ -29,6 +29,7 @@ model User {
   workspaces     WorkspaceMember[]
   workspaceOwner Workspace[]
   comments       Comment[]
+  auditLogs      AuditLog[]
 
   @@unique([email])
   @@map("user")
@@ -107,9 +108,11 @@ model WorkspaceMember {
   workspaceRole  WorkspaceRole   @default(MEMBER)
   projectMembers ProjectMember[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  tasks     Task[]
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  tasks                  Task[]
+  subTaskStatusAuditLogs SubTaskStatusAuditLog[]
+  auditLogs              AuditLog[]
 
   @@unique([userId, workspaceId])
 }
@@ -135,6 +138,7 @@ model Project {
   clint          Clints[]
   projectMembers ProjectMember[]
   tasks          Task[]
+  auditLogs      AuditLog[]
 
   @@index([workspaceId])
 }
@@ -218,14 +222,22 @@ model Task {
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  comments  Comment[]
+  // Pinning support for Kanban
+  isPinned Boolean   @default(false)
+  pinnedAt DateTime?
+  pinnedBy String?
+
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  comments               Comment[]
+  subTaskStatusAuditLogs SubTaskStatusAuditLog[]
+  auditLogs              AuditLog[]
 
   @@index([parentTaskId])
   @@index([projectId])
   @@index([createdById])
   @@index([assigneeTo])
+  @@index([isPinned])
 }
 
 enum TaskStatus {
@@ -233,6 +245,7 @@ enum TaskStatus {
   IN_PROGRESS
   BLOCKED
   REVIEW
+  HOLD
   COMPLETED
 }
 
@@ -277,4 +290,74 @@ model Comment {
   @@index([parentCommentId])
   @@index([createdAt])
   @@map("comment")
+}
+
+// Comprehensive audit log for all operations with idempotency support
+model AuditLog {
+  id String @id @default(cuid())
+
+  // Idempotency key - prevents duplicate operations
+  operationId String @unique
+
+  // Entity information
+  entityType String // "TASK" | "SUBTASK"
+  entityId   String // Task/SubTask ID
+
+  // Action type
+  action String // "CREATE" | "UPDATE" | "MOVE" | "DELETE" | "PIN" | "UNPIN"
+
+  // Actor information
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  workspaceMemberId String
+  workspaceMember   WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
+
+  // Change tracking - JSON for flexibility
+  beforeState Json? // Previous state (null for CREATE)
+  afterState  Json // New state
+
+  // Context
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  taskId String?
+  task   Task?   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  // Metadata
+  timestamp DateTime @default(now())
+  ipAddress String?
+  userAgent String?
+
+  // Indexes for efficient querying
+  @@index([entityId])
+  @@index([entityType])
+  @@index([action])
+  @@index([projectId])
+  @@index([userId])
+  @@index([timestamp])
+  @@index([operationId])
+  @@map("audit_log")
+}
+
+// Legacy audit log for subtask status changes (kept for backward compatibility)
+// TODO: Migrate to AuditLog and deprecate
+model SubTaskStatusAuditLog {
+  id                String      @id @default(cuid())
+  subTaskId         String
+  fromStatus        TaskStatus?
+  toStatus          TaskStatus
+  changedBy         String // User ID who made the change
+  workspaceMemberId String // Workspace member ID for additional context
+  timestamp         DateTime    @default(now())
+
+  // Relations
+  subTask         Task            @relation(fields: [subTaskId], references: [id], onDelete: Cascade)
+  workspaceMember WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
+
+  // Indexes for efficient querying
+  @@index([subTaskId])
+  @@index([changedBy])
+  @@index([timestamp])
+  @@map("subtask_status_audit_log")
 }

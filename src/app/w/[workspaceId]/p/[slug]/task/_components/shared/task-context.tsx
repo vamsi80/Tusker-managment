@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useCallback } from "react";
-import { TaskWithSubTasks } from "./list/types";
+import { TaskWithSubTasks } from "../list/types";
 
 interface TaskContextType {
     addNewTask: (task: TaskWithSubTasks) => void;

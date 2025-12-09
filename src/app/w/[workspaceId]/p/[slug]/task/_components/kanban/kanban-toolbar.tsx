@@ -19,7 +19,7 @@ import {
 import { ListFilter, User, Layers, X } from "lucide-react";
 import { ProjectMembersType } from "@/app/data/project/get-project-members";
 
-type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "COMPLETED";
+type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED";
 
 interface ParentTask {
     id: string;
@@ -43,6 +43,7 @@ const COLUMN_LABELS: Record<TaskStatus, string> = {
     IN_PROGRESS: "In Progress",
     BLOCKED: "Blocked",
     REVIEW: "Review",
+    HOLD: "On Hold",
     COMPLETED: "Completed",
 };
 
@@ -138,7 +139,7 @@ export function KanbanToolbar({
                 <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="sm" className="h-9">
                         <ListFilter className="mr-2 h-4 w-4" />
-                        Columns ({visibleColumnsCount}/5)
+                        Columns ({visibleColumnsCount}/6)
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-[200px]">

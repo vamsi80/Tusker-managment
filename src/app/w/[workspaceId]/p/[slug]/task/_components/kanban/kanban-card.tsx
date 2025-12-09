@@ -13,9 +13,10 @@ interface KanbanCardProps {
     subTask: AllSubTaskType[number];
     columnColor: string;
     isDragging?: boolean;
+    onSubTaskClick?: (subTask: AllSubTaskType[number]) => void;
 }
 
-export function KanbanCard({ subTask, columnColor, isDragging = false }: KanbanCardProps) {
+export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTaskClick }: KanbanCardProps) {
     const {
         attributes,
         listeners,
@@ -46,6 +47,11 @@ export function KanbanCard({ subTask, columnColor, isDragging = false }: KanbanC
     const dueDate = calculateDueDate();
     const isOverdue = dueDate && new Date() > dueDate;
 
+    const handleNameClick = (e: React.MouseEvent) => {
+        e.stopPropagation(); // Prevent drag from triggering
+        onSubTaskClick?.(subTask);
+    };
+
     return (
         <Card
             ref={setNodeRef}
@@ -58,6 +64,7 @@ export function KanbanCard({ subTask, columnColor, isDragging = false }: KanbanC
                 columnColor === "text-blue-700" && "border-l-blue-400",
                 columnColor === "text-red-700" && "border-l-red-400",
                 columnColor === "text-amber-700" && "border-l-amber-400",
+                columnColor === "text-purple-700" && "border-l-purple-400",
                 columnColor === "text-green-700" && "border-l-green-400"
             )}
             {...attributes}
@@ -79,7 +86,10 @@ export function KanbanCard({ subTask, columnColor, isDragging = false }: KanbanC
 
                 {/* Header with drag handle */}
                 <div className="flex items-start justify-between gap-2">
-                    <h4 className="font-medium text-sm leading-tight flex-1 line-clamp-2">
+                    <h4
+                        className="font-medium text-sm leading-tight flex-1 line-clamp-2 cursor-pointer hover:text-blue-600 transition-colors"
+                        onClick={handleNameClick}
+                    >
                         {subTask.name}
                     </h4>
                     <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />

@@ -9,8 +9,11 @@ import { ProjectMembersType } from "@/app/data/project/get-project-members";
 import { cn } from "@/lib/utils";
 import { KanbanCard } from "./kanban-card";
 import { KanbanToolbar } from "./kanban-toolbar";
+import { SubTaskDetailsSheet } from "../shared/subtask-details-sheet";
+import { updateSubTaskStatus } from "@/app/actions/subtask-status-actions";
+import { toast } from "sonner";
 
-type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "COMPLETED";
+type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED";
 
 interface KanbanBoardProps {
     initialSubTasks: AllSubTaskType;
@@ -49,6 +52,13 @@ const COLUMNS: { id: TaskStatus; title: string; color: string; bgColor: string; 
         borderColor: "border-amber-200",
     },
     {
+        id: "HOLD",
+        title: "On Hold",
+        color: "text-purple-700",
+        bgColor: "bg-purple-50",
+        borderColor: "border-purple-200",
+    },
+    {
         id: "COMPLETED",
         title: "Completed",
         color: "text-green-700",
@@ -60,9 +70,11 @@ const COLUMNS: { id: TaskStatus; title: string; color: string; bgColor: string; 
 function DroppableColumn({
     column,
     subTasks,
+    onSubTaskClick,
 }: {
     column: typeof COLUMNS[number];
     subTasks: AllSubTaskType;
+    onSubTaskClick: (subTask: AllSubTaskType[number]) => void;
 }) {
     const { setNodeRef, isOver } = useDroppable({
         id: column.id,
@@ -116,6 +128,7 @@ function DroppableColumn({
                                 key={subTask.id}
                                 subTask={subTask}
                                 columnColor={column.color}
+                                onSubTaskClick={onSubTaskClick}
                             />
                         ))}
                         {subTasks.length === 0 && (
@@ -134,6 +147,10 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
     const [subTasks, setSubTasks] = useState<AllSubTaskType>(initialSubTasks);
     const [activeSubTask, setActiveSubTask] = useState<AllSubTaskType[number] | null>(null);
 
+    // Subtask details sheet state
+    const [isSheetOpen, setIsSheetOpen] = useState(false);
+    const [selectedSubTask, setSelectedSubTask] = useState<AllSubTaskType[number] | null>(null);
+
     // Filter states
     const [selectedParentTask, setSelectedParentTask] = useState<string | null>(null);
     const [selectedAssignee, setSelectedAssignee] = useState<string | null>(null);
@@ -142,6 +159,7 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
         IN_PROGRESS: true,
         BLOCKED: false,
         REVIEW: true,
+        HOLD: false,
         COMPLETED: false,
     });
 
@@ -165,7 +183,7 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
         }
     };
 
-    const handleDragEnd = (event: DragEndEvent) => {
+    const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
         setActiveSubTask(null);
 
@@ -178,28 +196,83 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
         const newStatus = over.id as TaskStatus;
 
         // Validate that the drop target is a valid status column
-        const validStatuses: TaskStatus[] = ["TO_DO", "IN_PROGRESS", "BLOCKED", "REVIEW", "COMPLETED"];
+        const validStatuses: TaskStatus[] = ["TO_DO", "IN_PROGRESS", "BLOCKED", "REVIEW", "HOLD", "COMPLETED"];
         if (!validStatuses.includes(newStatus)) {
             return;
         }
 
         // Only update if status changed
         const subTask = subTasks.find((t) => t.id === subTaskId);
-        if (subTask && subTask.status !== newStatus) {
-            // Update subtask status locally (optimistic update)
+        if (!subTask || subTask.status === newStatus) {
+            return;
+        }
+
+        // Store previous status for rollback
+        const previousStatus = subTask.status;
+
+        // Optimistic UI update
+        setSubTasks((prevSubTasks) =>
+            prevSubTasks.map((st) =>
+                st.id === subTaskId ? { ...st, status: newStatus } : st
+            )
+        );
+
+        // Show loading toast
+        const toastId = toast.loading("Updating subtask status...");
+
+        try {
+            // Call server action
+            const result = await updateSubTaskStatus(
+                subTaskId,
+                newStatus,
+                workspaceId,
+                projectId
+            );
+
+            if (result.success) {
+                // Success - dismiss loading and show success message
+                toast.success("Subtask status updated successfully", {
+                    id: toastId,
+                });
+            } else {
+                // Server-side error - rollback optimistic update
+                setSubTasks((prevSubTasks) =>
+                    prevSubTasks.map((st) =>
+                        st.id === subTaskId ? { ...st, status: previousStatus } : st
+                    )
+                );
+
+                toast.error(result.error || "Failed to update subtask status", {
+                    id: toastId,
+                });
+            }
+        } catch (error) {
+            // Network or unexpected error - rollback optimistic update
             setSubTasks((prevSubTasks) =>
-                prevSubTasks.map((subTask) =>
-                    subTask.id === subTaskId ? { ...subTask, status: newStatus } : subTask
+                prevSubTasks.map((st) =>
+                    st.id === subTaskId ? { ...st, status: previousStatus } : st
                 )
             );
 
-            // TODO: Call server action to update subtask status in database
-            // updateSubTaskStatus(subTaskId, newStatus, workspaceId, projectId);
+            toast.error("An unexpected error occurred. Please try again.", {
+                id: toastId,
+            });
+            console.error("Error updating subtask status:", error);
         }
     };
 
     const handleDragCancel = () => {
         setActiveSubTask(null);
+    };
+
+    const handleSubTaskClick = (subTask: AllSubTaskType[number]) => {
+        setSelectedSubTask(subTask);
+        setIsSheetOpen(true);
+    };
+
+    const handleCloseSheet = () => {
+        setIsSheetOpen(false);
+        setSelectedSubTask(null);
     };
 
     // Get filtered subtasks
@@ -246,13 +319,13 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
                 onDragCancel={handleDragCancel}
             >
                 <div className={cn(
-                    "flex gap-4 h-[calc(100vh-280px)] overflow-x-auto",
-                    // Custom ultra-thin horizontal scrollbar
-                    "[&::-webkit-scrollbar]:h-0.5",
-                    "[&::-webkit-scrollbar-track]:bg-transparent",
-                    "[&::-webkit-scrollbar-thumb]:bg-slate-300",
+                    "flex gap-4 h-[calc(100vh-280px)] overflow-x-auto pb-2",
+                    // Custom horizontal scrollbar - bigger than vertical
+                    "[&::-webkit-scrollbar]:h-2",
+                    "[&::-webkit-scrollbar-track]:rounded-full",
+                    "[&::-webkit-scrollbar-thumb]:bg-accent",
                     "[&::-webkit-scrollbar-thumb]:rounded-full",
-                    "[&::-webkit-scrollbar-thumb]:hover:bg-slate-400"
+                    "[&::-webkit-scrollbar-thumb]:hover:bg-accent/50"
                 )}>
                     {COLUMNS.filter((col) => visibleColumns[col.id]).map((column) => {
                         const columnSubTasks = getSubTasksByStatus(column.id);
@@ -261,6 +334,7 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
                                 key={column.id}
                                 column={column}
                                 subTasks={columnSubTasks}
+                                onSubTaskClick={handleSubTaskClick}
                             />
                         );
                     })}
@@ -275,6 +349,13 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
                     ) : null}
                 </DragOverlay>
             </DndContext>
+
+            {/* Subtask Details Sheet */}
+            <SubTaskDetailsSheet
+                subTask={selectedSubTask}
+                isOpen={isSheetOpen}
+                onClose={handleCloseSheet}
+            />
         </>
     );
 }

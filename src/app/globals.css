@@ -170,6 +170,7 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
@@ -177,7 +178,8 @@
 
 /* Minimal thin scrollbar */
 .thin-scrollbar {
-  scrollbar-width: thin;            /* Firefox */
+  scrollbar-width: thin;
+  /* Firefox */
   scrollbar-color: #c1c1c1 transparent;
 
 }
@@ -202,10 +204,13 @@
 
 /* Hide scrollbar completely while maintaining scroll functionality */
 .scrollbar-hide {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
 }
 
 .scrollbar-hide::-webkit-scrollbar {
-  display: none;  /* Chrome, Safari and Opera */
+  display: none;
+  /* Chrome, Safari and Opera */
 }
