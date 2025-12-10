@@ -196,7 +196,6 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
         const { active, over } = event;
         setActiveSubTask(null);
 
-        // If dropped outside any droppable area, do nothing (keep in current position)
         if (!over) {
             return;
         }
@@ -204,31 +203,25 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
         const subTaskId = active.id as string;
         const newStatus = over.id as TaskStatus;
 
-        // Validate that the drop target is a valid status column
         const validStatuses: TaskStatus[] = ["TO_DO", "IN_PROGRESS", "BLOCKED", "REVIEW", "HOLD", "COMPLETED"];
         if (!validStatuses.includes(newStatus)) {
             return;
         }
 
-        // Only update if status changed
         const subTask = subTasks.find((t) => t.id === subTaskId);
         if (!subTask || subTask.status === newStatus) {
             return;
         }
 
-        // Store previous status for rollback (default to TO_DO if null)
         const previousStatus = subTask.status ?? "TO_DO";
 
-        // If moving to REVIEW, show dialog and store pending move
         if (newStatus === "REVIEW") {
-            // Optimistic UI update
             setSubTasks((prevSubTasks) =>
                 prevSubTasks.map((st) =>
                     st.id === subTaskId ? { ...st, status: newStatus } : st
                 )
             );
 
-            // Store pending move and show dialog
             setPendingReviewMove({
                 subTaskId,
                 previousStatus,
@@ -237,7 +230,6 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
             return;
         }
 
-        // For non-REVIEW statuses, proceed with normal update
         await performStatusUpdate(subTaskId, newStatus, previousStatus);
     };
 
@@ -247,18 +239,15 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
         previousStatus: TaskStatus,
         reviewCommentId?: string
     ) => {
-        // Optimistic UI update (if not already done)
         setSubTasks((prevSubTasks) =>
             prevSubTasks.map((st) =>
                 st.id === subTaskId ? { ...st, status: newStatus } : st
             )
         );
 
-        // Show loading toast
         const toastId = toast.loading("Updating subtask status...");
 
         try {
-            // Call server action
             const result = await updateSubTaskStatus(
                 subTaskId,
                 newStatus,
@@ -269,12 +258,10 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
             );
 
             if (result.success) {
-                // Success - dismiss loading and show success message
                 toast.success("Subtask status updated successfully", {
                     id: toastId,
                 });
             } else {
-                // Server-side error - rollback optimistic update
                 setSubTasks((prevSubTasks) =>
                     prevSubTasks.map((st) =>
                         st.id === subTaskId ? { ...st, status: previousStatus } : st
@@ -286,7 +273,6 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
                 });
             }
         } catch (error) {
-            // Network or unexpected error - rollback optimistic update
             setSubTasks((prevSubTasks) =>
                 prevSubTasks.map((st) =>
                     st.id === subTaskId ? { ...st, status: previousStatus } : st
@@ -318,7 +304,6 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
         if (!pendingReviewMove) return;
 
         try {
-            // Convert file to base64 if provided
             let attachmentData: {
                 fileName: string;
                 fileType: string;

@@ -108,11 +108,9 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <Avatar className="h-6 w-6 ring-2 ring-background cursor-pointer">
+                                    <Avatar className="h-5 w-5 cursor-pointer">
                                         <AvatarImage src={assignee.image || ""} />
-                                        <AvatarFallback className="text-[10px] font-semibold bg-primary text-primary-foreground">
-                                            {assignee.name?.[0]}
-                                        </AvatarFallback>
+                                        <AvatarFallback className="text-[10px]">{assignee.name?.[0]}</AvatarFallback>
                                     </Avatar>
                                 </TooltipTrigger>
                                 <TooltipContent>

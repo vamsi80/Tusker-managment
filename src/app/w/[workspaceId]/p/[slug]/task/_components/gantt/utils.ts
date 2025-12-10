@@ -1,0 +1,178 @@
+import { GanttTask, GanttSubtask, ComputedTaskDates, TimelineConfig, TimelineGranularity } from "./types";
+
+/**
+ * Get current date (midnight) for today comparisons
+ * Uses local browser time which should be IST for users in India
+ */
+export function getIndianDate(): Date {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+}
+
+/**
+ * Parse ISO date string to Date object safely
+ */
+export function parseDate(dateStr: string): Date | null {
+    if (!dateStr) return null;
+    const date = new Date(dateStr);
+    return isNaN(date.getTime()) ? null : date;
+}
+
+/**
+ * Compute task start/end dates from subtasks
+ * task.start = min(subtask.start)
+ * task.end = max(subtask.end)
+ */
+export function computeTaskDates(task: GanttTask): ComputedTaskDates {
+    if (!task.subtasks || task.subtasks.length === 0) {
+        return { start: null, end: null };
+    }
+
+    let minStart: Date | null = null;
+    let maxEnd: Date | null = null;
+
+    for (const subtask of task.subtasks) {
+        const start = parseDate(subtask.start);
+        const end = parseDate(subtask.end);
+
+        if (start && (!minStart || start < minStart)) {
+            minStart = start;
+        }
+        if (end && (!maxEnd || end > maxEnd)) {
+            maxEnd = end;
+        }
+    }
+
+    return { start: minStart, end: maxEnd };
+}
+
+/**
+ * Calculate the timeline range from all tasks
+ */
+export function calculateTimelineRange(tasks: GanttTask[]): { start: Date; end: Date } {
+    const today = getIndianDate();
+    let minDate = new Date(today);
+    let maxDate = new Date(today);
+    maxDate.setDate(maxDate.getDate() + 30); // Default 30 days
+
+    for (const task of tasks) {
+        const { start, end } = computeTaskDates(task);
+        if (start && start < minDate) minDate = new Date(start);
+        if (end && end > maxDate) maxDate = new Date(end);
+    }
+
+    // Add padding
+    minDate.setDate(minDate.getDate() - 2);
+    maxDate.setDate(maxDate.getDate() + 5);
+
+    return { start: minDate, end: maxDate };
+}
+
+/**
+ * Get days between two dates
+ */
+export function getDaysBetween(start: Date, end: Date): number {
+    // Normalize both dates to midnight for accurate day counting
+    const startNorm = new Date(start);
+    startNorm.setHours(0, 0, 0, 0);
+    const endNorm = new Date(end);
+    endNorm.setHours(0, 0, 0, 0);
+
+    const diffTime = endNorm.getTime() - startNorm.getTime();
+    return Math.round(diffTime / (1000 * 60 * 60 * 24));
+}
+
+/**
+ * Calculate bar position and width as percentages
+ */
+export function calculateBarPosition(
+    barStart: Date,
+    barEnd: Date,
+    timelineStart: Date,
+    totalDays: number
+): { left: number; width: number } {
+    const startOffset = getDaysBetween(timelineStart, barStart);
+    const duration = getDaysBetween(barStart, barEnd) + 1;
+
+    const left = (startOffset / totalDays) * 100;
+    const width = (duration / totalDays) * 100;
+
+    return {
+        left: Math.max(0, left),
+        width: Math.max(1, Math.min(width, 100 - left))
+    };
+}
+
+/**
+ * Generate timeline columns based on granularity
+ */
+export function generateTimelineColumns(
+    start: Date,
+    end: Date,
+    granularity: TimelineGranularity
+): { date: Date; label: string; isToday: boolean }[] {
+    const columns: { date: Date; label: string; isToday: boolean }[] = [];
+    const current = new Date(start);
+    const today = getIndianDate(); // Use IST for today
+
+    while (current <= end) {
+        const isToday = current.toDateString() === today.toDateString();
+
+        let label: string;
+        if (granularity === 'days') {
+            label = current.getDate().toString();
+        } else if (granularity === 'weeks') {
+            label = `W${getWeekNumber(current)}`;
+        } else {
+            label = current.toLocaleDateString('en-US', { month: 'short' });
+        }
+
+        columns.push({
+            date: new Date(current),
+            label,
+            isToday
+        });
+
+        // Increment based on granularity
+        if (granularity === 'days') {
+            current.setDate(current.getDate() + 1);
+        } else if (granularity === 'weeks') {
+            current.setDate(current.getDate() + 7);
+        } else {
+            current.setMonth(current.getMonth() + 1);
+        }
+    }
+
+    return columns;
+}
+
+/**
+ * Get week number of the year
+ */
+function getWeekNumber(date: Date): number {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+}
+
+/**
+ * Format date for display
+ */
+export function formatDate(date: Date): string {
+    return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+    });
+}
+
+/**
+ * Format date range for display
+ */
+export function formatDateRange(start: Date | null, end: Date | null): string {
+    if (!start || !end) return 'No dates';
+    return `${formatDate(start)} — ${formatDate(end)}`;
+}

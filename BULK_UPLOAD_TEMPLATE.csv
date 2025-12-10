@@ -1,0 +1,53 @@
+# Bulk Task Upload Template
+
+## Instructions:
+1. Fill in the columns below
+2. **Parent tasks (Task Name only)**: Only the task name is required, leave Subtask Name empty
+3. **Subtasks**: Fill in Subtask Name and all other fields as needed
+4. Use valid Status and Tag values (see below)
+
+## Valid Values:
+- **Status**: TO_DO, IN_PROGRESS, REVIEW, COMPLETED, BLOCKED, HOLD
+- **Tag**: DESIGN, PROCUREMENT, CONTRACTOR
+- **Date Format**: YYYY-MM-DD (e.g., 2024-01-15)
+- **Assignee**: Must be project member's email
+
+## Template:
+
+Task Name,Subtask Name,Description,Assignee Email,Start Date,Days,Status,Tag
+Design Homepage,,,,,,,
+Design Homepage,Create wireframe,Design wireframe mockup,john@example.com,2024-01-15,3,COMPLETED,DESIGN
+Design Homepage,Design components,Create UI components,jane@example.com,2024-01-18,4,IN_PROGRESS,DESIGN
+Design Homepage,Review with team,Get feedback from stakeholders,john@example.com,2024-01-22,2,TO_DO,DESIGN
+Procurement,,,,,,,
+Procurement,Get quotes,Collect vendor quotes,mike@example.com,2024-01-20,2,TO_DO,PROCUREMENT
+Procurement,Place order,Submit purchase order,mike@example.com,2024-01-22,1,TO_DO,PROCUREMENT
+Build Foundation,,,,,,,
+Build Foundation,Excavation,Dig foundation,contractor@example.com,2024-02-01,5,TO_DO,CONTRACTOR
+Build Foundation,Pour concrete,Pour foundation concrete,contractor@example.com,2024-02-06,3,TO_DO,CONTRACTOR
+
+## Examples:
+
+### Example 1: Task with 3 Subtasks
+**Parent Task Row:**
+- Task Name: "Design Homepage"
+- All other fields: EMPTY (only name is used for parent task)
+
+**Subtask Rows:**
+- Row 1: Task Name="Design Homepage", Subtask Name="Create wireframe", + all other fields
+- Row 2: Task Name="Design Homepage", Subtask Name="Design components", + all other fields
+- Row 3: Task Name="Design Homepage", Subtask Name="Review with team", + all other fields
+
+### Example 2: Task with Subtasks Only (No Parent Row)
+**If you don't include a parent row with empty Subtask Name:**
+- First subtask row will create the parent task automatically
+- Parent task will only have the name
+- All subtasks will have their full details
+
+## Important Notes:
+- **Parent tasks**: Only Task Name is used, all other fields are ignored
+- **Subtasks**: All fields (description, assignee, dates, status, tag) are applied
+- Empty cells are allowed for optional fields
+- Assignee email must match a project member
+- Dates must be in YYYY-MM-DD format
+- Days field represents task duration

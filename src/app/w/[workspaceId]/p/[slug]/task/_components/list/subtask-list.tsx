@@ -7,7 +7,7 @@ import { Loader2, ChevronsDown } from "lucide-react";
 import { ProjectMembersType } from "@/app/data/project/get-project-members";
 import { SubTaskType } from "@/app/data/task/get-project-tasks";
 import { CreateSubTaskForm } from "../forms/create-subTask-form";
-import { BulkCreateSubTaskForm } from "../forms/bulk-create-subtask-form";
+// import { BulkCreateSubTaskForm } from "../forms/bulk-create-subtask-form";
 import { SubTaskRow } from "./subtask-row";
 import { ColumnVisibility } from "./task-table-toolbar";
 import { TaskWithSubTasks } from "./types";
@@ -63,16 +63,6 @@ export function SubTaskList({
                 <TableCell colSpan={visibleColumnsCount} className="p-2 pl-12">
                     {canCreateSubTask && (
                         <div className="flex gap-2">
-                            <BulkCreateSubTaskForm
-                                members={members}
-                                workspaceId={workspaceId}
-                                projectId={projectId}
-                                parentTaskId={task.id}
-                                onSubTaskCreated={(newSubTasks) => {
-                                    // Handle multiple subtasks created
-                                    newSubTasks.forEach(st => onSubTaskCreated?.(st));
-                                }}
-                            />
                             <CreateSubTaskForm
                                 members={members}
                                 workspaceId={workspaceId}
@@ -141,16 +131,6 @@ export function SubTaskList({
                 <TableCell colSpan={visibleColumnsCount} className="p-2 pl-12">
                     {canCreateSubTask && (
                         <div className="flex gap-2">
-                            <BulkCreateSubTaskForm
-                                members={members}
-                                workspaceId={workspaceId}
-                                projectId={projectId}
-                                parentTaskId={task.id}
-                                onSubTaskCreated={(newSubTasks) => {
-                                    // Handle multiple subtasks created
-                                    newSubTasks.forEach(st => onSubTaskCreated?.(st));
-                                }}
-                            />
                             <CreateSubTaskForm
                                 members={members}
                                 workspaceId={workspaceId}

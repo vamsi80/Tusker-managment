@@ -5,12 +5,13 @@ import { TaskHeaderSkeleton, TaskTableSkeleton } from "./_components/shared/task
 import { TaskPageWrapper } from "./_components/shared/task-page-wrapper";
 import { getTaskPageData, TaskPageDataType } from "@/app/data/task/get-task-page-data";
 import { CreateTaskForm } from "./_components/forms/create-task-form";
-import { BulkCreateTaskForm } from "./_components/forms/bulk-create-task-form";
+import { BulkUploadForm } from "./_components/forms/bulk-upload-form";
 import { ReloadButton } from "./_components/shared/reload-button";
 import { LayoutList, LayoutGrid, GanttChartSquare } from "lucide-react";
 import { TaskTableContainer } from "./_components/list/task-table-container";
 import { ReloadableTaskTable } from "./_components/list/reloadable-task-table";
 import { KanbanBoardSkeleton } from "./_components/kanban/kanban-skeleton";
+import { GanttChartSkeleton } from "./_components/gantt/gantt-skeleton";
 
 interface iAppProps {
     params: { workspaceId: string; slug: string };
@@ -18,33 +19,42 @@ interface iAppProps {
 }
 
 /**
- * Task Header Component - Receives data as props (no fetching)
+ * Task Header Component - Fetches its own data
  */
-function TaskHeader({
-    pageData,
+async function TaskHeader({
+    workspaceId,
+    slug,
     currentView
 }: {
-    pageData: NonNullable<TaskPageDataType>;
+    workspaceId: string;
+    slug: string;
     currentView: string;
 }) {
+    const pageData = await getTaskPageData(workspaceId, slug);
+
+    if (!pageData) {
+        return (
+            <div className="flex items-center justify-between">
+                <h1 className="text-2xl font-bold text-destructive">Project Not Found</h1>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-4">
-            {/* Header with Actions */}
             <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-bold">Your Tasks</h1>
                 <div className="flex items-center gap-3">
                     <ReloadButton />
-                    {/* Only show Create and Bulk Upload for ADMINs and LEADs */}
                     {pageData.permissions.canPerformBulkOperations && (
                         <>
-                            <BulkCreateTaskForm projectId={pageData.project.id} />
+                            <BulkUploadForm projectId={pageData.project.id} />
                             <CreateTaskForm projectId={pageData.project.id} />
                         </>
                     )}
                 </div>
             </div>
 
-            {/* View Tabs */}
             <Tabs value={currentView} className="w-full">
                 <TabsList className="grid w-full max-w-md grid-cols-3">
                     <Link href="?view=list" className="w-full">
@@ -72,9 +82,13 @@ function TaskHeader({
 }
 
 /**
- * Task List View - Receives data as props (no fetching)
+ * Task List View - Fetches its own data
  */
-function TaskListView({ pageData }: { pageData: NonNullable<TaskPageDataType> }) {
+async function TaskListView({ workspaceId, slug }: { workspaceId: string; slug: string }) {
+    const pageData = await getTaskPageData(workspaceId, slug);
+
+    if (!pageData) return null;
+
     return (
         <TaskTableContainer
             workspaceId={pageData.project.workspaceId}
@@ -86,98 +100,78 @@ function TaskListView({ pageData }: { pageData: NonNullable<TaskPageDataType> })
 }
 
 /**
- * Kanban view component (lazy loaded) - Receives data as props
+ * Kanban view component - Fetches its own data
  */
-async function TaskKanbanView({ pageData }: { pageData: NonNullable<TaskPageDataType> }) {
+async function TaskKanbanView({ workspaceId, slug }: { workspaceId: string; slug: string }) {
+    const pageData = await getTaskPageData(workspaceId, slug);
+
+    if (!pageData) return null;
+
     const { KanbanContainer } = await import("./_components/kanban/kanban-container");
 
     return <KanbanContainer workspaceId={pageData.project.workspaceId} projectId={pageData.project.id} />;
 }
 
 /**
- * Gantt view component (placeholder) - Receives data as props
+ * Gantt view component - Fetches its own data
  */
-function TaskGanttView({ pageData }: { pageData: NonNullable<TaskPageDataType> }) {
-    return (
-        <div className="flex items-center justify-center h-96 border-2 border-dashed rounded-lg">
-            <div className="text-center space-y-2">
-                <GanttChartSquare className="h-12 w-12 mx-auto text-muted-foreground" />
-                <h3 className="text-lg font-semibold">Gantt Chart View</h3>
-                <p className="text-sm text-muted-foreground">
-                    Timeline and Gantt chart will be displayed here
-                </p>
-                <p className="text-xs text-muted-foreground">
-                    Coming soon...
-                </p>
-            </div>
-        </div>
-    );
+async function TaskGanttView({ workspaceId, slug }: { workspaceId: string; slug: string }) {
+    const pageData = await getTaskPageData(workspaceId, slug);
+
+    if (!pageData) return null;
+
+    const { GanttContainer } = await import("./_components/gantt/gantt-container");
+
+    return <GanttContainer workspaceId={pageData.project.workspaceId} projectId={pageData.project.id} />;
 }
 
 /**
- * Task Page - Multi-View with URL Query Parameters
+ * Task Page - STREAMING ARCHITECTURE
  * 
- * OPTIMIZED: Single data fetch at top level, passed down as props
- * - Eliminates 4x getUserProjects calls
- * - Eliminates 2x getUserPermissions calls
- * - Reduces database queries by ~75%
- * - Improves page load time by 60-70%
+ * INSTANT NAVIGATION:
+ * - Page shell renders immediately
+ * - Skeleton shows instantly on navigation
+ * - Data streams in progressively
+ * - Each section fetches its own data inside Suspense
  * 
- * Supports three views:
- * - List (default): Traditional table view
- * - Kanban: Drag-and-drop board view
- * - Gantt: Timeline/Gantt chart view
- * 
- * View is controlled by ?view= query parameter
+ * Benefits:
+ * - Instant visual feedback
+ * - Progressive rendering
+ * - Better perceived performance
+ * - No blocking data fetches
  */
 export default async function ProjectTask({ params, searchParams }: iAppProps) {
     const { workspaceId, slug } = await params;
     const { view = 'list' } = await searchParams;
 
-    // Normalize view value
     const currentView = ['list', 'kanban', 'gantt'].includes(view) ? view : 'list';
-
-    // SINGLE optimized data fetch - replaces 4 separate getUserProjects calls
-    const pageData = await getTaskPageData(workspaceId, slug);
-
-    // Handle project not found
-    if (!pageData) {
-        return (
-            <TaskPageWrapper>
-                <div className="flex items-center justify-between">
-                    <h1 className="text-2xl font-bold text-destructive">Project Not Found</h1>
-                </div>
-                <div className="p-6 text-center text-muted-foreground">
-                    The project you're looking for doesn't exist.
-                </div>
-            </TaskPageWrapper>
-        );
-    }
 
     return (
         <TaskPageWrapper>
-            {/* Task Header with View Tabs - No data fetching, receives props */}
-            <TaskHeader pageData={pageData} currentView={currentView} />
+            {/* Header streams in first */}
+            <Suspense fallback={<TaskHeaderSkeleton />}>
+                <TaskHeader workspaceId={workspaceId} slug={slug} currentView={currentView} />
+            </Suspense>
 
-            {/* Content based on selected view */}
+            {/* Content streams in based on view */}
             <div className="mt-4">
                 {currentView === 'list' && (
                     <ReloadableTaskTable>
                         <Suspense fallback={<TaskTableSkeleton />}>
-                            <TaskListView pageData={pageData} />
+                            <TaskListView workspaceId={workspaceId} slug={slug} />
                         </Suspense>
                     </ReloadableTaskTable>
                 )}
 
                 {currentView === 'kanban' && (
                     <Suspense fallback={<KanbanBoardSkeleton />}>
-                        <TaskKanbanView pageData={pageData} />
+                        <TaskKanbanView workspaceId={workspaceId} slug={slug} />
                     </Suspense>
                 )}
 
                 {currentView === 'gantt' && (
-                    <Suspense fallback={<TaskTableSkeleton />}>
-                        <TaskGanttView pageData={pageData} />
+                    <Suspense fallback={<GanttChartSkeleton />}>
+                        <TaskGanttView workspaceId={workspaceId} slug={slug} />
                     </Suspense>
                 )}
             </div>
