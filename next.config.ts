@@ -9,7 +9,22 @@ const nextConfig: NextConfig = {
       port: "",
       protocol: "https",
     }]
-  }
+  },
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      // Don't bundle server-only packages in client bundle
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        nodemailer: false,
+        net: false,
+        tls: false,
+        dns: false,
+        fs: false,
+        child_process: false,
+      };
+    }
+    return config;
+  },
 };
 
 export default nextConfig;

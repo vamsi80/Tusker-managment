@@ -95,3 +95,41 @@ export async function invalidateAllTaskSubTasks() {
 export async function invalidateProjectMembers(projectId: string) {
     revalidateTag(`project-members-${projectId}`);
 }
+
+// ============================================
+// COMMENT CACHE INVALIDATION
+// ============================================
+
+/**
+ * Invalidate task comments cache for a specific task
+ * Call this when comments are created, updated, or deleted
+ */
+export async function invalidateTaskComments(taskId: string) {
+    revalidateTag(`task-comments-${taskId}`);
+    revalidateTag(`task-${taskId}`);
+}
+
+/**
+ * Invalidate all comments cache
+ * Use sparingly - only when needed for global changes
+ */
+export async function invalidateAllComments() {
+    revalidateTag(`comments-all`);
+}
+
+/**
+ * Invalidate review comments cache for a specific subtask
+ * Call this when review comments are created or updated
+ */
+export async function invalidateReviewComments(subTaskId: string) {
+    revalidateTag(`review-comments-${subTaskId}`);
+    revalidateTag(`subtask-${subTaskId}`);
+}
+
+/**
+ * Invalidate all review comments cache
+ * Use sparingly - only when needed for global changes
+ */
+export async function invalidateAllReviewComments() {
+    revalidateTag(`review-comments-all`);
+}

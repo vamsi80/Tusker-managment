@@ -9,16 +9,17 @@ import {
     SheetHeader,
     SheetTitle,
 } from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Calendar, Tag, User, ArrowUp, Loader2 } from "lucide-react";
+import { Calendar, Tag, User, ArrowUp, Loader2, MessageSquare, FileCheck, Paperclip, Download } from "lucide-react";
 import { SubTaskType } from "@/app/data/task/get-project-tasks";
 import { cn } from "@/lib/utils";
-import { createTaskComment, fetchTaskComments } from "@/app/actions/comment-actions";
+import { createTaskComment, fetchTaskComments, fetchReviewComments } from "@/app/w/[workspaceId]/p/[slug]/task/_components/shared/actions/comment-actions";
 import { toast } from "sonner";
 
 interface SubTaskDetailsSheetProps {
@@ -48,10 +49,33 @@ interface Comment {
     replies?: Comment[];
 }
 
+interface ReviewComment {
+    id: string;
+    text: string;
+    attachment: {
+        fileName: string;
+        fileType: string;
+        fileSize: number;
+        url: string;
+    } | null;
+    author: {
+        id: string;
+        user: {
+            name: string;
+            surname: string | null;
+            image: string | null;
+        };
+    };
+    createdAt: Date;
+}
+
 export function SubTaskDetailsSheet({ subTask, isOpen, onClose }: SubTaskDetailsSheetProps) {
+    const [activeTab, setActiveTab] = useState<"messages" | "review">("messages");
     const [message, setMessage] = useState("");
     const [comments, setComments] = useState<Comment[]>([]);
+    const [reviewComments, setReviewComments] = useState<ReviewComment[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [isLoadingReview, setIsLoadingReview] = useState(false);
     const [isSending, setIsSending] = useState(false);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
@@ -90,6 +114,7 @@ export function SubTaskDetailsSheet({ subTask, isOpen, onClose }: SubTaskDetails
     useEffect(() => {
         if (subTask && isOpen) {
             loadComments();
+            loadReviewComments();
         }
     }, [subTask?.id, isOpen]);
 
@@ -112,6 +137,25 @@ export function SubTaskDetailsSheet({ subTask, isOpen, onClose }: SubTaskDetails
             toast.error("Failed to load comments");
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const loadReviewComments = async () => {
+        if (!subTask) return;
+
+        setIsLoadingReview(true);
+        try {
+            const result = await fetchReviewComments(subTask.id);
+            if (result.success && result.reviewComments) {
+                setReviewComments(result.reviewComments as ReviewComment[]);
+            } else {
+                toast.error(result.error || "Failed to load review comments");
+            }
+        } catch (error) {
+            console.error("Error loading review comments:", error);
+            toast.error("Failed to load review comments");
+        } finally {
+            setIsLoadingReview(false);
         }
     };
 
@@ -143,6 +187,12 @@ export function SubTaskDetailsSheet({ subTask, isOpen, onClose }: SubTaskDetails
             e.preventDefault();
             handleSendMessage();
         }
+    };
+
+    const formatFileSize = (bytes: number) => {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
     };
 
     if (!subTask) return null;
@@ -219,108 +269,205 @@ export function SubTaskDetailsSheet({ subTask, isOpen, onClose }: SubTaskDetails
                     </div>
                 </ScrollArea>
 
-                {/* Chat Section - Fixed at Bottom, Full Width */}
+                {/* Tabbed Section - Fixed at Bottom */}
                 <div className="border-t flex-shrink-0 flex flex-col h-[500px]">
-                    <div className="px-6 py-3 border-b">
-                        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                            Activity ({comments.length})
-                        </h3>
-                    </div>
+                    <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "messages" | "review")} className="flex flex-col h-full">
+                        <div className="px-6 pt-3 border-b">
+                            <TabsList className="grid w-full grid-cols-2">
+                                <TabsTrigger value="messages" className="flex items-center gap-2">
+                                    <MessageSquare className="h-4 w-4" />
+                                    Messages ({comments.length})
+                                </TabsTrigger>
+                                <TabsTrigger value="review" className="flex items-center gap-2">
+                                    <FileCheck className="h-4 w-4" />
+                                    Review ({reviewComments.length})
+                                </TabsTrigger>
+                            </TabsList>
+                        </div>
 
-                    {/* Chat Messages - Scrollable Area */}
-                    <div className="flex-1 overflow-y-auto px-6 py-4 bg-muted/20">
-                        {isLoading ? (
-                            <div className="flex items-center justify-center h-full">
-                                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                            </div>
-                        ) : comments.length === 0 ? (
-                            <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-                                No comments yet. Start the conversation!
-                            </div>
-                        ) : (
-                            <div className="space-y-3">
-                                {comments.map((comment) => {
-                                    const isCurrentUser = currentUserId ? comment.userId === currentUserId : false;
-                                    return (
-                                        <div
-                                            key={comment.id}
-                                            className={cn(
-                                                "flex gap-2 items-end",
-                                                isCurrentUser ? "justify-end" : "justify-start"
-                                            )}
-                                        >
-                                            {!isCurrentUser && (
-                                                <Avatar className="h-8 w-8 flex-shrink-0">
-                                                    <AvatarImage src={comment.user.image || ""} />
-                                                    <AvatarFallback className="text-xs">
-                                                        {comment.user.name[0]}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                            )}
-                                            <div className={cn(
-                                                "flex flex-col gap-1 max-w-[75%]",
-                                                isCurrentUser ? "items-end" : "items-start"
-                                            )}>
+                        {/* Messages Tab */}
+                        <TabsContent value="messages" className="flex-1 flex flex-col m-0 data-[state=inactive]:hidden">
+                            {/* Chat Messages - Scrollable Area */}
+                            <div className="flex-1 overflow-y-auto px-6 py-4 bg-muted/20">
+                                {isLoading ? (
+                                    <div className="flex items-center justify-center h-full">
+                                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                                    </div>
+                                ) : comments.length === 0 ? (
+                                    <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                                        No messages yet. Start the conversation!
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {comments.map((comment) => {
+                                            const isCurrentUser = currentUserId ? comment.userId === currentUserId : false;
+                                            return (
                                                 <div
+                                                    key={comment.id}
                                                     className={cn(
-                                                        "rounded-2xl px-4 py-2.5 shadow-sm",
-                                                        isCurrentUser
-                                                            ? "bg-primary text-primary-foreground rounded-br-sm"
-                                                            : "bg-background text-foreground rounded-bl-sm border"
+                                                        "flex gap-2 items-end",
+                                                        isCurrentUser ? "justify-end" : "justify-start"
                                                     )}
                                                 >
                                                     {!isCurrentUser && (
-                                                        <p className="text-xs font-semibold mb-1 text-primary">
-                                                            {comment.user.name} {comment.user.surname || ""}
-                                                        </p>
+                                                        <Avatar className="h-8 w-8 flex-shrink-0">
+                                                            <AvatarImage src={comment.user.image || ""} />
+                                                            <AvatarFallback className="text-xs">
+                                                                {comment.user.name[0]}
+                                                            </AvatarFallback>
+                                                        </Avatar>
                                                     )}
-                                                    <p className="text-sm leading-relaxed break-words">
-                                                        {comment.content}
-                                                    </p>
-                                                    <span className={cn(
-                                                        "text-xs mt-1 block",
-                                                        isCurrentUser ? "text-primary-foreground/70" : "text-muted-foreground"
+                                                    <div className={cn(
+                                                        "flex flex-col gap-1 max-w-[75%]",
+                                                        isCurrentUser ? "items-end" : "items-start"
                                                     )}>
-                                                        {new Date(comment.createdAt).toLocaleTimeString('en-US', {
-                                                            hour: '2-digit',
-                                                            minute: '2-digit'
-                                                        })}
-                                                        {comment.isEdited && " • edited"}
-                                                    </span>
+                                                        <div
+                                                            className={cn(
+                                                                "rounded-2xl px-4 py-2.5 shadow-sm",
+                                                                isCurrentUser
+                                                                    ? "bg-primary text-primary-foreground rounded-br-sm"
+                                                                    : "bg-background text-foreground rounded-bl-sm border"
+                                                            )}
+                                                        >
+                                                            {!isCurrentUser && (
+                                                                <p className="text-xs font-semibold mb-1 text-primary">
+                                                                    {comment.user.name} {comment.user.surname || ""}
+                                                                </p>
+                                                            )}
+                                                            <p className="text-sm leading-relaxed break-words">
+                                                                {comment.content}
+                                                            </p>
+                                                            <span className={cn(
+                                                                "text-xs mt-1 block",
+                                                                isCurrentUser ? "text-primary-foreground/70" : "text-muted-foreground"
+                                                            )}>
+                                                                {new Date(comment.createdAt).toLocaleTimeString('en-US', {
+                                                                    hour: '2-digit',
+                                                                    minute: '2-digit'
+                                                                })}
+                                                                {comment.isEdited && " • edited"}
+                                                            </span>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                                <div ref={messagesEndRef} />
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Message Input - Full Width at Bottom */}
-                    <div className="px-6 py-4 border-t bg-background">
-                        <div className="flex items-center gap-3">
-                            <Input
-                                placeholder="Type your message..."
-                                value={message}
-                                onChange={(e) => setMessage(e.target.value)}
-                                onKeyPress={handleKeyPress}
-                                className="flex-1 h-11"
-                            />
-                            <Button
-                                onClick={handleSendMessage}
-                                disabled={!message.trim() || isSending}
-                                size="icon"
-                                className="rounded-full h-11 w-11 flex-shrink-0"
-                            >
-                                {isSending ? (
-                                    <Loader2 className="h-5 w-5 animate-spin" />
-                                ) : (
-                                    <ArrowUp className="h-5 w-5" />
+                                            );
+                                        })}
+                                        <div ref={messagesEndRef} />
+                                    </div>
                                 )}
-                            </Button>
-                        </div>
-                    </div>
+                            </div>
+
+                            {/* Message Input - Full Width at Bottom */}
+                            <div className="px-6 py-4 border-t bg-background">
+                                <div className="flex items-center gap-3">
+                                    <Input
+                                        placeholder="Type your message..."
+                                        value={message}
+                                        onChange={(e) => setMessage(e.target.value)}
+                                        onKeyPress={handleKeyPress}
+                                        className="flex-1 h-11"
+                                    />
+                                    <Button
+                                        onClick={handleSendMessage}
+                                        disabled={!message.trim() || isSending}
+                                        size="icon"
+                                        className="rounded-full h-11 w-11 flex-shrink-0"
+                                    >
+                                        {isSending ? (
+                                            <Loader2 className="h-5 w-5 animate-spin" />
+                                        ) : (
+                                            <ArrowUp className="h-5 w-5" />
+                                        )}
+                                    </Button>
+                                </div>
+                            </div>
+                        </TabsContent>
+
+                        {/* Review Tab */}
+                        <TabsContent value="review" className="flex-1 flex flex-col m-0 data-[state=inactive]:hidden">
+                            <div className="flex-1 overflow-y-auto px-6 py-4 bg-muted/20">
+                                {isLoadingReview ? (
+                                    <div className="flex items-center justify-center h-full">
+                                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                                    </div>
+                                ) : reviewComments.length === 0 ? (
+                                    <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                                        No review comments yet.
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {reviewComments.map((review) => {
+                                            const author = review.author.user;
+                                            return (
+                                                <div
+                                                    key={review.id}
+                                                    className="bg-background border rounded-lg p-4 shadow-sm"
+                                                >
+                                                    {/* Author Info */}
+                                                    <div className="flex items-center gap-3 mb-3">
+                                                        <Avatar className="h-8 w-8">
+                                                            <AvatarImage src={author.image || ""} />
+                                                            <AvatarFallback className="text-xs">
+                                                                {author.name[0]}
+                                                            </AvatarFallback>
+                                                        </Avatar>
+                                                        <div className="flex-1">
+                                                            <p className="text-sm font-semibold">
+                                                                {author.name} {author.surname || ""}
+                                                            </p>
+                                                            <p className="text-xs text-muted-foreground">
+                                                                {new Date(review.createdAt).toLocaleString('en-US', {
+                                                                    month: 'short',
+                                                                    day: 'numeric',
+                                                                    year: 'numeric',
+                                                                    hour: '2-digit',
+                                                                    minute: '2-digit'
+                                                                })}
+                                                            </p>
+                                                        </div>
+                                                        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                                                            Review
+                                                        </Badge>
+                                                    </div>
+
+                                                    {/* Review Text */}
+                                                    <p className="text-sm leading-relaxed mb-3">
+                                                        {review.text}
+                                                    </p>
+
+                                                    {/* Attachment */}
+                                                    {review.attachment && (
+                                                        <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-md border">
+                                                            <Paperclip className="h-4 w-4 text-muted-foreground" />
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-sm font-medium truncate">
+                                                                    {review.attachment.fileName}
+                                                                </p>
+                                                                <p className="text-xs text-muted-foreground">
+                                                                    {formatFileSize(review.attachment.fileSize)}
+                                                                </p>
+                                                            </div>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                className="flex-shrink-0"
+                                                                onClick={() => {
+                                                                    // TODO: Implement download
+                                                                    window.open(review.attachment!.url, '_blank');
+                                                                }}
+                                                            >
+                                                                <Download className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        </TabsContent>
+                    </Tabs>
                 </div>
             </SheetContent>
         </Sheet>

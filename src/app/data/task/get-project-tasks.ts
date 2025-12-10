@@ -476,6 +476,11 @@ export const getAllProjectSubTasks = cache(
                             },
                         },
                     },
+                    _count: {
+                        select: {
+                            reviewComments: true, // Count of review comments
+                        },
+                    },
                 },
                 orderBy: {
                     position: 'asc',

@@ -10,7 +10,9 @@ import { cn } from "@/lib/utils";
 import { KanbanCard } from "./kanban-card";
 import { KanbanToolbar } from "./kanban-toolbar";
 import { SubTaskDetailsSheet } from "../shared/subtask-details-sheet";
+import { ReviewCommentDialog } from "./review-comment-dialog";
 import { updateSubTaskStatus } from "@/app/w/[workspaceId]/p/[slug]/task/_components/kanban/actions/subtask-status-actions";
+import { createReviewComment } from "@/app/w/[workspaceId]/p/[slug]/task/_components/kanban/actions/create-review-comment";
 import { toast } from "sonner";
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED";
@@ -107,9 +109,9 @@ function DroppableColumn({
             <div
                 ref={setNodeRef}
                 className={cn(
-                    "flex-1 border-2 border-t-0 p-3 transition-colors overflow-y-auto",
+                    "flex-1 p-3 transition-all overflow-y-auto",
+                    isOver ? "border-4" : "border-2 border-t-0",
                     column.borderColor,
-                    isOver && "bg-slate-50/50",
                     // Custom ultra-thin scrollbar
                     "[&::-webkit-scrollbar]:w-0.5",
                     "[&::-webkit-scrollbar-track]:bg-transparent",
@@ -122,7 +124,7 @@ function DroppableColumn({
                     items={subTasks.map((t) => t.id)}
                     strategy={verticalListSortingStrategy}
                 >
-                    <div className="space-y-3 min-h-[200px]">
+                    <div className="space-y-3 min-h-[100px]">
                         {subTasks.map((subTask) => (
                             <KanbanCard
                                 key={subTask.id}
@@ -150,6 +152,13 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
     // Subtask details sheet state
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [selectedSubTask, setSelectedSubTask] = useState<AllSubTaskType[number] | null>(null);
+
+    // Review comment dialog state
+    const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
+    const [pendingReviewMove, setPendingReviewMove] = useState<{
+        subTaskId: string;
+        previousStatus: TaskStatus;
+    } | null>(null);
 
     // Filter states
     const [selectedParentTask, setSelectedParentTask] = useState<string | null>(null);
@@ -207,10 +216,38 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
             return;
         }
 
-        // Store previous status for rollback
-        const previousStatus = subTask.status;
+        // Store previous status for rollback (default to TO_DO if null)
+        const previousStatus = subTask.status ?? "TO_DO";
 
-        // Optimistic UI update
+        // If moving to REVIEW, show dialog and store pending move
+        if (newStatus === "REVIEW") {
+            // Optimistic UI update
+            setSubTasks((prevSubTasks) =>
+                prevSubTasks.map((st) =>
+                    st.id === subTaskId ? { ...st, status: newStatus } : st
+                )
+            );
+
+            // Store pending move and show dialog
+            setPendingReviewMove({
+                subTaskId,
+                previousStatus,
+            });
+            setIsReviewDialogOpen(true);
+            return;
+        }
+
+        // For non-REVIEW statuses, proceed with normal update
+        await performStatusUpdate(subTaskId, newStatus, previousStatus);
+    };
+
+    const performStatusUpdate = async (
+        subTaskId: string,
+        newStatus: TaskStatus,
+        previousStatus: TaskStatus,
+        reviewCommentId?: string
+    ) => {
+        // Optimistic UI update (if not already done)
         setSubTasks((prevSubTasks) =>
             prevSubTasks.map((st) =>
                 st.id === subTaskId ? { ...st, status: newStatus } : st
@@ -226,7 +263,9 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
                 subTaskId,
                 newStatus,
                 workspaceId,
-                projectId
+                projectId,
+                undefined,
+                reviewCommentId
             );
 
             if (result.success) {
@@ -273,6 +312,103 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
     const handleCloseSheet = () => {
         setIsSheetOpen(false);
         setSelectedSubTask(null);
+    };
+
+    const handleReviewCommentSubmit = async (comment: string, attachment?: File) => {
+        if (!pendingReviewMove) return;
+
+        try {
+            // Convert file to base64 if provided
+            let attachmentData: {
+                fileName: string;
+                fileType: string;
+                fileSize: number;
+                base64Data: string;
+            } | undefined;
+
+            if (attachment) {
+                const base64 = await new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        const result = reader.result as string;
+                        // Remove data URL prefix (e.g., "data:image/png;base64,")
+                        const base64Data = result.split(',')[1];
+                        resolve(base64Data);
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(attachment);
+                });
+
+                attachmentData = {
+                    fileName: attachment.name,
+                    fileType: attachment.type,
+                    fileSize: attachment.size,
+                    base64Data: base64,
+                };
+            }
+
+            // Create review comment
+            const reviewResult = await createReviewComment(
+                pendingReviewMove.subTaskId,
+                comment,
+                workspaceId,
+                projectId,
+                attachmentData
+            );
+
+            if (!reviewResult.success) {
+                // Rollback optimistic update
+                setSubTasks((prevSubTasks) =>
+                    prevSubTasks.map((st) =>
+                        st.id === pendingReviewMove.subTaskId
+                            ? { ...st, status: pendingReviewMove.previousStatus }
+                            : st
+                    )
+                );
+                toast.error(reviewResult.error || "Failed to create review comment");
+                setPendingReviewMove(null);
+                return;
+            }
+
+            // Proceed with status update using the review comment ID
+            await performStatusUpdate(
+                pendingReviewMove.subTaskId,
+                "REVIEW",
+                pendingReviewMove.previousStatus,
+                reviewResult.reviewCommentId
+            );
+
+            setPendingReviewMove(null);
+        } catch (error) {
+            console.error("Error submitting review comment:", error);
+            // Rollback optimistic update
+            if (pendingReviewMove) {
+                setSubTasks((prevSubTasks) =>
+                    prevSubTasks.map((st) =>
+                        st.id === pendingReviewMove.subTaskId
+                            ? { ...st, status: pendingReviewMove.previousStatus }
+                            : st
+                    )
+                );
+            }
+            toast.error("Failed to submit review comment");
+            setPendingReviewMove(null);
+        }
+    };
+
+    const handleReviewCommentCancel = () => {
+        // Rollback optimistic update
+        if (pendingReviewMove) {
+            setSubTasks((prevSubTasks) =>
+                prevSubTasks.map((st) =>
+                    st.id === pendingReviewMove.subTaskId
+                        ? { ...st, status: pendingReviewMove.previousStatus }
+                        : st
+                )
+            );
+            setPendingReviewMove(null);
+        }
+        setIsReviewDialogOpen(false);
     };
 
     // Get filtered subtasks
@@ -355,6 +491,18 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
                 subTask={selectedSubTask}
                 isOpen={isSheetOpen}
                 onClose={handleCloseSheet}
+            />
+
+            {/* Review Comment Dialog */}
+            <ReviewCommentDialog
+                isOpen={isReviewDialogOpen}
+                onClose={handleReviewCommentCancel}
+                onSubmit={handleReviewCommentSubmit}
+                subTaskName={
+                    pendingReviewMove
+                        ? subTasks.find((st) => st.id === pendingReviewMove.subTaskId)?.name || "Subtask"
+                        : "Subtask"
+                }
             />
         </>
     );

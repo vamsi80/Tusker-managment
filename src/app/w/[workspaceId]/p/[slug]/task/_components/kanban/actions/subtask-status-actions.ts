@@ -30,6 +30,7 @@ interface UpdateSubTaskStatusResult {
  * Permission Rules:
  * - Only assignee, project admin, or project lead can move cards
  * - Only admin/lead can move to COMPLETED, BLOCKED, or HOLD
+ * - Moving to REVIEW requires a review comment (comment or attachment)
  * - All moves are logged to both legacy and new audit tables
  * 
  * Idempotency:
@@ -38,16 +39,18 @@ interface UpdateSubTaskStatusResult {
  * 
  * @param subTaskId - ID of the subtask to update
  * @param newStatus - New status to set
- * @param operationId - Unique operation ID for idempotency
  * @param workspaceId - Workspace ID for permission check
  * @param projectId - Project ID for permission check
+ * @param operationId - Unique operation ID for idempotency
+ * @param reviewCommentId - Review comment ID (required when moving to REVIEW)
  */
 export async function updateSubTaskStatus(
     subTaskId: string,
     newStatus: TaskStatus,
     workspaceId: string,
     projectId: string,
-    operationId?: string
+    operationId?: string,
+    reviewCommentId?: string
 ): Promise<UpdateSubTaskStatusResult> {
     try {
         // 1. Authenticate user
@@ -157,7 +160,41 @@ export async function updateSubTaskStatus(
             };
         }
 
-        // 9. Don't update if status hasn't changed
+        // 9. Validate review comment for REVIEW status
+        if (newStatus === "REVIEW") {
+            // Check if a review comment was provided
+            if (!reviewCommentId) {
+                return {
+                    success: false,
+                    error: "A comment or attachment is required when moving to REVIEW status",
+                };
+            }
+
+            // Verify the review comment exists and belongs to this subtask
+            const reviewComment = await prisma.reviewComment.findUnique({
+                where: { id: reviewCommentId },
+                select: {
+                    id: true,
+                    subTaskId: true,
+                },
+            });
+
+            if (!reviewComment) {
+                return {
+                    success: false,
+                    error: "Invalid review comment",
+                };
+            }
+
+            if (reviewComment.subTaskId !== subTaskId) {
+                return {
+                    success: false,
+                    error: "Review comment does not belong to this subtask",
+                };
+            }
+        }
+
+        // 10. Don't update if status hasn't changed
         if (subTask.status === newStatus) {
             return {
                 success: true,
@@ -169,12 +206,12 @@ export async function updateSubTaskStatus(
             };
         }
 
-        // 10. Get request metadata
+        // 11. Get request metadata
         const headersList = await headers();
         const ipAddress = headersList.get("x-forwarded-for") || headersList.get("x-real-ip") || "unknown";
         const userAgent = headersList.get("user-agent") || "unknown";
 
-        // 11. Update subtask status and create audit log in a transaction
+        // 12. Update subtask status and create audit log in a transaction
         const result = await prisma.$transaction(async (tx) => {
             // Update the subtask
             const updated = await tx.task.update({
@@ -231,7 +268,7 @@ export async function updateSubTaskStatus(
             return { updated, auditLog };
         });
 
-        // 12. Revalidate caches
+        // 13. Revalidate caches
         revalidateTag(`project-tasks-${projectId}`);
         revalidateTag(`project-tasks-all`);
         revalidatePath(`/w/${workspaceId}/p/[slug]/task`, "page");
