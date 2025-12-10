@@ -216,6 +216,12 @@ model Task {
   parentTask Task?  @relation("Task_subTasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
   subTasks   Task[] @relation("Task_subTasks")
 
+  // Subtask-to-Subtask Dependencies (Finish-to-Start)
+  // A task "dependsOn" other tasks that must complete before it can start
+  dependsOn  Task[] @relation("TaskDependency")
+  // A task is "dependedBy" other tasks that are waiting for it to complete
+  dependedBy Task[] @relation("TaskDependency")
+
   createdById String
   createdBy   WorkspaceMember @relation(fields: [createdById], references: [id], onDelete: Cascade)
 

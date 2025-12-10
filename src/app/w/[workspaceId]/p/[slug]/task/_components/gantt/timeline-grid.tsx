@@ -123,12 +123,54 @@ export function TimelineGrid({ startDate, endDate, granularity, children }: Time
 
         if (today < startDate || today > endDate) return null;
 
-        // Calculate position based on day index in the columns
-        const daysFromStart = getDaysBetween(startDate, today);
+        // Find which column today falls into based on granularity
+        let columnIndex = -1;
 
-        // Return pixel position (day index * column width + half column to center)
-        return daysFromStart * columnWidth + (columnWidth / 2);
-    }, [startDate, endDate, columnWidth]);
+        if (granularity === 'days') {
+            // For days, find the exact day column
+            columnIndex = columns.findIndex(col =>
+                col.date.toDateString() === today.toDateString()
+            );
+        } else if (granularity === 'weeks') {
+            // For weeks, find which week column today falls into
+            columnIndex = columns.findIndex((col, idx) => {
+                const weekStart = new Date(col.date);
+                const weekEnd = new Date(col.date);
+                weekEnd.setDate(weekEnd.getDate() + 6);
+                return today >= weekStart && today <= weekEnd;
+            });
+        } else {
+            // For months, find which month column today falls into
+            columnIndex = columns.findIndex(col =>
+                col.date.getMonth() === today.getMonth() &&
+                col.date.getFullYear() === today.getFullYear()
+            );
+        }
+
+        if (columnIndex === -1) return null;
+
+        // Calculate exact position within the column for more precision
+        let positionWithinColumn = 0.5; // Default to middle of column
+
+        if (granularity === 'days') {
+            // For days, center in the column
+            positionWithinColumn = 0.5;
+        } else if (granularity === 'weeks') {
+            // For weeks, calculate position within the week
+            const weekStart = new Date(columns[columnIndex].date);
+            const daysIntoWeek = getDaysBetween(weekStart, today);
+            positionWithinColumn = (daysIntoWeek + 0.5) / 7; // +0.5 to center within the day
+        } else {
+            // For months, calculate position within the month
+            const monthStart = new Date(columns[columnIndex].date);
+            const daysIntoMonth = today.getDate() - monthStart.getDate();
+            const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+            positionWithinColumn = (daysIntoMonth + 0.5) / daysInMonth;
+        }
+
+        // Return pixel position
+        return columnIndex * columnWidth + (positionWithinColumn * columnWidth);
+    }, [startDate, endDate, columnWidth, granularity, columns]);
 
     return (
         <div className="relative">

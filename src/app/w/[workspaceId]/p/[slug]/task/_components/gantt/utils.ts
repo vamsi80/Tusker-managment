@@ -1,4 +1,4 @@
-import { GanttTask, GanttSubtask, ComputedTaskDates, TimelineConfig, TimelineGranularity } from "./types";
+import { GanttTask, GanttSubtask, ComputedTaskDates, TimelineConfig, TimelineGranularity, DependencyLine } from "./types";
 
 /**
  * Get current date (midnight) for today comparisons
@@ -175,4 +175,62 @@ export function formatDate(date: Date): string {
 export function formatDateRange(start: Date | null, end: Date | null): string {
     if (!start || !end) return 'No dates';
     return `${formatDate(start)} — ${formatDate(end)}`;
+}
+
+/**
+ * Validate dependencies for subtasks within a task
+ * Returns subtasks with isBlocked and blockedByNames populated
+ */
+export function validateDependencies(subtasks: GanttSubtask[]): GanttSubtask[] {
+    const subtaskMap = new Map<string, GanttSubtask>();
+    subtasks.forEach(st => subtaskMap.set(st.id, st));
+
+    return subtasks.map(subtask => {
+        if (!subtask.dependsOnIds || subtask.dependsOnIds.length === 0) {
+            return { ...subtask, isBlocked: false, blockedByNames: [] };
+        }
+
+        // Check if all dependencies are COMPLETED
+        const blockedBy: string[] = [];
+        for (const depId of subtask.dependsOnIds) {
+            const parent = subtaskMap.get(depId);
+            if (parent && parent.status !== 'COMPLETED') {
+                blockedBy.push(parent.name);
+            }
+        }
+
+        return {
+            ...subtask,
+            isBlocked: blockedBy.length > 0,
+            blockedByNames: blockedBy
+        };
+    });
+}
+
+/**
+ * Extract dependency lines for visual rendering
+ */
+export function getDependencyLines(subtasks: GanttSubtask[]): DependencyLine[] {
+    const subtaskMap = new Map<string, GanttSubtask>();
+    subtasks.forEach(st => subtaskMap.set(st.id, st));
+
+    const lines: DependencyLine[] = [];
+
+    for (const subtask of subtasks) {
+        if (subtask.dependsOnIds && subtask.dependsOnIds.length > 0) {
+            for (const depId of subtask.dependsOnIds) {
+                const parent = subtaskMap.get(depId);
+                if (parent) {
+                    lines.push({
+                        fromId: parent.id,
+                        toId: subtask.id,
+                        fromName: parent.name,
+                        toName: subtask.name
+                    });
+                }
+            }
+        }
+    }
+
+    return lines;
 }

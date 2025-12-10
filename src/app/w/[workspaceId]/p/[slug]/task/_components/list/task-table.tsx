@@ -251,7 +251,7 @@ export function TaskTable({
         }
     };
 
-    const handleDragEnd = (event: DragEndEvent) => {
+    const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
 
         if (!over || active.id === over.id) return;
@@ -277,15 +277,56 @@ export function TaskTable({
                 (sub) => sub.id === overSubTaskId
             );
 
+            // Reorder the subtasks array
             const newSubTasks = arrayMove(parentTask.subTasks, oldIndex, newIndex);
+
+            // Update position values based on new order
+            const updatedSubTasks = newSubTasks.map((subtask, index) => ({
+                ...subtask,
+                position: index
+            }));
+
+            // Optimistically update the UI
             const newTasks = tasks.map((t) => {
                 if (t.id === parentTask.id) {
-                    return { ...t, subTasks: newSubTasks };
+                    return { ...t, subTasks: updatedSubTasks };
                 }
                 return t;
             });
 
             setTasks(newTasks);
+
+            // Show loading toast
+            const toastId = toast.loading("Updating subtask order...");
+
+            // Persist to database
+            try {
+                const { updateSubtaskPositions } = await import("../gantt/actions");
+                const updates = updatedSubTasks.map((subtask, index) => ({
+                    subtaskId: subtask.id,
+                    newPosition: index
+                }));
+
+                const result = await updateSubtaskPositions(
+                    parentTask.id,
+                    projectId,
+                    workspaceId,
+                    updates
+                );
+
+                if (result.success) {
+                    toast.success("Subtask order updated successfully", { id: toastId });
+                } else {
+                    // Revert on failure
+                    setTasks(tasks);
+                    toast.error(result.message || "Failed to update subtask order", { id: toastId });
+                }
+            } catch (error) {
+                console.error("Error updating subtask positions:", error);
+                // Revert on error
+                setTasks(tasks);
+                toast.error("Failed to update subtask order", { id: toastId });
+            }
         }
     };
 
@@ -296,12 +337,19 @@ export function TaskTable({
         })
     );
 
-    // Filter tasks
-    const filteredTasks = tasks.filter((task) => {
-        const matchesSearch = task.name.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesTag = !tagFilter || task.tag === tagFilter;
-        return matchesSearch && matchesTag;
-    });
+    // Filter and sort tasks by position
+    const filteredTasks = tasks
+        .filter((task) => {
+            const matchesSearch = task.name.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesTag = !tagFilter || task.tag === tagFilter;
+            return matchesSearch && matchesTag;
+        })
+        .sort((a, b) => {
+            // Sort by position, handling null values
+            const posA = a.position ?? Number.MAX_SAFE_INTEGER;
+            const posB = b.position ?? Number.MAX_SAFE_INTEGER;
+            return posA - posB;
+        });
 
     const uniqueTags = Array.from(new Set(tasks.map((t) => t.tag as string).filter(Boolean)));
 

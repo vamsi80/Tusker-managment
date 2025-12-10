@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useTransition } from "react";
 import { Calendar, ChevronDown } from "lucide-react";
 import { GanttTask, TimelineGranularity } from "./types";
 import { calculateTimelineRange, getDaysBetween } from "./utils";
 import { TimelineHeader, TimelineGrid } from "./timeline-grid";
 import { TaskRow } from "./task-row";
+import { updateSubtaskPositions } from "./actions";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -17,12 +19,15 @@ import {
 
 interface GanttChartProps {
     tasks: GanttTask[];
+    workspaceId?: string;
+    projectId?: string;
     className?: string;
 }
 
-export function GanttChart({ tasks, className }: GanttChartProps) {
+export function GanttChart({ tasks, workspaceId, projectId, className }: GanttChartProps) {
     const [granularity, setGranularity] = useState<TimelineGranularity>('days');
     const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+    const [isPending, startTransition] = useTransition();
 
     const timelineRange = useMemo(() => calculateTimelineRange(tasks), [tasks]);
     const totalDays = useMemo(
@@ -48,6 +53,32 @@ export function GanttChart({ tasks, className }: GanttChartProps) {
 
     const collapseAll = () => {
         setExpandedTasks(new Set());
+    };
+
+    // Handle subtask reordering
+    const handleSubtaskReorder = (taskId: string, subtaskIds: string[]) => {
+        if (!workspaceId || !projectId) {
+            toast.error("Cannot save changes - missing workspace or project information");
+            return;
+        }
+
+        // Show loading toast
+        const toastId = toast.loading("Updating subtask order...");
+
+        startTransition(async () => {
+            const updates = subtaskIds.map((id, index) => ({
+                subtaskId: id,
+                newPosition: index
+            }));
+
+            const result = await updateSubtaskPositions(taskId, projectId, workspaceId, updates);
+
+            if (result.success) {
+                toast.success("Subtask order updated successfully", { id: toastId });
+            } else {
+                toast.error(result.message || "Failed to update subtask order", { id: toastId });
+            }
+        });
     };
 
     if (tasks.length === 0) {
@@ -140,13 +171,14 @@ export function GanttChart({ tasks, className }: GanttChartProps) {
                             totalDays={totalDays}
                             isExpanded={expandedTasks.has(task.id)}
                             onToggle={() => toggleTask(task.id)}
+                            onSubtaskReorder={handleSubtaskReorder}
                         />
                     ))}
                 </TimelineGrid>
             </div>
 
             {/* Legend */}
-            <div className="flex items-center gap-6 mt-4 px-1 text-xs text-muted-foreground">
+            <div className="flex items-center gap-6 mt-4 px-1 text-xs text-muted-foreground flex-wrap">
                 <div className="flex items-center gap-2">
                     <div className="w-4 h-3 rounded bg-blue-600 dark:bg-blue-500" />
                     <span>Task</span>
@@ -156,8 +188,23 @@ export function GanttChart({ tasks, className }: GanttChartProps) {
                     <span>Subtask</span>
                 </div>
                 <div className="flex items-center gap-2">
+                    <div className="w-4 h-2 rounded bg-green-400 dark:bg-green-500" />
+                    <span>Completed</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="w-4 h-2 rounded bg-amber-400 dark:bg-amber-500" />
+                    <span>Blocked</span>
+                </div>
+                <div className="flex items-center gap-2">
                     <div className="w-0.5 h-4 bg-red-500 dark:bg-red-400" />
                     <span>Today</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <svg width="20" height="10" className="text-blue-500">
+                        <line x1="0" y1="5" x2="14" y2="5" stroke="currentColor" strokeWidth="2" />
+                        <polygon points="14,2 20,5 14,8" fill="currentColor" />
+                    </svg>
+                    <span>Dependency</span>
                 </div>
             </div>
         </div>

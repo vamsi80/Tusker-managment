@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { GanttTask } from "./types";
 import { computeTaskDates, calculateBarPosition, formatDateRange, getDaysBetween } from "./utils";
-import { SubtaskBar } from "./subtask-bar";
+import { SortableSubtaskList } from "./sortable-subtask-list";
 import { cn } from "@/lib/utils";
 import {
     Tooltip,
@@ -19,6 +19,7 @@ interface TaskRowProps {
     totalDays: number;
     isExpanded: boolean;
     onToggle: () => void;
+    onSubtaskReorder?: (taskId: string, subtaskIds: string[]) => void;
 }
 
 export function TaskRow({
@@ -26,7 +27,8 @@ export function TaskRow({
     timelineStart,
     totalDays,
     isExpanded,
-    onToggle
+    onToggle,
+    onSubtaskReorder
 }: TaskRowProps) {
     const { start, end } = useMemo(() => computeTaskDates(task), [task]);
 
@@ -135,45 +137,15 @@ export function TaskRow({
                 </div>
             </div>
 
-            {/* Subtask Rows */}
+            {/* Subtask Rows - Sortable */}
             {isExpanded && hasSubtasks && (
-                <>
-                    {task.subtasks.map((subtask) => (
-                        <div key={subtask.id} className="contents">
-                            {/* Left Panel - Subtask Name */}
-                            <div
-                                className={cn(
-                                    "sticky left-0 z-10 flex items-center gap-2 px-3 py-1.5 pl-9 min-h-[32px]",
-                                    "bg-neutral-50 dark:bg-neutral-800/30",
-                                    "border-b border-r border-neutral-200 dark:border-neutral-700",
-                                    "hover:bg-neutral-100 dark:hover:bg-neutral-800/50",
-                                    "transition-colors duration-150"
-                                )}
-                            >
-                                <span className="text-sm text-muted-foreground truncate">
-                                    {subtask.name}
-                                </span>
-                            </div>
-
-                            {/* Right Panel - Subtask Bar */}
-                            <div
-                                className={cn(
-                                    "relative min-h-[32px] flex items-center w-full",
-                                    "bg-neutral-50 dark:bg-neutral-800/30",
-                                    "border-b border-neutral-200 dark:border-neutral-700",
-                                    "hover:bg-neutral-100 dark:hover:bg-neutral-800/50",
-                                    "transition-colors duration-150"
-                                )}
-                            >
-                                <SubtaskBar
-                                    subtask={subtask}
-                                    timelineStart={timelineStart}
-                                    totalDays={totalDays}
-                                />
-                            </div>
-                        </div>
-                    ))}
-                </>
+                <SortableSubtaskList
+                    taskId={task.id}
+                    subtasks={task.subtasks}
+                    timelineStart={timelineStart}
+                    totalDays={totalDays}
+                    onReorder={onSubtaskReorder || (() => { })}
+                />
             )}
         </>
     );

@@ -125,6 +125,13 @@ async function _getProjectTasksInternal(
                                     },
                                 },
                             },
+                            dependsOn: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    status: true,
+                                },
+                            },
                         },
                         orderBy: {
                             position: 'asc',
@@ -155,6 +162,13 @@ async function _getProjectTasksInternal(
                                             },
                                         },
                                     },
+                                },
+                            },
+                            dependsOn: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    status: true,
                                 },
                             },
                         },
@@ -250,6 +264,13 @@ async function _getTaskSubTasksInternal(
                                 },
                             },
                         },
+                    },
+                },
+                dependsOn: {
+                    select: {
+                        id: true,
+                        name: true,
+                        status: true,
                     },
                 },
             },
@@ -474,6 +495,13 @@ export const getAllProjectSubTasks = cache(
                                     },
                                 },
                             },
+                        },
+                    },
+                    dependsOn: {
+                        select: {
+                            id: true,
+                            name: true,
+                            status: true,
                         },
                     },
                     _count: {

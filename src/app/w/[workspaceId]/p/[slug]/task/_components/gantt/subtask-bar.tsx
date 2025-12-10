@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { AlertCircle, Link } from "lucide-react";
 import { GanttSubtask } from "./types";
 import { parseDate, calculateBarPosition, formatDate, getDaysBetween } from "./utils";
 import { cn } from "@/lib/utils";
@@ -34,6 +35,10 @@ export function SubtaskBar({ subtask, timelineStart, totalDays }: SubtaskBarProp
         };
     }, [subtask, timelineStart, totalDays]);
 
+    const isBlocked = subtask.isBlocked || false;
+    const isCompleted = subtask.status === 'COMPLETED';
+    const hasDependencies = subtask.dependsOnIds && subtask.dependsOnIds.length > 0;
+
     if (!isValid || !position) {
         return (
             <div className="h-6 flex items-center px-2">
@@ -50,11 +55,17 @@ export function SubtaskBar({ subtask, timelineStart, totalDays }: SubtaskBarProp
                         <div
                             className={cn(
                                 "absolute top-1 h-4 rounded-md cursor-pointer",
-                                "bg-blue-300 dark:bg-blue-400",
-                                "hover:bg-blue-400 dark:hover:bg-blue-500",
                                 "transition-all duration-200 ease-out",
                                 "shadow-sm hover:shadow-md",
-                                "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                                "focus:outline-none focus:ring-2 focus:ring-offset-1",
+                                // Status-based colors
+                                isBlocked
+                                    ? "bg-amber-400 dark:bg-amber-500 hover:bg-amber-500 dark:hover:bg-amber-600 focus:ring-amber-500"
+                                    : isCompleted
+                                        ? "bg-green-400 dark:bg-green-500 hover:bg-green-500 dark:hover:bg-green-600 focus:ring-green-500"
+                                        : "bg-blue-300 dark:bg-blue-400 hover:bg-blue-400 dark:hover:bg-blue-500 focus:ring-blue-500",
+                                // Striped pattern for blocked
+                                isBlocked && "bg-gradient-to-r from-amber-400 via-amber-300 to-amber-400 dark:from-amber-500 dark:via-amber-400 dark:to-amber-500 bg-[length:10px_100%]"
                             )}
                             style={{
                                 left: `${position.left}%`,
@@ -63,21 +74,65 @@ export function SubtaskBar({ subtask, timelineStart, totalDays }: SubtaskBarProp
                             }}
                             tabIndex={0}
                             role="button"
-                            aria-label={`${subtask.name}: ${formatDate(startDate!)} to ${formatDate(endDate!)}`}
-                        />
+                            aria-label={`${subtask.name}: ${formatDate(startDate!)} to ${formatDate(endDate!)}${isBlocked ? ' (Blocked)' : ''}`}
+                        >
+                            {/* Blocked indicator icon */}
+                            {isBlocked && (
+                                <AlertCircle className="absolute -top-1 -left-1 h-3 w-3 text-amber-700 dark:text-amber-300 bg-white dark:bg-neutral-900 rounded-full" />
+                            )}
+                            {/* Dependency indicator */}
+                            {hasDependencies && !isBlocked && (
+                                <Link className="absolute -top-1 -left-1 h-3 w-3 text-blue-600 dark:text-blue-300 bg-white dark:bg-neutral-900 rounded-full p-0.5" />
+                            )}
+                        </div>
                     </TooltipTrigger>
                     <TooltipContent
                         side="top"
-                        className="bg-popover text-popover-foreground border shadow-lg"
+                        className="bg-popover text-popover-foreground border shadow-lg max-w-xs"
                     >
-                        <div className="space-y-1">
-                            <p className="font-medium text-sm">{subtask.name}</p>
+                        <div className="space-y-1.5">
+                            <div className="flex items-center gap-2">
+                                <p className="font-medium text-sm">{subtask.name}</p>
+                                {isBlocked && (
+                                    <span className="px-1.5 py-0.5 text-xs bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 rounded">
+                                        BLOCKED
+                                    </span>
+                                )}
+                                {isCompleted && (
+                                    <span className="px-1.5 py-0.5 text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded">
+                                        DONE
+                                    </span>
+                                )}
+                            </div>
                             <p className="text-xs text-muted-foreground">
                                 {formatDate(startDate!)} — {formatDate(endDate!)}
                             </p>
                             <p className="text-xs text-muted-foreground">
                                 {getDaysBetween(startDate!, endDate!) + 1} days
                             </p>
+                            {/* Blocked warning */}
+                            {isBlocked && subtask.blockedByNames && subtask.blockedByNames.length > 0 && (
+                                <div className="pt-1 border-t border-amber-200 dark:border-amber-800">
+                                    <p className="text-xs text-amber-700 dark:text-amber-300 flex items-center gap-1">
+                                        <AlertCircle className="h-3 w-3" />
+                                        Waiting for:
+                                    </p>
+                                    <ul className="text-xs text-muted-foreground ml-4 mt-0.5">
+                                        {subtask.blockedByNames.map((name, idx) => (
+                                            <li key={idx}>• {name}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+                            {/* Dependencies info */}
+                            {hasDependencies && !isBlocked && (
+                                <div className="pt-1 border-t">
+                                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                        <Link className="h-3 w-3" />
+                                        Dependencies: {subtask.dependsOnIds.length}
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     </TooltipContent>
                 </Tooltip>
@@ -85,3 +140,4 @@ export function SubtaskBar({ subtask, timelineStart, totalDays }: SubtaskBarProp
         </div>
     );
 }
+

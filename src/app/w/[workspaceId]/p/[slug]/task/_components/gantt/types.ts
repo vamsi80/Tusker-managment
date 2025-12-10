@@ -8,6 +8,12 @@ export interface GanttSubtask {
     name: string;
     start: string; // YYYY-MM-DD format
     end: string;   // YYYY-MM-DD format
+    status: string;
+    // Dependencies - IDs of subtasks this depends on (must complete first)
+    dependsOnIds: string[];
+    // Computed at runtime
+    isBlocked?: boolean;
+    blockedByNames?: string[];
 }
 
 export interface GanttTask {
@@ -29,3 +35,12 @@ export interface TimelineConfig {
     totalDays: number;
     granularity: TimelineGranularity;
 }
+
+// Dependency line for visual rendering
+export interface DependencyLine {
+    fromId: string;
+    toId: string;
+    fromName: string;
+    toName: string;
+}
+
