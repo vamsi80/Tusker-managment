@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useTransition } from "react";
 import { Calendar, ChevronDown } from "lucide-react";
-import { GanttTask, TimelineGranularity } from "./types";
 import { calculateTimelineRange, getDaysBetween } from "./utils";
 import { TimelineHeader, TimelineGrid } from "./timeline-grid";
 import { TaskRow } from "./task-row";
@@ -16,15 +15,17 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { GanttTask, TimelineGranularity } from "./types";
 
 interface GanttChartProps {
     tasks: GanttTask[];
     workspaceId?: string;
     projectId?: string;
     className?: string;
+    onSubtaskClick?: (subtaskId: string) => void;
 }
 
-export function GanttChart({ tasks, workspaceId, projectId, className }: GanttChartProps) {
+export function GanttChart({ tasks, workspaceId, projectId, className, onSubtaskClick }: GanttChartProps) {
     const [granularity, setGranularity] = useState<TimelineGranularity>('days');
     const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
     const [isPending, startTransition] = useTransition();
@@ -162,6 +163,7 @@ export function GanttChart({ tasks, workspaceId, projectId, className }: GanttCh
                     startDate={timelineRange.start}
                     endDate={timelineRange.end}
                     granularity={granularity}
+                    tasks={tasks}
                 >
                     {tasks.map((task) => (
                         <TaskRow
@@ -172,6 +174,10 @@ export function GanttChart({ tasks, workspaceId, projectId, className }: GanttCh
                             isExpanded={expandedTasks.has(task.id)}
                             onToggle={() => toggleTask(task.id)}
                             onSubtaskReorder={handleSubtaskReorder}
+                            onSubtaskClick={onSubtaskClick}
+                            allTasks={tasks}
+                            workspaceId={workspaceId}
+                            projectId={projectId}
                         />
                     ))}
                 </TimelineGrid>

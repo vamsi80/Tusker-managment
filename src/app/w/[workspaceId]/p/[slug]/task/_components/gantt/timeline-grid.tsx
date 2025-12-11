@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
-import { TimelineGranularity } from "./types";
 import { generateTimelineColumns, getDaysBetween, getIndianDate } from "./utils";
+import { DependencyLines } from "./dependency-lines";
 import { cn } from "@/lib/utils";
+import { GanttTask, TimelineGranularity } from "./types";
 
 interface TimelineHeaderProps {
     startDate: Date;
@@ -106,14 +107,20 @@ interface TimelineGridProps {
     startDate: Date;
     endDate: Date;
     granularity: TimelineGranularity;
+    tasks: GanttTask[];
     children: React.ReactNode;
 }
 
-export function TimelineGrid({ startDate, endDate, granularity, children }: TimelineGridProps) {
+export function TimelineGrid({ startDate, endDate, granularity, tasks, children }: TimelineGridProps) {
     const columns = useMemo(
         () => generateTimelineColumns(startDate, endDate, granularity),
         [startDate, endDate, granularity]
     );
+
+    // Collect all subtasks from all tasks for dependency rendering
+    const allSubtasks = useMemo(() => {
+        return tasks.flatMap(task => task.subtasks || []);
+    }, [tasks]);
 
     const columnWidth = granularity === 'days' ? 40 : granularity === 'weeks' ? 80 : 120;
     const totalWidth = columns.length * columnWidth;
@@ -202,6 +209,23 @@ export function TimelineGrid({ startDate, endDate, granularity, children }: Time
                     <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-red-500 dark:bg-red-400" />
                 </div>
             )}
+
+            {/* Dependency Lines Overlay - Positioned over the timeline area */}
+            <div
+                className="absolute pointer-events-none z-25"
+                style={{
+                    left: '200px',
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                }}
+            >
+                <DependencyLines
+                    subtasks={allSubtasks}
+                    timelineStart={startDate}
+                    totalDays={getDaysBetween(startDate, endDate)}
+                />
+            </div>
 
             {/* Content Grid */}
             <div

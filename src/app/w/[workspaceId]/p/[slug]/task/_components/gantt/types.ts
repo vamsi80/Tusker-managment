@@ -1,7 +1,24 @@
 /**
- * Gantt Chart Types
- * Main tasks only have id and name - dates are computed from subtasks
+ * Legacy Gantt Chart Types
+ * These types are used by the current implementation
+ * For new features, consider using types-v2.ts
  */
+
+// ============================================================================
+// GRANULARITY & TIMELINE TYPES
+// ============================================================================
+
+export type TimelineGranularity = 'days' | 'weeks' | 'months';
+
+export interface TimelineConfig {
+    start: Date;
+    end: Date;
+    granularity: TimelineGranularity;
+}
+
+// ============================================================================
+// SUBTASK TYPES
+// ============================================================================
 
 export interface GanttSubtask {
     id: string;
@@ -9,12 +26,14 @@ export interface GanttSubtask {
     start: string; // YYYY-MM-DD format
     end: string;   // YYYY-MM-DD format
     status: string;
-    // Dependencies - IDs of subtasks this depends on (must complete first)
     dependsOnIds: string[];
-    // Computed at runtime
     isBlocked?: boolean;
     blockedByNames?: string[];
 }
+
+// ============================================================================
+// TASK TYPES
+// ============================================================================
 
 export interface GanttTask {
     id: string;
@@ -22,25 +41,22 @@ export interface GanttTask {
     subtasks: GanttSubtask[];
 }
 
+// ============================================================================
+// COMPUTED TYPES
+// ============================================================================
+
 export interface ComputedTaskDates {
     start: Date | null;
     end: Date | null;
 }
 
-export type TimelineGranularity = 'days' | 'weeks' | 'months';
+// ============================================================================
+// DEPENDENCY TYPES
+// ============================================================================
 
-export interface TimelineConfig {
-    startDate: Date;
-    endDate: Date;
-    totalDays: number;
-    granularity: TimelineGranularity;
-}
-
-// Dependency line for visual rendering
 export interface DependencyLine {
     fromId: string;
     toId: string;
     fromName: string;
     toName: string;
 }
-

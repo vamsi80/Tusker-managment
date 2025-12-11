@@ -85,6 +85,7 @@ export function getDaysBetween(start: Date, end: Date): number {
 
 /**
  * Calculate bar position and width as percentages
+ * Bars span from the left edge of the start day to the right edge of the end day
  */
 export function calculateBarPosition(
     barStart: Date,
@@ -92,9 +93,24 @@ export function calculateBarPosition(
     timelineStart: Date,
     totalDays: number
 ): { left: number; width: number } {
-    const startOffset = getDaysBetween(timelineStart, barStart);
-    const duration = getDaysBetween(barStart, barEnd) + 1;
+    // Normalize dates to midnight for accurate day calculations
+    const normalizedStart = new Date(barStart);
+    normalizedStart.setHours(0, 0, 0, 0);
+    const normalizedEnd = new Date(barEnd);
+    normalizedEnd.setHours(0, 0, 0, 0);
+    const normalizedTimelineStart = new Date(timelineStart);
+    normalizedTimelineStart.setHours(0, 0, 0, 0);
 
+    // Calculate the offset from timeline start (in days)
+    const startOffset = getDaysBetween(normalizedTimelineStart, normalizedStart);
+
+    // Calculate duration: number of days from start to end (inclusive)
+    // Adding 1 because if start=end, it's still 1 day
+    const duration = getDaysBetween(normalizedStart, normalizedEnd) + 1;
+
+    // Convert to percentages
+    // The bar should start at the left edge of the start day column
+    // and end at the right edge of the end day column
     const left = (startOffset / totalDays) * 100;
     const width = (duration / totalDays) * 100;
 

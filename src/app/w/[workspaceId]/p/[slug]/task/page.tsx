@@ -1,13 +1,10 @@
 import { Suspense } from "react";
-import Link from "next/link";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { TaskHeaderSkeleton, TaskTableSkeleton } from "./_components/shared/task-page-skeleton";
 import { TaskPageWrapper } from "./_components/shared/task-page-wrapper";
-import { getTaskPageData, TaskPageDataType } from "@/app/data/task/get-task-page-data";
+import { getTaskPageData } from "@/app/data/task/get-task-page-data";
 import { CreateTaskForm } from "./_components/forms/create-task-form";
 import { BulkUploadForm } from "./_components/forms/bulk-upload-form";
 import { ReloadButton } from "./_components/shared/reload-button";
-import { LayoutList, LayoutGrid, GanttChartSquare } from "lucide-react";
 import { TaskTableContainer } from "./_components/list/task-table-container";
 import { ReloadableTaskTable } from "./_components/list/reloadable-task-table";
 import { KanbanBoardSkeleton } from "./_components/kanban/kanban-skeleton";
@@ -24,11 +21,9 @@ interface iAppProps {
 async function TaskHeader({
     workspaceId,
     slug,
-    currentView
 }: {
     workspaceId: string;
     slug: string;
-    currentView: string;
 }) {
     const pageData = await getTaskPageData(workspaceId, slug);
 
@@ -41,42 +36,17 @@ async function TaskHeader({
     }
 
     return (
-        <div className="space-y-4">
-            <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-bold">Your Tasks</h1>
-                <div className="flex items-center gap-3">
-                    <ReloadButton />
-                    {pageData.permissions.canPerformBulkOperations && (
-                        <>
-                            <BulkUploadForm projectId={pageData.project.id} />
-                            <CreateTaskForm projectId={pageData.project.id} />
-                        </>
-                    )}
-                </div>
+        <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold">Your Tasks</h1>
+            <div className="flex items-center gap-3">
+                <ReloadButton />
+                {pageData.permissions.canPerformBulkOperations && (
+                    <>
+                        <BulkUploadForm projectId={pageData.project.id} />
+                        <CreateTaskForm projectId={pageData.project.id} />
+                    </>
+                )}
             </div>
-
-            <Tabs value={currentView} className="w-full">
-                <TabsList className="grid w-full max-w-md grid-cols-3">
-                    <Link href="?view=list" className="w-full">
-                        <TabsTrigger value="list" className="w-full gap-2">
-                            <LayoutList className="h-4 w-4" />
-                            <span className="hidden sm:inline">List</span>
-                        </TabsTrigger>
-                    </Link>
-                    <Link href="?view=kanban" className="w-full">
-                        <TabsTrigger value="kanban" className="w-full gap-2">
-                            <LayoutGrid className="h-4 w-4" />
-                            <span className="hidden sm:inline">Kanban</span>
-                        </TabsTrigger>
-                    </Link>
-                    <Link href="?view=gantt" className="w-full">
-                        <TabsTrigger value="gantt" className="w-full gap-2">
-                            <GanttChartSquare className="h-4 w-4" />
-                            <span className="hidden sm:inline">Gantt</span>
-                        </TabsTrigger>
-                    </Link>
-                </TabsList>
-            </Tabs>
         </div>
     );
 }
@@ -150,7 +120,7 @@ export default async function ProjectTask({ params, searchParams }: iAppProps) {
         <TaskPageWrapper>
             {/* Header streams in first */}
             <Suspense fallback={<TaskHeaderSkeleton />}>
-                <TaskHeader workspaceId={workspaceId} slug={slug} currentView={currentView} />
+                <TaskHeader workspaceId={workspaceId} slug={slug} />
             </Suspense>
 
             {/* Content streams in based on view */}

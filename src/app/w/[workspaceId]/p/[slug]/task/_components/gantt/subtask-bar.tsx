@@ -1,8 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
-import { AlertCircle, Link } from "lucide-react";
-import { GanttSubtask } from "./types";
+import { useMemo, useState } from "react";
+import { AlertCircle, Link, Link2 } from "lucide-react";
 import { parseDate, calculateBarPosition, formatDate, getDaysBetween } from "./utils";
 import { cn } from "@/lib/utils";
 import {
@@ -11,14 +10,17 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
+import { GanttSubtask } from "./types";
 
 interface SubtaskBarProps {
     subtask: GanttSubtask;
     timelineStart: Date;
     totalDays: number;
+    onManageDependencies?: () => void;
 }
 
-export function SubtaskBar({ subtask, timelineStart, totalDays }: SubtaskBarProps) {
+export function SubtaskBar({ subtask, timelineStart, totalDays, onManageDependencies }: SubtaskBarProps) {
     const { position, isValid, startDate, endDate } = useMemo(() => {
         const start = parseDate(subtask.start);
         const end = parseDate(subtask.end);
@@ -48,7 +50,7 @@ export function SubtaskBar({ subtask, timelineStart, totalDays }: SubtaskBarProp
     }
 
     return (
-        <div className="h-6 relative w-full">
+        <div className="h-6 relative w-full group/bar">
             <TooltipProvider delayDuration={100}>
                 <Tooltip>
                     <TooltipTrigger asChild>
@@ -84,6 +86,27 @@ export function SubtaskBar({ subtask, timelineStart, totalDays }: SubtaskBarProp
                             {hasDependencies && !isBlocked && (
                                 <Link className="absolute -top-1 -left-1 h-3 w-3 text-blue-600 dark:text-blue-300 bg-white dark:bg-neutral-900 rounded-full p-0.5" />
                             )}
+
+                            {/* Dependency Management Button - Shows on hover */}
+                            {onManageDependencies && (
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className={cn(
+                                        "absolute -right-8 top-1/2 -translate-y-1/2 h-6 w-6 p-0",
+                                        "opacity-0 group-hover/bar:opacity-100 transition-opacity",
+                                        "bg-white dark:bg-neutral-800 border shadow-sm",
+                                        "hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                                    )}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onManageDependencies();
+                                    }}
+                                    title="Manage dependencies"
+                                >
+                                    <Link2 className="h-3 w-3" />
+                                </Button>
+                            )}
                         </div>
                     </TooltipTrigger>
                     <TooltipContent
@@ -118,7 +141,7 @@ export function SubtaskBar({ subtask, timelineStart, totalDays }: SubtaskBarProp
                                         Waiting for:
                                     </p>
                                     <ul className="text-xs text-muted-foreground ml-4 mt-0.5">
-                                        {subtask.blockedByNames.map((name, idx) => (
+                                        {subtask.blockedByNames.map((name: string, idx: number) => (
                                             <li key={idx}>• {name}</li>
                                         ))}
                                     </ul>

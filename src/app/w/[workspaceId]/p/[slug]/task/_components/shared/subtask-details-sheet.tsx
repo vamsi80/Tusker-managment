@@ -26,6 +26,7 @@ interface SubTaskDetailsSheetProps {
     subTask: SubTaskType[number] | null;
     isOpen: boolean;
     onClose: () => void;
+    disableUrlSync?: boolean;
 }
 
 interface Comment {
@@ -69,7 +70,7 @@ interface ReviewComment {
     createdAt: Date;
 }
 
-export function SubTaskDetailsSheet({ subTask, isOpen, onClose }: SubTaskDetailsSheetProps) {
+export function SubTaskDetailsSheet({ subTask, isOpen, onClose, disableUrlSync = false }: SubTaskDetailsSheetProps) {
     const [activeTab, setActiveTab] = useState<"messages" | "review">("messages");
     const [message, setMessage] = useState("");
     const [comments, setComments] = useState<Comment[]>([]);
@@ -93,22 +94,32 @@ export function SubTaskDetailsSheet({ subTask, isOpen, onClose }: SubTaskDetails
         scrollToBottom();
     }, [comments]);
 
-    // Sync URL with sheet state
+    // Sync URL with sheet state using window.history to avoid re-renders
     useEffect(() => {
+        if (disableUrlSync) return;
+
         if (isOpen && subTask) {
             // Add subtask ID to URL when opening
             const params = new URLSearchParams(searchParams.toString());
             params.set('subtask', subTask.id);
-            router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+            const newUrl = `${pathname}?${params.toString()}`;
+
+            // Use window.history.pushState instead of router.replace
+            // This updates the URL without triggering a server-side re-render
+            window.history.pushState(null, '', newUrl);
         } else if (!isOpen) {
             // Remove subtask ID from URL when closing
             const params = new URLSearchParams(searchParams.toString());
             if (params.has('subtask')) {
                 params.delete('subtask');
-                router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+                const newUrl = params.toString()
+                    ? `${pathname}?${params.toString()}`
+                    : pathname;
+
+                window.history.pushState(null, '', newUrl);
             }
         }
-    }, [isOpen, subTask, pathname, searchParams, router]);
+    }, [isOpen, subTask, pathname, searchParams, disableUrlSync]);
 
     // Fetch comments when subtask changes or sheet opens
     useEffect(() => {

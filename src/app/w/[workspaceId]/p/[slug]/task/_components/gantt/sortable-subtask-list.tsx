@@ -19,17 +19,21 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
-import { GanttSubtask } from "./types";
-import { SubtaskBar } from "./subtask-bar";
+import { DraggableSubtaskBar } from "./draggable-subtask-bar";
 import { cn } from "@/lib/utils";
+import { GanttSubtask } from "./types";
 
 interface SortableSubtaskRowProps {
     subtask: GanttSubtask;
     timelineStart: Date;
     totalDays: number;
+    onManageDependencies?: (subtask: GanttSubtask) => void;
+    onSubtaskClick?: (subtaskId: string) => void;
+    workspaceId?: string;
+    projectId?: string;
 }
 
-function SortableSubtaskRow({ subtask, timelineStart, totalDays }: SortableSubtaskRowProps) {
+function SortableSubtaskRow({ subtask, timelineStart, totalDays, onManageDependencies, onSubtaskClick, workspaceId, projectId }: SortableSubtaskRowProps) {
     const {
         attributes,
         listeners,
@@ -73,7 +77,11 @@ function SortableSubtaskRow({ subtask, timelineStart, totalDays }: SortableSubta
                 >
                     <GripVertical className="h-4 w-4" />
                 </div>
-                <span className="text-sm text-muted-foreground truncate flex-1">
+                <span
+                    className="text-sm text-muted-foreground truncate flex-1 cursor-pointer hover:text-foreground hover:underline transition-colors"
+                    onClick={() => onSubtaskClick?.(subtask.id)}
+                    title="Click to view details"
+                >
                     {subtask.name}
                 </span>
                 {/* Dependency indicator */}
@@ -96,10 +104,13 @@ function SortableSubtaskRow({ subtask, timelineStart, totalDays }: SortableSubta
                     isDragging && "bg-blue-100 dark:bg-blue-900/40 border-blue-300 dark:border-blue-600 opacity-50"
                 )}
             >
-                <SubtaskBar
+                <DraggableSubtaskBar
                     subtask={subtask}
                     timelineStart={timelineStart}
                     totalDays={totalDays}
+                    onManageDependencies={onManageDependencies ? () => onManageDependencies(subtask) : undefined}
+                    workspaceId={workspaceId}
+                    projectId={projectId}
                 />
             </div>
         </>
@@ -112,6 +123,10 @@ interface SortableSubtaskListProps {
     timelineStart: Date;
     totalDays: number;
     onReorder: (taskId: string, subtaskIds: string[]) => void;
+    onManageDependencies?: (subtask: GanttSubtask) => void;
+    onSubtaskClick?: (subtaskId: string) => void;
+    workspaceId?: string;
+    projectId?: string;
 }
 
 export function SortableSubtaskList({
@@ -120,10 +135,14 @@ export function SortableSubtaskList({
     timelineStart,
     totalDays,
     onReorder,
+    onManageDependencies,
+    onSubtaskClick,
+    workspaceId,
+    projectId,
 }: SortableSubtaskListProps) {
     const [items, setItems] = useState(subtasks);
 
-    // Update items when subtasks are added/removed, but not when just reordered
+    // Update items when subtasks are added/removed, but preserve order when just data changes
     // Compare the set of IDs, not their order
     useEffect(() => {
         const currentIds = new Set(items.map(item => item.id));
@@ -134,11 +153,19 @@ export function SortableSubtaskList({
             currentIds.size !== newIds.size ||
             [...currentIds].some(id => !newIds.has(id));
 
-        // Only update if subtasks were added/removed, not just reordered
         if (idsChanged) {
+            // Items were added or removed, update the entire list
             setItems(subtasks);
+        } else {
+            // Same items, just update their data while preserving current order
+            setItems(prevItems =>
+                prevItems.map(prevItem => {
+                    const updatedItem = subtasks.find(sub => sub.id === prevItem.id);
+                    return updatedItem || prevItem;
+                })
+            );
         }
-    }, [subtasks, items]);
+    }, [subtasks]);
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -175,6 +202,10 @@ export function SortableSubtaskList({
                         subtask={subtask}
                         timelineStart={timelineStart}
                         totalDays={totalDays}
+                        onManageDependencies={onManageDependencies}
+                        onSubtaskClick={onSubtaskClick}
+                        workspaceId={workspaceId}
+                        projectId={projectId}
                     />
                 ))}
             </SortableContext>

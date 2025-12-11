@@ -1,17 +1,21 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { GanttTask } from "./types";
 import { computeTaskDates, calculateBarPosition, formatDateRange, getDaysBetween } from "./utils";
 import { SortableSubtaskList } from "./sortable-subtask-list";
+import { DependencyPicker } from "./dependency-picker";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import {
     Tooltip,
     TooltipContent,
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { GanttSubtask, GanttTask } from "./types";
+
+const SUBTASKS_PER_PAGE = 10;
 
 interface TaskRowProps {
     task: GanttTask;
@@ -20,6 +24,10 @@ interface TaskRowProps {
     isExpanded: boolean;
     onToggle: () => void;
     onSubtaskReorder?: (taskId: string, subtaskIds: string[]) => void;
+    onSubtaskClick?: (subtaskId: string) => void;
+    allTasks?: GanttTask[]; // All tasks for dependency picker
+    workspaceId?: string;
+    projectId?: string;
 }
 
 export function TaskRow({
@@ -28,8 +36,16 @@ export function TaskRow({
     totalDays,
     isExpanded,
     onToggle,
-    onSubtaskReorder
+    onSubtaskReorder,
+    onSubtaskClick,
+    allTasks,
+    workspaceId,
+    projectId
 }: TaskRowProps) {
+    const [dependencyPickerOpen, setDependencyPickerOpen] = useState(false);
+    const [selectedSubtask, setSelectedSubtask] = useState<GanttSubtask | null>(null);
+    const [visibleSubtaskCount, setVisibleSubtaskCount] = useState(SUBTASKS_PER_PAGE);
+
     const { start, end } = useMemo(() => computeTaskDates(task), [task]);
 
     const position = useMemo(() => {
@@ -38,6 +54,20 @@ export function TaskRow({
     }, [start, end, timelineStart, totalDays]);
 
     const hasSubtasks = task.subtasks && task.subtasks.length > 0;
+
+    const handleManageDependencies = (subtask: GanttSubtask) => {
+        setSelectedSubtask(subtask);
+        setDependencyPickerOpen(true);
+    };
+
+    // Handle load more subtasks
+    const handleLoadMoreSubtasks = () => {
+        setVisibleSubtaskCount(prev => Math.min(prev + SUBTASKS_PER_PAGE, task.subtasks.length));
+    };
+
+    // Get visible subtasks
+    const visibleSubtasks = task.subtasks.slice(0, visibleSubtaskCount);
+    const hasMoreSubtasks = visibleSubtaskCount < task.subtasks.length;
 
     return (
         <>
@@ -139,13 +169,52 @@ export function TaskRow({
 
             {/* Subtask Rows - Sortable */}
             {isExpanded && hasSubtasks && (
-                <SortableSubtaskList
-                    taskId={task.id}
-                    subtasks={task.subtasks}
-                    timelineStart={timelineStart}
-                    totalDays={totalDays}
-                    onReorder={onSubtaskReorder || (() => { })}
-                />
+                <>
+                    <SortableSubtaskList
+                        taskId={task.id}
+                        subtasks={visibleSubtasks}
+                        timelineStart={timelineStart}
+                        totalDays={totalDays}
+                        onReorder={onSubtaskReorder || (() => { })}
+                        onManageDependencies={handleManageDependencies}
+                        onSubtaskClick={onSubtaskClick}
+                        workspaceId={workspaceId}
+                        projectId={projectId}
+                    />
+
+                    {/* Load More Subtasks Button */}
+                    {hasMoreSubtasks && (
+                        <>
+                            {/* Left Panel - Empty space for alignment */}
+                            <div className="sticky left-0 z-10 w-[200px] min-w-[200px] shrink-0 bg-neutral-50 dark:bg-neutral-800/30 border-b border-r border-neutral-200 dark:border-neutral-700" />
+
+                            {/* Right Panel - Load More Button */}
+                            <div className="relative min-h-[40px] flex items-center justify-center w-full bg-neutral-50 dark:bg-neutral-800/30 border-b border-neutral-200 dark:border-neutral-700">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleLoadMoreSubtasks}
+                                    className="gap-2 text-xs"
+                                >
+                                    <ChevronDown className="h-3 w-3" />
+                                    Load More Subtasks ({task.subtasks.length - visibleSubtaskCount} remaining)
+                                </Button>
+                            </div>
+                        </>
+                    )}
+
+                    {/* Dependency Picker Dialog */}
+                    {selectedSubtask && allTasks && workspaceId && projectId && (
+                        <DependencyPicker
+                            open={dependencyPickerOpen}
+                            onOpenChange={setDependencyPickerOpen}
+                            subtask={selectedSubtask}
+                            allTasks={allTasks}
+                            workspaceId={workspaceId}
+                            projectId={projectId}
+                        />
+                    )}
+                </>
             )}
         </>
     );

@@ -56,7 +56,7 @@ export async function updateSubtaskPositions(
         );
 
         // Revalidate the task page
-        revalidatePath(`/w/${workspaceId}/p/[slug]/task`, 'page');
+        revalidatePath(`/w/${workspaceId}/p/${projectId}/task`);
 
         return { success: true, message: "Positions updated successfully" };
     } catch (error) {
@@ -121,7 +121,7 @@ export async function addSubtaskDependency(
         });
 
         // Revalidate the task page
-        revalidatePath(`/w/${workspaceId}/p/[slug]/task`, 'page');
+        revalidatePath(`/w/${workspaceId}/p/${projectId}/task`);
 
         return {
             success: true,
@@ -163,7 +163,7 @@ export async function removeSubtaskDependency(
         });
 
         // Revalidate the task page
-        revalidatePath(`/w/${workspaceId}/p/[slug]/task`, 'page');
+        revalidatePath(`/w/${workspaceId}/p/${projectId}/task`);
 
         return { success: true, message: "Dependency removed" };
     } catch (error) {

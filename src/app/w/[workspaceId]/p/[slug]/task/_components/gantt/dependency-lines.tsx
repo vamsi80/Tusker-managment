@@ -1,31 +1,27 @@
 "use client";
 
-import { useEffect, useRef, useMemo } from "react";
-import { GanttSubtask, DependencyLine } from "./types";
+import { useRef, useMemo } from "react";
 import { parseDate, getDaysBetween } from "./utils";
+import { GanttSubtask } from "./types";
 
 interface DependencyLinesProps {
     subtasks: GanttSubtask[];
     timelineStart: Date;
     totalDays: number;
-    taskRowHeight: number; // Height of each task row in pixels
-    subtaskRowHeight: number; // Height of each subtask row in pixels
-    leftPanelWidth: number; // Width of left panel in pixels
+    containerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 export function DependencyLines({
     subtasks,
     timelineStart,
     totalDays,
-    taskRowHeight = 40,
-    subtaskRowHeight = 32,
-    leftPanelWidth = 200
+    containerRef
 }: DependencyLinesProps) {
     const svgRef = useRef<SVGSVGElement>(null);
 
     // Build a map of subtask positions
     const subtaskPositions = useMemo(() => {
-        const positions = new Map<string, { x: number; y: number; width: number }>();
+        const positions = new Map<string, { x: number; y: number; width: number; endX: number }>();
 
         subtasks.forEach((subtask, index) => {
             const start = parseDate(subtask.start);
@@ -40,22 +36,28 @@ export function DependencyLines({
             const leftPercent = (startOffset / totalDays) * 100;
             const widthPercent = (duration / totalDays) * 100;
 
-            // Y position based on row index (each subtask is at a different row)
-            const y = index * subtaskRowHeight + subtaskRowHeight / 2;
+            // Y position based on row index - 32px per row, centered at 16px
+            const y = index * 32 + 16;
 
             positions.set(subtask.id, {
                 x: leftPercent,
                 y,
-                width: widthPercent
+                width: widthPercent,
+                endX: leftPercent + widthPercent
             });
         });
 
         return positions;
-    }, [subtasks, timelineStart, totalDays, subtaskRowHeight]);
+    }, [subtasks, timelineStart, totalDays]);
 
-    // Generate dependency lines
+    // Generate dependency lines with Microsoft Project-style connectors
     const lines = useMemo(() => {
-        const result: { from: { x: number; y: number }; to: { x: number; y: number }; isBlocked: boolean }[] = [];
+        const result: Array<{
+            path: string;
+            isBlocked: boolean;
+            fromId: string;
+            toId: string;
+        }> = [];
 
         subtasks.forEach((subtask) => {
             if (!subtask.dependsOnIds || subtask.dependsOnIds.length === 0) return;
@@ -63,15 +65,45 @@ export function DependencyLines({
             const toPos = subtaskPositions.get(subtask.id);
             if (!toPos) return;
 
-            subtask.dependsOnIds.forEach((depId) => {
+            subtask.dependsOnIds.forEach((depId: string) => {
                 const fromPos = subtaskPositions.get(depId);
                 if (!fromPos) return;
 
-                // Line goes from end of parent to start of child
+                // Microsoft Project-style: right-angle connectors
+                // Start from the end of the predecessor bar
+                const startX = fromPos.endX;
+                const startY = fromPos.y;
+
+                // End at the start of the successor bar
+                const endX = toPos.x;
+                const endY = toPos.y;
+
+                // Calculate intermediate points for right-angle connection
+                const horizontalOffset = 0.5; // Small offset in percentage
+                const midX1 = startX + horizontalOffset;
+                const midX2 = endX - horizontalOffset;
+
+                let path: string;
+
+                if (startY === endY) {
+                    // Same row - simple horizontal line
+                    path = `M ${startX}% ${startY} L ${endX}% ${endY}`;
+                } else {
+                    // Different rows - create right-angle connector
+                    // Pattern: horizontal -> vertical -> horizontal
+                    const midX = (startX + endX) / 2;
+
+                    path = `M ${startX}% ${startY} 
+                            L ${midX}% ${startY} 
+                            L ${midX}% ${endY} 
+                            L ${endX}% ${endY}`;
+                }
+
                 result.push({
-                    from: { x: fromPos.x + fromPos.width, y: fromPos.y },
-                    to: { x: toPos.x, y: toPos.y },
-                    isBlocked: subtask.isBlocked || false
+                    path,
+                    isBlocked: subtask.isBlocked || false,
+                    fromId: depId,
+                    toId: subtask.id
                 });
             });
         });
@@ -84,71 +116,79 @@ export function DependencyLines({
     return (
         <svg
             ref={svgRef}
-            className="absolute inset-0 pointer-events-none z-20"
-            style={{ left: leftPanelWidth }}
-            width="100%"
-            height="100%"
+            className="absolute inset-0 pointer-events-none z-10"
+            style={{
+                width: '100%',
+                height: '100%',
+                overflow: 'visible'
+            }}
         >
             <defs>
-                {/* Arrow marker for dependency lines */}
+                {/* Arrow markers for dependency lines */}
                 <marker
                     id="arrow-normal"
-                    markerWidth="8"
-                    markerHeight="8"
-                    refX="6"
-                    refY="3"
+                    markerWidth="10"
+                    markerHeight="10"
+                    refX="8"
+                    refY="4"
                     orient="auto"
                     markerUnits="strokeWidth"
                 >
-                    <path d="M0,0 L0,6 L6,3 z" fill="#3b82f6" />
+                    <path d="M0,0 L0,8 L8,4 z" fill="#3b82f6" className="dark:fill-blue-400" />
                 </marker>
                 <marker
                     id="arrow-blocked"
-                    markerWidth="8"
-                    markerHeight="8"
-                    refX="6"
-                    refY="3"
+                    markerWidth="10"
+                    markerHeight="10"
+                    refX="8"
+                    refY="4"
                     orient="auto"
                     markerUnits="strokeWidth"
                 >
-                    <path d="M0,0 L0,6 L6,3 z" fill="#f59e0b" />
+                    <path d="M0,0 L0,8 L8,4 z" fill="#f59e0b" className="dark:fill-amber-400" />
+                </marker>
+                <marker
+                    id="arrow-normal-dark"
+                    markerWidth="10"
+                    markerHeight="10"
+                    refX="8"
+                    refY="4"
+                    orient="auto"
+                    markerUnits="strokeWidth"
+                >
+                    <path d="M0,0 L0,8 L8,4 z" fill="#60a5fa" />
+                </marker>
+                <marker
+                    id="arrow-blocked-dark"
+                    markerWidth="10"
+                    markerHeight="10"
+                    refX="8"
+                    refY="4"
+                    orient="auto"
+                    markerUnits="strokeWidth"
+                >
+                    <path d="M0,0 L0,8 L8,4 z" fill="#fbbf24" />
                 </marker>
             </defs>
 
             {lines.map((line, index) => {
-                // Calculate bezier curve control points for smooth connection
-                const midX = (line.from.x + line.to.x) / 2;
-
-                // Convert percentages to approximate pixels for SVG
-                // This is a simplified approach - in production you'd use actual measurements
-                const fromX = `${line.from.x}%`;
-                const fromY = line.from.y;
-                const toX = `${line.to.x}%`;
-                const toY = line.to.y;
-                const midXStr = `${midX}%`;
+                const strokeColor = line.isBlocked ? "#f59e0b" : "#3b82f6";
+                const markerEnd = line.isBlocked ? "url(#arrow-blocked)" : "url(#arrow-normal)";
 
                 return (
-                    <g key={index}>
-                        {/* Connection path with bezier curve */}
+                    <g key={`${line.fromId}-${line.toId}-${index}`}>
+                        {/* Connection path with right-angle connectors */}
                         <path
-                            d={`M ${fromX} ${fromY} 
-                                C ${midXStr} ${fromY}, 
-                                  ${midXStr} ${toY}, 
-                                  ${toX} ${toY}`}
+                            d={line.path}
                             fill="none"
-                            stroke={line.isBlocked ? "#f59e0b" : "#3b82f6"}
+                            stroke={strokeColor}
                             strokeWidth="2"
-                            strokeDasharray={line.isBlocked ? "4 2" : "none"}
-                            markerEnd={line.isBlocked ? "url(#arrow-blocked)" : "url(#arrow-normal)"}
-                            className="transition-all duration-200"
-                        />
-                        {/* Start node (small circle) */}
-                        <circle
-                            cx={fromX}
-                            cy={fromY}
-                            r="4"
-                            fill={line.isBlocked ? "#f59e0b" : "#3b82f6"}
-                            className="transition-all duration-200"
+                            strokeDasharray={line.isBlocked ? "5 3" : "none"}
+                            markerEnd={markerEnd}
+                            className="transition-all duration-200 hover:stroke-[3px]"
+                            style={{
+                                filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1))'
+                            }}
                         />
                     </g>
                 );
