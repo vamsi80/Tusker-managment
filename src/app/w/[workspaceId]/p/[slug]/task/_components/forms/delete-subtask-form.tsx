@@ -16,7 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { tryCatch } from "@/hooks/try-catch";
-import { deleteSubTask } from "../../action";
+import { deleteSubTask } from "../../../action";
 import { SubTaskType } from "@/app/data/task/get-project-tasks";
 
 interface DeleteSubTaskFormProps {

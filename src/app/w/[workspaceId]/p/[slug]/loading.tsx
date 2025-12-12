@@ -1,4 +1,4 @@
-import { ProjectLayoutSkeleton } from "./_components/project-layout-skeleton";
+import { ProjectLayoutSkeleton } from "./_components/layout/project-layout-skeleton";
 
 /**
  * Loading UI for the Project Layout

@@ -247,6 +247,5 @@ export function getDependencyLines(subtasks: GanttSubtask[]): DependencyLine[] {
             }
         }
     }
-
     return lines;
 }

@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { subTaskSchema, SubTaskSchemaType } from "@/lib/zodSchemas";
 import { tryCatch } from "@/hooks/try-catch";
 import { toast } from "sonner";
-import { editSubTask } from "../../action";
+import { editSubTask } from "../../../action";
 import { SubTaskType } from "@/app/data/task/get-project-tasks";
 import { ProjectMembersType } from "@/app/data/project/get-project-members";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";

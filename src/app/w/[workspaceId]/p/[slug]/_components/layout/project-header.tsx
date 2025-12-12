@@ -1,5 +1,5 @@
 import { getUserProjects, UserProjectsType } from "@/app/data/user/get-user-projects";
-import { ProjectNav } from "../../_components/project-nav";
+import { ProjectNav } from "../../../_components/project-nav";
 
 interface ProjectHeaderProps {
     workspaceId: string;

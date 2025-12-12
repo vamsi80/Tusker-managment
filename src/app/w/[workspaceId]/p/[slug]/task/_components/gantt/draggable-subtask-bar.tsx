@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useTransition } from "react";
 import { AlertCircle, Link, Link2, GripHorizontal } from "lucide-react";
 import { parseDate, formatDate, getDaysBetween } from "./utils";
-import { updateSubtaskDates, createDependencyByDrag } from "./drag-actions";
+import { updateSubtaskDates } from "./drag-actions";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {

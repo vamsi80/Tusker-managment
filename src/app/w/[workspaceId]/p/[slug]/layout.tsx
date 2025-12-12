@@ -1,6 +1,6 @@
 import { Suspense } from "react";
-import ProjectHeader from "./_components/project-header";
-import { ProjectLayoutSkeleton } from "./_components/project-layout-skeleton";
+import ProjectHeader from "./_components/layout/project-header";
+import { ProjectLayoutSkeleton } from "./_components/layout/project-layout-skeleton";
 
 interface Props {
     children: React.ReactNode;

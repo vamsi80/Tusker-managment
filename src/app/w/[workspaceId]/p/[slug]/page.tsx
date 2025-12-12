@@ -9,6 +9,7 @@ import { TaskTableContainer } from "./task/_components/list/task-table-container
 import { ReloadableTaskTable } from "./task/_components/list/reloadable-task-table";
 import { KanbanBoardSkeleton } from "./task/_components/kanban/kanban-skeleton";
 import { GanttChartSkeleton } from "./task/_components/gantt/gantt-skeleton";
+import { ProjectDashboard } from "./_components/dashboard/project-dashboard";
 
 interface iAppProps {
   params: { workspaceId: string; slug: string };
@@ -49,6 +50,12 @@ async function TaskHeader({
       </div>
     </div>
   );
+}
+
+async function ProjectDashboardPage() {
+  return (
+    <ProjectDashboard />
+  )
 }
 
 /**
@@ -128,7 +135,7 @@ export default async function ProjectPage({ params, searchParams }: iAppProps) {
         {currentView === 'dashboard' && (
           <ReloadableTaskTable>
             <Suspense fallback={<TaskTableSkeleton />}>
-              <TaskListView workspaceId={workspaceId} slug={slug} />
+              <ProjectDashboardPage />
             </Suspense>
           </ReloadableTaskTable>
         )}

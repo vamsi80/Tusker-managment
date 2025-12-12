@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
 import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { revalidateTaskData } from "./revalidate-task-data";
+import { revalidateTaskData } from "../../../../../../../data/task/revalidate-task-data";
 import { toast } from "sonner";
 
 interface ReloadButtonProps {
