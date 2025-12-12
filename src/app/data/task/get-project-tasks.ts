@@ -431,7 +431,6 @@ export const getTaskSubTasks = cache(
  */
 export const getAllProjectSubTasks = cache(
     async (projectId: string, workspaceId: string) => {
-        const user = await requireUser();
 
         try {
             // Get user's permissions

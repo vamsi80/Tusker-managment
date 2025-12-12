@@ -39,7 +39,10 @@ async function TaskHeader({
         <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold">Your Tasks</h1>
             <div className="flex items-center gap-3">
-                <ReloadButton />
+                <ReloadButton
+                    projectId={pageData.project.id}
+                    userId={pageData.user.id}
+                />
                 {pageData.permissions.canPerformBulkOperations && (
                     <>
                         <BulkUploadForm projectId={pageData.project.id} />
@@ -90,9 +93,9 @@ async function TaskGanttView({ workspaceId, slug }: { workspaceId: string; slug:
 
     if (!pageData) return null;
 
-    const { GanttContainer } = await import("./_components/gantt/gantt-container");
+    const { GanttServerWrapper } = await import("./_components/gantt/gantt-server-wrapper");
 
-    return <GanttContainer workspaceId={pageData.project.workspaceId} projectId={pageData.project.id} />;
+    return <GanttServerWrapper workspaceId={pageData.project.workspaceId} projectId={pageData.project.id} />;
 }
 
 /**

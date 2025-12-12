@@ -34,7 +34,7 @@ export const getProjectBySlug = cache(
             [`project-${workspaceId}-${slug}`],
             {
                 tags: [`project-${slug}`, `workspace-${workspaceId}-projects`],
-                revalidate: 300 // 5 minutes - projects don't change often
+                revalidate: 60 // 1 minute - projects don't change often
             }
         )();
     }

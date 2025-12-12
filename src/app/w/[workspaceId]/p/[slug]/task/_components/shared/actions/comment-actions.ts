@@ -7,7 +7,6 @@ import {
     editComment,
     deleteComment,
 } from "@/lib/comment-helpers";
-import { revalidatePath } from "next/cache";
 import prisma from "@/lib/db";
 import { getTaskComments } from "@/app/data/comment/get-comments";
 import { invalidateTaskComments } from "@/app/data/user/invalidate-project-cache";
@@ -31,25 +30,8 @@ export async function createTaskComment(taskId: string, content: string) {
             taskId,
         });
 
-        // Get task with project info for proper cache revalidation
-        const task = await prisma.task.findUnique({
-            where: { id: taskId },
-            select: {
-                project: {
-                    select: {
-                        workspaceId: true,
-                        slug: true
-                    }
-                }
-            }
-        });
-
-        if (task?.project) {
-            // Revalidate with actual workspace and project values
-            revalidatePath(`/w/${task.project.workspaceId}/p/${task.project.slug}/task`);
-            // Invalidate comment cache
-            await invalidateTaskComments(taskId);
-        }
+        // Invalidate comment cache using cache tags (faster than revalidatePath)
+        await invalidateTaskComments(taskId);
 
         return { success: true, comment };
     } catch (error) {
@@ -85,23 +67,8 @@ export async function createCommentReply(
             parentCommentId,
         });
 
-        // Get task with project info for proper cache revalidation
-        const task = await prisma.task.findUnique({
-            where: { id: taskId },
-            select: {
-                project: {
-                    select: {
-                        workspaceId: true,
-                        slug: true
-                    }
-                }
-            }
-        });
-
-        if (task?.project) {
-            revalidatePath(`/w/${task.project.workspaceId}/p/${task.project.slug}/task`);
-            await invalidateTaskComments(taskId);
-        }
+        // Invalidate comment cache using cache tags
+        await invalidateTaskComments(taskId);
 
         return { success: true, comment };
     } catch (error) {
@@ -158,26 +125,16 @@ export async function updateComment(commentId: string, newContent: string) {
 
         const comment = await editComment(commentId, session.user.id, newContent);
 
-        // Get comment's task with project info for proper cache revalidation
+        // Get comment's taskId for cache invalidation
         const commentData = await prisma.comment.findUnique({
             where: { id: commentId },
             select: {
                 taskId: true,
-                task: {
-                    select: {
-                        project: {
-                            select: {
-                                workspaceId: true,
-                                slug: true
-                            }
-                        }
-                    }
-                }
             }
         });
 
-        if (commentData?.task?.project) {
-            revalidatePath(`/w/${commentData.task.project.workspaceId}/p/${commentData.task.project.slug}/task`);
+        if (commentData) {
+            // Invalidate comment cache using cache tags
             await invalidateTaskComments(commentData.taskId);
         }
 
@@ -204,29 +161,18 @@ export async function removeComment(commentId: string) {
             return { success: false, error: "Unauthorized" };
         }
 
-        // Get comment's task with project info before deletion
+        // Get comment's taskId before deletion
         const commentData = await prisma.comment.findUnique({
             where: { id: commentId },
             select: {
                 taskId: true,
-                task: {
-                    select: {
-                        project: {
-                            select: {
-                                workspaceId: true,
-                                slug: true
-                            }
-                        }
-                    }
-                }
             }
         });
 
         await deleteComment(commentId, session.user.id);
 
-        // Revalidate with actual values
-        if (commentData?.task?.project) {
-            revalidatePath(`/w/${commentData.task.project.workspaceId}/p/${commentData.task.project.slug}/task`);
+        // Invalidate comment cache using cache tags
+        if (commentData) {
             await invalidateTaskComments(commentData.taskId);
         }
 

@@ -42,7 +42,7 @@ const getCachedProjectMembers = (projectId: string) =>
         [`project-members-${projectId}`],
         {
             tags: [`project-members-${projectId}`],
-            revalidate: 300, // Cache for 5 minutes
+            revalidate: 60, // Cache for 60 seconds
         }
     )();
 

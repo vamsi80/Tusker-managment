@@ -2,7 +2,7 @@
 
 import prisma from "@/lib/db";
 import { requireUser } from "@/app/data/user/require-user";
-import { revalidatePath } from "next/cache";
+import { revalidateTag } from "next/cache";
 
 interface UpdateSubtaskDatesResult {
     success: boolean;
@@ -80,7 +80,10 @@ export async function updateSubtaskDates(
             }
         }
 
-        revalidatePath(`/w/${workspaceId}/p/${projectId}/task`);
+        // Revalidate cache tags instead of path for better cache control
+        revalidateTag(`project-tasks-${projectId}`);
+        revalidateTag(`project-tasks-user-${user.id}`);
+        revalidateTag(`task-subtasks-all`);
 
         return { success: true, message: "Dates updated successfully" };
     } catch (error) {
@@ -157,7 +160,9 @@ export async function createDependencyByDrag(
             }
         }
 
-        revalidatePath(`/w/${workspaceId}/p/${projectId}/task`);
+        // Revalidate cache tags instead of path for better cache control
+        revalidateTag(`project-tasks-${projectId}`);
+        revalidateTag(`task-subtasks-all`);
 
         return { success: true, message: "Dependency created successfully" };
     } catch (error) {

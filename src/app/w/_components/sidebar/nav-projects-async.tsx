@@ -1,6 +1,6 @@
 import { getUserProjects } from "@/app/data/user/get-user-projects";
 import { getWorkspaceMembers } from "@/app/data/workspace/get-workspace-members";
-import { requireAdmin } from "@/lib/requireAdmin";
+import { isAdminServer } from "@/app/data/workspace/requireAdmin";
 import { NavProjects } from "./nav-projects";
 
 interface NavProjectsAsyncProps {
@@ -11,7 +11,7 @@ export async function NavProjectsAsync({ workspaceId }: NavProjectsAsyncProps) {
     const [projects, { workspaceMembers }, isAdmin] = await Promise.all([
         getUserProjects(workspaceId),
         getWorkspaceMembers(workspaceId),
-        requireAdmin(workspaceId),
+        isAdminServer(workspaceId),
     ]);
 
     return (

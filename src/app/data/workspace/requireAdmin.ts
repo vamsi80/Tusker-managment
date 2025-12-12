@@ -46,17 +46,29 @@ const getCachedAdminCheck = (userId: string, workspaceId: string) =>
     [`admin-check-${userId}-${workspaceId}`],
     {
       tags: [`admin-check-${userId}`, `workspace-admin-${workspaceId}`],
-      revalidate: 60 * 60 * 24, // 24 hours
+      revalidate: 60, // 1 minute
     }
   )();
 
 /**
  * Ensures the authenticated user is an ADMIN in the given workspace.
- * - Fully cached for maximum performance
- * - Throws ForbiddenError if not admin or not a member
- * - Returns { sessionUser, workspace } when valid
- *
- * You can call this 100+ times; the cached lookups are **super fast**.
+ * Throws ForbiddenError if not admin or not a member.
+ * 
+ * Caching Strategy:
+ * 1. React cache() - Deduplicates identical requests within the same render
+ * 2. unstable_cache() - Persists data across requests for 1 minute
+ * 
+ * Cache Invalidation:
+ * - Use revalidateTag(`admin-check-${userId}`) to invalidate for specific user
+ * - Use revalidateTag(`workspace-admin-${workspaceId}`) to invalidate for workspace
+ * 
+ * @param workspaceId - The workspace to check admin status for
+ * @returns { sessionUser, workspace }
+ * @throws {ForbiddenError} When user is not admin or not a member
+ * 
+ * @example
+ * // For server actions that require admin
+ * const { sessionUser, workspace } = await requireAdmin(workspaceId);
  */
 export const requireAdmin = cache(async (workspaceId: string) => {
   if (!workspaceId) {
@@ -86,3 +98,30 @@ export const requireAdmin = cache(async (workspaceId: string) => {
   };
 });
 
+/**
+ * Check if the current user is an admin of the workspace.
+ * Returns boolean instead of throwing errors.
+ * 
+ * @param workspaceId - The workspace to check admin status for
+ * @returns true if user is admin, false otherwise
+ * 
+ * @example
+ * // For conditional rendering
+ * const isAdmin = await isAdminServer(workspaceId);
+ * if (isAdmin) {
+ *   // Show admin UI
+ * }
+ */
+export const isAdminServer = cache(async (workspaceId: string): Promise<boolean> => {
+  if (!workspaceId) {
+    return false;
+  }
+
+  try {
+    const sessionUser = await requireUser();
+    const result = await getCachedAdminCheck(sessionUser.id, workspaceId);
+    return result.isAdmin;
+  } catch {
+    return false;
+  }
+});

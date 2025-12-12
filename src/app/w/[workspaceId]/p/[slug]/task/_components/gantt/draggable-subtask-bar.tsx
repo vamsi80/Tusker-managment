@@ -47,11 +47,34 @@ export function DraggableSubtaskBar({
     // Live position state for visual feedback during drag
     const [livePosition, setLivePosition] = useState<{ left: number; width: number } | null>(null);
 
+    // Optimistic subtask state - updates immediately on drag, syncs with server data
+    const [optimisticSubtask, setOptimisticSubtask] = useState<GanttSubtask>(subtask);
+
+    // Track if we're waiting for server update
+    const [isPendingUpdate, setIsPendingUpdate] = useState(false);
+
     const barRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
-    const startDate = parseDate(subtask.start);
-    const endDate = parseDate(subtask.end);
+    // Sync optimistic state with incoming prop changes (from server)
+    // Only sync if we're not waiting for an update, or if the server data matches our optimistic update
+    useEffect(() => {
+        if (!isPendingUpdate) {
+            // No pending update, safe to sync
+            setOptimisticSubtask(subtask);
+        } else {
+            // Check if server data matches our optimistic update
+            if (subtask.start === optimisticSubtask.start && subtask.end === optimisticSubtask.end) {
+                // Server has caught up with our optimistic update
+                setOptimisticSubtask(subtask);
+                setIsPendingUpdate(false);
+            }
+            // Otherwise, keep the optimistic state until server catches up
+        }
+    }, [subtask, isPendingUpdate, optimisticSubtask.start, optimisticSubtask.end]);
+
+    const startDate = parseDate(optimisticSubtask.start);
+    const endDate = parseDate(optimisticSubtask.end);
 
     if (!startDate || !endDate) {
         return (
@@ -76,9 +99,9 @@ export function DraggableSubtaskBar({
     const leftPercent = livePosition ? livePosition.left : (startOffset / totalDays) * 100;
     const widthPercent = livePosition ? livePosition.width : (duration / totalDays) * 100;
 
-    const isBlocked = subtask.isBlocked || false;
-    const isCompleted = subtask.status === 'COMPLETED';
-    const hasDependencies = subtask.dependsOnIds && subtask.dependsOnIds.length > 0;
+    const isBlocked = optimisticSubtask.isBlocked || false;
+    const isCompleted = optimisticSubtask.status === 'COMPLETED';
+    const hasDependencies = optimisticSubtask.dependsOnIds && optimisticSubtask.dependsOnIds.length > 0;
 
     // Handle bar drag (move dates)
     const handleBarMouseDown = (e: React.MouseEvent) => {
@@ -182,6 +205,16 @@ export function DraggableSubtaskBar({
                 const newEndDate = new Date(endDate);
                 newEndDate.setDate(newEndDate.getDate() + daysDelta);
 
+                // Optimistically update the subtask state immediately
+                setOptimisticSubtask(prev => ({
+                    ...prev,
+                    start: formatDate(newStartDate),
+                    end: formatDate(newEndDate)
+                }));
+
+                // Mark that we're waiting for server update
+                setIsPendingUpdate(true);
+
                 // Save to database with loading toast
                 const toastId = toast.loading("Updating task dates...");
                 startTransition(async () => {
@@ -195,11 +228,13 @@ export function DraggableSubtaskBar({
 
                     if (!result.success) {
                         toast.error(result.message, { id: toastId });
-                        // Reset live position on error to revert to original position
+                        // Revert optimistic update on error
+                        setOptimisticSubtask(subtask);
+                        setIsPendingUpdate(false);
                         setLivePosition(null);
                     } else {
                         toast.success("Task dates updated", { id: toastId });
-                        // Don't reset livePosition - let the useEffect handle it when server data arrives
+                        // Don't reset isPendingUpdate here - let the useEffect handle it when server data arrives
                     }
                 });
             } else if (isResizing && daysDelta !== 0) {
@@ -209,6 +244,15 @@ export function DraggableSubtaskBar({
                     newEndDate.setDate(newEndDate.getDate() + daysDelta);
 
                     if (newEndDate > startDate) {
+                        // Optimistically update the subtask state immediately
+                        setOptimisticSubtask(prev => ({
+                            ...prev,
+                            end: formatDate(newEndDate)
+                        }));
+
+                        // Mark that we're waiting for server update
+                        setIsPendingUpdate(true);
+
                         const toastId = toast.loading("Updating task duration...");
                         startTransition(async () => {
                             const result = await updateSubtaskDates(
@@ -221,6 +265,9 @@ export function DraggableSubtaskBar({
 
                             if (!result.success) {
                                 toast.error(result.message, { id: toastId });
+                                // Revert optimistic update on error
+                                setOptimisticSubtask(subtask);
+                                setIsPendingUpdate(false);
                                 setLivePosition(null);
                             } else {
                                 toast.success("Task duration updated", { id: toastId });
@@ -233,6 +280,15 @@ export function DraggableSubtaskBar({
                     newStartDate.setDate(newStartDate.getDate() + daysDelta);
 
                     if (newStartDate < endDate) {
+                        // Optimistically update the subtask state immediately
+                        setOptimisticSubtask(prev => ({
+                            ...prev,
+                            start: formatDate(newStartDate)
+                        }));
+
+                        // Mark that we're waiting for server update
+                        setIsPendingUpdate(true);
+
                         const toastId = toast.loading("Updating task start date...");
                         startTransition(async () => {
                             const result = await updateSubtaskDates(
@@ -245,6 +301,9 @@ export function DraggableSubtaskBar({
 
                             if (!result.success) {
                                 toast.error(result.message, { id: toastId });
+                                // Revert optimistic update on error
+                                setOptimisticSubtask(subtask);
+                                setIsPendingUpdate(false);
                                 setLivePosition(null);
                             } else {
                                 toast.success("Task start date updated", { id: toastId });
@@ -277,22 +336,22 @@ export function DraggableSubtaskBar({
 
     // Reset live position when subtask data changes (after server update)
     // Use a ref to track previous values to avoid resetting on every render
-    const prevDatesRef = useRef({ start: subtask.start, end: subtask.end });
+    const prevDatesRef = useRef({ start: optimisticSubtask.start, end: optimisticSubtask.end });
 
     useEffect(() => {
         // Only reset if we're not currently dragging AND the dates actually changed from server
         if (!isDragging && !isResizing) {
             const datesChanged =
-                prevDatesRef.current.start !== subtask.start ||
-                prevDatesRef.current.end !== subtask.end;
+                prevDatesRef.current.start !== optimisticSubtask.start ||
+                prevDatesRef.current.end !== optimisticSubtask.end;
 
             if (datesChanged) {
                 // Server data has updated, reset live position
                 setLivePosition(null);
-                prevDatesRef.current = { start: subtask.start, end: subtask.end };
+                prevDatesRef.current = { start: optimisticSubtask.start, end: optimisticSubtask.end };
             }
         }
-    }, [subtask.start, subtask.end, isDragging, isResizing]);
+    }, [optimisticSubtask.start, optimisticSubtask.end, isDragging, isResizing]);
 
     return (
         <div ref={containerRef} className="h-6 relative w-full group/bar">
@@ -324,7 +383,7 @@ export function DraggableSubtaskBar({
                             onMouseDown={handleBarMouseDown}
                             tabIndex={0}
                             role="button"
-                            aria-label={`${subtask.name}: ${formatDate(startDate)} to ${formatDate(endDate)}`}
+                            aria-label={`${optimisticSubtask.name}: ${formatDate(startDate)} to ${formatDate(endDate)}`}
                         >
                             {/* Resize handles */}
                             {workspaceId && projectId && (
@@ -382,7 +441,7 @@ export function DraggableSubtaskBar({
                     <TooltipContent side="top" className="bg-popover text-popover-foreground border shadow-lg max-w-xs">
                         <div className="space-y-1.5">
                             <div className="flex items-center gap-2">
-                                <p className="font-medium text-sm">{subtask.name}</p>
+                                <p className="font-medium text-sm">{optimisticSubtask.name}</p>
                                 {isBlocked && (
                                     <span className="px-1.5 py-0.5 text-xs bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 rounded">
                                         BLOCKED
@@ -405,14 +464,14 @@ export function DraggableSubtaskBar({
                                     💡 Drag to move • Drag edge to resize
                                 </p>
                             )}
-                            {isBlocked && subtask.blockedByNames && subtask.blockedByNames.length > 0 && (
+                            {isBlocked && optimisticSubtask.blockedByNames && optimisticSubtask.blockedByNames.length > 0 && (
                                 <div className="pt-1 border-t border-amber-200 dark:border-amber-800">
                                     <p className="text-xs text-amber-700 dark:text-amber-300 flex items-center gap-1">
                                         <AlertCircle className="h-3 w-3" />
                                         Waiting for:
                                     </p>
                                     <ul className="text-xs text-muted-foreground ml-4 mt-0.5">
-                                        {subtask.blockedByNames.map((name: string, idx: number) => (
+                                        {optimisticSubtask.blockedByNames.map((name: string, idx: number) => (
                                             <li key={idx}>• {name}</li>
                                         ))}
                                     </ul>
@@ -422,7 +481,7 @@ export function DraggableSubtaskBar({
                                 <div className="pt-1 border-t">
                                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                                         <Link className="h-3 w-3" />
-                                        Dependencies: {subtask.dependsOnIds.length}
+                                        Dependencies: {optimisticSubtask.dependsOnIds.length}
                                     </p>
                                 </div>
                             )}

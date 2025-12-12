@@ -39,7 +39,7 @@ async function TaskHeader({
     <div className="flex items-center justify-between">
       <h1 className="text-2xl font-bold">Your Tasks</h1>
       <div className="flex items-center gap-3">
-        <ReloadButton />
+        <ReloadButton projectId={pageData.project.id} userId={pageData.user.id} />
         {pageData.permissions.canPerformBulkOperations && (
           <>
             <BulkUploadForm projectId={pageData.project.id} />

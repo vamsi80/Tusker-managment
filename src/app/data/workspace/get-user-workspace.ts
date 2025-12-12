@@ -56,7 +56,7 @@ const getCachedUserWorkspaces = (userId: string) =>
     [`user-workspaces-${userId}`],
     {
       tags: [`user-workspaces-${userId}`],
-      revalidate: 60 * 60 * 24, // Revalidate every 24 hours
+      revalidate: 60, // Revalidate every 60 seconds
     }
   )();
 

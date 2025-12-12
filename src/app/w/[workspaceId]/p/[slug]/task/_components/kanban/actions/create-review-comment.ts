@@ -2,7 +2,6 @@
 import prisma from "@/lib/db";
 import { requireUser } from "@/app/data/user/require-user";
 import { getUserPermissions } from "@/app/data/user/get-user-permissions";
-import { revalidatePath } from "next/cache";
 import { invalidateReviewComments, invalidateProjectTasks } from "@/app/data/user/invalidate-project-cache";
 
 interface CreateReviewCommentResult {
@@ -111,17 +110,9 @@ export async function createReviewComment(
             },
         });
 
-        // 7. Invalidate caches - CRITICAL for UI updates!
-        if (subTask.parentTask?.project?.slug) {
-            // Revalidate the task page
-            revalidatePath(`/w/${workspaceId}/p/${subTask.parentTask.project.slug}/task`);
-
-            // Invalidate review comments cache
-            await invalidateReviewComments(subTaskId);
-
-            // Invalidate project tasks cache (for Kanban view)
-            await invalidateProjectTasks(projectId);
-        }
+        // 7. Invalidate caches using cache tags (faster than revalidatePath)
+        await invalidateReviewComments(subTaskId);
+        await invalidateProjectTasks(projectId);
 
         return {
             success: true,

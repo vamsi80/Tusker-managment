@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { InviteUserForm } from "./_components/create-user";
-import { requireAdmin } from "@/lib/requireAdmin";
+import { isAdminServer } from "@/app/data/workspace/requireAdmin";
 import { getWorkspaceMembers } from "@/app/data/workspace/get-workspace-members";
 import { TeamMembers } from "./_components/team-members";
 import { TeamMembersSkeleton } from "./_components/team-members-skeleton";
@@ -29,7 +29,7 @@ function TeamHeaderSkeleton() {
  * Wrapped in Suspense so page loads instantly
  */
 async function TeamHeader({ workspaceId }: { workspaceId: string }) {
-    const isAdmin = await requireAdmin(workspaceId);
+    const isAdmin = await isAdminServer(workspaceId);
 
     return (
         <div className="flex items-center justify-between">
@@ -48,7 +48,7 @@ async function TeamHeader({ workspaceId }: { workspaceId: string }) {
 async function TeamMembersList({ workspaceId }: { workspaceId: string }) {
     const [data, isAdmin] = await Promise.all([
         getWorkspaceMembers(workspaceId),
-        requireAdmin(workspaceId),
+        isAdminServer(workspaceId),
     ]);
     return (
         <TeamMembers
