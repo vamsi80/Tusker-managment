@@ -6,15 +6,7 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { CornerDownRight, GripVertical, Calendar, Tag, MoreHorizontal } from "lucide-react";
 import { SubTaskType } from "@/app/data/task/get-project-tasks";
 import { ColumnVisibility } from "./task-table-toolbar";
@@ -44,8 +36,6 @@ export function SubTaskRow({
     parentTaskId,
     onSubTaskUpdated,
     onSubTaskDeleted,
-    isSelected = false,
-    onSelectChange,
 }: SubTaskRowProps) {
     const [isUpdating, setIsUpdating] = useState(false);
 
@@ -60,7 +50,6 @@ export function SubTaskRow({
         id: subTask.id,
     });
 
-    // Restrict to vertical movement only
     const style = {
         transform: transform ? `translate3d(0, ${transform.y}px, 0)` : undefined,
         transition,
@@ -68,18 +57,12 @@ export function SubTaskRow({
         opacity: isDragging ? 0.5 : 1,
     };
 
-    // Handle subtask update
     const handleSubTaskUpdated = (updatedData: Partial<SubTaskType[number]>) => {
-        // Show skeleton briefly
         setIsUpdating(true);
-
-        // Update the subtask in parent state immediately (optimistic update)
         if (onSubTaskUpdated) {
             onSubTaskUpdated(subTask.id, updatedData);
         }
 
-        // Hide skeleton after parent state is updated
-        // The parent's useEffect will sync with server data when router.refresh() completes
         requestAnimationFrame(() => {
             setIsUpdating(false);
         });
@@ -87,7 +70,6 @@ export function SubTaskRow({
 
     const assignee = subTask.assignee?.workspaceMember?.user;
 
-    // Calculate due date and progress
     const calculateDueDate = () => {
         if (!subTask.startDate || !subTask.days) return null;
         const start = new Date(subTask.startDate);
@@ -104,7 +86,6 @@ export function SubTaskRow({
         const dueDate = new Date(start);
         dueDate.setDate(dueDate.getDate() + subTask.days);
 
-        // Calculate difference in days
         const diffTime = dueDate.getTime() - now.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
@@ -120,19 +101,17 @@ export function SubTaskRow({
         const totalDays = subTask.days;
         const percentRemaining = (remainingDays / totalDays) * 100;
 
-        // Color based on remaining time (quarters)
-        if (remainingDays < 0) return "bg-red-500"; // Overdue
-        if (percentRemaining > 75) return "bg-green-500"; // 75-100% time left
-        if (percentRemaining > 50) return "bg-yellow-500"; // 50-75% time left
-        if (percentRemaining > 25) return "bg-orange-500"; // 25-50% time left
-        return "bg-red-500"; // 0-25% time left
+        if (remainingDays < 0) return "bg-red-500";
+        if (percentRemaining > 75) return "bg-green-500";
+        if (percentRemaining > 50) return "bg-yellow-500";
+        if (percentRemaining > 25) return "bg-orange-500";
+        return "bg-red-500";
     };
 
     const dueDate = calculateDueDate();
     const remainingDays = calculateRemainingDays();
     const progressColor = getProgressColor();
 
-    // Show skeleton while updating
     if (isUpdating) {
         return (
             <TableRow className="bg-muted/10">
@@ -190,13 +169,6 @@ export function SubTaskRow({
             style={style}
             className="bg-muted/10 hover:bg-muted/20"
         >
-            {/* <TableCell className="pl-4">
-                <Checkbox
-                    checked={isSelected}
-                    onCheckedChange={onSelectChange}
-                    aria-label={`Select ${subTask.name}`}
-                />
-            </TableCell> */}
             <TableCell className="pl-4">
                 <Button
                     variant="ghost"
@@ -209,6 +181,7 @@ export function SubTaskRow({
                     <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
                 </Button>
             </TableCell>
+
             <TableCell className="pl-3">
                 <div className="flex items-center gap-2">
                     <CornerDownRight className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -220,6 +193,7 @@ export function SubTaskRow({
                     </span>
                 </div>
             </TableCell>
+
             {columnVisibility.description && (
                 <TableCell>
                     <span
@@ -248,6 +222,19 @@ export function SubTaskRow({
                     )}
                 </TableCell>
             )}
+
+            {columnVisibility.status && (
+                <TableCell>
+                    {subTask.status ? (
+                        <div className="flex items-center gap-1">
+                            <span className="text-xs text-muted-foreground">{subTask.status}</span>
+                        </div>
+                    ) : (
+                        <span className="text-muted-foreground text-xs">-</span>
+                    )}
+                </TableCell>
+            )}
+
             {columnVisibility.startDate && (
                 <TableCell>
                     {subTask.startDate ? (
@@ -260,6 +247,7 @@ export function SubTaskRow({
                     )}
                 </TableCell>
             )}
+
             {columnVisibility.dueDate && (
                 <TableCell>
                     {dueDate ? (
@@ -272,6 +260,7 @@ export function SubTaskRow({
                     )}
                 </TableCell>
             )}
+
             {columnVisibility.progress && (
                 <TableCell>
                     {subTask.startDate && subTask.days && remainingDays !== null ? (
@@ -291,17 +280,7 @@ export function SubTaskRow({
                     )}
                 </TableCell>
             )}
-            {columnVisibility.status && (
-                <TableCell>
-                    {subTask.status ? (
-                        <div className="flex items-center gap-1">
-                            <span className="text-xs text-muted-foreground">{subTask.status}</span>
-                        </div>
-                    ) : (
-                        <span className="text-muted-foreground text-xs">-</span>
-                    )}
-                </TableCell>
-            )}
+
             {columnVisibility.tag && (
                 <TableCell>
                     {subTask.tag ? (
@@ -314,6 +293,7 @@ export function SubTaskRow({
                     )}
                 </TableCell>
             )}
+
             <TableCell>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>

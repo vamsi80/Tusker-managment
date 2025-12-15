@@ -1,15 +1,15 @@
 import { Suspense } from "react";
-import { TaskHeaderSkeleton, TaskTableSkeleton } from "./task/_components/shared/task-page-skeleton";
-import { TaskPageWrapper } from "./task/_components/shared/task-page-wrapper";
 import { getTaskPageData } from "@/app/data/task/get-task-page-data";
+import { ReloadButton } from "./task/_components/shared/reload-button";
 import { CreateTaskForm } from "./task/_components/forms/create-task-form";
 import { BulkUploadForm } from "./task/_components/forms/bulk-upload-form";
-import { ReloadButton } from "./task/_components/shared/reload-button";
-import { TaskTableContainer } from "./task/_components/list/task-table-container";
-import { ReloadableTaskTable } from "./task/_components/list/reloadable-task-table";
-import { KanbanBoardSkeleton } from "./task/_components/kanban/kanban-skeleton";
 import { GanttChartSkeleton } from "./task/_components/gantt/gantt-skeleton";
 import { ProjectDashboard } from "./_components/dashboard/project-dashboard";
+import { TaskPageWrapper } from "./task/_components/shared/task-page-wrapper";
+import { KanbanBoardSkeleton } from "./task/_components/kanban/kanban-skeleton";
+import { TaskTableContainer } from "./task/_components/list/task-table-container";
+import { ReloadableTaskTable } from "./task/_components/list/reloadable-task-table";
+import { TaskHeaderSkeleton, TaskTableSkeleton } from "./task/_components/shared/task-page-skeleton";
 
 interface iAppProps {
   params: { workspaceId: string; slug: string };

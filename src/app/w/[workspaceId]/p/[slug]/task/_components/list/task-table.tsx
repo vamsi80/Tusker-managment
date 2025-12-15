@@ -378,10 +378,10 @@ export function TaskTable({
                                 <TableHead className="min-w-[250px]">Task Name</TableHead>
                                 {columnVisibility.description && <TableHead className="w-[200px]">Description</TableHead>}
                                 {columnVisibility.assignee && <TableHead className="w-[200px]">Assignee</TableHead>}
+                                {columnVisibility.status && <TableHead className="w-[120px]">Status</TableHead>}
                                 {columnVisibility.startDate && <TableHead className="w-[150px]">Start Date</TableHead>}
                                 {columnVisibility.dueDate && <TableHead className="w-[150px]">Due Date</TableHead>}
                                 {columnVisibility.progress && <TableHead className="w-[120px]">Progress</TableHead>}
-                                {columnVisibility.status && <TableHead className="w-[120px]">Status</TableHead>}
                                 {columnVisibility.tag && <TableHead className="w-[150px]">Tag</TableHead>}
                                 <TableHead className="w-[50px]"></TableHead>
                             </TableRow>

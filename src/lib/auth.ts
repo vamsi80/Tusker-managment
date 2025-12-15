@@ -36,6 +36,16 @@ export const auth = betterAuth({
     sendOnSignUp: true, // Automatically send verification email on signup
     autoSignInAfterVerification: true, // Auto sign-in after verification
     sendVerificationEmail: async ({ user, url, token }) => {
+      // Print verification link to console for development
+      console.log('\n==============================================');
+      console.log('📧 EMAIL VERIFICATION LINK');
+      console.log('==============================================');
+      console.log('User:', user.email);
+      console.log('Name:', user.name || 'N/A');
+      console.log('Verification URL:', url);
+      console.log('Token:', token);
+      console.log('==============================================\n');
+
       await sendEmail({
         to: user.email,
         subject: 'Verify your email address',

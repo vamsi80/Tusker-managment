@@ -116,7 +116,7 @@ export function TaskTableToolbar({
                         checked={columnVisibility.startDate}
                         onCheckedChange={() => toggleColumn("startDate")}
                     >
-                        Start Date
+                        Status
                     </DropdownMenuCheckboxItem>
                     <DropdownMenuCheckboxItem
                         checked={columnVisibility.dueDate}
@@ -134,7 +134,7 @@ export function TaskTableToolbar({
                         checked={columnVisibility.status}
                         onCheckedChange={() => toggleColumn("status")}
                     >
-                        Status
+                        Start Date
                     </DropdownMenuCheckboxItem>
                     <DropdownMenuCheckboxItem
                         checked={columnVisibility.tag}
