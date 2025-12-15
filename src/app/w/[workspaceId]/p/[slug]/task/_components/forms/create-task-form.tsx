@@ -13,9 +13,9 @@ import { tryCatch } from "@/hooks/try-catch";
 import { useConfetti } from "@/hooks/use-confetti";
 import { toast } from "sonner";
 import slugify from "slugify";
-import { createTask } from "../../../action";
 import { useRouter } from "next/navigation";
 import { useTaskContext } from "../shared/task-context";
+import { createTask } from "@/actions/task/create-task";
 
 interface iAppProps {
     projectId: string

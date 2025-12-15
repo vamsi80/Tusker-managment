@@ -173,7 +173,8 @@ src/
 │   └── constants/
 │       ├── permissions.ts
 │       ├── roles.ts
-│       └── status.ts
+│       ├── status.ts
+│       └── workspace-access.ts
 │
 ├── types/                      # ✅ Type definitions
 │   ├── api.ts

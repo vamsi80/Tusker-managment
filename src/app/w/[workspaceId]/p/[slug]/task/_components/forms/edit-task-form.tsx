@@ -12,7 +12,7 @@ import { taskSchema, TaskSchemaType } from "@/lib/zodSchemas";
 import { tryCatch } from "@/hooks/try-catch";
 import { toast } from "sonner";
 import slugify from "slugify";
-import { editTask } from "../../../action";
+import { editTask } from "@/actions/task/update-task";
 import { TaskWithSubTasks } from "../list/types";
 
 interface EditTaskDialogProps {

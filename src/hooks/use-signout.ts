@@ -18,5 +18,5 @@ export function useSignout() {
             },
         });
     }
-    return handleSignOut ;
+    return handleSignOut;
 }

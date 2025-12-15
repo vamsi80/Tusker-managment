@@ -5,7 +5,7 @@ import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
 import { projectSchema, ProjectSchemaType } from "@/lib/zodSchemas";
 import { ProjectRole } from "@/generated/prisma/client";
-import { hasWorkspacePermission } from "@/lib/workspace-access";
+import { hasWorkspacePermission } from "@/lib/constants/workspace-access";
 
 export async function createProject(values: ProjectSchemaType): Promise<ApiResponse> {
     const user = await requireUser();

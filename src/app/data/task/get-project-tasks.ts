@@ -62,6 +62,7 @@ async function _getProjectTasksInternal(
                 startDate: true,
                 days: true,
                 tag: true,
+                projectId: true,
                 createdAt: true,
                 updatedAt: true,
                 createdBy: {

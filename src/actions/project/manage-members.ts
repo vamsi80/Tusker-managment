@@ -4,7 +4,7 @@ import { requireUser } from "@/app/data/user/require-user";
 import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
 import { ProjectRole } from "@/generated/prisma/client";
-import { isWorkspaceAdmin } from "@/lib/workspace-access";
+import { isWorkspaceAdmin } from "@/lib/constants/workspace-access";
 
 /**
  * Add members to an existing project
