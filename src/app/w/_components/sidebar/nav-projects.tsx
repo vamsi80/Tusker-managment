@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { toast } from "sonner";
 import { useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
 import { EditProjectForm } from "./edit-project-form";
-import { deleteProject } from "../../[workspaceId]/action";
+import { ManageProjectMembersDialog } from "./manage-members-dialog";
+import { usePathname, useRouter } from "next/navigation";
+import { deleteProject } from "@/actions/project/delete-project";
 import { UserProjectsType } from "@/app/data/user/get-user-projects";
 import { WorkspaceMembersType } from "@/app/data/workspace/get-workspace-members";
 import { CreateProjectForm } from "../../[workspaceId]/p/_components/create-project-form";
-import { Building2Icon, MoreHorizontal, Eye, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Building2Icon, MoreHorizontal, Eye, Pencil, Trash2, Loader2, Users } from "lucide-react";
 import { getFullProjectData, FullProjectData } from "@/app/data/project/get-full-project-data";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuAction, useSidebar } from "@/components/ui/sidebar";
@@ -37,6 +38,10 @@ export function NavProjects({ projects, members, workspaceId, isAdmin }: iAppPro
   const [projectToEdit, setProjectToEdit] = useState<FullProjectData | null>(null);
   const [isLoadingProject, setIsLoadingProject] = useState(false);
 
+  // Manage members dialog state
+  const [manageMembersDialogOpen, setManageMembersDialogOpen] = useState(false);
+  const [projectToManageMembers, setProjectToManageMembers] = useState<FullProjectData | null>(null);
+
   const handleDeleteClick = (project: { id: string; name: string }) => {
     setProjectToDelete(project);
     setDeleteDialogOpen(true);
@@ -49,6 +54,24 @@ export function NavProjects({ projects, members, workspaceId, isAdmin }: iAppPro
       if (fullProjectData) {
         setProjectToEdit(fullProjectData);
         setEditDialogOpen(true);
+      } else {
+        toast.error("Failed to load project data");
+      }
+    } catch (error) {
+      console.error("Error loading project:", error);
+      toast.error("Failed to load project data");
+    } finally {
+      setIsLoadingProject(false);
+    }
+  };
+
+  const handleManageMembersClick = async (projectId: string) => {
+    setIsLoadingProject(true);
+    try {
+      const fullProjectData = await getFullProjectData(projectId);
+      if (fullProjectData) {
+        setProjectToManageMembers(fullProjectData);
+        setManageMembersDialogOpen(true);
       } else {
         toast.error("Failed to load project data");
       }
@@ -151,6 +174,20 @@ export function NavProjects({ projects, members, workspaceId, isAdmin }: iAppPro
                           <span>{isLoadingProject ? "Loading..." : "Edit Project"}</span>
                         </DropdownMenuItem>
 
+                        {/* Manage Members - Admin only */}
+                        <DropdownMenuItem
+                          className="flex items-center gap-2 cursor-pointer"
+                          disabled={isLoadingProject}
+                          onClick={() => handleManageMembersClick(proj.id)}
+                        >
+                          {isLoadingProject ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Users className="h-4 w-4" />
+                          )}
+                          <span>{isLoadingProject ? "Loading..." : "Manage Members"}</span>
+                        </DropdownMenuItem>
+
                         <DropdownMenuSeparator />
 
                         {/* Delete - Admin only */}
@@ -181,6 +218,29 @@ export function NavProjects({ projects, members, workspaceId, isAdmin }: iAppPro
             setEditDialogOpen(open);
             if (!open) setProjectToEdit(null);
           }}
+        />
+      )}
+
+      {/* Manage Members Dialog */}
+      {projectToManageMembers && (
+        <ManageProjectMembersDialog
+          open={manageMembersDialogOpen}
+          onOpenChange={(open) => {
+            setManageMembersDialogOpen(open);
+            if (!open) setProjectToManageMembers(null);
+          }}
+          projectId={projectToManageMembers.id}
+          projectName={projectToManageMembers.name}
+          currentMembers={
+            projectToManageMembers.projectMembers?.map((pm) => ({
+              id: pm.id,
+              userId: pm.userId,
+              userName: pm.userName || "Unknown",
+              projectRole: pm.projectRole,
+              hasAccess: pm.hasAccess,
+            })) || []
+          }
+          workspaceMembers={members}
         />
       )}
 

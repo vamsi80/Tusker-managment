@@ -115,9 +115,11 @@ model WorkspaceMember {
   reviewComments ReviewComment[]
 
   @@unique([userId, workspaceId])
+  @@index([workspaceId, workspaceRole])
 }
 
 enum WorkspaceRole {
+  OWNER
   ADMIN
   MEMBER
   VIEWER
@@ -160,6 +162,7 @@ model ProjectMember {
   tasks     Task[]
 
   @@unique([workspaceMemberId, projectId])
+  @@index([projectId, projectRole])
 }
 
 enum ProjectRole {

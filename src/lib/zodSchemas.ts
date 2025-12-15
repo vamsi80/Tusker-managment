@@ -5,7 +5,7 @@ export const SubTaskStatus = ["TO_DO", "IN_PROGRESS", "BLOCKED", "REVIEW", "COMP
 
 export const TaskTag = ["DESIGN", "PROCUREMENT", "CONTRACTOR"] as const
 
-export const workspaceMemberRole = ["ADMIN", "MEMBER", "VIEWER"] as const
+export const workspaceMemberRole = ["OWNER", "ADMIN", "MEMBER", "VIEWER"] as const
 
 export const projectRole = ["LEAD", "MEMBER", "VIEWER"] as const
 

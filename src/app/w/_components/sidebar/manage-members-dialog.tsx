@@ -1,0 +1,365 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Badge } from "@/components/ui/badge";
+import { Check, Loader2, Plus, Trash2, UserCog, Users } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { tryCatch } from "@/hooks/try-catch";
+import { addProjectMembers, removeProjectMembers, updateProjectMemberRole, toggleProjectMemberAccess } from "@/actions/project/manage-members";
+import { WorkspaceMembersResult } from "@/app/data/workspace/get-workspace-members";
+import { ProjectRole } from "@/generated/prisma/client";
+
+interface ProjectMember {
+    id: string;
+    userId: string;
+    userName: string;
+    projectRole: ProjectRole;
+    hasAccess: boolean;
+}
+
+interface ManageProjectMembersDialogProps {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    projectId: string;
+    projectName: string;
+    currentMembers: ProjectMember[];
+    workspaceMembers: WorkspaceMembersResult["workspaceMembers"];
+}
+
+export const ManageProjectMembersDialog = ({
+    open,
+    onOpenChange,
+    projectId,
+    projectName,
+    currentMembers,
+    workspaceMembers,
+}: ManageProjectMembersDialogProps) => {
+    const [pending, startTransition] = useTransition();
+    const [selectedMembersToAdd, setSelectedMembersToAdd] = useState<string[]>([]);
+    const router = useRouter();
+
+    // Get available members (workspace members not in project, excluding OWNER and ADMIN)
+    const currentMemberUserIds = new Set(currentMembers.map((m) => m.userId));
+    const availableMembers = workspaceMembers.filter(
+        (wm) => !currentMemberUserIds.has(wm.userId) && wm.workspaceRole !== "OWNER" && wm.workspaceRole !== "ADMIN"
+    );
+
+    const handleAddMembers = () => {
+        if (selectedMembersToAdd.length === 0) {
+            toast.error("Please select at least one member to add.");
+            return;
+        }
+
+        startTransition(async () => {
+            const { data: result, error } = await tryCatch(
+                addProjectMembers(projectId, selectedMembersToAdd)
+            );
+
+            if (error) {
+                toast.error(error.message);
+                console.error(error);
+                return;
+            }
+
+            if (result.status === "success") {
+                toast.success(result.message);
+                setSelectedMembersToAdd([]);
+                router.refresh();
+            } else {
+                toast.error(result.message);
+            }
+        });
+    };
+
+    const handleRemoveMember = (memberUserId: string) => {
+        startTransition(async () => {
+            const { data: result, error } = await tryCatch(
+                removeProjectMembers(projectId, [memberUserId])
+            );
+
+            if (error) {
+                toast.error(error.message);
+                console.error(error);
+                return;
+            }
+
+            if (result.status === "success") {
+                toast.success(result.message);
+                router.refresh();
+            } else {
+                toast.error(result.message);
+            }
+        });
+    };
+
+    const handleUpdateRole = (memberUserId: string, newRole: ProjectRole) => {
+        startTransition(async () => {
+            const { data: result, error } = await tryCatch(
+                updateProjectMemberRole(projectId, memberUserId, newRole)
+            );
+
+            if (error) {
+                toast.error(error.message);
+                console.error(error);
+                return;
+            }
+
+            if (result.status === "success") {
+                toast.success(result.message);
+                router.refresh();
+            } else {
+                toast.error(result.message);
+            }
+        });
+    };
+
+    const handleToggleAccess = (memberUserId: string) => {
+        startTransition(async () => {
+            const { data: result, error } = await tryCatch(
+                toggleProjectMemberAccess(projectId, memberUserId)
+            );
+
+            if (error) {
+                toast.error(error.message);
+                console.error(error);
+                return;
+            }
+
+            if (result.status === "success") {
+                toast.success(result.message);
+                router.refresh();
+            } else {
+                toast.error(result.message);
+            }
+        });
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="max-h-[90vh] w-[min(700px,95vw)] overflow-hidden">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                        <Users className="h-5 w-5" />
+                        Manage Project Members
+                    </DialogTitle>
+                    <DialogDescription>
+                        Manage members for <strong>{projectName}</strong>
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-6 overflow-y-auto max-h-[60vh] thin-scrollbar px-2">
+                    {/* Add Members Section */}
+                    <div className="space-y-3">
+                        <h3 className="text-sm font-semibold">Add Members</h3>
+                        <div className="flex gap-2">
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        className="flex-1 justify-between font-normal"
+                                        disabled={pending || availableMembers.length === 0}
+                                    >
+                                        {selectedMembersToAdd.length > 0 ? (
+                                            <span className="truncate">
+                                                {selectedMembersToAdd.length} member(s) selected
+                                            </span>
+                                        ) : availableMembers.length === 0 ? (
+                                            "No available members"
+                                        ) : (
+                                            "Select members to add"
+                                        )}
+                                    </Button>
+                                </PopoverTrigger>
+
+                                <PopoverContent className="p-0 w-64">
+                                    <Command>
+                                        <CommandInput placeholder="Search members…" />
+                                        <CommandEmpty>No members found.</CommandEmpty>
+                                        <CommandGroup className="max-h-64 overflow-auto">
+                                            {availableMembers.map((member) => {
+                                                const userName = member.user?.surname || "Unknown";
+                                                const isSelected = selectedMembersToAdd.includes(
+                                                    member.userId
+                                                );
+
+                                                return (
+                                                    <CommandItem
+                                                        key={member.userId}
+                                                        value={userName}
+                                                        onSelect={() => {
+                                                            if (isSelected) {
+                                                                setSelectedMembersToAdd(
+                                                                    selectedMembersToAdd.filter(
+                                                                        (id) => id !== member.userId
+                                                                    )
+                                                                );
+                                                            } else {
+                                                                setSelectedMembersToAdd([
+                                                                    ...selectedMembersToAdd,
+                                                                    member.userId,
+                                                                ]);
+                                                            }
+                                                        }}
+                                                    >
+                                                        <Check
+                                                            className={cn(
+                                                                "mr-2 h-4 w-4",
+                                                                isSelected
+                                                                    ? "opacity-100"
+                                                                    : "opacity-0"
+                                                            )}
+                                                        />
+                                                        {userName}
+                                                        <Badge
+                                                            variant="outline"
+                                                            className="ml-auto text-xs"
+                                                        >
+                                                            {member.workspaceRole}
+                                                        </Badge>
+                                                    </CommandItem>
+                                                );
+                                            })}
+                                        </CommandGroup>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
+
+                            <Button
+                                onClick={handleAddMembers}
+                                disabled={pending || selectedMembersToAdd.length === 0}
+                                size="default"
+                            >
+                                {pending ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <>
+                                        <Plus className="h-4 w-4 mr-1" />
+                                        Add
+                                    </>
+                                )}
+                            </Button>
+                        </div>
+                    </div>
+
+                    {/* Current Members Section */}
+                    <div className="space-y-3">
+                        <h3 className="text-sm font-semibold">
+                            Current Members ({currentMembers.filter(member => {
+                                const workspaceMember = workspaceMembers.find(wm => wm.userId === member.userId);
+                                return workspaceMember?.workspaceRole !== "ADMIN";
+                            }).length})
+                        </h3>
+                        <div className="space-y-2">
+                            {currentMembers.filter(member => {
+                                // Filter out workspace admins from display
+                                const workspaceMember = workspaceMembers.find(wm => wm.userId === member.userId);
+                                return workspaceMember?.workspaceRole !== "ADMIN";
+                            }).length === 0 ? (
+                                <p className="text-sm text-muted-foreground text-center py-4">
+                                    No members in this project yet.
+                                </p>
+                            ) : (
+                                currentMembers
+                                    .filter(member => {
+                                        // Filter out workspace admins from display
+                                        const workspaceMember = workspaceMembers.find(wm => wm.userId === member.userId);
+                                        return workspaceMember?.workspaceRole !== "ADMIN";
+                                    })
+                                    .map((member) => (
+                                        <div
+                                            key={member.id}
+                                            className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors"
+                                        >
+                                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium truncate">
+                                                        {member.userName}
+                                                    </p>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <Badge
+                                                            variant={
+                                                                member.projectRole === "LEAD"
+                                                                    ? "default"
+                                                                    : "secondary"
+                                                            }
+                                                            className="text-xs"
+                                                        >
+                                                            {member.projectRole}
+                                                        </Badge>
+                                                        {!member.hasAccess && (
+                                                            <Badge variant="destructive" className="text-xs">
+                                                                No Access
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-2">
+                                                {/* Role Selector */}
+                                                <Select
+                                                    value={member.projectRole}
+                                                    onValueChange={(value) =>
+                                                        handleUpdateRole(member.userId, value as ProjectRole)
+                                                    }
+                                                    disabled={pending}
+                                                >
+                                                    <SelectTrigger className="w-28 h-8 text-xs">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="LEAD">Lead</SelectItem>
+                                                        <SelectItem value="MEMBER">Member</SelectItem>
+                                                        <SelectItem value="VIEWER">Viewer</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+
+                                                {/* Toggle Access Button */}
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handleToggleAccess(member.userId)}
+                                                    disabled={pending}
+                                                    className="h-8"
+                                                >
+                                                    <UserCog className="h-3 w-3" />
+                                                </Button>
+
+                                                {/* Remove Button */}
+                                                <Button
+                                                    variant="destructive"
+                                                    size="sm"
+                                                    onClick={() => handleRemoveMember(member.userId)}
+                                                    disabled={pending}
+                                                    className="h-8"
+                                                >
+                                                    <Trash2 className="h-3 w-3" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex justify-end pt-4 border-t">
+                    <Button
+                        variant="outline"
+                        onClick={() => onOpenChange(false)}
+                        disabled={pending}
+                    >
+                        Close
+                    </Button>
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+};

@@ -20,6 +20,14 @@ export interface FullProjectData {
     // Team data
     projectLead: string | null;
     memberAccess: string[];
+    // Project members with full details
+    projectMembers?: Array<{
+        id: string;
+        userId: string;
+        userName: string;
+        projectRole: "LEAD" | "MEMBER" | "VIEWER";
+        hasAccess: boolean;
+    }>;
 }
 
 /**
@@ -40,7 +48,11 @@ export async function getFullProjectData(projectId: string): Promise<FullProject
                 },
                 projectMembers: {
                     include: {
-                        workspaceMember: true,
+                        workspaceMember: {
+                            include: {
+                                user: true,
+                            },
+                        },
                     },
                 },
                 workspace: {
@@ -78,6 +90,15 @@ export async function getFullProjectData(projectId: string): Promise<FullProject
             .filter((pm) => pm.projectRole !== "LEAD")
             .map((pm) => pm.workspaceMember.userId);
 
+        // Map project members with full details
+        const projectMembersData = project.projectMembers.map((pm) => ({
+            id: pm.id,
+            userId: pm.workspaceMember.userId,
+            userName: pm.workspaceMember.user?.surname || "Unknown",
+            projectRole: pm.projectRole,
+            hasAccess: pm.hasAccess,
+        }));
+
         return {
             id: project.id,
             name: project.name,
@@ -95,6 +116,8 @@ export async function getFullProjectData(projectId: string): Promise<FullProject
             // Team data
             projectLead: projectLead?.workspaceMember.userId || null,
             memberAccess: memberAccess,
+            // Project members
+            projectMembers: projectMembersData,
         };
     } catch (error) {
         console.error("Error fetching project data:", error);

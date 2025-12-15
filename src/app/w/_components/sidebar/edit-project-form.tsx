@@ -25,7 +25,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { editProjectSchema, EditProjectSchemaType } from "@/lib/zodSchemas";
 import { tryCatch } from "@/hooks/try-catch";
-import { editProject } from "../../[workspaceId]/action";
 import { toast } from "sonner";
 import { WorkspaceMembersResult } from "@/app/data/workspace/get-workspace-members";
 import { FullProjectData } from "@/app/data/project/get-full-project-data";
@@ -43,6 +42,7 @@ import {
     CommandItem,
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
+import { editProject } from "@/actions/project/update-project";
 
 interface EditProjectFormProps {
     project: FullProjectData;
@@ -357,110 +357,6 @@ export const EditProjectForm = ({
                                                                             value={userName}
                                                                             onSelect={() => {
                                                                                 field.onChange(member.userId);
-                                                                            }}
-                                                                        >
-                                                                            <Check
-                                                                                className={cn(
-                                                                                    "mr-2 h-4 w-4",
-                                                                                    isSelected
-                                                                                        ? "opacity-100"
-                                                                                        : "opacity-0"
-                                                                                )}
-                                                                            />
-                                                                            {userName} ({accessLevel})
-                                                                        </CommandItem>
-                                                                    );
-                                                                })}
-                                                        </CommandGroup>
-                                                    </Command>
-                                                </PopoverContent>
-                                            </Popover>
-                                        </div>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-
-                            {/* Project Members Selection */}
-                            <FormField
-                                control={form.control}
-                                name="memberAccess"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Project Members</FormLabel>
-                                        <FormDescription className="text-xs text-muted-foreground mb-2">
-                                            Select which workspace members should have access to this
-                                            project.
-                                        </FormDescription>
-                                        <div className="space-y-2">
-                                            <Popover>
-                                                <PopoverTrigger asChild>
-                                                    <Button
-                                                        variant="outline"
-                                                        className="w-full justify-between font-normal"
-                                                    >
-                                                        {field.value?.length ? (
-                                                            <span className="truncate">
-                                                                {field.value
-                                                                    .map((id) => {
-                                                                        const m = members?.find(
-                                                                            (m) => m.userId === id
-                                                                        );
-                                                                        return `${m?.user?.surname}`;
-                                                                    })
-                                                                    .join(", ")}
-                                                            </span>
-                                                        ) : (
-                                                            "Select members"
-                                                        )}
-                                                    </Button>
-                                                </PopoverTrigger>
-
-                                                <PopoverContent className="p-0 w-64">
-                                                    <Command>
-                                                        <CommandInput placeholder="Search members…" />
-                                                        <CommandEmpty>No members found.</CommandEmpty>
-                                                        <CommandGroup>
-                                                            {members
-                                                                ?.filter(
-                                                                    (m) =>
-                                                                        m.userId !== form.watch("projectLead") &&
-                                                                        m.workspaceRole === "MEMBER"
-                                                                )
-                                                                .map((member) => {
-                                                                    const userName = `${member.user?.surname}`;
-                                                                    const accessLevelRaw =
-                                                                        (member as any)?.accessLevel ??
-                                                                        (member as any)?.role ??
-                                                                        "Member";
-
-                                                                    const accessLevel =
-                                                                        typeof accessLevelRaw === "string"
-                                                                            ? accessLevelRaw.toLowerCase()
-                                                                            : "member";
-
-                                                                    const isSelected = field.value?.includes(
-                                                                        member.userId
-                                                                    );
-
-                                                                    return (
-                                                                        <CommandItem
-                                                                            key={member.userId}
-                                                                            value={userName}
-                                                                            onSelect={() => {
-                                                                                const current = field.value || [];
-                                                                                if (isSelected) {
-                                                                                    field.onChange(
-                                                                                        current.filter(
-                                                                                            (id) => id !== member.userId
-                                                                                        )
-                                                                                    );
-                                                                                } else {
-                                                                                    field.onChange([
-                                                                                        ...current,
-                                                                                        member.userId,
-                                                                                    ]);
-                                                                                }
                                                                             }}
                                                                         >
                                                                             <Check
