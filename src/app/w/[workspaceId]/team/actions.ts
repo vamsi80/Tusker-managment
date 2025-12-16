@@ -106,7 +106,7 @@ export async function inviteUserToWorkspace(
         revalidatePath(`/w/${workspaceId}/team`);
 
         // Invalidate the new user's workspace cache and workspace members cache
-        const { invalidateUserWorkspaces, invalidateWorkspaceMembers } = await import("@/app/data/user/invalidate-project-cache");
+        const { invalidateUserWorkspaces, invalidateWorkspaceMembers } = await import('@/lib/cache/invalidation');
         await invalidateUserWorkspaces(authUserId);
         await invalidateWorkspaceMembers(workspaceId);
 

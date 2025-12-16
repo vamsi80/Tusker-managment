@@ -10,7 +10,6 @@ import { TaskWithSubTasks } from "./types";
 import { Badge } from "@/components/ui/badge";
 import { EditTaskDialog } from "../forms/edit-task-form";
 import { DeleteTaskDialog } from "../forms/delete-task-form";
-import { useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface TaskRowProps {

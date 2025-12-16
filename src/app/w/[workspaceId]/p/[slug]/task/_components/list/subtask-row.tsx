@@ -8,20 +8,20 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { CornerDownRight, GripVertical, Calendar, Tag, MoreHorizontal } from "lucide-react";
-import { SubTaskType } from "@/app/data/task/get-project-tasks";
+import { FlatTaskType } from "@/data/task";
 import { ColumnVisibility } from "./task-table-toolbar";
 import { EditSubTaskForm } from "../forms/edit-subtask-form";
 import { DeleteSubTaskForm } from "../forms/delete-subtask-form";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 
 interface SubTaskRowProps {
-    subTask: SubTaskType[number];
+    subTask: FlatTaskType;
     columnVisibility: ColumnVisibility;
-    onClick?: (subTask: SubTaskType[number]) => void;
+    onClick?: (subTask: FlatTaskType) => void;
     members: ProjectMembersType;
     projectId: string;
     parentTaskId: string;
-    onSubTaskUpdated?: (subTaskId: string, updatedData: Partial<SubTaskType[number]>) => void;
+    onSubTaskUpdated?: (subTaskId: string, updatedData: Partial<FlatTaskType>) => void;
     onSubTaskDeleted?: (subTaskId: string) => void;
     isSelected?: boolean;
     onSelectChange?: (checked: boolean) => void;
@@ -57,7 +57,7 @@ export function SubTaskRow({
         opacity: isDragging ? 0.5 : 1,
     };
 
-    const handleSubTaskUpdated = (updatedData: Partial<SubTaskType[number]>) => {
+    const handleSubTaskUpdated = (updatedData: Partial<FlatTaskType>) => {
         setIsUpdating(true);
         if (onSubTaskUpdated) {
             onSubTaskUpdated(subTask.id, updatedData);

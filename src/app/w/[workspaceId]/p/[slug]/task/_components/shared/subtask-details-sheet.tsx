@@ -13,17 +13,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Calendar, Tag, User, ArrowUp, Loader2, MessageSquare, FileCheck, Paperclip, Download } from "lucide-react";
+import { FlatTaskType } from "@/data/task";
 import { SubTaskType } from "@/app/data/task/get-project-tasks";
 import { cn } from "@/lib/utils";
 import { createTaskComment, fetchTaskComments, fetchReviewComments } from "@/app/w/[workspaceId]/p/[slug]/task/_components/shared/actions/comment-actions";
 import { toast } from "sonner";
 
 interface SubTaskDetailsSheetProps {
-    subTask: SubTaskType[number] | null;
+    subTask: FlatTaskType | SubTaskType[number] | null;
     isOpen: boolean;
     onClose: () => void;
     disableUrlSync?: boolean;

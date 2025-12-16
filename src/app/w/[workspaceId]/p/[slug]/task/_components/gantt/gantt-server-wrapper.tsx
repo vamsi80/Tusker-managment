@@ -1,4 +1,4 @@
-import { getProjectTasks } from "@/app/data/task/get-project-tasks";
+import { getAllTasksFlat } from "@/data/task";
 import { GanttContainer } from "./gantt-container";
 import { validateDependencies } from "./utils";
 import { GanttSubtask, GanttTask } from "./types";
@@ -13,10 +13,25 @@ interface GanttServerWrapperProps {
  * This ensures data is fetched on the server (GET request) not client (POST request)
  */
 export async function GanttServerWrapper({ workspaceId, projectId }: GanttServerWrapperProps) {
-    const { tasks: tasksData } = await getProjectTasks(projectId, workspaceId, 1, 100);
+    // Get all tasks in a flat structure (parent tasks + subtasks)
+    const { tasks: allTasks } = await getAllTasksFlat(projectId, workspaceId);
 
-    // Sort tasks by position first
-    const sortedTasks = [...tasksData].sort((a, b) => {
+    // Separate parent tasks and subtasks
+    const parentTasks = allTasks.filter(task => task.parentTaskId === null);
+    const subtasksMap = new Map<string, typeof allTasks>();
+
+    allTasks.forEach(task => {
+        if (task.parentTaskId) {
+            if (!subtasksMap.has(task.parentTaskId)) {
+                subtasksMap.set(task.parentTaskId, []);
+            }
+            subtasksMap.get(task.parentTaskId)!.push(task);
+        }
+    });
+
+
+    // Sort parent tasks by position
+    const sortedParentTasks = [...parentTasks].sort((a, b) => {
         const posA = a.position ?? Number.MAX_SAFE_INTEGER;
         const posB = b.position ?? Number.MAX_SAFE_INTEGER;
         return posA - posB;
@@ -24,16 +39,19 @@ export async function GanttServerWrapper({ workspaceId, projectId }: GanttServer
 
     // Create a map of subtask ID to full subtask data for the details sheet
     const subtaskDataMap = new Map();
-    sortedTasks.forEach(task => {
-        task.subTasks?.forEach(subtask => {
-            subtaskDataMap.set(subtask.id, subtask);
-        });
+    allTasks.forEach(task => {
+        if (task.parentTaskId) {
+            subtaskDataMap.set(task.id, task);
+        }
     });
 
     // Transform data to GanttTask format
-    const ganttTasks: GanttTask[] = sortedTasks.map((task) => {
+    const ganttTasks: GanttTask[] = sortedParentTasks.map((parentTask) => {
+        // Get subtasks for this parent task
+        const taskSubtasks = subtasksMap.get(parentTask.id) || [];
+
         // Sort subtasks by position
-        const sortedSubTasks = (task.subTasks || []).sort((a, b) => {
+        const sortedSubTasks = taskSubtasks.sort((a, b) => {
             const posA = a.position ?? Number.MAX_SAFE_INTEGER;
             const posB = b.position ?? Number.MAX_SAFE_INTEGER;
             return posA - posB;
@@ -70,8 +88,8 @@ export async function GanttServerWrapper({ workspaceId, projectId }: GanttServer
         const validatedSubtasks = validateDependencies(rawSubtasks);
 
         return {
-            id: task.id,
-            name: task.name,
+            id: parentTask.id,
+            name: parentTask.name,
             subtasks: validatedSubtasks,
         };
     });

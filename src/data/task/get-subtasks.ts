@@ -54,6 +54,7 @@ async function _getSubTasksInternal(
                 days: true,
                 tag: true,
                 parentTaskId: true,
+                projectId: true,
                 createdAt: true,
                 updatedAt: true,
                 assignee: {
@@ -61,7 +62,6 @@ async function _getSubTasksInternal(
                         id: true,
                         workspaceMember: {
                             select: {
-                                id: true,
                                 user: {
                                     select: {
                                         id: true,
@@ -74,16 +74,12 @@ async function _getSubTasksInternal(
                         },
                     },
                 },
-                dependsOn: {
-                    select: {
-                        id: true,
-                        name: true,
-                        status: true,
-                    },
-                },
+                // Removed dependsOn - not needed for subtasks list
+                // Removed parentTask - we already know the parent
                 _count: {
                     select: {
                         reviewComments: true,
+                        subTasks: true,
                     },
                 },
             },
@@ -168,7 +164,7 @@ export const getSubTasks = cache(
 
         try {
             // Get user's permissions using the centralized function
-            const permissions = await getUserPermissions(workspaceId, projectId);
+            const permissions = await getUserPermissions(workspaceId, user.id);
 
             if (!permissions.workspaceMemberId) {
                 throw new Error("User does not have access to this project");

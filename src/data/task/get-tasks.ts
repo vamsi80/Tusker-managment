@@ -11,7 +11,7 @@ import { getUserPermissions } from "@/data/user/get-user-permissions";
 // ============================================
 
 /**
- * Internal function to fetch all tasks (parent + subtasks) for a project
+ * Internal function to fetch parent tasks with nested subtasks for a project
  * with role-based filtering
  */
 async function _getTasksInternal(
@@ -21,35 +21,25 @@ async function _getTasksInternal(
     workspaceMemberId: string,
     isMember: boolean
 ) {
-    // Build the where clause based on user role
+    // Build the where clause for parent tasks based on user role
     const whereClause = isMember
         ? {
             projectId: projectId,
-            OR: [
-                // Parent tasks where user has assigned subtasks
-                {
-                    parentTaskId: null,
-                    subTasks: {
-                        some: {
-                            assignee: {
-                                workspaceMemberId: workspaceMemberId,
-                            },
-                        },
-                    },
-                },
-                // Subtasks assigned to the user
-                {
-                    parentTaskId: { not: null },
+            parentTaskId: null, // Only parent tasks
+            subTasks: {
+                some: {
                     assignee: {
                         workspaceMemberId: workspaceMemberId,
                     },
                 },
-            ],
+            },
         }
         : {
             projectId: projectId,
+            parentTaskId: null, // Only parent tasks
         };
 
+    // Fetch parent tasks with nested subtasks
     const tasks = await prisma.task.findMany({
         where: whereClause,
         select: {
@@ -95,13 +85,7 @@ async function _getTasksInternal(
                     },
                 },
             },
-            parentTask: {
-                select: {
-                    id: true,
-                    name: true,
-                    taskSlug: true,
-                },
-            },
+            // Nested subtasks with full details
             subTasks: isMember
                 ? {
                     where: {
@@ -113,8 +97,45 @@ async function _getTasksInternal(
                         id: true,
                         name: true,
                         taskSlug: true,
+                        description: true,
                         status: true,
                         position: true,
+                        startDate: true,
+                        days: true,
+                        tag: true,
+                        parentTaskId: true,
+                        createdAt: true,
+                        updatedAt: true,
+                        assignee: {
+                            select: {
+                                id: true,
+                                workspaceMember: {
+                                    select: {
+                                        id: true,
+                                        user: {
+                                            select: {
+                                                id: true,
+                                                name: true,
+                                                surname: true,
+                                                image: true,
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                        dependsOn: {
+                            select: {
+                                id: true,
+                                name: true,
+                                status: true,
+                            },
+                        },
+                        _count: {
+                            select: {
+                                reviewComments: true,
+                            },
+                        },
                     },
                     orderBy: {
                         position: 'asc',
@@ -125,8 +146,45 @@ async function _getTasksInternal(
                         id: true,
                         name: true,
                         taskSlug: true,
+                        description: true,
                         status: true,
                         position: true,
+                        startDate: true,
+                        days: true,
+                        tag: true,
+                        parentTaskId: true,
+                        createdAt: true,
+                        updatedAt: true,
+                        assignee: {
+                            select: {
+                                id: true,
+                                workspaceMember: {
+                                    select: {
+                                        id: true,
+                                        user: {
+                                            select: {
+                                                id: true,
+                                                name: true,
+                                                surname: true,
+                                                image: true,
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                        dependsOn: {
+                            select: {
+                                id: true,
+                                name: true,
+                                status: true,
+                            },
+                        },
+                        _count: {
+                            select: {
+                                reviewComments: true,
+                            },
+                        },
                     },
                     orderBy: {
                         position: 'asc',
@@ -154,14 +212,9 @@ async function _getTasksInternal(
                 },
             },
         },
-        orderBy: [
-            {
-                parentTaskId: 'asc', // Parent tasks first (null comes first)
-            },
-            {
-                position: 'asc',
-            },
-        ],
+        orderBy: {
+            position: 'asc',
+        },
     });
 
     return { tasks };
@@ -195,19 +248,24 @@ const getCachedTasks = (
 // ============================================
 
 /**
- * Get all tasks (parent tasks and subtasks) for a project with role-based filtering
+ * Get parent tasks with nested subtasks for a project with role-based filtering
+ * 
+ * Returns a hierarchical structure where only parent tasks are at the top level,
+ * each containing their subtasks in the `subTasks` array.
  * 
  * Filtering Rules:
- * - ADMINs and LEADs: See all tasks and subtasks
- * - MEMBERs: Only see parent tasks that have at least one subtask assigned to them
- *           and only see their assigned subtasks
+ * - ADMINs and LEADs: See all parent tasks with all their subtasks
+ * - MEMBERs: Only see parent tasks that have at least one subtask assigned to them,
+ *           and only see their assigned subtasks within those parent tasks
  * 
  * @param projectId - The project ID
  * @param workspaceId - The workspace ID
- * @returns Object containing array of tasks
+ * @returns Object containing array of parent tasks with nested subtasks
  * 
  * @example
  * const { tasks } = await getTasks(projectId, workspaceId);
+ * // tasks is an array of parent tasks
+ * // Each parent task has a subTasks array containing its subtasks
  */
 export const getTasks = cache(
     async (projectId: string, workspaceId: string) => {

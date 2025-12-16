@@ -9,7 +9,6 @@ import {
 } from "@/lib/comment-helpers";
 import prisma from "@/lib/db";
 import { getTaskComments } from "@/app/data/comment/get-comments";
-import { getTaskPageData } from "@/app/data/task/get-task-page-data";
 
 /**
  * Server action to create a new comment on a task

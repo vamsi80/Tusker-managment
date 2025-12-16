@@ -1,4 +1,4 @@
-import { GanttTask, GanttSubtask, ComputedTaskDates, TimelineConfig, TimelineGranularity, DependencyLine } from "./types";
+import { GanttTask, GanttSubtask, ComputedTaskDates, TimelineGranularity, DependencyLine } from "./types";
 
 /**
  * Get current date (midnight) for today comparisons

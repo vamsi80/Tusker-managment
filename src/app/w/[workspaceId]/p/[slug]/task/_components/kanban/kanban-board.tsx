@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, PointerSensor, useSensor, useSensors, useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Badge } from "@/components/ui/badge";
-import { AllSubTaskType } from "@/app/data/task/get-project-tasks";
+import { SubTaskType } from "@/data/task";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 import { cn } from "@/lib/utils";
 import { KanbanCard } from "./kanban-card";
@@ -18,7 +18,7 @@ import { toast } from "sonner";
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED";
 
 interface KanbanBoardProps {
-    initialSubTasks: AllSubTaskType;
+    initialSubTasks: SubTaskType[];
     projectMembers: ProjectMembersType;
     workspaceId: string;
     projectId: string;
@@ -75,8 +75,8 @@ function DroppableColumn({
     onSubTaskClick,
 }: {
     column: typeof COLUMNS[number];
-    subTasks: AllSubTaskType;
-    onSubTaskClick: (subTask: AllSubTaskType[number]) => void;
+    subTasks: SubTaskType[];
+    onSubTaskClick: (subTask: SubTaskType) => void;
 }) {
     const { setNodeRef, isOver } = useDroppable({
         id: column.id,
@@ -146,12 +146,12 @@ function DroppableColumn({
 }
 
 export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, projectId }: KanbanBoardProps) {
-    const [subTasks, setSubTasks] = useState<AllSubTaskType>(initialSubTasks);
-    const [activeSubTask, setActiveSubTask] = useState<AllSubTaskType[number] | null>(null);
+    const [subTasks, setSubTasks] = useState<SubTaskType[]>(initialSubTasks);
+    const [activeSubTask, setActiveSubTask] = useState<SubTaskType | null>(null);
 
     // Subtask details sheet state
     const [isSheetOpen, setIsSheetOpen] = useState(false);
-    const [selectedSubTask, setSelectedSubTask] = useState<AllSubTaskType[number] | null>(null);
+    const [selectedSubTask, setSelectedSubTask] = useState<SubTaskType | null>(null);
 
     // Review comment dialog state
     const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
@@ -290,7 +290,7 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
         setActiveSubTask(null);
     };
 
-    const handleSubTaskClick = (subTask: AllSubTaskType[number]) => {
+    const handleSubTaskClick = (subTask: SubTaskType) => {
         setSelectedSubTask(subTask);
         setIsSheetOpen(true);
     };

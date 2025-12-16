@@ -1,4 +1,4 @@
-import { getAllProjectSubTasks } from "@/app/data/task/get-project-tasks";
+import { getAllSubTasks } from "@/data/task";
 import { getProjectMembers } from "@/data/project/get-project-members";
 import { KanbanBoard } from "./kanban-board";
 
@@ -9,7 +9,7 @@ interface KanbanContainerProps {
 
 export async function KanbanContainer({ workspaceId, projectId }: KanbanContainerProps) {
     const [subTasksData, projectMembers] = await Promise.all([
-        getAllProjectSubTasks(projectId, workspaceId),
+        getAllSubTasks(projectId, workspaceId),
         getProjectMembers(projectId),
     ]);
 

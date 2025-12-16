@@ -6,8 +6,7 @@ import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Loader2, ChevronsDown } from "lucide-react";
-
-import { ProjectTasksResponse, getProjectTasks, getTaskSubTasks, SubTaskType } from "@/app/data/task/get-project-tasks";
+import { FlatTaskType } from "@/data/task";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 import { TaskTableToolbar, ColumnVisibility } from "./task-table-toolbar";
 import { TaskRow } from "./task-row";
@@ -15,13 +14,13 @@ import { SubTaskList } from "./subtask-list";
 import { TaskWithSubTasks } from "./types";
 import { SubTaskDetailsSheet } from "../shared/subtask-details-sheet";
 import { useNewTask } from "../shared/task-page-wrapper";
-
 import { toast } from "sonner";
 import { useSearchParams } from "next/navigation";
 
-
 interface TaskTableProps {
-    initialTasksData: ProjectTasksResponse;
+    initialTasks: TaskWithSubTasks[];
+    initialHasMore: boolean;
+    initialTotalCount: number;
     members: ProjectMembersType;
     workspaceId: string;
     projectId: string;
@@ -29,26 +28,29 @@ interface TaskTableProps {
 }
 
 /**
- * Main task table component with drag-and-drop, filtering, and pagination
+ * Main task table component with drag-and-drop and filtering
+ * Supports pagination for both parent tasks and subtasks
  */
 export function TaskTable({
-    initialTasksData,
+    initialTasks,
+    initialHasMore,
+    initialTotalCount,
     members,
     workspaceId,
     projectId,
     canCreateSubTask,
 }: TaskTableProps) {
-    // Task state
-    const [tasks, setTasks] = useState<TaskWithSubTasks[]>(initialTasksData.tasks);
-    const [currentPage, setCurrentPage] = useState(initialTasksData.currentPage);
-    const [hasMoreTasks, setHasMoreTasks] = useState(initialTasksData.hasMore);
+    // Task state with pagination
+    const [tasks, setTasks] = useState<TaskWithSubTasks[]>(initialTasks);
+    const [hasMoreTasks, setHasMoreTasks] = useState(initialHasMore);
+    const [currentPage, setCurrentPage] = useState(1);
     const [loadingMoreTasks, setLoadingMoreTasks] = useState(false);
     const { newTask, clearNewTask } = useNewTask();
     const searchParams = useSearchParams();
 
     useEffect(() => {
         setTasks(prevTasks => {
-            return initialTasksData.tasks.map(serverTask => {
+            return initialTasks.map((serverTask: TaskWithSubTasks) => {
                 const existingTask = prevTasks.find(t => t.id === serverTask.id);
                 if (existingTask?.subTasks) {
                     return {
@@ -62,9 +64,7 @@ export function TaskTable({
                 return serverTask;
             });
         });
-        setCurrentPage(initialTasksData.currentPage);
-        setHasMoreTasks(initialTasksData.hasMore);
-    }, [initialTasksData]);
+    }, [initialTasks]);
 
     useEffect(() => {
         if (newTask) {
@@ -73,7 +73,7 @@ export function TaskTable({
         }
     }, [newTask, clearNewTask]);
 
-    const handleSubTaskUpdated = (taskId: string, subTaskId: string, updatedData: Partial<SubTaskType[number]>) => {
+    const handleSubTaskUpdated = (taskId: string, subTaskId: string, updatedData: Partial<FlatTaskType>) => {
         setTasks(prevTasks =>
             prevTasks.map(task => {
                 if (task.id === taskId && task.subTasks) {
@@ -99,7 +99,10 @@ export function TaskTable({
                     return {
                         ...task,
                         subTasks: newSubTasks,
-                        _count: { subTasks: newSubTasks.length },
+                        _count: {
+                            ...task._count,
+                            subTasks: newSubTasks.length
+                        },
                     };
                 }
                 return task;
@@ -115,7 +118,10 @@ export function TaskTable({
                     return {
                         ...task,
                         subTasks: [...currentSubTasks, newSubTask],
-                        _count: { subTasks: currentSubTasks.length + 1 },
+                        _count: {
+                            ...task._count,
+                            subTasks: currentSubTasks.length + 1
+                        },
                     };
                 }
                 return task;
@@ -139,7 +145,7 @@ export function TaskTable({
         description: true,
     });
 
-    const [selectedSubTask, setSelectedSubTask] = useState<SubTaskType[number] | null>(null);
+    const [selectedSubTask, setSelectedSubTask] = useState<FlatTaskType | null>(null);
     const [isSheetOpen, setIsSheetOpen] = useState(false);
 
     // Handle URL-based subtask opening
@@ -164,7 +170,7 @@ export function TaskTable({
         }
     }, [searchParams, tasks]);
 
-    const handleSubTaskClick = (subTask: SubTaskType[number]) => {
+    const handleSubTaskClick = (subTask: FlatTaskType) => {
         setSelectedSubTask(subTask);
         setIsSheetOpen(true);
     };
@@ -174,17 +180,27 @@ export function TaskTable({
         setTimeout(() => setSelectedSubTask(null), 300);
     };
 
+    // Load more parent tasks (10 at a time)
     const loadMoreTasks = async () => {
+        if (loadingMoreTasks || !hasMoreTasks) return;
+
         setLoadingMoreTasks(true);
         try {
             const nextPage = currentPage + 1;
-            const result = await getProjectTasks(projectId, workspaceId, nextPage, 10);
+            const response = await fetch(
+                `/api/w/${workspaceId}/p/${projectId}/tasks?projectId=${projectId}&page=${nextPage}&pageSize=10`
+            );
 
-            setTasks((prev) => [...prev, ...result.tasks]);
-            setCurrentPage(nextPage);
+            if (!response.ok) throw new Error("Failed to fetch tasks");
+
+            const result = await response.json();
+
+            setTasks(prev => [...prev, ...result.tasks]);
             setHasMoreTasks(result.hasMore);
+            setCurrentPage(nextPage);
         } catch (error) {
             console.error("Error loading more tasks:", error);
+            toast.error("Failed to load more tasks");
         } finally {
             setLoadingMoreTasks(false);
         }
@@ -200,13 +216,19 @@ export function TaskTable({
                 setLoadingSubTasks((prev) => ({ ...prev, [taskId]: true }));
 
                 try {
-                    const result = await getTaskSubTasks(taskId, workspaceId, projectId, 1, 10);
+                    const response = await fetch(
+                        `/api/w/${workspaceId}/p/${projectId}/subtasks?parentTaskId=${taskId}&projectId=${projectId}&page=1&pageSize=10`
+                    );
+
+                    if (!response.ok) throw new Error("Failed to fetch subtasks");
+
+                    const result = await response.json();
                     setTasks((prevTasks) =>
                         prevTasks.map((t) =>
                             t.id === taskId
                                 ? {
                                     ...t,
-                                    subTasks: result.subTasks,
+                                    subTasks: result.subTasks as FlatTaskType[],
                                     subTasksHasMore: result.hasMore,
                                     subTasksPage: 1,
                                 }
@@ -230,14 +252,20 @@ export function TaskTable({
 
         try {
             const nextPage = (task.subTasksPage || 1) + 1;
-            const result = await getTaskSubTasks(taskId, workspaceId, projectId, nextPage, 10);
+            const response = await fetch(
+                `/api/w/${workspaceId}/p/${projectId}/subtasks?parentTaskId=${taskId}&projectId=${projectId}&page=${nextPage}&pageSize=10`
+            );
+
+            if (!response.ok) throw new Error("Failed to fetch subtasks");
+
+            const result = await response.json();
 
             setTasks((prevTasks) =>
                 prevTasks.map((t) =>
                     t.id === taskId
                         ? {
                             ...t,
-                            subTasks: [...(t.subTasks || []), ...result.subTasks],
+                            subTasks: [...(t.subTasks || []), ...(result.subTasks as FlatTaskType[])],
                             subTasksHasMore: result.hasMore,
                             subTasksPage: nextPage,
                         }
@@ -445,6 +473,7 @@ export function TaskTable({
                                 </TableRow>
                             )}
 
+                            {/* Load More Parent Tasks */}
                             {hasMoreTasks && (
                                 <TableRow>
                                     <TableCell colSpan={9} className="text-center p-4">

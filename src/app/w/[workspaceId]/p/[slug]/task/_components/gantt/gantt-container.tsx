@@ -6,13 +6,13 @@ import { GanttTask } from "./types";
 import { SubTaskDetailsSheet } from "../shared/subtask-details-sheet";
 import { Button } from "@/components/ui/button";
 import { ChevronDown } from "lucide-react";
-import { SubTaskType } from "@/app/data/task/get-project-tasks";
+import { FlatTaskType } from "@/data/task";
 
 interface GanttContainerProps {
     workspaceId: string;
     projectId: string;
     initialTasks: GanttTask[];
-    subtaskDataMap: Map<string, SubTaskType[number]>;
+    subtaskDataMap: Map<string, FlatTaskType>;
 }
 
 const TASKS_PER_PAGE = 10;

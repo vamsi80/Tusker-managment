@@ -7,14 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Calendar, Tag, GripVertical, MessageSquare, AlertCircle } from "lucide-react";
-import { AllSubTaskType } from "@/app/data/task/get-project-tasks";
+import { SubTaskType } from "@/data/task";
 import { cn } from "@/lib/utils";
 
 interface KanbanCardProps {
-    subTask: AllSubTaskType[number];
+    subTask: SubTaskType;
     columnColor: string;
     isDragging?: boolean;
-    onSubTaskClick?: (subTask: AllSubTaskType[number]) => void;
+    onSubTaskClick?: (subTask: SubTaskType) => void;
 }
 
 export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTaskClick }: KanbanCardProps) {
