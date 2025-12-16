@@ -6,8 +6,8 @@ import prisma from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { inviteUserSchema, InviteUserSchemaType } from "@/lib/zodSchemas";
 import { ApiResponse } from "@/lib/types";
-import { requireAdmin } from "@/app/data/workspace/requireAdmin";
-import { requireUser } from "@/app/data/user/require-user";
+import { requireAdmin } from "@/data/user/requireAdmin";
+import { requireUser } from "@/data/user/require-user";
 
 /**
  * Invite a user: create auth user, upsert app user, upsert workspace membership.
@@ -142,6 +142,8 @@ export async function inviteUserToWorkspace(
     }
 }
 
+import { getWorkspaceById } from "@/data/workspace/get-workspace-by-id";
+
 /**
  * Delete a workspace member and completely remove the user from the system.
  * This includes deleting from: users table, workspace members, project members, tasks, and Better Auth.
@@ -154,21 +156,20 @@ export async function deleteWorkspaceMember(
 
     try {
         // 1. Check if workspace exists and get member info
-        const workspace = await prisma.workspace.findUnique({
-            where: { id: workspaceId },
-            include: {
-                members: {
-                    include: {
-                        user: true,
-                    },
-                },
-            },
-        });
+        const workspace = await getWorkspaceById(workspaceId);
+
 
         if (!workspace) {
             return {
                 status: "error",
                 message: "Workspace not found.",
+            };
+        }
+
+        if (!workspace.members || workspace.members.length === 0) {
+            return {
+                status: "error",
+                message: "Workspace has no members.",
             };
         }
 
@@ -180,6 +181,7 @@ export async function deleteWorkspaceMember(
                 message: "Only workspace admins can remove members.",
             };
         }
+
 
         // 3. Find the member to delete
         const memberToDelete = workspace.members.find((m) => m.id === workspaceMemberId);

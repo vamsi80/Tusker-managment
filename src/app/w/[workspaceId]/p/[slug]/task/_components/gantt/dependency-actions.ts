@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireUser } from "@/app/data/user/require-user";
+import { requireUser } from "@/data/user/require-user";
 import prisma from "@/lib/db";
 
 interface AddDependencyResult {

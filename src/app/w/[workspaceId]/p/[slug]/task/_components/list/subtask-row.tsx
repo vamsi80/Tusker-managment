@@ -12,7 +12,7 @@ import { SubTaskType } from "@/app/data/task/get-project-tasks";
 import { ColumnVisibility } from "./task-table-toolbar";
 import { EditSubTaskForm } from "../forms/edit-subtask-form";
 import { DeleteSubTaskForm } from "../forms/delete-subtask-form";
-import { ProjectMembersType } from "@/app/data/project/get-project-members";
+import { ProjectMembersType } from "@/data/project/get-project-members";
 
 interface SubTaskRowProps {
     subTask: SubTaskType[number];

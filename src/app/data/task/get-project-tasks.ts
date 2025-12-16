@@ -3,8 +3,8 @@
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import prisma from "@/lib/db";
-import { requireUser } from "@/app/data/user/require-user";
-import { getUserPermissions } from "@/app/data/user/get-user-permissions";
+import { requireUser } from "@/data/user/require-user";
+import { getUserPermissions } from "@/data/user/get-user-permissions";
 
 // ============================================
 // INTERNAL FUNCTIONS (Actual DB queries)

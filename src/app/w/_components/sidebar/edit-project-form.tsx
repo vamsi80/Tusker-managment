@@ -27,7 +27,7 @@ import { editProjectSchema, EditProjectSchemaType } from "@/lib/zodSchemas";
 import { tryCatch } from "@/hooks/try-catch";
 import { toast } from "sonner";
 import { WorkspaceMembersResult } from "@/app/data/workspace/get-workspace-members";
-import { FullProjectData } from "@/app/data/project/get-full-project-data";
+import { FullProjectData } from "@/data/project/get-full-project-data";
 import slugify from "slugify";
 import {
     Popover,

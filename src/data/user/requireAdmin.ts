@@ -2,8 +2,8 @@
 import "server-only";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
-import { requireUser } from "@/app/data/user/require-user";
-import { getUserWorkspaces } from "@/app/data/workspace/get-user-workspace";
+import { requireUser } from "@/data/user/require-user";
+import { getUserWorkspaces } from "./get-user-workspace";
 
 export class ForbiddenError extends Error {
   constructor(message: string) {

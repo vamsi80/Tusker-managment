@@ -1,5 +1,5 @@
 "use server";
-import { getUserPermissions } from "@/app/data/user/get-user-permissions";
+import { getUserPermissions } from "@/data/user/get-user-permissions";
 import { invalidateProjectTasks } from "@/app/data/user/invalidate-project-cache";
 import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";

@@ -4,7 +4,7 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Loader2, ChevronsDown } from "lucide-react";
-import { ProjectMembersType } from "@/app/data/project/get-project-members";
+import { ProjectMembersType } from "@/data/project/get-project-members";
 import { SubTaskType } from "@/app/data/task/get-project-tasks";
 import { CreateSubTaskForm } from "../forms/create-subTask-form";
 // import { BulkCreateSubTaskForm } from "../forms/bulk-create-subtask-form";

@@ -1,11 +1,11 @@
 "use server";
 
 import { cache } from "react";
-import { requireUser } from "@/app/data/user/require-user";
-import { getProjectBySlug } from "@/app/data/project/get-project-by-slug";
-import { getUserPermissions } from "@/app/data/user/get-user-permissions";
-import { getProjectMembers } from "@/app/data/project/get-project-members";
-import { getUserProjects } from "@/app/data/user/get-user-projects";
+import { requireUser } from "@/data/user/require-user";
+import { getProjectBySlug } from "@/data/project/get-project-by-slug";
+import { getUserPermissions } from "@/data/user/get-user-permissions";
+import { getProjectMembers } from "@/data/project/get-project-members";
+import { getUserProjects } from "@/data/user/get-user-projects";
 
 /**
  * Optimized data fetching for task page

@@ -2,7 +2,7 @@
 
 import { cache } from "react";
 import prisma from "@/lib/db";
-import { requireUser } from "@/app/data/user/require-user";
+import { requireUser } from "@/data/user/require-user";
 
 export const getUserPermissions = cache(async (workspaceId: string, projectId: string) => {
     const user = await requireUser();

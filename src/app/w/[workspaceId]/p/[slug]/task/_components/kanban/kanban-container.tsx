@@ -1,5 +1,5 @@
 import { getAllProjectSubTasks } from "@/app/data/task/get-project-tasks";
-import { getProjectMembers } from "@/app/data/project/get-project-members";
+import { getProjectMembers } from "@/data/project/get-project-members";
 import { KanbanBoard } from "./kanban-board";
 
 interface KanbanContainerProps {

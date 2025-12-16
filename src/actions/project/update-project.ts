@@ -2,13 +2,11 @@
 
 import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
-import { ProjectRole } from "@/generated/prisma";
-import { requireUser } from "@/app/data/user/require-user";
 import { EditProjectSchemaType, editProjectSchema } from "@/lib/zodSchemas";
-import { checkProjectAdminAccess } from "@/app/data/project/check-project-admin";
+import { getUserPermissions } from "@/data/user/get-user-permissions";
+import { isProjectAdmin } from "@/lib/constants/project-access";
 
 export async function editProject(values: EditProjectSchemaType): Promise<ApiResponse> {
-    const user = await requireUser();
 
     try {
         // Validate input
@@ -20,18 +18,40 @@ export async function editProject(values: EditProjectSchemaType): Promise<ApiRes
             };
         }
 
-        // Check if user has admin access (workspace admin or project lead)
-        // Include all workspace members since we need them for member access updates
-        const access = await checkProjectAdminAccess(values.projectId, true);
+        // Fetch project with workspace members for member access updates
+        const project = await prisma.project.findUnique({
+            where: { id: values.projectId },
+            include: {
+                workspace: {
+                    include: {
+                        members: true,
+                    },
+                },
+                clint: true,
+            },
+        });
 
-        if (!access.isAdmin) {
+        if (!project) {
+            return {
+                status: "error",
+                message: "Project not found.",
+            };
+        }
+
+        // Get user permissions for this project
+        const permissions = await getUserPermissions(project.workspaceId, values.projectId);
+
+        // Check if user has admin access (workspace admin or project lead)
+        const workspaceRole = permissions.workspaceMember?.workspaceRole;
+        const projectRole = permissions.projectMember?.projectRole || null;
+
+        if (!workspaceRole || !isProjectAdmin(projectRole, workspaceRole)) {
             return {
                 status: "error",
                 message: "Only workspace owners/admins and project leads can edit projects.",
             };
         }
 
-        const project = access.project!;
 
         // 3. Check if slug is unique (if slug is being changed)
         if (validation.data.slug && validation.data.slug !== project.slug) {

@@ -5,7 +5,7 @@ import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, 
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Badge } from "@/components/ui/badge";
 import { AllSubTaskType } from "@/app/data/task/get-project-tasks";
-import { ProjectMembersType } from "@/app/data/project/get-project-members";
+import { ProjectMembersType } from "@/data/project/get-project-members";
 import { cn } from "@/lib/utils";
 import { KanbanCard } from "./kanban-card";
 import { KanbanToolbar } from "./kanban-toolbar";

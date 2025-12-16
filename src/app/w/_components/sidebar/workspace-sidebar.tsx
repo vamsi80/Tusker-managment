@@ -4,9 +4,9 @@ import { NavMain } from "./nav-main";
 import { NavProjectsAsync } from "./nav-projects-async";
 import { NavWorkspacesSelector } from "./nav-workspaces-selector";
 import { IconDashboard, IconPackageImport, IconTruck, IconUsersPlus } from "@tabler/icons-react";
-import { UserWorkspacesType } from "@/app/data/workspace/get-user-workspace";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
 import { NavProjectsSkeleton } from "./projects-skeleton";
+import { UserWorkspacesType } from "@/data/user/get-user-workspace";
 
 interface iAppProps {
   data: UserWorkspacesType;

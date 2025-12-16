@@ -2,7 +2,7 @@
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import prisma from "@/lib/db";
-import { NotFoundError } from "../user/errors";
+import { NotFoundError } from "@/app/data/user/errors";
 
 /**
  * Types - adjust to match your Prisma schema if necessary

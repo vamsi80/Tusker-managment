@@ -1,11 +1,13 @@
 "use server";
 
-import { requireUser } from "@/app/data/user/require-user";
+import { requireUser } from "@/data/user/require-user";
 import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
 import { projectSchema, ProjectSchemaType } from "@/lib/zodSchemas";
 import { ProjectRole } from "@/generated/prisma/client";
 import { hasWorkspacePermission } from "@/lib/constants/workspace-access";
+
+import { getWorkspaceById } from "@/data/workspace/get-workspace-by-id";
 
 export async function createProject(values: ProjectSchemaType): Promise<ApiResponse> {
     const user = await requireUser();
@@ -26,14 +28,8 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
     }
 
     try {
-        const workspace = await prisma.workspace.findUnique({
-            where: { id: values.workspaceId },
-            include: {
-                members: {
-                    include: { user: true },
-                },
-            },
-        });
+        const workspace = await getWorkspaceById(values.workspaceId);
+
 
         if (!workspace) {
             return { status: "error", message: "The requested workspace could not be found." };

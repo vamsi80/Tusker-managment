@@ -1,5 +1,5 @@
 import { getProjectTasks } from "@/app/data/task/get-project-tasks";
-import { ProjectMembersType } from "@/app/data/project/get-project-members";
+import { ProjectMembersType } from "@/data/project/get-project-members";
 import { TaskTable } from "./task-table";
 
 interface TaskTableContainerProps {

@@ -3,7 +3,7 @@
 import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
 import { workSpaceSchema, WorkSpaceSchemaType } from "@/lib/zodSchemas";
-import { requireUser } from "@/app/data/user/require-user";
+import { requireUser } from "@/data/user/require-user";
 import { generateInviteCode } from "@/utils/get-invite-code";
 
 export async function createWorkSpace(values: WorkSpaceSchemaType): Promise<ApiResponse> {

@@ -3,7 +3,7 @@
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import prisma from "@/lib/db";
-import { requireUser } from "@/app/data/user/require-user";
+import { requireUser } from "@/data/user/require-user";
 
 /**
  * Internal function to fetch task comments

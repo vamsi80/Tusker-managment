@@ -1,8 +1,8 @@
 "use server";
 
-import { getUserPermissions } from "@/app/data/user/get-user-permissions";
+import { getUserPermissions } from "@/data/user/get-user-permissions";
 import { invalidateProjectTasks, invalidateTaskSubTasks } from "@/app/data/user/invalidate-project-cache";
-import { requireUser } from "@/app/data/user/require-user";
+import { requireUser } from "@/data/user/require-user";
 import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
 import { SubTaskSchemaType, subTaskSchema } from "@/lib/zodSchemas";

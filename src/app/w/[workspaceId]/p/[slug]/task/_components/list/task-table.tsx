@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, ChevronsDown } from "lucide-react";
 
 import { ProjectTasksResponse, getProjectTasks, getTaskSubTasks, SubTaskType } from "@/app/data/task/get-project-tasks";
-import { ProjectMembersType } from "@/app/data/project/get-project-members";
+import { ProjectMembersType } from "@/data/project/get-project-members";
 import { TaskTableToolbar, ColumnVisibility } from "./task-table-toolbar";
 import { TaskRow } from "./task-row";
 import { SubTaskList } from "./subtask-list";

@@ -1,8 +1,8 @@
 "use server";
 
 import prisma from "@/lib/db";
-import { requireUser } from "@/app/data/user/require-user";
-import { getUserPermissions } from "@/app/data/user/get-user-permissions";
+import { requireUser } from "@/data/user/require-user";
+import { getUserPermissions } from "@/data/user/get-user-permissions";
 import { revalidatePath } from "next/cache";
 
 interface UpdatePositionInput {

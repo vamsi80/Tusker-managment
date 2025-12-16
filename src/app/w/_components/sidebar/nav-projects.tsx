@@ -11,7 +11,7 @@ import { UserProjectsType } from "@/app/data/user/get-user-projects";
 import { WorkspaceMembersType } from "@/app/data/workspace/get-workspace-members";
 import { CreateProjectForm } from "../../[workspaceId]/p/_components/create-project-form";
 import { Building2Icon, MoreHorizontal, Eye, Pencil, Trash2, Loader2, Users } from "lucide-react";
-import { getFullProjectData, FullProjectData } from "@/app/data/project/get-full-project-data";
+import { getFullProjectData, FullProjectData } from "@/data/project/get-full-project-data";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuAction, useSidebar } from "@/components/ui/sidebar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, } from "@/components/ui/alert-dialog";

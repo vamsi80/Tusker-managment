@@ -1,7 +1,7 @@
 import React from "react";
 import { notFound } from "next/navigation";
-import { getUserWorkspaces } from "@/app/data/workspace/get-user-workspace";
-import { requireUser } from "@/app/data/user/require-user";
+import { requireUser } from "@/data/user/require-user";
+import { getUserWorkspaces } from "@/data/user/get-user-workspace";
 
 type Props = {
   params: { workspaceId: string };

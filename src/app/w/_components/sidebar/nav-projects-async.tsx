@@ -1,7 +1,7 @@
-import { getUserProjects } from "@/app/data/user/get-user-projects";
-import { getWorkspaceMembers } from "@/app/data/workspace/get-workspace-members";
-import { isAdminServer } from "@/app/data/workspace/requireAdmin";
+import { getUserProjects } from "@/data/user/get-user-projects";
+import { isAdminServer } from "@/data/user/requireAdmin";
 import { NavProjects } from "./nav-projects";
+import { getWorkspaceMembers } from "@/data/workspace/get-workspace-members";
 
 interface NavProjectsAsyncProps {
     workspaceId: string;
