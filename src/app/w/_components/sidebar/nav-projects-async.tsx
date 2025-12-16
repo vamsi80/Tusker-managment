@@ -1,5 +1,5 @@
 import { getUserProjects } from "@/data/user/get-user-projects";
-import { isAdminServer } from "@/data/user/requireAdmin";
+import { isAdminServer } from "@/lib/auth/requireAdmin";
 import { NavProjects } from "./nav-projects";
 import { getWorkspaceMembers } from "@/data/workspace/get-workspace-members";
 

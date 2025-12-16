@@ -2,7 +2,7 @@
 
 import { revalidatePath, revalidateTag } from "next/cache";
 import prisma from "@/lib/db";
-import { requireUser } from "@/data/user/require-user";
+import { requireUser } from "@/lib/auth/require-user";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
 import { headers } from "next/headers";
 

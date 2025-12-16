@@ -1,4 +1,4 @@
-import { getUserProjects, UserProjectsType } from "@/app/data/user/get-user-projects";
+import { getUserProjects, UserProjectsType } from "@/data/user/get-user-projects";
 import { ProjectNav } from "../../../_components/project-nav";
 
 interface ProjectHeaderProps {

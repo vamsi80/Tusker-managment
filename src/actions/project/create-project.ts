@@ -1,6 +1,6 @@
 "use server";
 
-import { requireUser } from "@/data/user/require-user";
+import { requireUser } from "@/lib/auth/require-user";
 import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
 import { projectSchema, ProjectSchemaType } from "@/lib/zodSchemas";
@@ -131,7 +131,7 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
         ]);
 
         // Invalidate project cache for all users in the workspace
-        const { invalidateWorkspaceProjects } = await import("@/app/data/user/invalidate-project-cache");
+        const { invalidateWorkspaceProjects } = await import("@/lib/cache/invalidation");
         await invalidateWorkspaceProjects(values.workspaceId);
 
         return {

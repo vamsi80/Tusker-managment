@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { requireUser } from "../../data/user/require-user";
-import { AuthError } from "../data/user/errors";
+import { requireUser } from "../../lib/auth/require-user";
+import { AuthError } from "@/lib/errors/auth-errors";
 import { getUserWorkspaces } from "@/data/user/get-user-workspace";
 
 export async function GET(request: NextRequest) {

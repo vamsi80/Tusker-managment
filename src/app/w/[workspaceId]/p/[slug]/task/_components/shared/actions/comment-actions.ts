@@ -9,7 +9,7 @@ import {
 } from "@/lib/comment-helpers";
 import prisma from "@/lib/db";
 import { getTaskComments } from "@/app/data/comment/get-comments";
-import { invalidateTaskComments } from "@/app/data/user/invalidate-project-cache";
+import { getTaskPageData } from "@/app/data/task/get-task-page-data";
 
 /**
  * Server action to create a new comment on a task
@@ -187,6 +187,7 @@ export async function removeComment(commentId: string) {
 }
 
 import { getReviewComments } from "@/app/data/comment/get-comments";
+import { invalidateTaskComments } from "@/lib/cache/invalidation";
 
 /**
  * Server action to fetch review comments for a subtask

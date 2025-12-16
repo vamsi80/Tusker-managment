@@ -4,7 +4,7 @@ import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import prisma from "@/lib/db";
 import { notFound } from "next/navigation";
-import { requireUser } from "@/data/user/require-user";
+import { requireUser } from "@/lib/auth/require-user";
 
 // Internal function that does the actual data fetching
 async function _getUserProjectsInternal(userId: string, workspaceId: string) {

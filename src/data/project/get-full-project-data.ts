@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/db";
-import { requireUser } from "@/data/user/require-user";
+import { requireUser } from "@/lib/auth/require-user";
 
 export interface FullProjectData {
     id: string;

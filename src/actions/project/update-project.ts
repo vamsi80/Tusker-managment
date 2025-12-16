@@ -177,7 +177,7 @@ export async function editProject(values: EditProjectSchemaType): Promise<ApiRes
 
         // 6. Invalidate project cache
         const { invalidateWorkspaceProjects } = await import(
-            "@/app/data/user/invalidate-project-cache"
+            "@/lib/cache/invalidation"
         );
         await invalidateWorkspaceProjects(project.workspaceId);
 

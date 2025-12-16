@@ -13,6 +13,17 @@ import { getUserProjects } from "@/data/user/get-user-projects";
  * 
  * This replaces the previous pattern where getUserProjects was called 4 times
  * and permissions were checked twice
+ * 
+ * @param workspaceId - The workspace ID
+ * @param slug - The project slug
+ * @returns Object containing project, userProjects, permissions, projectMembers, and user
+ * 
+ * @example
+ * const data = await getTaskPageData(workspaceId, slug);
+ * if (!data) {
+ *   return notFound();
+ * }
+ * const { project, permissions, projectMembers } = data;
  */
 export const getTaskPageData = cache(
     async (workspaceId: string, slug: string) => {

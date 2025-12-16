@@ -2,7 +2,7 @@
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import prisma from "@/lib/db";
-import { NotFoundError } from "@/app/data/user/errors";
+import { NotFoundError } from "@/lib/errors/auth-errors";
 
 /**
  * Types - adjust to match your Prisma schema if necessary
@@ -76,4 +76,3 @@ export const getUserWorkspaces = cache(async (sessionUserId: string) => {
 });
 
 export type UserWorkspacesType = Awaited<ReturnType<typeof getUserWorkspaces>>;
-

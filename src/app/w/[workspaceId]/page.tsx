@@ -1,6 +1,6 @@
 import React from "react";
 import { notFound } from "next/navigation";
-import { requireUser } from "@/data/user/require-user";
+import { requireUser } from "@/lib/auth/require-user";
 import { getUserWorkspaces } from "@/data/user/get-user-workspace";
 
 type Props = {

@@ -3,7 +3,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { AppSidebar } from "../_components/sidebar/workspace-sidebar";
 import { SiteHeader } from "../_components/sidebar/site-header";
 import { getUserWorkspaces } from "@/data/user/get-user-workspace";
-import { requireUser } from "@/data/user/require-user";
+import { requireUser } from "@/lib/auth/require-user";
 
 interface Props {
     children: React.ReactNode;

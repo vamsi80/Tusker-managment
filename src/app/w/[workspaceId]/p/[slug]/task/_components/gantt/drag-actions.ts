@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/db";
-import { requireUser } from "@/data/user/require-user";
+import { requireUser } from "@/lib/auth/require-user";
 import { revalidateTag } from "next/cache";
 
 interface UpdateSubtaskDatesResult {

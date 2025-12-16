@@ -1,6 +1,6 @@
 "use server";
 
-import { requireUser } from "@/data/user/require-user";
+import { requireUser } from "@/lib/auth/require-user";
 import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
 import { hasWorkspacePermission } from "@/lib/constants/workspace-access";
@@ -47,7 +47,7 @@ export async function deleteProject(projectId: string): Promise<ApiResponse> {
 
         // 4. Invalidate project cache
         const { invalidateWorkspaceProjects, invalidateProjectTasks } = await import(
-            "@/app/data/user/invalidate-project-cache"
+            "@/lib/cache/invalidation"
         );
         await invalidateWorkspaceProjects(project.workspaceId);
         await invalidateProjectTasks(projectId);

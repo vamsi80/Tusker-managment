@@ -1,6 +1,6 @@
 "use server";
 
-import { requireUser } from "@/data/user/require-user";
+import { requireUser } from "@/lib/auth/require-user";
 import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
 import { ProjectRole } from "@/generated/prisma/client";
@@ -140,7 +140,7 @@ export async function addProjectMembers(
 
         // Invalidate project cache
         const { invalidateWorkspaceProjects } = await import(
-            "@/app/data/user/invalidate-project-cache"
+            "@/lib/cache/invalidation"
         );
         await invalidateWorkspaceProjects(project.workspaceId);
 
@@ -272,7 +272,7 @@ export async function removeProjectMembers(
 
         // Invalidate project cache
         const { invalidateWorkspaceProjects } = await import(
-            "@/app/data/user/invalidate-project-cache"
+            "@/lib/cache/invalidation"
         );
         await invalidateWorkspaceProjects(project.workspaceId);
 
@@ -409,7 +409,7 @@ export async function updateProjectMemberRole(
 
         // Invalidate project cache
         const { invalidateWorkspaceProjects } = await import(
-            "@/app/data/user/invalidate-project-cache"
+            "@/lib/cache/invalidation"
         );
         await invalidateWorkspaceProjects(project.workspaceId);
 
@@ -526,7 +526,7 @@ export async function toggleProjectMemberAccess(
 
         // Invalidate project cache
         const { invalidateWorkspaceProjects } = await import(
-            "@/app/data/user/invalidate-project-cache"
+            "@/lib/cache/invalidation"
         );
         await invalidateWorkspaceProjects(project.workspaceId);
 

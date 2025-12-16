@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { InviteUserForm } from "./_components/create-user";
-import { isAdminServer } from "@/data/user/requireAdmin";
+import { isAdminServer } from "@/lib/auth/requireAdmin";
 import { getWorkspaceMembers } from "@/app/data/workspace/get-workspace-members";
 import { TeamMembers } from "./_components/team-members";
 import { TeamMembersSkeleton } from "./_components/team-members-skeleton";

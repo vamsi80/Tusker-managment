@@ -1,8 +1,8 @@
 "use server"
 
 import { getUserPermissions } from "@/data/user/get-user-permissions";
-import { invalidateProjectTasks } from "@/app/data/user/invalidate-project-cache";
-import { requireUser } from "@/data/user/require-user";
+import { invalidateProjectTasks } from "@/lib/cache/invalidation";
+import { requireUser } from "@/lib/auth/require-user";
 import prisma from "@/lib/db";
 import { generateUniqueSlugs } from "@/lib/slug-generator";
 import { ApiResponse } from "@/lib/types";

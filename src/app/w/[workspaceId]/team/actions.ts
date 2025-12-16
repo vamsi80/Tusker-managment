@@ -6,8 +6,8 @@ import prisma from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { inviteUserSchema, InviteUserSchemaType } from "@/lib/zodSchemas";
 import { ApiResponse } from "@/lib/types";
-import { requireAdmin } from "@/data/user/requireAdmin";
-import { requireUser } from "@/data/user/require-user";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
+import { requireUser } from "@/lib/auth/require-user";
 
 /**
  * Invite a user: create auth user, upsert app user, upsert workspace membership.
