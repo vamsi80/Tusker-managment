@@ -18,8 +18,8 @@ import slugify from "slugify";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import { createSubTask } from "../../../action";
 import { useRouter } from "next/navigation";
+import { createSubTask } from "@/actions/task/create-subTask";
 
 interface iAppProps {
     members: ProjectMembersType
