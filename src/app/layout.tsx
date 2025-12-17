@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "sonner";
+import { SubTaskSheetProvider } from "@/contexts/subtask-sheet-context";
+import { GlobalSubTaskSheet } from "@/components/global-subtask-sheet";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,8 +32,11 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          {children}
-          <Toaster closeButton position="top-right" />
+          <SubTaskSheetProvider>
+            {children}
+            <GlobalSubTaskSheet />
+            <Toaster closeButton position="top-right" />
+          </SubTaskSheetProvider>
         </ThemeProvider>
       </body>
     </html>

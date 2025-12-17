@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { GanttChart } from "./gantt-chart";
 import { GanttTask } from "./types";
-import { SubTaskDetailsSheet } from "../shared/subtask-details-sheet";
+import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
 import { Button } from "@/components/ui/button";
 import { ChevronDown } from "lucide-react";
 import { FlatTaskType } from "@/data/task";
@@ -19,19 +19,16 @@ const TASKS_PER_PAGE = 10;
 
 export function GanttContainer({ workspaceId, projectId, initialTasks, subtaskDataMap }: GanttContainerProps) {
     const [visibleTaskCount, setVisibleTaskCount] = useState(TASKS_PER_PAGE);
-    const [selectedSubtaskId, setSelectedSubtaskId] = useState<string | null>(null);
-    const [isSheetOpen, setIsSheetOpen] = useState(false);
+
+    // Use global subtask sheet context
+    const { openSubTaskSheet } = useSubTaskSheet();
 
     // Handle subtask click
     const handleSubtaskClick = (subtaskId: string) => {
-        setSelectedSubtaskId(subtaskId);
-        setIsSheetOpen(true);
-    };
-
-    // Handle sheet close
-    const handleSheetClose = () => {
-        setIsSheetOpen(false);
-        setSelectedSubtaskId(null);
+        const subtaskData = subtaskDataMap.get(subtaskId);
+        if (subtaskData) {
+            openSubTaskSheet(subtaskData);
+        }
     };
 
     // Load more tasks
@@ -42,9 +39,6 @@ export function GanttContainer({ workspaceId, projectId, initialTasks, subtaskDa
     // Get visible tasks
     const visibleTasks = initialTasks.slice(0, visibleTaskCount);
     const hasMoreTasks = visibleTaskCount < initialTasks.length;
-
-    // Get the full subtask data from the map
-    const selectedSubtask = selectedSubtaskId ? subtaskDataMap.get(selectedSubtaskId) : null;
 
     return (
         <>
@@ -73,13 +67,6 @@ export function GanttContainer({ workspaceId, projectId, initialTasks, subtaskDa
                     </div>
                 )}
             </div>
-
-            {/* Subtask Details Sheet */}
-            <SubTaskDetailsSheet
-                subTask={selectedSubtask || null}
-                isOpen={isSheetOpen}
-                onClose={handleSheetClose}
-            />
         </>
     );
 }

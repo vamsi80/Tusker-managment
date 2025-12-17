@@ -9,10 +9,10 @@ import { ProjectMembersType } from "@/data/project/get-project-members";
 import { cn } from "@/lib/utils";
 import { KanbanCard } from "./kanban-card";
 import { KanbanToolbar } from "./kanban-toolbar";
-import { SubTaskDetailsSheet } from "../shared/subtask-details-sheet";
+import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
 import { ReviewCommentDialog } from "./review-comment-dialog";
 import { updateSubTaskStatus } from "@/app/w/[workspaceId]/p/[slug]/task/_components/kanban/actions/subtask-status-actions";
-import { createReviewComment } from "@/app/w/[workspaceId]/p/[slug]/task/_components/kanban/actions/create-review-comment";
+import { createReviewCommentAction } from "@/actions/comment";
 import { toast } from "sonner";
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED";
@@ -149,9 +149,8 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
     const [subTasks, setSubTasks] = useState<SubTaskType[]>(initialSubTasks);
     const [activeSubTask, setActiveSubTask] = useState<SubTaskType | null>(null);
 
-    // Subtask details sheet state
-    const [isSheetOpen, setIsSheetOpen] = useState(false);
-    const [selectedSubTask, setSelectedSubTask] = useState<SubTaskType | null>(null);
+    // Use global subtask sheet context
+    const { openSubTaskSheet } = useSubTaskSheet();
 
     // Review comment dialog state
     const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
@@ -291,13 +290,7 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
     };
 
     const handleSubTaskClick = (subTask: SubTaskType) => {
-        setSelectedSubTask(subTask);
-        setIsSheetOpen(true);
-    };
-
-    const handleCloseSheet = () => {
-        setIsSheetOpen(false);
-        setSelectedSubTask(null);
+        openSubTaskSheet(subTask);
     };
 
     const handleReviewCommentSubmit = async (comment: string, attachment?: File) => {
@@ -333,7 +326,7 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
             }
 
             // Create review comment
-            const reviewResult = await createReviewComment(
+            const reviewResult = await createReviewCommentAction(
                 pendingReviewMove.subTaskId,
                 comment,
                 workspaceId,
@@ -470,13 +463,6 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
                     ) : null}
                 </DragOverlay>
             </DndContext>
-
-            {/* Subtask Details Sheet */}
-            <SubTaskDetailsSheet
-                subTask={selectedSubTask}
-                isOpen={isSheetOpen}
-                onClose={handleCloseSheet}
-            />
 
             {/* Review Comment Dialog */}
             <ReviewCommentDialog

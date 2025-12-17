@@ -1,0 +1,143 @@
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Root Layout (app/layout.tsx)                │
+│                                                                     │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │              SubTaskSheetProvider (Global Context)            │ │
+│  │                                                               │ │
+│  │  ┌─────────────────────────────────────────────────────────┐ │ │
+│  │  │                  Application Pages                      │ │ │
+│  │  │                                                         │ │ │
+│  │  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │ │ │
+│  │  │  │ Kanban Board │  │  Task Table  │  │    Gantt     │ │ │ │
+│  │  │  │              │  │              │  │              │ │ │ │
+│  │  │  │ useSubTask   │  │ useSubTask   │  │ useSubTask   │ │ │ │
+│  │  │  │ Sheet()      │  │ Sheet()      │  │ Sheet()      │ │ │ │
+│  │  │  │      ↓       │  │      ↓       │  │      ↓       │ │ │ │
+│  │  │  │ openSubTask  │  │ openSubTask  │  │ openSubTask  │ │ │ │
+│  │  │  │ Sheet()      │  │ Sheet()      │  │ Sheet()      │ │ │ │
+│  │  │  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘ │ │ │
+│  │  │         │                 │                 │         │ │ │
+│  │  │         └─────────────────┼─────────────────┘         │ │ │
+│  │  │                           │                           │ │ │
+│  │  │                           ↓                           │ │ │
+│  │  │                  ┌────────────────┐                   │ │ │
+│  │  │                  │ Global Context │                   │ │ │
+│  │  │                  │     State      │                   │ │ │
+│  │  │                  │ ─────────────  │                   │ │ │
+│  │  │                  │ isOpen: bool   │                   │ │ │
+│  │  │                  │ subTask: data  │                   │ │ │
+│  │  │                  └────────┬───────┘                   │ │ │
+│  │  │                           │                           │ │ │
+│  │  └───────────────────────────┼───────────────────────────┘ │ │
+│  │                              │                             │ │
+│  │                              ↓                             │ │
+│  │  ┌─────────────────────────────────────────────────────┐  │ │
+│  │  │         GlobalSubTaskSheet Component                │  │ │
+│  │  │  (Rendered once at root, always listening)          │  │ │
+│  │  │                                                     │  │ │
+│  │  │  ┌───────────────────────────────────────────────┐ │  │ │
+│  │  │  │      SubTaskDetailsSheet                      │ │  │ │
+│  │  │  │  ┌─────────────────────────────────────────┐  │ │  │ │
+│  │  │  │  │  Sheet Header                           │  │ │  │ │
+│  │  │  │  │  - Title                                │  │ │  │ │
+│  │  │  │  │  - Close Button                         │  │ │  │ │
+│  │  │  │  └─────────────────────────────────────────┘  │ │  │ │
+│  │  │  │  ┌─────────────────────────────────────────┐  │ │  │ │
+│  │  │  │  │  Details Section                        │  │ │  │ │
+│  │  │  │  │  - Assignee                             │  │ │  │ │
+│  │  │  │  │  - Due Date                             │  │ │  │ │
+│  │  │  │  │  - Tag                                  │  │ │  │ │
+│  │  │  │  └─────────────────────────────────────────┘  │ │  │ │
+│  │  │  │  ┌─────────────────────────────────────────┐  │ │  │ │
+│  │  │  │  │  Tabs: Messages | Review                │  │ │  │ │
+│  │  │  │  │  - Comments                             │  │ │  │ │
+│  │  │  │  │  - Review Comments                      │  │ │  │ │
+│  │  │  │  │  - Attachments                          │  │ │  │ │
+│  │  │  │  └─────────────────────────────────────────┘  │ │  │ │
+│  │  │  └───────────────────────────────────────────────┘ │  │ │
+│  │  └─────────────────────────────────────────────────────┘  │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
+
+FLOW DIAGRAM:
+═════════════
+
+User Action (Click on Subtask)
+        │
+        ↓
+Component calls: openSubTaskSheet(subtask)
+        │
+        ↓
+Context updates state
+        │
+        ├─→ isOpen = true
+        └─→ subTask = subtask data
+        │
+        ↓
+GlobalSubTaskSheet re-renders
+        │
+        ↓
+SubTaskDetailsSheet opens with data
+        │
+        ↓
+User views/interacts with sheet
+        │
+        ↓
+User closes sheet
+        │
+        ↓
+Context updates state
+        │
+        ├─→ isOpen = false
+        └─→ subTask = null (after 300ms)
+        │
+        ↓
+Sheet closes
+
+
+COMPONENT HIERARCHY:
+═══════════════════
+
+app/layout.tsx
+└── ThemeProvider
+    └── SubTaskSheetProvider ← GLOBAL CONTEXT
+        ├── {children} ← ALL APP PAGES
+        │   ├── Kanban Board
+        │   │   └── useSubTaskSheet() ← HOOK
+        │   ├── Task Table
+        │   │   └── useSubTaskSheet() ← HOOK
+        │   ├── Gantt View
+        │   │   └── useSubTaskSheet() ← HOOK
+        │   └── Any Other Component
+        │       └── useSubTaskSheet() ← HOOK
+        │
+        └── GlobalSubTaskSheet ← SINGLE INSTANCE
+            └── SubTaskDetailsSheet
+
+
+BENEFITS:
+═════════
+
+✓ Single Source of Truth
+  - One sheet instance for entire app
+  - Consistent behavior everywhere
+
+✓ Simplified Component Code
+  - No local state management
+  - No duplicate sheet components
+  - Just one hook call
+
+✓ Better Performance
+  - Single sheet instance
+  - No duplicate renders
+  - Optimized re-renders
+
+✓ Easy to Use
+  - Import hook
+  - Call openSubTaskSheet()
+  - Done!
+
+✓ Type Safe
+  - Full TypeScript support
+  - Multiple subtask types supported
+  - Compile-time safety

@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { getTaskPageData } from "@/data/task";
 import { ReloadButton } from "./task/_components/shared/reload-button";
 import { CreateTaskForm } from "./task/_components/forms/create-task-form";
 import { BulkUploadForm } from "./task/_components/forms/bulk-upload-form";
@@ -9,7 +10,6 @@ import { KanbanBoardSkeleton } from "./task/_components/kanban/kanban-skeleton";
 import { TaskTableContainer } from "./task/_components/list/task-table-container";
 import { ReloadableTaskTable } from "./task/_components/list/reloadable-task-table";
 import { TaskHeaderSkeleton, TaskTableSkeleton } from "./task/_components/shared/task-page-skeleton";
-import { getTaskPageData } from "@/data/task";
 
 interface iAppProps {
   params: { workspaceId: string; slug: string };

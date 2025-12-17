@@ -1,14 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import {
-    Sheet,
-    SheetContent,
-    SheetDescription,
-    SheetHeader,
-    SheetTitle,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -19,14 +13,18 @@ import { Calendar, Tag, User, ArrowUp, Loader2, MessageSquare, FileCheck, Paperc
 import { FlatTaskType } from "@/data/task";
 import { SubTaskType } from "@/app/data/task/get-project-tasks";
 import { cn } from "@/lib/utils";
-import { createTaskComment, fetchTaskComments, fetchReviewComments } from "@/app/w/[workspaceId]/p/[slug]/task/_components/shared/actions/comment-actions";
+import { createTaskCommentAction, fetchCommentsAction, fetchReviewCommentsAction } from "@/actions/comment";
 import { toast } from "sonner";
 
 interface SubTaskDetailsSheetProps {
-    subTask: FlatTaskType | SubTaskType[number] | null;
+    subTask: FlatTaskType | SubTaskType[number];
     isOpen: boolean;
     onClose: () => void;
     disableUrlSync?: boolean;
+    // Optional initial data from server component
+    initialComments?: any[];
+    initialReviewComments?: any[];
+    currentUserId?: string | null;
 }
 
 interface Comment {
@@ -37,14 +35,14 @@ interface Comment {
     user: {
         id: string;
         name: string;
-        surname: string | null;
+        surname: string;
         email: string;
-        image: string | null;
+        image: string;
     };
     isEdited: boolean;
-    editedAt: Date | null;
+    editedAt: Date;
     isDeleted: boolean;
-    deletedAt: Date | null;
+    deletedAt: Date;
     createdAt: Date;
     updatedAt: Date;
     replies?: Comment[];
@@ -63,28 +61,37 @@ interface ReviewComment {
         id: string;
         user: {
             name: string;
-            surname: string | null;
-            image: string | null;
+            surname: string;
+            image: string;
         };
     };
     createdAt: Date;
 }
 
-export function SubTaskDetailsSheet({ subTask, isOpen, onClose, disableUrlSync = false }: SubTaskDetailsSheetProps) {
+export function SubTaskDetailsSheet({
+    subTask,
+    isOpen,
+    onClose,
+    disableUrlSync = false,
+    initialComments = [],
+    initialReviewComments = [],
+    currentUserId: initialCurrentUserId = null,
+}: SubTaskDetailsSheetProps) {
     const [activeTab, setActiveTab] = useState<"messages" | "review">("messages");
     const [message, setMessage] = useState("");
-    const [comments, setComments] = useState<Comment[]>([]);
-    const [reviewComments, setReviewComments] = useState<ReviewComment[]>([]);
+    const [comments, setComments] = useState<Comment[]>(initialComments as Comment[]);
+    const [reviewComments, setReviewComments] = useState<ReviewComment[]>(initialReviewComments as ReviewComment[]);
     const [isLoading, setIsLoading] = useState(false);
     const [isLoadingReview, setIsLoadingReview] = useState(false);
     const [isSending, setIsSending] = useState(false);
-    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+    const [currentUserId, setCurrentUserId] = useState<string | null>(initialCurrentUserId);
 
-    const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const loadedSubTaskIdRef = useRef<string>("");
+    const reviewCommentsLoadedRef = useRef<boolean>(false);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -94,21 +101,17 @@ export function SubTaskDetailsSheet({ subTask, isOpen, onClose, disableUrlSync =
         scrollToBottom();
     }, [comments]);
 
-    // Sync URL with sheet state using window.history to avoid re-renders
     useEffect(() => {
         if (disableUrlSync) return;
 
         if (isOpen && subTask) {
-            // Add subtask ID to URL when opening
             const params = new URLSearchParams(searchParams.toString());
-            params.set('subtask', subTask.id);
+            const subtaskIdentifier = subTask.taskSlug || subTask.id;
+            params.set('subtask', subtaskIdentifier);
             const newUrl = `${pathname}?${params.toString()}`;
 
-            // Use window.history.pushState instead of router.replace
-            // This updates the URL without triggering a server-side re-render
             window.history.pushState(null, '', newUrl);
         } else if (!isOpen) {
-            // Remove subtask ID from URL when closing
             const params = new URLSearchParams(searchParams.toString());
             if (params.has('subtask')) {
                 params.delete('subtask');
@@ -121,20 +124,12 @@ export function SubTaskDetailsSheet({ subTask, isOpen, onClose, disableUrlSync =
         }
     }, [isOpen, subTask, pathname, searchParams, disableUrlSync]);
 
-    // Fetch comments when subtask changes or sheet opens
-    useEffect(() => {
-        if (subTask && isOpen) {
-            loadComments();
-            loadReviewComments();
-        }
-    }, [subTask?.id, isOpen]);
-
-    const loadComments = async () => {
+    const loadComments = useCallback(async () => {
         if (!subTask) return;
 
         setIsLoading(true);
         try {
-            const result = await fetchTaskComments(subTask.id);
+            const result = await fetchCommentsAction(subTask.id);
             if (result.success && result.comments) {
                 setComments(result.comments as Comment[]);
                 if (result.currentUserId) {
@@ -149,14 +144,14 @@ export function SubTaskDetailsSheet({ subTask, isOpen, onClose, disableUrlSync =
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [subTask]);
 
-    const loadReviewComments = async () => {
+    const loadReviewComments = useCallback(async () => {
         if (!subTask) return;
 
         setIsLoadingReview(true);
         try {
-            const result = await fetchReviewComments(subTask.id);
+            const result = await fetchReviewCommentsAction(subTask.id);
             if (result.success && result.reviewComments) {
                 setReviewComments(result.reviewComments as ReviewComment[]);
             } else {
@@ -168,14 +163,49 @@ export function SubTaskDetailsSheet({ subTask, isOpen, onClose, disableUrlSync =
         } finally {
             setIsLoadingReview(false);
         }
-    };
+    }, [subTask]);
+
+    // Fetch comments only once when subtask changes or sheet opens
+    // Review comments are loaded lazily when user switches to that tab
+    useEffect(() => {
+        if (subTask && isOpen && loadedSubTaskIdRef.current !== subTask.id) {
+            loadedSubTaskIdRef.current = subTask.id;
+            // Only load comments on open (not review comments)
+            loadComments();
+        }
+
+        // Reset when sheet closes
+        if (!isOpen) {
+            loadedSubTaskIdRef.current = "";
+        }
+    }, [subTask?.id, isOpen, loadComments]);
+
+    // Load review comments only when user switches to review tab
+    // Use ref to prevent infinite loop
+    useEffect(() => {
+        if (activeTab === "review" && subTask && !reviewCommentsLoadedRef.current && !isLoadingReview) {
+            // Check if we have initial data
+            if (initialReviewComments.length > 0) {
+                reviewCommentsLoadedRef.current = true;
+            } else {
+                // Load from server
+                reviewCommentsLoadedRef.current = true;
+                loadReviewComments();
+            }
+        }
+
+        // Reset when subtask changes
+        if (subTask?.id !== loadedSubTaskIdRef.current) {
+            reviewCommentsLoadedRef.current = false;
+        }
+    }, [activeTab, subTask?.id, isLoadingReview, initialReviewComments.length]);
 
     const handleSendMessage = async () => {
         if (!message.trim() || !subTask) return;
 
         setIsSending(true);
         try {
-            const result = await createTaskComment(subTask.id, message.trim());
+            const result = await createTaskCommentAction(subTask.id, message.trim());
 
             if (result.success && result.comment) {
                 // Optimistically add the comment to the UI

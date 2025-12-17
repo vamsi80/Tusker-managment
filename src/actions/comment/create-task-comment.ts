@@ -1,0 +1,181 @@
+"use server";
+
+import prisma from "@/lib/db";
+import { requireUser } from "@/lib/auth/require-user";
+import { invalidateTaskComments } from "@/lib/cache/invalidation";
+
+export interface CreateTaskCommentResult {
+    success: boolean;
+    error?: string;
+    comment?: {
+        id: string;
+        content: string;
+        createdAt: Date;
+        userId: string;
+        taskId: string;
+        user: {
+            id: string;
+            name: string;
+            surname: string | null;
+            image: string | null;
+            email: string;
+        };
+        isEdited: boolean;
+        editedAt: Date | null;
+        isDeleted: boolean;
+        deletedAt: Date | null;
+        updatedAt: Date;
+    };
+}
+
+/**
+ * Simplified server action to create a comment on a task
+ * This version doesn't require workspaceId/projectId parameters
+ * Used by client components that only have taskId
+ * 
+ * @param taskId - ID of the task to comment on
+ * @param content - Comment content
+ * @param parentCommentId - Optional parent comment ID for replies
+ */
+export async function createTaskCommentAction(
+    taskId: string,
+    content: string,
+    parentCommentId?: string
+): Promise<CreateTaskCommentResult> {
+    try {
+        // 1. Authenticate user
+        const user = await requireUser();
+
+        // 2. Validate input
+        if (!content.trim()) {
+            return {
+                success: false,
+                error: "Comment content is required",
+            };
+        }
+
+        // 3. Verify task exists
+        const task = await prisma.task.findUnique({
+            where: { id: taskId },
+            select: {
+                id: true,
+                projectId: true,
+            },
+        });
+
+        if (!task) {
+            return {
+                success: false,
+                error: "Task not found",
+            };
+        }
+
+        // 4. If it's a reply, verify parent comment exists
+        if (parentCommentId) {
+            const parentComment = await prisma.comment.findUnique({
+                where: { id: parentCommentId },
+                select: {
+                    id: true,
+                    taskId: true,
+                    isDeleted: true,
+                },
+            });
+
+            if (!parentComment) {
+                return {
+                    success: false,
+                    error: "Parent comment not found",
+                };
+            }
+
+            if (parentComment.isDeleted) {
+                return {
+                    success: false,
+                    error: "Cannot reply to a deleted comment",
+                };
+            }
+
+            if (parentComment.taskId !== taskId) {
+                return {
+                    success: false,
+                    error: "Parent comment does not belong to this task",
+                };
+            }
+
+            // Check reply depth (max 5 levels)
+            const depth = await getCommentDepth(parentCommentId);
+            if (depth >= 5) {
+                return {
+                    success: false,
+                    error: "Maximum reply depth reached (5 levels)",
+                };
+            }
+        }
+
+        // 5. Create comment
+        const comment = await prisma.comment.create({
+            data: {
+                content: content.trim(),
+                userId: user.id,
+                taskId: taskId,
+                parentCommentId: parentCommentId || null,
+            },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        surname: true,
+                        image: true,
+                        email: true,
+                    },
+                },
+            },
+        });
+
+        // 6. Invalidate comment cache using cache tags
+        await invalidateTaskComments(taskId);
+
+        return {
+            success: true,
+            comment: {
+                ...comment,
+                isEdited: false,
+                editedAt: null,
+                isDeleted: false,
+                deletedAt: null,
+            },
+        };
+    } catch (error) {
+        console.error("Error creating comment:", error);
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : "Failed to create comment",
+        };
+    }
+}
+
+/**
+ * Helper function to get the depth of a comment in the reply thread
+ * Used to limit nesting depth
+ */
+async function getCommentDepth(commentId: string): Promise<number> {
+    let depth = 0;
+    let currentId: string | null = commentId;
+
+    while (currentId) {
+        const comment: { parentCommentId: string | null } | null = await prisma.comment.findUnique({
+            where: { id: currentId },
+            select: { parentCommentId: true },
+        });
+
+        if (!comment?.parentCommentId) break;
+        currentId = comment.parentCommentId;
+        depth++;
+
+        // Safety limit to prevent infinite loops
+        if (depth > 100) break;
+    }
+
+    return depth;
+}

@@ -12,10 +12,12 @@ import { TaskTableToolbar, ColumnVisibility } from "./task-table-toolbar";
 import { TaskRow } from "./task-row";
 import { SubTaskList } from "./subtask-list";
 import { TaskWithSubTasks } from "./types";
-import { SubTaskDetailsSheet } from "../shared/subtask-details-sheet";
 import { useNewTask } from "../shared/task-page-wrapper";
 import { toast } from "sonner";
 import { useSearchParams } from "next/navigation";
+import { loadTasksAction } from "@/actions/task/load-tasks";
+import { loadSubTasksAction } from "@/actions/task/load-subtasks";
+import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
 
 interface TaskTableProps {
     initialTasks: TaskWithSubTasks[];
@@ -145,20 +147,21 @@ export function TaskTable({
         description: true,
     });
 
-    const [selectedSubTask, setSelectedSubTask] = useState<FlatTaskType | null>(null);
-    const [isSheetOpen, setIsSheetOpen] = useState(false);
+    // Use global subtask sheet context
+    const { openSubTaskSheet } = useSubTaskSheet();
 
     // Handle URL-based subtask opening
     useEffect(() => {
-        const subtaskId = searchParams.get('subtask');
-        if (subtaskId && tasks.length > 0) {
-            // Find the subtask in all tasks
+        const subtaskParam = searchParams.get('subtask');
+        if (subtaskParam && tasks.length > 0) {
+            // Find the subtask in all tasks by slug or ID
             for (const task of tasks) {
                 if (task.subTasks) {
-                    const foundSubTask = task.subTasks.find(st => st.id === subtaskId);
+                    const foundSubTask = task.subTasks.find(
+                        st => st.taskSlug === subtaskParam || st.id === subtaskParam
+                    );
                     if (foundSubTask) {
-                        setSelectedSubTask(foundSubTask);
-                        setIsSheetOpen(true);
+                        openSubTaskSheet(foundSubTask);
                         // Expand the parent task if not already expanded
                         if (!expanded[task.id]) {
                             setExpanded(prev => ({ ...prev, [task.id]: true }));
@@ -168,16 +171,10 @@ export function TaskTable({
                 }
             }
         }
-    }, [searchParams, tasks]);
+    }, [searchParams, tasks, openSubTaskSheet, expanded]);
 
     const handleSubTaskClick = (subTask: FlatTaskType) => {
-        setSelectedSubTask(subTask);
-        setIsSheetOpen(true);
-    };
-
-    const handleCloseSheet = () => {
-        setIsSheetOpen(false);
-        setTimeout(() => setSelectedSubTask(null), 300);
+        openSubTaskSheet(subTask);
     };
 
     // Load more parent tasks (10 at a time)
@@ -187,17 +184,22 @@ export function TaskTable({
         setLoadingMoreTasks(true);
         try {
             const nextPage = currentPage + 1;
-            const response = await fetch(
-                `/api/w/${workspaceId}/p/${projectId}/tasks?projectId=${projectId}&page=${nextPage}&pageSize=10`
+
+            // Use pre-imported server action (no dynamic import overhead)
+            const result = await loadTasksAction(
+                projectId,
+                workspaceId,
+                nextPage,
+                10
             );
 
-            if (!response.ok) throw new Error("Failed to fetch tasks");
-
-            const result = await response.json();
-
-            setTasks(prev => [...prev, ...result.tasks]);
-            setHasMoreTasks(result.hasMore);
-            setCurrentPage(nextPage);
+            if (result.success) {
+                setTasks(prev => [...prev, ...result.tasks as TaskWithSubTasks[]]);
+                setHasMoreTasks(result.hasMore);
+                setCurrentPage(nextPage);
+            } else {
+                toast.error(result.error || "Failed to load more tasks");
+            }
         } catch (error) {
             console.error("Error loading more tasks:", error);
             toast.error("Failed to load more tasks");
@@ -206,42 +208,62 @@ export function TaskTable({
         }
     };
 
+    /**
+     * Toggle task expansion
+     * Subtasks are loaded ON-DEMAND only when:
+     * 1. User expands a task (not when collapsing)
+     * 2. Subtasks haven't been loaded yet
+     * This ensures we don't fetch data until it's actually needed
+     */
     const toggleExpand = async (taskId: string) => {
         const isCurrentlyExpanded = expanded[taskId];
         setExpanded((prev) => ({ ...prev, [taskId]: !prev[taskId] }));
 
+        // Only fetch subtasks when expanding (not collapsing)
         if (!isCurrentlyExpanded) {
             const task = tasks.find((t) => t.id === taskId);
+
+            // Only fetch if subtasks haven't been loaded yet
             if (task && !task.subTasks) {
                 setLoadingSubTasks((prev) => ({ ...prev, [taskId]: true }));
 
                 try {
-                    const response = await fetch(
-                        `/api/w/${workspaceId}/p/${projectId}/subtasks?parentTaskId=${taskId}&projectId=${projectId}&page=1&pageSize=10`
+                    // Fetch subtasks from server using pre-imported server action
+                    const result = await loadSubTasksAction(
+                        taskId,
+                        workspaceId,
+                        projectId,
+                        1,
+                        10
                     );
 
-                    if (!response.ok) throw new Error("Failed to fetch subtasks");
-
-                    const result = await response.json();
-                    setTasks((prevTasks) =>
-                        prevTasks.map((t) =>
-                            t.id === taskId
-                                ? {
-                                    ...t,
-                                    subTasks: result.subTasks as FlatTaskType[],
-                                    subTasksHasMore: result.hasMore,
-                                    subTasksPage: 1,
-                                }
-                                : t
-                        )
-                    );
+                    if (result.success) {
+                        // Update state with fetched subtasks
+                        setTasks((prevTasks) =>
+                            prevTasks.map((t) =>
+                                t.id === taskId
+                                    ? {
+                                        ...t,
+                                        subTasks: result.subTasks as FlatTaskType[],
+                                        subTasksHasMore: result.hasMore,
+                                        subTasksPage: 1,
+                                    }
+                                    : t
+                            )
+                        );
+                    } else {
+                        toast.error(result.error || "Failed to load subtasks");
+                    }
                 } catch (error) {
                     console.error("Error loading subtasks:", error);
+                    toast.error("Failed to load subtasks");
                 } finally {
                     setLoadingSubTasks((prev) => ({ ...prev, [taskId]: false }));
                 }
             }
+            // If subtasks already exist, just expand (no fetch needed)
         }
+        // If collapsing, just toggle the UI (no fetch needed)
     };
 
     const loadMoreSubTasks = async (taskId: string) => {
@@ -252,28 +274,35 @@ export function TaskTable({
 
         try {
             const nextPage = (task.subTasksPage || 1) + 1;
-            const response = await fetch(
-                `/api/w/${workspaceId}/p/${projectId}/subtasks?parentTaskId=${taskId}&projectId=${projectId}&page=${nextPage}&pageSize=10`
+
+            // Use pre-imported server action (no dynamic import overhead)
+            const result = await loadSubTasksAction(
+                taskId,
+                workspaceId,
+                projectId,
+                nextPage,
+                10
             );
 
-            if (!response.ok) throw new Error("Failed to fetch subtasks");
-
-            const result = await response.json();
-
-            setTasks((prevTasks) =>
-                prevTasks.map((t) =>
-                    t.id === taskId
-                        ? {
-                            ...t,
-                            subTasks: [...(t.subTasks || []), ...(result.subTasks as FlatTaskType[])],
-                            subTasksHasMore: result.hasMore,
-                            subTasksPage: nextPage,
-                        }
-                        : t
-                )
-            );
+            if (result.success) {
+                setTasks((prevTasks) =>
+                    prevTasks.map((t) =>
+                        t.id === taskId
+                            ? {
+                                ...t,
+                                subTasks: [...(t.subTasks || []), ...(result.subTasks as FlatTaskType[])],
+                                subTasksHasMore: result.hasMore,
+                                subTasksPage: nextPage,
+                            }
+                            : t
+                    )
+                );
+            } else {
+                toast.error(result.error || "Failed to load more subtasks");
+            }
         } catch (error) {
             console.error("Error loading more subtasks:", error);
+            toast.error("Failed to load more subtasks");
         } finally {
             setLoadingMoreSubTasks((prev) => ({ ...prev, [taskId]: false }));
         }
@@ -502,12 +531,6 @@ export function TaskTable({
                     </Table>
                 </DndContext>
             </div>
-
-            <SubTaskDetailsSheet
-                subTask={selectedSubTask}
-                isOpen={isSheetOpen}
-                onClose={handleCloseSheet}
-            />
         </div>
     );
 }
