@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { KanbanCard } from "./kanban-card";
 import { KanbanToolbar } from "./kanban-toolbar";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
-import { ReviewCommentDialog } from "./review-comment-dialog";
+import { ReviewCommentDialog } from "../../../_components/forms/review-comment-dialog";
 import { createReviewCommentAction } from "@/actions/comment";
 import { toast } from "sonner";
 import { updateSubTaskStatus } from "@/actions/task/kanban/update-subtask-status";

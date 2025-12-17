@@ -1,15 +1,15 @@
 import { Suspense } from "react";
 import { getTaskPageData } from "@/data/task";
 import { ReloadButton } from "./task/_components/shared/reload-button";
-import { CreateTaskForm } from "./task/_components/forms/create-task-form";
-import { BulkUploadForm } from "./task/_components/forms/bulk-upload-form";
-import { GanttChartSkeleton } from "./task/_components/gantt/gantt-skeleton";
+import { CreateTaskForm } from "./_components/forms/create-task-form";
+import { BulkUploadForm } from "./_components/forms/bulk-upload-form";
+import { GanttChartSkeleton } from "./_components/layout/gantt-skeleton";
 import { ProjectDashboard } from "./_components/dashboard/project-dashboard";
 import { TaskPageWrapper } from "./task/_components/shared/task-page-wrapper";
-import { KanbanBoardSkeleton } from "./task/_components/kanban/kanban-skeleton";
+import { KanbanBoardSkeleton } from "./_components/layout/kanban-skeleton";
 import { TaskTableContainer } from "./task/_components/list/task-table-container";
 import { ReloadableTaskTable } from "./task/_components/list/reloadable-task-table";
-import { TaskHeaderSkeleton, TaskTableSkeleton } from "./task/_components/shared/task-page-skeleton";
+import { TaskHeaderSkeleton, TaskTableSkeleton } from "./_components/layout/list-skeleton";
 
 interface iAppProps {
   params: { workspaceId: string; slug: string };

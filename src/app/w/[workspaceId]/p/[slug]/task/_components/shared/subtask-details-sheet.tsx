@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useSearchParams, usePathname } from "next/navigation";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -258,13 +258,11 @@ export function SubTaskDetailsSheet({
 
                 <ScrollArea className="flex-1 overflow-y-auto">
                     <div className="px-6 py-6 space-y-6">
-                        {/* Details Section */}
                         <div className="space-y-4">
                             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                                 Details
                             </h3>
 
-                            {/* Assignee */}
                             <div className="flex items-center gap-3">
                                 <User className="h-4 w-4 text-muted-foreground" />
                                 <span className="text-sm font-medium w-24">Assignee</span>
@@ -281,7 +279,6 @@ export function SubTaskDetailsSheet({
                                 )}
                             </div>
 
-                            {/* Due Date */}
                             <div className="flex items-center gap-3">
                                 <Calendar className="h-4 w-4 text-muted-foreground" />
                                 <span className="text-sm font-medium w-24">Due Date</span>
@@ -294,7 +291,6 @@ export function SubTaskDetailsSheet({
                                 )}
                             </div>
 
-                            {/* Tag */}
                             <div className="flex items-center gap-3">
                                 <Tag className="h-4 w-4 text-muted-foreground" />
                                 <span className="text-sm font-medium w-24">Tag</span>

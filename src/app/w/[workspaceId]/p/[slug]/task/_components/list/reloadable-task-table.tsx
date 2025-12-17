@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
-import { TaskTableSkeleton } from "../shared/task-page-skeleton";
+import { TaskTableSkeleton } from "../../../_components/layout/list-skeleton";
 import { useRouter } from "next/navigation";
 
 interface ReloadableTaskTableProps {

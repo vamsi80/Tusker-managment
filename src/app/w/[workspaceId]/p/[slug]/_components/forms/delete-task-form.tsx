@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { tryCatch } from "@/hooks/try-catch";
 import { deleteTask } from "@/actions/task/delete-task";
-import { TaskWithSubTasks } from "../list/types";
+import { TaskWithSubTasks } from "../../task/_components/list/types";
 
 interface DeleteTaskDialogProps {
     task: TaskWithSubTasks;

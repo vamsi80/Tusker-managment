@@ -6,12 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Loader2, ChevronsDown } from "lucide-react";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 import { FlatTaskType } from "@/data/task";
-import { CreateSubTaskForm } from "../forms/create-subTask-form";
+import { CreateSubTaskForm } from "../../../_components/forms/create-subTask-form";
 // import { BulkCreateSubTaskForm } from "../forms/bulk-create-subtask-form";
 import { SubTaskRow } from "./subtask-row";
 import { ColumnVisibility } from "./task-table-toolbar";
 import { TaskWithSubTasks } from "./types";
-import { SubTaskSkeleton } from "../shared/task-page-skeleton";
+import { SubTaskSkeleton } from "../../../_components/layout/list-skeleton";
 
 interface SubTaskListProps {
     task: TaskWithSubTasks;
