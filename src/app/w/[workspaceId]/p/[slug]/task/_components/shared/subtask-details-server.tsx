@@ -2,7 +2,7 @@
 import { getTaskComments, getReviewComments } from "@/data/comments";
 import { SubTaskDetailsSheet } from "./subtask-details-sheet";
 import { FlatTaskType } from "@/data/task";
-import { SubTaskType } from "@/app/data/task/get-project-tasks";
+import { SubTaskType } from "@/data/task/get-project-tasks";
 
 interface SubTaskDetailsServerProps {
     subTask: FlatTaskType | SubTaskType[number];

@@ -39,7 +39,6 @@ export function TaskTableSkeleton() {
                         <Skeleton className="h-4 w-28" />
                         <Skeleton className="h-4 w-24" />
                         <Skeleton className="h-4 w-24" />
-                        <Skeleton className="h-4 w-12" />
                     </div>
 
                     {/* Table rows */}
@@ -53,7 +52,6 @@ export function TaskTableSkeleton() {
                             <Skeleton className="h-6 w-28" />
                             <Skeleton className="h-6 w-24" />
                             <Skeleton className="h-6 w-24" />
-                            <Skeleton className="h-8 w-8" />
                         </div>
                     ))}
                 </div>

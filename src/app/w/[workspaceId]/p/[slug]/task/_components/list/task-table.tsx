@@ -15,8 +15,8 @@ import { TaskWithSubTasks } from "./types";
 import { useNewTask } from "../shared/task-page-wrapper";
 import { toast } from "sonner";
 import { useSearchParams } from "next/navigation";
-import { loadTasksAction } from "@/actions/task/load-tasks";
-import { loadSubTasksAction } from "@/actions/task/load-subtasks";
+import { getParentTasksOnly, getSubTasks } from "@/data/task";
+import { updateSubtaskPositions } from "@/actions/task/gantt";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
 
 interface TaskTableProps {
@@ -48,8 +48,6 @@ export function TaskTable({
     const [currentPage, setCurrentPage] = useState(1);
     const [loadingMoreTasks, setLoadingMoreTasks] = useState(false);
     const { newTask, clearNewTask } = useNewTask();
-    const searchParams = useSearchParams();
-
     useEffect(() => {
         setTasks(prevTasks => {
             return initialTasks.map((serverTask: TaskWithSubTasks) => {
@@ -150,29 +148,6 @@ export function TaskTable({
     // Use global subtask sheet context
     const { openSubTaskSheet } = useSubTaskSheet();
 
-    // Handle URL-based subtask opening
-    useEffect(() => {
-        const subtaskParam = searchParams.get('subtask');
-        if (subtaskParam && tasks.length > 0) {
-            // Find the subtask in all tasks by slug or ID
-            for (const task of tasks) {
-                if (task.subTasks) {
-                    const foundSubTask = task.subTasks.find(
-                        st => st.taskSlug === subtaskParam || st.id === subtaskParam
-                    );
-                    if (foundSubTask) {
-                        openSubTaskSheet(foundSubTask);
-                        // Expand the parent task if not already expanded
-                        if (!expanded[task.id]) {
-                            setExpanded(prev => ({ ...prev, [task.id]: true }));
-                        }
-                        break;
-                    }
-                }
-            }
-        }
-    }, [searchParams, tasks, openSubTaskSheet, expanded]);
-
     const handleSubTaskClick = (subTask: FlatTaskType) => {
         openSubTaskSheet(subTask);
     };
@@ -185,21 +160,17 @@ export function TaskTable({
         try {
             const nextPage = currentPage + 1;
 
-            // Use pre-imported server action (no dynamic import overhead)
-            const result = await loadTasksAction(
+            // Call data layer directly (no wrapper needed)
+            const result = await getParentTasksOnly(
                 projectId,
                 workspaceId,
                 nextPage,
                 10
             );
 
-            if (result.success) {
-                setTasks(prev => [...prev, ...result.tasks as TaskWithSubTasks[]]);
-                setHasMoreTasks(result.hasMore);
-                setCurrentPage(nextPage);
-            } else {
-                toast.error(result.error || "Failed to load more tasks");
-            }
+            setTasks(prev => [...prev, ...result.tasks as unknown as TaskWithSubTasks[]]);
+            setHasMoreTasks(result.hasMore);
+            setCurrentPage(nextPage);
         } catch (error) {
             console.error("Error loading more tasks:", error);
             toast.error("Failed to load more tasks");
@@ -228,8 +199,8 @@ export function TaskTable({
                 setLoadingSubTasks((prev) => ({ ...prev, [taskId]: true }));
 
                 try {
-                    // Fetch subtasks from server using pre-imported server action
-                    const result = await loadSubTasksAction(
+                    // Call data layer directly (no wrapper needed)
+                    const result = await getSubTasks(
                         taskId,
                         workspaceId,
                         projectId,
@@ -237,23 +208,19 @@ export function TaskTable({
                         10
                     );
 
-                    if (result.success) {
-                        // Update state with fetched subtasks
-                        setTasks((prevTasks) =>
-                            prevTasks.map((t) =>
-                                t.id === taskId
-                                    ? {
-                                        ...t,
-                                        subTasks: result.subTasks as FlatTaskType[],
-                                        subTasksHasMore: result.hasMore,
-                                        subTasksPage: 1,
-                                    }
-                                    : t
-                            )
-                        );
-                    } else {
-                        toast.error(result.error || "Failed to load subtasks");
-                    }
+                    // Update state with fetched subtasks
+                    setTasks((prevTasks) =>
+                        prevTasks.map((t) =>
+                            t.id === taskId
+                                ? {
+                                    ...t,
+                                    subTasks: result.subTasks as FlatTaskType[],
+                                    subTasksHasMore: result.hasMore,
+                                    subTasksPage: 1,
+                                }
+                                : t
+                        )
+                    );
                 } catch (error) {
                     console.error("Error loading subtasks:", error);
                     toast.error("Failed to load subtasks");
@@ -275,8 +242,8 @@ export function TaskTable({
         try {
             const nextPage = (task.subTasksPage || 1) + 1;
 
-            // Use pre-imported server action (no dynamic import overhead)
-            const result = await loadSubTasksAction(
+            // Call data layer directly (no wrapper needed)
+            const result = await getSubTasks(
                 taskId,
                 workspaceId,
                 projectId,
@@ -284,22 +251,18 @@ export function TaskTable({
                 10
             );
 
-            if (result.success) {
-                setTasks((prevTasks) =>
-                    prevTasks.map((t) =>
-                        t.id === taskId
-                            ? {
-                                ...t,
-                                subTasks: [...(t.subTasks || []), ...(result.subTasks as FlatTaskType[])],
-                                subTasksHasMore: result.hasMore,
-                                subTasksPage: nextPage,
-                            }
-                            : t
-                    )
-                );
-            } else {
-                toast.error(result.error || "Failed to load more subtasks");
-            }
+            setTasks((prevTasks) =>
+                prevTasks.map((t) =>
+                    t.id === taskId
+                        ? {
+                            ...t,
+                            subTasks: [...(t.subTasks || []), ...(result.subTasks as FlatTaskType[])],
+                            subTasksHasMore: result.hasMore,
+                            subTasksPage: nextPage,
+                        }
+                        : t
+                )
+            );
         } catch (error) {
             console.error("Error loading more subtasks:", error);
             toast.error("Failed to load more subtasks");
@@ -358,7 +321,6 @@ export function TaskTable({
 
             // Persist to database
             try {
-                const { updateSubtaskPositions } = await import("../gantt/actions");
                 const updates = updatedSubTasks.map((subtask, index) => ({
                     subtaskId: subtask.id,
                     newPosition: index

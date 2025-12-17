@@ -3,17 +3,12 @@
 import { useState, useRef, useEffect, useTransition } from "react";
 import { AlertCircle, Link, Link2, GripHorizontal } from "lucide-react";
 import { parseDate, formatDate, getDaysBetween } from "./utils";
-import { updateSubtaskDates } from "./drag-actions";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { GanttSubtask } from "./types";
+import { updateSubtaskDates } from "@/actions/task/gantt";
 
 interface DraggableSubtaskBarProps {
     subtask: GanttSubtask;

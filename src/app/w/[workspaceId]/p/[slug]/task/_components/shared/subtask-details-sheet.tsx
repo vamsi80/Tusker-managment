@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Calendar, Tag, User, ArrowUp, Loader2, MessageSquare, FileCheck, Paperclip, Download } from "lucide-react";
 import { FlatTaskType } from "@/data/task";
-import { SubTaskType } from "@/app/data/task/get-project-tasks";
+import { SubTaskType } from "@/data/task/get-project-tasks";
 import { cn } from "@/lib/utils";
 import { createTaskCommentAction, fetchCommentsAction, fetchReviewCommentsAction } from "@/actions/comment";
 import { toast } from "sonner";

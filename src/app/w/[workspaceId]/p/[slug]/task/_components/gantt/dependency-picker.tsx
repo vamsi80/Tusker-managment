@@ -7,8 +7,8 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { GanttSubtask, GanttTask } from "./types";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { addSubtaskDependency, removeSubtaskDependency } from "./actions";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { addSubtaskDependency, removeSubtaskDependency } from "@/actions/task/gantt";
 
 interface DependencyPickerProps {
     open: boolean;

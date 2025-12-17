@@ -1,11 +1,11 @@
 import { ParentTaskType, FlatTaskType } from "@/data/task";
+import { ProjectTaskType } from "@/data/task/get-project-tasks";
 
 /**
  * Extended type for List view with client-side state
- * Subtasks are loaded on-demand when user expands a task
+ * Now uses ProjectTaskType which includes subtasks from server
  */
-export type TaskWithSubTasks = ParentTaskType & {
-    subTasks?: FlatTaskType[];  // Loaded on-demand
-    subTasksHasMore?: boolean;  // Pagination state
-    subTasksPage?: number;      // Current page
+export type TaskWithSubTasks = ProjectTaskType[number] & {
+    subTasksHasMore?: boolean;  // Pagination state for subtasks
+    subTasksPage?: number;      // Current page for subtasks
 };

@@ -6,8 +6,6 @@ import { requireUser } from "@/lib/auth/require-user";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
 import { headers } from "next/headers";
 
-type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED";
-
 interface PinSubTaskResult {
     success: boolean;
     error?: string;

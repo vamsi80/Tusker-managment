@@ -1,4 +1,4 @@
-import { getParentTasksOnly } from "@/data/task";
+import { getProjectTasks } from "@/data/task/get-project-tasks";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 import { TaskTable } from "./task-table";
 
@@ -11,9 +11,9 @@ interface TaskTableContainerProps {
 
 /**
  * Server component that fetches initial task data and passes it to the client TaskTable component
- * Uses getParentTasksOnly() - loads ONLY first 10 parent tasks for fast initial load
- * More parent tasks loaded on-demand with "Load More" button
- * Subtasks are loaded on-demand when user expands a task
+ * Uses getProjectTasks() - loads parent tasks WITH subtasks based on user role
+ * - ADMINs/LEADs: See all tasks with all subtasks
+ * - MEMBERs: See only tasks with subtasks assigned to them
  */
 export async function TaskTableContainer({
     workspaceId,
@@ -21,8 +21,13 @@ export async function TaskTableContainer({
     members,
     canCreateSubTask,
 }: TaskTableContainerProps) {
-    // Get ONLY first 10 parent tasks (no subtasks) for fast initial load
-    const { tasks, hasMore, totalCount } = await getParentTasksOnly(projectId, workspaceId, 1, 10);
+    // Get first 10 parent tasks WITH subtasks (role-based filtering)
+    const { tasks, hasMore, totalCount } = await getProjectTasks(
+        projectId,
+        workspaceId,
+        1,
+        10
+    );
 
     return (
         <TaskTable

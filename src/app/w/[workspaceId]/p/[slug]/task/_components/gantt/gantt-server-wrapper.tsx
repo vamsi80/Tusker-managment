@@ -29,7 +29,6 @@ export async function GanttServerWrapper({ workspaceId, projectId }: GanttServer
         }
     });
 
-
     // Sort parent tasks by position
     const sortedParentTasks = [...parentTasks].sort((a, b) => {
         const posA = a.position ?? Number.MAX_SAFE_INTEGER;

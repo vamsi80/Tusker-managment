@@ -11,9 +11,9 @@ import { KanbanCard } from "./kanban-card";
 import { KanbanToolbar } from "./kanban-toolbar";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
 import { ReviewCommentDialog } from "./review-comment-dialog";
-import { updateSubTaskStatus } from "@/app/w/[workspaceId]/p/[slug]/task/_components/kanban/actions/subtask-status-actions";
 import { createReviewCommentAction } from "@/actions/comment";
 import { toast } from "sonner";
+import { updateSubTaskStatus } from "@/actions/task/kanban/update-subtask-status";
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED";
 

@@ -5,17 +5,12 @@ import { Calendar, ChevronDown } from "lucide-react";
 import { calculateTimelineRange, getDaysBetween } from "./utils";
 import { TimelineHeader, TimelineGrid } from "./timeline-grid";
 import { TaskRow } from "./task-row";
-import { updateSubtaskPositions } from "./actions";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { GanttTask, TimelineGranularity } from "./types";
+import { updateSubtaskPositions } from "@/actions/task/gantt";
 
 interface GanttChartProps {
     tasks: GanttTask[];
