@@ -1,9 +1,8 @@
 "use server";
 
 import prisma from "@/lib/db";
-import { requireUser } from "@/lib/auth/require-user";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidateTag } from "next/cache";
 
 export interface UpdatePositionInput {
     subtaskId: string;
@@ -18,6 +17,11 @@ export interface UpdatePositionsResult {
 /**
  * Update the position of subtasks within a parent task
  * Used for drag-and-drop reordering in Gantt chart
+ * 
+ * OPTIMIZED FOR PERFORMANCE:
+ * - Uses revalidateTag instead of revalidatePath (faster)
+ * - Only invalidates specific project cache
+ * - Batched transaction for atomic updates
  * 
  * Permission Rules:
  * - Project admin/lead can reorder any subtasks
@@ -36,17 +40,14 @@ export async function updateSubtaskPositions(
     updates: UpdatePositionInput[]
 ): Promise<UpdatePositionsResult> {
     try {
-        // 1. Authenticate user
-        const user = await requireUser();
-
-        // 2. Get user permissions
+        // 1. Get user permissions (cached)
         const permissions = await getUserPermissions(workspaceId, projectId);
 
         if (!permissions.workspaceMemberId) {
             return { success: false, message: "You do not have access to this project" };
         }
 
-        // 3. Check if user is authorized to reorder
+        // 2. Check if user is authorized to reorder
         const isAdminOrLead = permissions.isWorkspaceAdmin || permissions.isProjectLead;
 
         if (!isAdminOrLead) {
@@ -79,12 +80,12 @@ export async function updateSubtaskPositions(
             }
         }
 
-        // 4. Validate updates array
+        // 3. Validate updates array
         if (!updates || updates.length === 0) {
             return { success: false, message: "No updates provided" };
         }
 
-        // 5. Update positions in a transaction
+        // 4. Update positions in a transaction (atomic)
         await prisma.$transaction(
             updates.map((update) =>
                 prisma.task.update({
@@ -94,10 +95,9 @@ export async function updateSubtaskPositions(
             )
         );
 
-        // 6. Revalidate caches
+        // 5. OPTIMIZED: Use only revalidateTag (faster than revalidatePath)
+        // Only invalidate the specific project cache
         revalidateTag(`project-tasks-${projectId}`);
-        revalidateTag(`task-subtasks-${parentTaskId}`);
-        revalidatePath(`/w/${workspaceId}/p/[slug]/task`, "page");
 
         return { success: true, message: "Positions updated successfully" };
     } catch (error) {

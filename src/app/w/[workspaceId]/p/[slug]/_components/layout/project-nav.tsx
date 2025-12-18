@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { LayoutDashboard, LayoutList, LayoutGrid, GanttChartSquare } from "lucide-react";
+import { useTransition } from "react";
 
 interface ProjectNavProps {
     workspaceId: string;
@@ -13,6 +14,8 @@ interface ProjectNavProps {
 export function ProjectNav({ workspaceId, slug }: ProjectNavProps) {
     const pathname = usePathname();
     const searchParams = useSearchParams();
+    const router = useRouter();
+    const [isPending, startTransition] = useTransition();
     const baseUrl = `/w/${workspaceId}/p/${slug}`;
 
     // Get current view from search params
@@ -48,6 +51,13 @@ export function ProjectNav({ workspaceId, slug }: ProjectNavProps) {
         },
     ];
 
+    const handleViewChange = (href: string, e: React.MouseEvent) => {
+        e.preventDefault();
+        startTransition(() => {
+            router.push(href);
+        });
+    };
+
     return (
         <div className="border-b">
             <div className="flex h-10 items-center gap-4 overflow-x-auto scrollbar-hide">
@@ -59,6 +69,8 @@ export function ProjectNav({ workspaceId, slug }: ProjectNavProps) {
                         <Link
                             key={tab.href}
                             href={tab.href}
+                            prefetch={true}
+                            onClick={(e) => handleViewChange(tab.href, e)}
                             className={cn(
                                 "flex h-full items-center gap-2 border-b-2 px-3 text-sm font-medium transition-colors hover:text-primary whitespace-nowrap flex-shrink-0",
                                 isActive

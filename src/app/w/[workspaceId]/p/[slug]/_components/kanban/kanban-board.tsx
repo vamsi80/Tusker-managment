@@ -13,7 +13,8 @@ import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
 import { createReviewCommentAction } from "@/actions/comment";
 import { toast } from "sonner";
 import { updateSubTaskStatus } from "@/actions/task/kanban/update-subtask-status";
-import { ReviewCommentDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/review-comment-dialog";
+import { ReviewCommentDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/review-comment-form";
+import { STATUS_COLORS, STATUS_LABELS } from "@/lib/colors/status-colors";
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED";
 
@@ -27,45 +28,33 @@ interface KanbanBoardProps {
 const COLUMNS: { id: TaskStatus; title: string; color: string; bgColor: string; borderColor: string }[] = [
     {
         id: "TO_DO",
-        title: "To Do",
-        color: "text-slate-700",
-        bgColor: "bg-slate-50",
-        borderColor: "border-slate-200",
+        title: STATUS_LABELS.TO_DO,
+        ...STATUS_COLORS.TO_DO,
     },
     {
         id: "IN_PROGRESS",
-        title: "In Progress",
-        color: "text-blue-700",
-        bgColor: "bg-blue-50",
-        borderColor: "border-blue-200",
+        title: STATUS_LABELS.IN_PROGRESS,
+        ...STATUS_COLORS.IN_PROGRESS,
     },
     {
         id: "BLOCKED",
-        title: "Blocked",
-        color: "text-red-700",
-        bgColor: "bg-red-50",
-        borderColor: "border-red-200",
+        title: STATUS_LABELS.BLOCKED,
+        ...STATUS_COLORS.BLOCKED,
     },
     {
         id: "REVIEW",
-        title: "Review",
-        color: "text-amber-700",
-        bgColor: "bg-amber-50",
-        borderColor: "border-amber-200",
+        title: STATUS_LABELS.REVIEW,
+        ...STATUS_COLORS.REVIEW,
     },
     {
         id: "HOLD",
-        title: "On Hold",
-        color: "text-purple-700",
-        bgColor: "bg-purple-50",
-        borderColor: "border-purple-200",
+        title: STATUS_LABELS.HOLD,
+        ...STATUS_COLORS.HOLD,
     },
     {
         id: "COMPLETED",
-        title: "Completed",
-        color: "text-green-700",
-        bgColor: "bg-green-50",
-        borderColor: "border-green-200",
+        title: STATUS_LABELS.COMPLETED,
+        ...STATUS_COLORS.COMPLETED,
     },
 ];
 

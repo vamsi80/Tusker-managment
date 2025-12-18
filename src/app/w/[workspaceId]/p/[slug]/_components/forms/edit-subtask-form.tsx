@@ -19,6 +19,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { editSubTask } from "@/actions/task/update-subTask";
+import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
+import { Badge } from "@/components/ui/badge";
 
 interface EditSubTaskFormProps {
     subTask: FlatTaskType;
@@ -235,13 +237,22 @@ export function EditSubTaskForm({
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Status</FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                value={field.value?.replace('_', ' ') || "TO DO"}
-                                                disabled
-                                                className="bg-muted cursor-not-allowed"
-                                            />
-                                        </FormControl>
+                                        <div className="flex items-center gap-2">
+                                            <Badge
+                                                variant="outline"
+                                                className={cn(
+                                                    "text-sm font-medium px-3 py-1",
+                                                    getStatusColors(field.value).color,
+                                                    getStatusColors(field.value).bgColor,
+                                                    getStatusColors(field.value).borderColor
+                                                )}
+                                            >
+                                                {getStatusLabel(field.value)}
+                                            </Badge>
+                                            <span className="text-xs text-muted-foreground">
+                                                (Change status in Kanban view)
+                                            </span>
+                                        </div>
                                         <FormMessage />
                                     </FormItem>
                                 )}

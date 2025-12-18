@@ -68,7 +68,7 @@ export function TaskTableToolbar({
             </div>
 
             {/* Tag Filter */}
-            <DropdownMenu>
+            {/* <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="sm" className="gap-2">
                         <Filter className="h-4 w-4" />
@@ -87,7 +87,7 @@ export function TaskTableToolbar({
                         </DropdownMenuItem>
                     ))}
                 </DropdownMenuContent>
-            </DropdownMenu>
+            </DropdownMenu> */}
 
             {/* Column Visibility */}
             <DropdownMenu>

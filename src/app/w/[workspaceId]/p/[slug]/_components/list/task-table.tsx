@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Loader2, ChevronsDown } from "lucide-react";
 import { FlatTaskType } from "@/data/task";
@@ -18,6 +18,7 @@ import { useSearchParams } from "next/navigation";
 import { getParentTasksOnly, getSubTasks } from "@/data/task";
 import { updateSubtaskPositions } from "@/actions/task/gantt";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
+import { cn } from "@/lib/utils";
 
 interface TaskTableProps {
     initialTasks: TaskWithSubTasks[];
@@ -384,114 +385,124 @@ export function TaskTable({
                 setColumnVisibility={setColumnVisibility}
             />
 
-            <div className="rounded-md border">
-                <DndContext
-                    sensors={sensors}
-                    collisionDetection={closestCenter}
-                    onDragEnd={handleDragEnd}
-                >
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="w-[50px]"></TableHead>
-                                <TableHead className="min-w-[250px]">Task Name</TableHead>
-                                {columnVisibility.description && <TableHead className="w-[200px]">Description</TableHead>}
-                                {columnVisibility.assignee && <TableHead className="w-[200px]">Assignee</TableHead>}
-                                {columnVisibility.status && <TableHead className="w-[120px]">Status</TableHead>}
-                                {columnVisibility.startDate && <TableHead className="w-[150px]">Start Date</TableHead>}
-                                {columnVisibility.dueDate && <TableHead className="w-[150px]">Due Date</TableHead>}
-                                {columnVisibility.progress && <TableHead className="w-[120px]">Progress</TableHead>}
-                                {columnVisibility.tag && <TableHead className="w-[150px]">Tag</TableHead>}
-                                <TableHead className="w-[50px]"></TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {filteredTasks.map((task) => (
-                                <React.Fragment key={task.id}>
-                                    <TaskRow
-                                        task={task}
-                                        isExpanded={!!expanded[task.id]}
-                                        onToggleExpand={() => toggleExpand(task.id)}
-                                        columnVisibility={columnVisibility}
-                                        isUpdating={updatingTaskId === task.id}
-                                        onUpdateStart={() => setUpdatingTaskId(task.id)}
-                                        onUpdateEnd={() => setUpdatingTaskId(null)}
-                                        onTaskUpdated={(updatedTask) => {
-                                            setTasks(prevTasks =>
-                                                prevTasks.map(t =>
-                                                    t.id === task.id
-                                                        ? { ...t, name: updatedTask.name, taskSlug: updatedTask.taskSlug }
-                                                        : t
-                                                )
-                                            );
-                                        }}
-                                        onTaskDeleted={(taskId) => {
-                                            setTasks(prevTasks =>
-                                                prevTasks.filter(t => t.id !== taskId)
-                                            );
-                                        }}
-                                    />
-                                    {expanded[task.id] && (
-                                        <SubTaskList
+            <div className="rounded-md border overflow-hidden">
+                <div className={cn(
+                    "max-h-[calc(100vh-280px)] overflow-auto",
+                    // Custom ultra-thin scrollbar
+                    "[&::-webkit-scrollbar]:w-0.5",
+                    "[&::-webkit-scrollbar-track]:bg-transparent",
+                    "[&::-webkit-scrollbar-thumb]:bg-slate-300",
+                    "[&::-webkit-scrollbar-thumb]:rounded-full",
+                    "[&::-webkit-scrollbar-thumb]:hover:bg-slate-400"
+                )}>
+                    <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleDragEnd}
+                    >
+                        <table className="w-full caption-bottom text-sm">
+                            <thead className="[&_tr]:border-b">
+                                <tr className="sticky top-0 z-10 bg-background border-b shadow-sm hover:bg-muted/50">
+                                    <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[50px] bg-background"></th>
+                                    <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap min-w-[250px] bg-background">Task Name</th>
+                                    {columnVisibility.description && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[200px] bg-background">Description</th>}
+                                    {columnVisibility.assignee && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[200px] bg-background">Assignee</th>}
+                                    {columnVisibility.status && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[120px] bg-background">Status</th>}
+                                    {columnVisibility.startDate && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[150px] bg-background">Start Date</th>}
+                                    {columnVisibility.dueDate && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[150px] bg-background">Due Date</th>}
+                                    {columnVisibility.progress && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[120px] bg-background">Progress</th>}
+                                    {columnVisibility.tag && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[150px] bg-background">Tag</th>}
+                                    <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[50px] bg-background"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredTasks.map((task) => (
+                                    <React.Fragment key={task.id}>
+                                        <TaskRow
                                             task={task}
-                                            members={members}
-                                            workspaceId={workspaceId}
-                                            projectId={projectId}
-                                            canCreateSubTask={canCreateSubTask}
+                                            isExpanded={!!expanded[task.id]}
+                                            onToggleExpand={() => toggleExpand(task.id)}
                                             columnVisibility={columnVisibility}
-                                            isLoading={!!loadingSubTasks[task.id]}
-                                            isLoadingMore={!!loadingMoreSubTasks[task.id]}
-                                            onLoadMore={() => loadMoreSubTasks(task.id)}
-                                            onSubTaskClick={handleSubTaskClick}
-                                            onSubTaskUpdated={(subTaskId, updatedData) =>
-                                                handleSubTaskUpdated(task.id, subTaskId, updatedData)
-                                            }
-                                            onSubTaskDeleted={(subTaskId) =>
-                                                handleSubTaskDeleted(task.id, subTaskId)
-                                            }
-                                            onSubTaskCreated={(newSubTask) =>
-                                                handleSubTaskCreated(task.id, newSubTask)
-                                            }
+                                            isUpdating={updatingTaskId === task.id}
+                                            onUpdateStart={() => setUpdatingTaskId(task.id)}
+                                            onUpdateEnd={() => setUpdatingTaskId(null)}
+                                            onTaskUpdated={(updatedTask) => {
+                                                setTasks(prevTasks =>
+                                                    prevTasks.map(t =>
+                                                        t.id === task.id
+                                                            ? { ...t, name: updatedTask.name, taskSlug: updatedTask.taskSlug }
+                                                            : t
+                                                    )
+                                                );
+                                            }}
+                                            onTaskDeleted={(taskId) => {
+                                                setTasks(prevTasks =>
+                                                    prevTasks.filter(t => t.id !== taskId)
+                                                );
+                                            }}
                                         />
-                                    )}
-                                </React.Fragment>
-                            ))}
-                            {filteredTasks.length === 0 && (
-                                <TableRow>
-                                    <TableCell colSpan={9} className="h-24 text-center">
-                                        No tasks found.
-                                    </TableCell>
-                                </TableRow>
-                            )}
+                                        {expanded[task.id] && (
+                                            <SubTaskList
+                                                task={task}
+                                                members={members}
+                                                workspaceId={workspaceId}
+                                                projectId={projectId}
+                                                canCreateSubTask={canCreateSubTask}
+                                                columnVisibility={columnVisibility}
+                                                isLoading={!!loadingSubTasks[task.id]}
+                                                isLoadingMore={!!loadingMoreSubTasks[task.id]}
+                                                onLoadMore={() => loadMoreSubTasks(task.id)}
+                                                onSubTaskClick={handleSubTaskClick}
+                                                onSubTaskUpdated={(subTaskId, updatedData) =>
+                                                    handleSubTaskUpdated(task.id, subTaskId, updatedData)
+                                                }
+                                                onSubTaskDeleted={(subTaskId) =>
+                                                    handleSubTaskDeleted(task.id, subTaskId)
+                                                }
+                                                onSubTaskCreated={(newSubTask) =>
+                                                    handleSubTaskCreated(task.id, newSubTask)
+                                                }
+                                            />
+                                        )}
+                                    </React.Fragment>
+                                ))}
+                                {filteredTasks.length === 0 && (
+                                    <TableRow>
+                                        <TableCell colSpan={9} className="h-24 text-center">
+                                            No tasks found.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
 
-                            {/* Load More Parent Tasks */}
-                            {hasMoreTasks && (
-                                <TableRow>
-                                    <TableCell colSpan={9} className="text-center p-4">
-                                        <Button
-                                            variant="outline"
-                                            onClick={loadMoreTasks}
-                                            disabled={loadingMoreTasks}
-                                            className="w-full"
-                                        >
-                                            {loadingMoreTasks ? (
-                                                <>
-                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                    Loading more tasks...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <ChevronsDown className="mr-2 h-4 w-4" />
-                                                    Load More Tasks
-                                                </>
-                                            )}
-                                        </Button>
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </DndContext>
+                                {/* Load More Parent Tasks */}
+                                {hasMoreTasks && (
+                                    <TableRow>
+                                        <TableCell colSpan={9} className="text-center p-4">
+                                            <Button
+                                                variant="outline"
+                                                onClick={loadMoreTasks}
+                                                disabled={loadingMoreTasks}
+                                                className="w-full"
+                                            >
+                                                {loadingMoreTasks ? (
+                                                    <>
+                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                        Loading more tasks...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <ChevronsDown className="mr-2 h-4 w-4" />
+                                                        Load More Tasks
+                                                    </>
+                                                )}
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </tbody>
+                        </table>
+                    </DndContext>
+                </div>
             </div>
         </div>
     );

@@ -127,9 +127,9 @@ export async function addSubtaskDependency(
             }
         }
 
-        // 9. Revalidate caches
+        // 9. OPTIMIZED: Only revalidate the specific project cache
+        // Removed: global subtasks cache (too broad, causes slowdowns)
         revalidateTag(`project-tasks-${projectId}`);
-        revalidateTag(`task-subtasks-all`);
 
         return { success: true, message: "Dependency added successfully" };
     } catch (error) {
@@ -202,9 +202,9 @@ export async function removeSubtaskDependency(
             },
         });
 
-        // 6. Revalidate caches
+        // 6. OPTIMIZED: Only revalidate the specific project cache
+        // Removed: global subtasks cache (too broad, causes slowdowns)
         revalidateTag(`project-tasks-${projectId}`);
-        revalidateTag(`task-subtasks-all`);
 
         return { success: true, message: "Dependency removed successfully" };
     } catch (error) {

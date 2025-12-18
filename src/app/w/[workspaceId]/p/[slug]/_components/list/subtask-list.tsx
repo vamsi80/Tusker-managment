@@ -93,7 +93,7 @@ export function SubTaskList({
                 {sortedSubTasks.map((subTask) => (
                     <SubTaskRow
                         key={subTask.id}
-                        subTask={subTask}
+                        subTask={subTask as any}
                         columnVisibility={columnVisibility}
                         onClick={onSubTaskClick}
                         members={members}

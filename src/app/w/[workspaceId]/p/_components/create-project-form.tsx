@@ -1,25 +1,25 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useTransition } from "react";
-import { Resolver, useForm } from "react-hook-form";
-import { Check, Loader2, Plus, PlusIcon, SparkleIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { projectSchema, ProjectSchemaType } from "@/lib/zodSchemas";
-import { tryCatch } from "@/hooks/try-catch";
-import { useConfetti } from "@/hooks/use-confetti";
-import { toast } from "sonner";
-import { WorkspaceMembersResult } from "@/app/data/workspace/get-workspace-members";
 import slugify from "slugify";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import { useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { tryCatch } from "@/hooks/try-catch";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { useConfetti } from "@/hooks/use-confetti";
+import { Resolver, useForm } from "react-hook-form";
+import { Textarea } from "@/components/ui/textarea";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { WorkspaceMembersResult } from "@/data/workspace";
+import { createProject } from "@/actions/project/create-project";
+import { projectSchema, ProjectSchemaType } from "@/lib/zodSchemas";
+import { Check, Loader2, Plus, PlusIcon, SparkleIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
-import { cn } from "@/lib/utils";
-import { createProject } from "@/actions/project/create-project";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
 interface iAppProps {
     members: WorkspaceMembersResult["workspaceMembers"]
@@ -91,7 +91,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin }: iAppProps) 
                     </DialogHeader>
 
                     {/* The scrollable area. Keeps header/footer sticky if you want:
-            - header is above already; if you want sticky footer, wrap form and footer separately. */}
+                        - header is above already; if you want sticky footer, wrap form and footer separately. */}
                     <div className="mt-4 overflow-y-auto px-2 py-1 max-h-[70vh] thin-scrollbar">
                         <Form {...form}>
                             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">

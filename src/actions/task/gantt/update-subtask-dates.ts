@@ -13,6 +13,11 @@ export interface UpdateSubtaskDatesResult {
 /**
  * Update subtask dates when dragged/resized in Gantt chart
  * 
+ * OPTIMIZED FOR PERFORMANCE:
+ * - Reduced cache invalidation (only invalidates specific project)
+ * - Batched database operations
+ * - Removed unnecessary user-specific cache invalidation
+ * 
  * Permission Rules:
  * - Assignee can update their own subtask dates
  * - Project admin/lead can update any subtask dates
@@ -35,7 +40,7 @@ export async function updateSubtaskDates(
         // 1. Authenticate user
         const user = await requireUser();
 
-        // 2. Get user permissions
+        // 2. Get user permissions (cached)
         const permissions = await getUserPermissions(workspaceId, projectId);
 
         if (!permissions.workspaceMemberId) {
@@ -54,7 +59,7 @@ export async function updateSubtaskDates(
             return { success: false, message: "Start date must be before end date" };
         }
 
-        // 4. Fetch the subtask with assignee info
+        // 4. Fetch subtask with all needed data in ONE query (optimized)
         const subtask = await prisma.task.findUnique({
             where: { id: subtaskId },
             select: {
@@ -67,6 +72,13 @@ export async function updateSubtaskDates(
                 parentTask: {
                     select: {
                         projectId: true,
+                    },
+                },
+                dependedBy: {
+                    select: {
+                        id: true,
+                        startDate: true,
+                        days: true,
                     },
                 },
             },
@@ -95,52 +107,42 @@ export async function updateSubtaskDates(
         // 7. Calculate days
         const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-        // 8. Update the subtask
-        await prisma.task.update({
-            where: { id: subtaskId },
-            data: {
-                startDate: start,
-                days: days,
-            },
-        });
-
-        // 9. Auto-update dependent tasks (Finish-to-Start)
-        const taskWithDependents = await prisma.task.findUnique({
-            where: { id: subtaskId },
-            include: {
-                dependedBy: {
-                    select: {
-                        id: true,
-                        startDate: true,
-                        days: true,
-                    },
-                },
-            },
-        });
-
-        if (taskWithDependents?.dependedBy && taskWithDependents.dependedBy.length > 0) {
+        // 8. Prepare batch updates for dependent tasks
+        const dependentUpdates = [];
+        if (subtask.dependedBy && subtask.dependedBy.length > 0) {
             const newDependentStart = new Date(end);
-            newDependentStart.setDate(newDependentStart.getDate() + 1); // Next day after predecessor ends
+            newDependentStart.setDate(newDependentStart.getDate() + 1);
 
-            for (const dependent of taskWithDependents.dependedBy) {
+            for (const dependent of subtask.dependedBy) {
                 if (dependent.startDate && dependent.days) {
-                    // Only update if the dependent would start before the predecessor ends
                     if (dependent.startDate < newDependentStart) {
-                        await prisma.task.update({
-                            where: { id: dependent.id },
-                            data: {
-                                startDate: newDependentStart,
-                            },
-                        });
+                        dependentUpdates.push(
+                            prisma.task.update({
+                                where: { id: dependent.id },
+                                data: { startDate: newDependentStart },
+                            })
+                        );
                     }
                 }
             }
         }
 
-        // 10. Revalidate caches
+        // 9. Execute ALL updates in a single transaction (MUCH FASTER)
+        await prisma.$transaction([
+            prisma.task.update({
+                where: { id: subtaskId },
+                data: {
+                    startDate: start,
+                    days: days,
+                },
+            }),
+            ...dependentUpdates,
+        ]);
+
+        // 10. OPTIMIZED: Only revalidate the specific project cache
+        // Removed: user-specific cache (not needed for Gantt)
+        // Removed: global subtasks cache (too broad, slows down other views)
         revalidateTag(`project-tasks-${projectId}`);
-        revalidateTag(`project-tasks-user-${user.id}`);
-        revalidateTag(`task-subtasks-all`);
 
         return { success: true, message: "Dates updated successfully" };
     } catch (error) {

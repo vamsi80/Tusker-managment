@@ -13,6 +13,9 @@ import { ColumnVisibility } from "./task-table-toolbar";
 import { EditSubTaskForm } from "../forms/edit-subtask-form";
 import { DeleteSubTaskForm } from "../forms/delete-subtask-form";
 import { ProjectMembersType } from "@/data/project/get-project-members";
+import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 interface SubTaskRowProps {
     subTask: FlatTaskType;
@@ -136,6 +139,11 @@ export function SubTaskRow({
                         <Skeleton className="h-8 w-8 rounded-full" />
                     </TableCell>
                 )}
+                {columnVisibility.status && (
+                    <TableCell>
+                        <Skeleton className="h-5 w-20" />
+                    </TableCell>
+                )}
                 {columnVisibility.tag && (
                     <TableCell>
                         <Skeleton className="h-5 w-20" />
@@ -226,9 +234,17 @@ export function SubTaskRow({
             {columnVisibility.status && (
                 <TableCell>
                     {subTask.status ? (
-                        <div className="flex items-center gap-1">
-                            <span className="text-xs text-muted-foreground">{subTask.status}</span>
-                        </div>
+                        <Badge
+                            variant="outline"
+                            className={cn(
+                                "text-xs font-medium",
+                                getStatusColors(subTask.status).color,
+                                getStatusColors(subTask.status).bgColor,
+                                getStatusColors(subTask.status).borderColor
+                            )}
+                        >
+                            {getStatusLabel(subTask.status)}
+                        </Badge>
                     ) : (
                         <span className="text-muted-foreground text-xs">-</span>
                     )}

@@ -1,7 +1,6 @@
 "use client";
 
-
-import { SubTaskDetailsSheet } from "@/app/w/[workspaceId]/p/[slug]/_components/shared/subtask-details-sheet";
+import { SubTaskDetailsSheet } from "@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/subtask-details-sheet";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
 
 /**

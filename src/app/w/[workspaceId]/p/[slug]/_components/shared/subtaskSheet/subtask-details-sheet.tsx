@@ -15,11 +15,12 @@ import { SubTaskType } from "@/data/task/get-project-tasks";
 import { cn } from "@/lib/utils";
 import { createTaskCommentAction, fetchCommentsAction, fetchReviewCommentsAction } from "@/actions/comment";
 import { toast } from "sonner";
+import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 
 interface SubTaskDetailsSheetProps {
-    subTask: FlatTaskType | SubTaskType[number];
+    subTask: FlatTaskType | SubTaskType[number] | null;
     isOpen: boolean;
-    onClose: () => void;
+    onClose?: () => void;
     disableUrlSync?: boolean;
     // Optional initial data from server component
     initialComments?: any[];
@@ -71,7 +72,7 @@ interface ReviewComment {
 export function SubTaskDetailsSheet({
     subTask,
     isOpen,
-    onClose,
+    onClose = () => { }, // Default empty function
     disableUrlSync = false,
     initialComments = [],
     initialReviewComments = [],
@@ -129,6 +130,7 @@ export function SubTaskDetailsSheet({
 
         setIsLoading(true);
         try {
+            // fetchCommentsAction now calls getTaskComments from data layer
             const result = await fetchCommentsAction(subTask.id);
             if (result.success && result.comments) {
                 setComments(result.comments as Comment[]);
@@ -151,6 +153,7 @@ export function SubTaskDetailsSheet({
 
         setIsLoadingReview(true);
         try {
+            // fetchReviewCommentsAction now calls getReviewComments from data layer
             const result = await fetchReviewCommentsAction(subTask.id);
             if (result.success && result.reviewComments) {
                 setReviewComments(result.reviewComments as ReviewComment[]);
@@ -300,6 +303,26 @@ export function SubTaskDetailsSheet({
                                     </Badge>
                                 ) : (
                                     <span className="text-sm text-muted-foreground">No tag</span>
+                                )}
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                                <FileCheck className="h-4 w-4 text-muted-foreground" />
+                                <span className="text-sm font-medium w-24">Status</span>
+                                {subTask.status ? (
+                                    <Badge
+                                        variant="outline"
+                                        className={cn(
+                                            "text-xs font-medium",
+                                            getStatusColors(subTask.status).color,
+                                            getStatusColors(subTask.status).bgColor,
+                                            getStatusColors(subTask.status).borderColor
+                                        )}
+                                    >
+                                        {getStatusLabel(subTask.status)}
+                                    </Badge>
+                                ) : (
+                                    <span className="text-sm text-muted-foreground">No status</span>
                                 )}
                             </div>
                         </div>

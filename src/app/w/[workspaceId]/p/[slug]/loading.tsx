@@ -2,7 +2,7 @@ import { ProjectLayoutSkeleton } from "./_components/layout/project-layout-skele
 
 /**
  * Loading UI for the Project Layout
- * 
+ *
  * This shows immediately when navigating to any project page
  * before the layout loads. This ensures instant navigation feel.
  */

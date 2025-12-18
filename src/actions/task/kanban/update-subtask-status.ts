@@ -268,10 +268,10 @@ export async function updateSubTaskStatus(
             return { updated, auditLog };
         });
 
-        // 13. Revalidate caches
+        // 13. OPTIMIZED: Only revalidate the specific project cache
+        // Removed: global cache (too broad, slows down other projects)
+        // Removed: revalidatePath (slower than revalidateTag)
         revalidateTag(`project-tasks-${projectId}`);
-        revalidateTag(`project-tasks-all`);
-        revalidatePath(`/w/${workspaceId}/p/[slug]/task`, "page");
 
         return {
             success: true,
