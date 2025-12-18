@@ -1,14 +1,14 @@
 import { Suspense } from "react";
 import { getTaskPageData } from "@/data/task";
-import { ReloadButton } from "./task/_components/shared/reload-button";
+import { ReloadButton } from "./_components/shared/reload-button";
 import { CreateTaskForm } from "./_components/forms/create-task-form";
 import { BulkUploadForm } from "./_components/forms/bulk-upload-form";
 import { GanttChartSkeleton } from "./_components/layout/gantt-skeleton";
 import { ProjectDashboard } from "./_components/dashboard/project-dashboard";
-import { TaskPageWrapper } from "./task/_components/shared/task-page-wrapper";
+import { TaskPageWrapper } from "./_components/shared/task-page-wrapper";
 import { KanbanBoardSkeleton } from "./_components/layout/kanban-skeleton";
-import { TaskTableContainer } from "./task/_components/list/task-table-container";
-import { ReloadableTaskTable } from "./task/_components/list/reloadable-task-table";
+import { TaskTableContainer } from "./_components/list/task-table-container";
+import { ReloadableTaskTable } from "./_components/list/reloadable-task-table";
 import { TaskHeaderSkeleton, TaskTableSkeleton } from "./_components/layout/list-skeleton";
 
 interface iAppProps {
@@ -84,7 +84,7 @@ async function TaskKanbanView({ workspaceId, slug }: { workspaceId: string; slug
 
   if (!pageData) return null;
 
-  const { KanbanContainer } = await import("./task/_components/kanban/kanban-container");
+  const { KanbanContainer } = await import("./_components/kanban/kanban-container");
 
   return <KanbanContainer workspaceId={pageData.project.workspaceId} projectId={pageData.project.id} />;
 }
@@ -97,7 +97,7 @@ async function TaskGanttView({ workspaceId, slug }: { workspaceId: string; slug:
 
   if (!pageData) return null;
 
-  const { GanttServerWrapper } = await import("./task/_components/gantt/gantt-server-wrapper");
+  const { GanttServerWrapper } = await import("./_components/gantt/gantt-server-wrapper");
 
   return <GanttServerWrapper workspaceId={pageData.project.workspaceId} projectId={pageData.project.id} />;
 }

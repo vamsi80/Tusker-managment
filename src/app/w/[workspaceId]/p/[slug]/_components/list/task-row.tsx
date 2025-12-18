@@ -8,8 +8,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ColumnVisibility } from "./task-table-toolbar";
 import { TaskWithSubTasks } from "./types";
 import { Badge } from "@/components/ui/badge";
-import { EditTaskDialog } from "../../../_components/forms/edit-task-form";
-import { DeleteTaskDialog } from "../../../_components/forms/delete-task-form";
+import { EditTaskDialog } from "../forms/edit-task-form";
+import { DeleteTaskDialog } from "../forms/delete-task-form";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface TaskRowProps {

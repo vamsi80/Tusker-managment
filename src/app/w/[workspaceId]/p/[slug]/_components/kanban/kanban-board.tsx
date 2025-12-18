@@ -10,10 +10,10 @@ import { cn } from "@/lib/utils";
 import { KanbanCard } from "./kanban-card";
 import { KanbanToolbar } from "./kanban-toolbar";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
-import { ReviewCommentDialog } from "../../../_components/forms/review-comment-dialog";
 import { createReviewCommentAction } from "@/actions/comment";
 import { toast } from "sonner";
 import { updateSubTaskStatus } from "@/actions/task/kanban/update-subtask-status";
+import { ReviewCommentDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/review-comment-dialog";
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED";
 

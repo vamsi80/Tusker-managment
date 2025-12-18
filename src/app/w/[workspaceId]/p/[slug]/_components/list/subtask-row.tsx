@@ -10,8 +10,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { CornerDownRight, GripVertical, Calendar, Tag, MoreHorizontal } from "lucide-react";
 import { FlatTaskType } from "@/data/task";
 import { ColumnVisibility } from "./task-table-toolbar";
-import { EditSubTaskForm } from "../../../_components/forms/edit-subtask-form";
-import { DeleteSubTaskForm } from "../../../_components/forms/delete-subtask-form";
+import { EditSubTaskForm } from "../forms/edit-subtask-form";
+import { DeleteSubTaskForm } from "../forms/delete-subtask-form";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 
 interface SubTaskRowProps {

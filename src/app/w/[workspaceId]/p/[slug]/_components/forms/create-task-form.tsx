@@ -14,7 +14,7 @@ import { useConfetti } from "@/hooks/use-confetti";
 import { toast } from "sonner";
 import slugify from "slugify";
 import { useRouter } from "next/navigation";
-import { useTaskContext } from "../../task/_components/shared/task-context";
+import { useTaskContext } from "../shared/task-context";
 import { createTask } from "@/actions/task/create-task";
 
 interface iAppProps {
