@@ -66,10 +66,6 @@ export function SubTaskSkeleton({ columnVisibility, count = 2 }: SubTaskSkeleton
         <>
             {Array.from({ length: count }).map((_, index) => (
                 <TableRow key={index} className="bg-muted/10">
-                    {/* Checkbox column */}
-                    <TableCell className="pl-4">
-                        <Skeleton className="h-4 w-4" />
-                    </TableCell>
 
                     {/* Drag handle column */}
                     <TableCell className="pl-4">

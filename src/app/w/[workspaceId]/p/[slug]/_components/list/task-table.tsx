@@ -1,24 +1,23 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
-import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { TableBody, TableCell, TableRow } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Loader2, ChevronsDown } from "lucide-react";
-import { FlatTaskType } from "@/data/task";
-import { ProjectMembersType } from "@/data/project/get-project-members";
-import { TaskTableToolbar, ColumnVisibility } from "./task-table-toolbar";
-import { TaskRow } from "./task-row";
-import { SubTaskList } from "./subtask-list";
-import { TaskWithSubTasks } from "./types";
-import { useNewTask } from "../shared/task-page-wrapper";
 import { toast } from "sonner";
-import { useSearchParams } from "next/navigation";
+import { cn } from "@/lib/utils";
+import { TaskRow } from "./task-row";
+import { FlatTaskType } from "@/data/task";
+import { TaskWithSubTasks } from "./types";
+import { SubTaskList } from "./subtask-list";
+import { Button } from "@/components/ui/button";
+import React, { useState, useEffect } from "react";
+import { Loader2, ChevronsDown } from "lucide-react";
+import { useNewTask } from "../shared/task-page-wrapper";
 import { getParentTasksOnly, getSubTasks } from "@/data/task";
 import { updateSubtaskPositions } from "@/actions/task/gantt";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
-import { cn } from "@/lib/utils";
+import { TableCell, TableRow } from "@/components/ui/table";
+import { ProjectMembersType } from "@/data/project/get-project-members";
+import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import { TaskTableToolbar, ColumnVisibility, AdvancedFilters } from "./task-table-toolbar";
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 
 interface TaskTableProps {
     initialTasks: TaskWithSubTasks[];
@@ -28,6 +27,7 @@ interface TaskTableProps {
     workspaceId: string;
     projectId: string;
     canCreateSubTask: boolean;
+    showAdvancedFilters?: boolean;
 }
 
 /**
@@ -42,8 +42,8 @@ export function TaskTable({
     workspaceId,
     projectId,
     canCreateSubTask,
+    showAdvancedFilters = false,
 }: TaskTableProps) {
-    // Task state with pagination
     const [tasks, setTasks] = useState<TaskWithSubTasks[]>(initialTasks);
     const [hasMoreTasks, setHasMoreTasks] = useState(initialHasMore);
     const [currentPage, setCurrentPage] = useState(1);
@@ -146,6 +146,16 @@ export function TaskTable({
         description: true,
     });
 
+    // Advanced filters state (for workspace view)
+    const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilters>({
+        projectId: "all",
+        status: "all",
+        assigneeId: "all",
+        tag: "all",
+        startDate: undefined,
+        endDate: undefined,
+    });
+
     // Use global subtask sheet context
     const { openSubTaskSheet } = useSubTaskSheet();
 
@@ -201,10 +211,11 @@ export function TaskTable({
 
                 try {
                     // Call data layer directly (no wrapper needed)
+                    // Use task.projectId for workspace compatibility (each task may have different projectId)
                     const result = await getSubTasks(
                         taskId,
                         workspaceId,
-                        projectId,
+                        task.projectId || projectId, // Use task's projectId if available, fallback to prop
                         1,
                         10
                     );
@@ -244,10 +255,11 @@ export function TaskTable({
             const nextPage = (task.subTasksPage || 1) + 1;
 
             // Call data layer directly (no wrapper needed)
+            // Use task.projectId for workspace compatibility
             const result = await getSubTasks(
                 taskId,
                 workspaceId,
-                projectId,
+                task.projectId || projectId, // Use task's projectId if available, fallback to prop
                 nextPage,
                 10
             );
@@ -357,19 +369,42 @@ export function TaskTable({
         })
     );
 
-    // Filter and sort tasks by position
-    const filteredTasks = tasks
-        .filter((task) => {
-            const matchesSearch = task.name.toLowerCase().includes(searchQuery.toLowerCase());
-            const matchesTag = !tagFilter || task.tag === tagFilter;
-            return matchesSearch && matchesTag;
-        })
-        .sort((a, b) => {
-            // Sort by position, handling null values
-            const posA = a.position ?? Number.MAX_SAFE_INTEGER;
-            const posB = b.position ?? Number.MAX_SAFE_INTEGER;
-            return posA - posB;
+    // Extract unique values for advanced filters
+    const { availableProjects, availableStatuses, availableAssignees } = React.useMemo(() => {
+        const projectsMap = new Map();
+        const statusesSet = new Set<import("@/generated/prisma").TaskStatus>();
+        const assigneesMap = new Map();
+
+        tasks.forEach(task => {
+            // Projects (for workspace view)
+            if ((task as any).project) {
+                const project = (task as any).project;
+                projectsMap.set(project.id, { id: project.id, name: project.name });
+            }
+
+            // Statuses
+            if (task.status) {
+                statusesSet.add(task.status);
+            }
+
+            // Assignees
+            if ((task as any).assignee?.workspaceMember?.user) {
+                const user = (task as any).assignee.workspaceMember.user;
+                assigneesMap.set(user.id, {
+                    id: user.id,
+                    name: user.name,
+                    surname: user.surname,
+                });
+            }
         });
+
+        return {
+            availableProjects: Array.from(projectsMap.values()),
+            availableStatuses: Array.from(statusesSet),
+            availableAssignees: Array.from(assigneesMap.values()),
+        };
+    }, [tasks]);
+
 
     const uniqueTags = Array.from(new Set(tasks.map((t) => t.tag as string).filter(Boolean)));
 
@@ -383,6 +418,14 @@ export function TaskTable({
                 uniqueTags={uniqueTags}
                 columnVisibility={columnVisibility}
                 setColumnVisibility={setColumnVisibility}
+                // Advanced filters (always available)
+                advancedFilters={advancedFilters}
+                setAdvancedFilters={setAdvancedFilters}
+                availableProjects={availableProjects}
+                availableStatuses={availableStatuses}
+                availableAssignees={availableAssignees}
+                // Project filter only in workspace view
+                showProjectFilter={showAdvancedFilters}
             />
 
             <div className="rounded-md border overflow-hidden">
@@ -416,7 +459,7 @@ export function TaskTable({
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredTasks.map((task) => (
+                                {tasks.map((task) => (
                                     <React.Fragment key={task.id}>
                                         <TaskRow
                                             task={task}
@@ -466,7 +509,7 @@ export function TaskTable({
                                         )}
                                     </React.Fragment>
                                 ))}
-                                {filteredTasks.length === 0 && (
+                                {tasks.length === 0 && (
                                     <TableRow>
                                         <TableCell colSpan={9} className="h-24 text-center">
                                             No tasks found.

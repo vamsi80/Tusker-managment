@@ -1,6 +1,6 @@
 "use server";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
-import { invalidateProjectTasks } from "@/lib/cache/invalidation";
+import { invalidateProjectTasks, invalidateWorkspaceTasks } from "@/lib/cache/invalidation";
 import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
 import { TaskSchemaType, taskSchema } from "@/lib/zodSchemas";
@@ -91,9 +91,10 @@ export async function editTask(
             },
         });
 
-        // Revalidate cache (path + task cache)
+        // Revalidate cache (path + task cache + workspace cache)
         revalidatePath(`/w/${existingTask.project.workspaceId}/p/${existingTask.project.slug}/task`);
         await invalidateProjectTasks(existingTask.projectId);
+        await invalidateWorkspaceTasks(existingTask.project.workspaceId);
 
         return {
             status: "success",

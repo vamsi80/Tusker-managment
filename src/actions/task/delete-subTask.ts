@@ -1,7 +1,7 @@
 "use server"
 
 import { getUserPermissions } from "@/data/user/get-user-permissions";
-import { invalidateTaskSubTasks, invalidateProjectTasks } from "@/lib/cache/invalidation";
+import { invalidateTaskSubTasks, invalidateProjectTasks, invalidateWorkspaceTasks } from "@/lib/cache/invalidation";
 import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
 import { revalidatePath } from "next/cache";
@@ -49,12 +49,13 @@ export async function deleteSubTask(
             where: { id: subTaskId },
         });
 
-        // Revalidate cache (path + subtask cache)
+        // Revalidate cache (path + subtask cache + workspace cache)
         revalidatePath(`/w/${existingSubTask.project.workspaceId}/p/${existingSubTask.project.slug}/task`);
         if (existingSubTask.parentTaskId) {
             await invalidateTaskSubTasks(existingSubTask.parentTaskId);
         }
         await invalidateProjectTasks(existingSubTask.projectId);
+        await invalidateWorkspaceTasks(existingSubTask.project.workspaceId);
 
         return {
             status: "success",

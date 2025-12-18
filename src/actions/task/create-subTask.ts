@@ -1,7 +1,7 @@
 "use server";
 
 import { getUserPermissions } from "@/data/user/get-user-permissions";
-import { invalidateProjectTasks, invalidateTaskSubTasks } from "@/lib/cache/invalidation";
+import { invalidateProjectTasks, invalidateTaskSubTasks, invalidateWorkspaceTasks } from "@/lib/cache/invalidation";
 import { requireUser } from "@/lib/auth/require-user";
 import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
@@ -115,10 +115,11 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
             }
         });
 
-        // Revalidate cache (path + task/subtask caches)
+        // Revalidate cache (path + task/subtask caches + workspace cache)
         revalidatePath(`/w/${project.workspaceId}/p/${project.slug}/task`);
         await invalidateProjectTasks(values.projectId);
         await invalidateTaskSubTasks(values.parentTaskId);
+        await invalidateWorkspaceTasks(project.workspaceId);
 
         return {
             status: "success",

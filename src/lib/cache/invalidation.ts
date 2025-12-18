@@ -89,6 +89,34 @@ export async function invalidateAllTaskSubTasks() {
 }
 
 /**
+ * Invalidate workspace tasks cache for a specific workspace
+ * Call this when tasks are created, updated, or deleted in any project within the workspace
+ */
+export async function invalidateWorkspaceTasks(workspaceId: string) {
+    revalidateTag(`workspace-tasks-${workspaceId}`);
+}
+
+/**
+ * Invalidate all workspace tasks cache
+ * Use sparingly - only when needed for global changes
+ */
+export async function invalidateAllWorkspaceTasks() {
+    revalidateTag(`workspace-tasks-all`);
+}
+
+/**
+ * Invalidate both project and workspace task caches
+ * Call this on any task mutation to ensure both views are updated
+ * 
+ * @param projectId - The project ID
+ * @param workspaceId - The workspace ID
+ */
+export async function invalidateTaskCaches(projectId: string, workspaceId: string) {
+    await invalidateProjectTasks(projectId);
+    await invalidateWorkspaceTasks(workspaceId);
+}
+
+/**
  * Invalidate project members cache
  * Call this when project members are added, removed, or updated
  */
