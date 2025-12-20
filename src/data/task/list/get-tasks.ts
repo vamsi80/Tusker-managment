@@ -63,8 +63,6 @@ async function _getProjectTasksInternal(
                 days: true,
                 tag: true,
                 projectId: true,
-                createdAt: true,
-                updatedAt: true,
                 createdBy: {
                     select: {
                         user: {
@@ -126,13 +124,6 @@ async function _getProjectTasksInternal(
                                     },
                                 },
                             },
-                            dependsOn: {
-                                select: {
-                                    id: true,
-                                    name: true,
-                                    status: true,
-                                },
-                            },
                         },
                         orderBy: {
                             position: 'asc',
@@ -163,13 +154,6 @@ async function _getProjectTasksInternal(
                                             },
                                         },
                                     },
-                                },
-                            },
-                            dependsOn: {
-                                select: {
-                                    id: true,
-                                    name: true,
-                                    status: true,
                                 },
                             },
                         },
@@ -265,13 +249,6 @@ async function _getTaskSubTasksInternal(
                                 },
                             },
                         },
-                    },
-                },
-                dependsOn: {
-                    select: {
-                        id: true,
-                        name: true,
-                        status: true,
                     },
                 },
             },
@@ -386,150 +363,5 @@ export const getProjectTasks = cache(
     }
 );
 
-/**
- * Get subtasks for a specific parent task with role-based filtering
- * 
- * Filtering Rules:
- * - ADMINs and LEADs: See all subtasks
- * - MEMBERs: Only see subtasks assigned to them
- */
-export const getTaskSubTasks = cache(
-    async (parentTaskId: string, workspaceId: string, projectId: string, page: number = 1, pageSize: number = 10) => {
-        const user = await requireUser();
-
-        try {
-            // Get user's permissions using the centralized function
-            const permissions = await getUserPermissions(workspaceId, projectId);
-
-            if (!permissions.workspaceMemberId) {
-                throw new Error("User does not have access to this project");
-            }
-
-            return await getCachedTaskSubTasks(
-                parentTaskId,
-                workspaceId,
-                projectId,
-                permissions.workspaceMemberId,
-                permissions.isMember,
-                page,
-                pageSize
-            );
-        } catch (error) {
-            console.error("Error fetching subtasks:", error);
-            return {
-                subTasks: [],
-                totalCount: 0,
-                hasMore: false,
-                currentPage: 1,
-            };
-        }
-    }
-);
-
-/**
- * Get all subtasks across all tasks in a project for Kanban view
- * Includes parent task information for filtering
- */
-export const getAllProjectSubTasks = cache(
-    async (projectId: string, workspaceId: string) => {
-
-        try {
-            // Get user's permissions
-            const permissions = await getUserPermissions(workspaceId, projectId);
-
-            if (!permissions.workspaceMemberId) {
-                throw new Error("User does not have access to this project");
-            }
-
-            // Build where clause based on role
-            const whereClause = permissions.isMember
-                ? {
-                    parentTask: {
-                        projectId: projectId,
-                    },
-                    assignee: {
-                        workspaceMemberId: permissions.workspaceMemberId,
-                    },
-                }
-                : {
-                    parentTask: {
-                        projectId: projectId,
-                    },
-                };
-
-            const subTasks = await prisma.task.findMany({
-                where: {
-                    ...whereClause,
-                    parentTaskId: { not: null }, // Only subtasks
-                },
-                select: {
-                    id: true,
-                    name: true,
-                    taskSlug: true,
-                    description: true,
-                    status: true,
-                    position: true,
-                    startDate: true,
-                    days: true,
-                    tag: true,
-                    parentTaskId: true,
-                    parentTask: {
-                        select: {
-                            id: true,
-                            name: true,
-                            taskSlug: true,
-                        },
-                    },
-                    assignee: {
-                        select: {
-                            id: true,
-                            workspaceMember: {
-                                select: {
-                                    user: {
-                                        select: {
-                                            id: true,
-                                            name: true,
-                                            surname: true,
-                                            image: true,
-                                        },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                    dependsOn: {
-                        select: {
-                            id: true,
-                            name: true,
-                            status: true,
-                        },
-                    },
-                    _count: {
-                        select: {
-                            reviewComments: true, // Count of review comments
-                        },
-                    },
-                },
-                orderBy: {
-                    position: 'asc',
-                },
-            });
-
-            return { subTasks };
-        } catch (error) {
-            console.error("Error fetching all subtasks:", error);
-            return { subTasks: [] };
-        }
-    }
-);
-
-// ============================================
-// TYPE EXPORTS
-// ============================================
-
 export type ProjectTasksResponse = Awaited<ReturnType<typeof getProjectTasks>>;
 export type ProjectTaskType = ProjectTasksResponse['tasks'];
-export type SubTasksResponse = Awaited<ReturnType<typeof getTaskSubTasks>>;
-export type SubTaskType = SubTasksResponse['subTasks'];
-export type AllSubTasksResponse = Awaited<ReturnType<typeof getAllProjectSubTasks>>;
-export type AllSubTaskType = AllSubTasksResponse['subTasks'];

@@ -75,6 +75,68 @@ export async function bulkUploadTasksAndSubtasks(data: {
             ])
         );
 
+        // Validate assignee emails BEFORE starting the transaction
+        const invalidEmails: string[] = [];
+        const uniqueAssigneeEmails = new Set<string>();
+
+        for (const task of data.tasks) {
+            if (task.assigneeEmail && task.assigneeEmail.trim()) {
+                uniqueAssigneeEmails.add(task.assigneeEmail.trim());
+            }
+        }
+
+        for (const email of uniqueAssigneeEmails) {
+            if (!emailToMemberId.has(email)) {
+                invalidEmails.push(email);
+            }
+        }
+
+        if (invalidEmails.length > 0) {
+            return {
+                status: "error",
+                message: `The following assignee email(s) are not members of this project: ${invalidEmails.join(', ')}. Please add them to the project first or remove them from the CSV file.`,
+            };
+        }
+
+        // Validate dates and days BEFORE starting the transaction
+        const invalidDates: string[] = [];
+        const invalidDays: string[] = [];
+
+        for (let i = 0; i < data.tasks.length; i++) {
+            const task = data.tasks[i];
+            const rowNum = i + 2; // +2 because row 1 is header, and array is 0-indexed
+
+            // Check for invalid dates
+            if (task.startDate && task.startDate.trim()) {
+                const date = new Date(task.startDate);
+                if (isNaN(date.getTime())) {
+                    invalidDates.push(`Row ${rowNum}: "${task.startDate}" (Task: ${task.taskName}${task.subtaskName ? ` - ${task.subtaskName}` : ''})`);
+                }
+            }
+
+            // Check for invalid days
+            if (task.days !== undefined && task.days !== null) {
+                const daysNum = typeof task.days === 'number' ? task.days : parseInt(String(task.days));
+                if (isNaN(daysNum) || daysNum < 0) {
+                    invalidDays.push(`Row ${rowNum}: "${task.days}" (Task: ${task.taskName}${task.subtaskName ? ` - ${task.subtaskName}` : ''})`);
+                }
+            }
+        }
+
+        if (invalidDates.length > 0) {
+            return {
+                status: "error",
+                message: `Invalid date format found in the following rows. Please use YYYY-MM-DD format (e.g., 2024-12-20):\n${invalidDates.join('\n')}`,
+            };
+        }
+
+        if (invalidDays.length > 0) {
+            return {
+                status: "error",
+                message: `Invalid days value found in the following rows. Please use positive numbers only:\n${invalidDays.join('\n')}`,
+            };
+        }
+
         // Group tasks by task name
         const taskGroups = new Map<string, typeof data.tasks>();
         for (const task of data.tasks) {
@@ -85,84 +147,100 @@ export async function bulkUploadTasksAndSubtasks(data: {
         const createdItems: any[] = [];
         const errors: string[] = [];
 
-        // Process each task group in a transaction
-        await prisma.$transaction(async (tx) => {
-            for (const [taskName, taskGroup] of taskGroups.entries()) {
-                try {
-                    // Find the parent task row (no subtask name) or use first row
-                    const parentRow = taskGroup.find(t => !t.subtaskName) || taskGroup[0];
+        // Pre-generate all slugs BEFORE the transaction to improve performance
+        const taskNames = Array.from(taskGroups.keys());
+        const taskSlugs = await generateUniqueSlugs(taskNames, 'task');
+        const taskSlugMap = new Map(taskNames.map((name, i) => [name, taskSlugs[i]]));
 
-                    // Generate unique slug for parent task
-                    const taskSlug = await generateUniqueSlugs([taskName], 'task');
+        // Pre-generate subtask slugs
+        const allSubtaskNames: string[] = [];
+        const subtaskNameToTaskName = new Map<string, string>();
 
-                    // Create parent task - ONLY NAME, no other fields
-                    const parentTask = await tx.task.create({
-                        data: {
-                            name: taskName,
-                            taskSlug: taskSlug[0],
-                            projectId: data.projectId,
-                            createdById: permissions.workspaceMember.id,
-                        },
-                    });
-
-                    createdItems.push({ type: 'task', name: taskName });
-
-                    // Create subtasks
-                    const subtaskRows = taskGroup.filter(t => t.subtaskName);
-
-                    if (subtaskRows.length > 0) {
-                        // Validation arrays for subtasks
-                        const validStatus = ['TO_DO', 'IN_PROGRESS', 'REVIEW', 'COMPLETED', 'BLOCKED', 'HOLD'];
-                        const validTags = ['DESIGN', 'PROCUREMENT', 'CONTRACTOR'];
-
-                        const subtaskSlugs = await generateUniqueSlugs(
-                            subtaskRows.map(t => t.subtaskName!),
-                            'task'
-                        );
-
-                        for (let i = 0; i < subtaskRows.length; i++) {
-                            const subtaskRow = subtaskRows[i];
-
-                            const subtaskAssigneeId = subtaskRow.assigneeEmail
-                                ? emailToMemberId.get(subtaskRow.assigneeEmail)
-                                : undefined;
-
-                            const subtaskStartDate = subtaskRow.startDate
-                                ? new Date(subtaskRow.startDate)
-                                : undefined;
-
-                            const subtaskStatus = subtaskRow.status && validStatus.includes(subtaskRow.status)
-                                ? subtaskRow.status
-                                : 'TO_DO';
-
-                            const subtaskTag = subtaskRow.tag && validTags.includes(subtaskRow.tag)
-                                ? subtaskRow.tag
-                                : undefined;
-
-                            await tx.task.create({
-                                data: {
-                                    name: subtaskRow.subtaskName!,
-                                    taskSlug: subtaskSlugs[i],
-                                    description: subtaskRow.description,
-                                    projectId: data.projectId,
-                                    createdById: permissions.workspaceMember.id,
-                                    parentTaskId: parentTask.id,
-                                    assigneeTo: subtaskAssigneeId,
-                                    startDate: subtaskStartDate,
-                                    days: subtaskRow.days,
-                                    status: subtaskStatus as any,
-                                    tag: subtaskTag as any,
-                                },
-                            });
-
-                            createdItems.push({ type: 'subtask', name: subtaskRow.subtaskName });
-                        }
-                    }
-                } catch (error) {
-                    console.error(`Error creating task group "${taskName}":`, error);
-                    errors.push(`Failed to create "${taskName}"`);
+        for (const [taskName, taskGroup] of taskGroups.entries()) {
+            const subtaskRows = taskGroup.filter(t => t.subtaskName);
+            for (const row of subtaskRows) {
+                if (row.subtaskName) {
+                    allSubtaskNames.push(row.subtaskName);
+                    subtaskNameToTaskName.set(row.subtaskName, taskName);
                 }
             }
+        }
+
+        const allSubtaskSlugs = allSubtaskNames.length > 0
+            ? await generateUniqueSlugs(allSubtaskNames, 'task')
+            : [];
+        const subtaskSlugMap = new Map(allSubtaskNames.map((name, i) => [name, allSubtaskSlugs[i]]));
+
+        // Process each task group in a transaction with increased timeout
+        await prisma.$transaction(async (tx) => {
+            for (const [taskName, taskGroup] of taskGroups.entries()) {
+                // Get pre-generated slug
+                const taskSlug = taskSlugMap.get(taskName)!;
+
+                // Create parent task - ONLY NAME, no other fields
+                const parentTask = await tx.task.create({
+                    data: {
+                        name: taskName,
+                        taskSlug: taskSlug,
+                        projectId: data.projectId,
+                        createdById: permissions.workspaceMember.id,
+                    },
+                });
+
+                createdItems.push({ type: 'task', name: taskName });
+
+                // Create subtasks
+                const subtaskRows = taskGroup.filter(t => t.subtaskName);
+
+                if (subtaskRows.length > 0) {
+                    // Validation arrays for subtasks
+                    const validStatus = ['TO_DO', 'IN_PROGRESS', 'REVIEW', 'COMPLETED', 'BLOCKED', 'HOLD'];
+                    const validTags = ['DESIGN', 'PROCUREMENT', 'CONTRACTOR'];
+
+                    for (let i = 0; i < subtaskRows.length; i++) {
+                        const subtaskRow = subtaskRows[i];
+
+                        // Get pre-generated slug for this subtask
+                        const subtaskSlug = subtaskSlugMap.get(subtaskRow.subtaskName!)!;
+
+                        const subtaskAssigneeId = subtaskRow.assigneeEmail
+                            ? emailToMemberId.get(subtaskRow.assigneeEmail)
+                            : undefined;
+
+                        const subtaskStartDate = subtaskRow.startDate
+                            ? new Date(subtaskRow.startDate)
+                            : undefined;
+
+                        const subtaskStatus = subtaskRow.status && validStatus.includes(subtaskRow.status)
+                            ? subtaskRow.status
+                            : 'TO_DO';
+
+                        const subtaskTag = subtaskRow.tag && validTags.includes(subtaskRow.tag)
+                            ? subtaskRow.tag
+                            : undefined;
+
+                        await tx.task.create({
+                            data: {
+                                name: subtaskRow.subtaskName!,
+                                taskSlug: subtaskSlug,
+                                description: subtaskRow.description,
+                                projectId: data.projectId,
+                                createdById: permissions.workspaceMember.id,
+                                parentTaskId: parentTask.id,
+                                assigneeTo: subtaskAssigneeId,
+                                startDate: subtaskStartDate,
+                                days: subtaskRow.days,
+                                status: subtaskStatus as any,
+                                tag: subtaskTag as any,
+                            },
+                        });
+
+                        createdItems.push({ type: 'subtask', name: subtaskRow.subtaskName });
+                    }
+                }
+            }
+        }, {
+            timeout: 30000, // 30 seconds timeout for large bulk uploads
         });
 
         // Revalidate cache
@@ -186,11 +264,48 @@ export async function bulkUploadTasksAndSubtasks(data: {
             data: createdItems,
         };
 
-    } catch (err) {
+    } catch (err: any) {
         console.error("Error bulk uploading tasks:", err);
+
+        // Provide specific error messages for common issues
+        if (err.code === 'P2002') {
+            // Unique constraint violation
+            const field = err.meta?.target?.[0] || 'field';
+            return {
+                status: "error",
+                message: `Duplicate ${field} found. Please ensure all task and subtask names are unique.`,
+            };
+        }
+
+        if (err.code === 'P2003') {
+            // Foreign key constraint violation
+            return {
+                status: "error",
+                message: "Invalid assignee email or project member not found. Please check that all assignees are members of the project.",
+            };
+        }
+
+        if (err.code === 'P2025') {
+            // Record not found
+            return {
+                status: "error",
+                message: "Project or workspace not found. Please refresh and try again.",
+            };
+        }
+
+        // Check for PostgreSQL UTF-8 encoding errors (null bytes)
+        if (err.message?.includes('22021') || err.message?.includes('invalid byte sequence')) {
+            return {
+                status: "error",
+                message: "Your CSV file contains invalid characters. Please re-save your CSV file in UTF-8 encoding without BOM, or try copying the data to a new file.",
+            };
+        }
+
+        // Generic error with more details
+        const errorMessage = err.message || "Unknown error occurred";
         return {
             status: "error",
-            message: "We couldn't upload the tasks. Please try again.",
-        }
+            message: `Failed to upload tasks: ${errorMessage}`,
+        };
     }
 }

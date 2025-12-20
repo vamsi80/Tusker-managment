@@ -2,6 +2,7 @@
 
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
+import { notFound } from "next/navigation";
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
 
@@ -21,40 +22,35 @@ export interface ProjectClientData {
 /**
  * Internal function to fetch project client data
  */
-async function _getProjectClientInternal(projectId: string): Promise<ProjectClientData | null> {
-    try {
-        const project = await prisma.project.findUnique({
-            where: { id: projectId },
-            select: {
-                clint: {
-                    include: {
-                        clintMembers: true,
-                    },
+async function _getProjectClientInternal(projectId: string): Promise<ProjectClientData> {
+    const project = await prisma.project.findUnique({
+        where: { id: projectId },
+        select: {
+            clint: {
+                include: {
+                    clintMembers: true,
                 },
             },
-        });
+        },
+    });
 
-        if (!project || !project.clint || project.clint.length === 0) {
-            return null;
-        }
-
-        // Get client data (first client if exists)
-        const clientRecord = project.clint[0];
-        const clientMember = clientRecord?.clintMembers?.[0];
-
-        return {
-            companyName: clientRecord?.name || null,
-            registeredCompanyName: clientRecord?.registeredCompanyName || null,
-            directorName: clientRecord?.directorName || null,
-            address: clientRecord?.address || null,
-            gstNumber: clientRecord?.gstNumber || null,
-            contactPerson: clientMember?.name || null,
-            contactNumber: clientMember?.contactNumber || null,
-        };
-    } catch (error) {
-        console.error("Error fetching project client data:", error);
-        return null;
+    if (!project || !project.clint || project.clint.length === 0) {
+        notFound();
     }
+
+    // Get client data (first client if exists)
+    const clientRecord = project.clint[0];
+    const clientMember = clientRecord?.clintMembers?.[0];
+
+    return {
+        companyName: clientRecord?.name || null,
+        registeredCompanyName: clientRecord?.registeredCompanyName || null,
+        directorName: clientRecord?.directorName || null,
+        address: clientRecord?.address || null,
+        gstNumber: clientRecord?.gstNumber || null,
+        contactPerson: clientMember?.name || null,
+        contactNumber: clientMember?.contactNumber || null,
+    };
 }
 
 /**
@@ -76,7 +72,7 @@ const getCachedProjectClient = (projectId: string) =>
  * Behavior:
  * - Validates user authentication
  * - Fetches client information for a project (cached)
- * - Returns null if no client data exists
+ * - Triggers 404 page if no client data exists
  * 
  * Caching Strategy:
  * 1. React cache() - Deduplicates requests within the same render
@@ -87,24 +83,19 @@ const getCachedProjectClient = (projectId: string) =>
  * - Use revalidateTag(`project-${projectId}`) to invalidate all project data
  * 
  * @param projectId - The project ID
- * @returns Client data or null if not found
+ * @returns Client data (never null - triggers 404 instead)
+ * @throws {notFound} When no client data exists for the project
  * 
  * @example
  * const clientData = await getProjectClient(projectId);
- * if (clientData) {
- *   console.log(clientData.companyName);
- *   console.log(clientData.contactPerson);
- * }
+ * // Always has data here - 404 page shown if not found
+ * console.log(clientData.companyName);
+ * console.log(clientData.contactPerson);
  */
-export const getProjectClient = cache(async (projectId: string): Promise<ProjectClientData | null> => {
+export const getProjectClient = cache(async (projectId: string): Promise<ProjectClientData> => {
     await requireUser();
 
-    try {
-        return await getCachedProjectClient(projectId);
-    } catch (error) {
-        console.error("Error in getProjectClient:", error);
-        return null;
-    }
+    return await getCachedProjectClient(projectId);
 });
 
 export type ProjectClientType = Awaited<ReturnType<typeof getProjectClient>>;

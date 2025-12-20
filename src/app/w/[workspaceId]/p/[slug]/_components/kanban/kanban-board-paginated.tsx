@@ -239,9 +239,9 @@ export function KanbanBoardPaginated({
             // ✅ Call server action (same data function as initial load)
             // This uses React cache + Next.js unstable_cache
             const response = await loadMoreSubtasksAction(
-                projectId,
                 workspaceId,
                 status,
+                projectId,
                 nextPage,
                 5
             );

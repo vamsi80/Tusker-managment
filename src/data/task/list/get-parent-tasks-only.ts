@@ -99,13 +99,6 @@ async function _getParentTasksOnlyInternal(
                         taskSlug: true,
                     },
                 },
-                dependsOn: {
-                    select: {
-                        id: true,
-                        name: true,
-                        status: true,
-                    },
-                },
                 _count: {
                     select: {
                         subTasks: isMember
@@ -190,7 +183,7 @@ export const getParentTasksOnly = cache(
         const user = await requireUser();
 
         try {
-            const permissions = await getUserPermissions(workspaceId, user.id);
+            const permissions = await getUserPermissions(workspaceId, projectId);
 
             if (!permissions.workspaceMemberId) {
                 return {

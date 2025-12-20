@@ -120,13 +120,6 @@ async function _getTaskByIdInternal(
                                 },
                             },
                         },
-                        dependsOn: {
-                            select: {
-                                id: true,
-                                name: true,
-                                status: true,
-                            },
-                        },
                         _count: {
                             select: {
                                 reviewComments: true,
@@ -165,13 +158,6 @@ async function _getTaskByIdInternal(
                                 },
                             },
                         },
-                        dependsOn: {
-                            select: {
-                                id: true,
-                                name: true,
-                                status: true,
-                            },
-                        },
                         _count: {
                             select: {
                                 reviewComments: true,
@@ -182,14 +168,6 @@ async function _getTaskByIdInternal(
                         position: 'asc',
                     },
                 },
-            dependsOn: {
-                select: {
-                    id: true,
-                    name: true,
-                    taskSlug: true,
-                    status: true,
-                },
-            },
             _count: {
                 select: {
                     subTasks: isMember

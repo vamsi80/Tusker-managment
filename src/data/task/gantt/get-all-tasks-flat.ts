@@ -102,13 +102,6 @@ async function _getAllTasksFlatInternal(
                     taskSlug: true,
                 },
             },
-            dependsOn: {
-                select: {
-                    id: true,
-                    name: true,
-                    status: true,
-                },
-            },
             _count: {
                 select: {
                     subTasks: isMember

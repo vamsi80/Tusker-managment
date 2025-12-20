@@ -7,6 +7,8 @@ datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
+  // Disable prepared statements when using connection poolers
+  // Add ?pgbouncer=true to your DATABASE_URL if using PgBouncer/Supabase Pooler
 }
 
 model User {

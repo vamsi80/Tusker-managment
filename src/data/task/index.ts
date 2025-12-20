@@ -1,8 +1,14 @@
 // src/data/task/index.ts
-export { getTasks, type TasksResponse, type TaskType } from "./get-tasks";
-export { getAllTasksFlat, type AllTasksFlatResponse, type FlatTaskType } from "./get-all-tasks-flat";
+
+// Workspace-level queries (PRIMARY - use these!)
+export { getWorkspaceTasks, type WorkspaceTasksResponse, type WorkspaceTaskType, type WorkspaceTaskFilters } from "./get-workspace-tasks";
+
+// View-specific queries
+export { getAllTasksFlat, type AllTasksFlatResponse, type FlatTaskType } from "./gantt/get-all-tasks-flat";
 export { getAllSubTasks, type AllSubTasksResponse, type SubTaskType } from "./kanban/get-all-subtasks";
-export { getParentTasksOnly, type ParentTasksOnlyResponse, type ParentTaskType } from "./get-parent-tasks-only";
+export { getParentTasksOnly, type ParentTasksOnlyResponse, type ParentTaskType } from "./list/get-parent-tasks-only";
+export { getSubTasks, type SubTasksResponse, type SubTaskType as PaginatedSubTaskType } from "./list/get-subtasks";
+
+// Utility queries
 export { getTaskById, type TaskByIdType } from "./get-task-by-id";
-export { getSubTasks, type SubTasksResponse, type SubTaskType as PaginatedSubTaskType } from "./get-subtasks";
 export { getTaskPageData, type TaskPageDataType } from "./get-task-page-data";

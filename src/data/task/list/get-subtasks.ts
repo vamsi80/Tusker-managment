@@ -164,7 +164,7 @@ export const getSubTasks = cache(
 
         try {
             // Get user's permissions using the centralized function
-            const permissions = await getUserPermissions(workspaceId, user.id);
+            const permissions = await getUserPermissions(workspaceId, projectId);
 
             if (!permissions.workspaceMemberId) {
                 throw new Error("User does not have access to this project");

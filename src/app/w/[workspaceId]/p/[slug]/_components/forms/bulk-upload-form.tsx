@@ -59,90 +59,90 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
 
     const downloadInstructions = () => {
         const instructionsContent = `BULK UPLOAD INSTRUCTIONS
-========================
+            ========================
 
-HOW TO USE THIS TEMPLATE:
--------------------------
-1. Download the template CSV file (bulk_upload_template.csv)
-2. Fill in your tasks and subtasks following the format below
-3. Upload the completed CSV file
+            HOW TO USE THIS TEMPLATE:
+            -------------------------
+            1. Download the template CSV file (bulk_upload_template.csv)
+            2. Fill in your tasks and subtasks following the format below
+            3. Upload the completed CSV file
 
-COLUMN DESCRIPTIONS:
--------------------
+            COLUMN DESCRIPTIONS:
+            -------------------
 
-1. Task Name (REQUIRED)
-   - Required for all rows
-   - Group subtasks under the same task name
-   - Example: "Design Homepage", "Procurement"
+            1. Task Name (REQUIRED)
+            - Required for all rows
+            - Group subtasks under the same task name
+            - Example: "Design Homepage", "Procurement"
 
-2. Subtask Name (CONDITIONAL)
-   - Leave EMPTY for parent task rows
-   - Fill in for subtask rows
-   - Example: "Create wireframe", "Get quotes"
+            2. Subtask Name (CONDITIONAL)
+            - Leave EMPTY for parent task rows
+            - Fill in for subtask rows
+            - Example: "Create wireframe", "Get quotes"
 
-3. Description (OPTIONAL)
-   - Optional description for subtasks
-   - Can be left empty
-   - Example: "Design wireframe mockup for homepage"
+            3. Description (OPTIONAL)
+            - Optional description for subtasks
+            - Can be left empty
+            - Example: "Design wireframe mockup for homepage"
 
-4. Assignee Email (OPTIONAL)
-   - Email address of project member
-   - Member must be added to the project first
-   - Example: "john@example.com"
+            4. Assignee Email (OPTIONAL)
+            - Email address of project member
+            - Member must be added to the project first
+            - Example: "john@example.com"
 
-5. Start Date (OPTIONAL)
-   - Format: YYYY-MM-DD
-   - Example: "2024-01-15"
+            5. Start Date (OPTIONAL)
+            - Format: YYYY-MM-DD
+            - Example: "2024-01-15"
 
-6. Days (OPTIONAL)
-   - Number of days to complete the subtask
-   - Must be an integer
-   - Example: 3, 5, 10
+            6. Days (OPTIONAL)
+            - Number of days to complete the subtask
+            - Must be an integer
+            - Example: 3, 5, 10
 
-7. Status (OPTIONAL)
-   - Valid values:
-     * TO_DO (default)
-     * IN_PROGRESS
-     * REVIEW
-     * COMPLETED
-     * BLOCKED
-     * HOLD
+            7. Status (OPTIONAL)
+            - Valid values:
+                * TO_DO (default)
+                * IN_PROGRESS
+                * REVIEW
+                * COMPLETED
+                * BLOCKED
+                * HOLD
 
-8. Tag (OPTIONAL)
-   - Valid values:
-     * DESIGN
-     * PROCUREMENT
-     * CONTRACTOR
+            8. Tag (OPTIONAL)
+            - Valid values:
+                * DESIGN
+                * PROCUREMENT
+                * CONTRACTOR
 
-IMPORTANT RULES:
----------------
-✓ Each parent task must have at least one row with only Task Name filled
-✓ Subtasks must have both Task Name AND Subtask Name filled
-✓ All subtasks with the same Task Name will be grouped under that parent task
-✓ Assignee emails must match existing project members
-✓ Dates must be in YYYY-MM-DD format
-✓ Status and Tag values are case-sensitive
+            IMPORTANT RULES:
+            ---------------
+            ✓ Each parent task must have at least one row with only Task Name filled
+            ✓ Subtasks must have both Task Name AND Subtask Name filled
+            ✓ All subtasks with the same Task Name will be grouped under that parent task
+            ✓ Assignee emails must match existing project members
+            ✓ Dates must be in YYYY-MM-DD format
+            ✓ Status and Tag values are case-sensitive
 
-EXAMPLE STRUCTURE:
------------------
+            EXAMPLE STRUCTURE:
+            -----------------
 
-Task Name          | Subtask Name      | Description                    | Assignee Email      | Start Date | Days | Status      | Tag
--------------------|-------------------|--------------------------------|---------------------|------------|------|-------------|-------------
-Design Homepage    |                   |                                |                     |            |      |             |
-Design Homepage    | Create wireframe  | Design wireframe mockup        | john@example.com    | 2024-01-15 | 3    | COMPLETED   | DESIGN
-Design Homepage    | Design components | Create reusable UI components  | jane@example.com    | 2024-01-18 | 4    | IN_PROGRESS | DESIGN
-Procurement        |                   |                                |                     |            |      |             |
-Procurement        | Get quotes        | Collect vendor quotes          | vendor@example.com  | 2024-01-20 | 2    | TO_DO       | PROCUREMENT
+            Task Name          | Subtask Name      | Description                    | Assignee Email      | Start Date | Days | Status      | Tag
+            -------------------|-------------------|--------------------------------|---------------------|------------|------|-------------|-------------
+            Design Homepage    |                   |                                |                     |            |      |             |
+            Design Homepage    | Create wireframe  | Design wireframe mockup        | john@example.com    | 2024-01-15 | 3    | COMPLETED   | DESIGN
+            Design Homepage    | Design components | Create reusable UI components  | jane@example.com    | 2024-01-18 | 4    | IN_PROGRESS | DESIGN
+            Procurement        |                   |                                |                     |            |      |             |
+            Procurement        | Get quotes        | Collect vendor quotes          | vendor@example.com  | 2024-01-20 | 2    | TO_DO       | PROCUREMENT
 
-TIPS:
------
-• Delete the example rows from the template before adding your data
-• Use a spreadsheet program (Excel, Google Sheets) to edit the CSV
-• Save as CSV format before uploading
-• Test with a small batch first to ensure correct formatting
+            TIPS:
+            -----
+            • Delete the example rows from the template before adding your data
+            • Use a spreadsheet program (Excel, Google Sheets) to edit the CSV
+            • Save as CSV format before uploading
+            • Test with a small batch first to ensure correct formatting
 
-For support, contact your workspace administrator.
-`;
+            For support, contact your workspace administrator.
+            `;
 
         const blob = new Blob([instructionsContent], { type: 'text/plain;charset=utf-8;' });
         const link = document.createElement('a');
@@ -152,8 +152,18 @@ For support, contact your workspace administrator.
         toast.success("Instructions downloaded successfully");
     };
 
+    // Helper function to sanitize strings and remove null bytes
+    const sanitizeString = (str: string): string => {
+        if (!str) return str;
+        // Remove null bytes (0x00) and other control characters except newlines and tabs
+        return str.replace(/\x00/g, '').replace(/[\x01-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '').trim();
+    };
+
     const parseCSV = (text: string): ParsedTask[] => {
-        const lines = text.split('\n').filter(line => line.trim());
+        // First, sanitize the entire text to remove null bytes
+        const sanitizedText = sanitizeString(text);
+
+        const lines = sanitizedText.split('\n').filter(line => line.trim());
         if (lines.length < 2) {
             throw new Error("CSV file is empty or invalid");
         }
@@ -162,12 +172,16 @@ For support, contact your workspace administrator.
         const tasks: ParsedTask[] = [];
 
         for (const line of dataLines) {
-            const values = line.split(',').map(v => v.trim());
+            const values = line.split(',').map(v => sanitizeString(v));
 
-            if (values.length < 8) continue;
+            // Pad the values array to ensure we have at least 8 elements
+            while (values.length < 8) {
+                values.push('');
+            }
 
             const [taskName, subtaskName, description, assigneeEmail, startDate, days, status, tag] = values;
 
+            // Skip rows without a task name
             if (!taskName) continue;
 
             tasks.push({
@@ -193,7 +207,48 @@ For support, contact your workspace administrator.
 
         try {
             const text = await file.text();
+
+            // Check if file contains too many non-printable/binary characters
+            const nonPrintableCount = (text.match(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F-\xFF]/g) || []).length;
+            const totalChars = text.length;
+            const nonPrintableRatio = totalChars > 0 ? nonPrintableCount / totalChars : 0;
+
+            // If more than 20% of characters are non-printable, file is likely corrupted/binary
+            if (nonPrintableRatio > 0.2) {
+                toast.error(
+                    "❌ File Upload Failed: The file appears to be corrupted or contains binary data.\n\n" +
+                    "Cannot validate assignee emails or other data because the file cannot be read properly.\n\n" +
+                    "Please create a new CSV file:\n" +
+                    "• Use the template file (test-bulk-upload.csv)\n" +
+                    "• Or create a new file in Notepad/Google Sheets\n" +
+                    "• Save as UTF-8 CSV format",
+                    { duration: 8000 }
+                );
+                setParsedData([]);
+                setFileName("");
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = "";
+                }
+                return;
+            }
+
+            // Check if file looks like a CSV (has commas and reasonable structure)
+            const hasCommas = text.includes(',');
+            const hasNewlines = text.includes('\n') || text.includes('\r');
+
+            if (!hasCommas || !hasNewlines) {
+                toast.error("The file doesn't appear to be a valid CSV. Please ensure it's a comma-separated values file.");
+                setParsedData([]);
+                setFileName("");
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = "";
+                }
+                return;
+            }
+
             const parsed = parseCSV(text);
+
+            console.log('Parsed CSV:', parsed.length, 'rows');
 
             if (parsed.length === 0) {
                 toast.error("No valid data found in file");
@@ -227,8 +282,18 @@ For support, contact your workspace administrator.
             );
 
             if (error) {
-                toast.error(error.message);
-                console.error(error);
+                // Log full error details to console for debugging
+                console.error('❌ Bulk Upload Error:', error);
+                console.error('Error details:', {
+                    message: error.message,
+                    stack: error.stack,
+                    name: error.name,
+                });
+
+                // Show error message in toast with longer duration
+                toast.error(error.message || 'An unexpected error occurred', {
+                    duration: 10000, // 10 seconds
+                });
                 setIsAddingTask(false);
                 return;
             }
@@ -246,7 +311,14 @@ For support, contact your workspace administrator.
 
                 router.refresh();
             } else {
-                toast.error(result.message);
+                // Log error result to console
+                console.error('❌ Bulk Upload Failed:', result);
+
+                // Show detailed error message
+                const errorMessage = result?.message || 'Upload failed. Please try again.';
+                toast.error(errorMessage, {
+                    duration: 10000, // 10 seconds for error messages
+                });
                 setIsAddingTask(false);
             }
         });

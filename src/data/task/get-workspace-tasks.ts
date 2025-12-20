@@ -1,10 +1,10 @@
 "use server";
 
 import { cache } from "react";
-import { unstable_cache } from "next/cache";
 import prisma from "@/lib/db";
-import { requireUser } from "@/lib/auth/require-user";
+import { unstable_cache } from "next/cache";
 import { TaskStatus, TaskTag } from "@/generated/prisma";
+import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 
 /**
  * Filters for workspace tasks
@@ -29,39 +29,21 @@ export interface WorkspaceTaskFilters {
  */
 async function _getWorkspaceTasksInternal(
     workspaceId: string,
-    userId: string,
+    workspaceMemberId: string,
+    isAdmin: boolean,
     filters: WorkspaceTaskFilters = {},
     page: number = 1,
     pageSize: number = 10
 ) {
-    // Get workspace member with role
-    const workspaceMember = await prisma.workspaceMember.findFirst({
-        where: {
-            workspaceId,
-            userId,
-        },
-        select: {
-            id: true,
-            workspaceRole: true,
-        },
-    });
-
-    if (!workspaceMember) {
-        return { tasks: [], totalCount: 0 };
-    }
-
-    // Determine if user is admin (sees all) or member (sees only their projects)
-    const isAdmin = workspaceMember.workspaceRole === "ADMIN" || workspaceMember.workspaceRole === "OWNER";
-
     // Get all accessible projects in the workspace
     const projects = await prisma.project.findMany({
         where: {
             workspaceId,
-            // If member, only show projects they belong to
+            // If admin/owner, see all projects; if member, only see projects they belong to
             ...(isAdmin ? {} : {
                 projectMembers: {
                     some: {
-                        workspaceMemberId: workspaceMember.id,
+                        workspaceMemberId: workspaceMemberId,
                         hasAccess: true,
                     },
                 },
@@ -218,6 +200,8 @@ function getFilterHash(filters: WorkspaceTaskFilters): string {
 const getCachedWorkspaceTasks = (
     workspaceId: string,
     userId: string,
+    workspaceMemberId: string,
+    isAdmin: boolean,
     filters: WorkspaceTaskFilters,
     page: number,
     pageSize: number
@@ -225,7 +209,7 @@ const getCachedWorkspaceTasks = (
     const filterHash = getFilterHash(filters);
 
     return unstable_cache(
-        async () => _getWorkspaceTasksInternal(workspaceId, userId, filters, page, pageSize),
+        async () => _getWorkspaceTasksInternal(workspaceId, workspaceMemberId, isAdmin, filters, page, pageSize),
         [`workspace-tasks-${workspaceId}-user-${userId}-filters-${filterHash}-page-${page}-size-${pageSize}`],
         {
             tags: [
@@ -264,17 +248,30 @@ export const getWorkspaceTasks = cache(
         page: number = 1,
         pageSize: number = 10
     ) => {
-        const user = await requireUser();
+        try {
+            // ✅ Get permissions (this calls requireUser internally - only ONCE!)
+            const permissions = await getWorkspacePermissions(workspaceId);
 
-        const result = await getCachedWorkspaceTasks(
-            workspaceId,
-            user.id,
-            filters,
-            page,
-            pageSize
-        );
+            if (!permissions.workspaceMemberId) {
+                return { tasks: [], totalCount: 0 };
+            }
 
-        return result;
+            // ✅ Pass permissions directly to avoid redundant checks
+            const result = await getCachedWorkspaceTasks(
+                workspaceId,
+                permissions.workspaceMemberId, // Use as userId for cache key
+                permissions.workspaceMemberId,
+                permissions.isWorkspaceAdmin,
+                filters,
+                page,
+                pageSize
+            );
+
+            return result;
+        } catch (error) {
+            console.error("Error fetching workspace tasks:", error);
+            return { tasks: [], totalCount: 0 };
+        }
     }
 );
 

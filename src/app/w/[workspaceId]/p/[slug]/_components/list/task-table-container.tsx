@@ -1,4 +1,4 @@
-import { getProjectTasks } from "@/data/task/get-project-tasks";
+import { getWorkspaceTasks } from "@/data/task/get-workspace-tasks";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 import { TaskTable } from "./task-table";
 
@@ -11,9 +11,10 @@ interface TaskTableContainerProps {
 
 /**
  * Server component that fetches initial task data and passes it to the client TaskTable component
- * Uses getProjectTasks() - loads parent tasks WITH subtasks based on user role
- * - ADMINs/LEADs: See all tasks with all subtasks
- * - MEMBERs: See only tasks with subtasks assigned to them
+ * Uses getWorkspaceTasks() with project filter - workspace-first architecture
+ * - Fetches tasks from workspace level
+ * - Filters by projectId for project-specific view
+ * - Role-based filtering (ADMINs/LEADs see all, MEMBERs see only assigned)
  */
 export async function TaskTableContainer({
     workspaceId,
@@ -21,10 +22,10 @@ export async function TaskTableContainer({
     members,
     canCreateSubTask,
 }: TaskTableContainerProps) {
-    // Get first 10 parent tasks WITH subtasks (role-based filtering)
-    const { tasks, hasMore, totalCount } = await getProjectTasks(
-        projectId,
+    // Get first 10 tasks filtered by project (workspace-level query with project filter)
+    const { tasks, hasMore, totalCount } = await getWorkspaceTasks(
         workspaceId,
+        { projectId }, // Filter by project
         1,
         10
     );
@@ -32,7 +33,7 @@ export async function TaskTableContainer({
     return (
         <TaskTable
             initialTasks={tasks}
-            initialHasMore={hasMore}
+            initialHasMore={hasMore ?? false}
             initialTotalCount={totalCount}
             members={members}
             workspaceId={workspaceId}

@@ -39,12 +39,12 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { WorkspaceMemberRow } from "@/app/data/workspace/get-workspace-members";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MoreHorizontal, Eye, Pencil, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { deleteWorkspaceMember } from "../actions";
+import { WorkspaceMemberRow } from "@/data/workspace";
 
 interface iAppProps {
     data: WorkspaceMemberRow[];
@@ -88,8 +88,8 @@ const createColumns = (
             header: "Surname",
             cell: ({ row }) => {
                 const user = row.original.user;
-                const surname = user?.surname || " ";
-                return <div>{surname}</div>;
+                const surname = user?.surname || "N/A";
+                return <div className="text-muted-foreground">{surname}</div>;
             },
         },
         {
@@ -105,8 +105,8 @@ const createColumns = (
             header: "Contact Number",
             cell: ({ row }) => {
                 const user = row.original.user;
-                const contactNumber = user?.contactNumber || " ";
-                return <div>{contactNumber}</div>;
+                const contactNumber = user?.contactNumber || "N/A";
+                return <div className="text-muted-foreground">{contactNumber}</div>;
             },
         },
         {

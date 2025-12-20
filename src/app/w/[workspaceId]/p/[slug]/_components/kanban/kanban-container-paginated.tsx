@@ -7,15 +7,15 @@ interface KanbanContainerPaginatedProps {
     projectId: string;
 }
 
-type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED";
-
-// const STATUSES: TaskStatus[] = ["TO_DO", "IN_PROGRESS", "BLOCKED", "REVIEW", "HOLD", "COMPLETED"];
+// type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED";
 
 /**
  * Optimized Kanban Container with Per-Column Pagination
  * 
  * Loads only the first 5 cards per column on initial load.
  * Additional cards are loaded on-demand when user clicks "Load More".
+ * 
+ * Uses workspace-level query with project filtering for consistency.
  * 
  * Performance Benefits:
  * - Initial load: ~200-300ms (vs 2-3s for all cards)
@@ -27,6 +27,7 @@ export async function KanbanContainerPaginated({
     projectId
 }: KanbanContainerPaginatedProps) {
     // Fetch first page (5 cards) for each status column in parallel
+    // Using workspace-level query with project filter
     const [
         todoData,
         inProgressData,
@@ -36,12 +37,12 @@ export async function KanbanContainerPaginated({
         completedData,
         projectMembers
     ] = await Promise.all([
-        getSubTasksByStatus(projectId, workspaceId, "TO_DO", 1, 5),
-        getSubTasksByStatus(projectId, workspaceId, "IN_PROGRESS", 1, 5),
-        getSubTasksByStatus(projectId, workspaceId, "BLOCKED", 1, 5),
-        getSubTasksByStatus(projectId, workspaceId, "REVIEW", 1, 5),
-        getSubTasksByStatus(projectId, workspaceId, "HOLD", 1, 5),
-        getSubTasksByStatus(projectId, workspaceId, "COMPLETED", 1, 5),
+        getSubTasksByStatus(workspaceId, "TO_DO", projectId, 1, 5),
+        getSubTasksByStatus(workspaceId, "IN_PROGRESS", projectId, 1, 5),
+        getSubTasksByStatus(workspaceId, "BLOCKED", projectId, 1, 5),
+        getSubTasksByStatus(workspaceId, "REVIEW", projectId, 1, 5),
+        getSubTasksByStatus(workspaceId, "HOLD", projectId, 1, 5),
+        getSubTasksByStatus(workspaceId, "COMPLETED", projectId, 1, 5),
         getProjectMembers(projectId),
     ]);
 

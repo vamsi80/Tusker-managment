@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import React, { useState, useEffect } from "react";
 import { Loader2, ChevronsDown } from "lucide-react";
 import { useNewTask } from "../shared/task-page-wrapper";
-import { getParentTasksOnly, getSubTasks } from "@/data/task";
+import { getWorkspaceTasks, getSubTasks } from "@/data/task";
 import { updateSubtaskPositions } from "@/actions/task/gantt";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
 import { TableCell, TableRow } from "@/components/ui/table";
@@ -163,7 +163,7 @@ export function TaskTable({
         openSubTaskSheet(subTask);
     };
 
-    // Load more parent tasks (10 at a time)
+    // Load more parent tasks (10 at a time) - using workspace query with project filter
     const loadMoreTasks = async () => {
         if (loadingMoreTasks || !hasMoreTasks) return;
 
@@ -171,16 +171,16 @@ export function TaskTable({
         try {
             const nextPage = currentPage + 1;
 
-            // Call data layer directly (no wrapper needed)
-            const result = await getParentTasksOnly(
-                projectId,
+            // Use workspace-level query with project filter
+            const result = await getWorkspaceTasks(
                 workspaceId,
+                { projectId }, // Filter by project
                 nextPage,
                 10
             );
 
             setTasks(prev => [...prev, ...result.tasks as unknown as TaskWithSubTasks[]]);
-            setHasMoreTasks(result.hasMore);
+            setHasMoreTasks(result.hasMore ?? false);
             setCurrentPage(nextPage);
         } catch (error) {
             console.error("Error loading more tasks:", error);

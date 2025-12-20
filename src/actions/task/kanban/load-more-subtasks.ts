@@ -10,24 +10,27 @@ type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COM
  * This is called from the client component when user clicks "Load More".
  * It directly calls the data function (same as initial load).
  * 
+ * Uses workspace-first architecture with optional project filtering.
+ * 
  * Benefits:
  * - Uses same cached data function
  * - No API route needed
  * - Automatic caching
+ * - Works for both workspace and project Kanban
  */
 export async function loadMoreSubtasksAction(
-    projectId: string,
     workspaceId: string,
     status: TaskStatus,
-    page: number,
+    projectId?: string,
+    page: number = 1,
     pageSize: number = 5
 ) {
     try {
-        // ✅ Call same data function as initial load
+        // ✅ Call same data function as initial load (workspace-first)
         const result = await getSubTasksByStatus(
-            projectId,
             workspaceId,
             status,
+            projectId,
             page,
             pageSize
         );

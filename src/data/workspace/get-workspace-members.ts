@@ -76,7 +76,7 @@ const getCachedWorkspaceMembers = (workspaceId: string) =>
     [`workspace-members-${workspaceId}`],
     {
       tags: [`workspace-members-${workspaceId}`],
-      revalidate: 60 * 60 * 24, // 24 hours
+      revalidate: 60 * 60 * 12, // 12 hours
     }
   )();
 

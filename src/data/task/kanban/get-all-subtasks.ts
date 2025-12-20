@@ -1,8 +1,8 @@
 "use server";
 
 import { cache } from "react";
-import { unstable_cache } from "next/cache";
 import prisma from "@/lib/db";
+import { unstable_cache } from "next/cache";
 import { requireUser } from "@/lib/auth/require-user";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
 
@@ -90,13 +90,6 @@ async function _getAllSubTasksInternal(
                             },
                         },
                     },
-                },
-            },
-            dependsOn: {
-                select: {
-                    id: true,
-                    name: true,
-                    status: true,
                 },
             },
             _count: {
