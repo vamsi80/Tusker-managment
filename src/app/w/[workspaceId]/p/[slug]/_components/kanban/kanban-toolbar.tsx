@@ -21,23 +21,47 @@ import { ProjectMembersType } from "@/data/project/get-project-members";
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED";
 
+/** Minimal parent task data for filtering */
 interface ParentTask {
     id: string;
     name: string;
     taskSlug: string;
 }
 
+/**
+ * KanbanToolbar Component
+ * 
+ * Provides filtering and column visibility controls for the Kanban board.
+ * 
+ * Features:
+ * - Filter by parent task
+ * - Filter by assignee
+ * - Toggle column visibility
+ * 
+ * Compatible with both paginated and non-paginated Kanban boards.
+ * 
+ * @component
+ */
 interface KanbanToolbarProps {
+    /** List of parent tasks for filtering */
     parentTasks: ParentTask[];
+    /** List of project members for assignee filtering */
     projectMembers: ProjectMembersType;
+    /** Currently selected parent task ID (null = all) */
     selectedParentTask: string | null;
+    /** Currently selected assignee ID (null = all) */
     selectedAssignee: string | null;
+    /** Visibility state for each column */
     visibleColumns: Record<TaskStatus, boolean>;
+    /** Callback when parent task filter changes */
     onParentTaskChange: (taskId: string | null) => void;
+    /** Callback when assignee filter changes */
     onAssigneeChange: (assigneeId: string | null) => void;
+    /** Callback when column visibility changes */
     onVisibleColumnsChange: (columns: Record<TaskStatus, boolean>) => void;
 }
 
+/** Human-readable labels for each status column */
 const COLUMN_LABELS: Record<TaskStatus, string> = {
     TO_DO: "To Do",
     IN_PROGRESS: "In Progress",

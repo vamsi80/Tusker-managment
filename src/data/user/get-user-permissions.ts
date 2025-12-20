@@ -35,7 +35,7 @@ export const getUserPermissions = cache(async (workspaceId: string, projectId: s
             },
         });
 
-        const isWorkspaceAdmin = workspaceMember.workspaceRole === "ADMIN";
+        const isWorkspaceAdmin = workspaceMember.workspaceRole === "OWNER" || workspaceMember.workspaceRole === "ADMIN";
         const isProjectLead = projectMember?.projectRole === "LEAD";
         const isMember = workspaceMember.workspaceRole === "MEMBER" && (!projectMember || projectMember.projectRole === "MEMBER");
         const canCreateSubTask = isWorkspaceAdmin || isProjectLead;

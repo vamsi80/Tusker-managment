@@ -2,7 +2,7 @@
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { AppSidebar } from "../_components/sidebar/workspace-sidebar";
 import { SiteHeader } from "../_components/sidebar/site-header";
-import { getUserWorkspaces } from "@/data/user/get-user-workspace";
+import { getWorkspaces } from "@/data/workspace/get-workspaces";
 import { requireUser } from "@/lib/auth/require-user";
 
 interface Props {
@@ -13,7 +13,7 @@ interface Props {
 export default async function WorkSpaceLayout({ children, params }: Props) {
     const { workspaceId } = await params;
     const session = await requireUser();
-    const data = await getUserWorkspaces(session.id);
+    const data = await getWorkspaces();
 
     return (
         <SidebarProvider

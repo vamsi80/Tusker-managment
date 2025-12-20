@@ -40,29 +40,44 @@ async function TaskListView({ workspaceId, slug }: { workspaceId: string; slug: 
 }
 
 /**
- * Kanban view component - Fetches its own data
+ * Kanban view component
+ * Uses paginated version for better performance (loads 20 cards per column)
+ * 
+ * Optimized: Gets projectId from context
  */
 async function TaskKanbanView({ workspaceId, slug }: { workspaceId: string; slug: string }) {
+  const { KanbanContainerPaginated } = await import("./_components/kanban/kanban-container-paginated");
+
+  // Get project data from layout context
+  // Since this is a server component, we need to get it from the layout
+  const { getTaskPageData } = await import("@/data/task");
   const pageData = await getTaskPageData(workspaceId, slug);
 
   if (!pageData) return null;
 
-  const { KanbanContainer } = await import("./_components/kanban/kanban-container");
-
-  return <KanbanContainer workspaceId={pageData.project.workspaceId} projectId={pageData.project.id} />;
+  return <KanbanContainerPaginated workspaceId={workspaceId} projectId={pageData.project.id} />;
 }
 
 /**
  * Gantt view component - Fetches its own data
+ * 
+ * Optimized: Only fetches project info, not full page data
+ * GanttServerWrapper handles its own data fetching
  */
 async function TaskGanttView({ workspaceId, slug }: { workspaceId: string; slug: string }) {
-  const pageData = await getTaskPageData(workspaceId, slug);
+  const [
+    { getProjectBySlug },
+    { GanttServerWrapper }
+  ] = await Promise.all([
+    import("@/data/project/get-project-by-slug"),
+    import("./_components/gantt/gantt-server-wrapper")
+  ]);
 
-  if (!pageData) return null;
+  const project = await getProjectBySlug(workspaceId, slug);
 
-  const { GanttServerWrapper } = await import("./_components/gantt/gantt-server-wrapper");
+  if (!project) return null;
 
-  return <GanttServerWrapper workspaceId={pageData.project.workspaceId} projectId={pageData.project.id} />;
+  return <GanttServerWrapper workspaceId={workspaceId} projectId={project.id} />;
 }
 
 /**

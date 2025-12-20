@@ -14,8 +14,8 @@ import { useForm, Resolver } from 'react-hook-form';
 import { useConfetti } from '@/hooks/use-confetti'
 import { tryCatch } from '@/hooks/try-catch'
 import { Textarea } from '@/components/ui/textarea'
-import { createWorkSpace } from './action'
 import slugify from "slugify";
+import { createWorkSpace } from '@/actions/workspace/create-workspace'
 
 const CreateWorkspace = () => {
 
@@ -30,7 +30,7 @@ const CreateWorkspace = () => {
         defaultValues: {
             name: " ",
             description: '',
-            slug:'',
+            slug: '',
         },
     })
     function onSubmit(values: WorkSpaceSchemaType) {

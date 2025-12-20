@@ -77,26 +77,6 @@ export function TaskTableToolbar({
         setColumnVisibility((prev) => ({ ...prev, [column]: !prev[column] }));
     };
 
-    const hasAdvancedFilters = advancedFilters && setAdvancedFilters;
-    const activeFilterCount = hasAdvancedFilters
-        ? Object.values(advancedFilters).filter(v => v && v !== "all").length
-        : 0;
-
-    const clearAllFilters = () => {
-        if (setAdvancedFilters) {
-            setAdvancedFilters({
-                projectId: "all",
-                status: "all",
-                assigneeId: "all",
-                tag: "all",
-                startDate: undefined,
-                endDate: undefined,
-            });
-        }
-        setSearchQuery("");
-        setTagFilter(null);
-    };
-
     return (
         <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 flex-1">

@@ -1,4 +1,4 @@
-import { getUserProjects } from "@/data/user/get-user-projects";
+import { getUserProjects } from "@/data/project/get-projects";
 import { isAdminServer } from "@/lib/auth/requireAdmin";
 import { NavProjects } from "./nav-projects";
 import { getWorkspaceMembers } from "@/data/workspace/get-workspace-members";

@@ -10,10 +10,24 @@ import { Calendar, Tag, GripVertical, MessageSquare, AlertCircle } from "lucide-
 import { SubTaskType } from "@/data/task";
 import { cn } from "@/lib/utils";
 
+/**
+ * KanbanCard Component
+ * 
+ * Displays an individual subtask card in the Kanban board.
+ * Supports drag-and-drop, displays assignee, dates, tags, and review count.
+ * 
+ * Compatible with both paginated and non-paginated Kanban boards.
+ * 
+ * @component
+ */
 interface KanbanCardProps {
+    /** The subtask data to display */
     subTask: SubTaskType;
+    /** Color class for the column (e.g., "text-blue-700") */
     columnColor: string;
+    /** Whether the card is currently being dragged */
     isDragging?: boolean;
+    /** Callback when the card name is clicked */
     onSubTaskClick?: (subTask: SubTaskType) => void;
 }
 

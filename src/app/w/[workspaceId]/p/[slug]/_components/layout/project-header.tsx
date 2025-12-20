@@ -1,27 +1,19 @@
-import { getTaskPageData } from "@/data/task";
+"use client";
+
+import { useProject } from "../shared/project-context";
 import { ProjectNav } from "./project-nav";
 import { ReloadButton } from "../shared/reload-button";
 import { CreateTaskForm } from "../forms/create-task-form";
 import { BulkUploadForm } from "../forms/bulk-upload-form";
 
 interface ProjectHeaderProps {
-    workspaceId: string;
-    slug: string;
+    workspaceId?: string;
+    slug?: string;
 }
 
-async function ProjectHeader({ workspaceId, slug }: ProjectHeaderProps) {
-    const pageData = await getTaskPageData(workspaceId, slug);
-
-    if (!pageData) {
-        return (
-            <div className="p-6">
-                <h1 className="text-2xl font-semibold">Access Denied</h1>
-                <p className="text-muted-foreground">
-                    You don't have permission to access this project or it doesn't exist.
-                </p>
-            </div>
-        );
-    }
+function ProjectHeader({ workspaceId, slug }: ProjectHeaderProps = {}) {
+    // Get project data from context (fetched once in layout)
+    const pageData = useProject();
 
     return (
         <>
@@ -44,7 +36,7 @@ async function ProjectHeader({ workspaceId, slug }: ProjectHeaderProps) {
                 </div>
             </div>
 
-            <ProjectNav workspaceId={workspaceId} slug={slug} />
+            <ProjectNav workspaceId={workspaceId || pageData.project.workspaceId} slug={slug || pageData.project.slug} />
         </>
     );
 }

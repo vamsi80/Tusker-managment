@@ -123,7 +123,7 @@ const getCachedSubTasksByStatus = (
         [`kanban-${projectId}-${status}-${workspaceMemberId}-p${page}-s${pageSize}`],
         {
             tags: [`project-tasks-${projectId}`, `kanban-${status}`, `kanban-all`],
-            revalidate: 60,
+            revalidate: 30,
         }
     )();
 

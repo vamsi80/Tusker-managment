@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { requireUser } from "../../lib/auth/require-user";
 import { AuthError } from "@/lib/errors/auth-errors";
-import { getUserWorkspaces } from "@/data/user/get-user-workspace";
+import { getWorkspaces } from "@/data/workspace/get-workspaces";
 
 export async function GET(request: NextRequest) {
   const origin = new URL(request.url).origin;
@@ -14,13 +14,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${origin}/login`);
     }
 
-    const workspaces = await getUserWorkspaces(session.id);
+    const { workspaces } = await getWorkspaces();
 
-    if (!workspaces?.workspaces?.length) {
+    if (!workspaces?.length) {
       return NextResponse.redirect(`${origin}/create-workspace?noWorkspace=1`);
     }
 
-    const firstId = workspaces.workspaces[0].workspaceId;
+    const firstId = workspaces[0].id;
     return NextResponse.redirect(`${origin}/w/${firstId}`);
   } catch (err: any) {
     if (err instanceof AuthError || err?.message === "missing_user_id") {

@@ -1,7 +1,7 @@
 import React from "react";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth/require-user";
-import { getUserWorkspaces } from "@/data/user/get-user-workspace";
+import { getWorkspaces } from "@/data/workspace/get-workspaces";
 
 type Props = {
   params: { workspaceId: string };
@@ -10,13 +10,13 @@ type Props = {
 export default async function WorkSpacePage({ params }: Props) {
   const { workspaceId } = await params;
   const session = await requireUser();
-  const userWorkspaces = await getUserWorkspaces(session.id);
+  const { workspaces } = await getWorkspaces();
 
-  if (!userWorkspaces?.workspaces?.length) {
+  if (!workspaces?.length) {
     return notFound();
   }
 
-  const matched = userWorkspaces.workspaces.find((w) => w.workspaceId === workspaceId);
+  const matched = workspaces.find((w) => w.id === workspaceId);
   if (!matched) {
     return notFound();
   }

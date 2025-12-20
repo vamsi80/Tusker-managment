@@ -13,24 +13,24 @@ import { Check, ChevronsUpDown, Plus } from "lucide-react";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "../../../../components/ui/sidebar";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import type { UserWorkspacesType } from "@/app/data/workspace/get-user-workspace";
+import type { WorkspacesType } from "@/data/workspace/get-workspaces";
 
 interface Props {
-  // matches your getUserWorkspaces() return: user object or null/undefined
-  data: UserWorkspacesType;
+  // matches your getWorkspaces() return: WorkspacesResult
+  data: WorkspacesType;
   workspaceId: string;
 }
 
 export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) => {
   const router = useRouter();
-  const workspaces = data?.workspaces ?? []; // array of workspace links
+  const workspaces = data?.workspaces ?? []; // array of workspace items
   const [selected, setSelected] = useState<typeof workspaces[number] | undefined>(undefined);
 
   // find current workspace item from workspaceId or default to first item
   const current = useMemo(() => {
     if (!workspaces || workspaces.length === 0) return undefined;
     return (
-      workspaces.find((w) => w.workspaceId === workspaceId) ??
+      workspaces.find((w) => w.id === workspaceId) ??
       workspaces[0]
     );
   }, [workspaces, workspaceId]);
@@ -39,10 +39,10 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
     setSelected(current);
   }, [current]);
 
-  const onWorkspaceSelect = (workspaceIdToGo: string) => {
-    const found = workspaces.find((w) => w.workspaceId === workspaceIdToGo);
+  const onWorkspaceSelect = (workspaceId: string) => {
+    const found = workspaces.find((w) => w.id === workspaceId);
     setSelected(found);
-    router.push(`/w/${workspaceIdToGo}`);
+    router.push(`/w/${workspaceId}`);
   };
 
   return (
@@ -55,15 +55,15 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarImage src={`https://avatar.vercel.sh/${selected?.workspaceId ?? "W"}`} alt={selected?.workspace?.name ?? ""} />
+                <AvatarImage src={`https://avatar.vercel.sh/${selected?.id ?? "W"}`} alt={selected?.name ?? ""} />
                 <AvatarFallback className="rounded-lg">
-                  {(selected?.workspace?.name ?? selected?.workspaceId ?? "W").charAt(0).toUpperCase()}
+                  {(selected?.name ?? selected?.id ?? "W").charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
 
               <div className="flex flex-col ml-2">
                 <div className="font-semibold text-muted-foreground">
-                  {selected?.workspace?.name ?? "No Workspaces"}
+                  {selected?.name ?? "No Workspaces"}
                 </div>
               </div>
               <ChevronsUpDown className="ml-auto" />
@@ -78,19 +78,19 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
             {!workspaces.length && <DropdownMenuItem>No workspaces</DropdownMenuItem>}
 
             {workspaces.map((ws) => {
-              const routeKey = ws.workspaceId;
+              const routeKey = ws.id;
               return (
-                <DropdownMenuItem key={ws.workspaceId} onClick={() => onWorkspaceSelect(routeKey)}>
+                <DropdownMenuItem key={ws.id} onClick={() => onWorkspaceSelect(routeKey)}>
                   <div className="flex flex-row items-center gap-2">
                     <Avatar className="h-8 w-8 rounded-lg">
-                      <AvatarImage src={`https://avatar.vercel.sh/${ws.workspaceId}`} alt={ws.workspace?.name ?? ""} />
+                      <AvatarImage src={`https://avatar.vercel.sh/${ws.id}`} alt={ws.name ?? ""} />
                       <AvatarFallback className="rounded-lg">
-                        {(ws.workspace?.name ?? ws.workspaceId ?? "W").charAt(0).toUpperCase()}
+                        {(ws.name ?? ws.id ?? "W").charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col ml-2">
                       <div className="font-semibold text-muted-foreground">
-                        {ws.workspace?.name ?? ws.workspaceId}
+                        {ws.name ?? ws.id}
                       </div>
                     </div>
                   </div>

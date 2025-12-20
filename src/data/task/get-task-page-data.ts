@@ -5,7 +5,7 @@ import { requireUser } from "@/lib/auth/require-user";
 import { getProjectBySlug } from "@/data/project/get-project-by-slug";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
 import { getProjectMembers } from "@/data/project/get-project-members";
-import { getUserProjects } from "@/data/user/get-user-projects";
+import { getUserProjects } from "@/data/project/get-projects";
 
 /**
  * Optimized data fetching for task page

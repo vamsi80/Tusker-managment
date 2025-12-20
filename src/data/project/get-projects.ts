@@ -37,8 +37,8 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
         return null;
     }
 
-    // If user is admin, get all projects in the workspace
-    if (workspaceMember.workspaceRole === "ADMIN") {
+    // If user is admin or owner, get all projects in the workspace
+    if (workspaceMember.workspaceRole === "OWNER" || workspaceMember.workspaceRole === "ADMIN") {
         const allProjects = await prisma.project.findMany({
             where: { workspaceId },
             select: {

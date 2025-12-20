@@ -173,12 +173,12 @@ export async function deleteWorkspaceMember(
             };
         }
 
-        // 2. Check if current user is an admin
+        // 2. Check if current user is an admin or owner
         const currentMember = workspace.members.find((m) => m.userId === user.id);
-        if (!currentMember || currentMember.workspaceRole !== "ADMIN") {
+        if (!currentMember || (currentMember.workspaceRole !== "OWNER" && currentMember.workspaceRole !== "ADMIN")) {
             return {
                 status: "error",
-                message: "Only workspace admins can remove members.",
+                message: "Only workspace owners/admins can remove members.",
             };
         }
 
@@ -208,7 +208,7 @@ export async function deleteWorkspaceMember(
             };
         }
 
-        // 6. Prevent deletion of last admin
+        // 6. Prevent deletion of last admin (OWNER is already protected above)
         const adminCount = workspace.members.filter((m) => m.workspaceRole === "ADMIN").length;
         if (memberToDelete.workspaceRole === "ADMIN" && adminCount <= 1) {
             return {

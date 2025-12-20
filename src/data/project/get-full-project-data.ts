@@ -1,5 +1,7 @@
 "use server";
 
+import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
 
@@ -9,14 +11,6 @@ export interface FullProjectData {
     description: string | null;
     slug: string;
     workspaceId: string;
-    // Client data
-    companyName: string | null;
-    registeredCompanyName: string | null;
-    directorName: string | null;
-    address: string | null;
-    gstNumber: string | null;
-    contactPerson: string | null;
-    contactNumber: string | null;
     // Team data
     projectLead: string | null;
     memberAccess: string[];
@@ -31,21 +25,13 @@ export interface FullProjectData {
 }
 
 /**
- * Fetch complete project data including client info and team members
- * Used for editing projects
+ * Internal function to fetch complete project data
  */
-export async function getFullProjectData(projectId: string): Promise<FullProjectData | null> {
-    const user = await requireUser();
-
+async function _getFullProjectDataInternal(projectId: string, userId: string): Promise<FullProjectData | null> {
     try {
         const project = await prisma.project.findUnique({
             where: { id: projectId },
             include: {
-                clint: {
-                    include: {
-                        clintMembers: true,
-                    },
-                },
                 projectMembers: {
                     include: {
                         workspaceMember: {
@@ -69,16 +55,12 @@ export async function getFullProjectData(projectId: string): Promise<FullProject
 
         // Check user has access to this project
         const workspaceMember = project.workspace.members.find(
-            (m) => m.userId === user.id
+            (m) => m.userId === userId
         );
 
         if (!workspaceMember) {
             return null;
         }
-
-        // Get client data (first client if exists)
-        const clientRecord = project.clint?.[0];
-        const clientMember = clientRecord?.clintMembers?.[0];
 
         // Find project lead (member with LEAD role)
         const projectLead = project.projectMembers.find(
@@ -105,14 +87,6 @@ export async function getFullProjectData(projectId: string): Promise<FullProject
             description: project.description,
             slug: project.slug,
             workspaceId: project.workspaceId,
-            // Client data
-            companyName: clientRecord?.name || null,
-            registeredCompanyName: clientRecord?.registeredCompanyName || null,
-            directorName: clientRecord?.directorName || null,
-            address: clientRecord?.address || null,
-            gstNumber: clientRecord?.gstNumber || null,
-            contactPerson: clientMember?.name || null,
-            contactNumber: clientMember?.contactNumber || null,
             // Team data
             projectLead: projectLead?.workspaceMember.userId || null,
             memberAccess: memberAccess,
@@ -120,7 +94,63 @@ export async function getFullProjectData(projectId: string): Promise<FullProject
             projectMembers: projectMembersData,
         };
     } catch (error) {
-        console.error("Error fetching project data:", error);
+        console.error("Error fetching full project data:", error);
         return null;
     }
 }
+
+/**
+ * Cached version using Next.js unstable_cache
+ */
+const getCachedFullProjectData = (projectId: string, userId: string) =>
+    unstable_cache(
+        async () => _getFullProjectDataInternal(projectId, userId),
+        [`full-project-${projectId}-${userId}`],
+        {
+            tags: [`full-project-${projectId}`, `project-${projectId}`],
+            revalidate: 30 // 30 seconds - project details change more frequently
+        }
+    )();
+
+/**
+ * Fetch complete project data including team members
+ * 
+ * Note: Client data is now in a separate function `getProjectClient()`
+ * 
+ * Behavior:
+ * - Validates user authentication
+ * - Fetches complete project data with team info (cached)
+ * - Checks user has access to the workspace
+ * - Returns null if project not found or user doesn't have access
+ * 
+ * Caching Strategy:
+ * 1. React cache() - Deduplicates requests within the same render
+ * 2. unstable_cache() - Persists data across requests for 30 seconds
+ * 
+ * Cache Invalidation:
+ * - Use revalidateTag(`full-project-${projectId}`) to invalidate specific project
+ * - Use revalidateTag(`project-${projectId}`) to invalidate all project data
+ * 
+ * @param projectId - The project ID
+ * @returns Complete project data or null if not found/no access
+ * 
+ * @example
+ * const projectData = await getFullProjectData(projectId);
+ * if (projectData) {
+ *   console.log(projectData.name);
+ *   console.log(projectData.projectMembers);
+ * }
+ * 
+ * // For client data, use getProjectClient separately:
+ * const clientData = await getProjectClient(projectId);
+ */
+export const getFullProjectData = cache(async (projectId: string): Promise<FullProjectData | null> => {
+    const user = await requireUser();
+
+    try {
+        return await getCachedFullProjectData(projectId, user.id);
+    } catch (error) {
+        console.error("Error in getFullProjectData:", error);
+        return null;
+    }
+});

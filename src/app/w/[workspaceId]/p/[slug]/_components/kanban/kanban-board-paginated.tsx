@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, PointerSensor, useSensor, useSensors, useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { SubTasksByStatusResponse } from "@/data/task/kanban";
 import { SubTaskType } from "@/data/task";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 import { cn } from "@/lib/utils";
@@ -15,11 +17,13 @@ import { toast } from "sonner";
 import { updateSubTaskStatus } from "@/actions/task/kanban/update-subtask-status";
 import { ReviewCommentDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/review-comment-form";
 import { STATUS_COLORS, STATUS_LABELS } from "@/lib/colors/status-colors";
+import { Loader2 } from "lucide-react";
+import { loadMoreSubtasksAction } from "@/actions/task/kanban/load-more-subtasks";
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED";
 
-interface KanbanBoardProps {
-    initialSubTasks: SubTaskType[];
+interface KanbanBoardPaginatedProps {
+    initialData: Record<TaskStatus, SubTasksByStatusResponse>;
     projectMembers: ProjectMembersType;
     workspaceId: string;
     projectId: string;
@@ -61,11 +65,19 @@ const COLUMNS: { id: TaskStatus; title: string; color: string; bgColor: string; 
 function DroppableColumn({
     column,
     subTasks,
+    totalCount,
+    hasMore,
+    isLoadingMore,
     onSubTaskClick,
+    onLoadMore,
 }: {
     column: typeof COLUMNS[number];
     subTasks: SubTaskType[];
+    totalCount: number;
+    hasMore: boolean;
+    isLoadingMore: boolean;
     onSubTaskClick: (subTask: SubTaskType) => void;
+    onLoadMore: () => void;
 }) {
     const { setNodeRef, isOver } = useDroppable({
         id: column.id,
@@ -89,7 +101,7 @@ function DroppableColumn({
                         variant="secondary"
                         className={cn("text-xs", column.color)}
                     >
-                        {subTasks.length}
+                        {subTasks.length} / {totalCount}
                     </Badge>
                 </div>
             </div>
@@ -122,6 +134,27 @@ function DroppableColumn({
                                 onSubTaskClick={onSubTaskClick}
                             />
                         ))}
+
+                        {/* Load More Button */}
+                        {hasMore && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full"
+                                onClick={onLoadMore}
+                                disabled={isLoadingMore}
+                            >
+                                {isLoadingMore ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Loading...
+                                    </>
+                                ) : (
+                                    `Load More (${totalCount - subTasks.length} remaining)`
+                                )}
+                            </Button>
+                        )}
+
                         {subTasks.length === 0 && (
                             <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
                                 No subtasks
@@ -134,8 +167,36 @@ function DroppableColumn({
     );
 }
 
-export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, projectId }: KanbanBoardProps) {
-    const [subTasks, setSubTasks] = useState<SubTaskType[]>(initialSubTasks);
+export function KanbanBoardPaginated({
+    initialData,
+    projectMembers,
+    workspaceId,
+    projectId
+}: KanbanBoardPaginatedProps) {
+    // State for each column's data
+    const [columnData, setColumnData] = useState<Record<TaskStatus, {
+        subTasks: SubTaskType[];
+        totalCount: number;
+        hasMore: boolean;
+        currentPage: number;
+    }>>(
+        Object.fromEntries(
+            COLUMNS.map(col => [
+                col.id,
+                {
+                    subTasks: initialData[col.id].subTasks,
+                    totalCount: initialData[col.id].totalCount,
+                    hasMore: initialData[col.id].hasMore,
+                    currentPage: 1,
+                }
+            ])
+        ) as Record<TaskStatus, any>
+    );
+
+    const [loadingColumns, setLoadingColumns] = useState<Record<TaskStatus, boolean>>(
+        Object.fromEntries(COLUMNS.map(col => [col.id, false])) as Record<TaskStatus, boolean>
+    );
+
     const [activeSubTask, setActiveSubTask] = useState<SubTaskType | null>(null);
 
     // Use global subtask sheet context
@@ -168,15 +229,54 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
         })
     );
 
-    useEffect(() => {
-        setSubTasks(initialSubTasks);
-    }, [initialSubTasks]);
+    // Load more function for a specific column
+    const handleLoadMore = async (status: TaskStatus) => {
+        setLoadingColumns(prev => ({ ...prev, [status]: true }));
+
+        try {
+            const nextPage = columnData[status].currentPage + 1;
+
+            // ✅ Call server action (same data function as initial load)
+            // This uses React cache + Next.js unstable_cache
+            const response = await loadMoreSubtasksAction(
+                projectId,
+                workspaceId,
+                status,
+                nextPage,
+                5
+            );
+
+            if (!response.success) {
+                toast.error(response.error || "Failed to load more subtasks");
+                return;
+            }
+
+            setColumnData(prev => ({
+                ...prev,
+                [status]: {
+                    subTasks: [...prev[status].subTasks, ...response.data.subTasks],
+                    totalCount: response.data.totalCount,
+                    hasMore: response.data.hasMore,
+                    currentPage: nextPage,
+                }
+            }));
+        } catch (error) {
+            console.error(`Error loading more subtasks for ${status}:`, error);
+            toast.error("Failed to load more subtasks");
+        } finally {
+            setLoadingColumns(prev => ({ ...prev, [status]: false }));
+        }
+    };
 
     const handleDragStart = (event: DragStartEvent) => {
         const { active } = event;
-        const subTask = subTasks.find((t) => t.id === active.id);
-        if (subTask) {
-            setActiveSubTask(subTask);
+        // Find the subtask across all columns
+        for (const status of COLUMNS.map(c => c.id)) {
+            const subTask = columnData[status].subTasks.find((t) => t.id === active.id);
+            if (subTask) {
+                setActiveSubTask(subTask);
+                break;
+            }
         }
     };
 
@@ -196,19 +296,28 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
             return;
         }
 
-        const subTask = subTasks.find((t) => t.id === subTaskId);
-        if (!subTask || subTask.status === newStatus) {
+        // Find the subtask and its current status
+        let currentStatus: TaskStatus | null = null;
+        let subTask: SubTaskType | null = null;
+
+        for (const status of COLUMNS.map(c => c.id)) {
+            const found = columnData[status].subTasks.find((t) => t.id === subTaskId);
+            if (found) {
+                currentStatus = status;
+                subTask = found;
+                break;
+            }
+        }
+
+        if (!subTask || !currentStatus || currentStatus === newStatus) {
             return;
         }
 
-        const previousStatus = subTask.status ?? "TO_DO";
+        const previousStatus = currentStatus;
 
         if (newStatus === "REVIEW") {
-            setSubTasks((prevSubTasks) =>
-                prevSubTasks.map((st) =>
-                    st.id === subTaskId ? { ...st, status: newStatus } : st
-                )
-            );
+            // Move task optimistically
+            moveSubTaskBetweenColumns(subTaskId, previousStatus, newStatus);
 
             setPendingReviewMove({
                 subTaskId,
@@ -221,17 +330,43 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
         await performStatusUpdate(subTaskId, newStatus, previousStatus);
     };
 
+    const moveSubTaskBetweenColumns = (
+        subTaskId: string,
+        fromStatus: TaskStatus,
+        toStatus: TaskStatus
+    ) => {
+        setColumnData(prev => {
+            const fromTasks = prev[fromStatus].subTasks;
+            const task = fromTasks.find(t => t.id === subTaskId);
+
+            if (!task) return prev;
+
+            const updatedTask = { ...task, status: toStatus };
+
+            return {
+                ...prev,
+                [fromStatus]: {
+                    ...prev[fromStatus],
+                    subTasks: fromTasks.filter(t => t.id !== subTaskId),
+                    totalCount: prev[fromStatus].totalCount - 1,
+                },
+                [toStatus]: {
+                    ...prev[toStatus],
+                    subTasks: [updatedTask, ...prev[toStatus].subTasks],
+                    totalCount: prev[toStatus].totalCount + 1,
+                }
+            };
+        });
+    };
+
     const performStatusUpdate = async (
         subTaskId: string,
         newStatus: TaskStatus,
         previousStatus: TaskStatus,
         reviewCommentId?: string
     ) => {
-        setSubTasks((prevSubTasks) =>
-            prevSubTasks.map((st) =>
-                st.id === subTaskId ? { ...st, status: newStatus } : st
-            )
-        );
+        // Optimistic update
+        moveSubTaskBetweenColumns(subTaskId, previousStatus, newStatus);
 
         const toastId = toast.loading("Updating subtask status...");
 
@@ -250,22 +385,16 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
                     id: toastId,
                 });
             } else {
-                setSubTasks((prevSubTasks) =>
-                    prevSubTasks.map((st) =>
-                        st.id === subTaskId ? { ...st, status: previousStatus } : st
-                    )
-                );
+                // Rollback
+                moveSubTaskBetweenColumns(subTaskId, newStatus, previousStatus);
 
                 toast.error(result.error || "Failed to update subtask status", {
                     id: toastId,
                 });
             }
         } catch (error) {
-            setSubTasks((prevSubTasks) =>
-                prevSubTasks.map((st) =>
-                    st.id === subTaskId ? { ...st, status: previousStatus } : st
-                )
-            );
+            // Rollback
+            moveSubTaskBetweenColumns(subTaskId, newStatus, previousStatus);
 
             toast.error("An unexpected error occurred. Please try again.", {
                 id: toastId,
@@ -298,7 +427,6 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
                     const reader = new FileReader();
                     reader.onload = () => {
                         const result = reader.result as string;
-                        // Remove data URL prefix (e.g., "data:image/png;base64,")
                         const base64Data = result.split(',')[1];
                         resolve(base64Data);
                     };
@@ -314,7 +442,6 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
                 };
             }
 
-            // Create review comment
             const reviewResult = await createReviewCommentAction(
                 pendingReviewMove.subTaskId,
                 comment,
@@ -324,20 +451,17 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
             );
 
             if (!reviewResult.success) {
-                // Rollback optimistic update
-                setSubTasks((prevSubTasks) =>
-                    prevSubTasks.map((st) =>
-                        st.id === pendingReviewMove.subTaskId
-                            ? { ...st, status: pendingReviewMove.previousStatus }
-                            : st
-                    )
+                // Rollback
+                moveSubTaskBetweenColumns(
+                    pendingReviewMove.subTaskId,
+                    "REVIEW",
+                    pendingReviewMove.previousStatus
                 );
                 toast.error(reviewResult.error || "Failed to create review comment");
                 setPendingReviewMove(null);
                 return;
             }
 
-            // Proceed with status update using the review comment ID
             await performStatusUpdate(
                 pendingReviewMove.subTaskId,
                 "REVIEW",
@@ -348,14 +472,11 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
             setPendingReviewMove(null);
         } catch (error) {
             console.error("Error submitting review comment:", error);
-            // Rollback optimistic update
             if (pendingReviewMove) {
-                setSubTasks((prevSubTasks) =>
-                    prevSubTasks.map((st) =>
-                        st.id === pendingReviewMove.subTaskId
-                            ? { ...st, status: pendingReviewMove.previousStatus }
-                            : st
-                    )
+                moveSubTaskBetweenColumns(
+                    pendingReviewMove.subTaskId,
+                    "REVIEW",
+                    pendingReviewMove.previousStatus
                 );
             }
             toast.error("Failed to submit review comment");
@@ -364,40 +485,34 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
     };
 
     const handleReviewCommentCancel = () => {
-        // Rollback optimistic update
         if (pendingReviewMove) {
-            setSubTasks((prevSubTasks) =>
-                prevSubTasks.map((st) =>
-                    st.id === pendingReviewMove.subTaskId
-                        ? { ...st, status: pendingReviewMove.previousStatus }
-                        : st
-                )
+            moveSubTaskBetweenColumns(
+                pendingReviewMove.subTaskId,
+                "REVIEW",
+                pendingReviewMove.previousStatus
             );
             setPendingReviewMove(null);
         }
         setIsReviewDialogOpen(false);
     };
 
-    // Get filtered subtasks
-    const getFilteredSubTasks = () => {
-        return subTasks.filter((subTask) => {
+    // Get filtered subtasks for a specific column
+    const getFilteredSubTasks = (status: TaskStatus) => {
+        return columnData[status].subTasks.filter((subTask) => {
             const matchesParentTask = !selectedParentTask || subTask.parentTaskId === selectedParentTask;
             const matchesAssignee = !selectedAssignee || subTask.assignee?.id === selectedAssignee;
             return matchesParentTask && matchesAssignee;
         });
     };
 
-    const getSubTasksByStatus = (status: TaskStatus) => {
-        const filteredSubTasks = getFilteredSubTasks();
-        return filteredSubTasks.filter((subTask) => subTask.status === status);
-    };
-
     // Get unique parent tasks for filter
     const uniqueParentTasks = Array.from(
         new Map(
-            subTasks
-                .filter((st) => st.parentTask)
-                .map((st) => [st.parentTask!.id, st.parentTask!])
+            COLUMNS.flatMap(col =>
+                columnData[col.id].subTasks
+                    .filter((st) => st.parentTask)
+                    .map((st) => [st.parentTask!.id, st.parentTask!])
+            )
         ).values()
     );
 
@@ -423,7 +538,7 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
             >
                 <div className={cn(
                     "flex gap-4 h-[calc(100vh-280px)] overflow-x-auto pb-2",
-                    // Custom horizontal scrollbar - bigger than vertical
+                    // Custom horizontal scrollbar
                     "[&::-webkit-scrollbar]:h-2",
                     "[&::-webkit-scrollbar-track]:rounded-full",
                     "[&::-webkit-scrollbar-thumb]:bg-accent",
@@ -431,13 +546,17 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
                     "[&::-webkit-scrollbar-thumb]:hover:bg-accent/50"
                 )}>
                     {COLUMNS.filter((col) => visibleColumns[col.id]).map((column) => {
-                        const columnSubTasks = getSubTasksByStatus(column.id);
+                        const filteredSubTasks = getFilteredSubTasks(column.id);
                         return (
                             <DroppableColumn
                                 key={column.id}
                                 column={column}
-                                subTasks={columnSubTasks}
+                                subTasks={filteredSubTasks}
+                                totalCount={columnData[column.id].totalCount}
+                                hasMore={columnData[column.id].hasMore}
+                                isLoadingMore={loadingColumns[column.id]}
                                 onSubTaskClick={handleSubTaskClick}
+                                onLoadMore={() => handleLoadMore(column.id)}
                             />
                         );
                     })}
@@ -460,7 +579,8 @@ export function KanbanBoard({ initialSubTasks, projectMembers, workspaceId, proj
                 onSubmit={handleReviewCommentSubmit}
                 subTaskName={
                     pendingReviewMove
-                        ? subTasks.find((st) => st.id === pendingReviewMove.subTaskId)?.name || "Subtask"
+                        ? COLUMNS.flatMap(col => columnData[col.id].subTasks)
+                            .find((st) => st.id === pendingReviewMove.subTaskId)?.name || "Subtask"
                         : "Subtask"
                 }
             />

@@ -4,7 +4,8 @@ import { requireUser } from "@/lib/auth/require-user";
 import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
 import { ProjectRole } from "@/generated/prisma/client";
-import { isWorkspaceAdmin } from "@/lib/constants/workspace-access";
+import { getUserPermissions } from "@/data/user/get-user-permissions";
+import { invalidateWorkspaceProjects } from "@/lib/cache/invalidation";
 
 /**
  * Add members to an existing project
@@ -32,7 +33,7 @@ export async function addProjectMembers(
             };
         }
 
-        // Get project with workspace and current members
+        // Get project
         const project = await prisma.project.findUnique({
             where: { id: projectId },
             include: {
@@ -56,25 +57,18 @@ export async function addProjectMembers(
             };
         }
 
-        // Check if user is workspace admin or project lead
-        const workspaceMember = project.workspace.members.find(
-            (m) => m.userId === user.id
-        );
+        // Check permissions using centralized function
+        const permissions = await getUserPermissions(project.workspaceId, projectId);
 
-        if (!workspaceMember) {
+        if (!permissions.workspaceMemberId) {
             return {
                 status: "error",
                 message: "You are not a member of this workspace.",
             };
         }
 
-        const isUserWorkspaceAdmin = isWorkspaceAdmin(workspaceMember.workspaceRole);
-        const projectMember = project.projectMembers.find(
-            (pm) => pm.workspaceMember.userId === user.id
-        );
-        const isProjectLead = projectMember?.projectRole === "LEAD";
-
-        if (!isUserWorkspaceAdmin && !isProjectLead) {
+        // Only workspace admins (OWNER/ADMIN) and project leads can add members
+        if (!permissions.isWorkspaceAdmin && !permissions.isProjectLead) {
             return {
                 status: "error",
                 message: "Only workspace owners/admins and project leads can add members.",
@@ -137,11 +131,6 @@ export async function addProjectMembers(
         await prisma.projectMember.createMany({
             data: newMembers,
         });
-
-        // Invalidate project cache
-        const { invalidateWorkspaceProjects } = await import(
-            "@/lib/cache/invalidation"
-        );
         await invalidateWorkspaceProjects(project.workspaceId);
 
         return {
@@ -184,7 +173,7 @@ export async function removeProjectMembers(
             };
         }
 
-        // Get project with workspace and current members
+        // Get project
         const project = await prisma.project.findUnique({
             where: { id: projectId },
             include: {
@@ -208,25 +197,18 @@ export async function removeProjectMembers(
             };
         }
 
-        // Check if user is workspace admin or project lead
-        const workspaceMember = project.workspace.members.find(
-            (m) => m.userId === user.id
-        );
+        // Check permissions using centralized function
+        const permissions = await getUserPermissions(project.workspaceId, projectId);
 
-        if (!workspaceMember) {
+        if (!permissions.workspaceMemberId) {
             return {
                 status: "error",
                 message: "You are not a member of this workspace.",
             };
         }
 
-        const isWorkspaceAdmin = workspaceMember.workspaceRole === "ADMIN";
-        const projectMember = project.projectMembers.find(
-            (pm) => pm.workspaceMember.userId === user.id
-        );
-        const isProjectLead = projectMember?.projectRole === "LEAD";
-
-        if (!isWorkspaceAdmin && !isProjectLead) {
+        // Only workspace admins and project leads can remove members
+        if (!permissions.isWorkspaceAdmin && !permissions.isProjectLead) {
             return {
                 status: "error",
                 message: "Only workspace admins and project leads can remove members.",
@@ -269,11 +251,6 @@ export async function removeProjectMembers(
                 },
             },
         });
-
-        // Invalidate project cache
-        const { invalidateWorkspaceProjects } = await import(
-            "@/lib/cache/invalidation"
-        );
         await invalidateWorkspaceProjects(project.workspaceId);
 
         return {
@@ -324,7 +301,7 @@ export async function updateProjectMemberRole(
             };
         }
 
-        // Get project with workspace and current members
+        // Get project
         const project = await prisma.project.findUnique({
             where: { id: projectId },
             include: {
@@ -348,25 +325,18 @@ export async function updateProjectMemberRole(
             };
         }
 
-        // Check if user is workspace admin or project lead
-        const workspaceMember = project.workspace.members.find(
-            (m) => m.userId === user.id
-        );
+        // Check permissions using centralized function
+        const permissions = await getUserPermissions(project.workspaceId, projectId);
 
-        if (!workspaceMember) {
+        if (!permissions.workspaceMemberId) {
             return {
                 status: "error",
                 message: "You are not a member of this workspace.",
             };
         }
 
-        const isWorkspaceAdmin = workspaceMember.workspaceRole === "ADMIN";
-        const projectMember = project.projectMembers.find(
-            (pm) => pm.workspaceMember.userId === user.id
-        );
-        const isProjectLead = projectMember?.projectRole === "LEAD";
-
-        if (!isWorkspaceAdmin && !isProjectLead) {
+        // Only workspace admins and project leads can update member roles
+        if (!permissions.isWorkspaceAdmin && !permissions.isProjectLead) {
             return {
                 status: "error",
                 message: "Only workspace admins and project leads can update member roles.",
@@ -408,9 +378,6 @@ export async function updateProjectMemberRole(
         });
 
         // Invalidate project cache
-        const { invalidateWorkspaceProjects } = await import(
-            "@/lib/cache/invalidation"
-        );
         await invalidateWorkspaceProjects(project.workspaceId);
 
         const memberName = targetMember.workspaceMember.userId;
@@ -453,7 +420,7 @@ export async function toggleProjectMemberAccess(
             };
         }
 
-        // Get project with workspace and current members
+        // Get project
         const project = await prisma.project.findUnique({
             where: { id: projectId },
             include: {
@@ -477,25 +444,18 @@ export async function toggleProjectMemberAccess(
             };
         }
 
-        // Check if user is workspace admin or project lead
-        const workspaceMember = project.workspace.members.find(
-            (m) => m.userId === user.id
-        );
+        // Check permissions using centralized function
+        const permissions = await getUserPermissions(project.workspaceId, projectId);
 
-        if (!workspaceMember) {
+        if (!permissions.workspaceMemberId) {
             return {
                 status: "error",
                 message: "You are not a member of this workspace.",
             };
         }
 
-        const isWorkspaceAdmin = workspaceMember.workspaceRole === "ADMIN";
-        const projectMember = project.projectMembers.find(
-            (pm) => pm.workspaceMember.userId === user.id
-        );
-        const isProjectLead = projectMember?.projectRole === "LEAD";
-
-        if (!isWorkspaceAdmin && !isProjectLead) {
+        // Only workspace admins and project leads can toggle member access
+        if (!permissions.isWorkspaceAdmin && !permissions.isProjectLead) {
             return {
                 status: "error",
                 message: "Only workspace admins and project leads can toggle member access.",
@@ -525,9 +485,6 @@ export async function toggleProjectMemberAccess(
         });
 
         // Invalidate project cache
-        const { invalidateWorkspaceProjects } = await import(
-            "@/lib/cache/invalidation"
-        );
         await invalidateWorkspaceProjects(project.workspaceId);
 
         return {

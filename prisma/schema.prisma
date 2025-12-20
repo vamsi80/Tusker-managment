@@ -10,44 +10,41 @@ datasource db {
 }
 
 model User {
-  id            String    @id
-  name          String
-  surname       String?
-  contactNumber String?
-  email         String
-  emailVerified Boolean   @default(false)
-  image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @default(now()) @updatedAt
-  role          String?
-  banned        Boolean?  @default(false)
-  banReason     String?
-  banExpires    DateTime?
-  sessions      Session[]
-  accounts      Account[]
-
-  workspaces     WorkspaceMember[]
+  id             String            @id
+  name           String
+  surname        String?
+  contactNumber  String?
+  email          String            @unique
+  emailVerified  Boolean           @default(false)
+  image          String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @default(now()) @updatedAt
+  role           String?
+  banned         Boolean?          @default(false)
+  banReason      String?
+  banExpires     DateTime?
   workspaceOwner Workspace[]
-  comments       Comment[]
+  workspaces     WorkspaceMember[]
+  accounts       Account[]
   auditLogs      AuditLog[]
+  comments       Comment[]
+  sessions       Session[]
 
-  @@unique([email])
   @@map("user")
 }
 
 model Session {
   id             String   @id
   expiresAt      DateTime
-  token          String
+  token          String   @unique
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   ipAddress      String?
   userAgent      String?
   userId         String
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   impersonatedBy String?
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([token])
   @@map("session")
 }
 
@@ -56,7 +53,6 @@ model Account {
   accountId             String
   providerId            String
   userId                String
-  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   accessToken           String?
   refreshToken          String?
   idToken               String?
@@ -66,6 +62,7 @@ model Account {
   password              String?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("account")
 }
@@ -82,40 +79,212 @@ model Verification {
 }
 
 model Workspace {
-  id          String   @id @default(uuid())
+  id          String            @id @default(uuid())
   name        String
   description String?
-  slug        String   @unique
+  slug        String            @unique
   ownerId     String
-  inviteCode  String   @unique
-  image_url   String   @default("")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-
-  members  WorkspaceMember[]
-  projects Project[]
+  inviteCode  String            @unique
+  image_url   String            @default("")
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  projects    Project[]
+  owner       User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  members     WorkspaceMember[]
 }
 
 model WorkspaceMember {
-  id     String @id @default(uuid())
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  workspaceId String
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-
+  id             String          @id @default(uuid())
+  userId         String
+  workspaceId    String
   workspaceRole  WorkspaceRole   @default(MEMBER)
-  projectMembers ProjectMember[]
-
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
-  tasks          Task[]
-  auditLogs      AuditLog[]
+  projectMembers ProjectMember[]
   reviewComments ReviewComment[]
+  tasks          Task[]
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  auditLogs      AuditLog[]
 
   @@unique([userId, workspaceId])
   @@index([workspaceId, workspaceRole])
+  @@index([workspaceId])
+  @@index([userId])
+  @@index([workspaceId, userId])
+  @@index([workspaceRole])
+}
+
+model Project {
+  id             String          @id @default(uuid())
+  name           String
+  description    String?
+  slug           String          @unique
+  workspaceId    String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  clint          Clints[]
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projectMembers ProjectMember[]
+  tasks          Task[]
+  auditLogs      AuditLog[]
+
+  @@index([workspaceId])
+  @@index([workspaceId, createdAt])
+  @@index([slug])
+}
+
+model ProjectMember {
+  id                String          @id @default(uuid())
+  projectRole       ProjectRole     @default(MEMBER)
+  projectId         String
+  workspaceMemberId String
+  hasAccess         Boolean         @default(false)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  project           Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workspaceMember   WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
+  tasks             Task[]
+
+  @@unique([workspaceMemberId, projectId])
+  @@index([projectId, projectRole])
+  @@index([projectId])
+  @@index([workspaceMemberId])
+  @@index([projectId, workspaceMemberId])
+}
+
+model Clints {
+  id                    String         @id @default(uuid())
+  name                  String
+  registeredCompanyName String?
+  gstNumber             String?
+  directorName          String?
+  address               String?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  projectId             String?
+  clintMembers          ClintMembers[]
+  project               Project?       @relation(fields: [projectId], references: [id])
+}
+
+model ClintMembers {
+  id            String   @id @default(uuid())
+  name          String
+  email         String?
+  contactNumber String?
+  clintId       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  clints        Clints?  @relation(fields: [clintId], references: [id], onDelete: Cascade)
+}
+
+model Task {
+  id                    String          @id @default(uuid())
+  name                  String
+  taskSlug              String          @unique
+  description           String?
+  status                TaskStatus?     @default(TO_DO)
+  position              Int?
+  parentTaskId          String?
+  startDate             DateTime?
+  days                  Int?
+  tag                   TaskTag?
+  assigneeTo            String?
+  createdById           String
+  projectId             String
+  isPinned              Boolean         @default(false)
+  pinnedAt              DateTime?
+  pinnedBy              String?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  reviewComments        ReviewComment[]
+  assignee              ProjectMember?  @relation(fields: [assigneeTo], references: [id], onDelete: Cascade)
+  createdBy             WorkspaceMember @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  parentTask            Task?           @relation("Task_subTasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  subTasks              Task[]          @relation("Task_subTasks")
+  project               Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  auditLogs             AuditLog[]
+  comments              Comment[]
+  Task_TaskDependency_A Task[]          @relation("TaskDependency")
+  Task_TaskDependency_B Task[]          @relation("TaskDependency")
+
+  @@index([parentTaskId])
+  @@index([projectId])
+  @@index([projectId, parentTaskId])
+  @@index([projectId, status])
+  @@index([status, createdAt])
+  @@index([createdById])
+  @@index([assigneeTo])
+  @@index([isPinned])
+  @@index([position])
+}
+
+model ReviewComment {
+  id         String          @id @default(uuid())
+  subTaskId  String
+  authorId   String
+  text       String
+  attachment Json?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  author     WorkspaceMember @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  subTask    Task            @relation(fields: [subTaskId], references: [id], onDelete: Cascade)
+
+  @@index([subTaskId, createdAt])
+}
+
+model Comment {
+  id              String    @id @default(uuid())
+  content         String
+  userId          String
+  taskId          String
+  parentCommentId String?
+  isEdited        Boolean   @default(false)
+  editedAt        DateTime?
+  isDeleted       Boolean   @default(false)
+  deletedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  parentComment   Comment?  @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
+  replies         Comment[] @relation("CommentReplies")
+  task            Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([userId])
+  @@index([parentCommentId])
+  @@index([createdAt])
+  @@map("comment")
+}
+
+model AuditLog {
+  id                String          @id @default(cuid())
+  operationId       String          @unique
+  entityType        String
+  entityId          String
+  action            String
+  userId            String
+  workspaceMemberId String
+  beforeState       Json?
+  afterState        Json
+  projectId         String
+  taskId            String?
+  timestamp         DateTime        @default(now())
+  ipAddress         String?
+  userAgent         String?
+  project           Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task              Task?           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceMember   WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
+
+  @@index([entityId])
+  @@index([entityType])
+  @@index([action])
+  @@index([projectId])
+  @@index([userId])
+  @@index([timestamp])
+  @@index([operationId])
+  @@map("audit_log")
 }
 
 enum WorkspaceRole {
@@ -125,144 +294,10 @@ enum WorkspaceRole {
   VIEWER
 }
 
-model Project {
-  id          String  @id @default(uuid())
-  name        String
-  description String?
-  slug        String  @unique
-
-  workspaceId String
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  clint          Clints[]
-  projectMembers ProjectMember[]
-  tasks          Task[]
-  auditLogs      AuditLog[]
-
-  @@index([workspaceId])
-}
-
-model ProjectMember {
-  id          String      @id @default(uuid())
-  projectRole ProjectRole @default(MEMBER)
-
-  projectId String
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  workspaceMemberId String
-  workspaceMember   WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
-
-  hasAccess Boolean @default(false)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  tasks     Task[]
-
-  @@unique([workspaceMemberId, projectId])
-  @@index([projectId, projectRole])
-}
-
 enum ProjectRole {
   LEAD
   MEMBER
   VIEWER
-}
-
-model Clints {
-  id                    String  @id @default(uuid())
-  name                  String
-  registeredCompanyName String?
-  gstNumber             String?
-  directorName          String?
-  address               String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  clintMembers ClintMembers[]
-  project      Project?       @relation(fields: [projectId], references: [id])
-  projectId    String?
-}
-
-model ClintMembers {
-  id            String  @id @default(uuid())
-  name          String
-  email         String?
-  contactNumber String?
-
-  clintId String?
-  clints  Clints? @relation(fields: [clintId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Task {
-  id           String      @id @default(uuid())
-  name         String
-  taskSlug     String      @unique
-  description  String?
-  status       TaskStatus? @default(TO_DO)
-  position     Int?
-  parentTaskId String?
-  startDate    DateTime?
-  days         Int?
-
-  tag TaskTag?
-
-  assigneeTo String?
-  assignee   ProjectMember? @relation(fields: [assigneeTo], references: [id], onDelete: Cascade)
-
-  parentTask Task?  @relation("Task_subTasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
-  subTasks   Task[] @relation("Task_subTasks")
-
-  // Subtask-to-Subtask Dependencies (Finish-to-Start)
-  // A task "dependsOn" other tasks that must complete before it can start
-  dependsOn  Task[] @relation("TaskDependency")
-  // A task is "dependedBy" other tasks that are waiting for it to complete
-  dependedBy Task[] @relation("TaskDependency")
-
-  createdById String
-  createdBy   WorkspaceMember @relation(fields: [createdById], references: [id], onDelete: Cascade)
-
-  projectId String
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  isPinned Boolean   @default(false)
-  pinnedAt DateTime?
-  pinnedBy String?
-
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  comments       Comment[]
-  auditLogs      AuditLog[]
-  reviewComments ReviewComment[]
-
-  @@index([parentTaskId])
-  @@index([projectId])
-  @@index([createdById])
-  @@index([assigneeTo])
-  @@index([isPinned])
-}
-
-model ReviewComment {
-  id        String @id @default(uuid())
-  subTaskId String
-  subTask   Task   @relation(fields: [subTaskId], references: [id], onDelete: Cascade)
-
-  authorId String
-  author   WorkspaceMember @relation(fields: [authorId], references: [id], onDelete: Cascade)
-
-  text       String
-  attachment Json?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([subTaskId, createdAt])
 }
 
 enum TaskStatus {
@@ -278,73 +313,4 @@ enum TaskTag {
   DESIGN
   PROCUREMENT
   CONTRACTOR
-}
-
-model Comment {
-  id      String @id @default(uuid())
-  content String @db.Text
-
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  taskId String
-  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
-
-  parentCommentId String?
-  parentComment   Comment?  @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
-  replies         Comment[] @relation("CommentReplies")
-
-  isEdited Boolean   @default(false)
-  editedAt DateTime?
-
-  isDeleted Boolean   @default(false)
-  deletedAt DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([taskId])
-  @@index([userId])
-  @@index([parentCommentId])
-  @@index([createdAt])
-  @@map("comment")
-}
-
-model AuditLog {
-  id String @id @default(cuid())
-
-  operationId String @unique
-
-  entityType String
-  entityId   String
-
-  action String
-
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  workspaceMemberId String
-  workspaceMember   WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
-
-  beforeState Json?
-  afterState  Json
-
-  projectId String
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  taskId String?
-  task   Task?   @relation(fields: [taskId], references: [id], onDelete: Cascade)
-
-  timestamp DateTime @default(now())
-  ipAddress String?
-  userAgent String?
-
-  @@index([entityId])
-  @@index([entityType])
-  @@index([action])
-  @@index([projectId])
-  @@index([userId])
-  @@index([timestamp])
-  @@index([operationId])
-  @@map("audit_log")
 }

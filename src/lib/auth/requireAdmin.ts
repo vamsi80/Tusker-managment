@@ -3,7 +3,7 @@ import "server-only";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { requireUser } from "@/lib/auth/require-user";
-import { getUserWorkspaces } from "../../data/user/get-user-workspace";
+import { getWorkspaces } from "../../data/workspace/get-workspaces";
 
 export class ForbiddenError extends Error {
   constructor(message: string) {
@@ -17,19 +17,19 @@ export class ForbiddenError extends Error {
  */
 async function _checkAdminInternal(userId: string, workspaceId: string) {
   // Load workspaces from cache-backed fetcher
-  const workspacesData = await getUserWorkspaces(userId);
+  const { workspaces } = await getWorkspaces();
 
   // Find their membership entry
-  const ws = workspacesData.workspaces.find(
-    (w) => w.workspaceId === workspaceId
+  const ws = workspaces.find(
+    (w) => w.id === workspaceId
   );
 
   if (!ws) {
     return { isAdmin: false, workspace: null, error: "not_member" };
   }
 
-  // Check ADMIN role
-  if (ws.workspaceRole !== "ADMIN") {
+  // Check OWNER or ADMIN role
+  if (ws.workspaceRole !== "OWNER" && ws.workspaceRole !== "ADMIN") {
     return { isAdmin: false, workspace: ws, error: "not_admin" };
   }
 

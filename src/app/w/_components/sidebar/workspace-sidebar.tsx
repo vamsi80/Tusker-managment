@@ -6,10 +6,10 @@ import { NavWorkspacesSelector } from "./nav-workspaces-selector";
 import { IconCheckupList, IconDashboard, IconPackageImport, IconTruck, IconUsersPlus } from "@tabler/icons-react";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
 import { NavProjectsSkeleton } from "./projects-skeleton";
-import { UserWorkspacesType } from "@/data/user/get-user-workspace";
+import { WorkspacesType } from "@/data/workspace/get-workspaces";
 
 interface iAppProps {
-  data: UserWorkspacesType;
+  data: WorkspacesType;
   workspaceId: string;
 }
 
