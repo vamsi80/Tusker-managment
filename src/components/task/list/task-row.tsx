@@ -4,13 +4,12 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronRight, MoreHorizontal } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-
-import { ColumnVisibility } from "./task-table-toolbar";
-import { TaskWithSubTasks } from "./types";
 import { Badge } from "@/components/ui/badge";
-import { EditTaskDialog } from "../forms/edit-task-form";
-import { DeleteTaskDialog } from "../forms/delete-task-form";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TaskWithSubTasks } from "@/app/w/[workspaceId]/p/[slug]/_components/list/types";
+import { ColumnVisibility } from "./task-table-toolbar";
+import { EditTaskDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/edit-task-form";
+import { DeleteTaskDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/delete-task-form";
 
 interface TaskRowProps {
     task: TaskWithSubTasks;

@@ -4,7 +4,7 @@ import { cache } from "react";
 import prisma from "@/lib/db";
 import { unstable_cache } from "next/cache";
 import { TaskStatus, TaskTag } from "@/generated/prisma";
-import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import { getWorkspacePermissions, getUserPermissions } from "@/data/user/get-user-permissions";
 
 /**
  * Filters for workspace tasks
@@ -31,6 +31,7 @@ async function _getWorkspaceTasksInternal(
     workspaceId: string,
     workspaceMemberId: string,
     isAdmin: boolean,
+    isProjectLead: boolean,
     filters: WorkspaceTaskFilters = {},
     page: number = 1,
     pageSize: number = 10
@@ -40,6 +41,7 @@ async function _getWorkspaceTasksInternal(
         where: {
             workspaceId,
             // If admin/owner, see all projects; if member, only see projects they belong to
+            // If project LEAD and filtering by that project, include it
             ...(isAdmin ? {} : {
                 projectMembers: {
                     some: {
@@ -59,7 +61,7 @@ async function _getWorkspaceTasksInternal(
     const projectIds = projects.map(p => p.id);
 
     if (projectIds.length === 0) {
-        return { tasks: [], totalCount: 0 };
+        return { tasks: [], totalCount: 0, hasMore: false };
     }
 
     // Build where clause with filters
@@ -202,6 +204,7 @@ const getCachedWorkspaceTasks = (
     userId: string,
     workspaceMemberId: string,
     isAdmin: boolean,
+    isProjectLead: boolean,
     filters: WorkspaceTaskFilters,
     page: number,
     pageSize: number
@@ -209,8 +212,8 @@ const getCachedWorkspaceTasks = (
     const filterHash = getFilterHash(filters);
 
     return unstable_cache(
-        async () => _getWorkspaceTasksInternal(workspaceId, workspaceMemberId, isAdmin, filters, page, pageSize),
-        [`workspace-tasks-${workspaceId}-user-${userId}-filters-${filterHash}-page-${page}-size-${pageSize}`],
+        async () => _getWorkspaceTasksInternal(workspaceId, workspaceMemberId, isAdmin, isProjectLead, filters, page, pageSize),
+        [`workspace-tasks-${workspaceId}-user-${userId}-filters-${filterHash}-lead${isProjectLead}-page-${page}-size-${pageSize}`],
         {
             tags: [
                 `workspace-tasks-${workspaceId}`,
@@ -249,11 +252,20 @@ export const getWorkspaceTasks = cache(
         pageSize: number = 10
     ) => {
         try {
-            // ✅ Get permissions (this calls requireUser internally - only ONCE!)
-            const permissions = await getWorkspacePermissions(workspaceId);
+            let permissions;
+            let isProjectLead = false;
+
+            if (filters.projectId) {
+                // ✅ When filtering by project, use getUserPermissions (includes everything!)
+                permissions = await getUserPermissions(workspaceId, filters.projectId);
+                isProjectLead = permissions.isProjectLead;
+            } else {
+                // ✅ For workspace-level, use getWorkspacePermissions
+                permissions = await getWorkspacePermissions(workspaceId);
+            }
 
             if (!permissions.workspaceMemberId) {
-                return { tasks: [], totalCount: 0 };
+                return { tasks: [], totalCount: 0, hasMore: false };
             }
 
             // ✅ Pass permissions directly to avoid redundant checks
@@ -262,6 +274,7 @@ export const getWorkspaceTasks = cache(
                 permissions.workspaceMemberId, // Use as userId for cache key
                 permissions.workspaceMemberId,
                 permissions.isWorkspaceAdmin,
+                isProjectLead,
                 filters,
                 page,
                 pageSize
@@ -270,7 +283,7 @@ export const getWorkspaceTasks = cache(
             return result;
         } catch (error) {
             console.error("Error fetching workspace tasks:", error);
-            return { tasks: [], totalCount: 0 };
+            return { tasks: [], totalCount: 0, hasMore: false };
         }
     }
 );

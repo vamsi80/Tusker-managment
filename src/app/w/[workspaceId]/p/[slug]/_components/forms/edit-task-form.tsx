@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import slugify from "slugify";
 import { editTask } from "@/actions/task/update-task";
 import { TaskWithSubTasks } from "../list/types";
+import { useReloadView } from "@/hooks/use-reload-view";
 
 interface EditTaskDialogProps {
     task: TaskWithSubTasks;
@@ -33,6 +34,7 @@ export function EditTaskDialog({ task, onTaskUpdated, onUpdateStart, onUpdateEnd
     const [pending, startTransition] = useTransition();
     const [open, setOpen] = useState(false);
     const [autoSlugEnabled, setAutoSlugEnabled] = useState(true);
+    const reloadView = useReloadView();
 
     const form = useForm<TaskSchemaType>({
         resolver: zodResolver(taskSchema) as unknown as Resolver<TaskSchemaType>,
@@ -97,6 +99,9 @@ export function EditTaskDialog({ task, onTaskUpdated, onUpdateStart, onUpdateEnd
                         taskSlug: values.taskSlug,
                     });
                 }
+
+                // Reload all views to show the updated task
+                reloadView();
             } else {
                 toast.error(result.message);
             }

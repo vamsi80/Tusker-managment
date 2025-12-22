@@ -46,56 +46,6 @@ export const getWorkspacePermissions = cache(async (workspaceId: string) => {
 });
 
 /**
- * Get project-level permissions (for when filtering by specific project)
- * Checks if user is a LEAD of the specified project
- * 
- * @param workspaceId - Workspace ID
- * @param projectId - Project ID to check LEAD status for
- * @returns isProjectLead flag
- */
-export const getProjectLevelPermissions = cache(async (workspaceId: string, projectId: string) => {
-    const user = await requireUser();
-
-    try {
-        // Get workspace member
-        const workspaceMember = await prisma.workspaceMember.findFirst({
-            where: {
-                workspaceId: workspaceId,
-                userId: user.id,
-            },
-        });
-
-        if (!workspaceMember) {
-            return {
-                isProjectLead: false,
-                projectMemberId: null,
-            };
-        }
-
-        // Check if user is LEAD of this specific project
-        const projectMember = await prisma.projectMember.findFirst({
-            where: {
-                projectId: projectId,
-                workspaceMemberId: workspaceMember.id,
-            },
-        });
-
-        const isProjectLead = projectMember?.projectRole === "LEAD";
-
-        return {
-            isProjectLead,
-            projectMemberId: projectMember?.id || null,
-        };
-    } catch (error) {
-        console.error("Error fetching project permissions:", error);
-        return {
-            isProjectLead: false,
-            projectMemberId: null,
-        };
-    }
-});
-
-/**
  * Get project-level permissions for the current user
  * Use this for project-specific queries
  */
@@ -160,5 +110,4 @@ export const getUserPermissions = cache(async (workspaceId: string, projectId: s
 });
 
 export type WorkspacePermissionsType = Awaited<ReturnType<typeof getWorkspacePermissions>>;
-export type ProjectLevelPermissionsType = Awaited<ReturnType<typeof getProjectLevelPermissions>>;
 export type UserPermissionsType = Awaited<ReturnType<typeof getUserPermissions>>;

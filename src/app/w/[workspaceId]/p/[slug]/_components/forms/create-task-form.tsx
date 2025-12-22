@@ -16,6 +16,7 @@ import slugify from "slugify";
 import { useRouter } from "next/navigation";
 import { useTaskContext } from "../shared/task-context";
 import { createTask } from "@/actions/task/create-task";
+import { useReloadView } from "@/hooks/use-reload-view";
 
 interface iAppProps {
     projectId: string
@@ -28,6 +29,7 @@ export const CreateTaskForm = ({ projectId }: iAppProps) => {
     const [autoSlugEnabled, setAutoSlugEnabled] = useState(true);
     const router = useRouter();
     const { addNewTask, setIsAddingTask } = useTaskContext();
+    const reloadView = useReloadView();
 
     const form = useForm<TaskSchemaType>({
         resolver: zodResolver(taskSchema) as unknown as Resolver<TaskSchemaType>,
@@ -79,6 +81,9 @@ export const CreateTaskForm = ({ projectId }: iAppProps) => {
 
                 // Add the new task to the list
                 addNewTask(result.data as any);
+
+                // Reload all views to show the new task
+                reloadView();
             } else {
                 toast.error(result.message);
                 setIsAddingTask(false);

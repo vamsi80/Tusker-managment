@@ -3,7 +3,7 @@
 import { cache } from "react";
 import prisma from "@/lib/db";
 import { unstable_cache } from "next/cache";
-import { getWorkspacePermissions, getProjectLevelPermissions } from "@/data/user/get-user-permissions";
+import { getWorkspacePermissions, getUserPermissions } from "@/data/user/get-user-permissions";
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED";
 
@@ -200,8 +200,17 @@ export const getSubTasksByStatus = cache(
         pageSize: number = 5
     ) => {
         try {
-            // ✅ Get workspace permissions (this calls requireUser internally - only ONCE!)
-            const permissions = await getWorkspacePermissions(workspaceId);
+            let permissions;
+            let isProjectLead = false;
+
+            if (projectId) {
+                // ✅ When filtering by project, use getUserPermissions (includes everything!)
+                permissions = await getUserPermissions(workspaceId, projectId);
+                isProjectLead = permissions.isProjectLead;
+            } else {
+                // ✅ For workspace-level, use getWorkspacePermissions
+                permissions = await getWorkspacePermissions(workspaceId);
+            }
 
             if (!permissions.workspaceMemberId) {
                 return {
@@ -210,13 +219,6 @@ export const getSubTasksByStatus = cache(
                     hasMore: false,
                     currentPage: 1,
                 };
-            }
-
-            // ✅ Check if user is LEAD of the specific project (when filtering by project)
-            let isProjectLead = false;
-            if (projectId && !permissions.isWorkspaceAdmin) {
-                const projectPermissions = await getProjectLevelPermissions(workspaceId, projectId);
-                isProjectLead = projectPermissions.isProjectLead;
             }
 
             // ✅ Pass permissions directly to avoid redundant checks

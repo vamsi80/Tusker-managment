@@ -1,8 +1,8 @@
 import { getSubTasksByStatus } from "@/data/task/kanban";
 import { getProjectMembers } from "@/data/project/get-project-members";
-import { KanbanBoardPaginated } from "./kanban-board-paginated";
+import { KanbanBoard } from "@/components/task/kanban/kanban-board";
 
-interface KanbanContainerPaginatedProps {
+interface ProjectKanbanViewProps {
     workspaceId: string;
     projectId: string;
 }
@@ -22,10 +22,10 @@ interface KanbanContainerPaginatedProps {
  * - Reduced memory usage
  * - Faster rendering
  */
-export async function KanbanContainerPaginated({
+export async function ProjectKanbanView({
     workspaceId,
     projectId
-}: KanbanContainerPaginatedProps) {
+}: ProjectKanbanViewProps) {
     // Fetch first page (5 cards) for each status column in parallel
     // Using workspace-level query with project filter
     const [
@@ -58,7 +58,7 @@ export async function KanbanContainerPaginated({
 
     return (
         <div className="space-y-4">
-            <KanbanBoardPaginated
+            <KanbanBoard
                 initialData={initialData}
                 projectMembers={projectMembers}
                 workspaceId={workspaceId}

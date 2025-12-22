@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { tryCatch } from "@/hooks/try-catch";
 import { deleteTask } from "@/actions/task/delete-task";
 import { TaskWithSubTasks } from "../list/types";
+import { useReloadView } from "@/hooks/use-reload-view";
 
 interface DeleteTaskDialogProps {
     task: TaskWithSubTasks;
@@ -24,6 +25,7 @@ export function DeleteTaskDialog({ task, onTaskDeleted }: DeleteTaskDialogProps)
     const [open, setOpen] = useState(false);
     const [pending, startTransition] = useTransition();
     const subtaskCount = task._count?.subTasks || 0;
+    const reloadView = useReloadView();
 
     const handleDelete = () => {
         startTransition(async () => {
@@ -43,6 +45,9 @@ export function DeleteTaskDialog({ task, onTaskDeleted }: DeleteTaskDialogProps)
                 if (onTaskDeleted) {
                     onTaskDeleted(task.id);
                 }
+
+                // Reload all views to reflect deletion
+                reloadView();
             } else {
                 toast.error(result.message);
             }

@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { editSubTask } from "@/actions/task/update-subTask";
 import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { Badge } from "@/components/ui/badge";
+import { useReloadView } from "@/hooks/use-reload-view";
 
 interface EditSubTaskFormProps {
     subTask: FlatTaskType;
@@ -40,6 +41,7 @@ export function EditSubTaskForm({
     const [pending, startTransition] = useTransition();
     const [open, setOpen] = useState(false);
     const router = useRouter();
+    const reloadView = useReloadView();
 
     const form = useForm<SubTaskSchemaType>({
         resolver: zodResolver(subTaskSchema) as unknown as Resolver<SubTaskSchemaType>,
@@ -97,7 +99,8 @@ export function EditSubTaskForm({
 
                 setOpen(false);
 
-                router.refresh();
+                // Reload all views to show the updated subtask
+                reloadView();
             } else {
                 toast.error(result.message);
             }

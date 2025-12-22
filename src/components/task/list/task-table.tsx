@@ -2,14 +2,11 @@
 
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { TaskRow } from "./task-row";
 import { FlatTaskType } from "@/data/task";
-import { TaskWithSubTasks } from "./types";
 import { SubTaskList } from "./subtask-list";
 import { Button } from "@/components/ui/button";
 import React, { useState, useEffect } from "react";
 import { Loader2, ChevronsDown } from "lucide-react";
-import { useNewTask } from "../shared/task-page-wrapper";
 import { getWorkspaceTasks, getSubTasks } from "@/data/task";
 import { updateSubtaskPositions } from "@/actions/task/gantt";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
@@ -18,6 +15,9 @@ import { ProjectMembersType } from "@/data/project/get-project-members";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { TaskTableToolbar, ColumnVisibility, AdvancedFilters } from "./task-table-toolbar";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
+import { useNewTask } from "@/app/w/[workspaceId]/p/[slug]/_components/shared/task-page-wrapper";
+import { TaskWithSubTasks } from "@/app/w/[workspaceId]/p/[slug]/_components/list/types";
+import { TaskRow } from "./task-row";
 
 interface TaskTableProps {
     initialTasks: TaskWithSubTasks[];

@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { tryCatch } from "@/hooks/try-catch";
 import { FlatTaskType } from "@/data/task";
 import { deleteSubTask } from "@/actions/task/delete-subTask";
+import { useReloadView } from "@/hooks/use-reload-view";
 
 interface DeleteSubTaskFormProps {
     subTask: FlatTaskType;
@@ -27,6 +28,7 @@ interface DeleteSubTaskFormProps {
 export function DeleteSubTaskForm({ subTask, onSubTaskDeleted }: DeleteSubTaskFormProps) {
     const [open, setOpen] = useState(false);
     const [pending, startTransition] = useTransition();
+    const reloadView = useReloadView();
 
     const handleDelete = () => {
         startTransition(async () => {
@@ -46,6 +48,9 @@ export function DeleteSubTaskForm({ subTask, onSubTaskDeleted }: DeleteSubTaskFo
                 if (onSubTaskDeleted) {
                     onSubTaskDeleted(subTask.id);
                 }
+
+                // Reload all views to reflect deletion
+                reloadView();
             } else {
                 toast.error(result.message);
             }

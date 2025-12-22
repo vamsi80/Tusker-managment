@@ -1,6 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { TableCell, TableRow } from "@/components/ui/table";
-import { ColumnVisibility } from "../list/task-table-toolbar";
+import { ColumnVisibility } from "./task-table-toolbar";
 
 interface SubTaskSkeletonProps {
     columnVisibility: ColumnVisibility;

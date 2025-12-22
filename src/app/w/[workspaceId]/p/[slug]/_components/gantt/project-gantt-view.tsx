@@ -1,7 +1,7 @@
 import { getAllTasksFlat } from "@/data/task";
-import { GanttContainer } from "./gantt-container";
-import { validateDependencies } from "./utils";
-import { GanttSubtask, GanttTask } from "./types";
+import { validateDependencies } from "../../../../../../../components/task/gantt/utils";
+import { GanttSubtask, GanttTask } from "../../../../../../../components/task/gantt/types";
+import { ProjectGanttClient } from "./project-gantt-client";
 
 interface GanttServerWrapperProps {
     workspaceId: string;
@@ -94,7 +94,7 @@ export async function GanttServerWrapper({ workspaceId, projectId }: GanttServer
     });
 
     return (
-        <GanttContainer
+        <ProjectGanttClient
             workspaceId={workspaceId}
             projectId={projectId}
             initialTasks={ganttTasks}

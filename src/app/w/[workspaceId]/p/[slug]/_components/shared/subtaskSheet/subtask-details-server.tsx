@@ -1,4 +1,4 @@
-import { getTaskById, TaskByIdType } from "@/data/task/get-task-by-id";
+import { getTaskById } from "@/data/task/get-task-by-id";
 import { getTaskComments, getReviewComments } from "@/data/comments";
 import { SubTaskDetailsSheet } from "./subtask-details-sheet";
 import { requireUser } from "@/lib/auth/require-user";

@@ -9,13 +9,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { CornerDownRight, GripVertical, Calendar, Tag, MoreHorizontal } from "lucide-react";
 import { FlatTaskType } from "@/data/task";
-import { ColumnVisibility } from "./task-table-toolbar";
-import { EditSubTaskForm } from "../forms/edit-subtask-form";
-import { DeleteSubTaskForm } from "../forms/delete-subtask-form";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { ColumnVisibility } from "./task-table-toolbar";
+import { EditSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/edit-subtask-form";
+import { DeleteSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/delete-subtask-form";
 
 interface SubTaskRowProps {
     subTask: FlatTaskType;

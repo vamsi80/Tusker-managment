@@ -20,6 +20,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { createSubTask } from "@/actions/task/create-subTask";
+import { useReloadView } from "@/hooks/use-reload-view";
 
 interface iAppProps {
     members: ProjectMembersType
@@ -35,6 +36,7 @@ export const CreateSubTaskForm = ({ members, workspaceId, projectId, parentTaskI
     const [open, setOpen] = useState(false);
     const [autoSlugEnabled, setAutoSlugEnabled] = useState(true);
     const router = useRouter();
+    const reloadView = useReloadView();
 
     const form = useForm<SubTaskSchemaType>({
         resolver: zodResolver(subTaskSchema) as unknown as Resolver<SubTaskSchemaType>,
@@ -95,8 +97,8 @@ export const CreateSubTaskForm = ({ members, workspaceId, projectId, parentTaskI
                     onSubTaskCreated(result.data);
                 }
 
-                // Refresh to sync with server
-                router.refresh();
+                // Reload all views to show the new subtask
+                reloadView();
             } else (
                 toast.error(result.message)
             )

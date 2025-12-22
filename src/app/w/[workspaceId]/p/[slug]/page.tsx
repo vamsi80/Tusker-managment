@@ -1,11 +1,12 @@
 import { Suspense } from "react";
-import { getTaskPageData } from "@/data/task";
-import { TaskTableSkeleton } from "./_components/layout/list-skeleton";
-import { GanttChartSkeleton } from "./_components/layout/gantt-skeleton";
-import { KanbanBoardSkeleton } from "./_components/layout/kanban-skeleton";
+import { getProjectBySlug } from "@/data/project/get-project-by-slug";
+import { getProjectMembers } from "@/data/project/get-project-members";
+import { TaskTableSkeleton } from "../../../../../components/task/list/list-skeleton";
+import { GanttChartSkeleton } from "../../../../../components/task/gantt/gantt-skeleton";
+import { KanbanBoardSkeleton } from "../../../../../components/task/kanban/kanban-skeleton";
 import { ProjectDashboard } from "./_components/dashboard/project-dashboard";
-import { TaskTableContainer } from "./_components/list/task-table-container";
-import { ReloadableTaskTable } from "./_components/list/reloadable-task-table";
+import { ReloadableView } from "./_components/shared/reloadable-view";
+import { ProjectTaskListView } from "./_components/list/project-task-list-view";
 
 interface iAppProps {
   params: { workspaceId: string; slug: string };
@@ -22,72 +23,79 @@ async function ProjectDashboardPage() {
 }
 
 /**
- * Task List View - Fetches its own data
+ * Task List View
+ * 
+ * Data Flow:
+ * 1. Receives projectId and projectMembers from parent
+ * 2. TaskTableContainer calls getWorkspaceTasks(workspaceId, { projectId })
+ * 3. getWorkspaceTasks handles permissions internally via getUserPermissions
+ * 
+ * @see src/data/task/get-workspace-tasks.ts - Workspace-first task fetching
  */
-async function TaskListView({ workspaceId, slug }: { workspaceId: string; slug: string }) {
-  const pageData = await getTaskPageData(workspaceId, slug);
-
-  if (!pageData) return null;
-
+async function TaskListView({
+  workspaceId,
+  projectId,
+  projectMembers
+}: {
+  workspaceId: string;
+  projectId: string;
+  projectMembers: Awaited<ReturnType<typeof getProjectMembers>>;
+}) {
   return (
-    <TaskTableContainer
-      workspaceId={pageData.project.workspaceId}
-      projectId={pageData.project.id}
-      members={pageData.projectMembers}
-      canCreateSubTask={pageData.permissions.canCreateSubTask}
+    <ProjectTaskListView
+      workspaceId={workspaceId}
+      projectId={projectId}
+      members={projectMembers}
+      canCreateSubTask={true} // Will be determined by workspace function internally
     />
   );
 }
 
 /**
- * Kanban view component
- * Uses paginated version for better performance (loads 20 cards per column)
+ * Kanban View Component
  * 
- * Optimized: Gets projectId from context
+ * Data Flow:
+ * 1. Receives projectId from parent
+ * 2. KanbanContainerPaginated calls getSubTasksByStatus(workspaceId, status, projectId)
+ * 3. getSubTasksByStatus handles permissions internally via getUserPermissions
+ * 
+ * @see src/data/task/kanban/get-subtasks-by-status.ts - Workspace-first subtask fetching
  */
-async function TaskKanbanView({ workspaceId, slug }: { workspaceId: string; slug: string }) {
-  const { KanbanContainerPaginated } = await import("./_components/kanban/kanban-container-paginated");
+async function TaskKanbanView({
+  workspaceId,
+  projectId
+}: {
+  workspaceId: string;
+  projectId: string;
+}) {
+  const { ProjectKanbanView } = await import("./_components/kanban/project-kanban-view");
 
-  // Get project data from layout context
-  // Since this is a server component, we need to get it from the layout
-  const { getTaskPageData } = await import("@/data/task");
-  const pageData = await getTaskPageData(workspaceId, slug);
-
-  if (!pageData) return null;
-
-  return <KanbanContainerPaginated workspaceId={workspaceId} projectId={pageData.project.id} />;
+  return <ProjectKanbanView workspaceId={workspaceId} projectId={projectId} />;
 }
 
 /**
- * Gantt view component - Fetches its own data
- * 
- * Optimized: Only fetches project info, not full page data
- * GanttServerWrapper handles its own data fetching
+ * Gantt view component
  */
-async function TaskGanttView({ workspaceId, slug }: { workspaceId: string; slug: string }) {
-  const [
-    { getProjectBySlug },
-    { GanttServerWrapper }
-  ] = await Promise.all([
-    import("@/data/project/get-project-by-slug"),
-    import("./_components/gantt/gantt-server-wrapper")
-  ]);
+async function TaskGanttView({
+  workspaceId,
+  projectId
+}: {
+  workspaceId: string;
+  projectId: string;
+}) {
+  const { GanttServerWrapper } = await import("./_components/gantt/project-gantt-view");
 
-  const project = await getProjectBySlug(workspaceId, slug);
-
-  if (!project) return null;
-
-  return <GanttServerWrapper workspaceId={workspaceId} projectId={project.id} />;
+  return <GanttServerWrapper workspaceId={workspaceId} projectId={projectId} />;
 }
 
 /**
  * Project Page - Shows different views based on search params
  * 
- * STREAMING ARCHITECTURE:
- * - Layout handles header (project name + nav) and TaskContext
- * - Page handles view-specific content
- * - Each view fetches only its own data
- * - Suspense boundaries show appropriate skeletons
+ * OPTIMIZED ARCHITECTURE:
+ * - Fetches project data ONCE at the page level
+ * - Passes data down to view components
+ * - Each workspace function handles its own permissions internally
+ * - No redundant data fetching
  */
 export default async function ProjectPage({ params, searchParams }: iAppProps) {
   const { workspaceId, slug } = await params;
@@ -95,34 +103,61 @@ export default async function ProjectPage({ params, searchParams }: iAppProps) {
 
   const currentView = ['dashboard', 'list', 'kanban', 'gantt'].includes(view) ? view : 'dashboard';
 
+  // ✅ Fetch project data ONCE for all views
+  const project = await getProjectBySlug(workspaceId, slug);
+
+  if (!project) {
+    return <div>Project not found</div>;
+  }
+
+  // ✅ Only fetch project members if needed (for list view)
+  const projectMembers = currentView === 'list'
+    ? await getProjectMembers(project.id)
+    : [];
+
   return (
     <>
       {/* Content streams in based on view */}
       {currentView === 'dashboard' && (
-        <ReloadableTaskTable>
+        <ReloadableView skeleton={<TaskTableSkeleton />}>
           <Suspense fallback={<TaskTableSkeleton />}>
             <ProjectDashboardPage />
           </Suspense>
-        </ReloadableTaskTable>
+        </ReloadableView>
       )}
+
       {currentView === 'list' && (
-        <ReloadableTaskTable>
+        <ReloadableView skeleton={<TaskTableSkeleton />}>
           <Suspense fallback={<TaskTableSkeleton />}>
-            <TaskListView workspaceId={workspaceId} slug={slug} />
+            <TaskListView
+              workspaceId={workspaceId}
+              projectId={project.id}
+              projectMembers={projectMembers}
+            />
           </Suspense>
-        </ReloadableTaskTable>
+        </ReloadableView>
       )}
 
       {currentView === 'kanban' && (
-        <Suspense fallback={<KanbanBoardSkeleton />}>
-          <TaskKanbanView workspaceId={workspaceId} slug={slug} />
-        </Suspense>
+        <ReloadableView skeleton={<KanbanBoardSkeleton />}>
+          <Suspense fallback={<KanbanBoardSkeleton />}>
+            <TaskKanbanView
+              workspaceId={workspaceId}
+              projectId={project.id}
+            />
+          </Suspense>
+        </ReloadableView>
       )}
 
       {currentView === 'gantt' && (
-        <Suspense fallback={<GanttChartSkeleton />}>
-          <TaskGanttView workspaceId={workspaceId} slug={slug} />
-        </Suspense>
+        <ReloadableView skeleton={<GanttChartSkeleton />}>
+          <Suspense fallback={<GanttChartSkeleton />}>
+            <TaskGanttView
+              workspaceId={workspaceId}
+              projectId={project.id}
+            />
+          </Suspense>
+        </ReloadableView>
       )}
     </>
   );

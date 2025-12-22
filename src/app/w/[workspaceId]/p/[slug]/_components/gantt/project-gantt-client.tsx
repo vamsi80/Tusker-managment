@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { GanttChart } from "./gantt-chart";
-import { GanttTask } from "./types";
+import { GanttTask } from "../../../../../../../components/task/gantt/types";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
 import { Button } from "@/components/ui/button";
 import { ChevronDown } from "lucide-react";
 import { FlatTaskType } from "@/data/task";
+import { GanttChart } from "@/components/task/gantt/gantt-chart";
 
-interface GanttContainerProps {
+interface ProjectGanttClientProps {
     workspaceId: string;
     projectId: string;
     initialTasks: GanttTask[];
@@ -17,7 +17,7 @@ interface GanttContainerProps {
 
 const TASKS_PER_PAGE = 10;
 
-export function GanttContainer({ workspaceId, projectId, initialTasks, subtaskDataMap }: GanttContainerProps) {
+export function ProjectGanttClient({ workspaceId, projectId, initialTasks, subtaskDataMap }: ProjectGanttClientProps) {
     const [visibleTaskCount, setVisibleTaskCount] = useState(TASKS_PER_PAGE);
 
     // Use global subtask sheet context

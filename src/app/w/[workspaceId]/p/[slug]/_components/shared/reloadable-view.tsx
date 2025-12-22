@@ -1,14 +1,33 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
-import { TaskTableSkeleton } from "../layout/list-skeleton";
 import { useRouter } from "next/navigation";
 
-interface ReloadableTaskTableProps {
+interface ReloadableViewProps {
     children: React.ReactNode;
+    skeleton?: React.ReactNode;
 }
 
-export function ReloadableTaskTable({ children }: ReloadableTaskTableProps) {
+/**
+ * Reloadable View Wrapper
+ * 
+ * Listens for 'taskTableReload' events and refreshes the view.
+ * This component can be used across all views (List, Kanban, Gantt, Dashboard)
+ * to provide a consistent reload experience.
+ * 
+ * Usage:
+ * ```tsx
+ * <ReloadableView skeleton={<YourSkeleton />}>
+ *   <YourViewComponent />
+ * </ReloadableView>
+ * ```
+ * 
+ * To trigger a reload from anywhere:
+ * ```tsx
+ * window.dispatchEvent(new Event('taskTableReload'));
+ * ```
+ */
+export function ReloadableView({ children, skeleton }: ReloadableViewProps) {
     const [isReloading, setIsReloading] = useState(false);
     const [isPending, startTransition] = useTransition();
     const router = useRouter();
@@ -31,7 +50,7 @@ export function ReloadableTaskTable({ children }: ReloadableTaskTableProps) {
     }, [router]);
 
     if (isReloading || isPending) {
-        return <TaskTableSkeleton />;
+        return <>{skeleton}</>;
     }
 
     return <>{children}</>;
