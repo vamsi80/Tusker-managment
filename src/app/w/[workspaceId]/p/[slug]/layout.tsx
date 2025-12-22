@@ -1,9 +1,9 @@
 import { Suspense } from "react";
 import { getTaskPageData } from "@/data/task";
 import ProjectHeader from "./_components/layout/project-header";
-import { ProjectLayoutSkeleton } from "./_components/layout/project-layout-skeleton";
 import { TaskPageWrapper } from "./_components/shared/task-page-wrapper";
 import { ProjectProvider } from "./_components/shared/project-context";
+import { ProjectHeaderSkeleton } from "./_components/layout/project-header-skeleton";
 
 interface Props {
     children: React.ReactNode;
@@ -31,7 +31,7 @@ export default async function ProjectLayout({ children, params }: Props) {
         <ProjectProvider pageData={pageData}>
             <TaskPageWrapper>
                 <div className="flex flex-col gap-6 pb-3 px-3 h-full">
-                    <Suspense fallback={<ProjectLayoutSkeleton />}>
+                    <Suspense fallback={<ProjectHeaderSkeleton />}>
                         <ProjectHeader />
                     </Suspense>
 

@@ -7,6 +7,7 @@ import { KanbanBoardSkeleton } from "../../../../../components/task/kanban/kanba
 import { ProjectDashboard } from "./_components/dashboard/project-dashboard";
 import { ReloadableView } from "./_components/shared/reloadable-view";
 import { ProjectTaskListView } from "./_components/list/project-task-list-view";
+import { ProjectDashboardSkeleton } from "./_components/layout/project-dashboard-skeleton";
 
 interface iAppProps {
   params: { workspaceId: string; slug: string };
@@ -119,8 +120,8 @@ export default async function ProjectPage({ params, searchParams }: iAppProps) {
     <>
       {/* Content streams in based on view */}
       {currentView === 'dashboard' && (
-        <ReloadableView skeleton={<TaskTableSkeleton />}>
-          <Suspense fallback={<TaskTableSkeleton />}>
+        <ReloadableView skeleton={<ProjectDashboardSkeleton />}>
+          <Suspense fallback={<ProjectDashboardSkeleton />}>
             <ProjectDashboardPage />
           </Suspense>
         </ReloadableView>

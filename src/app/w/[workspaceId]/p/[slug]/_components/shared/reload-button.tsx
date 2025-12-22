@@ -68,7 +68,6 @@ export function ReloadButton({ projectId, userId }: ReloadButtonProps) {
             <RefreshCw
                 className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`}
             />
-            <span className="hidden sm:inline">Refresh</span>
         </Button>
     );
 }

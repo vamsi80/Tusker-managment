@@ -18,6 +18,8 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { useNewTask } from "@/app/w/[workspaceId]/p/[slug]/_components/shared/task-page-wrapper";
 import { TaskWithSubTasks } from "@/app/w/[workspaceId]/p/[slug]/_components/list/types";
 import { TaskRow } from "./task-row";
+import { TaskFilters } from "../shared/types";
+import { GlobalFilterToolbar } from "../shared/global-filter-toolbar";
 
 interface TaskTableProps {
     initialTasks: TaskWithSubTasks[];
@@ -135,7 +137,7 @@ export function TaskTable({
     const [loadingMoreSubTasks, setLoadingMoreSubTasks] = useState<Record<string, boolean>>({});
     const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
-    const [tagFilter, setTagFilter] = useState<string | null>(null);
+    const [filters, setFilters] = useState<TaskFilters>({});
     const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
         assignee: true,
         startDate: true,
@@ -144,16 +146,6 @@ export function TaskTable({
         status: true,
         tag: true,
         description: true,
-    });
-
-    // Advanced filters state (for workspace view)
-    const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilters>({
-        projectId: "all",
-        status: "all",
-        assigneeId: "all",
-        tag: "all",
-        startDate: undefined,
-        endDate: undefined,
     });
 
     // Use global subtask sheet context
@@ -406,26 +398,66 @@ export function TaskTable({
     }, [tasks]);
 
 
-    const uniqueTags = Array.from(new Set(tasks.map((t) => t.tag as string).filter(Boolean)));
+    // Apply filters to tasks
+    // const filteredTasks = React.useMemo(() => {
+    //     let result = tasks;
+    //     if (searchQuery) {
+    //         const query = searchQuery.toLowerCase();
+    //         result = result.filter(task =>
+    //             task.name.toLowerCase().includes(query) ||
+    //             task.description?.toLowerCase().includes(query) ||
+    //             task.taskSlug.toLowerCase().includes(query)
+    //         );
+    //     }
+
+    //     if (filters.projectId && showAdvancedFilters) {
+    //         result = result.filter(task => task.projectId === filters.projectId);
+    //     }
+
+    //     if (filters.status) {
+    //         result = result.filter(task => task.status === filters.status);
+    //     }
+
+    //     if (filters.assigneeId) {
+    //         result = result.filter(task => {
+    //             const taskAssignee = (task as any).assignee;
+    //             return taskAssignee?.workspaceMemberId === filters.assigneeId;
+    //         });
+    //     }
+
+    //     if (filters.tag) {
+    //         result = result.filter(task => task.tag === filters.tag);
+    //     }
+    //     if (filters.startDate) {
+    //         result = result.filter(task =>
+    //             task.startDate && new Date(task.startDate) >= new Date(filters.startDate!)
+    //         );
+    //     }
+
+    //     if (filters.endDate) {
+    //         result = result.filter(task =>
+    //             task.dueDate && new Date(task.dueDate) <= new Date(filters.endDate!)
+    //         );
+    //     }
+
+    //     return result;
+    // }, [tasks, searchQuery, filters, showAdvancedFilters]);
 
     return (
         <div className="space-y-4 mt-4">
-            <TaskTableToolbar
+            <GlobalFilterToolbar
+                level={showAdvancedFilters ? "workspace" : "project"}
+                view="list"
+                filters={filters}
                 searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
-                tagFilter={tagFilter}
-                setTagFilter={setTagFilter}
-                uniqueTags={uniqueTags}
-                columnVisibility={columnVisibility}
-                setColumnVisibility={setColumnVisibility}
-                // Advanced filters (always available)
-                advancedFilters={advancedFilters}
-                setAdvancedFilters={setAdvancedFilters}
-                availableProjects={availableProjects}
-                availableStatuses={availableStatuses}
-                availableAssignees={availableAssignees}
-                // Project filter only in workspace view
-                showProjectFilter={showAdvancedFilters}
+                projects={showAdvancedFilters ? availableProjects : undefined}
+                members={availableAssignees}
+                onFilterChange={setFilters}
+                onSearchChange={setSearchQuery}
+                onClearAll={() => {
+                    setFilters({});
+                    setSearchQuery("");
+                }}
             />
 
             <div className="rounded-md border overflow-hidden">

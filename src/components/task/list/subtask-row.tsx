@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useDueDate, useRemainingDays } from "@/hooks/use-due-date";
 import { useSortable } from "@dnd-kit/sortable";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -73,46 +74,21 @@ export function SubTaskRow({
 
     const assignee = subTask.assignee?.workspaceMember?.user;
 
-    const calculateDueDate = () => {
-        if (!subTask.startDate || !subTask.days) return null;
-        const start = new Date(subTask.startDate);
-        const due = new Date(start);
-        due.setDate(due.getDate() + subTask.days);
-        return due;
-    };
-
-    const calculateRemainingDays = () => {
-        if (!subTask.startDate || !subTask.days) return null;
-
-        const start = new Date(subTask.startDate);
-        const now = new Date();
-        const dueDate = new Date(start);
-        dueDate.setDate(dueDate.getDate() + subTask.days);
-
-        const diffTime = dueDate.getTime() - now.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-        return diffDays;
-    };
+    // Use custom hooks for date calculations
+    const dueDate = useDueDate(subTask.startDate, subTask.days);
+    const { remainingDays, isOverdue } = useRemainingDays(subTask.startDate, subTask.days);
 
     const getProgressColor = () => {
-        if (!subTask.startDate || !subTask.days) return "bg-gray-300";
+        if (!subTask.startDate || !subTask.days || remainingDays === null) return "bg-gray-300";
 
-        const remainingDays = calculateRemainingDays();
-        if (remainingDays === null) return "bg-gray-300";
-
-        const totalDays = subTask.days;
-        const percentRemaining = (remainingDays / totalDays) * 100;
-
-        if (remainingDays < 0) return "bg-red-500";
-        if (percentRemaining > 75) return "bg-green-500";
-        if (percentRemaining > 50) return "bg-yellow-500";
-        if (percentRemaining > 25) return "bg-orange-500";
-        return "bg-red-500";
+        // Color based on absolute days remaining, not percentage
+        if (isOverdue) return "bg-red-500";           // Overdue
+        if (remainingDays <= 10) return "bg-red-500";  // 10 days or less - Critical
+        if (remainingDays <= 20) return "bg-orange-500"; // 11-20 days - Warning
+        if (remainingDays <= 30) return "bg-yellow-500"; // 21-30 days - Caution
+        return "bg-green-500";                         // More than 30 days - Good
     };
 
-    const dueDate = calculateDueDate();
-    const remainingDays = calculateRemainingDays();
     const progressColor = getProgressColor();
 
     if (isUpdating) {

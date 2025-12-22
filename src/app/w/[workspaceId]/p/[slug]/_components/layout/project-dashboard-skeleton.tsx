@@ -1,6 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
-export function ProjectLayoutSkeleton() {
+export function ProjectDashboardSkeleton() {
     return (
         <div className="flex flex-col gap-6 pb-3 px-3 h-full">
             <div>

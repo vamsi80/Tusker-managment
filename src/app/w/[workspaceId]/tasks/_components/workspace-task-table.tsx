@@ -1,7 +1,7 @@
 "use client";
 
-import { TaskTable } from "@/app/w/[workspaceId]/p/[slug]/_components/list/task-table";
 import { TaskPageWrapper } from "@/app/w/[workspaceId]/p/[slug]/_components/shared/task-page-wrapper";
+import { TaskTable } from "@/components/task/list/task-table";
 import { WorkspaceTaskType } from "@/data/task/get-workspace-tasks";
 
 interface WorkspaceTaskTableProps {

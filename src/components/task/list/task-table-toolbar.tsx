@@ -20,6 +20,8 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { getStatusLabel } from "@/lib/colors/status-colors";
 import { TaskStatus } from "@/generated/prisma";
+import { TaskSearch } from "../shared/task-search";
+import { TaskFilters } from "../shared/task-filters";
 
 export type ColumnVisibility = {
     assignee: boolean;
