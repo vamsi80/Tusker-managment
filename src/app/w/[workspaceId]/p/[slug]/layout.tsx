@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { getTaskPageData } from "@/data/task";
 import ProjectHeader from "./_components/layout/project-header";
-import { TaskPageWrapper } from "./_components/shared/task-page-wrapper";
-import { ProjectProvider } from "./_components/shared/project-context";
+import { TaskPageWrapper } from "@/app/w/[workspaceId]/_components/shared/task-page-wrapper";
+import { TaskPageProvider } from "@/app/w/[workspaceId]/_components/shared/task-page-context";
 import { ProjectHeaderSkeleton } from "./_components/layout/project-header-skeleton";
 
 interface Props {
@@ -28,7 +28,7 @@ export default async function ProjectLayout({ children, params }: Props) {
     }
 
     return (
-        <ProjectProvider pageData={pageData}>
+        <TaskPageProvider pageData={pageData}>
             <TaskPageWrapper>
                 <div className="flex flex-col gap-6 pb-3 px-3 h-full">
                     <Suspense fallback={<ProjectHeaderSkeleton />}>
@@ -40,6 +40,6 @@ export default async function ProjectLayout({ children, params }: Props) {
                     </div>
                 </div>
             </TaskPageWrapper>
-        </ProjectProvider>
+        </TaskPageProvider>
     );
 }

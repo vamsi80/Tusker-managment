@@ -5,12 +5,12 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Loader2, ChevronsDown } from "lucide-react";
 import { ProjectMembersType } from "@/data/project/get-project-members";
-import { FlatTaskType } from "@/data/task";
-import { ColumnVisibility } from "./task-table-toolbar";
+import { SubTaskType } from "@/data/task/list/get-subtasks";
+import { ColumnVisibility } from "../shared/column-visibility";
 import { SubTaskSkeleton } from "@/components/task/list/list-skeleton";
 import { CreateSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/create-subTask-form";
 import { SubTaskRow } from "./subtask-row";
-import { TaskWithSubTasks } from "@/app/w/[workspaceId]/p/[slug]/_components/list/types";
+import { TaskWithSubTasks } from "@/components/task/shared/types";
 
 interface SubTaskListProps {
     task: TaskWithSubTasks;
@@ -22,12 +22,13 @@ interface SubTaskListProps {
     isLoading: boolean;
     isLoadingMore: boolean;
     onLoadMore: () => void;
-    onSubTaskClick?: (subTask: FlatTaskType) => void;
-    onSubTaskUpdated?: (subTaskId: string, updatedData: Partial<FlatTaskType>) => void;
+    onSubTaskClick?: (subTask: SubTaskType) => void;
+    onSubTaskUpdated?: (subTaskId: string, updatedData: Partial<SubTaskType>) => void;
     onSubTaskDeleted?: (subTaskId: string) => void;
     onSubTaskCreated?: (subTask: any) => void;
     selectedSubTasks?: Set<string>;
     onSelectSubTask?: (subTaskId: string, checked: boolean) => void;
+    level?: "workspace" | "project"; // Add level prop
 }
 
 export function SubTaskList({
@@ -46,6 +47,7 @@ export function SubTaskList({
     onSubTaskCreated,
     selectedSubTasks = new Set(),
     onSelectSubTask,
+    level = "project", // Default to project level
 }: SubTaskListProps) {
     // Calculate total columns: drag + name + visible columns + actions (no checkbox anymore)
     const visibleColumnsCount = 2 + Object.values(columnVisibility).filter(Boolean).length + 1;
@@ -68,6 +70,7 @@ export function SubTaskList({
                                 projectId={projectId}
                                 parentTaskId={task.id}
                                 onSubTaskCreated={onSubTaskCreated}
+                                level={level}
                             />
                         </div>
                     )}
@@ -143,6 +146,7 @@ export function SubTaskList({
                                 projectId={projectId}
                                 parentTaskId={task.id}
                                 onSubTaskCreated={onSubTaskCreated}
+                                level={level}
                             />
                         </div>
                     )}

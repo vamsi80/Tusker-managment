@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, createContext, useContext } from "react";
-import { TaskWithSubTasks } from "../list/types";
+import { TaskWithSubTasks } from "@/components/task/shared/types";
 import { TaskProvider } from "./task-context";
 
 interface TaskPageWrapperProps {

@@ -2,30 +2,33 @@
 
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { FlatTaskType } from "@/data/task";
 import { SubTaskList } from "./subtask-list";
 import { Button } from "@/components/ui/button";
 import React, { useState, useEffect } from "react";
 import { Loader2, ChevronsDown } from "lucide-react";
-import { getWorkspaceTasks, getSubTasks } from "@/data/task";
+import { loadMoreTasksAction, loadSubTasksAction } from "@/actions/task/list-actions";
 import { updateSubtaskPositions } from "@/actions/task/gantt";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { ProjectMembersType } from "@/data/project/get-project-members";
+import { SubTaskType } from "@/data/task/list/get-subtasks";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { TaskTableToolbar, ColumnVisibility, AdvancedFilters } from "./task-table-toolbar";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
-import { useNewTask } from "@/app/w/[workspaceId]/p/[slug]/_components/shared/task-page-wrapper";
-import { TaskWithSubTasks } from "@/app/w/[workspaceId]/p/[slug]/_components/list/types";
+import { useNewTask } from "@/app/w/[workspaceId]/_components/shared/task-page-wrapper";
+import { TaskWithSubTasks } from "@/components/task/shared/types";
 import { TaskRow } from "./task-row";
 import { TaskFilters } from "../shared/types";
 import { GlobalFilterToolbar } from "../shared/global-filter-toolbar";
+import { ColumnVisibility } from "../shared/column-visibility";
+import { extractAllFilterOptions } from "@/lib/utils/extract-filter-options";
+import { calculateDueDate } from "@/hooks/use-due-date";
 
 interface TaskTableProps {
     initialTasks: TaskWithSubTasks[];
     initialHasMore: boolean;
     initialTotalCount: number;
     members: ProjectMembersType;
+    assignees?: Array<{ id: string; name: string; surname?: string }>; // Optional pre-extracted assignees
     workspaceId: string;
     projectId: string;
     canCreateSubTask: boolean;
@@ -41,6 +44,7 @@ export function TaskTable({
     initialHasMore,
     initialTotalCount,
     members,
+    assignees,
     workspaceId,
     projectId,
     canCreateSubTask,
@@ -76,7 +80,7 @@ export function TaskTable({
         }
     }, [newTask, clearNewTask]);
 
-    const handleSubTaskUpdated = (taskId: string, subTaskId: string, updatedData: Partial<FlatTaskType>) => {
+    const handleSubTaskUpdated = (taskId: string, subTaskId: string, updatedData: Partial<SubTaskType>) => {
         setTasks(prevTasks =>
             prevTasks.map(task => {
                 if (task.id === taskId && task.subTasks) {
@@ -148,10 +152,62 @@ export function TaskTable({
         description: true,
     });
 
+    // Extract filter options dynamically from tasks
+    const filterOptions = React.useMemo(() => {
+        const options = extractAllFilterOptions(tasks as any, showAdvancedFilters ? 'workspace' : 'project');
+
+        // Use pre-extracted assignees if provided (from getAllTasksFlat),
+        // otherwise convert members to assignee format
+        const assigneesForFilter = assignees || members.map(member => ({
+            id: member.workspaceMember.id,
+            name: member.workspaceMember.user.name,
+            surname: member.workspaceMember.user.surname || undefined,
+        })).sort((a, b) => {
+            const nameA = `${a.name} ${a.surname || ''}`.trim();
+            const nameB = `${b.name} ${b.surname || ''}`.trim();
+            return nameA.localeCompare(nameB);
+        });
+
+        return {
+            ...options,
+            assignees: assigneesForFilter,
+        };
+    }, [tasks, showAdvancedFilters, members, assignees]);
+
     // Use global subtask sheet context
     const { openSubTaskSheet } = useSubTaskSheet();
 
-    const handleSubTaskClick = (subTask: FlatTaskType) => {
+    // Automatically load subtasks when ANY filter is applied
+    useEffect(() => {
+        const hasAnyFilter = filters.assigneeId || filters.status || filters.tag || filters.startDate || filters.endDate;
+
+        if (hasAnyFilter) {
+            // Load subtasks for all parent tasks that don't have them loaded yet
+            tasks.forEach(async (task) => {
+                if (!task.subTasks || task.subTasks.length === 0) {
+                    try {
+                        const response = await loadSubTasksAction(task.id, workspaceId, projectId, 1, 100);
+                        if (response.success && response.data && response.data.subTasks.length > 0) {
+                            setTasks(prev => prev.map(t =>
+                                t.id === task.id
+                                    ? {
+                                        ...t,
+                                        subTasks: response.data!.subTasks as any,
+                                        subTasksHasMore: response.data!.hasMore,
+                                        subTasksPage: 1
+                                    }
+                                    : t
+                            ));
+                        }
+                    } catch (error) {
+                        console.error('Error loading subtasks for filter:', error);
+                    }
+                }
+            });
+        }
+    }, [filters.assigneeId, filters.status, filters.tag, filters.startDate, filters.endDate, workspaceId, projectId]);
+
+    const handleSubTaskClick = (subTask: SubTaskType) => {
         openSubTaskSheet(subTask);
     };
 
@@ -163,17 +219,21 @@ export function TaskTable({
         try {
             const nextPage = currentPage + 1;
 
-            // Use workspace-level query with project filter
-            const result = await getWorkspaceTasks(
+            // Use the server action wrapper instead of direct data call
+            const response = await loadMoreTasksAction(
                 workspaceId,
                 { projectId }, // Filter by project
                 nextPage,
                 10
             );
 
-            setTasks(prev => [...prev, ...result.tasks as unknown as TaskWithSubTasks[]]);
-            setHasMoreTasks(result.hasMore ?? false);
-            setCurrentPage(nextPage);
+            if (response.success && response.data) {
+                setTasks(prev => [...prev, ...response.data!.tasks as unknown as TaskWithSubTasks[]]);
+                setHasMoreTasks(response.data!.hasMore ?? false);
+                setCurrentPage(nextPage);
+            } else {
+                toast.error(response.error || "Failed to load more tasks");
+            }
         } catch (error) {
             console.error("Error loading more tasks:", error);
             toast.error("Failed to load more tasks");
@@ -202,9 +262,8 @@ export function TaskTable({
                 setLoadingSubTasks((prev) => ({ ...prev, [taskId]: true }));
 
                 try {
-                    // Call data layer directly (no wrapper needed)
-                    // Use task.projectId for workspace compatibility (each task may have different projectId)
-                    const result = await getSubTasks(
+                    // Use the server action wrapper instead of direct data call
+                    const response = await loadSubTasksAction(
                         taskId,
                         workspaceId,
                         task.projectId || projectId, // Use task's projectId if available, fallback to prop
@@ -212,19 +271,23 @@ export function TaskTable({
                         10
                     );
 
-                    // Update state with fetched subtasks
-                    setTasks((prevTasks) =>
-                        prevTasks.map((t) =>
-                            t.id === taskId
-                                ? {
-                                    ...t,
-                                    subTasks: result.subTasks as FlatTaskType[],
-                                    subTasksHasMore: result.hasMore,
-                                    subTasksPage: 1,
-                                }
-                                : t
-                        )
-                    );
+                    if (response.success && response.data) {
+                        // Update state with fetched subtasks
+                        setTasks((prevTasks) =>
+                            prevTasks.map((t) =>
+                                t.id === taskId
+                                    ? {
+                                        ...t,
+                                        subTasks: response.data!.subTasks,
+                                        subTasksHasMore: response.data!.hasMore,
+                                        subTasksPage: 1,
+                                    }
+                                    : t
+                            )
+                        );
+                    } else {
+                        toast.error(response.error || "Failed to load subtasks");
+                    }
                 } catch (error) {
                     console.error("Error loading subtasks:", error);
                     toast.error("Failed to load subtasks");
@@ -246,9 +309,8 @@ export function TaskTable({
         try {
             const nextPage = (task.subTasksPage || 1) + 1;
 
-            // Call data layer directly (no wrapper needed)
-            // Use task.projectId for workspace compatibility
-            const result = await getSubTasks(
+            // Use the server action wrapper instead of direct data call
+            const response = await loadSubTasksAction(
                 taskId,
                 workspaceId,
                 task.projectId || projectId, // Use task's projectId if available, fallback to prop
@@ -256,18 +318,22 @@ export function TaskTable({
                 10
             );
 
-            setTasks((prevTasks) =>
-                prevTasks.map((t) =>
-                    t.id === taskId
-                        ? {
-                            ...t,
-                            subTasks: [...(t.subTasks || []), ...(result.subTasks as FlatTaskType[])],
-                            subTasksHasMore: result.hasMore,
-                            subTasksPage: nextPage,
-                        }
-                        : t
-                )
-            );
+            if (response.success && response.data) {
+                setTasks((prevTasks) =>
+                    prevTasks.map((t) =>
+                        t.id === taskId
+                            ? {
+                                ...t,
+                                subTasks: [...(t.subTasks || []), ...response.data!.subTasks],
+                                subTasksHasMore: response.data!.hasMore,
+                                subTasksPage: nextPage,
+                            }
+                            : t
+                    )
+                );
+            } else {
+                toast.error(response.error || "Failed to load more subtasks");
+            }
         } catch (error) {
             console.error("Error loading more subtasks:", error);
             toast.error("Failed to load more subtasks");
@@ -361,87 +427,101 @@ export function TaskTable({
         })
     );
 
-    // Extract unique values for advanced filters
-    const { availableProjects, availableStatuses, availableAssignees } = React.useMemo(() => {
-        const projectsMap = new Map();
-        const statusesSet = new Set<import("@/generated/prisma").TaskStatus>();
-        const assigneesMap = new Map();
+    // Helper function to check if any filters are active
+    const hasActiveFilters = (filters: TaskFilters): boolean => {
+        return !!(
+            filters.status ||
+            filters.assigneeId ||
+            filters.tag ||
+            filters.startDate ||
+            filters.endDate ||
+            filters.projectId
+        );
+    };
 
-        tasks.forEach(task => {
-            // Projects (for workspace view)
-            if ((task as any).project) {
-                const project = (task as any).project;
-                projectsMap.set(project.id, { id: project.id, name: project.name });
+
+    // Apply filters to subtasks (not parent tasks)
+    const filteredTasks = React.useMemo(() => {
+        // If no filters are active, return all tasks
+        if (!searchQuery && !hasActiveFilters(filters)) {
+            return tasks;
+        }
+
+        // Filter subtasks and show parent tasks that have matching subtasks
+        return tasks.map(task => {
+            // If task has no subtasks, skip filtering
+            if (!task.subTasks || task.subTasks.length === 0) {
+                return task;
             }
 
-            // Statuses
-            if (task.status) {
-                statusesSet.add(task.status);
+            // Filter subtasks
+            let filteredSubTasks = task.subTasks;
+
+            // Apply search filter to subtasks
+            if (searchQuery) {
+                const query = searchQuery.toLowerCase();
+                filteredSubTasks = filteredSubTasks.filter(subTask =>
+                    subTask.name.toLowerCase().includes(query) ||
+                    subTask.description?.toLowerCase().includes(query) ||
+                    subTask.taskSlug?.toLowerCase().includes(query)
+                );
             }
 
-            // Assignees
-            if ((task as any).assignee?.workspaceMember?.user) {
-                const user = (task as any).assignee.workspaceMember.user;
-                assigneesMap.set(user.id, {
-                    id: user.id,
-                    name: user.name,
-                    surname: user.surname,
+            // Apply status filter to subtasks
+            if (filters.status) {
+                filteredSubTasks = filteredSubTasks.filter(subTask =>
+                    subTask.status === filters.status
+                );
+            }
+
+            // Apply assignee filter to subtasks
+            if (filters.assigneeId) {
+                filteredSubTasks = filteredSubTasks.filter(subTask => {
+                    const assignee = (subTask as any).assignee;
+                    return assignee?.workspaceMemberId === filters.assigneeId;
                 });
             }
+
+            // Apply tag filter to subtasks
+            if (filters.tag) {
+                filteredSubTasks = filteredSubTasks.filter(subTask =>
+                    subTask.tag === filters.tag
+                );
+            }
+
+            // Apply date range filter to subtasks
+            if (filters.startDate) {
+                filteredSubTasks = filteredSubTasks.filter(subTask =>
+                    subTask.startDate && new Date(subTask.startDate) >= new Date(filters.startDate!)
+                );
+            }
+
+            if (filters.endDate) {
+                filteredSubTasks = filteredSubTasks.filter(subTask => {
+                    const dueDate = calculateDueDate(subTask.startDate, subTask.days);
+                    if (!dueDate) return false;
+                    return dueDate <= new Date(filters.endDate!);
+                });
+            }
+
+            // Return task with filtered subtasks
+            return {
+                ...task,
+                subTasks: filteredSubTasks,
+            };
+        }).filter(task => {
+            // When ANY filter is active, only show parent tasks that have matching subtasks
+            const hasAnyFilter = filters.assigneeId || filters.status || filters.tag || filters.startDate || filters.endDate;
+
+            if (hasAnyFilter) {
+                return task.subTasks && task.subTasks.length > 0;
+            }
+
+            // When no filters, show parent tasks that have matching subtasks
+            // OR tasks that don't have subtasks loaded yet
+            return !task.subTasks || task.subTasks.length > 0;
         });
-
-        return {
-            availableProjects: Array.from(projectsMap.values()),
-            availableStatuses: Array.from(statusesSet),
-            availableAssignees: Array.from(assigneesMap.values()),
-        };
-    }, [tasks]);
-
-
-    // Apply filters to tasks
-    // const filteredTasks = React.useMemo(() => {
-    //     let result = tasks;
-    //     if (searchQuery) {
-    //         const query = searchQuery.toLowerCase();
-    //         result = result.filter(task =>
-    //             task.name.toLowerCase().includes(query) ||
-    //             task.description?.toLowerCase().includes(query) ||
-    //             task.taskSlug.toLowerCase().includes(query)
-    //         );
-    //     }
-
-    //     if (filters.projectId && showAdvancedFilters) {
-    //         result = result.filter(task => task.projectId === filters.projectId);
-    //     }
-
-    //     if (filters.status) {
-    //         result = result.filter(task => task.status === filters.status);
-    //     }
-
-    //     if (filters.assigneeId) {
-    //         result = result.filter(task => {
-    //             const taskAssignee = (task as any).assignee;
-    //             return taskAssignee?.workspaceMemberId === filters.assigneeId;
-    //         });
-    //     }
-
-    //     if (filters.tag) {
-    //         result = result.filter(task => task.tag === filters.tag);
-    //     }
-    //     if (filters.startDate) {
-    //         result = result.filter(task =>
-    //             task.startDate && new Date(task.startDate) >= new Date(filters.startDate!)
-    //         );
-    //     }
-
-    //     if (filters.endDate) {
-    //         result = result.filter(task =>
-    //             task.dueDate && new Date(task.dueDate) <= new Date(filters.endDate!)
-    //         );
-    //     }
-
-    //     return result;
-    // }, [tasks, searchQuery, filters, showAdvancedFilters]);
+    }, [tasks, searchQuery, filters]);
 
     return (
         <div className="space-y-4 mt-4">
@@ -450,14 +530,16 @@ export function TaskTable({
                 view="list"
                 filters={filters}
                 searchQuery={searchQuery}
-                projects={showAdvancedFilters ? availableProjects : undefined}
-                members={availableAssignees}
+                projects={filterOptions.projects}
+                members={filterOptions.assignees}
                 onFilterChange={setFilters}
                 onSearchChange={setSearchQuery}
                 onClearAll={() => {
                     setFilters({});
                     setSearchQuery("");
                 }}
+                columnVisibility={columnVisibility}
+                setColumnVisibility={setColumnVisibility}
             />
 
             <div className="rounded-md border overflow-hidden">
@@ -491,7 +573,7 @@ export function TaskTable({
                                 </tr>
                             </thead>
                             <tbody>
-                                {tasks.map((task) => (
+                                {filteredTasks.map((task) => (
                                     <React.Fragment key={task.id}>
                                         <TaskRow
                                             task={task}
@@ -541,7 +623,7 @@ export function TaskTable({
                                         )}
                                     </React.Fragment>
                                 ))}
-                                {tasks.length === 0 && (
+                                {filteredTasks.length === 0 && (
                                     <TableRow>
                                         <TableCell colSpan={9} className="h-24 text-center">
                                             No tasks found.

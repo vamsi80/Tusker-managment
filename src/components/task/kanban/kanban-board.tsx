@@ -14,9 +14,11 @@ import { ReviewCommentDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/
 import { STATUS_COLORS, STATUS_LABELS } from "@/lib/colors/status-colors";
 import { loadMoreSubtasksAction } from "@/actions/task/kanban/load-more-subtasks";
 import { KanbanCard } from "./kanban-card";
-import { KanbanToolbar } from "./kanban-toolbar";
 import { useReloadView } from "@/hooks/use-reload-view";
 import { KanbanColumn } from "./kanban-column";
+import { GlobalFilterToolbar, ParentTaskOption } from "../shared/global-filter-toolbar";
+import { TaskFilters, type ProjectOption } from "../shared/types";
+import { KanbanColumnVisibility as KanbanColumnVisibilityType } from "../shared/kanban-column-visibility";
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED";
 
@@ -25,6 +27,8 @@ interface KanbanBoardProps {
     projectMembers: ProjectMembersType;
     workspaceId: string;
     projectId: string;
+    projects?: ProjectOption[]; // Optional for workspace-level
+    level?: "project" | "workspace"; // Optional, defaults to "project"
 }
 
 const COLUMNS: { id: TaskStatus; title: string; color: string; bgColor: string; borderColor: string }[] = [
@@ -64,7 +68,9 @@ export function KanbanBoard({
     initialData,
     projectMembers,
     workspaceId,
-    projectId
+    projectId,
+    projects,
+    level = "project"
 }: KanbanBoardProps) {
     // State for each column's data
     const [columnData, setColumnData] = useState<Record<TaskStatus, {
@@ -103,10 +109,10 @@ export function KanbanBoard({
         previousStatus: TaskStatus;
     } | null>(null);
 
-    // Filter states
-    const [selectedParentTask, setSelectedParentTask] = useState<string | null>(null);
-    const [selectedAssignee, setSelectedAssignee] = useState<string | null>(null);
-    const [visibleColumns, setVisibleColumns] = useState<Record<TaskStatus, boolean>>({
+    // Filter states - using TaskFilters interface
+    const [filters, setFilters] = useState<TaskFilters>({});
+    const [searchQuery, setSearchQuery] = useState("");
+    const [visibleColumns, setVisibleColumns] = useState<KanbanColumnVisibilityType>({
         TO_DO: true,
         IN_PROGRESS: true,
         BLOCKED: false,
@@ -396,34 +402,87 @@ export function KanbanBoard({
     // Get filtered subtasks for a specific column
     const getFilteredSubTasks = (status: TaskStatus) => {
         return columnData[status].subTasks.filter((subTask) => {
-            const matchesParentTask = !selectedParentTask || subTask.parentTaskId === selectedParentTask;
-            const matchesAssignee = !selectedAssignee || subTask.assignee?.id === selectedAssignee;
-            return matchesParentTask && matchesAssignee;
+            const matchesParentTask = !filters.parentTaskId || subTask.parentTaskId === filters.parentTaskId;
+            const matchesAssignee = !filters.assigneeId || subTask.assignee?.id === filters.assigneeId;
+
+            // Date range filtering
+            let matchesDateRange = true;
+            if (filters.startDate || filters.endDate) {
+                const subTaskStartDate = subTask.startDate ? new Date(subTask.startDate) : null;
+
+                // Calculate due date (start date + days)
+                let subTaskDueDate: Date | null = null;
+                if (subTaskStartDate && subTask.days) {
+                    subTaskDueDate = new Date(subTaskStartDate);
+                    subTaskDueDate.setDate(subTaskDueDate.getDate() + subTask.days);
+                }
+
+                // Check if start date is within range
+                if (filters.startDate && subTaskStartDate) {
+                    const filterStartDate = new Date(filters.startDate);
+                    if (subTaskStartDate < filterStartDate) {
+                        matchesDateRange = false;
+                    }
+                }
+
+                // Check if due date is within range
+                if (filters.endDate && subTaskDueDate) {
+                    const filterEndDate = new Date(filters.endDate);
+                    if (subTaskDueDate > filterEndDate) {
+                        matchesDateRange = false;
+                    }
+                }
+
+                // If no valid dates on subtask, exclude it when date filter is active
+                if ((filters.startDate || filters.endDate) && !subTaskStartDate) {
+                    matchesDateRange = false;
+                }
+            }
+
+            return matchesParentTask && matchesAssignee && matchesDateRange;
         });
     };
 
-    // Get unique parent tasks for filter
-    const uniqueParentTasks = Array.from(
+    // Get unique parent tasks for filter - convert to ParentTaskOption format
+    const uniqueParentTasks: ParentTaskOption[] = Array.from(
         new Map(
             COLUMNS.flatMap(col =>
                 columnData[col.id].subTasks
                     .filter((st) => st.parentTask)
-                    .map((st) => [st.parentTask!.id, st.parentTask!])
+                    .map((st) => [st.parentTask!.id, {
+                        id: st.parentTask!.id,
+                        name: st.parentTask!.name,
+                        taskSlug: st.parentTask!.taskSlug
+                    }])
             )
         ).values()
     );
 
+    // Convert project members to MemberOption format
+    const memberOptions = projectMembers.map(member => ({
+        id: member.id,
+        name: member.workspaceMember.user.name,
+        surname: member.workspaceMember.user.surname || undefined,
+    }));
+
     return (
         <>
-            <KanbanToolbar
+            <GlobalFilterToolbar
+                level={level}
+                view="kanban"
+                filters={filters}
+                searchQuery={searchQuery}
+                members={memberOptions}
+                projects={projects}
                 parentTasks={uniqueParentTasks}
-                projectMembers={projectMembers}
-                selectedParentTask={selectedParentTask}
-                selectedAssignee={selectedAssignee}
-                visibleColumns={visibleColumns}
-                onParentTaskChange={setSelectedParentTask}
-                onAssigneeChange={setSelectedAssignee}
-                onVisibleColumnsChange={setVisibleColumns}
+                kanbanColumnVisibility={visibleColumns}
+                setKanbanColumnVisibility={setVisibleColumns}
+                onFilterChange={setFilters}
+                onSearchChange={setSearchQuery}
+                onClearAll={() => {
+                    setFilters({});
+                    setSearchQuery("");
+                }}
             />
 
             <DndContext

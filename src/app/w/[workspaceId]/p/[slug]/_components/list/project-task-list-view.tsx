@@ -1,6 +1,8 @@
 import { getWorkspaceTasks } from "@/data/task/get-workspace-tasks";
+import { getAllTasksFlat } from "@/data/task";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 import { TaskTable } from "@/components/task/list/task-table";
+import { extractAssigneeOptions } from "@/lib/utils/extract-filter-options";
 
 interface ProjectTaskListViewProps {
     workspaceId: string;
@@ -30,12 +32,18 @@ export async function ProjectTaskListView({
         10
     );
 
+    // Fetch all tasks (flat) to extract assignees for the filter
+    // This includes all subtasks, so we can show all assignees in the filter
+    const { tasks: allTasksFlat } = await getAllTasksFlat(projectId, workspaceId);
+    const assigneesFromTasks = extractAssigneeOptions(allTasksFlat);
+
     return (
         <TaskTable
             initialTasks={tasks}
             initialHasMore={hasMore ?? false}
             initialTotalCount={totalCount}
             members={members}
+            assignees={assigneesFromTasks}
             workspaceId={workspaceId}
             projectId={projectId}
             canCreateSubTask={canCreateSubTask}

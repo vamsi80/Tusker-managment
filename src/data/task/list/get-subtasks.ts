@@ -60,6 +60,7 @@ async function _getSubTasksInternal(
                 assignee: {
                     select: {
                         id: true,
+                        workspaceMemberId: true,
                         workspaceMember: {
                             select: {
                                 user: {

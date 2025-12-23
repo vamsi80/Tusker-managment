@@ -6,10 +6,10 @@ import { ChevronDown, ChevronRight, MoreHorizontal } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TaskWithSubTasks } from "@/app/w/[workspaceId]/p/[slug]/_components/list/types";
-import { ColumnVisibility } from "./task-table-toolbar";
+import { TaskWithSubTasks } from "@/components/task/shared/types";
 import { EditTaskDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/edit-task-form";
 import { DeleteTaskDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/delete-task-form";
+import { ColumnVisibility } from "../shared/column-visibility";
 
 interface TaskRowProps {
     task: TaskWithSubTasks;

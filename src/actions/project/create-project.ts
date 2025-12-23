@@ -27,6 +27,14 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
         };
     }
 
+    if (!values?.projectLead) {
+        return {
+            status: "error",
+            message: "Please select a project lead before creating the project.",
+        };
+    }
+
+
     try {
         const workspace = await getWorkspaceById(values.workspaceId);
 
@@ -74,8 +82,9 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
             };
         }
 
-        // Get the project lead user ID (default to current user if not provided)
-        const projectLeadUserId = values.projectLead ? String(values.projectLead) : String(user.id);
+        // Get the project lead user ID
+        const projectLeadUserId = String(values.projectLead);
+
 
         // Build map userId -> workspaceMemberId for quick lookup
         const workspaceMemberMap = new Map<string, string>();

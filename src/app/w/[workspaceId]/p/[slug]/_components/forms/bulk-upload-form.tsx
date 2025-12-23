@@ -9,7 +9,7 @@ import { tryCatch } from "@/hooks/try-catch";
 import { useConfetti } from "@/hooks/use-confetti";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { useTaskContext } from "../shared/task-context";
+import { useTaskContext } from "@/app/w/[workspaceId]/_components/shared/task-context";
 import { ApiResponse } from "@/lib/types";
 import { bulkUploadTasksAndSubtasks } from "@/actions/task/bulk-create-taskAndSubTask";
 

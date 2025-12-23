@@ -16,16 +16,21 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { tryCatch } from "@/hooks/try-catch";
-import { FlatTaskType } from "@/data/task";
 import { deleteSubTask } from "@/actions/task/delete-subTask";
 import { useReloadView } from "@/hooks/use-reload-view";
 
-interface DeleteSubTaskFormProps {
-    subTask: FlatTaskType;
+// Generic subtask type that works with any subtask structure
+type SubTaskBase = {
+    id: string;
+    name: string;
+};
+
+interface DeleteSubTaskFormProps<T extends SubTaskBase> {
+    subTask: T;
     onSubTaskDeleted?: (subTaskId: string) => void;
 }
 
-export function DeleteSubTaskForm({ subTask, onSubTaskDeleted }: DeleteSubTaskFormProps) {
+export function DeleteSubTaskForm<T extends SubTaskBase>({ subTask, onSubTaskDeleted }: DeleteSubTaskFormProps<T>) {
     const [open, setOpen] = useState(false);
     const [pending, startTransition] = useTransition();
     const reloadView = useReloadView();

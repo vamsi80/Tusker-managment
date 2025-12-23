@@ -13,7 +13,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { subTaskSchema, SubTaskSchemaType } from "@/lib/zodSchemas";
 import { tryCatch } from "@/hooks/try-catch";
 import { toast } from "sonner";
-import { FlatTaskType } from "@/data/task";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -23,21 +22,40 @@ import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { Badge } from "@/components/ui/badge";
 import { useReloadView } from "@/hooks/use-reload-view";
 
-interface EditSubTaskFormProps {
-    subTask: FlatTaskType;
+// Generic subtask type that works with any subtask structure
+type SubTaskBase = {
+    id: string;
+    name: string;
+    description: string | null;
+    taskSlug: string;
+    tag: string | null;
+    status: string | null;
+    startDate: Date | string | null;
+    days: number | null;
+    assignee?: {
+        workspaceMember?: {
+            user?: {
+                id: string;
+            };
+        };
+    } | null;
+};
+
+interface EditSubTaskFormProps<T extends SubTaskBase> {
+    subTask: T;
     members: ProjectMembersType;
     projectId: string;
     parentTaskId: string;
-    onSubTaskUpdated?: (updatedData: Partial<FlatTaskType>) => void;
+    onSubTaskUpdated?: (updatedData: Partial<T>) => void;
 }
 
-export function EditSubTaskForm({
+export function EditSubTaskForm<T extends SubTaskBase>({
     subTask,
     members,
     projectId,
     parentTaskId,
     onSubTaskUpdated,
-}: EditSubTaskFormProps) {
+}: EditSubTaskFormProps<T>) {
     const [pending, startTransition] = useTransition();
     const [open, setOpen] = useState(false);
     const router = useRouter();
@@ -52,8 +70,8 @@ export function EditSubTaskForm({
             projectId: projectId,
             parentTaskId: parentTaskId,
             assignee: subTask.assignee?.workspaceMember?.user?.id || "",
-            tag: subTask.tag || "CONTRACTOR",
-            status: subTask.status || "TO_DO",
+            tag: (subTask.tag || "CONTRACTOR") as "DESIGN" | "PROCUREMENT" | "CONTRACTOR",
+            status: (subTask.status || "TO_DO") as "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED",
             startDate: subTask.startDate ? new Date(subTask.startDate).toISOString().split('T')[0] : "",
             days: subTask.days || 0,
         },
@@ -94,7 +112,7 @@ export function EditSubTaskForm({
                         tag: values.tag,
                         startDate: values.startDate ? new Date(values.startDate) : null,
                         days: values.days,
-                    });
+                    } as Partial<T>);
                 }
 
                 setOpen(false);

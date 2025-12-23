@@ -270,7 +270,7 @@ export function getFilterConfig(view: ViewType, level: ViewLevel): FilterConfig 
             showProjectFilter: level === "workspace",
             showStatusFilter: false, // Status is implicit (columns)
             showAssigneeFilter: true,
-            showDateRangeFilter: false,
+            showDateRangeFilter: true, // Enable date range filtering for due dates
             showTagFilter: true,
             showSearch: true,
             showParentTaskFilter: true,
@@ -328,6 +328,22 @@ export function getActiveFilters(filters: TaskFilters): ActiveFilter[] {
 export function hasActiveFilters(filters: TaskFilters): boolean {
     return getActiveFilters(filters).length > 0;
 }
+
+// ============================================================================
+// TASK TYPES
+// ============================================================================
+
+import { SubTaskType } from "@/data/task/list/get-subtasks";
+import { WorkspaceTaskType } from "@/data/task/get-workspace-tasks";
+
+/**
+ * Task with its subtasks and pagination state
+ */
+export type TaskWithSubTasks = WorkspaceTaskType[number] & {
+    subTasks?: SubTaskType[];
+    subTasksHasMore?: boolean;
+    subTasksPage?: number;
+};
 
 /**
  * Clear all filters

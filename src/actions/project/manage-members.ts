@@ -39,12 +39,20 @@ export async function addProjectMembers(
             include: {
                 workspace: {
                     include: {
-                        members: true,
+                        members: {
+                            include: {
+                                user: true,
+                            },
+                        },
                     },
                 },
                 projectMembers: {
                     include: {
-                        workspaceMember: true,
+                        workspaceMember: {
+                            include: {
+                                user: true,
+                            },
+                        },
                     },
                 },
             },
@@ -179,12 +187,20 @@ export async function removeProjectMembers(
             include: {
                 workspace: {
                     include: {
-                        members: true,
+                        members: {
+                            include: {
+                                user: true,
+                            },
+                        },
                     },
                 },
                 projectMembers: {
                     include: {
-                        workspaceMember: true,
+                        workspaceMember: {
+                            include: {
+                                user: true,
+                            },
+                        },
                     },
                 },
             },
@@ -312,7 +328,11 @@ export async function updateProjectMemberRole(
                 },
                 projectMembers: {
                     include: {
-                        workspaceMember: true,
+                        workspaceMember: {
+                            include: {
+                                user: true,
+                            },
+                        },
                     },
                 },
             },
@@ -380,7 +400,7 @@ export async function updateProjectMemberRole(
         // Invalidate project cache
         await invalidateWorkspaceProjects(project.workspaceId);
 
-        const memberName = targetMember.workspaceMember.userId;
+        const memberName = targetMember.workspaceMember.user?.surname || "Member";
         return {
             status: "success",
             message: `Successfully updated ${memberName}'s role to ${newRole}.`,
@@ -431,7 +451,11 @@ export async function toggleProjectMemberAccess(
                 },
                 projectMembers: {
                     include: {
-                        workspaceMember: true,
+                        workspaceMember: {
+                            include: {
+                                user: true,
+                            },
+                        },
                     },
                 },
             },

@@ -2,7 +2,36 @@ import { z } from 'zod'
 
 export const SubTaskStatus = ["TO_DO", "IN_PROGRESS", "BLOCKED", "REVIEW", "COMPLETED", "HOLD"] as const
 
+// Status labels - single source of truth
+export const STATUS_LABELS: Record<typeof SubTaskStatus[number], string> = {
+    TO_DO: "To Do",
+    IN_PROGRESS: "In Progress",
+    BLOCKED: "Blocked",
+    REVIEW: "Review",
+    COMPLETED: "Completed",
+    HOLD: "On Hold",
+} as const;
+
+// Status options for dropdowns
+export const STATUS_OPTIONS = SubTaskStatus.map(value => ({
+    value,
+    label: STATUS_LABELS[value]
+}));
+
 export const TaskTag = ["DESIGN", "PROCUREMENT", "CONTRACTOR"] as const
+
+// Tag labels - single source of truth
+export const TAG_LABELS: Record<typeof TaskTag[number], string> = {
+    DESIGN: "Design",
+    PROCUREMENT: "Procurement",
+    CONTRACTOR: "Contractor",
+} as const;
+
+// Tag options for dropdowns
+export const TAG_OPTIONS = TaskTag.map(value => ({
+    value,
+    label: TAG_LABELS[value]
+}));
 
 export const workspaceMemberRole = ["OWNER", "ADMIN", "MEMBER", "VIEWER"] as const
 
@@ -94,7 +123,7 @@ export const projectSchema = z.object({
         .max(15, { message: "Contact Number must be at most 15 character long" }),
     workspaceId: z
         .string().optional(),
-    projectLead: z.string(),
+    projectLead: z.string().min(1, { message: "Project lead is required. Please select a team member." }),
     memberAccess: z.array(z.string()),
 });
 

@@ -1,20 +1,23 @@
-import { getAllTasksFlat } from "@/data/task";
-import { validateDependencies } from "../../../../../../../components/task/gantt/utils";
-import { GanttSubtask, GanttTask } from "../../../../../../../components/task/gantt/types";
-import { ProjectGanttClient } from "./project-gantt-client";
+import { getAllTasksFlat } from "@/data/task/gantt/get-all-tasks-flat";
+import { validateDependencies } from "@/components/task/gantt/utils";
+import { GanttSubtask, GanttTask } from "@/components/task/gantt/types";
+import { WorkspaceGanttClient } from "./workspace-gantt-client";
 
-interface GanttServerWrapperProps {
+interface WorkspaceGanttViewProps {
     workspaceId: string;
-    projectId: string;
 }
 
 /**
- * Server component that fetches Gantt data
- * This ensures data is fetched on the server (GET request) not client (POST request)
+ * Workspace Gantt View Server Component
+ * 
+ * Shows all tasks from all accessible projects in Gantt chart format
+ * Uses permission-based filtering:
+ * - ADMIN/OWNER: See all tasks from all projects
+ * - MEMBER: See only tasks from assigned projects and their assigned subtasks
  */
-export async function GanttServerWrapper({ workspaceId, projectId }: GanttServerWrapperProps) {
+export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProps) {
     // Get all tasks in a flat structure (parent tasks + subtasks) with permission-based filtering
-    const { tasks: allTasks } = await getAllTasksFlat(workspaceId, projectId);
+    const { tasks: allTasks } = await getAllTasksFlat(workspaceId);
 
     // Separate parent tasks and subtasks
     const parentTasks = allTasks.filter(task => task.parentTaskId === null);
@@ -94,9 +97,8 @@ export async function GanttServerWrapper({ workspaceId, projectId }: GanttServer
     });
 
     return (
-        <ProjectGanttClient
+        <WorkspaceGanttClient
             workspaceId={workspaceId}
-            projectId={projectId}
             initialTasks={ganttTasks}
             subtaskDataMap={subtaskDataMap}
         />

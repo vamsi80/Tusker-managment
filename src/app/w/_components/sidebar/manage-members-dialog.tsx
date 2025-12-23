@@ -13,8 +13,8 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { tryCatch } from "@/hooks/try-catch";
 import { addProjectMembers, removeProjectMembers, updateProjectMemberRole, toggleProjectMemberAccess } from "@/actions/project/manage-members";
-import { WorkspaceMembersResult } from "@/app/data/workspace/get-workspace-members";
 import { ProjectRole } from "@/generated/prisma/client";
+import { WorkspaceMembersResult } from "@/data/workspace";
 
 interface ProjectMember {
     id: string;

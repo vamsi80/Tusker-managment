@@ -1,6 +1,6 @@
 "use client";
 
-import { useProject } from "../shared/project-context";
+import { useProject } from "@/app/w/[workspaceId]/_components/shared/task-page-context";
 import { ProjectNav } from "./project-nav";
 import { ReloadButton } from "../shared/reload-button";
 import { CreateTaskForm } from "../forms/create-task-form";

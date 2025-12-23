@@ -57,13 +57,11 @@ export async function ProjectKanbanView({
     };
 
     return (
-        <div className="space-y-4">
-            <KanbanBoard
-                initialData={initialData}
-                projectMembers={projectMembers}
-                workspaceId={workspaceId}
-                projectId={projectId}
-            />
-        </div>
+        <KanbanBoard
+            initialData={initialData}
+            projectMembers={projectMembers}
+            workspaceId={workspaceId}
+            projectId={projectId}
+        />
     );
 }

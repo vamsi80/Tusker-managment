@@ -23,14 +23,22 @@ import { createSubTask } from "@/actions/task/create-subTask";
 import { useReloadView } from "@/hooks/use-reload-view";
 
 interface iAppProps {
-    members: ProjectMembersType
-    workspaceId: string,
-    projectId: string;
-    parentTaskId: string;
+    members: ProjectMembersType;
+    workspaceId: string;
+    projectId?: string; // Optional for workspace-level
+    parentTaskId?: string; // Optional for workspace-level
     onSubTaskCreated?: (subTask: any) => void;
+    level?: "workspace" | "project"; // Explicitly define the level
 }
 
-export const CreateSubTaskForm = ({ members, workspaceId, projectId, parentTaskId, onSubTaskCreated }: iAppProps) => {
+export const CreateSubTaskForm = ({
+    members,
+    workspaceId,
+    projectId,
+    parentTaskId,
+    onSubTaskCreated,
+    level = "project" // Default to project level for backward compatibility
+}: iAppProps) => {
     const [pending, startTransition] = useTransition();
     const { triggerConfetti } = useConfetti();
     const [open, setOpen] = useState(false);
@@ -49,8 +57,8 @@ export const CreateSubTaskForm = ({ members, workspaceId, projectId, parentTaskI
             assignee: "",
             status: "TO_DO",
             tag: "CONTRACTOR",
-            projectId: projectId,
-            parentTaskId: parentTaskId,
+            projectId: projectId || "", // Use empty string if not provided
+            parentTaskId: parentTaskId || "", // Use empty string if not provided
         },
     })
 
@@ -116,12 +124,15 @@ export const CreateSubTaskForm = ({ members, workspaceId, projectId, parentTaskI
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 <Button size="sm">
-                    <PlusIcon className="mr-2 size-4" /> Create Sub-Task
+                    <PlusIcon className="mr-2 size-4" />
+                    {level === "workspace" ? "Create Task" : "Create Sub-Task"}
                 </Button>
             </DialogTrigger>
             <DialogContent className="max-h-[98vh] w-[min(900px,95vw)] overflow-hidden">
                 <DialogHeader>
-                    <DialogTitle>Create New SubTask</DialogTitle>
+                    <DialogTitle>
+                        {level === "workspace" ? "Create New Task" : "Create New SubTask"}
+                    </DialogTitle>
                 </DialogHeader>
 
                 <div className="mt-4 overflow-y-auto px-2 py-1 max-h-[70vh] thin-scrollbar">
@@ -135,9 +146,9 @@ export const CreateSubTaskForm = ({ members, workspaceId, projectId, parentTaskI
                                 name="name"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>SubTask Name</FormLabel>
+                                        <FormLabel>{level === "workspace" ? "Task Name" : "SubTask Name"}</FormLabel>
                                         <FormControl>
-                                            <Input placeholder="Enter subtask name" {...field} />
+                                            <Input placeholder={level === "workspace" ? "Enter task name" : "Enter subtask name"} {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -194,7 +205,7 @@ export const CreateSubTaskForm = ({ members, workspaceId, projectId, parentTaskI
                                         <FormControl>
                                             <Textarea
                                                 {...field}
-                                                placeholder="SubTask description"
+                                                placeholder={level === "workspace" ? "Task description" : "SubTask description"}
                                                 className="resize-none"
                                                 rows={4}
                                             />
@@ -366,7 +377,7 @@ export const CreateSubTaskForm = ({ members, workspaceId, projectId, parentTaskI
                                         </>
                                     ) : (
                                         <>
-                                            Create SubTask
+                                            {level === "workspace" ? "Create Task" : "Create SubTask"}
                                             <PlusIcon className="ml-1" size={16} />
                                         </>
                                     )}

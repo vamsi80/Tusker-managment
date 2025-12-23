@@ -4,7 +4,7 @@ import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
-import { getUserPermissions } from "@/data/user/get-user-permissions";
+import { getUserPermissions, getWorkspacePermissions } from "@/data/user/get-user-permissions";
 
 // ============================================
 // INTERNAL FUNCTIONS (Actual DB queries)
@@ -13,18 +13,46 @@ import { getUserPermissions } from "@/data/user/get-user-permissions";
 /**
  * Internal function to fetch all tasks (parent + subtasks) as a flat list
  * with role-based filtering
+ * Works for both workspace-level and project-level queries
  */
 async function _getAllTasksFlatInternal(
-    projectId: string,
     workspaceId: string,
-    userId: string,
     workspaceMemberId: string,
-    isMember: boolean
+    isAdmin: boolean,
+    projectId?: string
 ) {
+    // Get accessible projects
+    const projects = await prisma.project.findMany({
+        where: {
+            workspaceId,
+            // If projectId is provided, filter to that project
+            ...(projectId ? { id: projectId } : {}),
+            // If admin, see all projects; if member, only assigned projects
+            ...(isAdmin ? {} : {
+                projectMembers: {
+                    some: {
+                        workspaceMemberId: workspaceMemberId,
+                        hasAccess: true,
+                    },
+                },
+            }),
+        },
+        select: { id: true },
+    });
+
+    const projectIds = projects.map(p => p.id);
+
+    if (projectIds.length === 0) {
+        return { tasks: [] };
+    }
+
     // Build the where clause based on user role
-    const whereClause = isMember
+    const whereClause = isAdmin
         ? {
-            projectId: projectId,
+            projectId: { in: projectIds },
+        }
+        : {
+            projectId: { in: projectIds },
             OR: [
                 // Parent tasks where user has assigned subtasks
                 {
@@ -45,11 +73,9 @@ async function _getAllTasksFlatInternal(
                     },
                 },
             ],
-        }
-        : {
-            projectId: projectId,
         };
 
+    // Fetch all tasks (parent + subtasks) as a flat list
     const tasks = await prisma.task.findMany({
         where: whereClause,
         select: {
@@ -58,24 +84,17 @@ async function _getAllTasksFlatInternal(
             taskSlug: true,
             description: true,
             status: true,
-            position: true,
+            tag: true,
             startDate: true,
             days: true,
-            tag: true,
-            projectId: true,
             parentTaskId: true,
-            createdAt: true,
-            updatedAt: true,
-            createdBy: {
+            projectId: true,
+            position: true,
+            project: {
                 select: {
-                    user: {
-                        select: {
-                            id: true,
-                            name: true,
-                            surname: true,
-                            image: true,
-                        },
-                    },
+                    id: true,
+                    name: true,
+                    slug: true,
                 },
             },
             assignee: {
@@ -95,35 +114,15 @@ async function _getAllTasksFlatInternal(
                     },
                 },
             },
-            parentTask: {
-                select: {
-                    id: true,
-                    name: true,
-                    taskSlug: true,
-                },
-            },
             _count: {
                 select: {
-                    subTasks: isMember
-                        ? {
-                            where: {
-                                assignee: {
-                                    workspaceMemberId: workspaceMemberId,
-                                },
-                            },
-                        }
-                        : true,
-                    reviewComments: true,
+                    subTasks: true,
                 },
             },
         },
         orderBy: [
-            {
-                parentTaskId: 'asc', // Parent tasks first (null comes first)
-            },
-            {
-                position: 'asc',
-            },
+            { projectId: 'asc' },
+            { position: 'asc' },
         ],
     });
 
@@ -138,64 +137,84 @@ async function _getAllTasksFlatInternal(
  * Cached version of getAllTasksFlat with role-based filtering
  */
 const getCachedAllTasksFlat = (
-    projectId: string,
     workspaceId: string,
-    userId: string,
     workspaceMemberId: string,
-    isMember: boolean
+    isAdmin: boolean,
+    projectId?: string
 ) =>
     unstable_cache(
-        async () => _getAllTasksFlatInternal(projectId, workspaceId, userId, workspaceMemberId, isMember),
-        [`project-all-tasks-flat-${projectId}-user-${userId}`],
+        async () => _getAllTasksFlatInternal(workspaceId, workspaceMemberId, isAdmin, projectId),
+        [
+            projectId
+                ? `project-all-tasks-flat-${projectId}-member-${workspaceMemberId}-admin-${isAdmin}`
+                : `workspace-all-tasks-flat-${workspaceId}-member-${workspaceMemberId}-admin-${isAdmin}`
+        ],
         {
-            tags: [`project-tasks-${projectId}`, `project-tasks-user-${userId}`, `project-tasks-flat`],
-            revalidate: 60, // 1 minute
+            tags: projectId
+                ? [`project-tasks-${projectId}`, `project-gantt-${projectId}`]
+                : [`workspace-tasks-${workspaceId}`, `workspace-gantt-${workspaceId}`],
+            revalidate: 30,
         }
     )();
 
 // ============================================
-// PUBLIC API (React cache for request deduplication)
+// PUBLIC API
 // ============================================
 
 /**
- * Get all tasks (parent tasks and subtasks) as a flat list for a project with role-based filtering
+ * Get all tasks (parent tasks and subtasks) as a flat list with role-based filtering
+ * 
+ * Works for both workspace-level and project-level queries:
+ * - If projectId is provided: Returns tasks from that specific project
+ * - If projectId is omitted: Returns tasks from all accessible projects in the workspace
  * 
  * Returns a flat array containing both parent tasks and subtasks.
  * Parent tasks have `parentTaskId: null`, subtasks have a `parentTaskId` value.
  * 
  * Filtering Rules:
- * - ADMINs and LEADs: See all tasks and subtasks
- * - MEMBERs: Only see parent tasks that have at least one subtask assigned to them
+ * - ADMIN/OWNER/LEAD: See all tasks and subtasks
+ * - MEMBER: Only see parent tasks that have at least one subtask assigned to them
  *           and only see their assigned subtasks
  * 
- * @param projectId - The project ID
  * @param workspaceId - The workspace ID
+ * @param projectId - Optional project ID. If provided, filters to that project only
  * @returns Object containing flat array of all tasks and subtasks
  * 
  * @example
- * const { tasks } = await getAllTasksFlat(projectId, workspaceId);
- * // tasks is a flat array containing both parent tasks and subtasks
- * // Filter by parentTaskId === null to get only parent tasks
- * // Filter by parentTaskId !== null to get only subtasks
+ * // Workspace-level (all projects)
+ * const { tasks } = await getAllTasksFlat(workspaceId);
+ * 
+ * // Project-level (specific project)
+ * const { tasks } = await getAllTasksFlat(workspaceId, projectId);
  */
 export const getAllTasksFlat = cache(
-    async (projectId: string, workspaceId: string) => {
+    async (workspaceId: string, projectId?: string) => {
         const user = await requireUser();
 
         try {
-            // Get user's permissions using the centralized function
-            const permissions = await getUserPermissions(workspaceId, projectId);
+            let permissions;
 
-            if (!permissions.workspaceMemberId) {
-                throw new Error("User does not have access to this project");
+            if (projectId) {
+                // Project-level: Use getUserPermissions (includes project-specific permissions)
+                permissions = await getUserPermissions(workspaceId, projectId);
+            } else {
+                // Workspace-level: Use getWorkspacePermissions
+                permissions = await getWorkspacePermissions(workspaceId);
             }
 
+            if (!permissions.workspaceMemberId) {
+                throw new Error("User does not have access to this workspace");
+            }
+
+            // Determine if user has admin-level access
+            const isAdmin = permissions.isWorkspaceAdmin ||
+                (projectId && 'isProjectLead' in permissions ? (permissions as any).isProjectLead as boolean : false);
+
             return await getCachedAllTasksFlat(
-                projectId,
                 workspaceId,
-                user.id,
                 permissions.workspaceMemberId,
-                permissions.isMember
+                isAdmin,
+                projectId
             );
         } catch (error) {
             console.error("Error fetching flat tasks:", error);

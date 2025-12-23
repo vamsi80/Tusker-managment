@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { LayoutList, LayoutGrid, GanttChartSquare } from "lucide-react";
 
@@ -15,7 +15,6 @@ interface WorkspaceTasksHeaderProps {
  * Shows title and view navigation tabs
  */
 export function WorkspaceTasksHeader({ workspaceId }: WorkspaceTasksHeaderProps) {
-    const pathname = usePathname();
     const searchParams = useSearchParams();
     const currentView = searchParams.get('view') || 'list';
     const baseUrl = `/w/${workspaceId}/tasks`;

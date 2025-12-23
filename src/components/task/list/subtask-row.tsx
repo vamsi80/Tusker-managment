@@ -9,23 +9,23 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { CornerDownRight, GripVertical, Calendar, Tag, MoreHorizontal } from "lucide-react";
-import { FlatTaskType } from "@/data/task";
+import { SubTaskType } from "@/data/task/list/get-subtasks";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { ColumnVisibility } from "./task-table-toolbar";
 import { EditSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/edit-subtask-form";
 import { DeleteSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/delete-subtask-form";
+import { ColumnVisibility } from "../shared/column-visibility";
 
 interface SubTaskRowProps {
-    subTask: FlatTaskType;
+    subTask: SubTaskType;
     columnVisibility: ColumnVisibility;
-    onClick?: (subTask: FlatTaskType) => void;
+    onClick?: (subTask: SubTaskType) => void;
     members: ProjectMembersType;
     projectId: string;
     parentTaskId: string;
-    onSubTaskUpdated?: (subTaskId: string, updatedData: Partial<FlatTaskType>) => void;
+    onSubTaskUpdated?: (subTaskId: string, updatedData: Partial<SubTaskType>) => void;
     onSubTaskDeleted?: (subTaskId: string) => void;
     isSelected?: boolean;
     onSelectChange?: (checked: boolean) => void;
@@ -61,7 +61,7 @@ export function SubTaskRow({
         opacity: isDragging ? 0.5 : 1,
     };
 
-    const handleSubTaskUpdated = (updatedData: Partial<FlatTaskType>) => {
+    const handleSubTaskUpdated = (updatedData: Partial<SubTaskType>) => {
         setIsUpdating(true);
         if (onSubTaskUpdated) {
             onSubTaskUpdated(subTask.id, updatedData);

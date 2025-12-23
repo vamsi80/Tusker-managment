@@ -14,7 +14,7 @@ import { useConfetti } from "@/hooks/use-confetti";
 import { toast } from "sonner";
 import slugify from "slugify";
 import { useRouter } from "next/navigation";
-import { useTaskContext } from "../shared/task-context";
+import { useTaskContext } from "@/app/w/[workspaceId]/_components/shared/task-context";
 import { createTask } from "@/actions/task/create-task";
 import { useReloadView } from "@/hooks/use-reload-view";
 
