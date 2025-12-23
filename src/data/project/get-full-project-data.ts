@@ -23,6 +23,14 @@ export interface FullProjectData {
         projectRole: "LEAD" | "MEMBER" | "VIEWER";
         hasAccess: boolean;
     }>;
+    // Client data
+    companyName?: string | null;
+    registeredCompanyName?: string | null;
+    directorName?: string | null;
+    address?: string | null;
+    gstNumber?: string | null;
+    contactPerson?: string | null;
+    contactNumber?: string | null;
 }
 
 /**
@@ -44,6 +52,11 @@ async function _getFullProjectDataInternal(projectId: string, userId: string): P
             workspace: {
                 include: {
                     members: true,
+                },
+            },
+            clint: {
+                include: {
+                    clintMembers: true,
                 },
             },
         },
@@ -92,6 +105,14 @@ async function _getFullProjectDataInternal(projectId: string, userId: string): P
         memberAccess: memberAccess,
         // Project members
         projectMembers: projectMembersData,
+        // Client data (first client if exists)
+        companyName: project.clint[0]?.name || null,
+        registeredCompanyName: project.clint[0]?.registeredCompanyName || null,
+        directorName: project.clint[0]?.directorName || null,
+        address: project.clint[0]?.address || null,
+        gstNumber: project.clint[0]?.gstNumber || null,
+        contactPerson: project.clint[0]?.clintMembers[0]?.name || null,
+        contactNumber: project.clint[0]?.clintMembers[0]?.contactNumber || null,
     };
 }
 

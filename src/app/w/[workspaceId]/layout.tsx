@@ -1,7 +1,7 @@
 
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { AppSidebar } from "../_components/sidebar/workspace-sidebar";
-import { SiteHeader } from "../_components/sidebar/site-header";
+import { SiteHeader } from "../_components/sidebar/header/site-header";
 import { getWorkspaces } from "@/data/workspace/get-workspaces";
 import { requireUser } from "@/lib/auth/require-user";
 

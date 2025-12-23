@@ -26,7 +26,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { editProjectSchema, EditProjectSchemaType } from "@/lib/zodSchemas";
 import { tryCatch } from "@/hooks/try-catch";
 import { toast } from "sonner";
-import { WorkspaceMembersResult } from "@/app/data/workspace/get-workspace-members";
 import { FullProjectData } from "@/data/project/get-full-project-data";
 import slugify from "slugify";
 import {
@@ -43,6 +42,7 @@ import {
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { editProject } from "@/actions/project/update-project";
+import { WorkspaceMembersResult } from "@/data/workspace";
 
 interface EditProjectFormProps {
     project: FullProjectData;

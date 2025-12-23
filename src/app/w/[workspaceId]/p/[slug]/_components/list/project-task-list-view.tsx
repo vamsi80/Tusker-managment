@@ -34,7 +34,7 @@ export async function ProjectTaskListView({
 
     // Fetch all tasks (flat) to extract assignees for the filter
     // This includes all subtasks, so we can show all assignees in the filter
-    const { tasks: allTasksFlat } = await getAllTasksFlat(projectId, workspaceId);
+    const { tasks: allTasksFlat } = await getAllTasksFlat(workspaceId, projectId);
     const assigneesFromTasks = extractAssigneeOptions(allTasksFlat);
 
     return (

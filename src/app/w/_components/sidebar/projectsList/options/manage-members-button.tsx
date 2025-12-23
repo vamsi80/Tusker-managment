@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Users } from "lucide-react";
-import { ManageProjectMembersDialog } from "./manage-members-dialog";
 import { ProjectRole } from "@/generated/prisma/client";
 import { WorkspaceMembersResult } from "@/data/workspace";
+import { ManageProjectMembersDialog } from "./manage-members-dialog";
 
 interface ProjectMember {
     id: string;

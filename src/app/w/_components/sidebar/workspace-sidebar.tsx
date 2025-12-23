@@ -1,11 +1,19 @@
 import * as React from "react";
-import { NavUser } from "./nav-user";
-import { NavMain } from "./nav-main";
-import { NavProjectsAsync } from "./nav-projects-async";
-import { NavWorkspacesSelector } from "./nav-workspaces-selector";
-import { IconCheckupList, IconDashboard, IconPackageImport, IconTruck, IconUsersPlus } from "@tabler/icons-react";
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
-import { NavProjectsSkeleton } from "./projects-skeleton";
+import { NavUser } from "./footer/nav-user";
+import { NavMain } from "./header/nav-main";
+import { NavProjectsAsync } from "./projectsList/nav-projects-async";
+import { NavWorkspacesSelector } from "./header/nav-workspaces-selector";
+import { IconCheckupList, IconDashboard, IconPackageImport, IconSettings, IconTruck, IconUsersPlus } from "@tabler/icons-react";
+import { NavFooter } from "./footer/nav-footer";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuItem
+} from "@/components/ui/sidebar";
+import { NavProjectsSkeleton } from "./projectsList/projects-skeleton";
 import { WorkspacesType } from "@/data/workspace/get-workspaces";
 
 interface iAppProps {
@@ -13,7 +21,12 @@ interface iAppProps {
   workspaceId: string;
 }
 
+/**
+ * Main application sidebar component.
+ * Organizes navigation into workspaces, main features, projects, and user settings.
+ */
 export async function AppSidebar({ data, workspaceId, ...props }: React.ComponentProps<typeof Sidebar> & iAppProps) {
+  // Navigation items for the main workspace section
   const mainNavItems = [
     { title: "Dashboard", url: `/w/${workspaceId}`, icon: IconDashboard },
     { title: "Team", url: `/w/${workspaceId}/team`, icon: IconUsersPlus },
@@ -22,26 +35,30 @@ export async function AppSidebar({ data, workspaceId, ...props }: React.Componen
     { title: "Tasks", url: `/w/${workspaceId}/tasks`, icon: IconCheckupList },
   ];
 
+  const footerNavItems = [
+    { title: "Settings", url: `/w/${workspaceId}/settings`, icon: IconSettings },
+  ];
+
   return (
-    <Sidebar collapsible="offcanvas" {...props}>
+    <Sidebar collapsible="offcanvas" {...props} className="border-r border-border/50">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
             <NavWorkspacesSelector data={data} workspaceId={workspaceId} />
-            <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:!p-1.5">
-            </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="px-2">
         <NavMain items={mainNavItems} />
+
         <React.Suspense fallback={<NavProjectsSkeleton />}>
           <NavProjectsAsync workspaceId={workspaceId} />
         </React.Suspense>
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter className="p-2 gap-2">
+        <NavFooter items={footerNavItems} />
         <NavUser />
       </SidebarFooter>
     </Sidebar>

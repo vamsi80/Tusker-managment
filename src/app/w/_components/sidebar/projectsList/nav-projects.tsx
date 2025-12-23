@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { toast } from "sonner";
 import { useState } from "react";
-import { EditProjectForm } from "./edit-project-form";
-import { ManageProjectMembersDialog } from "./manage-members-dialog";
+import { EditProjectForm } from "./options/edit-project-form";
+import { ManageProjectMembersDialog } from "./options/manage-members-dialog";
 import { usePathname, useRouter } from "next/navigation";
 import { deleteProject } from "@/actions/project/delete-project";
 import { UserProjectsType } from "@/data/project/get-projects";
 import { WorkspaceMembersType } from "@/data/workspace/get-workspace-members";
-import { CreateProjectForm } from "../../[workspaceId]/p/_components/create-project-form";
+import { CreateProjectForm } from "../../../[workspaceId]/p/_components/create-project-form";
 import { Building2Icon, MoreHorizontal, Eye, Pencil, Trash2, Loader2, Users } from "lucide-react";
 import { getFullProjectData, FullProjectData } from "@/data/project/get-full-project-data";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
