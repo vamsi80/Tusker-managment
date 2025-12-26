@@ -33,6 +33,7 @@ interface TaskTableProps {
     projectId: string;
     canCreateSubTask: boolean;
     showAdvancedFilters?: boolean;
+    tags?: { id: string; name: string; color: string; }[]; // Dynamic tags
 }
 
 /**
@@ -49,6 +50,7 @@ export function TaskTable({
     projectId,
     canCreateSubTask,
     showAdvancedFilters = false,
+    tags = [], // Default to empty array
 }: TaskTableProps) {
     const [tasks, setTasks] = useState<TaskWithSubTasks[]>(initialTasks);
     const [hasMoreTasks, setHasMoreTasks] = useState(initialHasMore);
@@ -448,7 +450,7 @@ export function TaskTable({
         }
 
         // Filter subtasks and show parent tasks that have matching subtasks
-        return tasks.map(task => {
+        return tasks.map((task: TaskWithSubTasks) => {
             // If task has no subtasks, skip filtering
             if (!task.subTasks || task.subTasks.length === 0) {
                 return task;
@@ -460,7 +462,7 @@ export function TaskTable({
             // Apply search filter to subtasks
             if (searchQuery) {
                 const query = searchQuery.toLowerCase();
-                filteredSubTasks = filteredSubTasks.filter(subTask =>
+                filteredSubTasks = filteredSubTasks.filter((subTask: SubTaskType) =>
                     subTask.name.toLowerCase().includes(query) ||
                     subTask.description?.toLowerCase().includes(query) ||
                     subTask.taskSlug?.toLowerCase().includes(query)
@@ -469,14 +471,14 @@ export function TaskTable({
 
             // Apply status filter to subtasks
             if (filters.status) {
-                filteredSubTasks = filteredSubTasks.filter(subTask =>
+                filteredSubTasks = filteredSubTasks.filter((subTask: SubTaskType) =>
                     subTask.status === filters.status
                 );
             }
 
             // Apply assignee filter to subtasks
             if (filters.assigneeId) {
-                filteredSubTasks = filteredSubTasks.filter(subTask => {
+                filteredSubTasks = filteredSubTasks.filter((subTask: SubTaskType) => {
                     const assignee = (subTask as any).assignee;
                     return assignee?.workspaceMemberId === filters.assigneeId;
                 });
@@ -484,20 +486,22 @@ export function TaskTable({
 
             // Apply tag filter to subtasks
             if (filters.tag) {
-                filteredSubTasks = filteredSubTasks.filter(subTask =>
-                    subTask.tag === filters.tag
-                );
+                filteredSubTasks = filteredSubTasks.filter((subTask: SubTaskType) => {
+                    // subTask.tag is the tagId (string | null)
+                    const tagId = typeof subTask.tag === 'string' ? subTask.tag : (subTask.tag as any)?.id;
+                    return tagId === filters.tag;
+                });
             }
 
             // Apply date range filter to subtasks
             if (filters.startDate) {
-                filteredSubTasks = filteredSubTasks.filter(subTask =>
+                filteredSubTasks = filteredSubTasks.filter((subTask: SubTaskType) =>
                     subTask.startDate && new Date(subTask.startDate) >= new Date(filters.startDate!)
                 );
             }
 
             if (filters.endDate) {
-                filteredSubTasks = filteredSubTasks.filter(subTask => {
+                filteredSubTasks = filteredSubTasks.filter((subTask: SubTaskType) => {
                     const dueDate = calculateDueDate(subTask.startDate, subTask.days);
                     if (!dueDate) return false;
                     return dueDate <= new Date(filters.endDate!);
@@ -601,6 +605,7 @@ export function TaskTable({
                                         {expanded[task.id] && (
                                             <SubTaskList
                                                 task={task}
+                                                tags={tags}
                                                 members={members}
                                                 workspaceId={workspaceId}
                                                 projectId={projectId}

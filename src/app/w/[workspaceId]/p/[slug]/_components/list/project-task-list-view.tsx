@@ -3,6 +3,7 @@ import { getAllTasksFlat } from "@/data/task";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 import { TaskTable } from "@/components/task/list/task-table";
 import { extractAssigneeOptions } from "@/lib/utils/extract-filter-options";
+import { getWorkspaceTags } from "@/data/tag/get-tags";
 
 interface ProjectTaskListViewProps {
     workspaceId: string;
@@ -37,6 +38,9 @@ export async function ProjectTaskListView({
     const { tasks: allTasksFlat } = await getAllTasksFlat(workspaceId, projectId);
     const assigneesFromTasks = extractAssigneeOptions(allTasksFlat);
 
+    // Fetch workspace tags for subtask creation/editing
+    const tags = await getWorkspaceTags(workspaceId);
+
     return (
         <TaskTable
             initialTasks={tasks}
@@ -47,6 +51,7 @@ export async function ProjectTaskListView({
             workspaceId={workspaceId}
             projectId={projectId}
             canCreateSubTask={canCreateSubTask}
+            tags={tags}
         />
     );
 }

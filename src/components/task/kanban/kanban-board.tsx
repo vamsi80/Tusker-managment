@@ -493,7 +493,7 @@ export function KanbanBoard({
                 onDragCancel={handleDragCancel}
             >
                 <div className={cn(
-                    "flex gap-4 h-[calc(100vh-280px)] overflow-x-auto pb-2",
+                    "flex gap-4 h-[calc(100vh-280px)] overflow-x-auto pb-2 mt-4",
                     // Custom horizontal scrollbar
                     "[&::-webkit-scrollbar]:h-2",
                     "[&::-webkit-scrollbar-track]:rounded-full",

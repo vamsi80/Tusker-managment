@@ -109,11 +109,11 @@ export function TaskSearch({
             )}
 
             {/* Keyboard shortcut hint (hidden on mobile) */}
-            {!localValue && (
+            {/* {!localValue && (
                 <kbd className="absolute right-3 hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100 pointer-events-none">
                     <span className="text-xs">⌘</span>K
                 </kbd>
-            )}
+            )} */}
         </div>
     );
 }

@@ -1,6 +1,5 @@
 import React from "react";
 import { notFound } from "next/navigation";
-import { requireUser } from "@/lib/auth/require-user";
 import { getWorkspaces } from "@/data/workspace/get-workspaces";
 
 type Props = {
@@ -9,7 +8,6 @@ type Props = {
 
 export default async function WorkSpacePage({ params }: Props) {
   const { workspaceId } = await params;
-  const session = await requireUser();
   const { workspaces } = await getWorkspaces();
 
   if (!workspaces?.length) {
@@ -23,7 +21,7 @@ export default async function WorkSpacePage({ params }: Props) {
 
   return (
     <div>
-      welcome to dashboard
+      welcome to dashboard {matched.name}
     </div>
   );
 }

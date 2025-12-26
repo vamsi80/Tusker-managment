@@ -91,7 +91,7 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
                 parentTaskId: validation.data.parentTaskId,
                 createdById: permissions.workspaceMember.id,
                 assigneeTo: assigneeId,
-                tag: validation.data.tag,
+                tagId: validation.data.tag || null,
                 startDate: validation.data.startDate ? new Date(validation.data.startDate) : null,
                 days: validation.data.days,
             },

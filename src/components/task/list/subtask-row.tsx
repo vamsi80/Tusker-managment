@@ -27,6 +27,7 @@ interface SubTaskRowProps {
     parentTaskId: string;
     onSubTaskUpdated?: (subTaskId: string, updatedData: Partial<SubTaskType>) => void;
     onSubTaskDeleted?: (subTaskId: string) => void;
+    tags?: { id: string; name: string; color: string; }[]; // Dynamic tags
     isSelected?: boolean;
     onSelectChange?: (checked: boolean) => void;
 }
@@ -40,6 +41,7 @@ export function SubTaskRow({
     parentTaskId,
     onSubTaskUpdated,
     onSubTaskDeleted,
+    tags = [], // Default to empty array
 }: SubTaskRowProps) {
     const [isUpdating, setIsUpdating] = useState(false);
 
@@ -275,12 +277,26 @@ export function SubTaskRow({
 
             {columnVisibility.tag && (
                 <TableCell>
-                    {subTask.tag ? (
-                        <div className="flex items-center gap-1">
-                            <Tag className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground">{subTask.tag}</span>
-                        </div>
-                    ) : (
+                    {subTask.tag ? (() => {
+                        // Find the tag by ID
+                        const tagId = typeof subTask.tag === 'string' ? subTask.tag : (subTask.tag as any)?.id;
+                        const tag = tags.find(t => t.id === tagId);
+
+                        if (tag) {
+                            return (
+                                <div className="flex items-center gap-1.5">
+                                    <div
+                                        className="h-2.5 w-2.5 rounded-full"
+                                        style={{ backgroundColor: tag.color }}
+                                    />
+                                    <span className="text-xs text-muted-foreground">{tag.name}</span>
+                                </div>
+                            );
+                        }
+
+                        // Fallback if tag not found
+                        return <span className="text-muted-foreground text-xs">-</span>;
+                    })() : (
                         <span className="text-muted-foreground text-xs">-</span>
                     )}
                 </TableCell>
@@ -296,7 +312,8 @@ export function SubTaskRow({
                     <DropdownMenuContent align="end">
                         <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
                             <EditSubTaskForm
-                                subTask={subTask}
+                                subTask={subTask as any}
+                                tags={tags}
                                 members={members}
                                 projectId={projectId}
                                 parentTaskId={parentTaskId}

@@ -88,6 +88,7 @@ export async function editTask(
             data: {
                 name: validation.data.name,
                 taskSlug: validation.data.taskSlug,
+                tagId: validation.data.tag || null,
             },
         });
 

@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTransition, useState, useEffect } from "react";
 import { Resolver, useForm } from "react-hook-form";
-import { Check, Loader2, PlusIcon, SparkleIcon, PenTool, ShoppingCart, Hammer } from "lucide-react";
+import { Check, Loader2, PlusIcon, SparkleIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -29,6 +29,7 @@ interface iAppProps {
     parentTaskId?: string; // Optional for workspace-level
     onSubTaskCreated?: (subTask: any) => void;
     level?: "workspace" | "project"; // Explicitly define the level
+    tags?: { id: string; name: string; color: string; }[]; // Dynamic tags
 }
 
 export const CreateSubTaskForm = ({
@@ -37,7 +38,8 @@ export const CreateSubTaskForm = ({
     projectId,
     parentTaskId,
     onSubTaskCreated,
-    level = "project" // Default to project level for backward compatibility
+    level = "project", // Default to project level for backward compatibility
+    tags = [], // Default to empty array
 }: iAppProps) => {
     const [pending, startTransition] = useTransition();
     const { triggerConfetti } = useConfetti();
@@ -56,7 +58,7 @@ export const CreateSubTaskForm = ({
             days: 0,
             assignee: "",
             status: "TO_DO",
-            tag: "CONTRACTOR",
+            tag: tags[0]?.id || "", // Use first tag's ID or empty string
             projectId: projectId || "", // Use empty string if not provided
             parentTaskId: parentTaskId || "", // Use empty string if not provided
         },
@@ -222,27 +224,33 @@ export const CreateSubTaskForm = ({
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Tag</FormLabel>
-                                        <div className="flex gap-4">
-                                            {[
-                                                { value: "DESIGN", icon: PenTool, label: "Design" },
-                                                { value: "PROCUREMENT", icon: ShoppingCart, label: "Procurement" },
-                                                { value: "CONTRACTOR", icon: Hammer, label: "Contractor" },
-                                            ].map((tag) => (
-                                                <div
-                                                    key={tag.value}
-                                                    className={cn(
-                                                        "flex flex-row items-center gap-2 cursor-pointer px-3 py-1 rounded-full border-2 transition-all",
-                                                        field.value === tag.value
-                                                            ? "border-primary bg-primary/10"
-                                                            : "border-muted hover:border-primary/50"
-                                                    )}
-                                                    onClick={() => field.onChange(tag.value)}
-                                                >
-                                                    <tag.icon className="size-3" />
-                                                    <span className="text-xs font-normal">{tag.label}</span>
-                                                </div>
-                                            ))}
-                                        </div>
+                                        {tags.length > 0 ? (
+                                            <div className="flex flex-wrap gap-2">
+                                                {tags.map((tag) => (
+                                                    <div
+                                                        key={tag.id}
+                                                        className={cn(
+                                                            "flex flex-row items-center gap-2 cursor-pointer px-3 py-1.5 rounded-full border-2 transition-all",
+                                                            field.value === tag.id
+                                                                ? "border-primary bg-primary/10"
+                                                                : "border-muted hover:border-primary/50"
+                                                        )}
+                                                        onClick={() => field.onChange(tag.id)}
+                                                        style={{
+                                                            backgroundColor: field.value === tag.id ? `${tag.color}20` : 'transparent',
+                                                        }}
+                                                    >
+                                                        <div
+                                                            className="size-3 rounded-full"
+                                                            style={{ backgroundColor: tag.color }}
+                                                        />
+                                                        <span className="text-xs font-normal">{tag.name}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-muted-foreground">No tags available. Create tags in workspace settings.</p>
+                                        )}
                                         <FormMessage />
                                     </FormItem>
                                 )}

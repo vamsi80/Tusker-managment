@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState, useTransition } from "react";
 import { Resolver, useForm } from "react-hook-form";
-import { Check, Loader2, Pencil, PenTool, ShoppingCart, Hammer } from "lucide-react";
+import { Check, Loader2, Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -47,6 +47,7 @@ interface EditSubTaskFormProps<T extends SubTaskBase> {
     projectId: string;
     parentTaskId: string;
     onSubTaskUpdated?: (updatedData: Partial<T>) => void;
+    tags?: { id: string; name: string; color: string; }[]; // Dynamic tags
 }
 
 export function EditSubTaskForm<T extends SubTaskBase>({
@@ -55,6 +56,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
     projectId,
     parentTaskId,
     onSubTaskUpdated,
+    tags = [], // Default to empty array
 }: EditSubTaskFormProps<T>) {
     const [pending, startTransition] = useTransition();
     const [open, setOpen] = useState(false);
@@ -70,7 +72,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
             projectId: projectId,
             parentTaskId: parentTaskId,
             assignee: subTask.assignee?.workspaceMember?.user?.id || "",
-            tag: (subTask.tag || "CONTRACTOR") as "DESIGN" | "PROCUREMENT" | "CONTRACTOR",
+            tag: subTask.tag || tags[0]?.id || "", // Use existing tag or first available tag
             status: (subTask.status || "TO_DO") as "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED",
             startDate: subTask.startDate ? new Date(subTask.startDate).toISOString().split('T')[0] : "",
             days: subTask.days || 0,
@@ -189,27 +191,33 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Tag</FormLabel>
-                                        <div className="flex gap-4">
-                                            {[
-                                                { value: "DESIGN", icon: PenTool, label: "Design" },
-                                                { value: "PROCUREMENT", icon: ShoppingCart, label: "Procurement" },
-                                                { value: "CONTRACTOR", icon: Hammer, label: "Contractor" },
-                                            ].map((tag) => (
-                                                <div
-                                                    key={tag.value}
-                                                    className={cn(
-                                                        "flex flex-row items-center gap-2 cursor-pointer px-3 py-1 rounded-full border-2 transition-all",
-                                                        field.value === tag.value
-                                                            ? "border-primary bg-primary/10"
-                                                            : "border-muted hover:border-primary/50"
-                                                    )}
-                                                    onClick={() => field.onChange(tag.value)}
-                                                >
-                                                    <tag.icon className="size-3" />
-                                                    <span className="text-xs font-normal">{tag.label}</span>
-                                                </div>
-                                            ))}
-                                        </div>
+                                        {tags.length > 0 ? (
+                                            <div className="flex flex-wrap gap-2">
+                                                {tags.map((tag) => (
+                                                    <div
+                                                        key={tag.id}
+                                                        className={cn(
+                                                            "flex flex-row items-center gap-2 cursor-pointer px-3 py-1.5 rounded-full border-2 transition-all",
+                                                            field.value === tag.id
+                                                                ? "border-primary bg-primary/10"
+                                                                : "border-muted hover:border-primary/50"
+                                                        )}
+                                                        onClick={() => field.onChange(tag.id)}
+                                                        style={{
+                                                            backgroundColor: field.value === tag.id ? `${tag.color}20` : 'transparent',
+                                                        }}
+                                                    >
+                                                        <div
+                                                            className="size-3 rounded-full"
+                                                            style={{ backgroundColor: tag.color }}
+                                                        />
+                                                        <span className="text-xs font-normal">{tag.name}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-muted-foreground">No tags available. Create tags in workspace settings.</p>
+                                        )}
                                         <FormMessage />
                                     </FormItem>
                                 )}

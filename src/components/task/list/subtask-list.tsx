@@ -28,7 +28,8 @@ interface SubTaskListProps {
     onSubTaskCreated?: (subTask: any) => void;
     selectedSubTasks?: Set<string>;
     onSelectSubTask?: (subTaskId: string, checked: boolean) => void;
-    level?: "workspace" | "project"; // Add level prop
+    level?: "workspace" | "project";
+    tags?: { id: string; name: string; color: string; }[];
 }
 
 export function SubTaskList({
@@ -47,7 +48,8 @@ export function SubTaskList({
     onSubTaskCreated,
     selectedSubTasks = new Set(),
     onSelectSubTask,
-    level = "project", // Default to project level
+    level = "project",
+    tags = [],
 }: SubTaskListProps) {
     // Calculate total columns: drag + name + visible columns + actions (no checkbox anymore)
     const visibleColumnsCount = 2 + Object.values(columnVisibility).filter(Boolean).length + 1;
@@ -71,6 +73,7 @@ export function SubTaskList({
                                 parentTaskId={task.id}
                                 onSubTaskCreated={onSubTaskCreated}
                                 level={level}
+                                tags={tags}
                             />
                         </div>
                     )}
@@ -105,6 +108,7 @@ export function SubTaskList({
                         onSelectChange={(checked) => onSelectSubTask?.(subTask.id, checked)}
                         onSubTaskUpdated={onSubTaskUpdated}
                         onSubTaskDeleted={onSubTaskDeleted}
+                        tags={tags}
                     />
                 ))}
             </SortableContext>
@@ -147,6 +151,7 @@ export function SubTaskList({
                                 parentTaskId={task.id}
                                 onSubTaskCreated={onSubTaskCreated}
                                 level={level}
+                                tags={tags}
                             />
                         </div>
                     )}

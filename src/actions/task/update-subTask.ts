@@ -75,14 +75,13 @@ export async function editSubTask(
             }
         }
 
-        // Update the subtask
         await prisma.task.update({
             where: { id: subTaskId },
             data: {
                 name: validation.data.name,
                 description: validation.data.description,
                 assigneeTo: assigneeId,
-                tag: validation.data.tag,
+                tagId: validation.data.tag || null,
                 startDate: validation.data.startDate ? new Date(validation.data.startDate) : null,
                 days: validation.data.days,
             },

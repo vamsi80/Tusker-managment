@@ -1,18 +1,15 @@
-
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "../_components/sidebar/workspace-sidebar";
 import { SiteHeader } from "../_components/sidebar/header/site-header";
 import { getWorkspaces } from "@/data/workspace/get-workspaces";
-import { requireUser } from "@/lib/auth/require-user";
 
 interface Props {
     children: React.ReactNode;
-    params: { workspaceId: string };
+    params: Promise<{ workspaceId: string }>;
 }
 
 export default async function WorkSpaceLayout({ children, params }: Props) {
     const { workspaceId } = await params;
-    const session = await requireUser();
     const data = await getWorkspaces();
 
     return (

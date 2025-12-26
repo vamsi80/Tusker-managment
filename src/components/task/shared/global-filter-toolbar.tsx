@@ -13,12 +13,18 @@ import "react-date-range/dist/theme/default.css"; // theme css file
 import { TaskSearch } from "./task-search";
 import { ColumnVisibility } from "./column-visibility";
 import { KanbanColumnVisibility, type KanbanColumnVisibility as KanbanColumnVisibilityType } from "./kanban-column-visibility";
-import { STATUS_OPTIONS, TAG_OPTIONS } from "@/lib/zodSchemas";
+import { STATUS_OPTIONS } from "@/lib/zodSchemas";
 
 export interface ParentTaskOption {
     id: string;
     name: string;
     taskSlug?: string;
+}
+
+export interface TagOption {
+    id: string;
+    name: string;
+    color: string;
 }
 
 // Add custom theme overrides for react-date-range
@@ -104,6 +110,7 @@ interface GlobalFilterToolbarProps {
     searchQuery: string;
     projects?: ProjectOption[];
     members?: MemberOption[];
+    tags?: TagOption[];
     onFilterChange: (filters: TaskFilters) => void;
     onSearchChange: (query: string) => void;
     onClearAll: () => void;
@@ -125,6 +132,7 @@ export function GlobalFilterToolbar({
     searchQuery,
     projects,
     members,
+    tags,
     onFilterChange,
     onSearchChange,
     onClearAll,
@@ -469,7 +477,7 @@ export function GlobalFilterToolbar({
                                 )}
 
                                 {/* Tag Filter */}
-                                {config.showTagFilter && (
+                                {config.showTagFilter && tags && (
                                     <div className="space-y-2">
                                         <div className="flex items-center justify-between">
                                             <h4 className="text-sm font-medium text-muted-foreground">Tag</h4>
@@ -493,9 +501,15 @@ export function GlobalFilterToolbar({
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="__all__">All Tags</SelectItem>
-                                                {TAG_OPTIONS.map((option) => (
-                                                    <SelectItem key={option.value} value={option.value}>
-                                                        {option.label}
+                                                {tags.map((tag) => (
+                                                    <SelectItem key={tag.id} value={tag.id}>
+                                                        <div className="flex items-center gap-2">
+                                                            <div
+                                                                className="h-2 w-2 rounded-full"
+                                                                style={{ backgroundColor: tag.color }}
+                                                            />
+                                                            {tag.name}
+                                                        </div>
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>

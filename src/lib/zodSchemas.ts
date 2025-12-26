@@ -18,20 +18,7 @@ export const STATUS_OPTIONS = SubTaskStatus.map(value => ({
     label: STATUS_LABELS[value]
 }));
 
-export const TaskTag = ["DESIGN", "PROCUREMENT", "CONTRACTOR"] as const
 
-// Tag labels - single source of truth
-export const TAG_LABELS: Record<typeof TaskTag[number], string> = {
-    DESIGN: "Design",
-    PROCUREMENT: "Procurement",
-    CONTRACTOR: "Contractor",
-} as const;
-
-// Tag options for dropdowns
-export const TAG_OPTIONS = TaskTag.map(value => ({
-    value,
-    label: TAG_LABELS[value]
-}));
 
 export const workspaceMemberRole = ["OWNER", "ADMIN", "MEMBER", "VIEWER"] as const
 
@@ -192,6 +179,10 @@ export const taskSchema = z.object({
         .min(3, { message: "Title must be at least 3 charcters long" })
         .max(100, { message: "Title must be at most 100 character long" }),
     projectId: z.string().uuid({ message: "Invalid project id" }),
+    tag: z
+        .string()
+        .uuid({ message: "Invalid tag id" })
+        .optional(),
 });
 
 export const subTaskSchema = z.object({
@@ -222,7 +213,9 @@ export const subTaskSchema = z.object({
         .min(1, { message: "Days should be at least 1" })
         .optional(),
     tag: z
-        .enum(TaskTag, { message: "Tag is Required" }),
+        .string()
+        .uuid({ message: "Invalid tag id" })
+        .optional(),
     projectId: z.string().uuid({ message: "Invalid project id" }),
     parentTaskId: z.string().uuid({ message: "Invalid parent task id" }),
 });

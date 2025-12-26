@@ -2,6 +2,7 @@ import { getWorkspaceTasks } from "@/data/task/get-workspace-tasks";
 import { getAllTasksFlat } from "@/data/task/gantt/get-all-tasks-flat";
 import { TaskTable } from "@/components/task/list/task-table";
 import { extractAssigneeOptions } from "@/lib/utils/extract-filter-options";
+import { getWorkspaceTags } from "@/data/tag/get-tags";
 
 interface WorkspaceListViewProps {
     workspaceId: string;
@@ -44,6 +45,8 @@ export async function WorkspaceListView({
         projectId: task.projectId,
     }));
 
+    const tags = await getWorkspaceTags(workspaceId);
+
     return (
         <TaskTable
             initialTasks={transformedTasks as any}
@@ -55,6 +58,7 @@ export async function WorkspaceListView({
             projectId={tasks[0]?.projectId || ""} // Fallback for compatibility
             canCreateSubTask={false} // No create at workspace level
             showAdvancedFilters={true} // Show advanced filters including project filter
+            tags={tags}
         />
     );
 }

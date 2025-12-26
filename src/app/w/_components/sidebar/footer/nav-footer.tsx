@@ -22,7 +22,7 @@ export function NavFooter({
                     <SidebarMenuButton
                         tooltip={item.title}
                         asChild
-                        className="transition-all duration-200 hover:bg-accent hover:text-accent-foreground"
+                        className="transition-all duration-200 hover:bg-accent hover:text-accent-foreground mb-4"
                     >
                         <Link href={item.url} className="flex items-center gap-2">
                             <div className="flex-shrink-0">

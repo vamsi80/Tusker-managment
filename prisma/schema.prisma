@@ -91,6 +91,7 @@ model Workspace {
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
   projects    Project[]
+  tags        Tag[]
   owner       User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   members     WorkspaceMember[]
 }
@@ -180,6 +181,20 @@ model ClintMembers {
   clints        Clints?  @relation(fields: [clintId], references: [id], onDelete: Cascade)
 }
 
+model Tag {
+  id          String    @id @default(uuid())
+  name        String
+  color       String    @default("#3b82f6") // Default blue color
+  workspaceId String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  tasks       Task[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+}
+
 model Task {
   id                    String          @id @default(uuid())
   name                  String
@@ -190,16 +205,18 @@ model Task {
   parentTaskId          String?
   startDate             DateTime?
   days                  Int?
-  tag                   TaskTag?
+  tagId                 String?
   assigneeTo            String?
   createdById           String
   projectId             String
+  purchaseRequired      Boolean?        @default(false)
   isPinned              Boolean         @default(false)
   pinnedAt              DateTime?
   pinnedBy              String?
   createdAt             DateTime        @default(now())
   updatedAt             DateTime        @updatedAt
   reviewComments        ReviewComment[]
+  tag                   Tag?            @relation(fields: [tagId], references: [id], onDelete: SetNull)
   assignee              ProjectMember?  @relation(fields: [assigneeTo], references: [id], onDelete: Cascade)
   createdBy             WorkspaceMember @relation(fields: [createdById], references: [id], onDelete: Cascade)
   parentTask            Task?           @relation("Task_subTasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
@@ -219,6 +236,7 @@ model Task {
   @@index([assigneeTo])
   @@index([isPinned])
   @@index([position])
+  @@index([tagId])
 }
 
 model ReviewComment {
@@ -309,10 +327,4 @@ enum TaskStatus {
   REVIEW
   HOLD
   COMPLETED
-}
-
-enum TaskTag {
-  DESIGN
-  PROCUREMENT
-  CONTRACTOR
 }
