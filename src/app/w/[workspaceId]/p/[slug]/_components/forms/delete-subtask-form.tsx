@@ -17,7 +17,6 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { tryCatch } from "@/hooks/try-catch";
 import { deleteSubTask } from "@/actions/task/delete-subTask";
-import { useReloadView } from "@/hooks/use-reload-view";
 
 // Generic subtask type that works with any subtask structure
 type SubTaskBase = {
@@ -33,10 +32,14 @@ interface DeleteSubTaskFormProps<T extends SubTaskBase> {
 export function DeleteSubTaskForm<T extends SubTaskBase>({ subTask, onSubTaskDeleted }: DeleteSubTaskFormProps<T>) {
     const [open, setOpen] = useState(false);
     const [pending, startTransition] = useTransition();
-    const reloadView = useReloadView();
 
     const handleDelete = () => {
         startTransition(async () => {
+            // Optimistically remove from UI first
+            if (onSubTaskDeleted) {
+                onSubTaskDeleted(subTask.id);
+            }
+
             const { data: result, error } = await tryCatch(deleteSubTask(subTask.id));
 
             if (error) {
@@ -48,16 +51,10 @@ export function DeleteSubTaskForm<T extends SubTaskBase>({ subTask, onSubTaskDel
             if (result.status === "success") {
                 toast.success(result.message);
                 setOpen(false);
-
-                // Call callback to remove from UI immediately
-                if (onSubTaskDeleted) {
-                    onSubTaskDeleted(subTask.id);
-                }
-
-                // Reload all views to reflect deletion
-                reloadView();
+                // No need to reload view - optimistic update already done
             } else {
                 toast.error(result.message);
+                // TODO: Revert optimistic update on error
             }
         });
     };

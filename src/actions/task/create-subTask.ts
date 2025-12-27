@@ -51,12 +51,11 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
 
         let assigneeId: string | null = null;
         if (validation.data.assignee) {
+            // The assignee value is the workspaceMemberId, find the corresponding projectMember
             const assigneeProjectMember = await prisma.projectMember.findFirst({
                 where: {
                     projectId: values.projectId,
-                    workspaceMember: {
-                        userId: validation.data.assignee
-                    }
+                    workspaceMemberId: validation.data.assignee // Use workspaceMemberId directly
                 }
             });
             if (assigneeProjectMember) {
@@ -109,6 +108,12 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
                                 }
                             }
                         }
+                    }
+                },
+                tag: {
+                    select: {
+                        id: true,
+                        name: true,
                     }
                 }
             }

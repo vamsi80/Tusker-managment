@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { SubTaskList } from "./subtask-list";
 import { Button } from "@/components/ui/button";
 import React, { useState, useEffect } from "react";
-import { Loader2, ChevronsDown } from "lucide-react";
+import { Loader2, ChevronsDown, Plus } from "lucide-react";
 import { loadMoreTasksAction, loadSubTasksAction } from "@/actions/task/list-actions";
 import { updateSubtaskPositions } from "@/actions/task/gantt";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
@@ -22,6 +22,7 @@ import { GlobalFilterToolbar } from "../shared/global-filter-toolbar";
 import { ColumnVisibility } from "../shared/column-visibility";
 import { extractAllFilterOptions } from "@/lib/utils/extract-filter-options";
 import { calculateDueDate } from "@/hooks/use-due-date";
+import { InlineTaskForm } from "./inline-task-form";
 
 interface TaskTableProps {
     initialTasks: TaskWithSubTasks[];
@@ -142,6 +143,7 @@ export function TaskTable({
     const [loadingSubTasks, setLoadingSubTasks] = useState<Record<string, boolean>>({});
     const [loadingMoreSubTasks, setLoadingMoreSubTasks] = useState<Record<string, boolean>>({});
     const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
+    const [showInlineTaskForm, setShowInlineTaskForm] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [filters, setFilters] = useState<TaskFilters>({});
     const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
@@ -660,6 +662,30 @@ export function TaskTable({
                                             </Button>
                                         </TableCell>
                                     </TableRow>
+                                )}
+
+                                {/* Add Task - Inline Form or Button */}
+                                {!hasActiveFilters(filters) && !searchQuery && (
+                                    showInlineTaskForm ? (
+                                        <InlineTaskForm
+                                            workspaceId={workspaceId}
+                                            projectId={projectId}
+                                            onCancel={() => setShowInlineTaskForm(false)}
+                                            onTaskCreated={(task) => {
+                                                setTasks(prev => [task, ...prev]);
+                                                setShowInlineTaskForm(false);
+                                            }}
+                                        />
+                                    ) : (
+                                        <TableRow className="hover:bg-muted/20 cursor-pointer" onClick={() => setShowInlineTaskForm(true)}>
+                                            <TableCell colSpan={9} className="p-3 text-muted-foreground">
+                                                <div className="flex items-center gap-2">
+                                                    <Plus className="h-4 w-4" />
+                                                    <span>Add Task</span>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    )
                                 )}
                             </tbody>
                         </table>

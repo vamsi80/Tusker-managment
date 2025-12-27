@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { EditSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/edit-subtask-form";
 import { DeleteSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/delete-subtask-form";
+import { InlineSubTaskForm } from "./inline-subtask-form";
 import { ColumnVisibility } from "../shared/column-visibility";
 
 interface SubTaskRowProps {
@@ -44,6 +45,7 @@ export function SubTaskRow({
     tags = [], // Default to empty array
 }: SubTaskRowProps) {
     const [isUpdating, setIsUpdating] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
 
     const {
         attributes,
@@ -100,16 +102,11 @@ export function SubTaskRow({
                     <Skeleton className="h-4 w-4" />
                 </TableCell>
                 <TableCell className="pl-4">
-                    <Skeleton className="h-6 w-6" />
-                </TableCell>
-                <TableCell className="pl-3">
-                    <div className="flex items-center gap-2">
-                        <Skeleton className="h-4 w-32" />
-                    </div>
+                    <Skeleton className="h-4 w-full max-w-xs" />
                 </TableCell>
                 {columnVisibility.description && (
                     <TableCell>
-                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-4 w-full max-w-md" />
                     </TableCell>
                 )}
                 {columnVisibility.assignee && (
@@ -119,7 +116,7 @@ export function SubTaskRow({
                 )}
                 {columnVisibility.status && (
                     <TableCell>
-                        <Skeleton className="h-5 w-20" />
+                        <Skeleton className="h-6 w-24" />
                     </TableCell>
                 )}
                 {columnVisibility.tag && (
@@ -149,11 +146,33 @@ export function SubTaskRow({
         );
     }
 
+    // Show inline edit form when editing
+    if (isEditing) {
+        return (
+            <InlineSubTaskForm
+                mode="edit"
+                subTask={subTask}
+                workspaceId="" // Not needed for edit mode
+                projectId={projectId}
+                parentTaskId={parentTaskId}
+                members={members}
+                tags={tags}
+                columnVisibility={columnVisibility}
+                onCancel={() => setIsEditing(false)}
+                onSubTaskUpdated={(subTaskId, updatedData) => {
+                    handleSubTaskUpdated(updatedData);
+                    setIsEditing(false);
+                }}
+            />
+        );
+    }
+
     return (
         <TableRow
             ref={setNodeRef}
             style={style}
-            className="bg-muted/10 hover:bg-muted/20"
+            className="bg-muted/10 hover:bg-muted/20 cursor-pointer"
+            onClick={() => setIsEditing(true)}
         >
             <TableCell className="pl-4">
                 <Button

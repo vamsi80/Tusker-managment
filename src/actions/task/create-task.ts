@@ -49,7 +49,6 @@ export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
                 taskSlug: validation.data.taskSlug,
                 projectId: validation.data.projectId,
                 createdById: permissions.workspaceMember.id,
-                tagId: validation.data.tag || null,
             },
             include: {
                 _count: {

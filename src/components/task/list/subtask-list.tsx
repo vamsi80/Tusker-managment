@@ -1,14 +1,15 @@
 "use client";
 
+import { useState } from "react";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Loader2, ChevronsDown } from "lucide-react";
+import { Loader2, ChevronsDown, Plus } from "lucide-react";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 import { SubTaskType } from "@/data/task/list/get-subtasks";
 import { ColumnVisibility } from "../shared/column-visibility";
 import { SubTaskSkeleton } from "@/components/task/list/list-skeleton";
-import { CreateSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/create-subTask-form";
+import { InlineSubTaskForm } from "./inline-subtask-form";
 import { SubTaskRow } from "./subtask-row";
 import { TaskWithSubTasks } from "@/components/task/shared/types";
 
@@ -51,6 +52,8 @@ export function SubTaskList({
     level = "project",
     tags = [],
 }: SubTaskListProps) {
+    const [showInlineSubTaskForm, setShowInlineSubTaskForm] = useState(false);
+
     // Calculate total columns: drag + name + visible columns + actions (no checkbox anymore)
     const visibleColumnsCount = 2 + Object.values(columnVisibility).filter(Boolean).length + 1;
 
@@ -62,23 +65,34 @@ export function SubTaskList({
 
     if (!task.subTasks || task.subTasks.length === 0) {
         return (
-            <TableRow className="bg-muted/30 hover:bg-muted/30">
-                <TableCell colSpan={visibleColumnsCount} className="p-2 pl-12">
-                    {canCreateSubTask && (
-                        <div className="flex gap-2">
-                            <CreateSubTaskForm
-                                members={members}
-                                workspaceId={workspaceId}
-                                projectId={projectId}
-                                parentTaskId={task.id}
-                                onSubTaskCreated={onSubTaskCreated}
-                                level={level}
-                                tags={tags}
-                            />
-                        </div>
-                    )}
-                </TableCell>
-            </TableRow>
+            <>
+                {canCreateSubTask && (
+                    showInlineSubTaskForm ? (
+                        <InlineSubTaskForm
+                            workspaceId={workspaceId}
+                            projectId={projectId}
+                            parentTaskId={task.id}
+                            members={members}
+                            tags={tags}
+                            columnVisibility={columnVisibility}
+                            onCancel={() => setShowInlineSubTaskForm(false)}
+                            onSubTaskCreated={(subTask) => {
+                                onSubTaskCreated?.(subTask);
+                                setShowInlineSubTaskForm(false);
+                            }}
+                        />
+                    ) : (
+                        <TableRow className="bg-muted/30 hover:bg-muted/20 cursor-pointer" onClick={() => setShowInlineSubTaskForm(true)}>
+                            <TableCell colSpan={visibleColumnsCount} className="p-3 pl-12 text-muted-foreground">
+                                <div className="flex items-center gap-2">
+                                    <Plus className="h-4 w-4" />
+                                    <span>Add SubTask</span>
+                                </div>
+                            </TableCell>
+                        </TableRow>
+                    )
+                )}
+            </>
         );
     }
 
@@ -140,23 +154,33 @@ export function SubTaskList({
                 </TableRow>
             )}
 
-            <TableRow className="bg-muted/30 hover:bg-muted/30">
-                <TableCell colSpan={visibleColumnsCount} className="p-2 pl-12">
-                    {canCreateSubTask && (
-                        <div className="flex gap-2">
-                            <CreateSubTaskForm
-                                members={members}
-                                workspaceId={workspaceId}
-                                projectId={projectId}
-                                parentTaskId={task.id}
-                                onSubTaskCreated={onSubTaskCreated}
-                                level={level}
-                                tags={tags}
-                            />
-                        </div>
-                    )}
-                </TableCell>
-            </TableRow>
+            {/* Add SubTask - Inline Form or Button */}
+            {canCreateSubTask && (
+                showInlineSubTaskForm ? (
+                    <InlineSubTaskForm
+                        workspaceId={workspaceId}
+                        projectId={projectId}
+                        parentTaskId={task.id}
+                        members={members}
+                        tags={tags}
+                        columnVisibility={columnVisibility}
+                        onCancel={() => setShowInlineSubTaskForm(false)}
+                        onSubTaskCreated={(subTask) => {
+                            onSubTaskCreated?.(subTask);
+                            setShowInlineSubTaskForm(false);
+                        }}
+                    />
+                ) : (
+                    <TableRow className="bg-muted/30 hover:bg-muted/20 cursor-pointer" onClick={() => setShowInlineSubTaskForm(true)}>
+                        <TableCell colSpan={visibleColumnsCount} className="p-3 pl-12 text-muted-foreground">
+                            <div className="flex items-center gap-2">
+                                <Plus className="h-4 w-4" />
+                                <span>Add SubTask</span>
+                            </div>
+                        </TableCell>
+                    </TableRow>
+                )
+            )}
         </>
     );
 }
