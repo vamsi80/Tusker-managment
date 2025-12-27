@@ -5,6 +5,7 @@ import { unstable_cache } from "next/cache";
 import { notFound } from "next/navigation";
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
+import { CacheTags } from "@/data/cache-tags";
 
 /**
  * Client data type
@@ -61,7 +62,7 @@ const getCachedProjectClient = (projectId: string) =>
         async () => _getProjectClientInternal(projectId),
         [`project-client-${projectId}`],
         {
-            tags: [`project-client-${projectId}`, `project-${projectId}`],
+            tags: CacheTags.projectClient(projectId),
             revalidate: 60 // 1 minute - client data doesn't change often
         }
     )();

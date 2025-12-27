@@ -1,15 +1,18 @@
 "use server";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
-import { invalidateProjectTasks, invalidateWorkspaceTasks } from "@/lib/cache/invalidation";
+import { invalidateTaskMutation } from "@/lib/cache/invalidation";
+import { requireUser } from "@/lib/auth/require-user";
 import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
-import { revalidatePath } from "next/cache";
 
 export async function deleteTask(
     taskId: string
 ): Promise<ApiResponse> {
 
     try {
+        // Authenticate user
+        const user = await requireUser();
+
         // 1. Get the task with project and workspace info
         const existingTask = await prisma.task.findUnique({
             where: { id: taskId },
@@ -49,10 +52,13 @@ export async function deleteTask(
             where: { id: taskId },
         });
 
-        // 4. Revalidate cache (path + task cache + workspace cache)
-        revalidatePath(`/w/${existingTask.project.workspaceId}/p/${existingTask.project.slug}/task`);
-        await invalidateProjectTasks(existingTask.projectId);
-        await invalidateWorkspaceTasks(existingTask.project.workspaceId);
+        // 4. OPTIMIZED: Use comprehensive cache invalidation
+        await invalidateTaskMutation({
+            taskId: taskId,
+            projectId: existingTask.projectId,
+            workspaceId: existingTask.project.workspaceId,
+            userId: user.id
+        });
 
         return {
             status: "success",

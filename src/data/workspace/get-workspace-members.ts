@@ -4,6 +4,7 @@ import { unstable_cache } from "next/cache";
 import { notFound } from "next/navigation";
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
+import { CacheTags } from "@/data/cache-tags";
 
 /**
  * Types (adjust to match your Prisma schema if necessary)
@@ -75,7 +76,7 @@ const getCachedWorkspaceMembers = (workspaceId: string) =>
     async () => _fetchWorkspaceMembersInternal(workspaceId),
     [`workspace-members-${workspaceId}`],
     {
-      tags: [`workspace-members-${workspaceId}`],
+      tags: CacheTags.workspaceMembers(workspaceId),
       revalidate: 60 * 60 * 12, // 12 hours
     }
   )();

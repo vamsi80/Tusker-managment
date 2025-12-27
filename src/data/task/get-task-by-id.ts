@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
+import { CacheTags } from "@/data/cache-tags";
 
 // ============================================
 // INTERNAL FUNCTIONS (Actual DB queries)
@@ -228,7 +229,7 @@ const getCachedTaskById = (
         async () => _getTaskByIdInternal(taskId, workspaceId, projectId, workspaceMemberId, isMember),
         [`task-${taskId}-user-member-${workspaceMemberId}`],
         {
-            tags: [`task-${taskId}`, `project-tasks-${projectId}`, `task-details`],
+            tags: CacheTags.taskDetails(taskId, projectId),
             revalidate: 60, // 1 minute
         }
     )();

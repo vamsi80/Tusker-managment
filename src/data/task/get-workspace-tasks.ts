@@ -3,8 +3,9 @@
 import { cache } from "react";
 import prisma from "@/lib/db";
 import { unstable_cache } from "next/cache";
-import { TaskStatus, TaskTag } from "@/generated/prisma";
+import { TaskStatus } from "@/generated/prisma";
 import { getWorkspacePermissions, getUserPermissions } from "@/data/user/get-user-permissions";
+import { CacheTags } from "@/data/cache-tags";
 
 /**
  * Filters for workspace tasks
@@ -15,7 +16,7 @@ export interface WorkspaceTaskFilters {
     assigneeId?: string;
     startDate?: Date;
     endDate?: Date;
-    tag?: TaskTag;
+    tag?: string; // Tag ID (tags are now dynamic)
 }
 
 /**
@@ -215,11 +216,7 @@ const getCachedWorkspaceTasks = (
         async () => _getWorkspaceTasksInternal(workspaceId, workspaceMemberId, isAdmin, isProjectLead, filters, page, pageSize),
         [`workspace-tasks-${workspaceId}-user-${userId}-filters-${filterHash}-lead${isProjectLead}-page-${page}-size-${pageSize}`],
         {
-            tags: [
-                `workspace-tasks-${workspaceId}`,
-                `workspace-tasks-user-${userId}`,
-                `workspace-tasks-all`,
-            ],
+            tags: CacheTags.workspaceTasks(workspaceId, userId),
             revalidate: 60,
         }
     )();

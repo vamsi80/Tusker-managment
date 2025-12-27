@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { createTag } from "@/actions/tag/create-tag";
 import { updateTag } from "@/actions/tag/update-tag";
 import { toast } from "sonner";
@@ -20,7 +21,7 @@ import { Loader2 } from "lucide-react";
 interface Tag {
     id: string;
     name: string;
-    color: string;
+    requirePurchase?: boolean;
 }
 
 interface TagDialogProps {
@@ -35,17 +36,18 @@ interface TagDialogProps {
 
 export function TagDialog({ open, onOpenChange, workspaceId, tag, onSuccess }: TagDialogProps) {
     const [name, setName] = useState(tag?.name || "");
-    const [color, setColor] = useState(tag?.color || "#3b82f6");
+    const [requirePurchase, setRequirePurchase] = useState(tag?.requirePurchase ?? false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Update form when tag changes
     useEffect(() => {
         if (tag) {
             setName(tag.name);
-            setColor(tag.color);
+            // Explicitly handle boolean value - if undefined, default to false
+            setRequirePurchase(tag.requirePurchase ?? false);
         } else {
             setName("");
-            setColor("#3b82f6");
+            setRequirePurchase(false);
         }
     }, [tag, open]);
 
@@ -55,14 +57,14 @@ export function TagDialog({ open, onOpenChange, workspaceId, tag, onSuccess }: T
 
         try {
             const result = tag
-                ? await updateTag({ tagId: tag.id, name, color, workspaceId })
-                : await createTag({ name, color, workspaceId });
+                ? await updateTag({ tagId: tag.id, name, requirePurchase, workspaceId })
+                : await createTag({ name, requirePurchase, workspaceId });
 
             if (result.success) {
                 toast.success(`Tag "${name}" has been ${tag ? "updated" : "created"} successfully.`);
                 onOpenChange(false);
                 setName("");
-                setColor("#3b82f6");
+                setRequirePurchase(false);
                 onSuccess?.();
             } else {
                 toast.error(result.error || "An error occurred");
@@ -82,7 +84,7 @@ export function TagDialog({ open, onOpenChange, workspaceId, tag, onSuccess }: T
                         <DialogTitle>{tag ? "Edit Tag" : "Create New Tag"}</DialogTitle>
                         <DialogDescription>
                             {tag
-                                ? "Update the tag name and color."
+                                ? "Update the tag name and purchase requirement."
                                 : "Add a new tag to organize your tasks."}
                         </DialogDescription>
                     </DialogHeader>
@@ -98,28 +100,18 @@ export function TagDialog({ open, onOpenChange, workspaceId, tag, onSuccess }: T
                                 maxLength={50}
                             />
                         </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="color">Tag Color</Label>
-                            <div className="flex gap-2 items-center">
-                                <div className="relative">
-                                    <button
-                                        type="button"
-                                        onClick={() => document.getElementById('color-input')?.click()}
-                                        className="w-8 h-8 rounded-full border-2 border-input hover:border-primary transition-colors cursor-pointer flex items-center justify-center"
-                                        style={{ backgroundColor: color }}
-                                    />
-                                    <input
-                                        id="color-input"
-                                        type="color"
-                                        value={color}
-                                        onChange={(e) => setColor(e.target.value)}
-                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                    />
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-s text-muted-foreground font-mono">{color}</span>
-                                </div>
-                            </div>
+                        <div className="flex items-center space-x-2">
+                            <Checkbox
+                                id="requirePurchase"
+                                checked={requirePurchase}
+                                onCheckedChange={(checked) => setRequirePurchase(checked as boolean)}
+                            />
+                            <Label
+                                htmlFor="requirePurchase"
+                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            >
+                                Require Purchase
+                            </Label>
                         </div>
                     </div>
                     <DialogFooter>

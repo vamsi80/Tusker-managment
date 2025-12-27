@@ -28,7 +28,7 @@ import { Pencil, Plus, X } from "lucide-react";
 interface Tag {
     id: string;
     name: string;
-    color: string;
+    requirePurchase?: boolean;
     _count?: {
         tasks: number;
     };
@@ -110,37 +110,34 @@ export function TagsManager({ workspaceId, tags }: TagsManagerProps) {
                     ) : (
                         <div className="flex flex-wrap gap-1">
                             {tags.map((tag) => (
-                                <div
+                                <Badge
                                     key={tag.id}
-                                    className="group relative inline-flex items-center px-2 py-1 rounded-4xl transition-all hover:shadow-md"
-                                    style={{
-                                        backgroundColor: tag.color,
-                                        color: "#ffffff",
-                                    }}
+                                    variant="outline"
+                                    className="group relative inline-flex items-center gap-1 px-2 py-1 transition-all hover:shadow-md"
                                 >
-                                    <span className="text-xs">{tag.name}</span>
+                                    <span className="text-xs font-medium">{tag.name}</span>
                                     {tag._count && tag._count.tasks > 0 && (
-                                        <span className="text-xs opacity-80">
+                                        <span className="text-xs opacity-70">
                                             ({tag._count.tasks})
                                         </span>
                                     )}
-                                    <div className="flex items-center gap-1 ml-1 opacity-100">
+                                    <div className="flex items-center gap-1 ml-1">
                                         <button
                                             onClick={() => handleEdit(tag)}
-                                            className="p-1 hover:bg-white/20 rounded transition-colors"
+                                            className="p-1 hover:bg-accent rounded transition-colors"
                                             aria-label="Edit tag"
                                         >
                                             <Pencil className="h-3 w-3" />
                                         </button>
                                         <button
                                             onClick={() => handleDeleteClick(tag)}
-                                            className="p-1 hover:bg-white/20 rounded transition-colors"
+                                            className="p-1 hover:bg-destructive/10 rounded transition-colors"
                                             aria-label="Delete tag"
                                         >
                                             <X className="h-3 w-3" />
                                         </button>
                                     </div>
-                                </div>
+                                </Badge>
                             ))}
                         </div>
                     )}

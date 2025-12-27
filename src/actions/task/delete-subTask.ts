@@ -1,15 +1,18 @@
 "use server"
 
 import { getUserPermissions } from "@/data/user/get-user-permissions";
-import { invalidateTaskSubTasks, invalidateProjectTasks, invalidateWorkspaceTasks } from "@/lib/cache/invalidation";
+import { invalidateTaskMutation } from "@/lib/cache/invalidation";
+import { requireUser } from "@/lib/auth/require-user";
 import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
-import { revalidatePath } from "next/cache";
 
 export async function deleteSubTask(
     subTaskId: string
 ): Promise<ApiResponse> {
     try {
+        // Authenticate user
+        const user = await requireUser();
+
         // Get the subtask with project and workspace info
         const existingSubTask = await prisma.task.findUnique({
             where: { id: subTaskId },
@@ -49,13 +52,14 @@ export async function deleteSubTask(
             where: { id: subTaskId },
         });
 
-        // Revalidate cache (path + subtask cache + workspace cache)
-        revalidatePath(`/w/${existingSubTask.project.workspaceId}/p/${existingSubTask.project.slug}/task`);
-        if (existingSubTask.parentTaskId) {
-            await invalidateTaskSubTasks(existingSubTask.parentTaskId);
-        }
-        await invalidateProjectTasks(existingSubTask.projectId);
-        await invalidateWorkspaceTasks(existingSubTask.project.workspaceId);
+        // OPTIMIZED: Use comprehensive cache invalidation
+        await invalidateTaskMutation({
+            taskId: subTaskId,
+            projectId: existingSubTask.projectId,
+            workspaceId: existingSubTask.project.workspaceId,
+            userId: user.id,
+            parentTaskId: existingSubTask.parentTaskId || undefined
+        });
 
         return {
             status: "success",

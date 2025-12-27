@@ -2,7 +2,10 @@
 
 import prisma from "@/lib/db";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
-import { revalidateTag } from "next/cache";
+import {
+    invalidateProjectTasks,
+    invalidateProjectSubTasks
+} from "@/lib/cache/invalidation";
 
 export interface DependencyResult {
     success: boolean;
@@ -102,7 +105,7 @@ export async function addSubtaskDependency(
         await prisma.task.update({
             where: { id: subtaskId },
             data: {
-                dependsOn: {
+                Task_TaskDependency_A: {
                     connect: { id: dependsOnId },
                 },
             },
@@ -127,9 +130,10 @@ export async function addSubtaskDependency(
             }
         }
 
-        // 9. OPTIMIZED: Only revalidate the specific project cache
-        // Removed: global subtasks cache (too broad, causes slowdowns)
-        revalidateTag(`project-tasks-${projectId}`);
+        // 9. OPTIMIZED: Use comprehensive cache invalidation
+        // Invalidates project tasks and subtasks for Gantt view
+        await invalidateProjectTasks(projectId);
+        await invalidateProjectSubTasks(projectId);
 
         return { success: true, message: "Dependency added successfully" };
     } catch (error) {
@@ -196,15 +200,16 @@ export async function removeSubtaskDependency(
         await prisma.task.update({
             where: { id: subtaskId },
             data: {
-                dependsOn: {
+                Task_TaskDependency_A: {
                     disconnect: { id: dependsOnId },
                 },
             },
         });
 
-        // 6. OPTIMIZED: Only revalidate the specific project cache
-        // Removed: global subtasks cache (too broad, causes slowdowns)
-        revalidateTag(`project-tasks-${projectId}`);
+        // 6. OPTIMIZED: Use comprehensive cache invalidation
+        // Invalidates project tasks and subtasks for Gantt view
+        await invalidateProjectTasks(projectId);
+        await invalidateProjectSubTasks(projectId);
 
         return { success: true, message: "Dependency removed successfully" };
     } catch (error) {
@@ -235,14 +240,14 @@ async function checkCircularDependency(subtaskId: string, dependsOnId: string): 
         const task = await prisma.task.findUnique({
             where: { id: currentId },
             select: {
-                dependsOn: {
+                Task_TaskDependency_A: {
                     select: { id: true },
                 },
             },
         });
 
-        if (task?.dependsOn) {
-            queue.push(...task.dependsOn.map((t) => t.id));
+        if (task?.Task_TaskDependency_A) {
+            queue.push(...task.Task_TaskDependency_A.map((t: { id: string }) => t.id));
         }
     }
 

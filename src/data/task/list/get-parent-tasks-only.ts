@@ -5,6 +5,7 @@ import { unstable_cache } from "next/cache";
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
+import { CacheTags } from "@/data/cache-tags";
 
 // ============================================
 // INTERNAL FUNCTIONS (Actual DB queries)
@@ -150,7 +151,7 @@ const getCachedParentTasksOnly = (
         async () => _getParentTasksOnlyInternal(projectId, workspaceId, userId, workspaceMemberId, isMember, page, pageSize),
         [`project-parent-tasks-${projectId}-user-${userId}-page-${page}`],
         {
-            tags: [`project-tasks-${projectId}`, `project-tasks-user-${userId}`, `parent-tasks-only`],
+            tags: CacheTags.parentTasksOnly(projectId, userId),
             revalidate: 60, // 1 minute
         }
     )();

@@ -29,7 +29,7 @@ interface SubTaskListProps {
     selectedSubTasks?: Set<string>;
     onSelectSubTask?: (subTaskId: string, checked: boolean) => void;
     level?: "workspace" | "project";
-    tags?: { id: string; name: string; color: string; }[];
+    tags?: { id: string; name: string; }[];
 }
 
 export function SubTaskList({

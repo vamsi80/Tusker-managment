@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
 import { WorkspaceRole } from "@/generated/prisma/client";
+import { CacheTags } from "@/data/cache-tags";
 
 /**
  * Types for workspace list data
@@ -82,7 +83,7 @@ const getCachedWorkspaces = (userId: string) =>
         async () => _fetchWorkspacesInternal(userId),
         [`user-workspaces-${userId}`],
         {
-            tags: [`user-workspaces-${userId}`, "workspaces"],
+            tags: CacheTags.userWorkspaces(userId),
             revalidate: 60, // 1 minute
         }
     )();

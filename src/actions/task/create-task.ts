@@ -1,13 +1,16 @@
 "use server";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
-import { invalidateProjectTasks, invalidateWorkspaceTasks } from "@/lib/cache/invalidation";
+import { invalidateTaskMutation } from "@/lib/cache/invalidation";
+import { requireUser } from "@/lib/auth/require-user";
 import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
 import { TaskSchemaType, taskSchema } from "@/lib/zodSchemas";
-import { revalidatePath } from "next/cache";
 
 export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
     try {
+        // Authenticate user
+        const user = await requireUser();
+
         const validation = taskSchema.safeParse(values);
         if (!validation.success) {
             return {
@@ -55,10 +58,14 @@ export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
             }
         });
 
-        // 4. Revalidate cache (path + task cache + workspace cache)
-        revalidatePath(`/w/${project.workspaceId}/p/${project.slug}/task`);
-        await invalidateProjectTasks(values.projectId);
-        await invalidateWorkspaceTasks(project.workspaceId);
+        // 4. OPTIMIZED: Use comprehensive cache invalidation
+        // Removed revalidatePath (slow) - using invalidateTaskMutation instead
+        await invalidateTaskMutation({
+            taskId: newTask.id,
+            projectId: values.projectId,
+            workspaceId: project.workspaceId,
+            userId: user.id
+        });
 
         return {
             status: "success",

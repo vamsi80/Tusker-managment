@@ -5,6 +5,7 @@ import { unstable_cache } from "next/cache";
 import prisma from "@/lib/db";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth/require-user";
+import { CacheTags } from "@/data/cache-tags";
 
 // Internal function that does the actual data fetching
 async function _getUserProjectsInternal(userId: string, workspaceId: string) {
@@ -64,7 +65,7 @@ const getCachedUserProjects = (userId: string, workspaceId: string) =>
         async () => _getUserProjectsInternal(userId, workspaceId),
         [`user-projects-${userId}-${workspaceId}`],
         {
-            tags: [`user-projects-${userId}`, `workspace-projects-${workspaceId}`],
+            tags: CacheTags.userProjects(userId, workspaceId),
             revalidate: 60, // Disable cache for now to reflect DB changes immediately
         }
     )();

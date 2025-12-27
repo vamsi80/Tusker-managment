@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, useMemo } from "react";
 import { Resolver, useForm } from "react-hook-form";
 import { Check, Loader2, Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { subTaskSchema, SubTaskSchemaType } from "@/lib/zodSchemas";
 import { tryCatch } from "@/hooks/try-catch";
 import { toast } from "sonner";
@@ -44,10 +45,13 @@ type SubTaskBase = {
 interface EditSubTaskFormProps<T extends SubTaskBase> {
     subTask: T;
     members: ProjectMembersType;
-    projectId: string;
-    parentTaskId: string;
+    projectId?: string; // Optional for workspace level
+    parentTaskId?: string; // Optional for workspace level
     onSubTaskUpdated?: (updatedData: Partial<T>) => void;
-    tags?: { id: string; name: string; color: string; }[]; // Dynamic tags
+    level?: "workspace" | "project"; // Explicitly define the level
+    tags?: { id: string; name: string; }[]; // Dynamic tags
+    projects?: { id: string; name: string; }[]; // For workspace-level project selection
+    parentTasks?: { id: string; name: string; projectId: string; }[]; // For workspace-level parent task selection
 }
 
 export function EditSubTaskForm<T extends SubTaskBase>({
@@ -56,12 +60,24 @@ export function EditSubTaskForm<T extends SubTaskBase>({
     projectId,
     parentTaskId,
     onSubTaskUpdated,
+    level = "project", // Default to project level
     tags = [], // Default to empty array
+    projects = [], // Default to empty array
+    parentTasks = [], // Default to empty array
 }: EditSubTaskFormProps<T>) {
     const [pending, startTransition] = useTransition();
     const [open, setOpen] = useState(false);
+    const [selectedProjectId, setSelectedProjectId] = useState<string>(projectId || "");
     const router = useRouter();
     const reloadView = useReloadView();
+
+    // Memoize filtered parent tasks to prevent infinite loops
+    const filteredParentTasks = useMemo(() => {
+        if (level === "workspace" && selectedProjectId) {
+            return parentTasks.filter(task => task.projectId === selectedProjectId);
+        }
+        return parentTasks;
+    }, [level, selectedProjectId, parentTasks]);
 
     const form = useForm<SubTaskSchemaType>({
         resolver: zodResolver(subTaskSchema) as unknown as Resolver<SubTaskSchemaType>,
@@ -78,6 +94,8 @@ export function EditSubTaskForm<T extends SubTaskBase>({
             days: subTask.days || 0,
         },
     });
+
+
 
     function onSubmit(values: SubTaskSchemaType) {
         // Check if there are any actual changes
@@ -164,6 +182,80 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                 )}
                             />
 
+                            {/* Project Selection - Only for workspace level */}
+                            {level === "workspace" && projects.length > 0 && (
+                                <FormField
+                                    control={form.control}
+                                    name="projectId"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Project *</FormLabel>
+                                            <Select
+                                                onValueChange={(value) => {
+                                                    field.onChange(value);
+                                                    setSelectedProjectId(value);
+                                                }}
+                                                value={field.value}
+                                            >
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select a project" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    {projects.map((project) => (
+                                                        <SelectItem key={project.id} value={project.id}>
+                                                            {project.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormDescription>
+                                                Change the project for this subtask
+                                            </FormDescription>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            )}
+
+                            {/* Parent Task Selection - Only for workspace level */}
+                            {level === "workspace" && filteredParentTasks.length > 0 && (
+                                <FormField
+                                    control={form.control}
+                                    name="parentTaskId"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Parent Task *</FormLabel>
+                                            <Select
+                                                onValueChange={field.onChange}
+                                                value={field.value}
+                                                disabled={!selectedProjectId}
+                                            >
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder={selectedProjectId ? "Select a parent task" : "Select a project first"} />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    {filteredParentTasks.map((task) => (
+                                                        <SelectItem key={task.id} value={task.id}>
+                                                            {task.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormDescription>
+                                                {selectedProjectId
+                                                    ? "Change the parent task for this subtask"
+                                                    : "Please select a project first"}
+                                            </FormDescription>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            )}
+
                             {/* Description */}
                             <FormField
                                 control={form.control}
@@ -203,14 +295,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                                                 : "border-muted hover:border-primary/50"
                                                         )}
                                                         onClick={() => field.onChange(tag.id)}
-                                                        style={{
-                                                            backgroundColor: field.value === tag.id ? `${tag.color}20` : 'transparent',
-                                                        }}
                                                     >
-                                                        <div
-                                                            className="size-3 rounded-full"
-                                                            style={{ backgroundColor: tag.color }}
-                                                        />
                                                         <span className="text-xs font-normal">{tag.name}</span>
                                                     </div>
                                                 ))}

@@ -150,7 +150,7 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                         )}
                     </div>
 
-                    {subTask.tag && (
+                    {subTask.tagId && (
                         <div className="flex items-center gap-1">
                             <Tag className="h-2.5 w-2.5 text-muted-foreground" />
                             <span
@@ -158,7 +158,7 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                                     "text-[10px] font-medium text-muted-foreground"
                                 )}
                             >
-                                {subTask.tag}
+                                {subTask.tagId}
                             </span>
                         </div>
                     )}

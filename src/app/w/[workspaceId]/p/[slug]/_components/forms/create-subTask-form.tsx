@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useTransition, useState, useEffect } from "react";
+import { useTransition, useState, useEffect, useMemo } from "react";
 import { Resolver, useForm } from "react-hook-form";
 import { Check, Loader2, PlusIcon, SparkleIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -17,6 +17,7 @@ import { ProjectMembersType } from "@/data/project/get-project-members";
 import slugify from "slugify";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { createSubTask } from "@/actions/task/create-subTask";
@@ -25,11 +26,14 @@ import { useReloadView } from "@/hooks/use-reload-view";
 interface iAppProps {
     members: ProjectMembersType;
     workspaceId: string;
-    projectId?: string; // Optional for workspace-level
-    parentTaskId?: string; // Optional for workspace-level
+    projectId?: string;
+    parentTaskId?: string;
     onSubTaskCreated?: (subTask: any) => void;
-    level?: "workspace" | "project"; // Explicitly define the level
-    tags?: { id: string; name: string; color: string; }[]; // Dynamic tags
+    level?: "workspace" | "project";
+    tags?: { id: string; name: string; }[];
+    parentTasks?: { id: string; name: string; projectId: string; }[];
+    projects?: { id: string; name: string; }[];
+    customTrigger?: React.ReactNode;
 }
 
 export const CreateSubTaskForm = ({
@@ -38,15 +42,31 @@ export const CreateSubTaskForm = ({
     projectId,
     parentTaskId,
     onSubTaskCreated,
-    level = "project", // Default to project level for backward compatibility
-    tags = [], // Default to empty array
+    level = "project",
+    tags = [],
+    parentTasks = [],
+    projects = [],
+    customTrigger,
 }: iAppProps) => {
     const [pending, startTransition] = useTransition();
     const { triggerConfetti } = useConfetti();
     const [open, setOpen] = useState(false);
     const [autoSlugEnabled, setAutoSlugEnabled] = useState(true);
+
+    // Initialize selectedProjectId from projectId or first parent task's projectId
+    const initialProjectId = projectId || (parentTasks.length > 0 ? parentTasks[0].projectId : "");
+    const [selectedProjectId, setSelectedProjectId] = useState<string>(initialProjectId);
+
     const router = useRouter();
     const reloadView = useReloadView();
+
+    // Memoize filtered parent tasks to prevent infinite loops
+    const filteredParentTasks = useMemo(() => {
+        if (level === "workspace" && selectedProjectId) {
+            return parentTasks.filter(task => task.projectId === selectedProjectId);
+        }
+        return parentTasks;
+    }, [level, selectedProjectId, parentTasks]);
 
     const form = useForm<SubTaskSchemaType>({
         resolver: zodResolver(subTaskSchema) as unknown as Resolver<SubTaskSchemaType>,
@@ -59,8 +79,8 @@ export const CreateSubTaskForm = ({
             assignee: "",
             status: "TO_DO",
             tag: tags[0]?.id || "", // Use first tag's ID or empty string
-            projectId: projectId || "", // Use empty string if not provided
-            parentTaskId: parentTaskId || "", // Use empty string if not provided
+            projectId: projectId || (parentTasks.length > 0 ? parentTasks[0].projectId : "") || "",
+            parentTaskId: parentTaskId || (parentTasks.length > 0 ? parentTasks[0].id : "") || "",
         },
     })
 
@@ -82,8 +102,26 @@ export const CreateSubTaskForm = ({
     useEffect(() => {
         if (open) {
             setAutoSlugEnabled(true);
+            // Reset to initial project if at workspace level
+            if (level === "workspace") {
+                setSelectedProjectId(initialProjectId);
+            }
         }
-    }, [open]);
+    }, [open, level, initialProjectId]);
+
+    // Auto-select first parent task when project changes
+    useEffect(() => {
+        if (level === "workspace" && selectedProjectId && filteredParentTasks.length > 0) {
+            const currentParentTaskId = form.getValues('parentTaskId');
+            const isCurrentTaskInProject = filteredParentTasks.some(t => t.id === currentParentTaskId);
+
+            // If current parent task is not in the filtered list, select the first one
+            if (!isCurrentTaskInProject) {
+                form.setValue('parentTaskId', filteredParentTasks[0].id);
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedProjectId, filteredParentTasks, level]);
 
     function onSubmit(data: SubTaskSchemaType) {
         startTransition(async () => {
@@ -125,10 +163,12 @@ export const CreateSubTaskForm = ({
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button size="sm">
-                    <PlusIcon className="mr-2 size-4" />
-                    {level === "workspace" ? "Create Task" : "Create Sub-Task"}
-                </Button>
+                {customTrigger || (
+                    <Button size="sm">
+                        <PlusIcon className="mr-2 size-4" />
+                        {level === "workspace" ? "Create Task" : "Create Sub-Task"}
+                    </Button>
+                )}
             </DialogTrigger>
             <DialogContent className="max-h-[98vh] w-[min(900px,95vw)] overflow-hidden">
                 <DialogHeader>
@@ -156,6 +196,83 @@ export const CreateSubTaskForm = ({
                                     </FormItem>
                                 )}
                             />
+
+                            {/* Project and Parent Task Selection - Side by side on desktop, stacked on mobile */}
+                            {level === "workspace" && projects.length > 0 && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {/* Project Selection */}
+                                    <FormField
+                                        control={form.control}
+                                        name="projectId"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Project *</FormLabel>
+                                                <Select
+                                                    onValueChange={(value) => {
+                                                        field.onChange(value);
+                                                        setSelectedProjectId(value);
+                                                    }}
+                                                    value={field.value}
+                                                >
+                                                    <FormControl>
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select a project" />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        {projects.map((project) => (
+                                                            <SelectItem key={project.id} value={project.id}>
+                                                                {project.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormDescription>
+                                                    Select the project for this subtask
+                                                </FormDescription>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+
+                                    {/* Parent Task Selection */}
+                                    {filteredParentTasks.length > 0 && (
+                                        <FormField
+                                            control={form.control}
+                                            name="parentTaskId"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Parent Task *</FormLabel>
+                                                    <Select
+                                                        onValueChange={field.onChange}
+                                                        value={field.value}
+                                                        disabled={!selectedProjectId}
+                                                    >
+                                                        <FormControl>
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder={selectedProjectId ? "Select a parent task" : "Select a project first"} />
+                                                            </SelectTrigger>
+                                                        </FormControl>
+                                                        <SelectContent>
+                                                            {filteredParentTasks.map((task) => (
+                                                                <SelectItem key={task.id} value={task.id}>
+                                                                    {task.name}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <FormDescription>
+                                                        {selectedProjectId
+                                                            ? "Select the parent task for this subtask"
+                                                            : "Please select a project first"}
+                                                    </FormDescription>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    )}
+                                </div>
+                            )}
 
                             <div className=" flex gap-4 items-end">
                                 <FormField
@@ -236,14 +353,7 @@ export const CreateSubTaskForm = ({
                                                                 : "border-muted hover:border-primary/50"
                                                         )}
                                                         onClick={() => field.onChange(tag.id)}
-                                                        style={{
-                                                            backgroundColor: field.value === tag.id ? `${tag.color}20` : 'transparent',
-                                                        }}
                                                     >
-                                                        <div
-                                                            className="size-3 rounded-full"
-                                                            style={{ backgroundColor: tag.color }}
-                                                        />
                                                         <span className="text-xs font-normal">{tag.name}</span>
                                                     </div>
                                                 ))}

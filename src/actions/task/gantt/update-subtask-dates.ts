@@ -3,7 +3,10 @@
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
-import { revalidateTag } from "next/cache";
+import {
+    invalidateTaskMutation,
+    invalidateProjectSubTasks
+} from "@/lib/cache/invalidation";
 
 export interface UpdateSubtaskDatesResult {
     success: boolean;
@@ -74,7 +77,7 @@ export async function updateSubtaskDates(
                         projectId: true,
                     },
                 },
-                dependedBy: {
+                Task_TaskDependency_B: {
                     select: {
                         id: true,
                         startDate: true,
@@ -109,11 +112,11 @@ export async function updateSubtaskDates(
 
         // 8. Prepare batch updates for dependent tasks
         const dependentUpdates = [];
-        if (subtask.dependedBy && subtask.dependedBy.length > 0) {
+        if (subtask.Task_TaskDependency_B && subtask.Task_TaskDependency_B.length > 0) {
             const newDependentStart = new Date(end);
             newDependentStart.setDate(newDependentStart.getDate() + 1);
 
-            for (const dependent of subtask.dependedBy) {
+            for (const dependent of subtask.Task_TaskDependency_B) {
                 if (dependent.startDate && dependent.days) {
                     if (dependent.startDate < newDependentStart) {
                         dependentUpdates.push(
@@ -139,10 +142,18 @@ export async function updateSubtaskDates(
             ...dependentUpdates,
         ]);
 
-        // 10. OPTIMIZED: Only revalidate the specific project cache
-        // Removed: user-specific cache (not needed for Gantt)
-        // Removed: global subtasks cache (too broad, slows down other views)
-        revalidateTag(`project-tasks-${projectId}`);
+        // 10. OPTIMIZED: Use comprehensive cache invalidation
+        // Invalidates subtask, parent task, project tasks, and Gantt view
+        await invalidateTaskMutation({
+            taskId: subtaskId,
+            projectId: projectId,
+            workspaceId: workspaceId,
+            userId: user.id,
+            parentTaskId: subtask.parentTask?.projectId ? subtaskId : undefined
+        });
+
+        // Also invalidate project subtasks for Gantt view
+        await invalidateProjectSubTasks(projectId);
 
         return { success: true, message: "Dates updated successfully" };
     } catch (error) {

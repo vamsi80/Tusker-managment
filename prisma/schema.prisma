@@ -182,14 +182,14 @@ model ClintMembers {
 }
 
 model Tag {
-  id          String    @id @default(uuid())
-  name        String
-  color       String    @default("#3b82f6") // Default blue color
-  workspaceId String
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  tasks       Task[]
+  id              String    @id @default(uuid())
+  name            String
+  requirePurchase Boolean?  @default(false)
+  workspaceId     String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  tasks           Task[]
 
   @@unique([workspaceId, name])
   @@index([workspaceId])

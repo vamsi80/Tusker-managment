@@ -4,6 +4,7 @@ import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
+import { CacheTags } from "@/data/cache-tags";
 
 /**
  * Internal function to fetch task comments
@@ -58,7 +59,7 @@ const getCachedTaskComments = (taskId: string) =>
         async () => _getTaskCommentsInternal(taskId),
         [`task-comments-${taskId}`],
         {
-            tags: [`task-comments-${taskId}`, `task-${taskId}`, `comments-all`],
+            tags: CacheTags.taskComments(taskId),
             revalidate: 30, // 30 seconds - comments change frequently
         }
     )();
@@ -116,11 +117,7 @@ const getCachedReviewComments = (subTaskId: string) =>
         async () => _getReviewCommentsInternal(subTaskId),
         [`review-comments-${subTaskId}`],
         {
-            tags: [
-                `review-comments-${subTaskId}`,
-                `subtask-${subTaskId}`,
-                `review-comments-all`
-            ],
+            tags: CacheTags.reviewComments(subTaskId),
             revalidate: 30, // 30 seconds - review comments change frequently
         }
     )();

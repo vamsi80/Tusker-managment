@@ -1,12 +1,11 @@
 "use server";
 
 import { getUserPermissions } from "@/data/user/get-user-permissions";
-import { invalidateProjectTasks, invalidateTaskSubTasks, invalidateWorkspaceTasks } from "@/lib/cache/invalidation";
+import { invalidateTaskMutation } from "@/lib/cache/invalidation";
 import { requireUser } from "@/lib/auth/require-user";
 import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
 import { SubTaskSchemaType, subTaskSchema } from "@/lib/zodSchemas";
-import { revalidatePath } from "next/cache";
 
 export async function createSubTask(values: SubTaskSchemaType): Promise<ApiResponse> {
     const user = await requireUser();
@@ -115,11 +114,14 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
             }
         });
 
-        // Revalidate cache (path + task/subtask caches + workspace cache)
-        revalidatePath(`/w/${project.workspaceId}/p/${project.slug}/task`);
-        await invalidateProjectTasks(values.projectId);
-        await invalidateTaskSubTasks(values.parentTaskId);
-        await invalidateWorkspaceTasks(project.workspaceId);
+        // OPTIMIZED: Use comprehensive cache invalidation
+        await invalidateTaskMutation({
+            taskId: newSubTask.id,
+            projectId: values.projectId,
+            workspaceId: project.workspaceId,
+            userId: user.id,
+            parentTaskId: values.parentTaskId
+        });
 
         return {
             status: "success",

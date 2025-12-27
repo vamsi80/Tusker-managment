@@ -1,6 +1,7 @@
-import { Icon, IconCirclePlusFilled } from "@tabler/icons-react"
+import { Icon } from "@tabler/icons-react"
 import { SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuButton, SidebarMenuItem, } from "@/components/ui/sidebar"
 import Link from "next/link";
+import { QuickCreateSubTask } from "./quick-create-subtask";
 
 /**
  * Main navigation items for the workspace sidebar.
@@ -8,28 +9,21 @@ import Link from "next/link";
  */
 export function NavMain({
   items,
+  workspaceId,
 }: {
   items: {
     title: string
     url: string
     icon?: Icon | undefined
   }[]
+  workspaceId: string
 }) {
   return (
     <SidebarGroup>
       <SidebarGroupContent className="flex flex-col gap-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton
-              tooltip="Quick Create Task"
-              className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground min-w-8 duration-200 ease-linear shadow-sm"
-              asChild
-            >
-              <Link href="#" className="flex items-center gap-2">
-                <IconCirclePlusFilled size={20} />
-                <span className="font-semibold">Quick Create Task</span>
-              </Link>
-            </SidebarMenuButton>
+            <QuickCreateSubTask workspaceId={workspaceId} />
           </SidebarMenuItem>
         </SidebarMenu>
 

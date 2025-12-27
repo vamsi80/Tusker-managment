@@ -24,7 +24,6 @@ export interface ParentTaskOption {
 export interface TagOption {
     id: string;
     name: string;
-    color: string;
 }
 
 // Add custom theme overrides for react-date-range
@@ -503,13 +502,7 @@ export function GlobalFilterToolbar({
                                                 <SelectItem value="__all__">All Tags</SelectItem>
                                                 {tags.map((tag) => (
                                                     <SelectItem key={tag.id} value={tag.id}>
-                                                        <div className="flex items-center gap-2">
-                                                            <div
-                                                                className="h-2 w-2 rounded-full"
-                                                                style={{ backgroundColor: tag.color }}
-                                                            />
-                                                            {tag.name}
-                                                        </div>
+                                                        {tag.name}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>

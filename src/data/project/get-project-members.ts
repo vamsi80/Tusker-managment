@@ -4,6 +4,7 @@ import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
+import { CacheTags } from "@/data/cache-tags";
 
 /**
  * Internal function to fetch project members
@@ -41,7 +42,7 @@ const getCachedProjectMembers = (projectId: string) =>
         async () => _getProjectMembersInternal(projectId),
         [`project-members-${projectId}`],
         {
-            tags: [`project-members-${projectId}`],
+            tags: CacheTags.projectMembers(projectId),
             revalidate: 60, // Cache for 60 seconds
         }
     )();

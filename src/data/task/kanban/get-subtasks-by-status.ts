@@ -1,9 +1,11 @@
 "use server";
 
 import { cache } from "react";
-import prisma from "@/lib/db";
 import { unstable_cache } from "next/cache";
-import { getWorkspacePermissions, getUserPermissions } from "@/data/user/get-user-permissions";
+import prisma from "@/lib/db";
+import { requireUser } from "@/lib/auth/require-user";
+import { getUserPermissions, getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import { CacheTags, withCustomTags } from "@/data/cache-tags";
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED";
 
@@ -87,7 +89,7 @@ async function _getSubTasksByStatusInternal(
                 position: true,
                 startDate: true,
                 days: true,
-                tag: true,
+                tagId: true, // Select tagId instead of tag relation
                 parentTaskId: true,
                 isPinned: true,
                 pinnedAt: true,
@@ -162,14 +164,18 @@ const getCachedSubTasksByStatus = (
 ) =>
     unstable_cache(
         async () => _getSubTasksByStatusInternal(workspaceId, workspaceMemberId, isAdmin, isProjectLead, status, projectId, page, pageSize),
-        [`kanban-ws-${workspaceId}-${projectId || 'all'}-${status}-${userId}-lead${isProjectLead}-p${page}-s${pageSize}`],
+        [`kanban - ws - ${workspaceId} -${projectId || 'all'} -${status} -${userId} -lead${isProjectLead} -p${page} -s${pageSize} `],
         {
-            tags: [
-                `workspace-tasks-${workspaceId}`,
-                ...(projectId ? [`project-tasks-${projectId}`] : []),
-                `kanban-${status}`,
-                `kanban-all`
-            ],
+            tags: projectId
+                ? withCustomTags(
+                    CacheTags.subtasksByStatus(projectId, status),
+                    `workspace - tasks - ${workspaceId} `
+                )
+                : withCustomTags(
+                    CacheTags.workspaceTasks(workspaceId),
+                    `kanban - ${status} `,
+                    'kanban-all'
+                ),
             revalidate: 30,
         }
     )();

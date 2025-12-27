@@ -5,14 +5,7 @@ import { NavProjectsAsync } from "./projectsList/nav-projects-async";
 import { NavWorkspacesSelector } from "./header/nav-workspaces-selector";
 import { IconCheckupList, IconDashboard, IconPackageImport, IconSettings, IconTruck, IconUsersPlus } from "@tabler/icons-react";
 import { NavFooter } from "./footer/nav-footer";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuItem
-} from "@/components/ui/sidebar";
+import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuItem } from "@/components/ui/sidebar";
 import { NavProjectsSkeleton } from "./projectsList/projects-skeleton";
 import { WorkspacesType } from "@/data/workspace/get-workspaces";
 
@@ -30,9 +23,9 @@ export async function AppSidebar({ data, workspaceId, ...props }: React.Componen
   const mainNavItems = [
     { title: "Dashboard", url: `/w/${workspaceId}`, icon: IconDashboard },
     { title: "Team", url: `/w/${workspaceId}/team`, icon: IconUsersPlus },
-    { title: "Vendor", url: `/w/${workspaceId}/vendor`, icon: IconTruck },
-    { title: "Procurement", url: `/w/${workspaceId}/procurement`, icon: IconPackageImport },
     { title: "Tasks", url: `/w/${workspaceId}/tasks`, icon: IconCheckupList },
+    { title: "Procurement", url: `/w/${workspaceId}/procurement`, icon: IconPackageImport },
+    { title: "Vendor", url: `/w/${workspaceId}/vendor`, icon: IconTruck },
   ];
 
   const footerNavItems = [
@@ -50,7 +43,7 @@ export async function AppSidebar({ data, workspaceId, ...props }: React.Componen
       </SidebarHeader>
 
       <SidebarContent className="px-2">
-        <NavMain items={mainNavItems} />
+        <NavMain items={mainNavItems} workspaceId={workspaceId} />
 
         <React.Suspense fallback={<NavProjectsSkeleton />}>
           <NavProjectsAsync workspaceId={workspaceId} />

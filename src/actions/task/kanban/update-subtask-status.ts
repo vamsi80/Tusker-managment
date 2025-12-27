@@ -1,10 +1,13 @@
 "use server";
 
-import { revalidatePath, revalidateTag } from "next/cache";
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
 import { headers } from "next/headers";
+import {
+    invalidateTaskMutation,
+    invalidateProjectSubTasks
+} from "@/lib/cache/invalidation";
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED";
 
@@ -268,10 +271,18 @@ export async function updateSubTaskStatus(
             return { updated, auditLog };
         });
 
-        // 13. OPTIMIZED: Only revalidate the specific project cache
-        // Removed: global cache (too broad, slows down other projects)
-        // Removed: revalidatePath (slower than revalidateTag)
-        revalidateTag(`project-tasks-${projectId}`);
+        // 13. OPTIMIZED: Use comprehensive cache invalidation
+        // Invalidates: subtask, parent task, project tasks, workspace tasks
+        await invalidateTaskMutation({
+            taskId: subTaskId,
+            projectId: projectId,
+            workspaceId: workspaceId,
+            userId: user.id,
+            parentTaskId: subTask.parentTask?.projectId ? subTaskId : undefined
+        });
+
+        // Also invalidate project subtasks for Kanban view
+        await invalidateProjectSubTasks(projectId);
 
         return {
             success: true,

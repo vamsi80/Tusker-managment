@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { taskSchema, TaskSchemaType } from "@/lib/zodSchemas";
 import { tryCatch } from "@/hooks/try-catch";
 import { useConfetti } from "@/hooks/use-confetti";
@@ -19,10 +20,18 @@ import { createTask } from "@/actions/task/create-task";
 import { useReloadView } from "@/hooks/use-reload-view";
 
 interface iAppProps {
-    projectId: string
+    workspaceId: string;
+    projectId?: string; // Optional for workspace-level
+    level?: "workspace" | "project"; // Explicitly define the level
+    projects?: { id: string; name: string; }[]; // For workspace-level project selection
 }
 
-export const CreateTaskForm = ({ projectId }: iAppProps) => {
+export const CreateTaskForm = ({
+    workspaceId,
+    projectId,
+    level = "project", // Default to project level for backward compatibility
+    projects = [], // Default to empty array
+}: iAppProps) => {
     const [Pending, startTransition] = useTransition();
     const { triggerConfetti } = useConfetti();
     const [open, setOpen] = useState(false);
@@ -36,7 +45,7 @@ export const CreateTaskForm = ({ projectId }: iAppProps) => {
         defaultValues: {
             name: "",
             taskSlug: "",
-            projectId: projectId,
+            projectId: projectId || (projects.length > 0 ? projects[0].id : ""),
         },
     })
 
@@ -131,6 +140,34 @@ export const CreateTaskForm = ({ projectId }: iAppProps) => {
                                         </FormItem>
                                     )}
                                 />
+
+                                {/* Project Selection - Only for workspace level */}
+                                {level === "workspace" && projects.length > 0 && (
+                                    <FormField
+                                        control={form.control}
+                                        name="projectId"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Project</FormLabel>
+                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                    <FormControl>
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select a project" />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        {projects.map((project) => (
+                                                            <SelectItem key={project.id} value={project.id}>
+                                                                {project.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                )}
                                 <div className=" flex gap-4 items-end">
                                     <FormField
                                         control={form.control}

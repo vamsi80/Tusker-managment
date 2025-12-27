@@ -6,8 +6,9 @@ import { Resolver, useForm } from "react-hook-form";
 import { Loader2, Pencil, SparkleIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { taskSchema, TaskSchemaType } from "@/lib/zodSchemas";
 import { tryCatch } from "@/hooks/try-catch";
 import { toast } from "sonner";
@@ -18,9 +19,12 @@ import { useReloadView } from "@/hooks/use-reload-view";
 
 interface EditTaskDialogProps {
     task: TaskWithSubTasks;
+    projectId?: string; // Optional for workspace level
     onTaskUpdated?: (updatedTask: { name: string; taskSlug: string }) => void;
     onUpdateStart?: () => void;
     onUpdateEnd?: () => void;
+    level?: "workspace" | "project"; // Explicitly define the level
+    projects?: { id: string; name: string; }[]; // For workspace-level project selection
 }
 
 /**
@@ -30,10 +34,19 @@ interface EditTaskDialogProps {
  * - Shows skeleton for specific task during update
  * - Auto-refreshes task list after update
  */
-export function EditTaskDialog({ task, onTaskUpdated, onUpdateStart, onUpdateEnd }: EditTaskDialogProps) {
+export function EditTaskDialog({
+    task,
+    projectId,
+    onTaskUpdated,
+    onUpdateStart,
+    onUpdateEnd,
+    level = "project", // Default to project level
+    projects = [], // Default to empty array
+}: EditTaskDialogProps) {
     const [pending, startTransition] = useTransition();
     const [open, setOpen] = useState(false);
     const [autoSlugEnabled, setAutoSlugEnabled] = useState(true);
+    const [selectedProjectId, setSelectedProjectId] = useState<string>(projectId || task.projectId || "");
     const reloadView = useReloadView();
 
     const form = useForm<TaskSchemaType>({
@@ -133,6 +146,43 @@ export function EditTaskDialog({ task, onTaskUpdated, onUpdateStart, onUpdateEnd
                             onSubmit={form.handleSubmit(onSubmit, (errors) => console.log("Validation Errors:", errors))}
                             className="space-y-5"
                         >
+                            {/* Project Selection - Only for workspace level */}
+                            {level === "workspace" && projects.length > 0 && (
+                                <FormField
+                                    control={form.control}
+                                    name="projectId"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Project *</FormLabel>
+                                            <Select
+                                                onValueChange={(value) => {
+                                                    field.onChange(value);
+                                                    setSelectedProjectId(value);
+                                                }}
+                                                value={field.value}
+                                            >
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select a project" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    {projects.map((project) => (
+                                                        <SelectItem key={project.id} value={project.id}>
+                                                            {project.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormDescription>
+                                                Change the project for this task
+                                            </FormDescription>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            )}
+
                             <FormField
                                 control={form.control}
                                 name="name"

@@ -5,6 +5,7 @@ import { unstable_cache } from "next/cache";
 import { notFound } from "next/navigation";
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
+import { CacheTags } from "@/data/cache-tags";
 
 export interface FullProjectData {
     id: string;
@@ -124,7 +125,7 @@ const getCachedFullProjectData = (projectId: string, userId: string) =>
         async () => _getFullProjectDataInternal(projectId, userId),
         [`full-project-${projectId}-${userId}`],
         {
-            tags: [`full-project-${projectId}`, `project-${projectId}`],
+            tags: CacheTags.fullProject(projectId),
             revalidate: 30 // 30 seconds - project details change more frequently
         }
     )();

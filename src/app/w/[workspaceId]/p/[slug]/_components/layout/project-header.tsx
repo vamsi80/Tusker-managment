@@ -30,7 +30,10 @@ function ProjectHeader({ workspaceId, slug }: ProjectHeaderProps = {}) {
                     {pageData.permissions.canPerformBulkOperations && (
                         <>
                             <BulkUploadForm projectId={pageData.project.id} />
-                            <CreateTaskForm projectId={pageData.project.id} />
+                            <CreateTaskForm
+                                workspaceId={pageData.project.workspaceId}
+                                projectId={pageData.project.id}
+                            />
                         </>
                     )}
                 </div>

@@ -2,7 +2,10 @@
 
 import prisma from "@/lib/db";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
-import { revalidateTag } from "next/cache";
+import {
+    invalidateProjectSubTasks,
+    invalidateTaskSubTasks
+} from "@/lib/cache/invalidation";
 
 export interface UpdatePositionInput {
     subtaskId: string;
@@ -95,9 +98,10 @@ export async function updateSubtaskPositions(
             )
         );
 
-        // 5. OPTIMIZED: Use only revalidateTag (faster than revalidatePath)
-        // Only invalidate the specific project cache
-        revalidateTag(`project-tasks-${projectId}`);
+        // 5. OPTIMIZED: Use comprehensive cache invalidation
+        // Invalidates parent task subtasks + project subtasks for Gantt view
+        await invalidateTaskSubTasks(parentTaskId);
+        await invalidateProjectSubTasks(projectId);
 
         return { success: true, message: "Positions updated successfully" };
     } catch (error) {

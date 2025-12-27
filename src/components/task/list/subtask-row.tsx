@@ -27,7 +27,7 @@ interface SubTaskRowProps {
     parentTaskId: string;
     onSubTaskUpdated?: (subTaskId: string, updatedData: Partial<SubTaskType>) => void;
     onSubTaskDeleted?: (subTaskId: string) => void;
-    tags?: { id: string; name: string; color: string; }[]; // Dynamic tags
+    tags?: { id: string; name: string; }[]; // Dynamic tags
     isSelected?: boolean;
     onSelectChange?: (checked: boolean) => void;
 }
@@ -285,10 +285,7 @@ export function SubTaskRow({
                         if (tag) {
                             return (
                                 <div className="flex items-center gap-1.5">
-                                    <div
-                                        className="h-2.5 w-2.5 rounded-full"
-                                        style={{ backgroundColor: tag.color }}
-                                    />
+                                    <Tag className="size-3" />
                                     <span className="text-xs text-muted-foreground">{tag.name}</span>
                                 </div>
                             );

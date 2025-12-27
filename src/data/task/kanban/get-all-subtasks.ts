@@ -5,6 +5,7 @@ import prisma from "@/lib/db";
 import { unstable_cache } from "next/cache";
 import { requireUser } from "@/lib/auth/require-user";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
+import { CacheTags } from "@/data/cache-tags";
 
 // ============================================
 // INTERNAL FUNCTIONS (Actual DB queries)
@@ -50,7 +51,7 @@ async function _getAllSubTasksInternal(
             position: true,
             startDate: true,
             days: true,
-            tag: true,
+            tagId: true, // Select tagId instead of tag relation
             projectId: true,
             parentTaskId: true,
             createdAt: true,
@@ -132,7 +133,7 @@ const getCachedAllSubTasks = (
         async () => _getAllSubTasksInternal(projectId, workspaceId, workspaceMemberId, isMember),
         [`project-all-subtasks-${projectId}-member-${workspaceMemberId}`],
         {
-            tags: [`project-tasks-${projectId}`, `project-subtasks-${projectId}`, `project-subtasks-all`],
+            tags: CacheTags.projectSubTasks(projectId),
             revalidate: 60, // 1 minute
         }
     )();

@@ -45,7 +45,14 @@ export async function WorkspaceListView({
         projectId: task.projectId,
     }));
 
-    const tags = await getWorkspaceTags(workspaceId);
+    const tagsData = await getWorkspaceTags(workspaceId);
+
+    // Map tags to only include necessary fields (id, name)
+    // This prevents passing database fields like createdAt, updatedAt to client components
+    const tags = tagsData.map(tag => ({
+        id: tag.id,
+        name: tag.name,
+    }));
 
     return (
         <TaskTable

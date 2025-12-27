@@ -4,6 +4,7 @@ import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
+import { CacheTags } from "@/data/cache-tags";
 
 /**
  * Internal function to fetch project by slug or ID
@@ -37,7 +38,7 @@ const getCachedProjectBySlug = (workspaceId: string, slug: string) =>
         async () => _getProjectBySlugInternal(workspaceId, slug),
         [`project-${workspaceId}-${slug}`],
         {
-            tags: [`project-${slug}`, `workspace-${workspaceId}-projects`],
+            tags: CacheTags.projectBySlug(slug, workspaceId),
             revalidate: 60 // 1 minute - projects don't change often
         }
     )();

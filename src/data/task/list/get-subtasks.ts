@@ -5,6 +5,7 @@ import { unstable_cache } from "next/cache";
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
+import { CacheTags } from "@/data/cache-tags";
 
 // ============================================
 // INTERNAL FUNCTIONS (Actual DB queries)
@@ -121,7 +122,7 @@ const getCachedSubTasks = (
         async () => _getSubTasksInternal(parentTaskId, workspaceId, projectId, workspaceMemberId, isMember, page, pageSize),
         [`task-subtasks-${parentTaskId}-member-${workspaceMemberId}-page-${page}-size-${pageSize}`],
         {
-            tags: [`task-subtasks-${parentTaskId}`, `task-subtasks-member-${workspaceMemberId}`, `task-subtasks-all`],
+            tags: CacheTags.taskSubTasks(parentTaskId, workspaceMemberId),
             revalidate: 60, // 1 minute
         }
     )();

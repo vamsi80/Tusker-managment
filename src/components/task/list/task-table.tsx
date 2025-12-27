@@ -33,7 +33,7 @@ interface TaskTableProps {
     projectId: string;
     canCreateSubTask: boolean;
     showAdvancedFilters?: boolean;
-    tags?: { id: string; name: string; color: string; }[]; // Dynamic tags
+    tags?: { id: string; name: string; }[]; // Dynamic tags
 }
 
 /**

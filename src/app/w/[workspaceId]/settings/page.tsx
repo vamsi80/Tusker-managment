@@ -10,7 +10,14 @@ interface SettingsPageProps {
 export default async function SettingsPage({ params }: SettingsPageProps) {
     const { workspaceId } = await params;
 
-    const tags = await getWorkspaceTagsWithCount(workspaceId);
+    const tagsData = await getWorkspaceTagsWithCount(workspaceId);
+
+    const tags = tagsData.map(tag => ({
+        id: tag.id,
+        name: tag.name,
+        requirePurchase: tag.requirePurchase ?? false,
+        _count: tag._count,
+    }));
 
     return (
         <div className="w-full">

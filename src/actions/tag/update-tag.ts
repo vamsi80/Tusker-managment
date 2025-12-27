@@ -9,7 +9,7 @@ import { tagNameExists } from "@/data/tag/get-tags";
 const updateTagSchema = z.object({
     tagId: z.string(),
     name: z.string().min(1, "Tag name is required").max(50, "Tag name must be less than 50 characters"),
-    color: z.string().regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/, "Invalid color format"),
+    requirePurchase: z.boolean().default(false),
     workspaceId: z.string(),
 });
 
@@ -41,7 +41,7 @@ export async function updateTag(data: z.infer<typeof updateTagSchema>) {
             },
             data: {
                 name: validatedData.name,
-                color: validatedData.color,
+                requirePurchase: validatedData.requirePurchase,
             },
         });
 
