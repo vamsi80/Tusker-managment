@@ -4,21 +4,13 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
 import { LayoutList, LayoutGrid, GanttChartSquare } from "lucide-react";
-import { ProjectMembersType } from "@/data/project/get-project-members";
-import { CreateTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/create-task-form";
-import { CreateSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/create-subTask-form";
-
 interface WorkspaceTasksHeaderClientProps {
     workspaceId: string;
-    projects: { id: string; name: string; }[];
-    members: ProjectMembersType;
-    tags: { id: string; name: string; }[];
-    parentTasks: { id: string; name: string; projectId: string; }[];
     permissions: {
         isWorkspaceAdmin: boolean;
         canCreateTasks: boolean;
         canCreateSubTasks: boolean;
-    };
+    } | null;
 }
 
 /**
@@ -28,10 +20,6 @@ interface WorkspaceTasksHeaderClientProps {
  */
 export function WorkspaceTasksHeaderClient({
     workspaceId,
-    projects,
-    members,
-    tags,
-    parentTasks,
     permissions,
 }: WorkspaceTasksHeaderClientProps) {
     const searchParams = useSearchParams();
@@ -76,10 +64,6 @@ export function WorkspaceTasksHeaderClient({
         );
     }
 
-    // Show create buttons only if user has permission and required data
-    const showCreateSubTask = permissions.canCreateSubTasks && parentTasks.length > 0;
-    const showCreateTask = permissions.canCreateTasks && projects.length > 0;
-
     return (
         <div className="space-y-4">
             {/* Title and Action Buttons */}
@@ -90,29 +74,6 @@ export function WorkspaceTasksHeaderClient({
                         View and manage tasks across all projects
                     </p>
                 </div>
-
-                {/* Create Buttons - Permission-based */}
-                {(showCreateSubTask || showCreateTask) && (
-                    <div className="flex items-center gap-3">
-                        {showCreateSubTask && (
-                            <CreateSubTaskForm
-                                workspaceId={workspaceId}
-                                members={members}
-                                level="workspace"
-                                tags={tags}
-                                parentTasks={parentTasks}
-                                projects={projects}
-                            />
-                        )}
-                        {showCreateTask && (
-                            <CreateTaskForm
-                                workspaceId={workspaceId}
-                                level="workspace"
-                                projects={projects}
-                            />
-                        )}
-                    </div>
-                )}
             </div>
 
             {/* View Tabs */}

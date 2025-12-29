@@ -66,14 +66,9 @@ export function SubTaskRow({
     };
 
     const handleSubTaskUpdated = (updatedData: Partial<SubTaskType>) => {
-        setIsUpdating(true);
         if (onSubTaskUpdated) {
             onSubTaskUpdated(subTask.id, updatedData);
         }
-
-        requestAnimationFrame(() => {
-            setIsUpdating(false);
-        });
     };
 
     const assignee = subTask.assignee?.workspaceMember?.user;
@@ -171,7 +166,10 @@ export function SubTaskRow({
         <TableRow
             ref={setNodeRef}
             style={style}
-            className="bg-muted/10 hover:bg-muted/20 cursor-pointer"
+            className={cn(
+                "bg-muted/10 hover:bg-muted/20 cursor-pointer",
+                (subTask as any).isOptimistic && "opacity-60 grayscale-[0.5]"
+            )}
             onClick={() => setIsEditing(true)}
         >
             <TableCell className="pl-4">

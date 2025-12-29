@@ -266,22 +266,26 @@ export async function invalidateTaskMutation(params: {
 }) {
     const { taskId, projectId, workspaceId, userId, parentTaskId } = params;
 
+    const invalidations: Promise<void>[] = [];
+
     // Invalidate task-specific caches
     if (taskId) {
-        await invalidateTask(taskId);
-        await invalidateTaskDetails(taskId, projectId);
+        invalidations.push(invalidateTask(taskId));
+        invalidations.push(invalidateTaskDetails(taskId, projectId));
     }
 
     // Invalidate project and workspace caches
-    await invalidateTaskCaches(projectId, workspaceId, userId);
+    invalidations.push(invalidateTaskCaches(projectId, workspaceId, userId));
 
     // Invalidate parent task subtasks if applicable
     if (parentTaskId) {
-        await invalidateTaskSubTasks(parentTaskId);
+        invalidations.push(invalidateTaskSubTasks(parentTaskId));
     }
 
     // Invalidate workspace task creation data
     if (userId) {
-        await invalidateWorkspaceTaskCreationData(workspaceId, userId);
+        invalidations.push(invalidateWorkspaceTaskCreationData(workspaceId, userId));
     }
+
+    await Promise.all(invalidations);
 }

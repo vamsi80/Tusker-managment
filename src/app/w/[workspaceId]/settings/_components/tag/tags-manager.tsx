@@ -37,9 +37,10 @@ interface Tag {
 interface TagsManagerProps {
     workspaceId: string;
     tags: Tag[];
+    isWorkspaceAdmin?: boolean;
 }
 
-export function TagsManager({ workspaceId, tags }: TagsManagerProps) {
+export function TagsManager({ workspaceId, tags, isWorkspaceAdmin = false }: TagsManagerProps) {
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingTag, setEditingTag] = useState<Tag | null>(null);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -47,22 +48,25 @@ export function TagsManager({ workspaceId, tags }: TagsManagerProps) {
     const [isDeleting, setIsDeleting] = useState(false);
 
     const handleEdit = (tag: Tag) => {
+        if (!isWorkspaceAdmin) return;
         setEditingTag(tag);
         setDialogOpen(true);
     };
 
     const handleCreate = () => {
+        if (!isWorkspaceAdmin) return;
         setEditingTag(null);
         setDialogOpen(true);
     };
 
     const handleDeleteClick = (tag: Tag) => {
+        if (!isWorkspaceAdmin) return;
         setTagToDelete(tag);
         setDeleteDialogOpen(true);
     };
 
     const handleDeleteConfirm = async () => {
-        if (!tagToDelete) return;
+        if (!tagToDelete || !isWorkspaceAdmin) return;
 
         setIsDeleting(true);
         try {
@@ -96,16 +100,18 @@ export function TagsManager({ workspaceId, tags }: TagsManagerProps) {
                                 Manage tags to organize and categorize your tasks
                             </CardDescription>
                         </div>
-                        <Button onClick={handleCreate}>
-                            <Plus className="mr-2 h-4 w-4" />
-                            Add Tag
-                        </Button>
+                        {isWorkspaceAdmin && (
+                            <Button onClick={handleCreate}>
+                                <Plus className="mr-2 h-4 w-4" />
+                                Add Tag
+                            </Button>
+                        )}
                     </div>
                 </CardHeader>
                 <CardContent>
                     {tags.length === 0 ? (
                         <div className="text-center text-muted-foreground">
-                            <p>No tags yet. Create your first tag to get started.</p>
+                            <p>No tags yet. {isWorkspaceAdmin ? "Create your first tag to get started." : "No tags available in this workspace."}</p>
                         </div>
                     ) : (
                         <div className="flex flex-wrap gap-1">
@@ -121,22 +127,24 @@ export function TagsManager({ workspaceId, tags }: TagsManagerProps) {
                                             ({tag._count.tasks})
                                         </span>
                                     )}
-                                    <div className="flex items-center gap-1 ml-1">
-                                        <button
-                                            onClick={() => handleEdit(tag)}
-                                            className="p-1 hover:bg-accent rounded transition-colors"
-                                            aria-label="Edit tag"
-                                        >
-                                            <Pencil className="h-3 w-3" />
-                                        </button>
-                                        <button
-                                            onClick={() => handleDeleteClick(tag)}
-                                            className="p-1 hover:bg-destructive/10 rounded transition-colors"
-                                            aria-label="Delete tag"
-                                        >
-                                            <X className="h-3 w-3" />
-                                        </button>
-                                    </div>
+                                    {isWorkspaceAdmin && (
+                                        <div className="flex items-center gap-1 ml-1">
+                                            <button
+                                                onClick={() => handleEdit(tag)}
+                                                className="p-1 hover:bg-accent rounded transition-colors"
+                                                aria-label="Edit tag"
+                                            >
+                                                <Pencil className="h-3 w-3" />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteClick(tag)}
+                                                className="p-1 hover:bg-destructive/10 rounded transition-colors"
+                                                aria-label="Delete tag"
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </button>
+                                        </div>
+                                    )}
                                 </Badge>
                             ))}
                         </div>
@@ -149,6 +157,7 @@ export function TagsManager({ workspaceId, tags }: TagsManagerProps) {
                 onOpenChange={setDialogOpen}
                 workspaceId={workspaceId}
                 tag={editingTag}
+                isWorkspaceAdmin={isWorkspaceAdmin}
             />
 
             <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

@@ -1,5 +1,6 @@
 import { getWorkspaceTagsWithCount } from "@/data/tag/get-tags";
 import { TagsManager } from "./_components/tag/tags-manager";
+import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 
 interface SettingsPageProps {
     params: Promise<{
@@ -10,7 +11,10 @@ interface SettingsPageProps {
 export default async function SettingsPage({ params }: SettingsPageProps) {
     const { workspaceId } = await params;
 
-    const tagsData = await getWorkspaceTagsWithCount(workspaceId);
+    const [tagsData, permissions] = await Promise.all([
+        getWorkspaceTagsWithCount(workspaceId),
+        getWorkspacePermissions(workspaceId)
+    ]);
 
     const tags = tagsData.map(tag => ({
         id: tag.id,
@@ -29,7 +33,11 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
             </div>
 
             <div className="space-y-2">
-                <TagsManager workspaceId={workspaceId} tags={tags} />
+                <TagsManager
+                    workspaceId={workspaceId}
+                    tags={tags}
+                    isWorkspaceAdmin={permissions.isWorkspaceAdmin}
+                />
             </div>
         </div>
     );

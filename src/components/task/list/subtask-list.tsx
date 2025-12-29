@@ -26,7 +26,7 @@ interface SubTaskListProps {
     onSubTaskClick?: (subTask: SubTaskType) => void;
     onSubTaskUpdated?: (subTaskId: string, updatedData: Partial<SubTaskType>) => void;
     onSubTaskDeleted?: (subTaskId: string) => void;
-    onSubTaskCreated?: (subTask: any) => void;
+    onSubTaskCreated?: (subTask: any, tempId?: string) => void;
     selectedSubTasks?: Set<string>;
     onSelectSubTask?: (subTaskId: string, checked: boolean) => void;
     level?: "workspace" | "project";
@@ -76,10 +76,11 @@ export function SubTaskList({
                             tags={tags}
                             columnVisibility={columnVisibility}
                             onCancel={() => setShowInlineSubTaskForm(false)}
-                            onSubTaskCreated={(subTask) => {
-                                onSubTaskCreated?.(subTask);
+                            onSubTaskCreated={(subTask, tempId) => {
+                                onSubTaskCreated?.(subTask, tempId);
                                 setShowInlineSubTaskForm(false);
                             }}
+                            onSubTaskDeleted={onSubTaskDeleted}
                         />
                     ) : (
                         <TableRow className="bg-muted/30 hover:bg-muted/20 cursor-pointer" onClick={() => setShowInlineSubTaskForm(true)}>
@@ -165,10 +166,11 @@ export function SubTaskList({
                         tags={tags}
                         columnVisibility={columnVisibility}
                         onCancel={() => setShowInlineSubTaskForm(false)}
-                        onSubTaskCreated={(subTask) => {
-                            onSubTaskCreated?.(subTask);
+                        onSubTaskCreated={(subTask, tempId) => {
+                            onSubTaskCreated?.(subTask, tempId);
                             setShowInlineSubTaskForm(false);
                         }}
+                        onSubTaskDeleted={onSubTaskDeleted}
                     />
                 ) : (
                     <TableRow className="bg-muted/30 hover:bg-muted/20 cursor-pointer" onClick={() => setShowInlineSubTaskForm(true)}>

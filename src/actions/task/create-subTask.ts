@@ -55,7 +55,10 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
             const assigneeProjectMember = await prisma.projectMember.findFirst({
                 where: {
                     projectId: values.projectId,
-                    workspaceMemberId: validation.data.assignee // Use workspaceMemberId directly
+                    OR: [
+                        { workspaceMemberId: validation.data.assignee },
+                        { workspaceMember: { user: { id: validation.data.assignee } } }
+                    ]
                 }
             });
             if (assigneeProjectMember) {

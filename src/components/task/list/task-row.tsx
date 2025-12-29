@@ -10,6 +10,7 @@ import { TaskWithSubTasks } from "@/components/task/shared/types";
 import { EditTaskDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/edit-task-form";
 import { DeleteTaskDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/delete-task-form";
 import { ColumnVisibility } from "../shared/column-visibility";
+import { cn } from "@/lib/utils";
 
 interface TaskRowProps {
     task: TaskWithSubTasks;
@@ -48,22 +49,10 @@ export function TaskRow({
     if (columnVisibility.tag) colSpan++;
 
     const handleTaskUpdated = (updatedTask: { name: string; taskSlug: string }) => {
-        // Show skeleton briefly
-        if (onUpdateStart) {
-            onUpdateStart();
-        }
-
-        // Update the task in parent state immediately
+        // Update the task in parent state immediately (Optimistic Level 1)
         if (onTaskUpdated) {
             onTaskUpdated(updatedTask);
         }
-
-        // Hide skeleton after parent state is updated
-        requestAnimationFrame(() => {
-            if (onUpdateEnd) {
-                onUpdateEnd();
-            }
-        });
     };
 
     // Show skeleton while updating OR while refresh is pending
@@ -87,7 +76,10 @@ export function TaskRow({
     }
 
     return (
-        <TableRow className="group">
+        <TableRow className={cn(
+            "group",
+            (task as any).isOptimistic && "opacity-60 grayscale-[0.5]"
+        )}>
             <TableCell>
                 <Button
                     variant="ghost"

@@ -12,12 +12,16 @@ import { tryCatch } from "@/hooks/try-catch";
 import { toast } from "sonner";
 import slugify from "slugify";
 import { TableCell, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface InlineTaskFormProps {
     workspaceId: string;
     projectId: string;
     onCancel: () => void;
-    onTaskCreated?: (task: any) => void;
+    onTaskCreated?: (task: any, tempId?: string) => void;
+    onTaskDeleted?: (taskId: string) => void;
+    projects?: { id: string; name: string; }[];
+    level?: "workspace" | "project";
 }
 
 /**
@@ -26,12 +30,16 @@ interface InlineTaskFormProps {
  */
 export function InlineTaskForm({
     workspaceId,
-    projectId,
+    projectId: initialProjectId,
     onCancel,
     onTaskCreated,
+    onTaskDeleted,
+    projects = [],
+    level = "project",
 }: InlineTaskFormProps) {
     const [pending, startTransition] = useTransition();
     const [taskName, setTaskName] = useState("");
+    const [selectedProjectId, setSelectedProjectId] = useState(initialProjectId || (projects[0]?.id || ""));
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -54,28 +62,43 @@ export function InlineTaskForm({
             return;
         }
 
+        // LEVEL 1: Optimistic UI Update for Creation
+        const tempId = `temp-${Date.now()}`;
+        const optimisticTask = {
+            id: tempId,
+            name: taskName.trim(),
+            taskSlug: taskSlug,
+            projectId: level === "workspace" ? selectedProjectId : initialProjectId,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            _count: { subTasks: 0 },
+            isOptimistic: true,
+        };
+
+        onTaskCreated?.(optimisticTask);
+        setTaskName("");
+        onCancel();
+
         startTransition(async () => {
             const { data: result, error } = await tryCatch(
                 createTask({
                     name: taskName.trim(),
                     taskSlug: taskSlug,
-                    projectId,
+                    projectId: level === "workspace" ? selectedProjectId : initialProjectId,
                 })
             );
 
-            if (error) {
-                toast.error(error.message || "Failed to create task");
+            if (error || result.status !== "success") {
+                toast.error(error?.message || result?.message || "Failed to create task");
+                // ROLLBACK: Remove the optimistic item from TaskTable
+                if (onTaskDeleted) {
+                    onTaskDeleted(tempId);
+                }
                 return;
             }
 
-            if (result.status === "success") {
-                toast.success(result.message || "Task created successfully");
-                setTaskName("");
-                onTaskCreated?.(result.data);
-                onCancel();
-            } else {
-                toast.error(result.message || "Failed to create task");
-            }
+            toast.success("Task created");
+            onTaskCreated?.(result.data, tempId);
         });
     };
 
@@ -104,13 +127,32 @@ export function InlineTaskForm({
                 />
             </TableCell>
 
-            {/* Description - Empty for now */}
+            {/* Project Selection (Workspace Level) or Description placeholder */}
             <TableCell className="w-[200px]">
-                <Input
-                    placeholder="Description (optional)..."
-                    disabled={pending}
-                    className="h-8 text-muted-foreground"
-                />
+                {level === "workspace" ? (
+                    <Select
+                        value={selectedProjectId}
+                        onValueChange={setSelectedProjectId}
+                        disabled={pending}
+                    >
+                        <SelectTrigger className="h-8">
+                            <SelectValue placeholder="Select project" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {projects.map((p) => (
+                                <SelectItem key={p.id} value={p.id}>
+                                    {p.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                ) : (
+                    <Input
+                        placeholder="Description (optional)..."
+                        disabled={pending}
+                        className="h-8 text-muted-foreground"
+                    />
+                )}
             </TableCell>
 
             {/* Other columns - Empty placeholders */}

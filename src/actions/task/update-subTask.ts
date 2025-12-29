@@ -12,19 +12,18 @@ export async function editSubTask(
     subTaskId: string
 ): Promise<ApiResponse> {
     try {
-        // Authenticate user
-        const user = await requireUser();
+        // Parallelize authentication and validation
+        const [user, validation] = await Promise.all([
+            requireUser(),
+            Promise.resolve(subTaskSchema.safeParse(data))
+        ]);
 
-        // Validate the input data
-        const validation = subTaskSchema.safeParse(data);
         if (!validation.success) {
-            return {
-                status: "error",
-                message: "Invalid validation form data"
-            }
+            return { status: "error", message: "Invalid validation form data" };
         }
 
-        // Get the subtask with project and workspace info
+        // Optimized query: Get subtask and verify user permissions in one go where possible
+        // We need the workspaceId and projectId from the existing subtask to check permissions
         const existingSubTask = await prisma.task.findUnique({
             where: { id: subTaskId },
             include: {
@@ -32,65 +31,52 @@ export async function editSubTask(
                     select: {
                         id: true,
                         workspaceId: true,
-                        slug: true,
                     }
                 }
             }
         });
 
         if (!existingSubTask) {
-            return {
-                status: "error",
-                message: "Subtask not found",
-            };
+            return { status: "error", message: "Subtask not found" };
         }
 
-        // Check permissions
-        const permissions = await getUserPermissions(
-            existingSubTask.project.workspaceId,
-            existingSubTask.project.id
-        );
+        // Fetch permissions and assignee info in parallel
+        const [permissions, assigneeInfo] = await Promise.all([
+            getUserPermissions(existingSubTask.project.workspaceId, existingSubTask.project.id),
+            validation.data.assignee
+                ? prisma.projectMember.findFirst({
+                    where: {
+                        projectId: validation.data.projectId,
+                        OR: [
+                            { workspaceMemberId: validation.data.assignee },
+                            { workspaceMember: { user: { id: validation.data.assignee } } }
+                        ]
+                    },
+                    select: { id: true }
+                })
+                : Promise.resolve(null)
+        ]);
 
         if (!permissions.workspaceMember) {
-            return {
-                status: "error",
-                message: "You are not a member of this workspace",
-            };
+            return { status: "error", message: "You are not a member of this workspace" };
         }
 
-        // Get assignee ID if provided
-        let assigneeId: string | null = null;
-        if (validation.data.assignee) {
-            const assignee = await prisma.projectMember.findFirst({
-                where: {
-                    projectId: validation.data.projectId,
-                    workspaceMember: {
-                        user: {
-                            id: validation.data.assignee
-                        }
-                    }
-                },
-                select: { id: true }
-            });
-
-            if (assignee) {
-                assigneeId = assignee.id;
-            }
-        }
-
+        // Perform the update
         await prisma.task.update({
             where: { id: subTaskId },
             data: {
                 name: validation.data.name,
                 description: validation.data.description,
-                assigneeTo: assigneeId,
+                assigneeTo: assigneeInfo?.id || null,
                 tagId: validation.data.tag || null,
                 startDate: validation.data.startDate ? new Date(validation.data.startDate) : null,
                 days: validation.data.days,
             },
         });
 
-        // OPTIMIZED: Use comprehensive cache invalidation
+        // Trigger invalidation without blocking the response if possible, 
+        // but for server actions we want to ensure cache is fresh for the re-render.
+        // We use the already fetched IDs to avoid extra DB lookups in invalidateTaskMutation
         await invalidateTaskMutation({
             taskId: subTaskId,
             projectId: existingSubTask.projectId,

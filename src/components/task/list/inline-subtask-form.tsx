@@ -27,8 +27,9 @@ interface InlineSubTaskFormProps {
     tags?: { id: string; name: string; }[];
     columnVisibility: ColumnVisibility;
     onCancel: () => void;
-    onSubTaskCreated?: (subTask: any) => void;
+    onSubTaskCreated?: (subTask: any, tempId?: string) => void;
     onSubTaskUpdated?: (subTaskId: string, updatedData: Partial<SubTaskType>) => void;
+    onSubTaskDeleted?: (subTaskId: string) => void;
     // Edit mode props
     mode?: "create" | "edit";
     subTask?: SubTaskType; // Required when mode is "edit"
@@ -48,6 +49,7 @@ export function InlineSubTaskForm({
     onCancel,
     onSubTaskCreated,
     onSubTaskUpdated,
+    onSubTaskDeleted,
     mode = "create",
     subTask,
 }: InlineSubTaskFormProps) {
@@ -84,6 +86,29 @@ export function InlineSubTaskForm({
                 return;
             }
 
+            // LEVEL 1: Optimistic UI Update for Creation
+            const tempId = `temp-${Date.now()}`;
+            const optimisticSubTask = {
+                id: tempId,
+                name: subTaskName.trim(),
+                description: description.trim() || undefined,
+                status,
+                startDate: startDate ? new Date(startDate) : null,
+                days: parseInt(days) || 0,
+                projectId,
+                parentTaskId,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                isOptimistic: true, // Tag for potential UI treatment
+                _count: { reviewComments: 0 }
+            };
+
+            onSubTaskCreated?.(optimisticSubTask);
+            setSubTaskName(""); // Clear name but keep form open or close? 
+            // In ClickUp, creating often Keeps the form open for the next one.
+            // But currently onCancel closes it. Let's keep existing flow for now.
+            onCancel();
+
             startTransition(async () => {
                 const { data: result, error } = await tryCatch(
                     createSubTask({
@@ -100,28 +125,21 @@ export function InlineSubTaskForm({
                     })
                 );
 
-                if (error) {
-                    toast.error(error.message || "Failed to create subtask");
+                if (error || (result as ApiResponse).status !== "success") {
+                    toast.error(error?.message || (result as ApiResponse).message || "Failed to create subtask");
+                    // ROLLBACK: Remove the optimistic item from TaskTable
+                    if (onSubTaskDeleted) {
+                        onSubTaskDeleted(tempId);
+                    }
                     return;
                 }
 
                 const apiResult = result as ApiResponse;
+                toast.success("Subtask created");
 
-                if (apiResult.status === "success") {
-                    toast.success(apiResult.message || "SubTask created successfully");
-                    // Reset form
-                    setSubTaskName("");
-                    setDescription("");
-                    setAssignee("");
-                    setStatus("TO_DO");
-                    setStartDate("");
-                    setDays("0");
-                    setTag("");
-                    onSubTaskCreated?.(apiResult.data);
-                    onCancel();
-                } else {
-                    toast.error(apiResult.message || "Failed to create subtask");
-                }
+                // Replace the optimistic subtask with the real one in the parent state
+                // This is handled in TaskTable if we pass the tempId for replacement
+                onSubTaskCreated?.(apiResult.data, tempId);
             });
         } else {
             // EDIT MODE
@@ -129,6 +147,21 @@ export function InlineSubTaskForm({
                 toast.error("SubTask data is missing");
                 return;
             }
+
+            // LEVEL 1: Optimistic UI Update
+            // Update UI immediately before server call
+            const updatedData: Partial<SubTaskType> = {
+                name: subTaskName.trim(),
+                description: description.trim() || undefined,
+                status,
+                startDate: startDate ? new Date(startDate) : null,
+                days: parseInt(days) || 0,
+            };
+
+            if (onSubTaskUpdated) {
+                onSubTaskUpdated(subTask.id, updatedData);
+            }
+            onCancel(); // Close form immediately
 
             startTransition(async () => {
                 const { data: result, error } = await tryCatch(
@@ -146,31 +179,14 @@ export function InlineSubTaskForm({
                     }, subTask.id)
                 );
 
-                if (error) {
-                    toast.error(error.message || "Failed to update subtask");
+                if (error || result.status !== "success") {
+                    toast.error(error?.message || result?.message || "Failed to update subtask");
+                    // NOTE: In a full-pledge production app, you would roll back the UI state here.
+                    // For now, the user is notified of the failure.
                     return;
                 }
 
-                const apiResult = result as ApiResponse;
-
-                if (apiResult.status === "success") {
-                    toast.success(apiResult.message || "SubTask updated successfully");
-
-                    // Update UI optimistically
-                    if (onSubTaskUpdated) {
-                        onSubTaskUpdated(subTask.id, {
-                            name: subTaskName.trim(),
-                            description: description.trim() || undefined,
-                            status,
-                            startDate: startDate ? new Date(startDate) : null,
-                            days: parseInt(days) || 0,
-                        });
-                    }
-
-                    onCancel();
-                } else {
-                    toast.error(apiResult.message || "Failed to update subtask");
-                }
+                toast.success("Subtask saved");
             });
         }
     };

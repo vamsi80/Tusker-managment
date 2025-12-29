@@ -126,7 +126,7 @@ export const CacheTags = {
      * Use when: Tasks are created/updated/deleted in a project
      */
     projectTasks: (projectId: string, userId?: string) => {
-        const tags = [`project-tasks-${projectId}`, 'project-tasks-all'];
+        const tags = [`project-tasks-${projectId}`];
         if (userId) tags.push(`project-tasks-user-${userId}`);
         return tags;
     },
@@ -146,7 +146,7 @@ export const CacheTags = {
      * Use when: Tasks change in any project within workspace
      */
     workspaceTasks: (workspaceId: string, userId?: string) => {
-        const tags = [`workspace-tasks-${workspaceId}`, 'workspace-tasks-all'];
+        const tags = [`workspace-tasks-${workspaceId}`];
         if (userId) tags.push(`workspace-tasks-user-${userId}`);
         return tags;
     },
@@ -166,7 +166,7 @@ export const CacheTags = {
      * Use when: Subtasks are created/updated/deleted under a task
      */
     taskSubTasks: (parentTaskId: string, workspaceMemberId?: string) => {
-        const tags = [`task-subtasks-${parentTaskId}`, 'task-subtasks-all'];
+        const tags = [`task-subtasks-${parentTaskId}`];
         if (workspaceMemberId) tags.push(`task-subtasks-member-${workspaceMemberId}`);
         return tags;
     },
@@ -178,7 +178,6 @@ export const CacheTags = {
     projectSubTasks: (projectId: string) => [
         `project-tasks-${projectId}`,
         `project-subtasks-${projectId}`,
-        'project-subtasks-all'
     ],
 
     /**
@@ -189,7 +188,6 @@ export const CacheTags = {
         const tags = [
             `project-subtasks-${projectId}`,
             `project-subtasks-status-${status}`,
-            `project-subtasks-all`
         ];
         if (parentTaskId) tags.push(`task-subtasks-${parentTaskId}`);
         return tags;
@@ -206,7 +204,6 @@ export const CacheTags = {
     taskComments: (taskId: string) => [
         `task-comments-${taskId}`,
         `task-${taskId}`,
-        'comments-all'
     ],
 
     /**
@@ -216,7 +213,6 @@ export const CacheTags = {
     reviewComments: (subTaskId: string) => [
         `review-comments-${subTaskId}`,
         `subtask-${subTaskId}`,
-        'review-comments-all'
     ],
 
     // ============================================
@@ -258,12 +254,8 @@ export const CacheTags = {
      * Use when: Any data needed for task creation changes
      */
     workspaceTaskCreationData: (workspaceId: string, userId: string) => [
-        `workspace-${workspaceId}`,
-        `workspace-projects-${workspaceId}`,
-        `workspace-members-${workspaceId}`,
-        `workspace-tags-${workspaceId}`,
-        `user-${userId}`,
-        `user-permissions-${userId}-${workspaceId}`,
+        `workspace-task-creation-data-${workspaceId}-${userId}`,
+        `workspace-tasks-${workspaceId}`,
     ],
 } as const;
 

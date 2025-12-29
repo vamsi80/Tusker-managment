@@ -30,11 +30,12 @@ interface TagDialogProps {
     workspaceId: string;
     tag?: Tag | null;
     onSuccess?: () => void;
+    isWorkspaceAdmin?: boolean;
 }
 
 
 
-export function TagDialog({ open, onOpenChange, workspaceId, tag, onSuccess }: TagDialogProps) {
+export function TagDialog({ open, onOpenChange, workspaceId, tag, onSuccess, isWorkspaceAdmin = false }: TagDialogProps) {
     const [name, setName] = useState(tag?.name || "");
     const [requirePurchase, setRequirePurchase] = useState(tag?.requirePurchase ?? false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -51,8 +52,16 @@ export function TagDialog({ open, onOpenChange, workspaceId, tag, onSuccess }: T
         }
     }, [tag, open]);
 
+    // Check if any changes were made (for editing mode)
+    const hasChanges = tag
+        ? name !== tag.name || requirePurchase !== (tag.requirePurchase ?? false)
+        : name.trim().length > 0;
+
+    const isButtonDisabled = isSubmitting || !hasChanges || !isWorkspaceAdmin;
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!isWorkspaceAdmin) return;
         setIsSubmitting(true);
 
         try {
@@ -98,6 +107,7 @@ export function TagDialog({ open, onOpenChange, workspaceId, tag, onSuccess }: T
                                 placeholder="e.g., Design, Development"
                                 required
                                 maxLength={50}
+                                disabled={!isWorkspaceAdmin || isSubmitting}
                             />
                         </div>
                         <div className="flex items-center space-x-2">
@@ -105,6 +115,7 @@ export function TagDialog({ open, onOpenChange, workspaceId, tag, onSuccess }: T
                                 id="requirePurchase"
                                 checked={requirePurchase}
                                 onCheckedChange={(checked) => setRequirePurchase(checked as boolean)}
+                                disabled={!isWorkspaceAdmin || isSubmitting}
                             />
                             <Label
                                 htmlFor="requirePurchase"
@@ -123,7 +134,7 @@ export function TagDialog({ open, onOpenChange, workspaceId, tag, onSuccess }: T
                         >
                             Cancel
                         </Button>
-                        <Button type="submit" disabled={isSubmitting}>
+                        <Button type="submit" disabled={isButtonDisabled}>
                             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             {tag ? "Update" : "Create"}
                         </Button>

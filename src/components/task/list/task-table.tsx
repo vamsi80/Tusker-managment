@@ -35,6 +35,8 @@ interface TaskTableProps {
     canCreateSubTask: boolean;
     showAdvancedFilters?: boolean;
     tags?: { id: string; name: string; }[]; // Dynamic tags
+    projects?: { id: string; name: string; }[];
+    level?: "workspace" | "project";
 }
 
 /**
@@ -52,6 +54,8 @@ export function TaskTable({
     canCreateSubTask,
     showAdvancedFilters = false,
     tags = [], // Default to empty array
+    projects = [],
+    level = "project",
 }: TaskTableProps) {
     const [tasks, setTasks] = useState<TaskWithSubTasks[]>(initialTasks);
     const [hasMoreTasks, setHasMoreTasks] = useState(initialHasMore);
@@ -120,17 +124,32 @@ export function TaskTable({
         );
     };
 
-    const handleSubTaskCreated = (taskId: string, newSubTask: any) => {
+    const handleSubTaskCreated = (taskId: string, newSubTask: any, tempId?: string) => {
         setTasks(prevTasks =>
             prevTasks.map(task => {
                 if (task.id === taskId) {
                     const currentSubTasks = task.subTasks || [];
+
+                    // 1. If we have a tempId, replace the optimistic item
+                    if (tempId) {
+                        return {
+                            ...task,
+                            subTasks: currentSubTasks.map(st => st.id === tempId ? newSubTask : st)
+                        };
+                    }
+
+                    // 2. Safety: Check if this real task already exists (e.g. from server refresh)
+                    if (currentSubTasks.some(st => st.id === newSubTask.id)) {
+                        return task;
+                    }
+
+                    // 3. Otherwise add it as new
                     return {
                         ...task,
                         subTasks: [...currentSubTasks, newSubTask],
                         _count: {
                             ...task._count,
-                            subTasks: currentSubTasks.length + 1
+                            subTasks: (task._count?.subTasks || 0) + 1
                         },
                     };
                 }
@@ -610,7 +629,7 @@ export function TaskTable({
                                                 tags={tags}
                                                 members={members}
                                                 workspaceId={workspaceId}
-                                                projectId={projectId}
+                                                projectId={task.projectId || projectId}
                                                 canCreateSubTask={canCreateSubTask}
                                                 columnVisibility={columnVisibility}
                                                 isLoading={!!loadingSubTasks[task.id]}
@@ -623,8 +642,8 @@ export function TaskTable({
                                                 onSubTaskDeleted={(subTaskId) =>
                                                     handleSubTaskDeleted(task.id, subTaskId)
                                                 }
-                                                onSubTaskCreated={(newSubTask) =>
-                                                    handleSubTaskCreated(task.id, newSubTask)
+                                                onSubTaskCreated={(newSubTask, tempId) =>
+                                                    handleSubTaskCreated(task.id, newSubTask, tempId)
                                                 }
                                             />
                                         )}
@@ -670,9 +689,18 @@ export function TaskTable({
                                         <InlineTaskForm
                                             workspaceId={workspaceId}
                                             projectId={projectId}
+                                            projects={projects}
+                                            level={level}
                                             onCancel={() => setShowInlineTaskForm(false)}
-                                            onTaskCreated={(task) => {
-                                                setTasks(prev => [task, ...prev]);
+                                            onTaskDeleted={(taskId) => {
+                                                setTasks(prev => prev.filter(t => t.id !== taskId));
+                                            }}
+                                            onTaskCreated={(task, tempId) => {
+                                                if (tempId) {
+                                                    setTasks(prev => prev.map(t => t.id === tempId ? task : t));
+                                                } else {
+                                                    setTasks(prev => [task, ...prev]);
+                                                }
                                                 setShowInlineTaskForm(false);
                                             }}
                                         />
