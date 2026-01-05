@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/auth/require-user";
 import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
 import { SubTaskSchemaType, subTaskSchema } from "@/lib/zodSchemas";
+import { syncTaskToProcurement } from "@/lib/procurement/logic";
 
 export async function editSubTask(
     data: SubTaskSchemaType,
@@ -73,6 +74,9 @@ export async function editSubTask(
                 days: validation.data.days,
             },
         });
+
+        // Sync with procurement
+        await syncTaskToProcurement(subTaskId);
 
         // Trigger invalidation without blocking the response if possible, 
         // but for server actions we want to ensure cache is fresh for the re-render.

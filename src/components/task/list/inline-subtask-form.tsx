@@ -77,6 +77,10 @@ export function InlineSubTaskForm({
             return;
         }
 
+        // Helper to get full objects for optimistic UI
+        const selectedMember = members.find(m => m.workspaceMember.id === assignee);
+        const selectedTag = tags.find(t => t.id === tag);
+
         if (mode === "create") {
             // CREATE MODE
             const taskSlug = slugify(subTaskName.trim(), { lower: true, strict: true });
@@ -99,14 +103,20 @@ export function InlineSubTaskForm({
                 parentTaskId,
                 createdAt: new Date(),
                 updatedAt: new Date(),
-                isOptimistic: true, // Tag for potential UI treatment
-                _count: { reviewComments: 0 }
+                isOptimistic: true,
+                _count: { reviewComments: 0 },
+                // Include full objects for UI
+                assignee: selectedMember ? {
+                    workspaceMember: {
+                        id: selectedMember.workspaceMember.id,
+                        user: selectedMember.workspaceMember.user
+                    }
+                } : null,
+                tag: selectedTag ? { id: selectedTag.id, name: selectedTag.name } : null
             };
 
-            onSubTaskCreated?.(optimisticSubTask);
-            setSubTaskName(""); // Clear name but keep form open or close? 
-            // In ClickUp, creating often Keeps the form open for the next one.
-            // But currently onCancel closes it. Let's keep existing flow for now.
+            onSubTaskCreated?.(optimisticSubTask, tempId);
+            setSubTaskName("");
             onCancel();
 
             startTransition(async () => {
@@ -127,7 +137,6 @@ export function InlineSubTaskForm({
 
                 if (error || (result as ApiResponse).status !== "success") {
                     toast.error(error?.message || (result as ApiResponse).message || "Failed to create subtask");
-                    // ROLLBACK: Remove the optimistic item from TaskTable
                     if (onSubTaskDeleted) {
                         onSubTaskDeleted(tempId);
                     }
@@ -137,8 +146,7 @@ export function InlineSubTaskForm({
                 const apiResult = result as ApiResponse;
                 toast.success("Subtask created");
 
-                // Replace the optimistic subtask with the real one in the parent state
-                // This is handled in TaskTable if we pass the tempId for replacement
+                // Replace the optimistic subtask with the real one
                 onSubTaskCreated?.(apiResult.data, tempId);
             });
         } else {
@@ -149,19 +157,26 @@ export function InlineSubTaskForm({
             }
 
             // LEVEL 1: Optimistic UI Update
-            // Update UI immediately before server call
             const updatedData: Partial<SubTaskType> = {
                 name: subTaskName.trim(),
                 description: description.trim() || undefined,
                 status,
                 startDate: startDate ? new Date(startDate) : null,
                 days: parseInt(days) || 0,
+                // Include full objects for UI
+                assignee: selectedMember ? {
+                    workspaceMember: {
+                        id: selectedMember.workspaceMember.id,
+                        user: selectedMember.workspaceMember.user
+                    }
+                } as any : null,
+                tag: selectedTag ? { id: selectedTag.id, name: selectedTag.name } as any : null
             };
 
             if (onSubTaskUpdated) {
                 onSubTaskUpdated(subTask.id, updatedData);
             }
-            onCancel(); // Close form immediately
+            onCancel();
 
             startTransition(async () => {
                 const { data: result, error } = await tryCatch(
@@ -181,8 +196,6 @@ export function InlineSubTaskForm({
 
                 if (error || result.status !== "success") {
                     toast.error(error?.message || result?.message || "Failed to update subtask");
-                    // NOTE: In a full-pledge production app, you would roll back the UI state here.
-                    // For now, the user is notified of the failure.
                     return;
                 }
 

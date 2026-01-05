@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth/require-user";
 import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
 import { TaskSchemaType, taskSchema } from "@/lib/zodSchemas";
+import { syncTaskToProcurement } from "@/lib/procurement/logic";
 
 export async function editTask(
     data: TaskSchemaType,
@@ -93,6 +94,9 @@ export async function editTask(
                 taskSlug: validation.data.taskSlug,
             },
         });
+
+        // Sync to procurement
+        await syncTaskToProcurement(taskId);
 
         // OPTIMIZED: Use comprehensive cache invalidation
         // Removed revalidatePath (slow) - using invalidateTaskMutation instead

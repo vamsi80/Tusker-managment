@@ -61,7 +61,8 @@ export function TaskTable({
     const [hasMoreTasks, setHasMoreTasks] = useState(initialHasMore);
     const [currentPage, setCurrentPage] = useState(1);
     const [loadingMoreTasks, setLoadingMoreTasks] = useState(false);
-    const { newTask, clearNewTask } = useNewTask();
+    const { lastEvent, clearEvent } = useNewTask();
+
     useEffect(() => {
         setTasks(prevTasks => {
             return initialTasks.map((serverTask: TaskWithSubTasks) => {
@@ -81,11 +82,24 @@ export function TaskTable({
     }, [initialTasks]);
 
     useEffect(() => {
-        if (newTask) {
-            setTasks(prev => [newTask, ...prev]);
-            clearNewTask();
+        if (lastEvent) {
+            if (lastEvent.type === 'ADD' && lastEvent.task) {
+                const newTask = lastEvent.task as TaskWithSubTasks;
+                setTasks(prev => {
+                    // Prevent duplicates if possible, though optimistic logic usually handles IDs
+                    if (prev.some(t => t.id === newTask.id)) return prev;
+                    return [newTask, ...prev];
+                });
+            } else if (lastEvent.type === 'UPDATE' && lastEvent.taskId) {
+                setTasks(prev => prev.map(t =>
+                    t.id === lastEvent.taskId ? { ...t, ...lastEvent.task } as TaskWithSubTasks : t
+                ));
+            } else if (lastEvent.type === 'REMOVE' && lastEvent.taskId) {
+                setTasks(prev => prev.filter(t => t.id !== lastEvent.taskId));
+            }
+            clearEvent();
         }
-    }, [newTask, clearNewTask]);
+    }, [lastEvent, clearEvent]);
 
     const handleSubTaskUpdated = (taskId: string, subTaskId: string, updatedData: Partial<SubTaskType>) => {
         setTasks(prevTasks =>

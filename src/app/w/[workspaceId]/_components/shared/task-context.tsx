@@ -5,6 +5,8 @@ import { TaskWithSubTasks } from "@/components/task/shared/types";
 
 interface TaskContextType {
     addNewTask: (task: TaskWithSubTasks) => void;
+    updateTask: (taskId: string, task: Partial<TaskWithSubTasks>) => void;
+    removeTask: (taskId: string) => void;
     isAddingTask: boolean;
     setIsAddingTask: (loading: boolean) => void;
 }
@@ -22,9 +24,11 @@ export function useTaskContext() {
 interface TaskProviderProps {
     children: React.ReactNode;
     onAddTask: (task: TaskWithSubTasks) => void;
+    onUpdateTask?: (taskId: string, task: Partial<TaskWithSubTasks>) => void;
+    onRemoveTask?: (taskId: string) => void;
 }
 
-export function TaskProvider({ children, onAddTask }: TaskProviderProps) {
+export function TaskProvider({ children, onAddTask, onUpdateTask, onRemoveTask }: TaskProviderProps) {
     const [isAddingTask, setIsAddingTask] = useState(false);
 
     const addNewTask = useCallback((task: TaskWithSubTasks) => {
@@ -35,8 +39,16 @@ export function TaskProvider({ children, onAddTask }: TaskProviderProps) {
         }, 300);
     }, [onAddTask]);
 
+    const updateTask = useCallback((taskId: string, task: Partial<TaskWithSubTasks>) => {
+        onUpdateTask?.(taskId, task);
+    }, [onUpdateTask]);
+
+    const removeTask = useCallback((taskId: string) => {
+        onRemoveTask?.(taskId);
+    }, [onRemoveTask]);
+
     return (
-        <TaskContext.Provider value={{ addNewTask, isAddingTask, setIsAddingTask }}>
+        <TaskContext.Provider value={{ addNewTask, updateTask, removeTask, isAddingTask, setIsAddingTask }}>
             {children}
         </TaskContext.Provider>
     );

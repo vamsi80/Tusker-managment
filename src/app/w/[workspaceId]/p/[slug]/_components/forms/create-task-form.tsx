@@ -37,7 +37,7 @@ export const CreateTaskForm = ({
     const [open, setOpen] = useState(false);
     const [autoSlugEnabled, setAutoSlugEnabled] = useState(true);
     const router = useRouter();
-    const { addNewTask, setIsAddingTask } = useTaskContext();
+    const { addNewTask, updateTask, removeTask, setIsAddingTask } = useTaskContext();
     const reloadView = useReloadView();
 
     const form = useForm<TaskSchemaType>({
@@ -71,31 +71,51 @@ export const CreateTaskForm = ({
     }, [open]);
 
     function onSubmit(values: TaskSchemaType) {
+        // Optimistic UI Update
+        const tempId = `temp-${Date.now()}`;
+        const optimisticTask = {
+            id: tempId,
+            name: values.name,
+            taskSlug: values.taskSlug,
+            projectId: values.projectId,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            status: "TO_DO", // Default status
+            _count: { subTasks: 0 },
+            isOptimistic: true,
+            // Add other required fields with defaults
+            assignee: null,
+            tag: null,
+            priority: null,
+        };
+
+        addNewTask(optimisticTask as any);
+        setOpen(false);
+        form.reset();
+        triggerConfetti();
+
         startTransition(async () => {
-            setIsAddingTask(true); // Show skeleton
+            // setIsAddingTask(true); // Maybe not needed if we are optimistic?
             const { data: result, error } = await tryCatch(createTask(values));
 
             if (error) {
                 toast.error(error.message);
                 console.error(error);
-                setIsAddingTask(false);
+                removeTask(tempId); // Rollback
                 return;
             }
 
             if (result.status === "success" && result.data) {
                 toast.success(result.message);
-                triggerConfetti();
-                form.reset();
-                setOpen(false);
 
-                // Add the new task to the list
-                addNewTask(result.data as any);
+                // Replace optimistic task with real task
+                updateTask(tempId, result.data as any);
 
-                // Reload all views to show the new task
+                // Reload all views to ensure consistency
                 reloadView();
             } else {
                 toast.error(result.message);
-                setIsAddingTask(false);
+                removeTask(tempId); // Rollback
             }
         });
     }

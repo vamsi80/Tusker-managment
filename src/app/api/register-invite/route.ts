@@ -1,8 +1,6 @@
 // /app/api/register-invite/route.ts (or a server action)
-
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/db";
-
 
 export async function inviteUser({
   name, email, password, role, workspaceId

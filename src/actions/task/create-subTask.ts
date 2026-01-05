@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/auth/require-user";
 import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
 import { SubTaskSchemaType, subTaskSchema } from "@/lib/zodSchemas";
+import { syncTaskToProcurement } from "@/lib/procurement/logic";
 
 export async function createSubTask(values: SubTaskSchemaType): Promise<ApiResponse> {
     const user = await requireUser();
@@ -121,6 +122,9 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
                 }
             }
         });
+
+        // Sync to procurement
+        await syncTaskToProcurement(newSubTask.id);
 
         // OPTIMIZED: Use comprehensive cache invalidation
         await invalidateTaskMutation({

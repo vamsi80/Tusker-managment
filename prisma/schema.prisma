@@ -81,19 +81,20 @@ model Verification {
 }
 
 model Workspace {
-  id          String            @id @default(uuid())
-  name        String
-  description String?
-  slug        String            @unique
-  ownerId     String
-  inviteCode  String            @unique
-  image_url   String            @default("")
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  projects    Project[]
-  tags        Tag[]
-  owner       User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  members     WorkspaceMember[]
+  id               String            @id @default(uuid())
+  name             String
+  description      String?
+  slug             String            @unique
+  ownerId          String
+  inviteCode       String            @unique
+  image_url        String            @default("")
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  projects         Project[]
+  procurementTasks ProcurementTask[]
+  tags             Tag[]
+  owner            User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  members          WorkspaceMember[]
 }
 
 model WorkspaceMember {
@@ -119,18 +120,19 @@ model WorkspaceMember {
 }
 
 model Project {
-  id             String          @id @default(uuid())
-  name           String
-  description    String?
-  slug           String          @unique
-  workspaceId    String
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  clint          Clints[]
-  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  projectMembers ProjectMember[]
-  tasks          Task[]
-  auditLogs      AuditLog[]
+  id               String            @id @default(uuid())
+  name             String
+  description      String?
+  slug             String            @unique
+  workspaceId      String
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  clint            Clints[]
+  workspace        Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projectMembers   ProjectMember[]
+  tasks            Task[]
+  procurementTasks ProcurementTask[]
+  auditLogs        AuditLog[]
 
   @@index([workspaceId])
   @@index([workspaceId, createdAt])
@@ -196,11 +198,11 @@ model Tag {
 }
 
 model Task {
-  id                    String          @id @default(uuid())
+  id                    String           @id @default(uuid())
   name                  String
-  taskSlug              String          @unique
+  taskSlug              String           @unique
   description           String?
-  status                TaskStatus?     @default(TO_DO)
+  status                TaskStatus?      @default(TO_DO)
   position              Int?
   parentTaskId          String?
   startDate             DateTime?
@@ -209,23 +211,24 @@ model Task {
   assigneeTo            String?
   createdById           String
   projectId             String
-  purchaseRequired      Boolean?        @default(false)
-  isPinned              Boolean         @default(false)
+  purchaseRequired      Boolean?         @default(false)
+  isPinned              Boolean          @default(false)
   pinnedAt              DateTime?
   pinnedBy              String?
-  createdAt             DateTime        @default(now())
-  updatedAt             DateTime        @updatedAt
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
   reviewComments        ReviewComment[]
-  tag                   Tag?            @relation(fields: [tagId], references: [id], onDelete: SetNull)
-  assignee              ProjectMember?  @relation(fields: [assigneeTo], references: [id], onDelete: Cascade)
-  createdBy             WorkspaceMember @relation(fields: [createdById], references: [id], onDelete: Cascade)
-  parentTask            Task?           @relation("Task_subTasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
-  subTasks              Task[]          @relation("Task_subTasks")
-  project               Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tag                   Tag?             @relation(fields: [tagId], references: [id], onDelete: SetNull)
+  assignee              ProjectMember?   @relation(fields: [assigneeTo], references: [id], onDelete: Cascade)
+  createdBy             WorkspaceMember  @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  parentTask            Task?            @relation("Task_subTasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  subTasks              Task[]           @relation("Task_subTasks")
+  project               Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
   auditLogs             AuditLog[]
   comments              Comment[]
-  Task_TaskDependency_A Task[]          @relation("TaskDependency")
-  Task_TaskDependency_B Task[]          @relation("TaskDependency")
+  Task_TaskDependency_A Task[]           @relation("TaskDependency")
+  Task_TaskDependency_B Task[]           @relation("TaskDependency")
+  procurementTask       ProcurementTask?
 
   @@index([parentTaskId])
   @@index([projectId])
@@ -327,4 +330,41 @@ enum TaskStatus {
   REVIEW
   HOLD
   COMPLETED
+}
+
+model ProcurementTask {
+  id          String   @id @default(uuid())
+  taskId      String   @unique
+  projectId   String
+  workspaceId String
+  createdAt   DateTime @default(now())
+
+  task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  indents Indent[]
+
+  @@index([workspaceId])
+  @@index([projectId])
+  @@map("procurement_task")
+}
+
+model Indent {
+  id                String    @id @default(uuid())
+  procurementTaskId String
+  materialName      String
+  description       String?
+  quantity          Float
+  unit              String
+  estimatedCost     Float?
+  requiredDate      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  procurementTask ProcurementTask @relation(fields: [procurementTaskId], references: [id], onDelete: Cascade)
+
+  @@index([procurementTaskId])
+  @@map("indent")
 }
