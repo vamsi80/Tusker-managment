@@ -8,5 +8,5 @@ interface PageProps {
 
 export default async function MaterialPage({ params }: PageProps) {
     const { workspaceId } = await params;
-    redirect(`/w/${workspaceId}/material/procurment`);
+    redirect(`/w/${workspaceId}/resources/vendors`);
 }

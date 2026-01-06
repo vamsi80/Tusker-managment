@@ -10,13 +10,13 @@ interface MaterialNavProps {
 
 export function MaterialNav({ workspaceId }: MaterialNavProps) {
     const pathname = usePathname();
-    const basePath = `/w/${workspaceId}/material`;
+    const basePath = `/w/${workspaceId}/resources`;
 
     const tabs = [
         {
-            title: "Procurement",
-            href: `${basePath}/procurment`,
-            isActive: (path: string) => path.includes('/procurment')
+            title: "Vendor",
+            href: `${basePath}/vendors`,
+            isActive: (path: string) => path.includes('/vendors')
         },
         {
             title: "Inventory",

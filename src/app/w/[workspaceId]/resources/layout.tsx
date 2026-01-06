@@ -26,7 +26,7 @@ export default async function MaterialLayout({ children, params }: MaterialLayou
                 <MaterialNav workspaceId={workspaceId} />
             </div>
 
-            <div className="flex-1 mt-6">
+            <div className="flex-1">
                 {children}
             </div>
         </div>
