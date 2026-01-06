@@ -1,7 +1,29 @@
-import { Icon } from "@tabler/icons-react"
+"use client";
+
+import {
+  IconDashboard,
+  IconUsersPlus,
+  IconCheckupList,
+  IconTruck,
+  IconBucket,
+  IconSettings
+} from "@tabler/icons-react";
 import { SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuButton, SidebarMenuItem, } from "@/components/ui/sidebar"
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { QuickCreateSubTask } from "./quick-create-subtask";
+
+// Icon mapping to resolve string names to actual components
+const iconMap = {
+  IconDashboard,
+  IconUsersPlus,
+  IconCheckupList,
+  IconTruck,
+  IconBucket,
+  IconSettings,
+} as const;
+
+type IconName = keyof typeof iconMap;
 
 /**
  * Main navigation items for the workspace sidebar.
@@ -10,41 +32,60 @@ import { QuickCreateSubTask } from "./quick-create-subtask";
 export function NavMain({
   items,
   workspaceId,
+  quickCreateData,
 }: {
   items: {
     title: string
     url: string
-    icon?: Icon | undefined
+    icon?: IconName
   }[]
   workspaceId: string
+  quickCreateData: {
+    permissions: { canCreateSubTasks: boolean };
+    parentTasks: any[];
+    members: any[];
+    tags: any[];
+    projects: any[];
+  } | null
 }) {
+  const pathname = usePathname();
+
   return (
     <SidebarGroup>
       <SidebarGroupContent className="flex flex-col gap-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <QuickCreateSubTask workspaceId={workspaceId} />
+            <QuickCreateSubTask workspaceId={workspaceId} data={quickCreateData} />
           </SidebarMenuItem>
         </SidebarMenu>
 
         <div className="mt-4">
           <SidebarMenu>
-            {items.map((item) => (
-              <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton
-                  tooltip={item.title}
-                  asChild
-                  className="transition-all duration-200 hover:bg-accent hover:text-accent-foreground"
-                >
-                  <Link href={item.url} className="flex items-center gap-2">
-                    <div className="flex-shrink-0">
-                      {item.icon && <item.icon size={19} stroke={1.5} />}
-                    </div>
-                    <span className="font-medium">{item.title}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
+            {items.map((item) => {
+              // Dashboard should only be active on exact match, others include nested routes
+              const isActive = item.title === "Dashboard"
+                ? pathname === item.url
+                : pathname === item.url || pathname.startsWith(item.url + '/');
+              const IconComponent = item.icon ? iconMap[item.icon] : null;
+
+              return (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    tooltip={item.title}
+                    asChild
+                    isActive={isActive}
+                    className="transition-all duration-200 hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <Link href={item.url} className="flex items-center gap-2">
+                      <div className="flex-shrink-0">
+                        {IconComponent && <IconComponent size={19} stroke={1.5} />}
+                      </div>
+                      <span className="font-medium">{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              );
+            })}
           </SidebarMenu>
         </div>
       </SidebarGroupContent>

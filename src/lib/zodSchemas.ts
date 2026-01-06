@@ -24,6 +24,8 @@ export const workspaceMemberRole = ["OWNER", "ADMIN", "MEMBER", "VIEWER"] as con
 
 export const projectRole = ["LEAD", "MEMBER", "VIEWER"] as const
 
+export const unitCategories = ["Weight", "Length", "Volume", "Area", "Quantity", "Time"] as const;
+
 export const inviteUserSchema = z.object({
     name: z
         .string()
@@ -216,9 +218,47 @@ export const subTaskSchema = z.object({
     parentTaskId: z.string().uuid({ message: "Invalid parent task id" }),
 });
 
+export const unitSchema = z.object({
+    name: z
+        .string()
+        .min(1, { message: "Unit name is required" })
+        .max(50, { message: "Unit name must be at most 50 characters long" }),
+    abbreviation: z
+        .string()
+        .min(1, { message: "Abbreviation is required" })
+        .max(10, { message: "Abbreviation must be at most 10 characters long" }),
+    category: z
+        .enum(unitCategories, { message: "Please select a valid category" })
+        .optional(),
+    isDefault: z.boolean().default(false).optional(),
+    isActive: z.boolean().default(true).optional(),
+});
+
+export const materialSchema = z.object({
+    name: z
+        .string()
+        .min(3, { message: "Material name must be at least 3 characters long" })
+        .max(100, { message: "Material name must be at most 100 characters long" }),
+    specifications: z
+        .string()
+        .max(500, { message: "Specifications must be at most 500 characters long" })
+        .optional()
+        .nullable(),
+    defaultUnitId: z
+        .string()
+        .uuid({ message: "Please select a valid unit" }),
+    workspaceId: z
+        .string()
+        .uuid({ message: "Invalid workspace id" }),
+    isActive: z.boolean().default(true).optional(),
+});
+
 export type InviteUserSchemaType = z.infer<typeof inviteUserSchema>;
 export type WorkSpaceSchemaType = z.infer<typeof workSpaceSchema>;
 export type ProjectSchemaType = z.infer<typeof projectSchema>;
 export type EditProjectSchemaType = z.infer<typeof editProjectSchema>;
 export type TaskSchemaType = z.infer<typeof taskSchema>;
 export type SubTaskSchemaType = z.infer<typeof subTaskSchema>;
+export type UnitSchemaType = z.infer<typeof unitSchema>;
+export type MaterialSchemaType = z.infer<typeof materialSchema>;
+

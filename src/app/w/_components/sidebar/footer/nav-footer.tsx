@@ -1,6 +1,16 @@
-import { Icon } from "@tabler/icons-react"
+"use client";
+
+import { IconSettings } from "@tabler/icons-react";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+// Icon mapping for footer
+const iconMap = {
+    IconSettings,
+} as const;
+
+type IconName = keyof typeof iconMap;
 
 /**
  * Footer navigation items for the workspace sidebar.
@@ -12,27 +22,35 @@ export function NavFooter({
     items: {
         title: string
         url: string
-        icon: Icon
+        icon: IconName
     }[]
 }) {
+    const pathname = usePathname();
+
     return (
         <SidebarMenu>
-            {items.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                        tooltip={item.title}
-                        asChild
-                        className="transition-all duration-200 hover:bg-accent hover:text-accent-foreground mb-4"
-                    >
-                        <Link href={item.url} className="flex items-center gap-2">
-                            <div className="flex-shrink-0">
-                                <item.icon size={19} stroke={1.5} />
-                            </div>
-                            <span className="font-medium">{item.title}</span>
-                        </Link>
-                    </SidebarMenuButton>
-                </SidebarMenuItem>
-            ))}
+            {items.map((item) => {
+                const isActive = pathname === item.url || pathname.startsWith(item.url + '/');
+                const IconComponent = iconMap[item.icon];
+
+                return (
+                    <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton
+                            tooltip={item.title}
+                            asChild
+                            isActive={isActive}
+                            className="transition-all duration-200 hover:bg-accent hover:text-accent-foreground mb-4"
+                        >
+                            <Link href={item.url} className="flex items-center gap-2">
+                                <div className="flex-shrink-0">
+                                    <IconComponent size={19} stroke={1.5} />
+                                </div>
+                                <span className="font-medium">{item.title}</span>
+                            </Link>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                );
+            })}
         </SidebarMenu>
     )
 }

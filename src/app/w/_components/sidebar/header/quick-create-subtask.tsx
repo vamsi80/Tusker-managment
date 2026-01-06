@@ -1,22 +1,28 @@
+"use client";
+
 import { IconCirclePlusFilled } from "@tabler/icons-react";
 import { CreateSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/create-subTask-form";
-import { getWorkspaceTaskCreationData } from "@/data/workspace/get-workspace-task-creation-data";
 import { SidebarMenuButton } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 
 interface QuickCreateSubTaskProps {
     workspaceId: string;
+    data: {
+        permissions: { canCreateSubTasks: boolean };
+        parentTasks: any[];
+        members: any[];
+        tags: any[];
+        projects: any[];
+    } | null;
 }
 
 /**
  * Quick Create SubTask button in sidebar
- * Fetches workspace data and opens CreateSubTaskForm at workspace level
+ * Receives workspace data as props and opens CreateSubTaskForm at workspace level
  */
-export async function QuickCreateSubTask({ workspaceId }: QuickCreateSubTaskProps) {
-    const data = await getWorkspaceTaskCreationData(workspaceId);
-
+export function QuickCreateSubTask({ workspaceId, data }: QuickCreateSubTaskProps) {
     // Only show if user has permission and there are parent tasks
-    if (!data.permissions.canCreateSubTasks || data.parentTasks.length === 0) {
+    if (!data || !data.permissions.canCreateSubTasks || data.parentTasks.length === 0) {
         return null;
     }
 

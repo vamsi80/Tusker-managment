@@ -8,6 +8,7 @@ import { NavFooter } from "./footer/nav-footer";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuItem } from "@/components/ui/sidebar";
 import { NavProjectsSkeleton } from "./projectsList/projects-skeleton";
 import { WorkspacesType } from "@/data/workspace/get-workspaces";
+import { getWorkspaceTaskCreationData } from "@/data/workspace/get-workspace-task-creation-data";
 
 interface iAppProps {
   data: WorkspacesType;
@@ -20,17 +21,28 @@ interface iAppProps {
  */
 export async function AppSidebar({ data, workspaceId, ...props }: React.ComponentProps<typeof Sidebar> & iAppProps) {
   // Navigation items for the main workspace section
-  const mainNavItems = [
-    { title: "Dashboard", url: `/w/${workspaceId}`, icon: IconDashboard },
-    { title: "Team", url: `/w/${workspaceId}/team`, icon: IconUsersPlus },
-    { title: "Tasks", url: `/w/${workspaceId}/tasks`, icon: IconCheckupList },
-    { title: "Procurement", url: `/w/${workspaceId}/procurement`, icon: IconTruck },
-    { title: "Resources", url: `/w/${workspaceId}/resources`, icon: IconBucket },
-  ];
+  const mainNavItems: Array<{
+    title: string;
+    url: string;
+    icon?: "IconDashboard" | "IconUsersPlus" | "IconCheckupList" | "IconTruck" | "IconBucket" | "IconSettings";
+  }> = [
+      { title: "Dashboard", url: `/w/${workspaceId}`, icon: "IconDashboard" },
+      { title: "Team", url: `/w/${workspaceId}/team`, icon: "IconUsersPlus" },
+      { title: "Tasks", url: `/w/${workspaceId}/tasks`, icon: "IconCheckupList" },
+      { title: "Procurement", url: `/w/${workspaceId}/procurement`, icon: "IconTruck" },
+      { title: "Resources", url: `/w/${workspaceId}/resources`, icon: "IconBucket" },
+    ];
 
-  const footerNavItems = [
-    { title: "Settings", url: `/w/${workspaceId}/settings`, icon: IconSettings },
-  ];
+  const footerNavItems: Array<{
+    title: string;
+    url: string;
+    icon: "IconSettings";
+  }> = [
+      { title: "Settings", url: `/w/${workspaceId}/settings`, icon: "IconSettings" },
+    ];
+
+  // Fetch data for quick create button
+  const quickCreateData = await getWorkspaceTaskCreationData(workspaceId);
 
   return (
     <Sidebar collapsible="offcanvas" {...props} className="border-r border-border/50">
@@ -43,7 +55,7 @@ export async function AppSidebar({ data, workspaceId, ...props }: React.Componen
       </SidebarHeader>
 
       <SidebarContent className="px-2">
-        <NavMain items={mainNavItems} workspaceId={workspaceId} />
+        <NavMain items={mainNavItems} workspaceId={workspaceId} quickCreateData={quickCreateData} />
 
         <React.Suspense fallback={<NavProjectsSkeleton />}>
           <NavProjectsAsync workspaceId={workspaceId} />
