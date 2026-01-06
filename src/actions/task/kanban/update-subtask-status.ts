@@ -107,6 +107,8 @@ export async function updateSubTaskStatus(
             where: { id: subTaskId },
             select: {
                 id: true,
+                projectId: true, // ADDED
+                parentTaskId: true, // ADDED
                 name: true,
                 status: true,
                 description: true,
@@ -136,7 +138,8 @@ export async function updateSubTaskStatus(
         }
 
         // 6. Verify subtask belongs to the project
-        if (subTask.parentTask?.projectId !== projectId) {
+        // CHANGED: Use direct projectId from subTask
+        if (subTask.projectId !== projectId) {
             return {
                 success: false,
                 error: "Subtask does not belong to this project",
@@ -278,7 +281,8 @@ export async function updateSubTaskStatus(
             projectId: projectId,
             workspaceId: workspaceId,
             userId: user.id,
-            parentTaskId: subTask.parentTask?.projectId ? subTaskId : undefined
+            // CHANGED: Use correct parentTaskId
+            parentTaskId: subTask.parentTaskId || undefined
         });
 
         // Also invalidate project subtasks for Kanban view

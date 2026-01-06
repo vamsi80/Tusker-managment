@@ -3,7 +3,7 @@ import { NavUser } from "./footer/nav-user";
 import { NavMain } from "./header/nav-main";
 import { NavProjectsAsync } from "./projectsList/nav-projects-async";
 import { NavWorkspacesSelector } from "./header/nav-workspaces-selector";
-import { IconCheckupList, IconDashboard, IconPackageImport, IconSettings, IconTruck, IconUsersPlus } from "@tabler/icons-react";
+import { IconCheckupList, IconDashboard, IconReplaceUser, IconSettings, IconTruck, IconUsersPlus } from "@tabler/icons-react";
 import { NavFooter } from "./footer/nav-footer";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuItem } from "@/components/ui/sidebar";
 import { NavProjectsSkeleton } from "./projectsList/projects-skeleton";
@@ -24,8 +24,8 @@ export async function AppSidebar({ data, workspaceId, ...props }: React.Componen
     { title: "Dashboard", url: `/w/${workspaceId}`, icon: IconDashboard },
     { title: "Team", url: `/w/${workspaceId}/team`, icon: IconUsersPlus },
     { title: "Tasks", url: `/w/${workspaceId}/tasks`, icon: IconCheckupList },
-    { title: "Procurement", url: `/w/${workspaceId}/procurement`, icon: IconPackageImport },
-    { title: "Vendor", url: `/w/${workspaceId}/vendor`, icon: IconTruck },
+    { title: "Material", url: `/w/${workspaceId}/material`, icon: IconTruck },
+    { title: "Vendor", url: `/w/${workspaceId}/vendor`, icon: IconReplaceUser },
   ];
 
   const footerNavItems = [

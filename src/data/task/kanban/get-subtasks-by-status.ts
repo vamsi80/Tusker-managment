@@ -82,6 +82,7 @@ async function _getSubTasksByStatusInternal(
             where: whereClause,
             select: {
                 id: true,
+                projectId: true, // Add this
                 name: true,
                 taskSlug: true,
                 description: true,

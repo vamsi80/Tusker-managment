@@ -259,6 +259,17 @@ export function KanbanBoard({
         });
     };
 
+    // Helper to get project ID for a task (handles workspace view where prop is empty)
+    const getTaskProjectId = (subTaskId: string) => {
+        for (const status of COLUMNS.map(c => c.id)) {
+            const task = columnData[status].subTasks.find(t => t.id === subTaskId);
+            if (task && 'projectId' in task) {
+                return (task as any).projectId as string;
+            }
+        }
+        return projectId;
+    };
+
     const performStatusUpdate = async (
         subTaskId: string,
         newStatus: TaskStatus,
@@ -271,11 +282,14 @@ export function KanbanBoard({
         const toastId = toast.loading("Updating subtask status...");
 
         try {
+            // content...
+            const targetProjectId = getTaskProjectId(subTaskId) || projectId;
+
             const result = await updateSubTaskStatus(
                 subTaskId,
                 newStatus,
                 workspaceId,
-                projectId,
+                targetProjectId,
                 undefined,
                 reviewCommentId
             );
@@ -345,11 +359,13 @@ export function KanbanBoard({
                 };
             }
 
+            const targetProjectId = getTaskProjectId(pendingReviewMove.subTaskId) || projectId;
+
             const reviewResult = await createReviewCommentAction(
                 pendingReviewMove.subTaskId,
                 comment,
                 workspaceId,
-                projectId,
+                targetProjectId,
                 attachmentData
             );
 

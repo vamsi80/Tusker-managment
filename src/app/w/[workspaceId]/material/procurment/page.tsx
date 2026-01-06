@@ -14,15 +14,6 @@ export default async function ProcurementPage({ params }: PageProps) {
 
     return (
         <div className="h-full flex flex-col">
-            <div className="flex items-center justify-between mb-6">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Procurement</h1>
-                    <p className="text-muted-foreground text-sm">
-                        Tasks flagged for purchase requirements
-                    </p>
-                </div>
-            </div>
-
             <div className="border rounded-md">
                 <Table>
                     <TableHeader>
@@ -47,7 +38,7 @@ export default async function ProcurementPage({ params }: PageProps) {
                         {data.tasks.length === 0 && (
                             <TableRow>
                                 <TableCell colSpan={3} className="text-center h-24 text-muted-foreground">
-                                    No procurement tasks found.
+                                    No material tasks found.
                                 </TableCell>
                             </TableRow>
                         )}

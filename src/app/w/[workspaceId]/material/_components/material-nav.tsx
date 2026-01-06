@@ -1,0 +1,49 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
+
+interface MaterialNavProps {
+    workspaceId: string;
+}
+
+export function MaterialNav({ workspaceId }: MaterialNavProps) {
+    const pathname = usePathname();
+    const basePath = `/w/${workspaceId}/material`;
+
+    const tabs = [
+        {
+            title: "Procurement",
+            href: `${basePath}/procurment`,
+            isActive: (path: string) => path.includes('/procurment')
+        },
+        {
+            title: "Inventory",
+            href: `${basePath}/inventory`,
+            isActive: (path: string) => path.includes('/inventory')
+        }
+    ];
+
+    return (
+        <div className="flex items-center p-1 bg-muted/50 rounded-lg border">
+            {tabs.map((tab) => {
+                const active = tab.isActive(pathname);
+                return (
+                    <Link
+                        key={tab.href}
+                        href={tab.href}
+                        className={cn(
+                            "px-4 py-1.5 text-sm font-medium rounded-md transition-all",
+                            active
+                                ? "bg-background text-foreground shadow-sm"
+                                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                        )}
+                    >
+                        {tab.title}
+                    </Link>
+                );
+            })}
+        </div>
+    );
+}
