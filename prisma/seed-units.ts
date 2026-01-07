@@ -43,6 +43,7 @@ const defaultUnits = [
     { name: 'Month', abbreviation: 'mo', category: 'Time', isDefault: false },
 ];
 
+
 async function seedUnits() {
     console.log('🌱 Seeding default units...');
 
@@ -50,8 +51,16 @@ async function seedUnits() {
         try {
             await prisma.unit.upsert({
                 where: { abbreviation: unit.abbreviation },
-                update: {},
-                create: unit,
+                update: {
+                    // Update existing units to mark as default
+                    isDefault: true,
+                    createdBy: null, // System units have no creator
+                    isActive: true,
+                },
+                create: {
+                    ...unit,
+                    createdBy: null, // System units have no creator
+                },
             });
             console.log(`✅ Created/Updated unit: ${unit.name} (${unit.abbreviation})`);
         } catch (error) {
