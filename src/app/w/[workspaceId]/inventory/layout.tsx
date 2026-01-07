@@ -1,10 +1,11 @@
 import { Metadata } from "next";
-import { MaterialNav } from "./_components/material-nav";
+import { MaterialNav } from "./_components/resourse-nav";
+import { InventoryHeader } from "./_components/inventory-header";
 
-export const metadata: Metadata = {
-    title: "Materials | Tusker",
-    description: "Manage procurement and materials",
-};
+// export const metadata: Metadata = {
+//     title: "Inventory | Tusker",
+//     description: "Manage procurement and materials",
+// };
 
 interface MaterialLayoutProps {
     children: React.ReactNode;
@@ -17,12 +18,7 @@ export default async function MaterialLayout({ children, params }: MaterialLayou
     return (
         <div className="flex flex-col h-full w-full">
             <div className="flex items-center justify-between mb-6">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Materials</h1>
-                    <p className="text-muted-foreground text-sm">
-                        Material flagged for purchase requirements
-                    </p>
-                </div>
+                <InventoryHeader />
                 <MaterialNav workspaceId={workspaceId} />
             </div>
 

@@ -6,7 +6,11 @@ interface PageProps {
     }>;
 }
 
-export default async function MaterialPage({ params }: PageProps) {
+export default async function InventoryPage({ params }: PageProps) {
     const { workspaceId } = await params;
-    redirect(`/w/${workspaceId}/resources/vendors`);
+    return (
+        <div>
+            <h1>inventory Page</h1>
+        </div>
+    );
 }

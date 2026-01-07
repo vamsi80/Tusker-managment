@@ -24,13 +24,13 @@ export async function AppSidebar({ data, workspaceId, ...props }: React.Componen
   const mainNavItems: Array<{
     title: string;
     url: string;
-    icon?: "IconDashboard" | "IconUsersPlus" | "IconCheckupList" | "IconTruck" | "IconBucket" | "IconSettings";
+    icon?: "IconDashboard" | "IconUsersPlus" | "IconCheckupList" | "IconTruck" | "IconCube" | "IconSettings";
   }> = [
       { title: "Dashboard", url: `/w/${workspaceId}`, icon: "IconDashboard" },
       { title: "Team", url: `/w/${workspaceId}/team`, icon: "IconUsersPlus" },
       { title: "Tasks", url: `/w/${workspaceId}/tasks`, icon: "IconCheckupList" },
       { title: "Procurement", url: `/w/${workspaceId}/procurement`, icon: "IconTruck" },
-      { title: "Resources", url: `/w/${workspaceId}/resources`, icon: "IconBucket" },
+      { title: "Inventory", url: `/w/${workspaceId}/inventory`, icon: "IconCube" },
     ];
 
   const footerNavItems: Array<{

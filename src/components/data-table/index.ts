@@ -4,7 +4,6 @@ export { DataTable } from "./data-table";
 // Column helpers
 export {
     createSortableHeader,
-    createSelectColumn,
     createActionsColumn,
     createBadgeColumn,
     createDateColumn,
