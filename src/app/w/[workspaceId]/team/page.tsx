@@ -1,7 +1,7 @@
 import { Suspense } from "react";
-import { InviteUserForm } from "./_components/create-user";
+
 import { isAdminServer } from "@/lib/auth/requireAdmin";
-import { TeamMembers } from "./_components/team-members";
+import { TeamMembers } from "./_components/team-members-table";
 import { TeamMembersSkeleton } from "./_components/team-members-skeleton";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getWorkspaceMembers } from "@/data/workspace";
@@ -29,14 +29,11 @@ function TeamHeaderSkeleton() {
  * Wrapped in Suspense so page loads instantly
  */
 async function TeamHeader({ workspaceId }: { workspaceId: string }) {
-    const isAdmin = await isAdminServer(workspaceId);
-
     return (
         <div className="flex items-center justify-between">
             <h1 className="text-3xl font-semibold leading-tight tracking-tighter md:text-4xl">
                 Team Members
             </h1>
-            <InviteUserForm workspaceId={workspaceId} isAdmin={isAdmin} />
         </div>
     );
 }

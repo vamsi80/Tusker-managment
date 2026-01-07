@@ -43,31 +43,31 @@ export function createSortableHeader<T>(
 /**
  * Creates a checkbox column for row selection
  */
-export function createSelectColumn<T>(): ColumnDef<T> {
-    return {
-        id: "select",
-        header: ({ table }) => (
-            <Checkbox
-                checked={
-                    table.getIsAllPageRowsSelected() ||
-                    (table.getIsSomePageRowsSelected() && "indeterminate")
-                }
-                onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-                aria-label="Select all"
-            />
-        ),
-        cell: ({ row }) => (
-            <Checkbox
-                checked={row.getIsSelected()}
-                onCheckedChange={(value) => row.toggleSelected(!!value)}
-                aria-label="Select row"
-                onClick={(e) => e.stopPropagation()}
-            />
-        ),
-        enableSorting: false,
-        enableHiding: false,
-    };
-}
+// export function createSelectColumn<T>(): ColumnDef<T> {
+//     return {
+//         id: "select",
+//         header: ({ table }) => (
+//             <Checkbox
+//                 checked={
+//                     table.getIsAllPageRowsSelected() ||
+//                     (table.getIsSomePageRowsSelected() && "indeterminate")
+//                 }
+//                 onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+//                 aria-label="Select all"
+//             />
+//         ),
+//         cell: ({ row }) => (
+//             <Checkbox
+//                 checked={row.getIsSelected()}
+//                 onCheckedChange={(value) => row.toggleSelected(!!value)}
+//                 aria-label="Select row"
+//                 onClick={(e) => e.stopPropagation()}
+//             />
+//         ),
+//         enableSorting: false,
+//         enableHiding: false,
+//     };
+// }
 
 /**
  * Creates an actions column with dropdown menu
@@ -82,36 +82,38 @@ export function createActionsColumn<T>(
 ): ColumnDef<T> {
     return {
         id: "actions",
-        header: "Actions",
+        header: " ",
         cell: ({ row }) => {
             return (
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <IconDotsVertical className="h-4 w-4" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        {actions.map((action, index) => (
-                            <DropdownMenuItem
-                                key={index}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    action.onClick(row.original);
-                                }}
-                                className={cn(
-                                    action.variant === "destructive" && "text-destructive focus:text-destructive"
-                                )}
-                            >
-                                {action.icon && <span className="mr-2">{action.icon}</span>}
-                                {action.label}
-                            </DropdownMenuItem>
-                        ))}
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                <div className="flex w-full justify-center">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                                <span className="sr-only">Open menu</span>
+                                <IconDotsVertical className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            {actions.map((action, index) => (
+                                <DropdownMenuItem
+                                    key={index}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        action.onClick(row.original);
+                                    }}
+                                    className={cn(
+                                        action.variant === "destructive" && "text-destructive focus:text-destructive"
+                                    )}
+                                >
+                                    {action.icon && <span className="mr-0">{action.icon}</span>}
+                                    {action.label}
+                                </DropdownMenuItem>
+                            ))}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
             );
         },
         enableSorting: false,

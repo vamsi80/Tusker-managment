@@ -29,7 +29,7 @@ import {
     DropdownMenuContent,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { IconChevronLeft, IconChevronRight, IconColumns, IconSearch } from "@tabler/icons-react";
+import { IconChevronLeft, IconChevronRight, IconColumns, IconSearch, IconPlus } from "@tabler/icons-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface DataTableProps<TData, TValue> {
@@ -42,6 +42,8 @@ interface DataTableProps<TData, TValue> {
     showPagination?: boolean;
     showColumnToggle?: boolean;
     pageSize?: number;
+    onAdd?: () => void;
+    addButtonLabel?: string;
 }
 
 export function DataTable<TData, TValue>({
@@ -54,6 +56,8 @@ export function DataTable<TData, TValue>({
     showPagination = true,
     showColumnToggle = true,
     pageSize = 10,
+    onAdd,
+    addButtonLabel = "Add New",
 }: DataTableProps<TData, TValue>) {
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -143,7 +147,10 @@ export function DataTable<TData, TValue>({
                             <TableRow key={headerGroup.id}>
                                 {headerGroup.headers.map((header) => {
                                     return (
-                                        <TableHead key={header.id}>
+                                        <TableHead
+                                            key={header.id}
+                                            className={(header.column.columnDef.meta as { className?: string })?.className}
+                                        >
                                             {header.isPlaceholder
                                                 ? null
                                                 : flexRender(
@@ -158,7 +165,6 @@ export function DataTable<TData, TValue>({
                     </TableHeader>
                     <TableBody>
                         {isLoading ? (
-                            // Loading skeleton
                             Array.from({ length: pageSize }).map((_, index) => (
                                 <TableRow key={index}>
                                     {columns.map((_, cellIndex) => (
@@ -177,16 +183,35 @@ export function DataTable<TData, TValue>({
                                     className={onRowClick ? "cursor-pointer" : ""}
                                 >
                                     {row.getVisibleCells().map((cell) => (
-                                        <TableCell key={cell.id}>
+                                        <TableCell
+                                            key={cell.id}
+                                            className={(cell.column.columnDef.meta as { className?: string })?.className}
+                                        >
                                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                                         </TableCell>
                                     ))}
                                 </TableRow>
                             ))
                         ) : (
-                            <TableRow>
-                                <TableCell colSpan={columns.length} className="h-24 text-center">
-                                    No results found.
+                            !onAdd && (
+                                <TableRow>
+                                    <TableCell colSpan={columns.length} className="h-24 text-center">
+                                        No results found.
+                                    </TableCell>
+                                </TableRow>
+                            )
+                        )}
+                        {/* Inline Add Button Row */}
+                        {onAdd && !isLoading && (
+                            <TableRow
+                                className="cursor-pointer hover:bg-muted/50 border-dashed border-b-0 group"
+                                onClick={onAdd}
+                            >
+                                <TableCell colSpan={columns.length} className="p-2">
+                                    <div className="flex items-center justify-center gap-2 h-9 text-muted-foreground group-hover:text-foreground transition-colors border-dashed border rounded-md">
+                                        <IconPlus className="h-4 w-4" />
+                                        <span className="text-sm font-medium">{addButtonLabel}</span>
+                                    </div>
                                 </TableCell>
                             </TableRow>
                         )}

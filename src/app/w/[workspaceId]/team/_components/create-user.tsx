@@ -39,10 +39,22 @@ import { useConfetti } from "@/hooks/use-confetti";
 interface InviteUserFormProps {
     workspaceId: string;
     isAdmin: boolean;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+    hideTrigger?: boolean;
 }
 
-export const InviteUserForm = ({ workspaceId, isAdmin }: InviteUserFormProps) => {
-    const [open, setOpen] = useState(false);
+export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onOpenChange: controlledOnOpenChange, hideTrigger }: InviteUserFormProps) => {
+    const [internalOpen, setInternalOpen] = useState(false);
+    const isControlled = controlledOpen !== undefined;
+    const open = isControlled ? controlledOpen : internalOpen;
+    const setOpen = (newOpen: boolean) => {
+        if (isControlled) {
+            controlledOnOpenChange?.(newOpen);
+        } else {
+            setInternalOpen(newOpen);
+        }
+    };
     // const [isSubmitting, setIsSubmitting] = useState(false);
     const [pending, startTransition] = useTransition();
     const { triggerConfetti } = useConfetti();
@@ -103,7 +115,7 @@ export const InviteUserForm = ({ workspaceId, isAdmin }: InviteUserFormProps) =>
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            {isAdmin && (
+            {!hideTrigger && isAdmin && (
                 <DialogTrigger asChild>
                     <Button>
                         Invite User

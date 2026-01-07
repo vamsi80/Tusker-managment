@@ -2,7 +2,7 @@
 
 import { ColumnDef } from "@tanstack/react-table";
 import {
-    createSelectColumn,
+    // createSelectColumn,
     createActionsColumn,
     createBadgeColumn,
 } from "@/components/data-table/column-helpers";
@@ -17,7 +17,7 @@ export function createTeamMemberColumns(
     onDelete: (member: WorkspaceMemberRow) => void
 ): ColumnDef<WorkspaceMemberRow>[] {
     const columns: ColumnDef<WorkspaceMemberRow>[] = [
-        createSelectColumn<WorkspaceMemberRow>(),
+        // createSelectColumn<WorkspaceMemberRow>(),
 
         {
             accessorKey: "user.name",
@@ -126,7 +126,14 @@ export function createTeamMemberColumns(
         );
     }
 
-    columns.push(createActionsColumn<WorkspaceMemberRow>(actions));
+    const actionsColumn = createActionsColumn<WorkspaceMemberRow>(actions);
+
+    // Add sticky styling using the meta property
+    actionsColumn.meta = {
+        className: "sticky right-0 bg-background z-10 border-l shadow-sm w-[50px] p-0"
+    };
+
+    columns.push(actionsColumn);
 
     return columns;
 }

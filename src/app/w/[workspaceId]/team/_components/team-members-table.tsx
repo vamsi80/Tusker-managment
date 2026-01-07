@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { deleteWorkspaceMember } from "../actions";
 import { WorkspaceMemberRow } from "@/data/workspace";
+import { InviteUserForm } from "./create-user";
 
 interface TeamMembersProps {
     data: WorkspaceMemberRow[];
@@ -47,6 +48,8 @@ export function TeamMembers({ data, isAdmin, workspaceId }: TeamMembersProps) {
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [memberToDelete, setMemberToDelete] = useState<WorkspaceMemberRow | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+
+    const [inviteUserOpen, setInviteUserOpen] = useState(false);
 
     const handleViewMember = (member: WorkspaceMemberRow) => {
         setMemberToView(member);
@@ -104,6 +107,16 @@ export function TeamMembers({ data, isAdmin, workspaceId }: TeamMembersProps) {
                 showPagination={true}
                 showColumnToggle={true}
                 pageSize={10}
+                onAdd={isAdmin ? () => setInviteUserOpen(true) : undefined}
+                addButtonLabel="Invite New Member"
+            />
+
+            <InviteUserForm
+                workspaceId={workspaceId}
+                isAdmin={isAdmin}
+                open={inviteUserOpen}
+                onOpenChange={setInviteUserOpen}
+                hideTrigger={true}
             />
 
             {/* View Member Dialog */}

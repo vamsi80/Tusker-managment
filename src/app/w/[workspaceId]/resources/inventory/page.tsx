@@ -1,5 +1,9 @@
+import { Suspense } from "react";
 import { CreateMaterialForm } from "./_components/create-material-form";
+import { MaterialsTable } from "./_components/materials-table";
 import { getUnits } from "@/data/inventory/units";
+import { getMaterials } from "@/data/inventory/materials"; // Check if this file exists from step 818
+import { isAdminServer } from "@/lib/auth/requireAdmin";
 
 interface InventoryPageProps {
     params: Promise<{
@@ -10,8 +14,12 @@ interface InventoryPageProps {
 export default async function InventoryPage({ params }: InventoryPageProps) {
     const { workspaceId } = await params;
 
-    // Fetch units from database
-    const units = await getUnits();
+    // Fetch data in parallel
+    const [units, materials, isAdmin] = await Promise.all([
+        getUnits(),
+        getMaterials(workspaceId),
+        isAdminServer(workspaceId),
+    ]);
 
     return (
         <div className="space-y-6">
@@ -23,16 +31,15 @@ export default async function InventoryPage({ params }: InventoryPageProps) {
                         Manage your materials and stock levels
                     </p>
                 </div>
-                <CreateMaterialForm
-                    workspaceId={workspaceId}
-                    units={units}
-                />
             </div>
 
-            {/* Material List will go here */}
-            <div className="rounded-md border p-8 text-center text-muted-foreground">
-                <p>No materials found. Click "Add Material" to get started.</p>
-            </div>
+            {/* Material List Table */}
+            <MaterialsTable
+                data={materials}
+                workspaceId={workspaceId}
+                isAdmin={isAdmin}
+                units={units}
+            />
         </div>
     );
 }

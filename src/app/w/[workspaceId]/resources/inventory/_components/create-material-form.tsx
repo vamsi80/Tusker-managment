@@ -27,10 +27,22 @@ interface CreateMaterialFormProps {
         category: string | null;
         isDefault: boolean;
     }[];
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+    hideTrigger?: boolean;
 }
 
-export function CreateMaterialForm({ workspaceId, units: initialUnits }: CreateMaterialFormProps) {
-    const [open, setOpen] = useState(false);
+export function CreateMaterialForm({ workspaceId, units: initialUnits, open: controlledOpen, onOpenChange: controlledOnOpenChange, hideTrigger }: CreateMaterialFormProps) {
+    const [internalOpen, setInternalOpen] = useState(false);
+    const isControlled = controlledOpen !== undefined;
+    const open = isControlled ? controlledOpen : internalOpen;
+    const setOpen = (newOpen: boolean) => {
+        if (isControlled) {
+            controlledOnOpenChange?.(newOpen);
+        } else {
+            setInternalOpen(newOpen);
+        }
+    };
     const [pending, startTransition] = useTransition();
     const [quickAddUnitOpen, setQuickAddUnitOpen] = useState(false);
     const [units, setUnits] = useState(initialUnits);
@@ -118,12 +130,14 @@ export function CreateMaterialForm({ workspaceId, units: initialUnits }: CreateM
     return (
         <>
             <Dialog open={open} onOpenChange={setOpen}>
-                <DialogTrigger asChild>
-                    <Button>
-                        <IconPlus className="mr-2 h-4 w-4" />
-                        Add Material
-                    </Button>
-                </DialogTrigger>
+                {!hideTrigger && (
+                    <DialogTrigger asChild>
+                        <Button>
+                            <IconPlus className="mr-2 h-4 w-4" />
+                            Add Material
+                        </Button>
+                    </DialogTrigger>
+                )}
                 <DialogContent className="sm:max-w-[500px]">
                     <DialogHeader>
                         <DialogTitle>Add New Material</DialogTitle>
