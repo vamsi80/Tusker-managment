@@ -11,6 +11,8 @@ import {
     getFilteredRowModel,
     getPaginationRowModel,
     getSortedRowModel,
+    getFacetedRowModel,
+    getFacetedUniqueValues,
     useReactTable,
 } from "@tanstack/react-table";
 import {
@@ -29,8 +31,19 @@ import {
     DropdownMenuContent,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { IconChevronLeft, IconChevronRight, IconColumns, IconSearch, IconPlus } from "@tabler/icons-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DataTableFacetedFilter } from "./data-table-faceted-filter";
+import { IconChevronLeft, IconChevronRight, IconColumns, IconSearch, IconPlus, IconX } from "@tabler/icons-react";
+
+export interface DataTableFilterField<TData> {
+    label: string;
+    value: string;
+    options?: {
+        label: string;
+        value: string;
+        icon?: React.ComponentType<{ className?: string }>;
+    }[];
+}
 
 interface DataTableProps<TData, TValue> {
     columns: ColumnDef<TData, TValue>[];
@@ -44,6 +57,7 @@ interface DataTableProps<TData, TValue> {
     pageSize?: number;
     onAdd?: () => void;
     addButtonLabel?: string;
+    filterFields?: DataTableFilterField<TData>[];
 }
 
 export function DataTable<TData, TValue>({
@@ -58,6 +72,7 @@ export function DataTable<TData, TValue>({
     pageSize = 10,
     onAdd,
     addButtonLabel = "Add New",
+    filterFields = [],
 }: DataTableProps<TData, TValue>) {
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -73,6 +88,8 @@ export function DataTable<TData, TValue>({
         getSortedRowModel: getSortedRowModel(),
         onColumnFiltersChange: setColumnFilters,
         getFilteredRowModel: getFilteredRowModel(),
+        getFacetedRowModel: getFacetedRowModel(),
+        getFacetedUniqueValues: getFacetedUniqueValues(),
         onColumnVisibilityChange: setColumnVisibility,
         onRowSelectionChange: setRowSelection,
         state: {
@@ -108,6 +125,32 @@ export function DataTable<TData, TValue>({
                         </div>
                     </div>
                 )}
+
+                <div className="flex gap-2">
+                    {filterFields.map((field) => {
+                        const column = table.getColumn(field.value);
+                        return (
+                            column && (
+                                <DataTableFacetedFilter
+                                    key={field.value}
+                                    column={column}
+                                    title={field.label}
+                                    options={field.options || []}
+                                />
+                            )
+                        );
+                    })}
+                    {(table.getState().columnFilters.length > 0 || !!table.getState().globalFilter) && (
+                        <Button
+                            variant="ghost"
+                            onClick={() => table.resetColumnFilters()}
+                            className="h-8 px-2 lg:px-3"
+                        >
+                            Reset
+                            <IconX className="ml-2 h-4 w-4" />
+                        </Button>
+                    )}
+                </div>
 
                 {/* Column Toggle */}
                 {showColumnToggle && (

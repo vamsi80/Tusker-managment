@@ -253,6 +253,49 @@ export const materialSchema = z.object({
     isActive: z.boolean().default(true).optional(),
 });
 
+export const vendorSchema = z.object({
+    name: z
+        .string()
+        .min(2, { message: "Vendor name must be at least 2 characters long" })
+        .max(100, { message: "Vendor name must be at most 100 characters long" }),
+    companyName: z
+        .string()
+        .max(100, { message: "Company name must be at most 100 characters long" })
+        .optional()
+        .nullable(),
+    contactPerson: z
+        .string()
+        .max(100, { message: "Contact person must be at most 100 characters long" })
+        .optional()
+        .nullable(),
+    contactNumber: z
+        .string()
+        .max(20, { message: "Contact number must be at most 20 characters long" })
+        .optional()
+        .nullable(),
+    email: z
+        .string()
+        .email({ message: "Invalid email address" })
+        .optional()
+        .nullable()
+        .or(z.literal("")),
+    address: z
+        .string()
+        .max(200, { message: "Address must be at most 200 characters long" })
+        .optional()
+        .nullable(),
+    gstNumber: z
+        .string()
+        .max(20, { message: "GST number must be at most 20 characters long" })
+        .optional()
+        .nullable(),
+    workspaceId: z
+        .string()
+        .uuid({ message: "Invalid workspace id" }),
+    isActive: z.boolean().default(true).optional(),
+    materialIds: z.array(z.string()).optional(),
+});
+
 export type InviteUserSchemaType = z.infer<typeof inviteUserSchema>;
 export type WorkSpaceSchemaType = z.infer<typeof workSpaceSchema>;
 export type ProjectSchemaType = z.infer<typeof projectSchema>;
@@ -261,4 +304,5 @@ export type TaskSchemaType = z.infer<typeof taskSchema>;
 export type SubTaskSchemaType = z.infer<typeof subTaskSchema>;
 export type UnitSchemaType = z.infer<typeof unitSchema>;
 export type MaterialSchemaType = z.infer<typeof materialSchema>;
+export type VendorSchemaType = z.infer<typeof vendorSchema>;
 

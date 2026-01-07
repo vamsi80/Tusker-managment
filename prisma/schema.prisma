@@ -31,7 +31,6 @@ model User {
   auditLogs      AuditLog[]
   comments       Comment[]
   sessions       Session[]
-  units          Unit[]
 
   @@map("user")
 }
@@ -97,6 +96,8 @@ model Workspace {
   owner            User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   members          WorkspaceMember[]
   materials        Material[]
+  units            Unit[]
+  vendors          Vendor[]
 }
 
 model WorkspaceMember {
@@ -112,6 +113,7 @@ model WorkspaceMember {
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   auditLogs      AuditLog[]
+  units          Unit[]
 
   @@unique([userId, workspaceId])
   @@index([workspaceId, workspaceRole])
@@ -377,8 +379,8 @@ model Indent {
 
 model Unit {
   id           String   @id @default(uuid())
-  name         String   @unique // e.g., "kg", "meter", "piece", "liter"
-  abbreviation String   @unique // e.g., "kg", "m", "pcs", "L"
+  name         String // e.g., "kg", "meter", "piece", "liter"
+  abbreviation String // e.g., "kg", "m", "pcs", "L"
   category     String? // e.g., "Weight", "Length", "Volume", "Quantity"
   isDefault    Boolean  @default(false) // Mark default/seeded units (cannot be deleted)
   isActive     Boolean  @default(true) // Allow soft deletion
@@ -386,9 +388,11 @@ model Unit {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  creator   User?      @relation(fields: [createdBy], references: [id], onDelete: SetNull)
-  materials Material[]
-  indents   Indent[]
+  workspaceId String?
+  workspace   Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creator     WorkspaceMember? @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  materials   Material[]
+  indents     Indent[]
 
   @@index([isActive])
   @@index([isDefault])
@@ -409,9 +413,33 @@ model Material {
   defaultUnit Unit      @relation(fields: [defaultUnitId], references: [id], onDelete: Restrict)
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   indents     Indent[]
+  vendors     Vendor[]
 
   @@index([workspaceId])
   @@index([isActive])
   @@index([name])
   @@map("material")
+}
+
+model Vendor {
+  id            String   @id @default(uuid())
+  name          String // Display name or Alias
+  companyName   String? // Legal Company Name
+  contactPerson String?
+  contactNumber String?
+  email         String?
+  address       String?
+  gstNumber     String?
+  workspaceId   String
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  materials Material[]
+
+  @@index([workspaceId])
+  @@index([name])
+  @@map("vendor")
 }

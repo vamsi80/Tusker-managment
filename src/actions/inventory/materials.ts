@@ -3,6 +3,7 @@
 import prisma from "@/lib/db";
 import { materialSchema, MaterialSchemaType } from "@/lib/zodSchemas";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import { revalidatePath } from "next/cache";
 
 /**
  * Create a new material
@@ -33,6 +34,8 @@ export async function createMaterial(data: MaterialSchemaType) {
                 isActive: validatedData.isActive !== false,
             },
         });
+
+        revalidatePath(`/w/${validatedData.workspaceId}/inventory`);
 
         return {
             status: "success" as const,

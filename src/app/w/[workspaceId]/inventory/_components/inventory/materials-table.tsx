@@ -1,19 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useOptimistic } from "react";
 import { DataTable } from "@/components/data-table/data-table";
 import { createMaterialColumns } from "./material-columns";
 import { MaterialRow } from "@/data/inventory/materials";
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import {
     Dialog,
     DialogContent,
@@ -40,6 +31,13 @@ interface MaterialsTableProps {
 
 export function MaterialsTable({ data, workspaceId, isAdmin, units }: MaterialsTableProps) {
     const router = useRouter();
+
+    const [optimisticMaterials, addOptimisticMaterial] = useOptimistic(
+        data,
+        (state, newMaterial: MaterialRow) => {
+            return [newMaterial, ...state];
+        }
+    );
 
     // Dialog states
     const [viewDialogOpen, setViewDialogOpen] = useState(false);
@@ -107,7 +105,7 @@ export function MaterialsTable({ data, workspaceId, isAdmin, units }: MaterialsT
         <>
             <DataTable
                 columns={columns}
-                data={data}
+                data={optimisticMaterials}
                 searchKey="name"
                 searchPlaceholder="Search materials..."
                 onRowClick={handleView}
@@ -124,6 +122,7 @@ export function MaterialsTable({ data, workspaceId, isAdmin, units }: MaterialsT
                 open={createDialogOpen}
                 onOpenChange={setCreateDialogOpen}
                 hideTrigger={true}
+                onAddOptimistic={addOptimisticMaterial}
             />
 
             {/* View Material Dialog */}

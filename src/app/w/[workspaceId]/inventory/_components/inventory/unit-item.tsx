@@ -1,7 +1,6 @@
 "use client";
 
 import { IconEdit, IconTrash, IconLock } from "@tabler/icons-react";
-import { SelectItem } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import {
     AlertDialog,
@@ -14,7 +13,6 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useState } from "react";
-import { toast } from "sonner";
 
 interface UnitItemProps {
     unit: {

@@ -30,9 +30,10 @@ interface CreateMaterialFormProps {
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
     hideTrigger?: boolean;
+    onAddOptimistic?: (material: any) => void;
 }
 
-export function CreateMaterialForm({ workspaceId, units: initialUnits, open: controlledOpen, onOpenChange: controlledOnOpenChange, hideTrigger }: CreateMaterialFormProps) {
+export function CreateMaterialForm({ workspaceId, units: initialUnits, open: controlledOpen, onOpenChange: controlledOnOpenChange, hideTrigger, onAddOptimistic }: CreateMaterialFormProps) {
     const [internalOpen, setInternalOpen] = useState(false);
     const isControlled = controlledOpen !== undefined;
     const open = isControlled ? controlledOpen : internalOpen;
@@ -59,6 +60,49 @@ export function CreateMaterialForm({ workspaceId, units: initialUnits, open: con
     });
 
     function onSubmit(data: MaterialSchemaType) {
+        setOpen(false); // Close dialog immediately
+
+        // Optimistic update
+        if (onAddOptimistic) {
+            const selectedUnit = units.find(u => u.id === data.defaultUnitId);
+            const optimisticMaterial = {
+                id: "optimistic-" + Math.random().toString(),
+                name: data.name,
+                specifications: data.specifications || null,
+                defaultUnitId: data.defaultUnitId,
+                workspaceId: data.workspaceId,
+                isActive: true,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                defaultUnit: selectedUnit ? {
+                    id: selectedUnit.id,
+                    name: selectedUnit.name,
+                    abbreviation: selectedUnit.abbreviation,
+                    isDefault: selectedUnit.isDefault,
+                    category: selectedUnit.category || null,
+                    workspaceId: workspaceId,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                    createdBy: null,
+                    workspaceMemberId: null,
+                    isActive: true
+                } : {
+                    id: "unknown",
+                    name: "Unknown",
+                    abbreviation: "?",
+                    isDefault: false,
+                    category: null,
+                    workspaceId: workspaceId,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                    createdBy: null,
+                    workspaceMemberId: null,
+                    isActive: true
+                }
+            };
+            onAddOptimistic(optimisticMaterial);
+        }
+
         startTransition(async () => {
             const { data: result, error } = await tryCatch(createMaterial(data));
 
@@ -71,7 +115,7 @@ export function CreateMaterialForm({ workspaceId, units: initialUnits, open: con
             if (result.status === "success") {
                 toast.success(result.message);
                 form.reset();
-                setOpen(false);
+                // setOpen(false); // Already closed optimistically
             } else {
                 toast.error(result.message);
             }

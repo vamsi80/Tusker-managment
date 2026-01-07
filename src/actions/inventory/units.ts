@@ -26,7 +26,7 @@ export async function createUnit(data: UnitSchemaType, workspaceId: string) {
         const validatedData = unitSchema.parse(data);
 
         // Check if abbreviation already exists
-        const abbreviationExists = await checkUnitAbbreviationExists(validatedData.abbreviation);
+        const abbreviationExists = await checkUnitAbbreviationExists(validatedData.abbreviation, workspaceId);
         if (abbreviationExists) {
             return {
                 status: "error" as const,
@@ -42,7 +42,8 @@ export async function createUnit(data: UnitSchemaType, workspaceId: string) {
                 category: validatedData.category || null,
                 isDefault: false, // User-created units are never default
                 isActive: validatedData.isActive !== false, // Default to true
-                createdBy: workspaceMember.userId, // Track who created it
+                createdBy: workspaceMember.id, // Track who created it (WorkspaceMember ID)
+                workspaceId: workspaceId,
             },
         });
 
@@ -89,7 +90,7 @@ export async function updateUnit(id: string, data: UnitSchemaType, workspaceId: 
         // Check permissions
         // getWorkspacePermissions already calls requireUser() internally
         const { isWorkspaceAdmin, workspaceMember } = await getWorkspacePermissions(workspaceId);
-        const canEdit = (workspaceMember && unit.createdBy === workspaceMember.userId) || isWorkspaceAdmin;
+        const canEdit = (workspaceMember && unit.createdBy === workspaceMember.id) || isWorkspaceAdmin;
 
         if (!canEdit) {
             return {
@@ -104,6 +105,7 @@ export async function updateUnit(id: string, data: UnitSchemaType, workspaceId: 
         // Check if abbreviation already exists (excluding current unit)
         const abbreviationExists = await checkUnitAbbreviationExists(
             validatedData.abbreviation,
+            workspaceId,
             id
         );
         if (abbreviationExists) {
@@ -169,7 +171,7 @@ export async function deleteUnit(id: string, workspaceId: string) {
         // Check if user has permission to delete
         // getWorkspacePermissions already calls requireUser() internally
         const { isWorkspaceAdmin, workspaceMember } = await getWorkspacePermissions(workspaceId);
-        const canDelete = (workspaceMember && unit.createdBy === workspaceMember.userId) || isWorkspaceAdmin;
+        const canDelete = (workspaceMember && unit.createdBy === workspaceMember.id) || isWorkspaceAdmin;
 
         if (!canDelete) {
             return {

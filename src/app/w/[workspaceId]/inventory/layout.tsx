@@ -1,11 +1,5 @@
-import { Metadata } from "next";
-import { MaterialNav } from "./_components/resourse-nav";
+import { MaterialNav } from "./_components/inventory-nav";
 import { InventoryHeader } from "./_components/inventory-header";
-
-// export const metadata: Metadata = {
-//     title: "Inventory | Tusker",
-//     description: "Manage procurement and materials",
-// };
 
 interface MaterialLayoutProps {
     children: React.ReactNode;

@@ -5,11 +5,15 @@ import { cache } from "react";
  * Get all active units from the database
  * Cached for performance
  */
-export const getUnits = cache(async () => {
+export const getUnits = cache(async (workspaceId?: string) => {
     try {
         const units = await prisma.unit.findMany({
             where: {
                 isActive: true,
+                OR: [
+                    { isDefault: true },
+                    ...(workspaceId ? [{ workspaceId }] : [])
+                ]
             },
             orderBy: [
                 { isDefault: 'desc' }, // Default units first
@@ -22,6 +26,7 @@ export const getUnits = cache(async () => {
                 abbreviation: true,
                 category: true,
                 isDefault: true,
+                workspaceId: true,
             },
         });
 
@@ -35,8 +40,8 @@ export const getUnits = cache(async () => {
 /**
  * Get units grouped by category
  */
-export const getUnitsGroupedByCategory = cache(async () => {
-    const units = await getUnits();
+export const getUnitsGroupedByCategory = cache(async (workspaceId?: string) => {
+    const units = await getUnits(workspaceId);
 
     const grouped = units.reduce((acc, unit) => {
         const category = unit.category || "Other";
@@ -69,16 +74,19 @@ export const getUnitById = cache(async (unitId: string) => {
 /**
  * Check if a unit abbreviation already exists
  */
-export const checkUnitAbbreviationExists = async (abbreviation: string, excludeId?: string) => {
+export const checkUnitAbbreviationExists = async (abbreviation: string, workspaceId: string, excludeId?: string) => {
     try {
-        const unit = await prisma.unit.findUnique({
-            where: { abbreviation },
+        const unit = await prisma.unit.findFirst({
+            where: {
+                abbreviation,
+                isActive: true,
+                OR: [
+                    { isDefault: true },
+                    { workspaceId }
+                ],
+                NOT: excludeId ? { id: excludeId } : undefined
+            },
         });
-
-        // If we're editing, exclude the current unit from the check
-        if (excludeId && unit?.id === excludeId) {
-            return false;
-        }
 
         return !!unit;
     } catch (error) {
