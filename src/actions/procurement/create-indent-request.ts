@@ -127,7 +127,7 @@ export async function createIndentRequest(input: CreateIndentRequestInput) {
                 description: validatedData.description || null,
                 expectedDelivery: validatedData.expectedDelivery || null,
                 requiresVendor: validatedData.requiresVendor ?? true,
-                requestedBy: userId,
+                requestedBy: workspaceMember.id,
                 status: "REQUESTED",
                 items: validatedData.materials ? {
                     create: validatedData.materials.map((item) => ({

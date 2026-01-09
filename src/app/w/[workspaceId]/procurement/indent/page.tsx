@@ -9,7 +9,7 @@ interface PageProps {
 
 export default async function IndentPage({ params }: PageProps) {
     const { workspaceId } = await params;
-    const { indentRequests } = await getIndentRequests(workspaceId);
+    const { indentRequests, workspaceMember } = await getIndentRequests(workspaceId);
 
-    return <IndentClientPage data={indentRequests} />;
+    return <IndentClientPage data={indentRequests} userRole={workspaceMember.workspaceRole} />;
 }

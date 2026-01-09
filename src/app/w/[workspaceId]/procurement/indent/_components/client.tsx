@@ -1,15 +1,19 @@
 "use client";
 
+import { useMemo } from "react";
 import { DataTable } from "@/components/data-table/data-table";
-import { columns } from "./columns";
+import { getColumns } from "./columns";
 import { IndentRequestWithRelations } from "@/data/procurement/get-indent-requests";
 import { IconCheck, IconX, IconClock, IconFileText } from "@tabler/icons-react";
 
 interface IndentClientPageProps {
     data: IndentRequestWithRelations[];
+    userRole: string;
 }
 
-export function IndentClientPage({ data }: IndentClientPageProps) {
+export function IndentClientPage({ data, userRole }: IndentClientPageProps) {
+    const columns = useMemo(() => getColumns(userRole), [userRole]);
+
     const filterFields = [
         {
             label: "Status",

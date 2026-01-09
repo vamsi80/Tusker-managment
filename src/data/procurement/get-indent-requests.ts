@@ -39,6 +39,7 @@ export async function getIndentRequests(workspaceId: string) {
                     select: {
                         id: true,
                         name: true,
+                        workspaceId: true,
                     },
                 },
                 task: {
@@ -46,6 +47,16 @@ export async function getIndentRequests(workspaceId: string) {
                         id: true,
                         name: true,
                         taskSlug: true,
+                    },
+                },
+                requestor: {
+                    include: {
+                        user: {
+                            select: {
+                                name: true,
+                                image: true,
+                            },
+                        },
                     },
                 },
                 items: {

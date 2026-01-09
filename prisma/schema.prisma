@@ -114,6 +114,7 @@ model WorkspaceMember {
   workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   auditLogs      AuditLog[]
   units          Unit[]
+  indentDetails  IndentDetails[]
 
   @@unique([userId, workspaceId])
   @@index([workspaceId, workspaceRole])
@@ -372,15 +373,16 @@ model IndentDetails {
   description      String? // Request description
   expectedDelivery DateTime? // Expected delivery date
   requiresVendor   Boolean      @default(true) // Whether vendor quotation is required
-  requestedBy      String // User ID who created the request
+  requestedBy      String // WorkspaceMember ID who created the request
   status           IndentStatus @default(REQUESTED)
   requestedAt      DateTime     @default(now()) // When request was created
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
-  project Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  task    Task?        @relation(fields: [taskId], references: [id], onDelete: SetNull)
-  items   IndentItem[]
+  project   Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task      Task?           @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  requestor WorkspaceMember @relation(fields: [requestedBy], references: [id], onDelete: Restrict)
+  items     IndentItem[]
 
   @@index([projectId])
   @@index([taskId])
