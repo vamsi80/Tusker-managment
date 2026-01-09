@@ -251,9 +251,9 @@ export function DataTable<TData, TValue>({
                                 onClick={onAdd}
                             >
                                 <TableCell colSpan={columns.length} className="p-2">
-                                    <div className="flex items-center justify-center gap-2 h-9 text-muted-foreground group-hover:text-foreground transition-colors border-dashed border rounded-md">
+                                    <div className="flex items-center justify-center gap-2 h-9 text-primary font-medium transition-colors border-dashed border border-primary/50 bg-primary/5 rounded-md hover:bg-primary/10">
                                         <IconPlus className="h-4 w-4" />
-                                        <span className="text-sm font-medium">{addButtonLabel}</span>
+                                        <span className="text-sm">{addButtonLabel}</span>
                                     </div>
                                 </TableCell>
                             </TableRow>

@@ -83,7 +83,7 @@ export function CreateVendorForm({ workspaceId, open: controlledOpen, onOpenChan
             {!hideTrigger && (
                 <DialogTrigger asChild>
                     {trigger || (
-                        <Button>
+                        <Button variant="outline" className="text-primary border-primary/50 bg-primary/5 hover:bg-primary/10">
                             <IconPlus className="mr-2 h-4 w-4" />
                             Add Vendor
                         </Button>

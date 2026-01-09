@@ -49,20 +49,36 @@ async function seedUnits() {
 
     for (const unit of defaultUnits) {
         try {
-            await prisma.unit.upsert({
-                where: { abbreviation: unit.abbreviation },
-                update: {
-                    // Update existing units to mark as default
-                    isDefault: true,
-                    createdBy: null, // System units have no creator
-                    isActive: true,
-                },
-                create: {
-                    ...unit,
-                    createdBy: null, // System units have no creator
+            const existingUnit = await prisma.unit.findFirst({
+                where: {
+                    abbreviation: unit.abbreviation,
+                    workspaceId: null, // Only check for system units
                 },
             });
-            console.log(`✅ Created/Updated unit: ${unit.name} (${unit.abbreviation})`);
+
+            if (existingUnit) {
+                await prisma.unit.update({
+                    where: { id: existingUnit.id },
+                    data: {
+                        // Update existing units to mark as default
+                        isDefault: true,
+                        createdBy: null,
+                        isActive: true,
+                        name: unit.name,
+                        category: unit.category,
+                    },
+                });
+                console.log(`✅ Updated unit: ${unit.name} (${unit.abbreviation})`);
+            } else {
+                await prisma.unit.create({
+                    data: {
+                        ...unit,
+                        createdBy: null, // System units have no creator
+                        workspaceId: null,
+                    },
+                });
+                console.log(`✅ Created unit: ${unit.name} (${unit.abbreviation})`);
+            }
         } catch (error) {
             console.error(`❌ Error creating unit ${unit.name}:`, error);
         }

@@ -31,7 +31,7 @@ export async function createVendor(data: VendorSchemaType) {
                 companyName: validatedData.companyName,
                 contactPerson: validatedData.contactPerson,
                 contactNumber: validatedData.contactNumber,
-                email: validatedData.email || null, // handle empty string vs null
+                email: validatedData.email,
                 address: validatedData.address,
                 gstNumber: validatedData.gstNumber,
                 workspaceId: validatedData.workspaceId,

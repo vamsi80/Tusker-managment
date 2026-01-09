@@ -1,0 +1,137 @@
+"use client";
+
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
+import { CreateIndentDialog } from "./create-indent-dialog";
+import { Button } from "@/components/ui/button";
+import { IconPlus } from "@tabler/icons-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ProcurementTaskWithRelations } from "@/data/procurement/get-procurement-tasks";
+
+interface ProcurementTasksTableProps {
+    workspaceId: string;
+    procurementTasks: ProcurementTaskWithRelations[];
+    projects: { id: string; name: string }[];
+    tasks: { id: string; name: string; projectId: string }[];
+    materials: { id: string; name: string }[];
+    units: { id: string; name: string; abbreviation: string }[];
+    userRole?: "OWNER" | "ADMIN" | "MEMBER" | "VIEWER";
+}
+
+export function ProcurementTasksTable({
+    workspaceId,
+    procurementTasks,
+    projects,
+    tasks,
+    materials,
+    units,
+    userRole
+}: ProcurementTasksTableProps) {
+    if (procurementTasks.length === 0) {
+        return (
+            <div className="text-center py-10 border rounded-lg bg-muted/20 border-dashed">
+                <p className="text-muted-foreground">No active procurement tasks found.</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="rounded-md border bg-card">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead className="w-[300px]">Task Name</TableHead>
+                        <TableHead>Project</TableHead>
+                        <TableHead>Assignee</TableHead>
+                        <TableHead>Start Date</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {procurementTasks.map((pt) => {
+                        // Accessing indentCreated from the root object (added to schema)
+                        // Casting specific property if TS complains due to stale generation
+                        const isIndentCreated = (pt as any).indentCreated;
+
+                        return (
+                            <TableRow key={pt.id} className={isIndentCreated ? "bg-muted/30" : ""}>
+                                <TableCell className="font-medium">
+                                    <div>{pt.task.name}</div>
+                                    {pt.task.description && (
+                                        <div className="text-xs text-muted-foreground truncate max-w-[200px]">
+                                            {pt.task.description}
+                                        </div>
+                                    )}
+                                </TableCell>
+                                <TableCell>
+                                    <Badge variant="outline">{pt.project.name}</Badge>
+                                </TableCell>
+                                <TableCell>
+                                    {pt.task.assignee?.workspaceMember.user ? (
+                                        <div className="flex items-center gap-2">
+                                            <Avatar className="h-6 w-6">
+                                                <AvatarImage src={pt.task.assignee.workspaceMember.user.image || undefined} />
+                                                <AvatarFallback className="text-[10px]">
+                                                    {pt.task.assignee.workspaceMember.user.name?.charAt(0) || "U"}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <span className="text-sm">
+                                                {pt.task.assignee.workspaceMember.user.name}
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <span className="text-muted-foreground text-xs">-</span>
+                                    )}
+                                </TableCell>
+                                <TableCell>
+                                    {pt.task.startDate ? (
+                                        format(new Date(pt.task.startDate), "MMM d, yyyy")
+                                    ) : (
+                                        <span className="text-muted-foreground text-xs">-</span>
+                                    )}
+                                </TableCell>
+                                <TableCell>
+                                    <Badge variant="secondary" className="text-xs">
+                                        {pt.task.status?.replace("_", " ") || "TO DO"}
+                                    </Badge>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                    {isIndentCreated ? (
+                                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                            Indent Created
+                                        </Badge>
+                                    ) : (
+                                        <CreateIndentDialog
+                                            workspaceId={workspaceId}
+                                            projects={projects}
+                                            tasks={tasks}
+                                            materials={materials}
+                                            units={units}
+                                            userRole={userRole}
+                                            defaultProjectId={pt.projectId}
+                                            defaultTaskId={pt.taskId}
+                                            trigger={
+                                                <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-primary">
+                                                    <IconPlus className="h-4 w-4" />
+                                                </Button>
+                                            }
+                                        />
+                                    )}
+                                </TableCell>
+                            </TableRow>
+                        )
+                    })}
+                </TableBody>
+            </Table>
+        </div>
+    );
+}

@@ -136,6 +136,7 @@ model Project {
   projectMembers   ProjectMember[]
   tasks            Task[]
   procurementTasks ProcurementTask[]
+  indentDetails    IndentDetails[]
   auditLogs        AuditLog[]
 
   @@index([workspaceId])
@@ -233,6 +234,7 @@ model Task {
   Task_TaskDependency_A Task[]           @relation("TaskDependency")
   Task_TaskDependency_B Task[]           @relation("TaskDependency")
   procurementTask       ProcurementTask?
+  indentDetails         IndentDetails[]
 
   @@index([parentTaskId])
   @@index([projectId])
@@ -337,44 +339,138 @@ enum TaskStatus {
 }
 
 model ProcurementTask {
-  id          String   @id @default(uuid())
-  taskId      String   @unique
-  projectId   String
-  workspaceId String
-  createdAt   DateTime @default(now())
+  id            String   @id @default(uuid())
+  taskId        String   @unique
+  projectId     String
+  workspaceId   String
+  indentCreated Boolean  @default(false)
+  createdAt     DateTime @default(now())
 
   task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
   project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-
-  indents Indent[]
 
   @@index([workspaceId])
   @@index([projectId])
   @@map("procurement_task")
 }
 
-model Indent {
-  id                String    @id @default(uuid())
-  procurementTaskId String
-  materialId        String
-  description       String?
-  quantity          Float
-  unitId            String
-  estimatedCost     Float?
-  requiredDate      DateTime?
+enum IndentStatus {
+  REQUESTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+}
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// Member-created indent request (role-safe)
+model IndentDetails {
+  id               String       @id @default(uuid())
+  key              String       @unique // e.g., IND-001
+  name             String // Indent title/name
+  projectId        String
+  taskId           String? // Optional task reference
+  description      String? // Request description
+  expectedDelivery DateTime? // Expected delivery date
+  requiresVendor   Boolean      @default(true) // Whether vendor quotation is required
+  requestedBy      String // User ID who created the request
+  status           IndentStatus @default(REQUESTED)
+  requestedAt      DateTime     @default(now()) // When request was created
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
-  procurementTask ProcurementTask @relation(fields: [procurementTaskId], references: [id], onDelete: Cascade)
-  material        Material        @relation(fields: [materialId], references: [id], onDelete: Restrict)
-  unit            Unit            @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  project       Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task          Task?                 @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  items         IndentItem[]
+  decision      IndentDecision? // 1:1 relationship, only exists when approved
+  statusHistory IndentStatusHistory[]
 
-  @@index([procurementTaskId])
+  @@index([projectId])
+  @@index([taskId])
+  @@index([requestedBy])
+  @@index([status])
+  @@index([key])
+  @@map("indent_details")
+}
+
+model IndentItem {
+  id              String   @id @default(uuid())
+  indentDetailsId String
+  materialId      String
+  quantity        Float
+  unitId          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  indentDetails IndentDetails @relation(fields: [indentDetailsId], references: [id], onDelete: Cascade)
+  material      Material      @relation(fields: [materialId], references: [id], onDelete: Restrict)
+  unit          Unit?         @relation(fields: [unitId], references: [id], onDelete: Restrict)
+
+  @@index([indentDetailsId])
+  @@index([materialId])
+  @@map("indent_item")
+}
+
+// Admin/Owner procurement decisions (restricted access)
+model IndentDecision {
+  id              String   @id @default(uuid())
+  indentDetailsId String   @unique // 1:1 with IndentDetails
+  requiresVendor  Boolean  @default(true) // true = vendor required, false = direct PO
+  approvedBy      String // User ID of admin/owner
+  approvedAt      DateTime @default(now())
+  notes           String? // Admin notes/remarks
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  indentDetails IndentDetails        @relation(fields: [indentDetailsId], references: [id], onDelete: Cascade)
+  items         IndentDecisionItem[] // Multiple materials can be approved
+  material      Material?            @relation(fields: [materialId], references: [id])
+  materialId    String?
+
+  @@index([indentDetailsId])
+  @@index([approvedBy])
+  @@index([requiresVendor])
+  @@map("indent_decision")
+}
+
+// Individual material items in an indent decision
+model IndentDecisionItem {
+  id               String   @id @default(uuid())
+  indentDecisionId String
+  materialId       String
+  approvedQuantity Float // Approved quantity for this material
+  unitId           String? // Unit of measure
+  estimatedCost    Float? // Estimated cost per unit
+  specifications   String? // Specific requirements for this material
+  remarks          String? // Item-specific notes
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  indentDecision IndentDecision @relation(fields: [indentDecisionId], references: [id], onDelete: Cascade)
+  material       Material       @relation(fields: [materialId], references: [id], onDelete: Restrict)
+  unit           Unit?          @relation(fields: [unitId], references: [id], onDelete: Restrict)
+
+  @@index([indentDecisionId])
   @@index([materialId])
   @@index([unitId])
-  @@map("indent")
+  @@map("indent_decision_item")
+}
+
+// Audit trail for status transitions
+model IndentStatusHistory {
+  id              String        @id @default(uuid())
+  indentDetailsId String
+  fromStatus      IndentStatus? // Null for initial creation
+  toStatus        IndentStatus
+  changedBy       String // User ID who made the change
+  changedAt       DateTime      @default(now())
+  remarks         String? // Reason for status change
+
+  indentDetails IndentDetails @relation(fields: [indentDetailsId], references: [id], onDelete: Cascade)
+
+  @@index([indentDetailsId])
+  @@index([changedAt])
+  @@index([changedBy])
+  @@map("indent_status_history")
 }
 
 model Unit {
@@ -388,11 +484,12 @@ model Unit {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  workspaceId String?
-  workspace   Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  creator     WorkspaceMember? @relation(fields: [createdBy], references: [id], onDelete: SetNull)
-  materials   Material[]
-  indents     Indent[]
+  workspaceId         String?
+  workspace           Workspace?           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creator             WorkspaceMember?     @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  materials           Material[]
+  indentDecisionItems IndentDecisionItem[]
+  indentItems         IndentItem[]
 
   @@index([isActive])
   @@index([isDefault])
@@ -410,10 +507,12 @@ model Material {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  defaultUnit Unit      @relation(fields: [defaultUnitId], references: [id], onDelete: Restrict)
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  indents     Indent[]
-  vendors     Vendor[]
+  defaultUnit         Unit                 @relation(fields: [defaultUnitId], references: [id], onDelete: Restrict)
+  workspace           Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  vendors             Vendor[]
+  indentDecisionItems IndentDecisionItem[]
+  indentDecisions     IndentDecision[]
+  indentItems         IndentItem[]
 
   @@index([workspaceId])
   @@index([isActive])

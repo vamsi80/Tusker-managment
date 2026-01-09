@@ -171,6 +171,16 @@ export async function bulkUploadTasksAndSubtasks(data: {
             : [];
         const subtaskSlugMap = new Map(allSubtaskNames.map((name, i) => [name, allSubtaskSlugs[i]]));
 
+        // Fetch all workspace tags for resolution
+        const workspaceTags = await prisma.tag.findMany({
+            where: { workspaceId: project.workspaceId },
+            select: { id: true, name: true, requirePurchase: true }
+        });
+
+        const tagMap = new Map(
+            workspaceTags.map(t => [t.name.toUpperCase(), t])
+        );
+
         // Process each task group in a transaction with increased timeout
         await prisma.$transaction(async (tx) => {
             for (const [taskName, taskGroup] of taskGroups.entries()) {
@@ -195,7 +205,6 @@ export async function bulkUploadTasksAndSubtasks(data: {
                 if (subtaskRows.length > 0) {
                     // Validation arrays for subtasks
                     const validStatus = ['TO_DO', 'IN_PROGRESS', 'REVIEW', 'COMPLETED', 'BLOCKED', 'HOLD'];
-                    const validTags = ['DESIGN', 'PROCUREMENT', 'CONTRACTOR'];
 
                     for (let i = 0; i < subtaskRows.length; i++) {
                         const subtaskRow = subtaskRows[i];
@@ -215,11 +224,19 @@ export async function bulkUploadTasksAndSubtasks(data: {
                             ? subtaskRow.status
                             : 'TO_DO';
 
-                        const subtaskTag = subtaskRow.tag && validTags.includes(subtaskRow.tag)
-                            ? subtaskRow.tag
-                            : undefined;
+                        // Resolve tag ID and check procurement requirement
+                        let resolvedTagId: string | undefined = undefined;
+                        let shouldAddToProcurement = false;
 
-                        await tx.task.create({
+                        if (subtaskRow.tag) {
+                            const tagInfo = tagMap.get(subtaskRow.tag.toUpperCase());
+                            if (tagInfo) {
+                                resolvedTagId = tagInfo.id;
+                                shouldAddToProcurement = tagInfo.requirePurchase === true;
+                            }
+                        }
+
+                        const createdSubtask = await tx.task.create({
                             data: {
                                 name: subtaskRow.subtaskName!,
                                 taskSlug: subtaskSlug,
@@ -231,9 +248,19 @@ export async function bulkUploadTasksAndSubtasks(data: {
                                 startDate: subtaskStartDate,
                                 days: subtaskRow.days,
                                 status: subtaskStatus as any,
-                                tag: subtaskTag as any,
+                                tagId: resolvedTagId,
                             },
                         });
+
+                        if (shouldAddToProcurement) {
+                            await tx.procurementTask.create({
+                                data: {
+                                    taskId: createdSubtask.id,
+                                    projectId: data.projectId,
+                                    workspaceId: project.workspaceId,
+                                },
+                            });
+                        }
 
                         createdItems.push({ type: 'subtask', name: subtaskRow.subtaskName });
                     }

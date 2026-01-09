@@ -296,13 +296,23 @@ export const vendorSchema = z.object({
     materialIds: z.array(z.string()).optional(),
 });
 
+export const indentSchema = z.object({
+    name: z.string().min(1, "Indent name is required"),
+    indentKey: z.string().min(1, "Indent key is required"), // You might generate this automatically, but for schema we'll include it or make optional
+    projectId: z.string().optional().nullable(),
+    description: z.string().optional(),
+    type: z.enum(["PROCUREMENT", "IN_HOUSE"]).default("PROCUREMENT"),
+    requiredDate: z.date().optional().nullable(),
+    procurementTaskId: z.string().optional().nullable(),
+});
+
 export type InviteUserSchemaType = z.infer<typeof inviteUserSchema>;
 export type WorkSpaceSchemaType = z.infer<typeof workSpaceSchema>;
 export type ProjectSchemaType = z.infer<typeof projectSchema>;
 export type EditProjectSchemaType = z.infer<typeof editProjectSchema>;
 export type TaskSchemaType = z.infer<typeof taskSchema>;
 export type SubTaskSchemaType = z.infer<typeof subTaskSchema>;
+export type IndentSchemaType = z.infer<typeof indentSchema>;
 export type UnitSchemaType = z.infer<typeof unitSchema>;
 export type MaterialSchemaType = z.infer<typeof materialSchema>;
 export type VendorSchemaType = z.infer<typeof vendorSchema>;
-
