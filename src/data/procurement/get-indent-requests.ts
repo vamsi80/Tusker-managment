@@ -62,27 +62,7 @@ export async function getIndentRequests(workspaceId: string) {
                         }
                     }
                 },
-                decision: {
-                    include: {
-                        items: {
-                            include: {
-                                material: {
-                                    select: {
-                                        id: true,
-                                        name: true,
-                                    },
-                                },
-                                unit: {
-                                    select: {
-                                        id: true,
-                                        name: true,
-                                        abbreviation: true,
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
+
             },
             orderBy: {
                 createdAt: "desc",

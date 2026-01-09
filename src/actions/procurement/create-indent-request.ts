@@ -136,14 +136,7 @@ export async function createIndentRequest(input: CreateIndentRequestInput) {
                         unitId: item.unitId,
                     })),
                 } : undefined,
-                statusHistory: {
-                    create: {
-                        fromStatus: null,
-                        toStatus: "REQUESTED",
-                        changedBy: userId,
-                        remarks: "Initial indent request created",
-                    },
-                },
+
             },
             include: {
                 project: {
