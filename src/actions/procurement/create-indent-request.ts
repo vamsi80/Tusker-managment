@@ -11,6 +11,8 @@ const materialItemSchema = z.object({
     materialId: z.string(),
     quantity: z.number(),
     unitId: z.string().optional(),
+    estimatedPrice: z.number().optional().nullable(),
+    vendorId: z.string().optional().nullable(),
 });
 
 const createIndentRequestSchema = z.object({
@@ -134,6 +136,8 @@ export async function createIndentRequest(input: CreateIndentRequestInput) {
                         materialId: item.materialId,
                         quantity: item.quantity,
                         unitId: item.unitId,
+                        estimatedPrice: item.estimatedPrice || null,
+                        vendorId: item.vendorId || null,
                     })),
                 } : undefined,
 

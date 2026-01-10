@@ -9,9 +9,10 @@ import { IconCheck, IconX, IconClock, IconFileText } from "@tabler/icons-react";
 interface IndentClientPageProps {
     data: IndentRequestWithRelations[];
     userRole: string;
+    action?: React.ReactNode;
 }
 
-export function IndentClientPage({ data, userRole }: IndentClientPageProps) {
+export function IndentClientPage({ data, userRole, action }: IndentClientPageProps) {
     const columns = useMemo(() => getColumns(userRole), [userRole]);
 
     const filterFields = [
@@ -31,6 +32,9 @@ export function IndentClientPage({ data, userRole }: IndentClientPageProps) {
         <div className="flex-1 space-y-4">
             <div className="flex items-center justify-between space-y-2">
                 <h2 className="text-3xl font-bold tracking-tight">Indents</h2>
+                <div className="flex items-center space-x-2">
+                    {action}
+                </div>
             </div>
             <div className="h-full flex-1 flex-col space-y-8 md:flex">
                 <DataTable

@@ -33,6 +33,7 @@ const step1Schema = z.object({
     taskId: z.string().optional(),
     description: z.string().optional(),
     expectedDelivery: z.date().optional(),
+    requiresVendor: z.boolean(),
 });
 
 // Step 2: Material Selection Schema (Admin/Owner only)
@@ -40,11 +41,20 @@ const materialItemSchema = z.object({
     materialId: z.string().min(1, "Material is required"),
     quantity: z.number().min(0.01, "Quantity must be greater than 0"),
     unitId: z.string().optional(),
+    vendorId: z.string().optional(),
+    estimatedPrice: z.number().optional(),
+}).refine((data) => {
+    if (data.vendorId && (!data.estimatedPrice || data.estimatedPrice <= 0)) {
+        return false;
+    }
+    return true;
+}, {
+    message: "Price is required when vendor is selected",
+    path: ["estimatedPrice"]
 });
 
 const step2Schema = z.object({
     materials: z.array(materialItemSchema).min(1, "At least one material is required"),
-    requiresVendor: z.boolean().default(true),
 });
 
 // Combined schema for final submission
@@ -57,8 +67,9 @@ interface CreateIndentDialogProps {
     workspaceId: string;
     projects: { id: string; name: string }[];
     tasks?: { id: string; name: string; projectId: string }[];
-    materials?: { id: string; name: string }[];
+    materials?: { id: string; name: string; vendors?: { id: string; name: string }[] }[];
     units?: { id: string; name: string; abbreviation: string }[];
+    vendors?: { id: string; name: string }[];
     trigger?: React.ReactNode;
     userRole?: "OWNER" | "ADMIN" | "MEMBER" | "VIEWER";
     defaultProjectId?: string;
@@ -71,6 +82,7 @@ export function CreateIndentDialog({
     tasks = [],
     materials = [],
     units = [],
+    vendors = [],
     trigger,
     userRole = "MEMBER",
     defaultProjectId,
@@ -91,7 +103,7 @@ export function CreateIndentDialog({
             taskId: defaultTaskId,
             description: "",
             expectedDelivery: undefined,
-            materials: [{ materialId: "", quantity: 1, unitId: undefined }],
+            materials: [{ materialId: "", quantity: 1, unitId: undefined, vendorId: undefined, estimatedPrice: undefined }],
             requiresVendor: true,
         },
         mode: "onChange",
@@ -105,7 +117,7 @@ export function CreateIndentDialog({
                 taskId: defaultTaskId, // ensure this is passed correctly
                 description: "",
                 expectedDelivery: undefined,
-                materials: [{ materialId: "", quantity: 1, unitId: undefined }],
+                materials: [{ materialId: "", quantity: 1, unitId: undefined, vendorId: undefined, estimatedPrice: undefined }],
                 requiresVendor: true,
             });
         }
@@ -114,10 +126,11 @@ export function CreateIndentDialog({
     const selectedProjectId = form.watch("projectId");
     const filteredTasks = tasks.filter((task) => task.projectId === selectedProjectId);
     const materialsList = form.watch("materials") || [];
+    const requiresVendor = form.watch("requiresVendor");
 
     const addMaterial = () => {
         const current = form.getValues("materials") || [];
-        form.setValue("materials", [...current, { materialId: "", quantity: 1, unitId: undefined }]);
+        form.setValue("materials", [...current, { materialId: "", quantity: 1, unitId: undefined, vendorId: undefined, estimatedPrice: undefined }]);
     };
 
     const removeMaterial = (index: number) => {
@@ -132,7 +145,7 @@ export function CreateIndentDialog({
 
         switch (step) {
             case 1:
-                fields = ["name", "projectId"];
+                fields = ["name", "projectId", "requiresVendor"];
                 break;
             case 2:
                 if (isAdminOrOwner) {
@@ -423,27 +436,8 @@ export function CreateIndentDialog({
                                         </FormItem>
                                     )}
                                 />
-                            </div>
-                        )}
 
-                        {/* Step 2: Material Selection (Admin/Owner only) */}
-                        {currentStep === 2 && isAdminOrOwner && (
-                            <div className="space-y-3 animate-in fade-in-50 duration-300">
-                                <div className="flex items-center justify-between mb-2">
-                                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Materials Required</h3>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={addMaterial}
-                                        className="h-7 text-xs"
-                                    >
-                                        <IconPlus className="h-3 w-3 mr-1" />
-                                        Add
-                                    </Button>
-                                </div>
-
-                                {/* Requires Vendor Checkbox */}
+                                {/* Requires Vendor Checkbox (Moved to Step 1) */}
                                 <FormField
                                     control={form.control}
                                     name="requiresVendor"
@@ -466,7 +460,27 @@ export function CreateIndentDialog({
                                         </FormItem>
                                     )}
                                 />
+                            </div>
+                        )}
 
+                        {/* Step 2: Material Selection (Admin/Owner only) */}
+                        {currentStep === 2 && isAdminOrOwner && (
+                            <div className="space-y-3 animate-in fade-in-50 duration-300">
+                                <div className="flex items-center justify-between mb-2">
+                                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Materials Required</h3>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={addMaterial}
+                                        className="h-7 text-xs"
+                                    >
+                                        <IconPlus className="h-3 w-3 mr-1" />
+                                        Add
+                                    </Button>
+                                </div>
+
+                                {/* Requires Vendor Checkbox */}
                                 <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
                                     {materialsList.map((_, index) => (
                                         <div key={index} className="group relative bg-muted/30 hover:bg-muted/50 border rounded-md p-2 transition-colors">
@@ -509,7 +523,90 @@ export function CreateIndentDialog({
                                                     />
                                                 </div>
 
-                                                <div className="w-24">
+                                                {requiresVendor && (
+                                                    <>
+                                                        <div className="w-40">
+                                                            <FormField
+                                                                control={form.control}
+                                                                name={`materials.${index}.vendorId`}
+                                                                render={({ field }) => {
+                                                                    const selectedMaterialId = materialsList[index]?.materialId;
+                                                                    const selectedMaterial = materials.find(m => m.id === selectedMaterialId);
+                                                                    const materialVendors = selectedMaterial?.vendors || [];
+
+                                                                    // Debug logging
+                                                                    console.log('Debug Vendor Filtering:', {
+                                                                        selectedMaterialId,
+                                                                        selectedMaterial: selectedMaterial?.name,
+                                                                        materialVendors,
+                                                                        totalVendors: vendors.length,
+                                                                        vendorsList: vendors
+                                                                    });
+
+
+                                                                    // Use material's linked vendors if available, otherwise fall back to all workspace vendors
+                                                                    const filteredVendors = materialVendors.length > 0
+                                                                        ? materialVendors
+                                                                        : vendors;
+
+
+                                                                    console.log('Filtered Vendors:', filteredVendors);
+
+                                                                    return (
+                                                                        <FormItem>
+                                                                            <Select onValueChange={field.onChange} value={field.value || undefined}>
+                                                                                <FormControl>
+                                                                                    <SelectTrigger className="h-8 text-xs">
+                                                                                        <SelectValue placeholder="Vendor (Opt)" />
+                                                                                    </SelectTrigger>
+                                                                                </FormControl>
+                                                                                <SelectContent>
+                                                                                    {filteredVendors.length === 0 ? (
+                                                                                        <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                                                                                            No vendors available
+                                                                                        </div>
+                                                                                    ) : (
+                                                                                        filteredVendors.map((vendor) => (
+                                                                                            <SelectItem key={vendor.id} value={vendor.id} className="text-xs">
+                                                                                                {vendor.name}
+                                                                                            </SelectItem>
+                                                                                        ))
+                                                                                    )}
+                                                                                </SelectContent>
+                                                                            </Select>
+                                                                            <FormMessage className="text-[10px]" />
+                                                                        </FormItem>
+                                                                    );
+                                                                }}
+                                                            />
+                                                        </div>
+
+                                                        <div className="w-24">
+                                                            <FormField
+                                                                control={form.control}
+                                                                name={`materials.${index}.estimatedPrice`}
+                                                                render={({ field }) => (
+                                                                    <FormItem>
+                                                                        <FormControl>
+                                                                            <Input
+                                                                                type="number"
+                                                                                step="0.01"
+                                                                                min="0"
+                                                                                placeholder="Price"
+                                                                                className="h-8 text-xs text-right"
+                                                                                value={field.value || ""}
+                                                                                onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                                                                            />
+                                                                        </FormControl>
+                                                                        <FormMessage className="text-[10px]" />
+                                                                    </FormItem>
+                                                                )}
+                                                            />
+                                                        </div>
+                                                    </>
+                                                )}
+
+                                                <div className="w-20">
                                                     <FormField
                                                         control={form.control}
                                                         name={`materials.${index}.quantity`}
@@ -627,17 +724,28 @@ export function CreateIndentDialog({
                                                 <div className="space-y-2">
                                                     {materialsList.map((item, index) => (
                                                         <div key={index} className="bg-muted/50 rounded p-2 text-sm">
-                                                            <div className="font-medium">
-                                                                {materials.find((m) => m.id === item.materialId)?.name || "Unknown"}
-                                                            </div>
-                                                            <div className="text-muted-foreground text-xs">
-                                                                Quantity: {item.quantity} {units.find((u) => u.id === item.unitId)?.abbreviation || ""}
-                                                            </div>
-                                                            {/* {item.specifications && (
-                                                                <div className="text-muted-foreground text-xs mt-1">
-                                                                    {item.specifications}
+                                                            <div className="flex justify-between items-start gap-2">
+                                                                <div>
+                                                                    <div className="font-medium">
+                                                                        {materials.find((m) => m.id === item.materialId)?.name || "Unknown"}
+                                                                    </div>
+                                                                    <div className="text-muted-foreground text-xs">
+                                                                        Quantity: {item.quantity} {units.find((u) => u.id === item.unitId)?.abbreviation || ""}
+                                                                    </div>
+                                                                    {item.vendorId && (
+                                                                        <div className="text-muted-foreground text-xs mt-1">
+                                                                            Preferred Vendor: <span className="text-foreground">{vendors?.find(v => v.id === item.vendorId)?.name || "Unknown"}</span>
+                                                                        </div>
+                                                                    )}
                                                                 </div>
-                                                            )} */}
+                                                                {item.estimatedPrice && (
+                                                                    <div className="text-right">
+                                                                        <div className="text-xs font-medium">
+                                                                            Est. {item.estimatedPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     ))}
                                                 </div>

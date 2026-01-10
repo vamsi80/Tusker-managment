@@ -1,12 +1,5 @@
-import { getProcurableProjects } from "@/data/procurement/get-procurable-projects";
 import { getIndentRequests } from "@/data/procurement/get-indent-requests";
-import { getProcurementTasks } from "@/data/procurement/get-procurement-tasks";
-import { CreateIndentDialog } from "./_components/create-indent-dialog";
-import { ProcurementTasksTable } from "./_components/procurement-tasks-table";
-import db from "@/lib/db";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
-import { IconFileText, IconPackage, IconClipboardCheck } from "@tabler/icons-react";
+import { IconFileText, IconPackage } from "@tabler/icons-react";
 
 interface PageProps {
     params: Promise<{
@@ -17,51 +10,7 @@ interface PageProps {
 export default async function ProcurementDashboardPage({ params }: PageProps) {
     const { workspaceId } = await params;
 
-    // Get current user
-    const session = await auth.api.getSession({
-        headers: await headers(),
-    });
-
-    const [projectsData, indentsData, procurementTasks, materials, units, workspaceMember] = await Promise.all([
-        getProcurableProjects(workspaceId),
-        getIndentRequests(workspaceId),
-        getProcurementTasks(workspaceId),
-        db.material.findMany({
-            where: { workspaceId, isActive: true },
-            select: { id: true, name: true },
-            orderBy: { name: "asc" },
-        }),
-        db.unit.findMany({
-            where: {
-                OR: [
-                    { workspaceId: workspaceId },
-                    { isDefault: true }
-                ],
-                isActive: true
-            },
-            select: { id: true, name: true, abbreviation: true },
-            orderBy: { name: "asc" },
-        }),
-        session?.user?.id ? db.workspaceMember.findFirst({
-            where: {
-                workspaceId: workspaceId,
-                userId: session.user.id,
-            },
-            select: { workspaceRole: true },
-        }) : null,
-    ]);
-
-    const projects = projectsData || [];
-    const { indentRequests } = indentsData;
-
-    // Get all tasks from projects for the dialog
-    const tasks = projects.flatMap((project) =>
-        project.tasks?.map((task) => ({
-            id: task.id,
-            name: task.name,
-            projectId: project.id,
-        })) || []
-    );
+    const { indentRequests } = await getIndentRequests(workspaceId);
 
     return (
         <div className="flex flex-col gap-6">
@@ -69,14 +18,6 @@ export default async function ProcurementDashboardPage({ params }: PageProps) {
                 <div>
                     <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>
                 </div>
-                <CreateIndentDialog
-                    workspaceId={workspaceId}
-                    projects={projects}
-                    tasks={tasks}
-                    materials={materials}
-                    units={units}
-                    userRole={workspaceMember?.workspaceRole}
-                />
             </div>
 
             {/* Stats Cards */}
@@ -134,26 +75,6 @@ export default async function ProcurementDashboardPage({ params }: PageProps) {
                         </div>
                     </div>
                 </div>
-            </div>
-
-            {/* Procurement Tasks Section */}
-            <div>
-                <div className="flex items-center gap-2 mb-4">
-                    <div className="h-8 w-8 rounded-full bg-purple-500/10 flex items-center justify-center">
-                        <IconClipboardCheck className="h-4 w-4 text-purple-600" />
-                    </div>
-                    <h3 className="text-xl font-semibold">Procurement Tasks</h3>
-                </div>
-
-                <ProcurementTasksTable
-                    workspaceId={workspaceId}
-                    procurementTasks={procurementTasks}
-                    projects={projects}
-                    tasks={tasks}
-                    materials={materials}
-                    units={units}
-                    userRole={workspaceMember?.workspaceRole}
-                />
             </div>
         </div>
     );

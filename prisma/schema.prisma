@@ -98,6 +98,7 @@ model Workspace {
   materials        Material[]
   units            Unit[]
   vendors          Vendor[]
+  rfqs             Rfq[]
 }
 
 model WorkspaceMember {
@@ -401,12 +402,17 @@ model IndentItem {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  indentDetails IndentDetails @relation(fields: [indentDetailsId], references: [id], onDelete: Cascade)
-  material      Material      @relation(fields: [materialId], references: [id], onDelete: Restrict)
-  unit          Unit?         @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  indentDetails  IndentDetails @relation(fields: [indentDetailsId], references: [id], onDelete: Cascade)
+  material       Material      @relation(fields: [materialId], references: [id], onDelete: Restrict)
+  unit           Unit?         @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  vendor         Vendor?       @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  rfqItems       RfqItem[]
+  estimatedPrice Float?
+  vendorId       String?
 
   @@index([indentDetailsId])
   @@index([materialId])
+  @@index([vendorId])
   @@map("indent_item")
 }
 
@@ -472,9 +478,84 @@ model Vendor {
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  materials Material[]
+  materials   Material[]
+  rfqs        Rfq[]
+  quotations  Quotation[]
+  indentItems IndentItem[]
 
   @@index([workspaceId])
   @@index([name])
   @@map("vendor")
+}
+
+enum RfqStatus {
+  DRAFT
+  OPEN
+  CLOSED
+}
+
+model Rfq {
+  id          String    @id @default(uuid())
+  key         String    @unique // e.g., RFQ-001
+  workspaceId String
+  status      RfqStatus @default(DRAFT)
+  deadline    DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  workspace  Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  items      RfqItem[]
+  vendors    Vendor[]
+  quotations Quotation[]
+
+  @@index([workspaceId])
+  @@map("rfq")
+}
+
+model RfqItem {
+  id           String @id @default(uuid())
+  rfqId        String
+  indentItemId String
+  quantity     Float
+
+  rfq            Rfq             @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  indentItem     IndentItem      @relation(fields: [indentItemId], references: [id], onDelete: Restrict)
+  quotationItems QuotationItem[]
+
+  @@index([rfqId])
+  @@index([indentItemId])
+  @@map("rfq_item")
+}
+
+model Quotation {
+  id             String   @id @default(uuid())
+  rfqId          String
+  vendorId       String
+  quoteReference String?
+  totalAmount    Float?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  rfq    Rfq             @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  vendor Vendor          @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  items  QuotationItem[]
+
+  @@unique([rfqId, vendorId])
+  @@index([rfqId])
+  @@index([vendorId])
+  @@map("quotation")
+}
+
+model QuotationItem {
+  id          String @id @default(uuid())
+  quotationId String
+  rfqItemId   String
+  unitPrice   Float
+
+  quotation Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  rfqItem   RfqItem   @relation(fields: [rfqItemId], references: [id], onDelete: Restrict)
+
+  @@index([quotationId])
+  @@index([rfqItemId])
+  @@map("quotation_item")
 }

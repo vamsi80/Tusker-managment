@@ -20,8 +20,8 @@ export function ProcurementNav({ workspaceId }: ProcurementNavProps) {
         },
         {
             title: "Tasks",
-            href: `${basePath}/tasks`,
-            isActive: (path: string) => path.includes('/tasks')
+            href: `${basePath}/Tasks`,
+            isActive: (path: string) => path.includes('/Tasks') || path.includes('/tasks')
         },
         {
             title: "Indent",

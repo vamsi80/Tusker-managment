@@ -58,6 +58,8 @@ interface DataTableProps<TData, TValue> {
     onAdd?: () => void;
     addButtonLabel?: string;
     filterFields?: DataTableFilterField<TData>[];
+    rowSelection?: Record<string, boolean>;
+    onRowSelectionChange?: (value: any) => void;
 }
 
 export function DataTable<TData, TValue>({
@@ -73,11 +75,17 @@ export function DataTable<TData, TValue>({
     onAdd,
     addButtonLabel = "Add New",
     filterFields = [],
-}: DataTableProps<TData, TValue>) {
+    rowSelection: controlledRowSelection,
+    onRowSelectionChange: controlledOnRowSelectionChange,
+    getRowId,
+}: DataTableProps<TData, TValue> & { getRowId?: (row: TData) => string }) {
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
     const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
-    const [rowSelection, setRowSelection] = React.useState({});
+    const [internalRowSelection, setInternalRowSelection] = React.useState({});
+
+    const rowSelection = controlledRowSelection ?? internalRowSelection;
+    const setRowSelection = controlledOnRowSelectionChange ?? setInternalRowSelection;
 
     const table = useReactTable({
         data,
@@ -92,6 +100,7 @@ export function DataTable<TData, TValue>({
         getFacetedUniqueValues: getFacetedUniqueValues(),
         onColumnVisibilityChange: setColumnVisibility,
         onRowSelectionChange: setRowSelection,
+        getRowId,
         state: {
             sorting,
             columnFilters,
