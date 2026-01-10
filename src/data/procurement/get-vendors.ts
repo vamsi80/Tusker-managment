@@ -15,7 +15,5 @@ export async function getVendors(workspaceId: string) {
         orderBy: { name: "asc" },
     });
 
-    console.log(`[getVendors] Fetched ${vendors.length} vendors for workspace ${workspaceId}`);
-
     return vendors;
 }

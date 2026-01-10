@@ -62,7 +62,6 @@ export default async function ProcurementTasksPage({ params }: PageProps) {
 
     const projects = projectsData || [];
 
-    // Get all tasks from projects for the dialog/table if needed
     const tasks = projects.flatMap((project) =>
         project.tasks?.map((task) => ({
             id: task.id,

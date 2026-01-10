@@ -47,31 +47,9 @@ export default async function IndentPage({ params }: PageProps) {
         getVendors(workspaceId),
     ]);
 
-    // Debug: Check if vendors exist at all
-    const allVendorsDebug = await db.vendor.findMany({
-        where: { workspaceId },
-        select: { id: true, name: true, isActive: true }
-    });
-
-    console.log('🔍 VENDOR DEBUG:', {
-        workspaceId,
-        allVendorsInWorkspace: allVendorsDebug.length,
-        allVendorsList: allVendorsDebug,
-        activeVendorsFromQuery: vendors.length,
-        activeVendorsList: vendors
-    });
 
     const { indentRequests, workspaceMember } = indentsData;
-    const projects = projectsData || [];
-
-    // Debug: Log what we're fetching
-    console.log('Server-side data fetch:', {
-        workspaceId,
-        materialsCount: materials.length,
-        vendorsCount: vendors.length,
-        vendors: vendors,
-        materials: materials.map(m => ({ id: m.id, name: m.name, vendorCount: m.vendors?.length || 0 }))
-    });
+    const projects = projectsData || []
 
 
     // Get all tasks from projects for the dialog

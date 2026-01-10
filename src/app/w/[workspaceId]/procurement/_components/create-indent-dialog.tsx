@@ -232,7 +232,7 @@ export function CreateIndentDialog({
                     </Button>
                 )}
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto overflow-x-hidden">
                 <DialogHeader>
                     <DialogTitle>Create Indent Request</DialogTitle>
                     <DialogDescription>
@@ -483,7 +483,7 @@ export function CreateIndentDialog({
                                 {/* Requires Vendor Checkbox */}
                                 <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
                                     {materialsList.map((_, index) => (
-                                        <div key={index} className="group relative bg-muted/30 hover:bg-muted/50 border rounded-md p-2 transition-colors">
+                                        <div key={index} className="group relative bg-muted/30 hover:bg-muted/50 border rounded-md py-2 pl-2 pr-4 transition-colors">
                                             {materialsList.length > 1 && (
                                                 <Button
                                                     type="button"
@@ -496,23 +496,38 @@ export function CreateIndentDialog({
                                                 </Button>
                                             )}
 
-                                            <div className="flex items-center gap-2">
-                                                <div className="flex-1 min-w-0">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="w-30">
                                                     <FormField
                                                         control={form.control}
                                                         name={`materials.${index}.materialId`}
                                                         render={({ field }) => (
                                                             <FormItem>
-                                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                                <Select
+                                                                    onValueChange={(value) => {
+                                                                        field.onChange(value);
+                                                                        // Reset vendor and price when material changes
+                                                                        form.setValue(`materials.${index}.vendorId`, "");
+                                                                        form.setValue(`materials.${index}.estimatedPrice`, undefined);
+                                                                    }}
+                                                                    value={field.value}
+                                                                >
                                                                     <FormControl>
-                                                                        <SelectTrigger className="h-8 text-xs">
-                                                                            <SelectValue placeholder="Select material..." />
+                                                                        <SelectTrigger className="h-8 text-xs w-full overflow-hidden">
+                                                                            <SelectValue placeholder="Select material..." className="truncate block" />
                                                                         </SelectTrigger>
                                                                     </FormControl>
                                                                     <SelectContent>
                                                                         {materials.map((material) => (
-                                                                            <SelectItem key={material.id} value={material.id} className="text-xs">
-                                                                                {material.name}
+                                                                            <SelectItem
+                                                                                key={material.id}
+                                                                                value={material.id}
+                                                                                className="text-xs"
+                                                                                title={material.name}
+                                                                            >
+                                                                                <span className="truncate block max-w-[200px]">
+                                                                                    {material.name}
+                                                                                </span>
                                                                             </SelectItem>
                                                                         ))}
                                                                     </SelectContent>
@@ -525,7 +540,7 @@ export function CreateIndentDialog({
 
                                                 {requiresVendor && (
                                                     <>
-                                                        <div className="w-40">
+                                                        <div className="w-32">
                                                             <FormField
                                                                 control={form.control}
                                                                 name={`materials.${index}.vendorId`}
@@ -554,10 +569,14 @@ export function CreateIndentDialog({
 
                                                                     return (
                                                                         <FormItem>
-                                                                            <Select onValueChange={field.onChange} value={field.value || undefined}>
+                                                                            <Select
+                                                                                onValueChange={field.onChange}
+                                                                                value={field.value || undefined}
+                                                                                disabled={!selectedMaterialId}
+                                                                            >
                                                                                 <FormControl>
-                                                                                    <SelectTrigger className="h-8 text-xs">
-                                                                                        <SelectValue placeholder="Vendor (Opt)" />
+                                                                                    <SelectTrigger className="h-8 text-xs w-full overflow-hidden">
+                                                                                        <SelectValue placeholder="Vendor (Opt)" className="truncate block" />
                                                                                     </SelectTrigger>
                                                                                 </FormControl>
                                                                                 <SelectContent>
@@ -567,8 +586,15 @@ export function CreateIndentDialog({
                                                                                         </div>
                                                                                     ) : (
                                                                                         filteredVendors.map((vendor) => (
-                                                                                            <SelectItem key={vendor.id} value={vendor.id} className="text-xs">
-                                                                                                {vendor.name}
+                                                                                            <SelectItem
+                                                                                                key={vendor.id}
+                                                                                                value={vendor.id}
+                                                                                                className="text-xs"
+                                                                                                title={vendor.name}
+                                                                                            >
+                                                                                                <span className="truncate block max-w-[150px]">
+                                                                                                    {vendor.name}
+                                                                                                </span>
                                                                                             </SelectItem>
                                                                                         ))
                                                                                     )}
@@ -581,32 +607,37 @@ export function CreateIndentDialog({
                                                             />
                                                         </div>
 
-                                                        <div className="w-24">
+                                                        <div className="w-20">
                                                             <FormField
                                                                 control={form.control}
                                                                 name={`materials.${index}.estimatedPrice`}
-                                                                render={({ field }) => (
-                                                                    <FormItem>
-                                                                        <FormControl>
-                                                                            <Input
-                                                                                type="number"
-                                                                                step="0.01"
-                                                                                min="0"
-                                                                                placeholder="Price"
-                                                                                className="h-8 text-xs text-right"
-                                                                                value={field.value || ""}
-                                                                                onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
-                                                                            />
-                                                                        </FormControl>
-                                                                        <FormMessage className="text-[10px]" />
-                                                                    </FormItem>
-                                                                )}
+                                                                render={({ field }) => {
+                                                                    const currentVendorId = materialsList[index]?.vendorId;
+
+                                                                    return (
+                                                                        <FormItem>
+                                                                            <FormControl>
+                                                                                <Input
+                                                                                    type="number"
+                                                                                    step="0.01"
+                                                                                    min="0"
+                                                                                    placeholder="Price"
+                                                                                    className="h-8 text-xs text-right"
+                                                                                    value={field.value || ""}
+                                                                                    onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                                                                                    disabled={!currentVendorId}
+                                                                                />
+                                                                            </FormControl>
+                                                                            <FormMessage className="text-[10px]" />
+                                                                        </FormItem>
+                                                                    );
+                                                                }}
                                                             />
                                                         </div>
                                                     </>
                                                 )}
 
-                                                <div className="w-20">
+                                                <div className="w-16">
                                                     <FormField
                                                         control={form.control}
                                                         name={`materials.${index}.quantity`}
@@ -629,7 +660,7 @@ export function CreateIndentDialog({
                                                     />
                                                 </div>
 
-                                                <div className="w-20">
+                                                <div className="w-16">
                                                     <FormField
                                                         control={form.control}
                                                         name={`materials.${index}.unitId`}
