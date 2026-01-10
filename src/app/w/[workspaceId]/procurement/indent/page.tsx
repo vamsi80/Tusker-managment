@@ -23,6 +23,7 @@ export default async function IndentPage({ params }: PageProps) {
             select: {
                 id: true,
                 name: true,
+                defaultUnitId: true,
                 vendors: {
                     where: { isActive: true },
                     select: {

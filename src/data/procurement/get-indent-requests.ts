@@ -63,12 +63,19 @@ export async function getIndentRequests(workspaceId: string) {
                     include: {
                         material: {
                             select: {
+                                id: true,
                                 name: true
                             }
                         },
                         unit: {
                             select: {
                                 abbreviation: true
+                            }
+                        },
+                        vendor: {
+                            select: {
+                                id: true,
+                                name: true
                             }
                         }
                     }

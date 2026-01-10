@@ -4,41 +4,76 @@ import { ColumnDef } from "@tanstack/react-table";
 import { IndentRequestWithRelations } from "@/data/procurement/get-indent-requests";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import { IndentStatus } from "@/generated/prisma";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { IndentDetailsDialog } from "./indent-details-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
 
-export const getColumns = (userRole: string): ColumnDef<IndentRequestWithRelations>[] => [
+// Flatten indent items for table display
+export type IndentItemRow = {
+    id: string; // item id
+    indentId: string;
+    indentKey: string;
+    indentName: string;
+    materialId: string;
+    materialName: string;
+    projectName: string;
+    taskName: string | null;
+    quantity: number;
+    unit: string | null;
+    vendorName: string | null;
+    estimatedPrice: number | null;
+    expectedDelivery: Date | null;
+    status: string;
+};
+
+export const getColumns = (userRole: string): ColumnDef<IndentItemRow>[] => [
     {
-        accessorKey: "key",
-        header: "Indent ID",
-        cell: ({ row }) => <span className="font-mono text-xs">{row.getValue("key")}</span>,
-        enableSorting: true,
+        id: "select",
+        header: ({ table }) => (
+            <Checkbox
+                checked={table.getIsAllPageRowsSelected()}
+                onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+                aria-label="Select all"
+            />
+        ),
+        cell: ({ row }) => (
+            <Checkbox
+                checked={row.getIsSelected()}
+                onCheckedChange={(value) => row.toggleSelected(!!value)}
+                aria-label="Select row"
+            />
+        ),
+        enableSorting: false,
         enableHiding: false,
     },
     {
-        accessorKey: "name",
-        header: "Name",
+        accessorKey: "materialName",
+        header: "Material",
         cell: ({ row }) => (
-            <IndentDetailsDialog
-                indent={row.original}
-                userRole={userRole}
-                trigger={
-                    <div className="font-medium max-w-[300px] truncate cursor-pointer hover:underline hover:text-primary transition-colors" title={row.getValue("name")}>
-                        {row.getValue("name")}
-                    </div>
-                }
-            />
+            <div className="font-medium max-w-[200px] truncate" title={row.getValue("materialName")}>
+                {row.getValue("materialName")}
+            </div>
+        ),
+    },
+    {
+        accessorKey: "indentKey",
+        header: "Indent ID",
+        cell: ({ row }) => (
+            <div className="flex flex-col gap-0.5">
+                <span className="font-mono text-xs">{row.getValue("indentKey")}</span>
+                <span className="text-xs text-muted-foreground truncate max-w-[150px]" title={row.original.indentName}>
+                    {row.original.indentName}
+                </span>
+            </div>
         ),
     },
     {
         header: "Project / Task",
         cell: ({ row }) => (
-            <div className="flex flex-col gap-1">
-                <span className="font-medium text-sm">{row.original.project.name}</span>
-                {row.original.task ? (
-                    <span className="text-xs text-muted-foreground truncate max-w-[200px]" title={row.original.task.name}>
-                        {row.original.task.name}
+            <div className="flex flex-col gap-0.5">
+                <span className="font-medium text-sm">{row.original.projectName}</span>
+                {row.original.taskName ? (
+                    <span className="text-xs text-muted-foreground truncate max-w-[150px]" title={row.original.taskName}>
+                        {row.original.taskName}
                     </span>
                 ) : (
                     <span className="text-xs text-muted-foreground">-</span>
@@ -47,67 +82,81 @@ export const getColumns = (userRole: string): ColumnDef<IndentRequestWithRelatio
         ),
     },
     {
-        header: "Items",
+        accessorKey: "quantity",
+        header: "Quantity",
         cell: ({ row }) => (
-            <span className="text-sm font-medium">
-                {row.original.items.length}
+            <span className="font-medium">
+                {row.getValue("quantity")} {row.original.unit || "units"}
             </span>
         ),
     },
     {
-        header: "Requested By",
+        accessorKey: "vendorName",
+        header: "Vendor",
         cell: ({ row }) => {
-            // Need to cast or check if requestor exists (it should per schema/query)
-            const user = (row.original as any).requestor?.user;
-            return user ? (
-                <div className="flex items-center gap-2">
-                    <Avatar className="h-6 w-6">
-                        <AvatarImage src={user.image || undefined} />
-                        <AvatarFallback className="text-[10px]">
-                            {user.name?.charAt(0) || "U"}
-                        </AvatarFallback>
-                    </Avatar>
-                    <span className="text-sm truncate max-w-[150px]">{user.name}</span>
-                </div>
+            const vendor = row.getValue("vendorName") as string | null;
+            return vendor ? (
+                <span className="text-sm">{vendor}</span>
             ) : (
-                <span className="text-muted-foreground text-xs">-</span>
+                <span className="text-xs text-muted-foreground">Searching for vendor...</span>
             );
         },
     },
     {
-        accessorKey: "status",
-        header: "Status",
+        accessorKey: "estimatedPrice",
+        header: "Price",
         cell: ({ row }) => {
-            const status = row.getValue("status") as IndentStatus;
-            let variant: "default" | "secondary" | "destructive" | "outline" = "outline";
+            const vendor = row.original.vendorName;
+            const price = row.getValue("estimatedPrice") as number | null;
 
-            switch (status) {
-                case "APPROVED":
-                    variant = "default"; // green usually but default is primary
-                    break;
-                case "REJECTED":
-                    variant = "destructive";
-                    break;
-                case "UNDER_REVIEW":
-                    variant = "secondary";
-                    break;
-                default:
-                    variant = "outline";
+            // Show searching message if no vendor is selected
+            if (!vendor) {
+                return <span className="text-xs text-muted-foreground italic">Waiting for vendor...</span>;
             }
 
-            return <Badge variant={variant}>{status.replace("_", " ")}</Badge>;
-        },
-        filterFn: (row, id, value) => {
-            return value.includes(row.getValue(id));
+            return price ? (
+                <span className="font-medium">₹{price.toFixed(2)}</span>
+            ) : (
+                <span className="text-xs text-muted-foreground">-</span>
+            );
         },
     },
     {
-        accessorKey: "createdAt",
-        header: "Created At",
-        cell: ({ row }) => (
-            <span className="text-muted-foreground text-xs">
-                {format(new Date(row.getValue("createdAt")), "MMM d, yyyy")}
-            </span>
-        ),
+        accessorKey: "expectedDelivery",
+        header: "Expected Delivery",
+        cell: ({ row }) => {
+            const date = row.getValue("expectedDelivery") as Date | null;
+            return date ? (
+                <span className="text-sm">{format(new Date(date), "MMM d, yyyy")}</span>
+            ) : (
+                <span className="text-xs text-muted-foreground">-</span>
+            );
+        },
+    },
+    {
+        id: "actions",
+        header: "Actions",
+        cell: ({ row }) => {
+            const { materialName, quantity, vendorName, estimatedPrice, status } = row.original;
+
+            // Check if all required fields are filled
+            const isComplete = materialName && quantity > 0 && vendorName && estimatedPrice && estimatedPrice > 0;
+            const isApproved = status === "APPROVED";
+
+            return (
+                <Button
+                    size="sm"
+                    variant="default"
+                    disabled={!isComplete || !isApproved}
+                    className="h-7 text-xs"
+                    onClick={() => {
+                        // TODO: Implement Create PO functionality
+                        console.log("Create PO for:", row.original);
+                    }}
+                >
+                    Create PO
+                </Button>
+            );
+        },
     },
 ];

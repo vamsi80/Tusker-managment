@@ -21,7 +21,7 @@ interface ProcurementTasksTableProps {
     procurementTasks: ProcurementTaskWithRelations[];
     projects: { id: string; name: string }[];
     tasks: { id: string; name: string; projectId: string }[];
-    materials: { id: string; name: string; vendors?: { id: string; name: string }[] }[];
+    materials: { id: string; name: string; defaultUnitId: string; vendors?: { id: string; name: string }[] }[];
     units: { id: string; name: string; abbreviation: string }[];
     vendors: { id: string; name: string }[];
     userRole?: "OWNER" | "ADMIN" | "MEMBER" | "VIEWER";

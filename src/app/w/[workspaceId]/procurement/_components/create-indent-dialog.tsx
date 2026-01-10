@@ -25,6 +25,7 @@ import { createIndentRequest } from "@/actions/procurement/create-indent-request
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
+import React from "react";
 
 // Step 1: Basic Information Schema (All users)
 const step1Schema = z.object({
@@ -32,7 +33,7 @@ const step1Schema = z.object({
     projectId: z.string().min(1, "Project is required"),
     taskId: z.string().optional(),
     description: z.string().optional(),
-    expectedDelivery: z.date().optional(),
+    expectedDelivery: z.date({ message: "Expected delivery date is required" }),
     requiresVendor: z.boolean(),
 });
 
@@ -67,7 +68,7 @@ interface CreateIndentDialogProps {
     workspaceId: string;
     projects: { id: string; name: string }[];
     tasks?: { id: string; name: string; projectId: string }[];
-    materials?: { id: string; name: string; vendors?: { id: string; name: string }[] }[];
+    materials?: { id: string; name: string; defaultUnitId: string; vendors?: { id: string; name: string }[] }[];
     units?: { id: string; name: string; abbreviation: string }[];
     vendors?: { id: string; name: string }[];
     trigger?: React.ReactNode;
@@ -306,7 +307,7 @@ export function CreateIndentDialog({
                                     name="name"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Indent Name *</FormLabel>
+                                            <FormLabel>Indent Name <span className="text-red-500">*</span></FormLabel>
                                             <FormControl>
                                                 <Input
                                                     placeholder="e.g., Cement for Foundation Work"
@@ -324,15 +325,15 @@ export function CreateIndentDialog({
                                         name="projectId"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Project *</FormLabel>
+                                                <FormLabel>Project <span className="text-red-500">*</span></FormLabel>
                                                 <Select
                                                     onValueChange={field.onChange}
                                                     value={field.value}
                                                     disabled={!!defaultProjectId}
                                                 >
                                                     <FormControl>
-                                                        <SelectTrigger>
-                                                            <SelectValue placeholder="Select project" />
+                                                        <SelectTrigger className="w-full overflow-hidden">
+                                                            <SelectValue placeholder="Select project" className="truncate" />
                                                         </SelectTrigger>
                                                     </FormControl>
                                                     <SelectContent>
@@ -360,10 +361,13 @@ export function CreateIndentDialog({
                                                     disabled={!!defaultTaskId || !selectedProjectId}
                                                 >
                                                     <FormControl>
-                                                        <SelectTrigger>
-                                                            <SelectValue placeholder={
-                                                                selectedProjectId ? "Select task" : "Select project first"
-                                                            } />
+                                                        <SelectTrigger className="w-full overflow-hidden">
+                                                            <SelectValue
+                                                                placeholder={
+                                                                    selectedProjectId ? "Select task" : "Select project first"
+                                                                }
+                                                                className="truncate"
+                                                            />
                                                         </SelectTrigger>
                                                     </FormControl>
                                                     <SelectContent>
@@ -382,40 +386,49 @@ export function CreateIndentDialog({
                                     <FormField
                                         control={form.control}
                                         name="expectedDelivery"
-                                        render={({ field }) => (
-                                            <FormItem className="flex flex-col">
-                                                <FormLabel>Expected Delivery</FormLabel>
-                                                <Popover>
-                                                    <PopoverTrigger asChild>
-                                                        <FormControl>
-                                                            <Button
-                                                                variant="outline"
-                                                                className={cn(
-                                                                    "w-full pl-3 text-left font-normal",
-                                                                    !field.value && "text-muted-foreground"
-                                                                )}
-                                                            >
-                                                                {field.value ? (
-                                                                    format(field.value, "PPP")
-                                                                ) : (
-                                                                    <span>Pick a date</span>
-                                                                )}
-                                                            </Button>
-                                                        </FormControl>
-                                                    </PopoverTrigger>
-                                                    <PopoverContent className="w-auto p-0" align="start">
-                                                        <Calendar
-                                                            mode="single"
-                                                            selected={field.value}
-                                                            onSelect={field.onChange}
-                                                            disabled={(date) => date < new Date()}
-                                                            initialFocus
-                                                        />
-                                                    </PopoverContent>
-                                                </Popover>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
+                                        render={({ field }) => {
+                                            const [isOpen, setIsOpen] = React.useState(false);
+
+                                            return (
+                                                <FormItem className="flex flex-col">
+                                                    <FormLabel>Expected Delivery <span className="text-red-500">*</span></FormLabel>
+                                                    <Popover open={isOpen} onOpenChange={setIsOpen}>
+                                                        <PopoverTrigger asChild>
+                                                            <FormControl>
+                                                                <Button
+                                                                    variant="outline"
+                                                                    className={cn(
+                                                                        "w-full min-w-0 pl-3 text-left font-normal",
+                                                                        !field.value && "text-muted-foreground"
+                                                                    )}
+                                                                >
+                                                                    <span className="truncate block">
+                                                                        {field.value ? (
+                                                                            format(field.value, "PPP")
+                                                                        ) : (
+                                                                            "Pick a date *"
+                                                                        )}
+                                                                    </span>
+                                                                </Button>
+                                                            </FormControl>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-auto p-0" align="start">
+                                                            <Calendar
+                                                                mode="single"
+                                                                selected={field.value}
+                                                                onSelect={(date) => {
+                                                                    field.onChange(date);
+                                                                    setIsOpen(false);
+                                                                }}
+                                                                disabled={(date) => date < new Date()}
+                                                                initialFocus
+                                                            />
+                                                        </PopoverContent>
+                                                    </Popover>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            );
+                                        }}
                                     />
                                 </div>
 
@@ -506,6 +519,13 @@ export function CreateIndentDialog({
                                                                 <Select
                                                                     onValueChange={(value) => {
                                                                         field.onChange(value);
+
+                                                                        // Find selected material and auto-select its default unit
+                                                                        const selectedMaterial = materials.find(m => m.id === value);
+                                                                        if (selectedMaterial?.defaultUnitId) {
+                                                                            form.setValue(`materials.${index}.unitId`, selectedMaterial.defaultUnitId);
+                                                                        }
+
                                                                         // Reset vendor and price when material changes
                                                                         form.setValue(`materials.${index}.vendorId`, "");
                                                                         form.setValue(`materials.${index}.estimatedPrice`, undefined);

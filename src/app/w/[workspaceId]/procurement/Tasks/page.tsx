@@ -29,6 +29,7 @@ export default async function ProcurementTasksPage({ params }: PageProps) {
             select: {
                 id: true,
                 name: true,
+                defaultUnitId: true,
                 vendors: {
                     where: { isActive: true },
                     select: {
