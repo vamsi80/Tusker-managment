@@ -3,76 +3,31 @@
 import { useState, useTransition, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { IconPlus, IconLoader2, IconArrowLeft, IconArrowRight, IconCheck, IconTrash, IconX } from "@tabler/icons-react";
+import { IconPlus, IconLoader2, IconArrowLeft, IconArrowRight, IconCheck, IconX } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { createIndentRequest } from "@/actions/procurement/create-indent-request";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import React from "react";
-
-// Step 1: Basic Information Schema (All users)
-const step1Schema = z.object({
-    name: z.string().min(3, "Name must be at least 3 characters"),
-    projectId: z.string().min(1, "Project is required"),
-    taskId: z.string().optional(),
-    description: z.string().optional(),
-    expectedDelivery: z.date({ message: "Expected delivery date is required" }),
-    requiresVendor: z.boolean(),
-    assignedTo: z.string().min(1, "Assignee is required"), // Renamed from requestedBy
-});
-
-// Step 2: Material Selection Schema (Admin/Owner only)
-const materialItemSchema = z.object({
-    materialId: z.string().min(1, "Material is required"),
-    quantity: z.number().min(0.01, "Quantity must be greater than 0"),
-    unitId: z.string().optional(),
-    vendorId: z.string().optional(),
-    estimatedPrice: z.number().optional(),
-}).refine((data) => {
-    if (data.vendorId && (!data.estimatedPrice || data.estimatedPrice <= 0)) {
-        return false;
-    }
-    return true;
-}, {
-    message: "Price is required when vendor is selected",
-    path: ["estimatedPrice"]
-});
-
-const step2Schema = z.object({
-    materials: z.array(materialItemSchema).min(1, "At least one material is required"),
-});
-
-// Combined schema for final submission
-const indentRequestSchema = step1Schema.merge(step2Schema.partial());
-
-type IndentRequestFormData = z.infer<typeof indentRequestSchema>;
-type MaterialItem = z.infer<typeof materialItemSchema>;
-
+import { indentDialogSchema, type IndentDialogFormData, type MaterialItemType } from "@/lib/zodSchemas";
 import { WorkspaceMemberRow } from "@/data/workspace/get-workspace-members";
+import { createIndentRequest } from "@/actions/procurement/create-indent";
+import { editIndent } from "@/actions/procurement/edit-indent";
 
-interface CreateIndentDialogProps {
+export interface CreateIndentDialogProps {
     workspaceId: string;
     projects: { id: string; name: string }[];
     tasks?: { id: string; name: string; projectId: string; assigneeId?: string | null }[];
-    materials?: { id: string; name: string; defaultUnitId: string; vendors?: { id: string; name: string }[] }[];
-    units?: { id: string; name: string; abbreviation: string }[];
+    materials?: { id: string; name: string; defaultUnitId: string | null; vendors?: { id: string; name: string }[] }[]; // Updated slightly to allow null
+    units?: { id: string; name: string; abbreviation: string | null }[]; // Updated slightly to allow null
     vendors?: { id: string; name: string }[];
     trigger?: React.ReactNode;
     userRole?: "OWNER" | "ADMIN" | "MEMBER" | "VIEWER";
@@ -80,6 +35,11 @@ interface CreateIndentDialogProps {
     defaultTaskId?: string;
     workspaceMembers: WorkspaceMemberRow[];
     currentMemberId: string;
+    mode?: "create" | "edit";
+    initialData?: IndentDialogFormData;
+    indentId?: string;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
 }
 
 export function CreateIndentDialog({
@@ -95,17 +55,25 @@ export function CreateIndentDialog({
     defaultTaskId,
     workspaceMembers,
     currentMemberId,
+    mode = "create",
+    initialData,
+    indentId,
+    open: externalOpen,
+    onOpenChange: externalOnOpenChange,
 }: CreateIndentDialogProps) {
-    const [open, setOpen] = useState(false);
+    const [internalOpen, setInternalOpen] = useState(false);
+    const isOpen = externalOpen !== undefined ? externalOpen : internalOpen;
+    const onOpenChange = externalOnOpenChange || setInternalOpen;
+
     const [currentStep, setCurrentStep] = useState(1);
     const [pending, startTransition] = useTransition();
 
     const isAdminOrOwner = userRole === "OWNER" || userRole === "ADMIN";
-    const totalSteps = isAdminOrOwner ? 3 : 2; // Members skip material selection
+    const totalSteps = 3; // Info -> Materials -> Preview
 
-    const form = useForm<IndentRequestFormData>({
-        resolver: zodResolver(indentRequestSchema),
-        defaultValues: {
+    const form = useForm<IndentDialogFormData>({
+        resolver: zodResolver(indentDialogSchema),
+        defaultValues: initialData || {
             name: "",
             projectId: defaultProjectId || "",
             taskId: defaultTaskId,
@@ -117,6 +85,22 @@ export function CreateIndentDialog({
         },
         mode: "onChange",
     });
+
+    useEffect(() => {
+        if (isOpen && mode === "edit" && initialData) {
+            // Ensure dates are Dates and reset form
+            const data = { ...initialData };
+            if (typeof data.expectedDelivery === 'string') {
+                data.expectedDelivery = new Date(data.expectedDelivery);
+            }
+            // Force reset to populate fields
+            form.reset(data);
+        } else if (isOpen && mode === "create") {
+            // Optional: reset for create mode if needed
+            // form.reset(defaultValues); 
+            setCurrentStep(1);
+        }
+    }, [isOpen, initialData, mode, form]);
 
     // Watch for task changes to enforce assignee
     const selectedTaskId = form.watch("taskId");
@@ -131,8 +115,9 @@ export function CreateIndentDialog({
 
 
 
+    // Initialize defaults for CREATE mode
     useEffect(() => {
-        if (open) {
+        if (isOpen && mode === "create") {
             // Check if defaultTaskId has an assignee
             let initialAssignee = "";
             if (defaultTaskId) {
@@ -145,7 +130,7 @@ export function CreateIndentDialog({
             form.reset({
                 name: "",
                 projectId: defaultProjectId || "",
-                taskId: defaultTaskId, // ensure this is passed correctly
+                taskId: defaultTaskId,
                 description: "",
                 expectedDelivery: undefined,
                 materials: [{ materialId: "", quantity: 1, unitId: undefined, vendorId: undefined, estimatedPrice: undefined }],
@@ -153,7 +138,7 @@ export function CreateIndentDialog({
                 assignedTo: initialAssignee,
             });
         }
-    }, [open, defaultProjectId, defaultTaskId, form, currentMemberId, tasks]);
+    }, [isOpen, mode, defaultProjectId, defaultTaskId, form, tasks]);
 
     const selectedProjectId = form.watch("projectId");
     const filteredTasks = tasks.filter((task) => task.projectId === selectedProjectId);
@@ -168,12 +153,12 @@ export function CreateIndentDialog({
     const removeMaterial = (index: number) => {
         const current = form.getValues("materials") || [];
         if (current.length > 1) {
-            form.setValue("materials", current.filter((_, i) => i !== index));
+            form.setValue("materials", current.filter((_: MaterialItemType, i: number) => i !== index));
         }
     };
 
     const validateStep = async (step: number): Promise<boolean> => {
-        let fields: (keyof IndentRequestFormData)[] = [];
+        let fields: (keyof IndentDialogFormData)[] = [];
 
         switch (step) {
             case 1:
@@ -190,9 +175,8 @@ export function CreateIndentDialog({
                 }
                 break;
             case 2:
-                if (isAdminOrOwner) {
-                    fields = ["materials"];
-                }
+                // All users can now provide materials, so validate materials for everyone
+                fields = ["materials"];
                 break;
             default:
                 return true;
@@ -206,74 +190,77 @@ export function CreateIndentDialog({
         e?.preventDefault();
         const isValid = await validateStep(currentStep);
         if (isValid && currentStep < totalSteps) {
-            // Skip step 2 for members
-            if (currentStep === 1 && !isAdminOrOwner) {
-                setCurrentStep(3);
-            } else {
-                setCurrentStep(currentStep + 1);
-            }
+            // No more skipping step 2 based on role
+            setCurrentStep(currentStep + 1);
         }
     };
 
     const handleBack = (e?: React.MouseEvent) => {
         e?.preventDefault();
         if (currentStep > 1) {
-            // Skip step 2 for members when going back
-            if (currentStep === 3 && !isAdminOrOwner) {
-                setCurrentStep(1);
-            } else {
-                setCurrentStep(currentStep - 1);
-            }
+            // No more skipping step 2 based on role
+            setCurrentStep(currentStep - 1);
         }
     };
 
-    const onSubmit = (data: IndentRequestFormData) => {
+    const onSubmit = (data: IndentDialogFormData) => {
         startTransition(async () => {
             try {
-                const result = await createIndentRequest({
-                    workspaceId,
-                    ...data,
-                    // Members don't provide materials
-                    materials: isAdminOrOwner ? data.materials : undefined,
-                    // Ensure requiresVendor is always boolean
-                    requiresVendor: data.requiresVendor ?? true,
-                });
+                let result;
+                if (mode === "edit" && indentId) {
+                    result = await editIndent({
+                        indentId,
+                        workspaceId,
+                        ...data,
+                        materials: data.materials?.map(m => ({
+                            ...m,
+                            estimatedPrice: m.estimatedPrice ?? undefined,
+                            vendorId: m.vendorId ?? undefined
+                        }))
+                    });
+                } else {
+                    result = await createIndentRequest({
+                        workspaceId,
+                        ...data,
+                        // Allow all users to provide materials
+                        materials: data.materials?.map(m => ({
+                            ...m,
+                            estimatedPrice: m.estimatedPrice ?? undefined,
+                            vendorId: m.vendorId ?? undefined
+                        })),
+                        requiresVendor: data.requiresVendor ?? true,
+                    });
+                }
 
                 if (result.success) {
-                    toast.success("Indent request created successfully!");
-                    setOpen(false);
-                    form.reset();
+                    toast.success(mode === "edit" ? "Indent updated successfully!" : "Indent request created successfully!");
+                    onOpenChange(false);
+                    if (mode === "create") form.reset();
                     setCurrentStep(1);
                 } else {
-                    toast.error(result.error || "Failed to create indent request");
+                    toast.error(result.error || (mode === "edit" ? "Failed to update indent" : "Failed to create indent request"));
                 }
             } catch (error) {
-                toast.error("An unexpected error occurred");
-                console.error(error);
+                toast.error("Something went wrong");
             }
         });
     };
 
     const handleOpenChange = (newOpen: boolean) => {
-        setOpen(newOpen);
+        onOpenChange(newOpen);
         if (!newOpen) {
             setTimeout(() => {
-                form.reset();
+                if (mode === "create") {
+                    form.reset();
+                }
                 setCurrentStep(1);
             }, 200);
         }
     };
 
     return (
-        <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogTrigger asChild>
-                {trigger || (
-                    <Button>
-                        <IconPlus className="mr-2 h-4 w-4" />
-                        Create Indent Request
-                    </Button>
-                )}
-            </DialogTrigger>
+        <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+            {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
             <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto overflow-x-hidden">
                 <DialogHeader>
                     <DialogTitle>Create Indent Request</DialogTitle>
@@ -353,6 +340,7 @@ export function CreateIndentDialog({
                                                 <Input
                                                     placeholder="e.g., Cement for Foundation Work"
                                                     {...field}
+                                                    disabled={mode === "edit"}
                                                 />
                                             </FormControl>
                                             <FormMessage />
@@ -370,7 +358,7 @@ export function CreateIndentDialog({
                                                 <Select
                                                     onValueChange={field.onChange}
                                                     value={field.value}
-                                                    disabled={!!defaultProjectId}
+                                                    disabled={!!defaultProjectId || mode === "edit"}
                                                 >
                                                     <FormControl>
                                                         <SelectTrigger className="w-full overflow-hidden">
@@ -399,7 +387,7 @@ export function CreateIndentDialog({
                                                 <Select
                                                     onValueChange={field.onChange}
                                                     value={field.value}
-                                                    disabled={!!defaultTaskId || !selectedProjectId}
+                                                    disabled={!!defaultTaskId || !selectedProjectId || (mode === "edit" && !!initialData?.taskId)}
                                                 >
                                                     <FormControl>
                                                         <SelectTrigger className="w-full overflow-hidden">
@@ -481,9 +469,10 @@ export function CreateIndentDialog({
                                             <FormLabel>Description (Optional)</FormLabel>
                                             <FormControl>
                                                 <Textarea
-                                                    placeholder="Provide details about this indent request..."
-                                                    rows={3}
+                                                    placeholder="Add any additional details or context..."
+                                                    className="resize-none min-h-[80px]"
                                                     {...field}
+                                                    disabled={mode === "edit"}
                                                 />
                                             </FormControl>
                                             <FormMessage />
@@ -496,19 +485,20 @@ export function CreateIndentDialog({
                                     control={form.control}
                                     name="requiresVendor"
                                     render={({ field }) => (
-                                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-3 bg-muted/20">
+                                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 text-muted-foreground">
                                             <FormControl>
                                                 <Checkbox
                                                     checked={field.value}
                                                     onCheckedChange={field.onChange}
+                                                    disabled={mode === "edit"}
                                                 />
                                             </FormControl>
                                             <div className="space-y-1 leading-none">
-                                                <FormLabel className="text-sm font-medium">
-                                                    Requires Vendor
+                                                <FormLabel>
+                                                    I also need to specify a vendor
                                                 </FormLabel>
-                                                <FormDescription className="text-xs text-muted-foreground">
-                                                    Check if vendor quotation is required for this indent
+                                                <FormDescription>
+                                                    Uncheck if you only want to request the material without a vendor preference.
                                                 </FormDescription>
                                             </div>
                                         </FormItem>
@@ -532,11 +522,11 @@ export function CreateIndentDialog({
 
                                         return (
                                             <FormItem>
-                                                <FormLabel>Assignee <span className="text-red-500">*</span></FormLabel>
+                                                <FormLabel>Assign To <span className="text-red-500">*</span></FormLabel>
                                                 <Select
                                                     onValueChange={field.onChange}
                                                     value={field.value}
-                                                    disabled={isLocked}
+                                                    disabled={!!selectedTask?.assigneeId || mode === "edit"}
                                                 >
                                                     <FormControl>
                                                         <SelectTrigger className="w-full">
@@ -566,10 +556,10 @@ export function CreateIndentDialog({
                             </div>
                         )}
 
-                        {/* Step 2: Material Selection (Admin/Owner only) */}
-                        {currentStep === 2 && isAdminOrOwner && (
-                            <div className="space-y-3 animate-in fade-in-50 duration-300">
-                                <div className="flex items-center justify-between mb-2">
+                        {/* Step 2: Material Selection */}
+                        {currentStep === 2 && (
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between">
                                     <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Materials Required</h3>
                                     <Button
                                         type="button"
@@ -585,232 +575,282 @@ export function CreateIndentDialog({
 
                                 {/* Requires Vendor Checkbox */}
                                 <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
-                                    {materialsList.map((_, index) => (
-                                        <div key={index} className="group relative bg-muted/30 hover:bg-muted/50 border rounded-md py-2 pl-2 pr-4 transition-colors">
-                                            {materialsList.length > 1 && (
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="absolute -top-1 -right-1 h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity bg-background border shadow-sm"
-                                                    onClick={() => removeMaterial(index)}
-                                                >
-                                                    <IconX className="h-3 w-3" />
-                                                </Button>
-                                            )}
+                                    {materialsList.map((itemValue: MaterialItemType, index: number) => {
+                                        const isApproved = itemValue.itemStatus === "APPROVED" && mode === "edit";
 
-                                            <div className="flex items-center justify-between gap-2">
-                                                <div className="w-30">
-                                                    <FormField
-                                                        control={form.control}
-                                                        name={`materials.${index}.materialId`}
-                                                        render={({ field }) => (
-                                                            <FormItem>
-                                                                <Select
-                                                                    onValueChange={(value) => {
-                                                                        field.onChange(value);
-
-                                                                        // Find selected material and auto-select its default unit
-                                                                        const selectedMaterial = materials.find(m => m.id === value);
-                                                                        if (selectedMaterial?.defaultUnitId) {
-                                                                            form.setValue(`materials.${index}.unitId`, selectedMaterial.defaultUnitId);
-                                                                        }
-
-
-                                                                        // Smart vendor handling: only reset if current vendor is not available for new material
-                                                                        const currentVendorId = form.getValues(`materials.${index}.vendorId`);
-                                                                        const newMaterialVendors = selectedMaterial?.vendors || [];
-                                                                        const isCurrentVendorAvailable = newMaterialVendors.some(v => v.id === currentVendorId);
-
-                                                                        // Only reset vendor and price if the current vendor is not available for the new material
-                                                                        if (!isCurrentVendorAvailable) {
-                                                                            form.setValue(`materials.${index}.vendorId`, undefined);
-                                                                            form.setValue(`materials.${index}.estimatedPrice`, undefined);
-                                                                        }
-                                                                        // If vendor is still valid, keep it but reset the price (as price may differ for different materials)
-                                                                        else {
-                                                                            form.setValue(`materials.${index}.estimatedPrice`, undefined);
-                                                                        }
-                                                                    }}
-                                                                    value={field.value}
-                                                                >
-                                                                    <FormControl>
-                                                                        <SelectTrigger className="h-8 text-xs w-full overflow-hidden">
-                                                                            <SelectValue placeholder="Select material..." className="truncate block" />
-                                                                        </SelectTrigger>
-                                                                    </FormControl>
-                                                                    <SelectContent>
-                                                                        {materials.map((material) => (
-                                                                            <SelectItem
-                                                                                key={material.id}
-                                                                                value={material.id}
-                                                                                className="text-xs"
-                                                                                title={material.name}
-                                                                            >
-                                                                                <span className="truncate block max-w-[200px]">
-                                                                                    {material.name}
-                                                                                </span>
-                                                                            </SelectItem>
-                                                                        ))}
-                                                                    </SelectContent>
-                                                                </Select>
-                                                                <FormMessage className="text-[10px]" />
-                                                            </FormItem>
-                                                        )}
-                                                    />
-                                                </div>
-
-                                                {requiresVendor && (
-                                                    <>
-                                                        <div className="w-32">
-                                                            <FormField
-                                                                control={form.control}
-                                                                name={`materials.${index}.vendorId`}
-                                                                render={({ field }) => {
-                                                                    const selectedMaterialId = materialsList[index]?.materialId;
-                                                                    const selectedMaterial = materials.find(m => m.id === selectedMaterialId);
-                                                                    const materialVendors = selectedMaterial?.vendors || [];
-
-                                                                    // Debug logging
-                                                                    console.log('Debug Vendor Filtering:', {
-                                                                        selectedMaterialId,
-                                                                        selectedMaterial: selectedMaterial?.name,
-                                                                        materialVendors,
-                                                                        totalVendors: vendors.length,
-                                                                        vendorsList: vendors
-                                                                    });
-
-
-                                                                    // Use material's linked vendors if available, otherwise fall back to all workspace vendors
-                                                                    const filteredVendors = materialVendors.length > 0
-                                                                        ? materialVendors
-                                                                        : vendors;
-
-
-                                                                    // console.log('Filtered Vendors:', filteredVendors);
-
-                                                                    return (
-                                                                        <FormItem>
-                                                                            <Select
-                                                                                onValueChange={field.onChange}
-                                                                                value={field.value || undefined}
-                                                                                disabled={!selectedMaterialId}
-                                                                            >
-                                                                                <FormControl>
-                                                                                    <SelectTrigger className="h-8 text-xs w-full overflow-hidden">
-                                                                                        <SelectValue placeholder="Vendor (Opt)" className="truncate block" />
-                                                                                    </SelectTrigger>
-                                                                                </FormControl>
-                                                                                <SelectContent>
-                                                                                    {filteredVendors.length === 0 ? (
-                                                                                        <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                                                                                            No vendors available
-                                                                                        </div>
-                                                                                    ) : (
-                                                                                        filteredVendors.map((vendor) => (
-                                                                                            <SelectItem
-                                                                                                key={vendor.id}
-                                                                                                value={vendor.id}
-                                                                                                className="text-xs"
-                                                                                                title={vendor.name}
-                                                                                            >
-                                                                                                <span className="truncate block max-w-[150px]">
-                                                                                                    {vendor.name}
-                                                                                                </span>
-                                                                                            </SelectItem>
-                                                                                        ))
-                                                                                    )}
-                                                                                </SelectContent>
-                                                                            </Select>
-                                                                            <FormMessage className="text-[10px]" />
-                                                                        </FormItem>
-                                                                    );
-                                                                }}
-                                                            />
-                                                        </div>
-
-                                                        <div className="w-20">
-                                                            <FormField
-                                                                control={form.control}
-                                                                name={`materials.${index}.estimatedPrice`}
-                                                                render={({ field }) => {
-                                                                    const currentVendorId = materialsList[index]?.vendorId;
-                                                                    const hasVendor = currentVendorId && currentVendorId.trim() !== "";
-
-                                                                    return (
-                                                                        <FormItem>
-                                                                            <FormControl>
-                                                                                <Input
-                                                                                    type="number"
-                                                                                    step="0.01"
-                                                                                    min="0"
-                                                                                    placeholder="Price"
-                                                                                    className="h-8 text-xs text-right"
-                                                                                    value={field.value || ""}
-                                                                                    onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
-                                                                                    disabled={!hasVendor}
-                                                                                />
-                                                                            </FormControl>
-                                                                            <FormMessage className="text-[10px]" />
-                                                                        </FormItem>
-                                                                    );
-                                                                }}
-                                                            />
-                                                        </div>
-                                                    </>
+                                        return (
+                                            <div key={index} className={`group relative bg-muted/30 hover:bg-muted/50 border rounded-md py-2 pl-2 pr-4 transition-colors ${isApproved ? 'opacity-80' : ''}`}>
+                                                {materialsList.length > 1 && !isApproved && (
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="absolute -top-1 -right-1 h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity bg-background border shadow-sm"
+                                                        onClick={() => removeMaterial(index)}
+                                                    >
+                                                        <IconX className="h-3 w-3" />
+                                                    </Button>
                                                 )}
 
-                                                <div className="w-16">
-                                                    <FormField
-                                                        control={form.control}
-                                                        name={`materials.${index}.quantity`}
-                                                        render={({ field }) => (
-                                                            <FormItem>
-                                                                <FormControl>
-                                                                    <Input
-                                                                        type="number"
-                                                                        step="0.01"
-                                                                        min="0"
-                                                                        placeholder="Qty"
-                                                                        className="h-8 text-xs text-center"
-                                                                        {...field}
-                                                                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                                                                    />
-                                                                </FormControl>
-                                                                <FormMessage className="text-[10px]" />
-                                                            </FormItem>
-                                                        )}
-                                                    />
-                                                </div>
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <div className="w-30">
+                                                        <FormField
+                                                            control={form.control}
+                                                            name={`materials.${index}.materialId`}
+                                                            render={({ field }) => (
+                                                                <FormItem>
+                                                                    <Select
+                                                                        onValueChange={(value) => {
+                                                                            field.onChange(value);
+                                                                            // Reset status on material change
+                                                                            form.setValue(`materials.${index}.itemStatus`, "PENDING" as any);
 
-                                                <div className="w-16">
-                                                    <FormField
-                                                        control={form.control}
-                                                        name={`materials.${index}.unitId`}
-                                                        render={({ field }) => (
-                                                            <FormItem>
-                                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                                            // Find selected material and auto-select its default unit
+                                                                            const selectedMaterial = materials.find(m => m.id === value);
+                                                                            if (selectedMaterial?.defaultUnitId) {
+                                                                                form.setValue(`materials.${index}.unitId`, selectedMaterial.defaultUnitId);
+                                                                            }
+
+                                                                            // Reset vendor and price when material changes
+                                                                            form.setValue(`materials.${index}.vendorId`, "");
+                                                                            form.setValue(`materials.${index}.estimatedPrice`, undefined);
+                                                                        }}
+                                                                        disabled={isApproved}
+                                                                        value={field.value}
+                                                                    >
+                                                                        <FormControl>
+                                                                            <SelectTrigger className="h-8 text-xs w-full overflow-hidden">
+                                                                                <SelectValue placeholder="Select material..." className="truncate block" />
+                                                                            </SelectTrigger>
+                                                                        </FormControl>
+                                                                        <SelectContent>
+                                                                            {materials.map((material) => (
+                                                                                <SelectItem
+                                                                                    key={material.id}
+                                                                                    value={material.id}
+                                                                                    className="text-xs"
+                                                                                    title={material.name}
+                                                                                >
+                                                                                    <span className="truncate block max-w-[200px]">
+                                                                                        {material.name}
+                                                                                    </span>
+                                                                                </SelectItem>
+                                                                            ))}
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                    <FormMessage className="text-[10px]" />
+                                                                </FormItem>
+                                                            )}
+                                                        />
+                                                    </div>
+
+                                                    {requiresVendor && (
+                                                        <>
+                                                            <div className="w-32">
+                                                                <FormField
+                                                                    control={form.control}
+                                                                    name={`materials.${index}.vendorId`}
+                                                                    render={({ field }) => {
+                                                                        const selectedMaterialId = materialsList[index]?.materialId;
+                                                                        const selectedMaterial = materials.find(m => m.id === selectedMaterialId);
+                                                                        const materialVendors = selectedMaterial?.vendors || [];
+
+                                                                        // Debug logging
+                                                                        console.log('Debug Vendor Filtering:', {
+                                                                            selectedMaterialId,
+                                                                            selectedMaterial: selectedMaterial?.name,
+                                                                            materialVendors,
+                                                                            totalVendors: vendors.length,
+                                                                            vendorsList: vendors
+                                                                        });
+
+
+                                                                        // Use material's linked vendors if available, otherwise fall back to all workspace vendors
+                                                                        const filteredVendors = materialVendors.length > 0
+                                                                            ? materialVendors
+                                                                            : vendors;
+
+
+                                                                        // console.log('Filtered Vendors:', filteredVendors);
+
+                                                                        return (
+                                                                            <FormItem>
+                                                                                <Select
+                                                                                    onValueChange={(value) => {
+                                                                                        field.onChange(value);
+                                                                                        form.setValue(`materials.${index}.itemStatus`, "PENDING" as any);
+                                                                                    }}
+                                                                                    value={field.value || undefined}
+                                                                                    disabled={(!selectedMaterialId) || isApproved}
+                                                                                >
+                                                                                    <FormControl>
+                                                                                        <SelectTrigger className="h-8 text-xs w-full overflow-hidden">
+                                                                                            <SelectValue placeholder="Vendor (Opt)" className="truncate block" />
+                                                                                        </SelectTrigger>
+                                                                                    </FormControl>
+                                                                                    <SelectContent>
+                                                                                        {filteredVendors.length === 0 ? (
+                                                                                            <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                                                                                                No vendors available
+                                                                                            </div>
+                                                                                        ) : (
+                                                                                            filteredVendors.map((vendor) => (
+                                                                                                <SelectItem
+                                                                                                    key={vendor.id}
+                                                                                                    value={vendor.id}
+                                                                                                    className="text-xs"
+                                                                                                    title={vendor.name}
+                                                                                                >
+                                                                                                    <span className="truncate block max-w-[150px]">
+                                                                                                        {vendor.name}
+                                                                                                    </span>
+                                                                                                </SelectItem>
+                                                                                            ))
+                                                                                        )}
+                                                                                    </SelectContent>
+                                                                                </Select>
+                                                                                <FormMessage className="text-[10px]" />
+                                                                            </FormItem>
+                                                                        );
+                                                                    }}
+                                                                />
+                                                            </div>
+
+                                                            <div className="w-20">
+                                                                <FormField
+                                                                    control={form.control}
+                                                                    name={`materials.${index}.estimatedPrice`}
+                                                                    render={({ field }) => {
+                                                                        const currentVendorId = materialsList[index]?.vendorId;
+                                                                        const hasVendor = currentVendorId && currentVendorId.trim() !== "";
+
+                                                                        return (
+                                                                            <FormItem>
+                                                                                <FormControl>
+                                                                                    <Input
+                                                                                        type="number"
+                                                                                        step="0.01"
+                                                                                        min="0"
+                                                                                        placeholder="Price"
+                                                                                        className="h-8 text-xs text-right"
+                                                                                        value={field.value || ""}
+                                                                                        onChange={(e) => {
+                                                                                            field.onChange(e.target.value ? parseFloat(e.target.value) : undefined);
+                                                                                            form.setValue(`materials.${index}.itemStatus`, "PENDING" as any);
+                                                                                        }}
+                                                                                        disabled={(!hasVendor) || isApproved}
+                                                                                    />
+                                                                                </FormControl>
+                                                                                <FormMessage className="text-[10px]" />
+                                                                            </FormItem>
+                                                                        );
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                        </>
+                                                    )}
+
+                                                    <div className="w-16">
+                                                        <FormField
+                                                            control={form.control}
+                                                            name={`materials.${index}.quantity`}
+                                                            render={({ field }) => (
+                                                                <FormItem>
                                                                     <FormControl>
-                                                                        <SelectTrigger className="h-8 text-xs">
-                                                                            <SelectValue placeholder="Unit" />
-                                                                        </SelectTrigger>
+                                                                        <Input
+                                                                            type="number"
+                                                                            step="0.01"
+                                                                            min="0"
+                                                                            placeholder="Qty"
+                                                                            disabled={isApproved}
+                                                                            {...field}
+                                                                            onChange={(e) => {
+                                                                                field.onChange(parseFloat(e.target.value) || 0);
+                                                                                form.setValue(`materials.${index}.itemStatus`, "PENDING" as any);
+                                                                            }}
+                                                                        />
                                                                     </FormControl>
-                                                                    <SelectContent>
-                                                                        {units.map((unit) => (
-                                                                            <SelectItem key={unit.id} value={unit.id} className="text-xs">
-                                                                                {unit.abbreviation}
-                                                                            </SelectItem>
-                                                                        ))}
-                                                                    </SelectContent>
-                                                                </Select>
-                                                                <FormMessage className="text-[10px]" />
-                                                            </FormItem>
-                                                        )}
-                                                    />
+                                                                    <FormMessage className="text-[10px]" />
+                                                                </FormItem>
+                                                            )}
+                                                        />
+                                                    </div>
+
+                                                    <div className="w-16">
+                                                        <FormField
+                                                            control={form.control}
+                                                            name={`materials.${index}.unitId`}
+                                                            render={({ field }) => (
+                                                                <FormItem>
+                                                                    <Select
+                                                                        onValueChange={(value) => {
+                                                                            field.onChange(value);
+                                                                            form.setValue(`materials.${index}.itemStatus`, "PENDING" as any);
+                                                                        }}
+                                                                        value={field.value}
+                                                                        disabled={isApproved}
+                                                                    >
+                                                                        <FormControl>
+                                                                            <SelectTrigger className="h-8 text-xs">
+                                                                                <SelectValue placeholder="Unit" />
+                                                                            </SelectTrigger>
+                                                                        </FormControl>
+                                                                        <SelectContent>
+                                                                            {units.map((unit) => (
+                                                                                <SelectItem key={unit.id} value={unit.id} className="text-xs">
+                                                                                    {unit.abbreviation}
+                                                                                </SelectItem>
+                                                                            ))}
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                    <FormMessage className="text-[10px]" />
+                                                                </FormItem>
+                                                            )}
+                                                        />
+                                                    </div>
+
+                                                    {/* Item Status/Approval (Visible to all in Edit, Editable by Admin) */}
+                                                    {mode === "edit" && (
+                                                        <div className="flex items-center justify-center -mb-5">
+                                                            <FormField
+                                                                control={form.control}
+                                                                name={`materials.${index}.itemStatus`}
+                                                                render={({ field }) => {
+                                                                    const isAlreadyApproved = ["APPROVED", "QUANTITY_APPROVED", "VENDOR_PENDING"].includes(field.value || "");
+
+                                                                    if (isAlreadyApproved) {
+                                                                        return (
+                                                                            <div className="flex items-center justify-center h-8 px-2 text-green-600 font-medium text-[10px] border border-green-200 bg-green-50 rounded">
+                                                                                Approved
+                                                                            </div>
+                                                                        );
+                                                                    }
+
+                                                                    // Only allow Admins to approve pending items
+                                                                    if (isAdminOrOwner) {
+                                                                        return (
+                                                                            <FormItem className="flex items-center space-x-2">
+                                                                                <FormControl>
+                                                                                    <Checkbox
+                                                                                        checked={field.value === "APPROVED"}
+                                                                                        onCheckedChange={(checked) => field.onChange(checked ? "APPROVED" : "PENDING")}
+                                                                                        className="h-4 w-4"
+                                                                                        title="Approve Item"
+                                                                                    />
+                                                                                </FormControl>
+                                                                            </FormItem>
+                                                                        );
+                                                                    }
+
+                                                                    return <></>;
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
 
                                 {materialsList.length === 0 && (
@@ -822,7 +862,7 @@ export function CreateIndentDialog({
                         )}
 
                         {/* Step 3: Review */}
-                        {currentStep === (isAdminOrOwner ? 3 : 2) && (
+                        {currentStep === 3 && (
                             <div className="space-y-4 animate-in fade-in-50 duration-300">
                                 <div className="rounded-lg border p-4 space-y-3">
                                     <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
@@ -883,7 +923,7 @@ export function CreateIndentDialog({
                                             <div className="py-2">
                                                 <span className="text-sm text-muted-foreground block mb-2">Materials:</span>
                                                 <div className="space-y-2">
-                                                    {materialsList.map((item, index) => (
+                                                    {materialsList.map((item: MaterialItemType, index: number) => (
                                                         <div key={index} className="bg-muted/50 rounded p-2 text-sm">
                                                             <div className="flex justify-between items-start gap-2">
                                                                 <div>
@@ -923,6 +963,8 @@ export function CreateIndentDialog({
                                         }
                                     </p>
                                 </div>
+
+
                             </div>
                         )}
 
@@ -963,7 +1005,7 @@ export function CreateIndentDialog({
                                         ) : (
                                             <>
                                                 <IconCheck className="mr-2 h-4 w-4" />
-                                                Submit Request
+                                                {mode === "edit" ? "Update Indent" : "Submit Request"}
                                             </>
                                         )}
                                     </Button>

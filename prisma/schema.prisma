@@ -342,10 +342,9 @@ model IndentDetails {
   projectId        String
   taskId           String?
   description      String?
-  expectedDelivery DateTime
+  expectedDelivery DateTime?
   requiresVendor   Boolean          @default(true)
   requestedBy      String
-  status           IndentStatus     @default(REQUESTED)
   requestedAt      DateTime         @default(now())
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
@@ -361,7 +360,6 @@ model IndentDetails {
   @@index([requestedBy])
   @@index([key])
   @@index([assignedTo])
-  @@index([status])
   @@map("indent_details")
 }
 

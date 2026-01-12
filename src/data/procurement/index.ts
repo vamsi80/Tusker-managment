@@ -36,7 +36,7 @@ export const getIndentRequests = cache(async (workspaceId: string) => {
             description: true,
             expectedDelivery: true,
             requiresVendor: true,
-            status: true,
+            assignedTo: true,
             createdAt: true,
             updatedAt: true,
             project: {
@@ -66,7 +66,10 @@ export const getIndentRequests = cache(async (workspaceId: string) => {
             items: {
                 select: {
                     id: true,
+                    materialId: true,
                     quantity: true,
+                    unitId: true,
+                    vendorId: true,
                     estimatedPrice: true,
                     status: true,
                     quantityApproved: true,
@@ -79,6 +82,7 @@ export const getIndentRequests = cache(async (workspaceId: string) => {
                     },
                     unit: {
                         select: {
+                            id: true,
                             abbreviation: true,
                         },
                     },

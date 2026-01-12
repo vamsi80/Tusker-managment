@@ -301,20 +301,51 @@ export const indentSchema = z.object({
     indentKey: z.string().min(1, "Indent key is required"), // You might generate this automatically, but for schema we'll include it or make optional
     projectId: z.string().optional().nullable(),
     description: z.string().optional(),
-    type: z.enum(["PROCUREMENT", "IN_HOUSE"]).default("PROCUREMENT"),
     requiredDate: z.date().optional().nullable(),
     procurementTaskId: z.string().optional().nullable(),
 });
 
-// Indent Request Schemas
-export const materialItemSchema = z.object({
-    materialId: z.string(),
-    quantity: z.number(),
-    unitId: z.string().optional(),
-    estimatedPrice: z.number().optional().nullable(),
-    vendorId: z.string().optional().nullable(),
+// Indent Request Schemas - Multi-step with validation
+// Step 1: Basic Information Schema (All users)
+export const indentStep1Schema = z.object({
+    name: z.string().min(3, "Name must be at least 3 characters"),
+    projectId: z.string().min(1, "Project is required"),
+    taskId: z.string().optional(),
+    description: z.string().optional(),
+    expectedDelivery: z.date({ message: "Expected delivery date is required" }),
+    requiresVendor: z.boolean(),
+    assignedTo: z.string().min(1, "Assignee is required"),
+    status: z.enum(["PENDING", "APPROVED", "REJECTED", "QUANTITY_APPROVED", "VENDOR_PENDING"]).optional(),
 });
 
+// Step 2: Material Item Schema with vendor/price validation
+export const materialItemSchema = z.object({
+    materialId: z.string().min(1, "Material is required"),
+    quantity: z.number().min(0.01, "Quantity must be greater than 0"),
+    unitId: z.string().optional(),
+    vendorId: z.string().optional().nullable(),
+    estimatedPrice: z.number().optional().nullable(),
+    itemStatus: z.enum(["PENDING", "APPROVED", "REJECTED", "QUANTITY_APPROVED", "VENDOR_PENDING"]).optional(),
+}).refine((data) => {
+    // If vendor is selected, price must be provided and > 0
+    if (data.vendorId && (!data.estimatedPrice || data.estimatedPrice <= 0)) {
+        return false;
+    }
+    return true;
+}, {
+    message: "Price is required when vendor is selected",
+    path: ["estimatedPrice"]
+});
+
+// Step 2: Material Selection Schema (Admin/Owner only)
+export const indentStep2Schema = z.object({
+    materials: z.array(materialItemSchema).min(1, "At least one material is required"),
+});
+
+// Combined schema for dialog (partial materials for step-by-step)
+export const indentDialogSchema = indentStep1Schema.merge(indentStep2Schema.partial());
+
+// Server action schema (requires all fields including workspaceId)
 export const createIndentRequestSchema = z.object({
     workspaceId: z.string(),
     name: z.string().min(3, { message: "Name must be at least 3 characters long" }),
@@ -325,6 +356,16 @@ export const createIndentRequestSchema = z.object({
     materials: z.array(materialItemSchema).optional(),
     requiresVendor: z.boolean().default(true),
     assignedTo: z.string(),
+    status: z.enum(["PENDING", "APPROVED", "REJECTED", "QUANTITY_APPROVED", "VENDOR_PENDING"]).optional(),
+});
+
+export const deleteIndentSchema = z.object({
+    workspaceId: z.string(),
+    indentId: z.string(),
+});
+
+export const editIndentSchema = createIndentRequestSchema.extend({
+    indentId: z.string(),
 });
 
 export type InviteUserSchemaType = z.infer<typeof inviteUserSchema>;
@@ -338,4 +379,9 @@ export type UnitSchemaType = z.infer<typeof unitSchema>;
 export type MaterialSchemaType = z.infer<typeof materialSchema>;
 export type VendorSchemaType = z.infer<typeof vendorSchema>;
 export type MaterialItemType = z.infer<typeof materialItemSchema>;
+export type IndentStep1Data = z.infer<typeof indentStep1Schema>;
+export type IndentStep2Data = z.infer<typeof indentStep2Schema>;
+export type IndentDialogFormData = z.infer<typeof indentDialogSchema>;
 export type CreateIndentRequestInput = z.infer<typeof createIndentRequestSchema>;
+export type DeleteIndentInput = z.infer<typeof deleteIndentSchema>;
+export type EditIndentInput = z.infer<typeof editIndentSchema>;

@@ -4,7 +4,7 @@ import { CreateIndentDialog } from "./_components/create-indent-dialog";
 import db from "@/lib/db";
 import { getWorkspaceMembers } from "@/data/workspace/get-workspace-members";
 import { Button } from "@/components/ui/button";
-import { IconFileText } from "@tabler/icons-react";
+import { IconFileText, IconPlus } from "@tabler/icons-react";
 import Link from "next/link";
 
 interface PageProps {
@@ -70,6 +70,14 @@ export default async function IndentPage({ params }: PageProps) {
         <IndentClientPage
             data={indentRequests}
             userRole={workspaceMember.workspaceRole}
+            workspaceId={workspaceId}
+            projects={projects}
+            tasks={tasks}
+            materials={materials}
+            units={units}
+            vendors={vendors}
+            workspaceMembers={workspaceMembersResult.workspaceMembers}
+            currentMemberId={workspaceMember.id}
             action={
                 <>
                     <Button asChild variant="outline">
@@ -79,6 +87,12 @@ export default async function IndentPage({ params }: PageProps) {
                         </Link>
                     </Button>
                     <CreateIndentDialog
+                        trigger={
+                            <Button>
+                                <IconPlus className="mr-2 h-4 w-4" />
+                                Create Indent
+                            </Button>
+                        }
                         workspaceId={workspaceId}
                         projects={projects}
                         tasks={tasks}

@@ -13,15 +13,6 @@ export async function createIndentRequest(input: CreateIndentRequestInput) {
         // Validate input
         const validatedData = createIndentRequestSchema.parse(input);
 
-        // Get authenticated user
-        const session = await auth.api.getSession({
-            headers: await headers(),
-        });
-
-        if (!session?.user?.id) {
-            return { success: false, error: "Unauthorized" };
-        }
-
         // Check permissions using the centralized utility (this also fetches workspaceMember)
         const permissions = await getUserPermissions(validatedData.workspaceId, validatedData.projectId);
 

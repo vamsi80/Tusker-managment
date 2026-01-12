@@ -30,10 +30,15 @@ import {
     DropdownMenuCheckboxItem,
     DropdownMenuContent,
     DropdownMenuTrigger,
+    DropdownMenuSub,
+    DropdownMenuSubTrigger,
+    DropdownMenuSubContent,
+    DropdownMenuSeparator,
+    DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataTableFacetedFilter } from "./data-table-faceted-filter";
-import { IconChevronLeft, IconChevronRight, IconColumns, IconSearch, IconPlus, IconX } from "@tabler/icons-react";
+import { IconChevronLeft, IconChevronRight, IconColumns, IconSearch, IconPlus, IconX, IconFilter } from "@tabler/icons-react";
 
 export interface DataTableFilterField<TData> {
     label: string;
@@ -60,6 +65,7 @@ interface DataTableProps<TData, TValue> {
     filterFields?: DataTableFilterField<TData>[];
     rowSelection?: Record<string, boolean>;
     onRowSelectionChange?: (value: any) => void;
+    filterDisplay?: "default" | "menu";
 }
 
 export function DataTable<TData, TValue>({
@@ -74,6 +80,7 @@ export function DataTable<TData, TValue>({
     pageSize = 10,
     onAdd,
     addButtonLabel = "Add New",
+    filterDisplay = "default",
     filterFields = [],
     rowSelection: controlledRowSelection,
     onRowSelectionChange: controlledOnRowSelectionChange,
@@ -136,29 +143,106 @@ export function DataTable<TData, TValue>({
                 )}
 
                 <div className="flex gap-2">
-                    {filterFields.map((field) => {
-                        const column = table.getColumn(field.value);
-                        return (
-                            column && (
-                                <DataTableFacetedFilter
-                                    key={field.value}
-                                    column={column}
-                                    title={field.label}
-                                    options={field.options || []}
-                                />
-                            )
-                        );
-                    })}
-                    {(table.getState().columnFilters.length > 0 || !!table.getState().globalFilter) && (
-                        <Button
-                            variant="ghost"
-                            onClick={() => table.resetColumnFilters()}
-                            className="h-8 px-2 lg:px-3"
-                        >
-                            Reset
-                            <IconX className="ml-2 h-4 w-4" />
-                        </Button>
+
+                    {filterDisplay === "menu" ? (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" className="h-8 border-dashed">
+                                    <IconFilter className="mr-2 h-4 w-4" />
+                                    Filters
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-[200px]">
+                                {filterFields.map((field) => {
+                                    const column = table.getColumn(field.value);
+                                    if (!column) return null;
+                                    return (
+                                        <DropdownMenuSub key={field.value}>
+                                            <DropdownMenuSubTrigger>
+                                                {field.label}
+                                            </DropdownMenuSubTrigger>
+                                            <DropdownMenuSubContent className="w-[200px]">
+                                                {field.options?.map((option) => {
+                                                    // Handle array or string filter value
+                                                    const filterValue = column.getFilterValue();
+                                                    const isSelected = Array.isArray(filterValue)
+                                                        ? filterValue.includes(option.value)
+                                                        : filterValue === option.value;
+
+                                                    return (
+                                                        <DropdownMenuCheckboxItem
+                                                            key={option.value}
+                                                            checked={isSelected}
+                                                            onCheckedChange={(checked) => {
+                                                                const current = (column.getFilterValue() as string[]) || [];
+                                                                if (checked) {
+                                                                    column.setFilterValue([...current, option.value]);
+                                                                } else {
+                                                                    column.setFilterValue(current.filter((v) => v !== option.value));
+                                                                }
+                                                            }}
+                                                        >
+                                                            {option.label}
+                                                        </DropdownMenuCheckboxItem>
+                                                    );
+                                                })}
+                                                {(column.getFilterValue() as string[])?.length > 0 && (
+                                                    <>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem
+                                                            onSelect={() => column.setFilterValue(undefined)}
+                                                            className="justify-center text-center text-xs"
+                                                        >
+                                                            Clear
+                                                        </DropdownMenuItem>
+                                                    </>
+                                                )}
+                                            </DropdownMenuSubContent>
+                                        </DropdownMenuSub>
+                                    );
+                                })}
+                                {(table.getState().columnFilters.length > 0) && (
+                                    <>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                            onSelect={() => table.resetColumnFilters()}
+                                            className="justify-center text-center"
+                                        >
+                                            Reset all
+                                        </DropdownMenuItem>
+                                    </>
+                                )}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    ) : (
+                        <>
+                            {filterFields.map((field) => {
+                                const column = table.getColumn(field.value);
+                                return (
+                                    column && (
+                                        <DataTableFacetedFilter
+                                            key={field.value}
+                                            column={column}
+                                            title={field.label}
+                                            options={field.options || []}
+                                        />
+                                    )
+                                );
+                            })}
+                            {(table.getState().columnFilters.length > 0 || !!table.getState().globalFilter) && (
+                                <Button
+                                    variant="ghost"
+                                    onClick={() => table.resetColumnFilters()}
+                                    className="h-8 px-2 lg:px-3"
+                                >
+                                    Reset
+                                    <IconX className="ml-2 h-4 w-4" />
+                                </Button>
+                            )}
+                        </>
                     )}
+
+
                 </div>
 
                 {/* Column Toggle */}
