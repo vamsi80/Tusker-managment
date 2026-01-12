@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { DataTable } from "@/components/data-table/data-table";
 import { getColumns, IndentItemRow } from "./columns";
-import { IndentRequestWithRelations } from "@/data/procurement/get-indent-requests";
+import { IndentRequestWithRelations } from "@/data/procurement";
 import { IconCheck, IconX, IconClock, IconFileText } from "@tabler/icons-react";
 
 interface IndentClientPageProps {

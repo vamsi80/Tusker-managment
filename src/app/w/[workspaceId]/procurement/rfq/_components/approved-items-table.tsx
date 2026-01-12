@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { DataTable } from "@/components/data-table/data-table";
 import { ColumnDef } from "@tanstack/react-table";
-import { ApprovedIndentItemWithRelations } from "@/data/procurement/get-approved-items";
+import { ApprovedIndentItemWithRelations } from "@/data/procurement";
 import { format } from "date-fns";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CreateRfqDialog } from "./create-rfq-dialog";

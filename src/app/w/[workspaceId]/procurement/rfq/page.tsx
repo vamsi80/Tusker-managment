@@ -1,4 +1,4 @@
-import { getApprovedIndentItems } from "@/data/procurement/get-approved-items";
+import { getApprovedIndentItems } from "@/data/procurement";
 import { ApprovedItemsTable } from "./_components/approved-items-table";
 import db from "@/lib/db";
 

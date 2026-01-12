@@ -1,8 +1,6 @@
-import { getProcurableProjects } from "@/data/procurement/get-procurable-projects";
-import { getIndentRequests } from "@/data/procurement/get-indent-requests";
-import { getVendors } from "@/data/procurement/get-vendors";
+import { getProcurableProjects, getIndentRequests, getVendors } from "@/data/procurement";
 import { IndentClientPage } from "./_components/client";
-import { CreateIndentDialog } from "../_components/create-indent-dialog";
+import { CreateIndentDialog } from "./_components/create-indent-dialog";
 import db from "@/lib/db";
 import { getWorkspaceMembers } from "@/data/workspace/get-workspace-members";
 import { Button } from "@/components/ui/button";

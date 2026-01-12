@@ -105,4 +105,4 @@ export async function getIndentRequests(workspaceId: string) {
     }
 }
 
-export type IndentRequestWithRelations = Awaited<ReturnType<typeof getIndentRequests>>["indentRequests"][number];
+// Type now exported from @/data/procurement

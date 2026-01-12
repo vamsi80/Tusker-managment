@@ -2,10 +2,9 @@ import db from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { IconClipboardCheck } from "@tabler/icons-react";
-import { getVendors } from "@/data/procurement/get-vendors";
-import { getProcurementTasks } from "@/data/procurement/get-procurement-tasks";
+import { getVendors, getProcurementTasks } from "@/data/procurement";
 import { ProcurementTasksTable } from "../_components/procurement-tasks-table";
-import { getProcurableProjects } from "@/data/procurement/get-procurable-projects";
+import { getProcurableProjects } from "@/data/procurement";
 
 import { getWorkspaceMembers } from "@/data/workspace/get-workspace-members";
 

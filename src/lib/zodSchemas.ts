@@ -306,6 +306,27 @@ export const indentSchema = z.object({
     procurementTaskId: z.string().optional().nullable(),
 });
 
+// Indent Request Schemas
+export const materialItemSchema = z.object({
+    materialId: z.string(),
+    quantity: z.number(),
+    unitId: z.string().optional(),
+    estimatedPrice: z.number().optional().nullable(),
+    vendorId: z.string().optional().nullable(),
+});
+
+export const createIndentRequestSchema = z.object({
+    workspaceId: z.string(),
+    name: z.string().min(3, { message: "Name must be at least 3 characters long" }),
+    projectId: z.string(),
+    taskId: z.string().optional(),
+    description: z.string().optional(),
+    expectedDelivery: z.date(),
+    materials: z.array(materialItemSchema).optional(),
+    requiresVendor: z.boolean().default(true),
+    assignedTo: z.string(),
+});
+
 export type InviteUserSchemaType = z.infer<typeof inviteUserSchema>;
 export type WorkSpaceSchemaType = z.infer<typeof workSpaceSchema>;
 export type ProjectSchemaType = z.infer<typeof projectSchema>;
@@ -316,3 +337,5 @@ export type IndentSchemaType = z.infer<typeof indentSchema>;
 export type UnitSchemaType = z.infer<typeof unitSchema>;
 export type MaterialSchemaType = z.infer<typeof materialSchema>;
 export type VendorSchemaType = z.infer<typeof vendorSchema>;
+export type MaterialItemType = z.infer<typeof materialItemSchema>;
+export type CreateIndentRequestInput = z.infer<typeof createIndentRequestSchema>;

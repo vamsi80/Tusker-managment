@@ -8,8 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Vendor } from "@/generated/prisma";
-import { ApprovedIndentItemWithRelations } from "@/data/procurement/get-approved-items";
-import { createRfq } from "@/actions/procurement/create-rfq";
+import { ApprovedIndentItemWithRelations } from "@/data/procurement";
 import { toast } from "sonner";
 import { IconLoader2 } from "@tabler/icons-react";
 
@@ -34,22 +33,7 @@ export function CreateRfqDialog({ items, vendors, workspaceId, trigger, onClose 
             return;
         }
 
-        setLoading(true);
-        const res = await createRfq({
-            workspaceId,
-            itemIds: items.map(i => i.id),
-            vendorIds: selectedVendors,
-            deadline: deadline ? new Date(deadline) : undefined
-        });
-
-        setLoading(false);
-        if (res.success) {
-            toast.success("RFQ created successfully");
-            setOpen(false);
-            if (onClose) onClose();
-        } else {
-            toast.error(res.error || "Failed to create RFQ");
-        }
+        console.log(items, selectedVendors, deadline);
     };
 
     return (

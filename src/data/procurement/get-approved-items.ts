@@ -54,4 +54,4 @@ export async function getApprovedIndentItems(workspaceId: string) {
     }
 }
 
-export type ApprovedIndentItemWithRelations = Awaited<ReturnType<typeof getApprovedIndentItems>>[number];
+// Type now exported from @/data/procurement

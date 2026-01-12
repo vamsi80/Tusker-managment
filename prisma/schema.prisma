@@ -115,6 +115,8 @@ model WorkspaceMember {
   indent_details_indent_details_assignedToToWorkspaceMember IndentDetails[] @relation("indent_details_assignedToToWorkspaceMember")
   indentDetails                                             IndentDetails[]
   units                                                     Unit[]
+  quantityApprovedItems                                     IndentItem[]    @relation("quantity_approver")
+  finalApprovedItems                                        IndentItem[]    @relation("final_approver")
 
   @@unique([userId, workspaceId])
   @@index([workspaceId, workspaceRole])
@@ -340,7 +342,7 @@ model IndentDetails {
   projectId        String
   taskId           String?
   description      String?
-  expectedDelivery DateTime?
+  expectedDelivery DateTime
   requiresVendor   Boolean          @default(true)
   requestedBy      String
   status           IndentStatus     @default(REQUESTED)
@@ -364,25 +366,48 @@ model IndentDetails {
 }
 
 model IndentItem {
-  id              String        @id @default(uuid())
+  id              String   @id @default(uuid())
   indentDetailsId String
   materialId      String
   quantity        Float
   unitId          String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
   estimatedPrice  Float?
   vendorId        String?
-  indentDetails   IndentDetails @relation(fields: [indentDetailsId], references: [id], onDelete: Cascade)
-  material        Material      @relation(fields: [materialId], references: [id])
-  unit            Unit?         @relation(fields: [unitId], references: [id], onDelete: Restrict)
-  vendor          Vendor?       @relation(fields: [vendorId], references: [id])
-  rfqItems        RfqItem[]
+
+  // Approval workflow fields
+  status             IndentItemStatus @default(PENDING)
+  quantityApproved   Boolean          @default(false)
+  quantityApprovedBy String?
+  quantityApprovedAt DateTime?
+  finalApproved      Boolean          @default(false)
+  finalApprovedBy    String?
+  finalApprovedAt    DateTime?
+  rejectionReason    String?
+
+  // Relations
+  indentDetails    IndentDetails    @relation(fields: [indentDetailsId], references: [id], onDelete: Cascade)
+  material         Material         @relation(fields: [materialId], references: [id])
+  unit             Unit?            @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  vendor           Vendor?          @relation(fields: [vendorId], references: [id])
+  quantityApprover WorkspaceMember? @relation("quantity_approver", fields: [quantityApprovedBy], references: [id])
+  finalApprover    WorkspaceMember? @relation("final_approver", fields: [finalApprovedBy], references: [id])
+  rfqItems         RfqItem[]
 
   @@index([indentDetailsId])
   @@index([materialId])
   @@index([vendorId])
+  @@index([status])
   @@map("indent_item")
+}
+
+enum IndentItemStatus {
+  PENDING // Initial state - awaiting quantity approval
+  QUANTITY_APPROVED // Quantity approved, waiting for vendor details
+  VENDOR_PENDING // Vendor added, waiting for final approval
+  APPROVED // Fully approved
+  REJECTED // Rejected by admin
 }
 
 model Unit {

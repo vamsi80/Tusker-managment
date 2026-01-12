@@ -6,28 +6,7 @@ import db from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
-
-const materialItemSchema = z.object({
-    materialId: z.string(),
-    quantity: z.number(),
-    unitId: z.string().optional(),
-    estimatedPrice: z.number().optional().nullable(),
-    vendorId: z.string().optional().nullable(),
-});
-
-const createIndentRequestSchema = z.object({
-    workspaceId: z.string(),
-    name: z.string().min(3),
-    projectId: z.string(),
-    taskId: z.string().optional(),
-    description: z.string().optional(),
-    expectedDelivery: z.date().optional(),
-    materials: z.array(materialItemSchema).optional(),
-    requiresVendor: z.boolean().default(true),
-    assignedTo: z.string(),
-});
-
-type CreateIndentRequestInput = z.infer<typeof createIndentRequestSchema>;
+import { createIndentRequestSchema, type CreateIndentRequestInput } from "@/lib/zodSchemas";
 
 export async function createIndentRequest(input: CreateIndentRequestInput) {
     try {
@@ -43,60 +22,53 @@ export async function createIndentRequest(input: CreateIndentRequestInput) {
             return { success: false, error: "Unauthorized" };
         }
 
-        const userId = session.user.id;
+        // Check permissions using the centralized utility (this also fetches workspaceMember)
+        const permissions = await getUserPermissions(validatedData.workspaceId, validatedData.projectId);
 
-        // Verify user has access to the workspace
-        const workspaceMember = await db.workspaceMember.findFirst({
-            where: {
-                workspaceId: validatedData.workspaceId,
-                userId: userId,
-            },
-        });
-
-        if (!workspaceMember) {
+        if (!permissions.workspaceMember) {
             return { success: false, error: "You don't have access to this workspace" };
         }
-
-
-        // Check permissions using the centralized utility
-        const permissions = await getUserPermissions(validatedData.workspaceId, validatedData.projectId);
 
         if (!permissions.isWorkspaceAdmin && !permissions.isProjectLead) {
             return { success: false, error: "Only Admin or Project Lead can create indents for this project" };
         }
 
-        // Verify assignedTo member belongs to workspace
-        const itemRequestor = await db.workspaceMember.findUnique({
-            where: { id: validatedData.assignedTo }
-        });
+        const workspaceMember = permissions.workspaceMember;
+
+        // Parallel validation queries for better performance
+        const [itemRequestor, projectWithTask] = await Promise.all([
+            // Verify assignedTo member belongs to workspace
+            db.workspaceMember.findUnique({
+                where: { id: validatedData.assignedTo },
+                select: { id: true, workspaceId: true },
+            }),
+            // Verify project and optionally task in one query
+            db.project.findFirst({
+                where: {
+                    id: validatedData.projectId,
+                    workspaceId: validatedData.workspaceId,
+                },
+                include: {
+                    tasks: validatedData.taskId ? {
+                        where: { id: validatedData.taskId },
+                        select: { id: true },
+                    } : false,
+                },
+            }),
+        ]);
 
         if (!itemRequestor || itemRequestor.workspaceId !== validatedData.workspaceId) {
             return { success: false, error: "Invalid assignee selected" };
         }
 
-
-        // Verify project belongs to workspace
-        const project = await db.project.findFirst({
-            where: {
-                id: validatedData.projectId,
-                workspaceId: validatedData.workspaceId,
-            },
-        });
-
-        if (!project) {
+        if (!projectWithTask) {
             return { success: false, error: "Invalid project" };
         }
 
-        // If taskId is provided, verify it belongs to the project
+        // If taskId is provided, verify it was found
         if (validatedData.taskId) {
-            const task = await db.task.findFirst({
-                where: {
-                    id: validatedData.taskId,
-                    projectId: validatedData.projectId,
-                },
-            });
-
-            if (!task) {
+            const tasks = (projectWithTask as any).tasks as { id: string }[] | undefined;
+            if (!tasks || tasks.length === 0) {
                 return { success: false, error: "Invalid task" };
             }
         }
@@ -137,13 +109,56 @@ export async function createIndentRequest(input: CreateIndentRequestInput) {
                 requestedBy: workspaceMember.id,
                 assignedTo: validatedData.assignedTo,
                 items: validatedData.materials ? {
-                    create: validatedData.materials.map((item) => ({
-                        materialId: item.materialId,
-                        quantity: item.quantity,
-                        unitId: item.unitId,
-                        estimatedPrice: item.estimatedPrice || null,
-                        vendorId: item.vendorId || null,
-                    })),
+                    create: validatedData.materials.map((item) => {
+                        const hasVendor = !!item.vendorId;
+                        const hasPrice = !!item.estimatedPrice;
+                        const isAdmin = permissions.isWorkspaceAdmin;
+
+                        // Determine status and approval fields based on admin and vendor presence
+                        let status: "PENDING" | "QUANTITY_APPROVED" | "VENDOR_PENDING" | "APPROVED" = "PENDING";
+                        let quantityApproved = false;
+                        let quantityApprovedBy: string | null = null;
+                        let quantityApprovedAt: Date | null = null;
+                        let finalApproved = false;
+                        let finalApprovedBy: string | null = null;
+                        let finalApprovedAt: Date | null = null;
+
+                        if (isAdmin) {
+                            const now = new Date();
+
+                            if (hasVendor && hasPrice) {
+                                // Admin created with vendor + price → Full approval
+                                status = "APPROVED";
+                                quantityApproved = true;
+                                quantityApprovedBy = workspaceMember.id;
+                                quantityApprovedAt = now;
+                                finalApproved = true;
+                                finalApprovedBy = workspaceMember.id;
+                                finalApprovedAt = now;
+                            } else {
+                                // Admin created without vendor → Quantity approved
+                                status = "QUANTITY_APPROVED";
+                                quantityApproved = true;
+                                quantityApprovedBy = workspaceMember.id;
+                                quantityApprovedAt = now;
+                            }
+                        }
+
+                        return {
+                            materialId: item.materialId,
+                            quantity: item.quantity,
+                            unitId: item.unitId,
+                            estimatedPrice: item.estimatedPrice || null,
+                            vendorId: item.vendorId || null,
+                            status,
+                            quantityApproved,
+                            quantityApprovedBy,
+                            quantityApprovedAt,
+                            finalApproved,
+                            finalApprovedBy,
+                            finalApprovedAt,
+                        };
+                    }),
                 } : undefined,
 
             },
@@ -177,11 +192,6 @@ export async function createIndentRequest(input: CreateIndentRequestInput) {
         };
     } catch (error) {
         console.error("Error creating indent request:", error);
-
-        if (error instanceof z.ZodError) {
-            return { success: false, error: "Invalid input data" };
-        }
-
         return { success: false, error: "Failed to create indent request" };
     }
 }

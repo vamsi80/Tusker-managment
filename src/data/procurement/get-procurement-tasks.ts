@@ -51,4 +51,4 @@ export const getProcurementTasks = cache(async (workspaceId: string) => {
     }
 });
 
-export type ProcurementTaskWithRelations = Awaited<ReturnType<typeof getProcurementTasks>>[number];
+// Type now exported from @/data/procurement
