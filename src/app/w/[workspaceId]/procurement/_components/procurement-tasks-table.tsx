@@ -16,6 +16,8 @@ import { IconPlus } from "@tabler/icons-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ProcurementTaskWithRelations } from "@/data/procurement/get-procurement-tasks";
 
+import { WorkspaceMemberRow } from "@/data/workspace/get-workspace-members";
+
 interface ProcurementTasksTableProps {
     workspaceId: string;
     procurementTasks: ProcurementTaskWithRelations[];
@@ -25,6 +27,8 @@ interface ProcurementTasksTableProps {
     units: { id: string; name: string; abbreviation: string }[];
     vendors: { id: string; name: string }[];
     userRole?: "OWNER" | "ADMIN" | "MEMBER" | "VIEWER";
+    workspaceMembers: WorkspaceMemberRow[];
+    currentMemberId: string;
 }
 
 export function ProcurementTasksTable({
@@ -35,7 +39,9 @@ export function ProcurementTasksTable({
     materials,
     units,
     vendors,
-    userRole
+    userRole,
+    workspaceMembers,
+    currentMemberId
 }: ProcurementTasksTableProps) {
     if (procurementTasks.length === 0) {
         return (
@@ -122,6 +128,8 @@ export function ProcurementTasksTable({
                                             userRole={userRole}
                                             defaultProjectId={pt.projectId}
                                             defaultTaskId={pt.taskId}
+                                            workspaceMembers={workspaceMembers}
+                                            currentMemberId={currentMemberId}
                                             trigger={
                                                 <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-primary">
                                                     <IconPlus className="h-4 w-4" />

@@ -39,6 +39,11 @@ export const getProcurableProjects = cache(async (workspaceId: string) => {
                         id: true,
                         name: true,
                         taskSlug: true,
+                        assignee: {
+                            select: {
+                                workspaceMemberId: true,
+                            },
+                        },
                     },
                     orderBy: {
                         createdAt: "desc",
@@ -72,6 +77,11 @@ export const getProcurableProjects = cache(async (workspaceId: string) => {
                     id: true,
                     name: true,
                     taskSlug: true,
+                    assignee: {
+                        select: {
+                            workspaceMemberId: true,
+                        },
+                    },
                 },
                 orderBy: {
                     createdAt: "desc",

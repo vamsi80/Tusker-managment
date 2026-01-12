@@ -17,6 +17,7 @@ export type IndentItemRow = {
     materialName: string;
     projectName: string;
     taskName: string | null;
+    assigneeName: string | null;
     quantity: number;
     unit: string | null;
     vendorName: string | null;
@@ -80,6 +81,18 @@ export const getColumns = (userRole: string): ColumnDef<IndentItemRow>[] => [
                 )}
             </div>
         ),
+    },
+    {
+        accessorKey: "assigneeName",
+        header: "Assignee",
+        cell: ({ row }) => {
+            const assignee = row.getValue("assigneeName") as string | null;
+            return assignee ? (
+                <span className="text-sm font-medium">{assignee}</span>
+            ) : (
+                <span className="text-xs text-muted-foreground">Unassigned</span>
+            );
+        },
     },
     {
         accessorKey: "quantity",

@@ -7,8 +7,6 @@ datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
-  // Disable prepared statements when using connection poolers
-  // Add ?pgbouncer=true to your DATABASE_URL if using PgBouncer/Supabase Pooler
 }
 
 model User {
@@ -91,31 +89,32 @@ model Workspace {
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   projects         Project[]
-  procurementTasks ProcurementTask[]
   tags             Tag[]
   owner            User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   members          WorkspaceMember[]
   materials        Material[]
+  procurementTasks ProcurementTask[]
+  rfqs             Rfq[]
   units            Unit[]
   vendors          Vendor[]
-  rfqs             Rfq[]
 }
 
 model WorkspaceMember {
-  id             String          @id @default(uuid())
-  userId         String
-  workspaceId    String
-  workspaceRole  WorkspaceRole   @default(MEMBER)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  projectMembers ProjectMember[]
-  reviewComments ReviewComment[]
-  tasks          Task[]
-  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  auditLogs      AuditLog[]
-  units          Unit[]
-  indentDetails  IndentDetails[]
+  id                                                        String          @id @default(uuid())
+  userId                                                    String
+  workspaceId                                               String
+  workspaceRole                                             WorkspaceRole   @default(MEMBER)
+  createdAt                                                 DateTime        @default(now())
+  updatedAt                                                 DateTime        @updatedAt
+  projectMembers                                            ProjectMember[]
+  reviewComments                                            ReviewComment[]
+  tasks                                                     Task[]
+  user                                                      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace                                                 Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  auditLogs                                                 AuditLog[]
+  indent_details_indent_details_assignedToToWorkspaceMember IndentDetails[] @relation("indent_details_assignedToToWorkspaceMember")
+  indentDetails                                             IndentDetails[]
+  units                                                     Unit[]
 
   @@unique([userId, workspaceId])
   @@index([workspaceId, workspaceRole])
@@ -137,9 +136,9 @@ model Project {
   workspace        Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   projectMembers   ProjectMember[]
   tasks            Task[]
-  procurementTasks ProcurementTask[]
-  indentDetails    IndentDetails[]
   auditLogs        AuditLog[]
+  indentDetails    IndentDetails[]
+  procurementTasks ProcurementTask[]
 
   @@index([workspaceId])
   @@index([workspaceId, createdAt])
@@ -225,18 +224,18 @@ model Task {
   createdAt             DateTime         @default(now())
   updatedAt             DateTime         @updatedAt
   reviewComments        ReviewComment[]
-  tag                   Tag?             @relation(fields: [tagId], references: [id], onDelete: SetNull)
   assignee              ProjectMember?   @relation(fields: [assigneeTo], references: [id], onDelete: Cascade)
   createdBy             WorkspaceMember  @relation(fields: [createdById], references: [id], onDelete: Cascade)
   parentTask            Task?            @relation("Task_subTasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
   subTasks              Task[]           @relation("Task_subTasks")
   project               Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tag                   Tag?             @relation(fields: [tagId], references: [id])
   auditLogs             AuditLog[]
   comments              Comment[]
+  indentDetails         IndentDetails[]
+  procurementTask       ProcurementTask?
   Task_TaskDependency_A Task[]           @relation("TaskDependency")
   Task_TaskDependency_B Task[]           @relation("TaskDependency")
-  procurementTask       ProcurementTask?
-  indentDetails         IndentDetails[]
 
   @@index([parentTaskId])
   @@index([projectId])
@@ -318,6 +317,202 @@ model AuditLog {
   @@map("audit_log")
 }
 
+model ProcurementTask {
+  id            String    @id @default(uuid())
+  taskId        String    @unique
+  projectId     String
+  workspaceId   String
+  createdAt     DateTime  @default(now())
+  indentCreated Boolean   @default(false)
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task          Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([projectId])
+  @@map("procurement_task")
+}
+
+model IndentDetails {
+  id               String           @id @default(uuid())
+  key              String           @unique
+  name             String
+  projectId        String
+  taskId           String?
+  description      String?
+  expectedDelivery DateTime?
+  requiresVendor   Boolean          @default(true)
+  requestedBy      String
+  status           IndentStatus     @default(REQUESTED)
+  requestedAt      DateTime         @default(now())
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  assignedTo       String?
+  assignee         WorkspaceMember? @relation("indent_details_assignedToToWorkspaceMember", fields: [assignedTo], references: [id])
+  project          Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  requestor        WorkspaceMember  @relation(fields: [requestedBy], references: [id])
+  task             Task?            @relation(fields: [taskId], references: [id])
+  items            IndentItem[]
+
+  @@index([projectId])
+  @@index([taskId])
+  @@index([requestedBy])
+  @@index([key])
+  @@index([assignedTo])
+  @@index([status])
+  @@map("indent_details")
+}
+
+model IndentItem {
+  id              String        @id @default(uuid())
+  indentDetailsId String
+  materialId      String
+  quantity        Float
+  unitId          String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  estimatedPrice  Float?
+  vendorId        String?
+  indentDetails   IndentDetails @relation(fields: [indentDetailsId], references: [id], onDelete: Cascade)
+  material        Material      @relation(fields: [materialId], references: [id])
+  unit            Unit?         @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  vendor          Vendor?       @relation(fields: [vendorId], references: [id])
+  rfqItems        RfqItem[]
+
+  @@index([indentDetailsId])
+  @@index([materialId])
+  @@index([vendorId])
+  @@map("indent_item")
+}
+
+model Unit {
+  id           String           @id @default(uuid())
+  name         String
+  abbreviation String
+  category     String?
+  isDefault    Boolean          @default(false)
+  isActive     Boolean          @default(true)
+  createdBy    String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  workspaceId  String?
+  indentItems  IndentItem[]
+  materials    Material[]
+  creator      WorkspaceMember? @relation(fields: [createdBy], references: [id])
+  workspace    Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([isActive])
+  @@index([isDefault])
+  @@index([createdBy])
+  @@map("unit")
+}
+
+model Material {
+  id             String       @id @default(uuid())
+  name           String       @unique
+  specifications String?
+  defaultUnitId  String
+  workspaceId    String
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  indentItems    IndentItem[]
+  defaultUnit    Unit         @relation(fields: [defaultUnitId], references: [id])
+  workspace      Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  vendors        Vendor[]     @relation("MaterialToVendor")
+
+  @@index([workspaceId])
+  @@index([isActive])
+  @@index([name])
+  @@map("material")
+}
+
+model Vendor {
+  id            String       @id @default(uuid())
+  name          String
+  companyName   String?
+  contactPerson String?
+  contactNumber String?
+  email         String?
+  address       String?
+  gstNumber     String?
+  workspaceId   String
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  indentItems   IndentItem[]
+  quotations    Quotation[]
+  workspace     Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  materials     Material[]   @relation("MaterialToVendor")
+  rfqs          Rfq[]        @relation("RfqToVendor")
+
+  @@index([workspaceId])
+  @@index([name])
+  @@map("vendor")
+}
+
+model Rfq {
+  id          String      @id @default(uuid())
+  key         String      @unique
+  workspaceId String
+  status      RfqStatus   @default(DRAFT)
+  deadline    DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  quotations  Quotation[]
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  items       RfqItem[]
+  vendors     Vendor[]    @relation("RfqToVendor")
+
+  @@index([workspaceId])
+  @@map("rfq")
+}
+
+model RfqItem {
+  id             String          @id @default(uuid())
+  rfqId          String
+  indentItemId   String
+  quantity       Float
+  quotationItems QuotationItem[]
+  indentItem     IndentItem      @relation(fields: [indentItemId], references: [id])
+  rfq            Rfq             @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+
+  @@index([rfqId])
+  @@index([indentItemId])
+  @@map("rfq_item")
+}
+
+model Quotation {
+  id             String          @id @default(uuid())
+  rfqId          String
+  vendorId       String
+  quoteReference String?
+  totalAmount    Float?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  rfq            Rfq             @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  vendor         Vendor          @relation(fields: [vendorId], references: [id])
+  items          QuotationItem[]
+
+  @@unique([rfqId, vendorId])
+  @@index([rfqId])
+  @@index([vendorId])
+  @@map("quotation")
+}
+
+model QuotationItem {
+  id          String    @id @default(uuid())
+  quotationId String
+  rfqItemId   String
+  unitPrice   Float
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  rfqItem     RfqItem   @relation(fields: [rfqItemId], references: [id])
+
+  @@index([quotationId])
+  @@index([rfqItemId])
+  @@map("quotation_item")
+}
+
 enum WorkspaceRole {
   OWNER
   ADMIN
@@ -340,21 +535,10 @@ enum TaskStatus {
   COMPLETED
 }
 
-model ProcurementTask {
-  id            String   @id @default(uuid())
-  taskId        String   @unique
-  projectId     String
-  workspaceId   String
-  indentCreated Boolean  @default(false)
-  createdAt     DateTime @default(now())
-
-  task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-
-  @@index([workspaceId])
-  @@index([projectId])
-  @@map("procurement_task")
+enum RfqStatus {
+  DRAFT
+  OPEN
+  CLOSED
 }
 
 enum IndentStatus {
@@ -362,200 +546,4 @@ enum IndentStatus {
   UNDER_REVIEW
   APPROVED
   REJECTED
-}
-
-// Member-created indent request (role-safe)
-model IndentDetails {
-  id               String       @id @default(uuid())
-  key              String       @unique // e.g., IND-001
-  name             String // Indent title/name
-  projectId        String
-  taskId           String? // Optional task reference
-  description      String? // Request description
-  expectedDelivery DateTime? // Expected delivery date
-  requiresVendor   Boolean      @default(true) // Whether vendor quotation is required
-  requestedBy      String // WorkspaceMember ID who created the request
-  status           IndentStatus @default(REQUESTED)
-  requestedAt      DateTime     @default(now()) // When request was created
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
-
-  project   Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  task      Task?           @relation(fields: [taskId], references: [id], onDelete: SetNull)
-  requestor WorkspaceMember @relation(fields: [requestedBy], references: [id], onDelete: Restrict)
-  items     IndentItem[]
-
-  @@index([projectId])
-  @@index([taskId])
-  @@index([requestedBy])
-  @@index([status])
-  @@index([key])
-  @@map("indent_details")
-}
-
-model IndentItem {
-  id              String   @id @default(uuid())
-  indentDetailsId String
-  materialId      String
-  quantity        Float
-  unitId          String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  indentDetails  IndentDetails @relation(fields: [indentDetailsId], references: [id], onDelete: Cascade)
-  material       Material      @relation(fields: [materialId], references: [id], onDelete: Restrict)
-  unit           Unit?         @relation(fields: [unitId], references: [id], onDelete: Restrict)
-  vendor         Vendor?       @relation(fields: [vendorId], references: [id], onDelete: SetNull)
-  rfqItems       RfqItem[]
-  estimatedPrice Float?
-  vendorId       String?
-
-  @@index([indentDetailsId])
-  @@index([materialId])
-  @@index([vendorId])
-  @@map("indent_item")
-}
-
-model Unit {
-  id           String   @id @default(uuid())
-  name         String // e.g., "kg", "meter", "piece", "liter"
-  abbreviation String // e.g., "kg", "m", "pcs", "L"
-  category     String? // e.g., "Weight", "Length", "Volume", "Quantity"
-  isDefault    Boolean  @default(false) // Mark default/seeded units (cannot be deleted)
-  isActive     Boolean  @default(true) // Allow soft deletion
-  createdBy    String? // User who created this unit (null for seeded units)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  workspaceId String?
-  workspace   Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  creator     WorkspaceMember? @relation(fields: [createdBy], references: [id], onDelete: SetNull)
-  materials   Material[]
-
-  indentItems IndentItem[]
-
-  @@index([isActive])
-  @@index([isDefault])
-  @@index([createdBy])
-  @@map("unit")
-}
-
-model Material {
-  id             String   @id @default(uuid())
-  name           String   @unique
-  specifications String? // Optional technical specifications
-  defaultUnitId  String // Default unit of measure for this material
-  workspaceId    String
-  isActive       Boolean  @default(true) // Allow soft deletion
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  defaultUnit Unit      @relation(fields: [defaultUnitId], references: [id], onDelete: Restrict)
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  vendors     Vendor[]
-
-  indentItems IndentItem[]
-
-  @@index([workspaceId])
-  @@index([isActive])
-  @@index([name])
-  @@map("material")
-}
-
-model Vendor {
-  id            String   @id @default(uuid())
-  name          String // Display name or Alias
-  companyName   String? // Legal Company Name
-  contactPerson String?
-  contactNumber String?
-  email         String?
-  address       String?
-  gstNumber     String?
-  workspaceId   String
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-
-  materials   Material[]
-  rfqs        Rfq[]
-  quotations  Quotation[]
-  indentItems IndentItem[]
-
-  @@index([workspaceId])
-  @@index([name])
-  @@map("vendor")
-}
-
-enum RfqStatus {
-  DRAFT
-  OPEN
-  CLOSED
-}
-
-model Rfq {
-  id          String    @id @default(uuid())
-  key         String    @unique // e.g., RFQ-001
-  workspaceId String
-  status      RfqStatus @default(DRAFT)
-  deadline    DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  workspace  Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  items      RfqItem[]
-  vendors    Vendor[]
-  quotations Quotation[]
-
-  @@index([workspaceId])
-  @@map("rfq")
-}
-
-model RfqItem {
-  id           String @id @default(uuid())
-  rfqId        String
-  indentItemId String
-  quantity     Float
-
-  rfq            Rfq             @relation(fields: [rfqId], references: [id], onDelete: Cascade)
-  indentItem     IndentItem      @relation(fields: [indentItemId], references: [id], onDelete: Restrict)
-  quotationItems QuotationItem[]
-
-  @@index([rfqId])
-  @@index([indentItemId])
-  @@map("rfq_item")
-}
-
-model Quotation {
-  id             String   @id @default(uuid())
-  rfqId          String
-  vendorId       String
-  quoteReference String?
-  totalAmount    Float?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  rfq    Rfq             @relation(fields: [rfqId], references: [id], onDelete: Cascade)
-  vendor Vendor          @relation(fields: [vendorId], references: [id], onDelete: Restrict)
-  items  QuotationItem[]
-
-  @@unique([rfqId, vendorId])
-  @@index([rfqId])
-  @@index([vendorId])
-  @@map("quotation")
-}
-
-model QuotationItem {
-  id          String @id @default(uuid())
-  quotationId String
-  rfqItemId   String
-  unitPrice   Float
-
-  quotation Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
-  rfqItem   RfqItem   @relation(fields: [rfqItemId], references: [id], onDelete: Restrict)
-
-  @@index([quotationId])
-  @@index([rfqItemId])
-  @@map("quotation_item")
 }

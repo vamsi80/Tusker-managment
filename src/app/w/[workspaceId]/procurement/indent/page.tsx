@@ -4,6 +4,7 @@ import { getVendors } from "@/data/procurement/get-vendors";
 import { IndentClientPage } from "./_components/client";
 import { CreateIndentDialog } from "../_components/create-indent-dialog";
 import db from "@/lib/db";
+import { getWorkspaceMembers } from "@/data/workspace/get-workspace-members";
 
 interface PageProps {
     params: Promise<{
@@ -15,7 +16,7 @@ export default async function IndentPage({ params }: PageProps) {
     const { workspaceId } = await params;
 
     // Fetch all required data in parallel
-    const [indentsData, projectsData, materials, units, vendors] = await Promise.all([
+    const [indentsData, projectsData, materials, units, vendors, workspaceMembersResult] = await Promise.all([
         getIndentRequests(workspaceId),
         getProcurableProjects(workspaceId),
         db.material.findMany({
@@ -46,6 +47,7 @@ export default async function IndentPage({ params }: PageProps) {
             orderBy: { name: "asc" },
         }),
         getVendors(workspaceId),
+        getWorkspaceMembers(workspaceId),
     ]);
 
 
@@ -59,6 +61,7 @@ export default async function IndentPage({ params }: PageProps) {
             id: task.id,
             name: task.name,
             projectId: project.id,
+            assigneeId: task.assignee?.workspaceMemberId,
         })) || []
     );
 
@@ -75,6 +78,8 @@ export default async function IndentPage({ params }: PageProps) {
                     units={units}
                     vendors={vendors}
                     userRole={workspaceMember.workspaceRole}
+                    workspaceMembers={workspaceMembersResult.workspaceMembers}
+                    currentMemberId={workspaceMember.id}
                 />
             }
         />

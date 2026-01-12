@@ -24,6 +24,7 @@ const createIndentRequestSchema = z.object({
     expectedDelivery: z.date().optional(),
     materials: z.array(materialItemSchema).optional(),
     requiresVendor: z.boolean().default(true),
+    assignedTo: z.string(),
 });
 
 type CreateIndentRequestInput = z.infer<typeof createIndentRequestSchema>;
@@ -64,10 +65,14 @@ export async function createIndentRequest(input: CreateIndentRequestInput) {
             return { success: false, error: "Only Admin or Project Lead can create indents for this project" };
         }
 
-        // Verify project belongs to workspace (implicitly checked by permissions but good to be safe or rely on permissions)
-        // If permissions returned something valid, the project likely exists and checks out, except getUserPermissions returns defaults if not found.
-        // But getUserPermissions queries `projectMember` with `projectId`. It implies existence if `isProjectLead` is true.
-        // If `isWorkspaceAdmin` is true, we still need to verify the project exists in the workspace.
+        // Verify assignedTo member belongs to workspace
+        const itemRequestor = await db.workspaceMember.findUnique({
+            where: { id: validatedData.assignedTo }
+        });
+
+        if (!itemRequestor || itemRequestor.workspaceId !== validatedData.workspaceId) {
+            return { success: false, error: "Invalid assignee selected" };
+        }
 
 
         // Verify project belongs to workspace
@@ -130,7 +135,7 @@ export async function createIndentRequest(input: CreateIndentRequestInput) {
                 expectedDelivery: validatedData.expectedDelivery || null,
                 requiresVendor: validatedData.requiresVendor ?? true,
                 requestedBy: workspaceMember.id,
-                status: "REQUESTED",
+                assignedTo: validatedData.assignedTo,
                 items: validatedData.materials ? {
                     create: validatedData.materials.map((item) => ({
                         materialId: item.materialId,

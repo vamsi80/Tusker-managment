@@ -1,11 +1,13 @@
-import { getProcurableProjects } from "@/data/procurement/get-procurable-projects";
-import { getProcurementTasks } from "@/data/procurement/get-procurement-tasks";
-import { getVendors } from "@/data/procurement/get-vendors";
-import { ProcurementTasksTable } from "../_components/procurement-tasks-table";
 import db from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { IconClipboardCheck } from "@tabler/icons-react";
+import { getVendors } from "@/data/procurement/get-vendors";
+import { getProcurementTasks } from "@/data/procurement/get-procurement-tasks";
+import { ProcurementTasksTable } from "../_components/procurement-tasks-table";
+import { getProcurableProjects } from "@/data/procurement/get-procurable-projects";
+
+import { getWorkspaceMembers } from "@/data/workspace/get-workspace-members";
 
 interface PageProps {
     params: Promise<{
@@ -21,7 +23,7 @@ export default async function ProcurementTasksPage({ params }: PageProps) {
         headers: await headers(),
     });
 
-    const [projectsData, procurementTasks, materials, units, vendors, workspaceMember] = await Promise.all([
+    const [projectsData, procurementTasks, materials, units, vendors, workspaceMember, workspaceMembersResult] = await Promise.all([
         getProcurableProjects(workspaceId),
         getProcurementTasks(workspaceId),
         db.material.findMany({
@@ -57,8 +59,9 @@ export default async function ProcurementTasksPage({ params }: PageProps) {
                 workspaceId: workspaceId,
                 userId: session.user.id,
             },
-            select: { workspaceRole: true },
+            select: { id: true, workspaceRole: true },
         }) : null,
+        getWorkspaceMembers(workspaceId),
     ]);
 
     const projects = projectsData || [];
@@ -68,6 +71,7 @@ export default async function ProcurementTasksPage({ params }: PageProps) {
             id: task.id,
             name: task.name,
             projectId: project.id,
+            assigneeId: task.assignee?.workspaceMemberId,
         })) || []
     );
 
@@ -89,6 +93,8 @@ export default async function ProcurementTasksPage({ params }: PageProps) {
                 units={units}
                 vendors={vendors}
                 userRole={workspaceMember?.workspaceRole}
+                workspaceMembers={workspaceMembersResult.workspaceMembers}
+                currentMemberId={workspaceMember?.id || ""}
             />
         </div>
     );

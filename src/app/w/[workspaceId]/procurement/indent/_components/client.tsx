@@ -27,6 +27,7 @@ export function IndentClientPage({ data, userRole, action }: IndentClientPagePro
                 materialName: item.material.name,
                 projectName: indent.project.name,
                 taskName: indent.task?.name || null,
+                assigneeName: indent.assignee?.user?.name || null,
                 quantity: item.quantity,
                 unit: item.unit?.abbreviation || null,
                 vendorName: item.vendor?.name || null,
@@ -36,19 +37,6 @@ export function IndentClientPage({ data, userRole, action }: IndentClientPagePro
             }))
         );
     }, [data]);
-
-    const filterFields = [
-        {
-            label: "Status",
-            value: "status",
-            options: [
-                { label: "Requested", value: "REQUESTED", icon: IconFileText },
-                { label: "Under Review", value: "UNDER_REVIEW", icon: IconClock },
-                { label: "Approved", value: "APPROVED", icon: IconCheck },
-                { label: "Rejected", value: "REJECTED", icon: IconX },
-            ],
-        },
-    ];
 
     return (
         <div className="flex-1 space-y-4">
@@ -64,7 +52,6 @@ export function IndentClientPage({ data, userRole, action }: IndentClientPagePro
                     data={flattenedData}
                     searchKey="materialName"
                     searchPlaceholder="Search materials..."
-                    filterFields={filterFields}
                 />
             </div>
         </div>

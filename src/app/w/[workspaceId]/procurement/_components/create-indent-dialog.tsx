@@ -35,6 +35,7 @@ const step1Schema = z.object({
     description: z.string().optional(),
     expectedDelivery: z.date({ message: "Expected delivery date is required" }),
     requiresVendor: z.boolean(),
+    assignedTo: z.string().min(1, "Assignee is required"), // Renamed from requestedBy
 });
 
 // Step 2: Material Selection Schema (Admin/Owner only)
@@ -64,10 +65,12 @@ const indentRequestSchema = step1Schema.merge(step2Schema.partial());
 type IndentRequestFormData = z.infer<typeof indentRequestSchema>;
 type MaterialItem = z.infer<typeof materialItemSchema>;
 
+import { WorkspaceMemberRow } from "@/data/workspace/get-workspace-members";
+
 interface CreateIndentDialogProps {
     workspaceId: string;
     projects: { id: string; name: string }[];
-    tasks?: { id: string; name: string; projectId: string }[];
+    tasks?: { id: string; name: string; projectId: string; assigneeId?: string | null }[];
     materials?: { id: string; name: string; defaultUnitId: string; vendors?: { id: string; name: string }[] }[];
     units?: { id: string; name: string; abbreviation: string }[];
     vendors?: { id: string; name: string }[];
@@ -75,6 +78,8 @@ interface CreateIndentDialogProps {
     userRole?: "OWNER" | "ADMIN" | "MEMBER" | "VIEWER";
     defaultProjectId?: string;
     defaultTaskId?: string;
+    workspaceMembers: WorkspaceMemberRow[];
+    currentMemberId: string;
 }
 
 export function CreateIndentDialog({
@@ -87,7 +92,9 @@ export function CreateIndentDialog({
     trigger,
     userRole = "MEMBER",
     defaultProjectId,
-    defaultTaskId
+    defaultTaskId,
+    workspaceMembers,
+    currentMemberId,
 }: CreateIndentDialogProps) {
     const [open, setOpen] = useState(false);
     const [currentStep, setCurrentStep] = useState(1);
@@ -106,12 +113,35 @@ export function CreateIndentDialog({
             expectedDelivery: undefined,
             materials: [{ materialId: "", quantity: 1, unitId: undefined, vendorId: undefined, estimatedPrice: undefined }],
             requiresVendor: true,
+            assignedTo: "",
         },
         mode: "onChange",
     });
 
+    // Watch for task changes to enforce assignee
+    const selectedTaskId = form.watch("taskId");
+    useEffect(() => {
+        if (selectedTaskId) {
+            const task = tasks.find(t => t.id === selectedTaskId);
+            if (task?.assigneeId) {
+                form.setValue("assignedTo", task.assigneeId);
+            }
+        }
+    }, [selectedTaskId, tasks, form]);
+
+
+
     useEffect(() => {
         if (open) {
+            // Check if defaultTaskId has an assignee
+            let initialAssignee = "";
+            if (defaultTaskId) {
+                const task = tasks.find(t => t.id === defaultTaskId);
+                if (task?.assigneeId) {
+                    initialAssignee = task.assigneeId;
+                }
+            }
+
             form.reset({
                 name: "",
                 projectId: defaultProjectId || "",
@@ -120,9 +150,10 @@ export function CreateIndentDialog({
                 expectedDelivery: undefined,
                 materials: [{ materialId: "", quantity: 1, unitId: undefined, vendorId: undefined, estimatedPrice: undefined }],
                 requiresVendor: true,
+                assignedTo: initialAssignee,
             });
         }
-    }, [open, defaultProjectId, defaultTaskId, form]);
+    }, [open, defaultProjectId, defaultTaskId, form, currentMemberId, tasks]);
 
     const selectedProjectId = form.watch("projectId");
     const filteredTasks = tasks.filter((task) => task.projectId === selectedProjectId);
@@ -146,7 +177,17 @@ export function CreateIndentDialog({
 
         switch (step) {
             case 1:
-                fields = ["name", "projectId", "requiresVendor"];
+                // Check if task has assignee (locked state)
+                const selectedTaskId = form.getValues("taskId");
+                const selectedTask = tasks.find(t => t.id === selectedTaskId);
+                const isAssigneeLocked = !!(selectedTask?.assigneeId);
+
+                // Only validate assignedTo if it's not locked
+                if (isAssigneeLocked) {
+                    fields = ["name", "projectId", "requiresVendor"];
+                } else {
+                    fields = ["name", "projectId", "requiresVendor", "assignedTo"];
+                }
                 break;
             case 2:
                 if (isAdminOrOwner) {
@@ -473,6 +514,55 @@ export function CreateIndentDialog({
                                         </FormItem>
                                     )}
                                 />
+
+                                <FormField
+                                    control={form.control}
+                                    name="assignedTo"
+                                    render={({ field }) => {
+                                        const selectedTask = tasks.find(t => t.id === form.getValues("taskId"));
+                                        const isLocked = !!(selectedTask?.assigneeId);
+                                        const selectedMember = workspaceMembers?.find(m => m.id === field.value);
+
+                                        // Clear error when locked and has value
+                                        React.useEffect(() => {
+                                            if (isLocked && field.value) {
+                                                form.clearErrors("assignedTo");
+                                            }
+                                        }, [isLocked, field.value]);
+
+                                        return (
+                                            <FormItem>
+                                                <FormLabel>Assignee <span className="text-red-500">*</span></FormLabel>
+                                                <Select
+                                                    onValueChange={field.onChange}
+                                                    value={field.value}
+                                                    disabled={isLocked}
+                                                >
+                                                    <FormControl>
+                                                        <SelectTrigger className="w-full">
+                                                            <SelectValue placeholder="Select assignee">
+                                                                {selectedMember ? `${selectedMember.user?.name || ''} ${selectedMember.user?.surname || ''}`.trim() : 'Select assignee'}
+                                                            </SelectValue>
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        {workspaceMembers?.map((member) => (
+                                                            <SelectItem key={member.id} value={member.id}>
+                                                                {member.user?.name} {member.user?.surname}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                                {isLocked && (
+                                                    <FormDescription>
+                                                        Assignee is locked to the task assignee.
+                                                    </FormDescription>
+                                                )}
+                                            </FormItem>
+                                        );
+                                    }}
+                                />
                             </div>
                         )}
 
@@ -526,8 +616,9 @@ export function CreateIndentDialog({
                                                                             form.setValue(`materials.${index}.unitId`, selectedMaterial.defaultUnitId);
                                                                         }
 
+
                                                                         // Reset vendor and price when material changes
-                                                                        form.setValue(`materials.${index}.vendorId`, "");
+                                                                        form.setValue(`materials.${index}.vendorId`, undefined);
                                                                         form.setValue(`materials.${index}.estimatedPrice`, undefined);
                                                                     }}
                                                                     value={field.value}
@@ -585,7 +676,7 @@ export function CreateIndentDialog({
                                                                         : vendors;
 
 
-                                                                    console.log('Filtered Vendors:', filteredVendors);
+                                                                    // console.log('Filtered Vendors:', filteredVendors);
 
                                                                     return (
                                                                         <FormItem>
@@ -633,6 +724,7 @@ export function CreateIndentDialog({
                                                                 name={`materials.${index}.estimatedPrice`}
                                                                 render={({ field }) => {
                                                                     const currentVendorId = materialsList[index]?.vendorId;
+                                                                    const hasVendor = currentVendorId && currentVendorId.trim() !== "";
 
                                                                     return (
                                                                         <FormItem>
@@ -645,7 +737,7 @@ export function CreateIndentDialog({
                                                                                     className="h-8 text-xs text-right"
                                                                                     value={field.value || ""}
                                                                                     onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
-                                                                                    disabled={!currentVendorId}
+                                                                                    disabled={!hasVendor}
                                                                                 />
                                                                             </FormControl>
                                                                             <FormMessage className="text-[10px]" />
@@ -769,6 +861,13 @@ export function CreateIndentDialog({
                                             </div>
                                         )}
 
+                                        <div className="flex justify-between py-2 border-b">
+                                            <span className="text-sm text-muted-foreground">Assignee:</span>
+                                            <span className="text-sm font-medium">
+                                                {workspaceMembers?.find(m => m.id === form.getValues("assignedTo"))?.user?.name || "Unknown"}
+                                            </span>
+                                        </div>
+
                                         {isAdminOrOwner && materialsList.length > 0 && materialsList[0].materialId && (
                                             <div className="py-2">
                                                 <span className="text-sm text-muted-foreground block mb-2">Materials:</span>
@@ -861,8 +960,8 @@ export function CreateIndentDialog({
                             </div>
                         </div>
                     </form>
-                </Form>
-            </DialogContent>
-        </Dialog>
+                </Form >
+            </DialogContent >
+        </Dialog >
     );
 }

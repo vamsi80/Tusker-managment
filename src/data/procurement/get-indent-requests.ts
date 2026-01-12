@@ -1,7 +1,6 @@
 import db from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { IndentStatus } from "@/generated/prisma";
 
 export async function getIndentRequests(workspaceId: string) {
     try {
@@ -80,7 +79,16 @@ export async function getIndentRequests(workspaceId: string) {
                         }
                     }
                 },
-
+                assignee: {
+                    select: {
+                        user: {
+                            select: {
+                                name: true,
+                                image: true,
+                            },
+                        },
+                    },
+                },
             },
             orderBy: {
                 createdAt: "desc",
