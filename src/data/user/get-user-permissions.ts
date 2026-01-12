@@ -23,6 +23,8 @@ export const getWorkspacePermissions = cache(async (workspaceId: string) => {
         if (!workspaceMember) {
             return {
                 isWorkspaceAdmin: false,
+                isProjectLead: false,
+                hasAccess: false,
                 workspaceMemberId: null,
                 workspaceMember: null,
             };
@@ -30,8 +32,24 @@ export const getWorkspacePermissions = cache(async (workspaceId: string) => {
 
         const isWorkspaceAdmin = workspaceMember.workspaceRole === "OWNER" || workspaceMember.workspaceRole === "ADMIN";
 
+        // Check if user is a project lead in any project
+        const projectLeadCount = await prisma.projectMember.count({
+            where: {
+                workspaceMemberId: workspaceMember.id,
+                projectRole: "LEAD",
+                project: {
+                    workspaceId: workspaceId,
+                },
+            },
+        });
+
+        const isProjectLead = projectLeadCount > 0;
+        const hasAccess = isWorkspaceAdmin || isProjectLead;
+
         return {
             isWorkspaceAdmin,
+            isProjectLead,
+            hasAccess,
             workspaceMemberId: workspaceMember.id,
             workspaceMember,
         };
@@ -39,6 +57,8 @@ export const getWorkspacePermissions = cache(async (workspaceId: string) => {
         console.error("Error fetching workspace permissions:", error);
         return {
             isWorkspaceAdmin: false,
+            isProjectLead: false,
+            hasAccess: false,
             workspaceMemberId: null,
             workspaceMember: null,
         };

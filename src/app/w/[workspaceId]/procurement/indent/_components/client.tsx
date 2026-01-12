@@ -28,6 +28,7 @@ export function IndentClientPage({ data, userRole, action }: IndentClientPagePro
                 projectName: indent.project.name,
                 taskName: indent.task?.name || null,
                 assigneeName: indent.assignee?.user?.name || null,
+                assigneeImage: indent.assignee?.user?.image || null,
                 quantity: item.quantity,
                 unit: item.unit?.abbreviation || null,
                 vendorName: item.vendor?.name || null,

@@ -617,9 +617,20 @@ export function CreateIndentDialog({
                                                                         }
 
 
-                                                                        // Reset vendor and price when material changes
-                                                                        form.setValue(`materials.${index}.vendorId`, undefined);
-                                                                        form.setValue(`materials.${index}.estimatedPrice`, undefined);
+                                                                        // Smart vendor handling: only reset if current vendor is not available for new material
+                                                                        const currentVendorId = form.getValues(`materials.${index}.vendorId`);
+                                                                        const newMaterialVendors = selectedMaterial?.vendors || [];
+                                                                        const isCurrentVendorAvailable = newMaterialVendors.some(v => v.id === currentVendorId);
+
+                                                                        // Only reset vendor and price if the current vendor is not available for the new material
+                                                                        if (!isCurrentVendorAvailable) {
+                                                                            form.setValue(`materials.${index}.vendorId`, undefined);
+                                                                            form.setValue(`materials.${index}.estimatedPrice`, undefined);
+                                                                        }
+                                                                        // If vendor is still valid, keep it but reset the price (as price may differ for different materials)
+                                                                        else {
+                                                                            form.setValue(`materials.${index}.estimatedPrice`, undefined);
+                                                                        }
                                                                     }}
                                                                     value={field.value}
                                                                 >

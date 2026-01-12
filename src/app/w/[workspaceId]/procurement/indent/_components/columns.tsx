@@ -1,11 +1,19 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { IndentRequestWithRelations } from "@/data/procurement/get-indent-requests";
-import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { IconDots, IconFileText, IconEdit, IconTrash } from "@tabler/icons-react";
 
 // Flatten indent items for table display
 export type IndentItemRow = {
@@ -18,6 +26,7 @@ export type IndentItemRow = {
     projectName: string;
     taskName: string | null;
     assigneeName: string | null;
+    assigneeImage: string | null;
     quantity: number;
     unit: string | null;
     vendorName: string | null;
@@ -86,11 +95,27 @@ export const getColumns = (userRole: string): ColumnDef<IndentItemRow>[] => [
         accessorKey: "assigneeName",
         header: "Assignee",
         cell: ({ row }) => {
-            const assignee = row.getValue("assigneeName") as string | null;
-            return assignee ? (
-                <span className="text-sm font-medium">{assignee}</span>
-            ) : (
-                <span className="text-xs text-muted-foreground">Unassigned</span>
+            const assigneeName = row.getValue("assigneeName") as string | null;
+            const assigneeImage = row.original.assigneeImage;
+
+            if (!assigneeName) {
+                return <span className="text-xs text-muted-foreground">Unassigned</span>;
+            }
+
+            const initials = assigneeName
+                .split(' ')
+                .map(n => n[0])
+                .join('')
+                .toUpperCase()
+                .slice(0, 2);
+
+            return (
+                <div className="flex items-center gap-2">
+                    <Avatar className="h-7 w-7">
+                        <AvatarImage src={assigneeImage || undefined} alt={assigneeName} />
+                        <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+                    </Avatar>
+                </div>
             );
         },
     },
@@ -155,20 +180,50 @@ export const getColumns = (userRole: string): ColumnDef<IndentItemRow>[] => [
             // Check if all required fields are filled
             const isComplete = materialName && quantity > 0 && vendorName && estimatedPrice && estimatedPrice > 0;
             const isApproved = status === "APPROVED";
+            const canCreatePO = isComplete && isApproved;
 
             return (
-                <Button
-                    size="sm"
-                    variant="default"
-                    disabled={!isComplete || !isApproved}
-                    className="h-7 text-xs"
-                    onClick={() => {
-                        // TODO: Implement Create PO functionality
-                        console.log("Create PO for:", row.original);
-                    }}
-                >
-                    Create PO
-                </Button>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <IconDots className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                            disabled={!canCreatePO}
+                            onClick={() => {
+                                // TODO: Implement Create PO functionality
+                                console.log("Create PO for:", row.original);
+                            }}
+                        >
+                            <IconFileText className="mr-2 h-4 w-4" />
+                            Create PO
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                            onClick={() => {
+                                // TODO: Implement Edit functionality
+                                console.log("Edit indent item:", row.original);
+                            }}
+                        >
+                            <IconEdit className="mr-2 h-4 w-4" />
+                            Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => {
+                                // TODO: Implement Delete functionality
+                                console.log("Delete indent item:", row.original);
+                            }}
+                        >
+                            <IconTrash className="mr-2 h-4 w-4" />
+                            Delete
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             );
         },
     },

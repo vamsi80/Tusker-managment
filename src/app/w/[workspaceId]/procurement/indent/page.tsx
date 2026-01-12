@@ -5,6 +5,9 @@ import { IndentClientPage } from "./_components/client";
 import { CreateIndentDialog } from "../_components/create-indent-dialog";
 import db from "@/lib/db";
 import { getWorkspaceMembers } from "@/data/workspace/get-workspace-members";
+import { Button } from "@/components/ui/button";
+import { IconFileText } from "@tabler/icons-react";
+import Link from "next/link";
 
 interface PageProps {
     params: Promise<{
@@ -70,17 +73,25 @@ export default async function IndentPage({ params }: PageProps) {
             data={indentRequests}
             userRole={workspaceMember.workspaceRole}
             action={
-                <CreateIndentDialog
-                    workspaceId={workspaceId}
-                    projects={projects}
-                    tasks={tasks}
-                    materials={materials}
-                    units={units}
-                    vendors={vendors}
-                    userRole={workspaceMember.workspaceRole}
-                    workspaceMembers={workspaceMembersResult.workspaceMembers}
-                    currentMemberId={workspaceMember.id}
-                />
+                <>
+                    <Button asChild variant="outline">
+                        <Link href={`/w/${workspaceId}/procurement/createRFQ`}>
+                            <IconFileText className="mr-2 h-4 w-4" />
+                            Create RFQ
+                        </Link>
+                    </Button>
+                    <CreateIndentDialog
+                        workspaceId={workspaceId}
+                        projects={projects}
+                        tasks={tasks}
+                        materials={materials}
+                        units={units}
+                        vendors={vendors}
+                        userRole={workspaceMember.workspaceRole}
+                        workspaceMembers={workspaceMembersResult.workspaceMembers}
+                        currentMemberId={workspaceMember.id}
+                    />
+                </>
             }
         />
     );
