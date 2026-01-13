@@ -1,24 +1,15 @@
 "use client";
 
-import { useState, useTransition, useMemo } from "react";
-import { DataTable, DataTableFilterField } from "@/components/data-table/data-table";
+import { toast } from "sonner";
 import { getColumns, IndentItemRow } from "./columns";
+import { IndentDialogFormData } from "@/lib/zodSchemas";
+import { useState, useTransition, useMemo } from "react";
+import { CreateIndentDialog } from "./create-indent-dialog";
 import { IndentRequestWithRelations } from "@/data/procurement";
 import { deleteIndent } from "@/actions/procurement/delete-indent";
-import { toast } from "sonner";
-import { CreateIndentDialog } from "./create-indent-dialog";
 import { WorkspaceMemberRow } from "@/data/workspace/get-workspace-members";
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { IndentDialogFormData } from "@/lib/zodSchemas";
+import { DataTable, DataTableFilterField } from "@/components/data-table/data-table";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface IndentClientPageProps {
     data: IndentRequestWithRelations[];
@@ -169,12 +160,13 @@ export function IndentClientPage({
         {
             label: "Indent",
             value: "indentKey",
-            options: Array.from(new Set(data.map(d => d.key))).map(k => ({ label: k, value: k })),
+            options: Array.from(new Map(flattenedData.map(d => [d.indentKey, d.indentName])).entries())
+                .map(([key, name]) => ({ label: name, value: key })),
         },
         {
             label: "Material",
             value: "materialName",
-            options: materials.map(m => ({ label: m.name, value: m.name })),
+            options: Array.from(new Set(flattenedData.map(d => d.materialName))).map(name => ({ label: name, value: name })),
         },
     ];
 

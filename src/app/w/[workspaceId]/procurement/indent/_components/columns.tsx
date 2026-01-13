@@ -14,6 +14,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { IconDots, IconFileText, IconEdit, IconTrash } from "@tabler/icons-react";
+import { Badge } from "@/components/ui/badge";
 
 // Flatten indent items for table display
 export type IndentItemRow = {
@@ -63,22 +64,24 @@ export const getColumns = (
             accessorKey: "materialName",
             id: "materialName",
             header: "Material",
+            filterFn: (row, id, value) => {
+                return value.includes(row.getValue(id));
+            },
             cell: ({ row }) => (
-                <div className="font-medium max-w-[200px] truncate" title={row.getValue("materialName")}>
-                    {row.getValue("materialName")}
-                </div>
-            ),
-        },
-        {
-            accessorKey: "indentKey",
-            id: "indentKey",
-            header: "Indent ID",
-            cell: ({ row }) => (
-                <div className="flex flex-col gap-0.5">
-                    <span className="font-mono text-xs">{row.getValue("indentKey")}</span>
-                    <span className="text-xs text-muted-foreground truncate max-w-[150px]" title={row.original.indentName}>
-                        {row.original.indentName}
-                    </span>
+                <div className="flex flex-col gap-0 min-w-[200px] max-w-[200px]">
+                    <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm truncate" title={row.getValue("materialName")}>
+                            {row.getValue("materialName")}
+                        </span>
+                        <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 font-normal text-muted-foreground whitespace-nowrap">
+                            {row.original.indentKey}
+                        </Badge>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground truncate" title={row.original.indentName}>
+                            {row.original.indentName}
+                        </span>
+                    </div>
                 </div>
             ),
         },
@@ -86,11 +89,14 @@ export const getColumns = (
             accessorKey: "projectName",
             id: "projectName",
             header: "Project / Task",
+            filterFn: (row, id, value) => {
+                return value.includes(row.getValue(id));
+            },
             cell: ({ row }) => (
-                <div className="flex flex-col gap-0.5">
-                    <span className="font-medium text-sm">{row.original.projectName}</span>
+                <div className="flex flex-col gap-0.5 max-w-[120px]">
+                    <span className="font-medium text-sm truncate" title={row.original.projectName}>{row.original.projectName}</span>
                     {row.original.taskName ? (
-                        <span className="text-xs text-muted-foreground truncate max-w-[150px]" title={row.original.taskName}>
+                        <span className="text-xs text-muted-foreground truncate max-w-[120px]" title={row.original.taskName}>
                             {row.original.taskName}
                         </span>
                     ) : (
@@ -103,6 +109,9 @@ export const getColumns = (
             accessorKey: "assigneeName",
             id: "assigneeName",
             header: "Assignee",
+            filterFn: (row, id, value) => {
+                return value.includes(row.getValue(id));
+            },
             cell: ({ row }) => {
                 const assigneeName = row.getValue("assigneeName") as string | null;
                 const assigneeImage = row.original.assigneeImage;
@@ -130,7 +139,7 @@ export const getColumns = (
         },
         {
             accessorKey: "quantity",
-            header: "Quantity",
+            header: "QTY",
             cell: ({ row }) => (
                 <span className="font-medium">
                     {row.getValue("quantity")} {row.original.unit || "units"}
@@ -141,31 +150,38 @@ export const getColumns = (
             accessorKey: "vendorName",
             id: "vendorName",
             header: "Vendor",
+            filterFn: (row, id, value) => {
+                return value.includes(row.getValue(id));
+            },
             cell: ({ row }) => {
                 const vendor = row.getValue("vendorName") as string | null;
                 return vendor ? (
-                    <span className="text-sm">{vendor}</span>
+                    <div className="max-w-[90px] truncate" title={vendor}>
+                        <span className="text-sm">{vendor}</span>
+                    </div>
                 ) : (
-                    <span className="text-xs text-muted-foreground">Searching for vendor...</span>
+                    <div className="text-xs text-muted-foreground max-w-[90px] truncate" title="Waiting for vendor">Waiting for vendor</div>
                 );
             },
         },
         {
             accessorKey: "estimatedPrice",
-            header: "Price",
+            header: "Price / Piece",
             cell: ({ row }) => {
                 const vendor = row.original.vendorName;
                 const price = row.getValue("estimatedPrice") as number | null;
 
-                // Show searching message if no vendor is selected
                 if (!vendor) {
-                    return <span className="text-xs text-muted-foreground italic">Waiting for vendor...</span>;
+                    return <div className="text-xs text-muted-foreground italic max-w-[90px] truncate" title="Waiting for vendor">Waiting for vendor</div>;
                 }
 
                 return price ? (
-                    <span className="font-medium">₹{price.toFixed(2)}</span>
+                    <div className="flex flex-col">
+                        <span className="font-medium">₹{price.toFixed(2)}</span>
+                        <span className="text-[10px] text-muted-foreground">per {row.original.unit || "piece"}</span>
+                    </div>
                 ) : (
-                    <span className="text-xs text-muted-foreground">-</span>
+                    <span className="text-xs text-muted-foreground max-w-[90px] truncate">-</span>
                 );
             },
         },
@@ -185,6 +201,9 @@ export const getColumns = (
             accessorKey: "status",
             id: "status",
             header: "Status",
+            filterFn: (row, id, value) => {
+                return value.includes(row.getValue(id));
+            },
             cell: ({ row }) => {
                 const status = row.getValue("status") as string;
 

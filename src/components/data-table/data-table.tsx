@@ -24,6 +24,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
     DropdownMenu,
@@ -243,37 +244,80 @@ export function DataTable<TData, TValue>({
                     )}
 
 
+                    {/* Column Toggle */}
+                    {showColumnToggle && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" className="ml-auto">
+                                    <IconColumns className="mr-2 h-4 w-4" />
+                                    Columns
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-[200px]">
+                                {table
+                                    .getAllColumns()
+                                    .filter((column) => column.getCanHide())
+                                    .map((column) => {
+                                        return (
+                                            <DropdownMenuCheckboxItem
+                                                key={column.id}
+                                                className="capitalize"
+                                                checked={column.getIsVisible()}
+                                                onCheckedChange={(value) => column.toggleVisibility(!!value)}
+                                            >
+                                                {column.id}
+                                            </DropdownMenuCheckboxItem>
+                                        );
+                                    })}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )}
                 </div>
-
-                {/* Column Toggle */}
-                {showColumnToggle && (
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className="ml-auto">
-                                <IconColumns className="mr-2 h-4 w-4" />
-                                Columns
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-[200px]">
-                            {table
-                                .getAllColumns()
-                                .filter((column) => column.getCanHide())
-                                .map((column) => {
-                                    return (
-                                        <DropdownMenuCheckboxItem
-                                            key={column.id}
-                                            className="capitalize"
-                                            checked={column.getIsVisible()}
-                                            onCheckedChange={(value) => column.toggleVisibility(!!value)}
-                                        >
-                                            {column.id}
-                                        </DropdownMenuCheckboxItem>
-                                    );
-                                })}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                )}
             </div>
+
+            {/* Active Filters Display for Menu Mode */}
+            {filterDisplay === "menu" && table.getState().columnFilters.length > 0 && (
+                <div className="flex flex-wrap gap-2 pb-2">
+                    {filterFields.map((field) => {
+                        const column = table.getColumn(field.value);
+                        const filterValue = column?.getFilterValue() as string[] | undefined;
+
+                        if (!filterValue || filterValue.length === 0) return null;
+
+                        return filterValue.map((val) => {
+                            const option = field.options?.find((o) => o.value === val);
+                            return (
+                                <Badge
+                                    key={`${field.value}-${val}`}
+                                    variant="secondary"
+                                    className="rounded-sm px-1 font-normal"
+                                >
+                                    <span className="font-semibold mr-1">{field.label}:</span>
+                                    {option?.label || val}
+                                    <IconX
+                                        className="ml-1 h-3 w-3 cursor-pointer hover:text-destructive"
+                                        onClick={() => {
+                                            const newValues = filterValue.filter((v) => v !== val);
+                                            column?.setFilterValue(
+                                                newValues.length ? newValues : undefined
+                                            );
+                                        }}
+                                    />
+                                </Badge>
+                            );
+                        });
+                    })}
+                    <Button
+                        variant="ghost"
+                        onClick={() => table.resetColumnFilters()}
+                        className="h-6 px-2 text-xs"
+                    >
+                        Reset
+                        <IconX className="ml-2 h-3 w-3" />
+                    </Button>
+                </div>
+            )}
+
 
             {/* Table */}
             <div className="rounded-md border">
@@ -356,44 +400,46 @@ export function DataTable<TData, TValue>({
             </div>
 
             {/* Pagination */}
-            {showPagination && (
-                <div className="flex items-center justify-between">
-                    <div className="text-sm text-muted-foreground">
-                        {table.getFilteredSelectedRowModel().rows.length > 0 && (
-                            <span>
-                                {table.getFilteredSelectedRowModel().rows.length} of{" "}
-                                {table.getFilteredRowModel().rows.length} row(s) selected.
-                            </span>
-                        )}
-                    </div>
-                    <div className="flex items-center gap-2">
+            {
+                showPagination && (
+                    <div className="flex items-center justify-between">
                         <div className="text-sm text-muted-foreground">
-                            Page {table.getState().pagination.pageIndex + 1} of{" "}
-                            {table.getPageCount()}
+                            {table.getFilteredSelectedRowModel().rows.length > 0 && (
+                                <span>
+                                    {table.getFilteredSelectedRowModel().rows.length} of{" "}
+                                    {table.getFilteredRowModel().rows.length} row(s) selected.
+                                </span>
+                            )}
                         </div>
-                        <div className="flex items-center gap-1">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => table.previousPage()}
-                                disabled={!table.getCanPreviousPage()}
-                            >
-                                <IconChevronLeft className="h-4 w-4" />
-                                Previous
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => table.nextPage()}
-                                disabled={!table.getCanNextPage()}
-                            >
-                                Next
-                                <IconChevronRight className="h-4 w-4" />
-                            </Button>
+                        <div className="flex items-center gap-2">
+                            <div className="text-sm text-muted-foreground">
+                                Page {table.getState().pagination.pageIndex + 1} of{" "}
+                                {table.getPageCount()}
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => table.previousPage()}
+                                    disabled={!table.getCanPreviousPage()}
+                                >
+                                    <IconChevronLeft className="h-4 w-4" />
+                                    Previous
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => table.nextPage()}
+                                    disabled={!table.getCanNextPage()}
+                                >
+                                    Next
+                                    <IconChevronRight className="h-4 w-4" />
+                                </Button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
         </div>
     );
 }

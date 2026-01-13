@@ -731,7 +731,7 @@ export function CreateIndentDialog({
                                                                                         type="number"
                                                                                         step="0.01"
                                                                                         min="0"
-                                                                                        placeholder="Price"
+                                                                                        placeholder="Price/Pc"
                                                                                         className="h-8 text-xs text-right"
                                                                                         value={field.value || ""}
                                                                                         onChange={(e) => {
