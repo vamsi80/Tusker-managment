@@ -26,14 +26,24 @@ export async function getIndentRequests(workspaceId: string) {
             throw new Error("Access denied");
         }
 
-        // Fetch indent requests
+        // Fetch indent requests with only indent-level details
         const indentRequests = await db.indentDetails.findMany({
             where: {
                 project: {
                     workspaceId: workspaceId,
                 },
             },
-            include: {
+            select: {
+                id: true,
+                key: true,
+                name: true,
+                projectId: true,
+                taskId: true,
+                expectedDelivery: true,
+                assignedTo: true,
+                description: true,
+                requiresVendor: true,
+                createdAt: true,
                 project: {
                     select: {
                         id: true,
@@ -48,8 +58,9 @@ export async function getIndentRequests(workspaceId: string) {
                         taskSlug: true,
                     },
                 },
-                requestor: {
-                    include: {
+                assignee: {
+                    select: {
+                        id: true,
                         user: {
                             select: {
                                 name: true,
@@ -58,33 +69,32 @@ export async function getIndentRequests(workspaceId: string) {
                         },
                     },
                 },
+                // Include items only for edit functionality
                 items: {
-                    include: {
+                    select: {
+                        id: true,
+                        materialId: true,
+                        quantity: true,
+                        unitId: true,
+                        vendorId: true,
+                        estimatedPrice: true,
+                        status: true,
                         material: {
                             select: {
                                 id: true,
-                                name: true
-                            }
+                                name: true,
+                            },
                         },
                         unit: {
                             select: {
-                                abbreviation: true
-                            }
+                                id: true,
+                                abbreviation: true,
+                            },
                         },
                         vendor: {
                             select: {
                                 id: true,
-                                name: true
-                            }
-                        }
-                    }
-                },
-                assignee: {
-                    select: {
-                        user: {
-                            select: {
                                 name: true,
-                                image: true,
                             },
                         },
                     },

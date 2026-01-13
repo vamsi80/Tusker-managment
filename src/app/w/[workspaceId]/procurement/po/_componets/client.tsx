@@ -3,16 +3,15 @@
 import { toast } from "sonner";
 import { IndentDialogFormData } from "@/lib/zodSchemas";
 import { useState, useTransition, useMemo } from "react";
+import { CreateIndentDialog } from "../../indent/_components/create-indent-dialog";
 import { IndentRequestWithRelations } from "@/data/procurement";
 import { deleteIndent } from "@/actions/procurement/delete-indent";
 import { WorkspaceMemberRow } from "@/data/workspace/get-workspace-members";
 import { DataTable, DataTableFilterField } from "@/components/data-table/data-table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { CreateIndentDialog } from "./create-indent-dialog";
-import { IndentItemColumns } from "./columns";
-import { IndentItemRow } from "./columns";
+import { POItemColumns, POItemRow } from "./columns";
 
-interface IndentClientPageProps {
+interface PoClientPageProps {
     data: IndentRequestWithRelations[];
     userRole: string;
     action?: React.ReactNode;
@@ -27,7 +26,7 @@ interface IndentClientPageProps {
     currentMemberId: string;
 }
 
-export function IndentClientPage({
+export function PoClientPage({
     data,
     userRole,
     action,
@@ -39,12 +38,12 @@ export function IndentClientPage({
     vendors,
     workspaceMembers,
     currentMemberId,
-}: IndentClientPageProps) {
+}: PoClientPageProps) {
     const [editingIndent, setEditingIndent] = useState<{ id: string, data: IndentDialogFormData } | null>(null);
     const [deletingIndentId, setDeletingIndentId] = useState<string | null>(null);
     const [pending, startTransition] = useTransition();
 
-    const handleDelete = (row: IndentItemRow) => {
+    const handleDelete = (row: POItemRow) => {
         // We delete the whole indent by ID. 
         // Note: The UI row is an item, but the action is on the Indent.
         setDeletingIndentId(row.indentId);
@@ -74,7 +73,7 @@ export function IndentClientPage({
         });
     };
 
-    const handleEdit = (row: IndentItemRow) => {
+    const handleEdit = (row: POItemRow) => {
         const indent = data.find((i) => i.id === row.indentId);
         if (!indent) return;
 
@@ -100,51 +99,53 @@ export function IndentClientPage({
         setEditingIndent({ id: indent.id, data: formData });
     };
 
-    const columns = IndentItemColumns(handleEdit, handleDelete);
+    const columns = POItemColumns(handleEdit, handleDelete);
 
-    // Map indent requests to table rows (one row per indent)
-    const tableData = useMemo<IndentItemRow[]>(() => {
-        return data.map((indent) => ({
-            id: indent.id,
-            indentId: indent.id,
-            indentKey: indent.key,
-            indentName: indent.name,
-            // Keep these for compatibility with the type, but they won't be displayed
-            materialId: "",
-            materialName: "",
-            projectName: indent.project.name,
-            taskName: indent.task?.name || null,
-            assigneeName: indent.assignee?.user?.name || null,
-            assigneeImage: indent.assignee?.user?.image || null,
-            requestedByName: indent.requestor?.user?.name || null,
-            requestedByImage: indent.requestor?.user?.image || null,
-            quantity: 0,
-            unit: null,
-            vendorName: null,
-            estimatedPrice: null,
-            startDate: indent.createdAt, // When the indent was created
-            expectedDelivery: indent.expectedDelivery,
-            status: "",
-            materialsCount: indent.items?.length || 0, // Count of materials in this indent
-            requiresVendor: indent.requiresVendor, // Whether vendor is required
-        }));
+    // Flatten indent requests into individual item rows
+    const flattenedData = useMemo<POItemRow[]>(() => {
+        return data.flatMap((indent) =>
+            indent.items.map((item) => ({
+                id: item.id,
+                indentId: indent.id,
+                indentKey: indent.key,
+                indentName: indent.name,
+                materialId: item.material.id,
+                materialName: item.material.name,
+                projectName: indent.project.name,
+                taskName: indent.task?.name || null,
+                assigneeName: indent.assignee?.user?.name || null,
+                assigneeImage: indent.assignee?.user?.image || null,
+                quantity: item.quantity,
+                unit: item.unit?.abbreviation || null,
+                vendorName: item.vendor?.name || null,
+                estimatedPrice: item.estimatedPrice || null,
+                expectedDelivery: indent.expectedDelivery,
+                status: item.status,
+            }))
+        );
     }, [data]);
 
-    const filterFields: DataTableFilterField<IndentItemRow>[] = [
+    const filterFields: DataTableFilterField<POItemRow>[] = [
         {
             label: "Project",
             value: "projectName",
             options: projects.map(p => ({ label: p.name, value: p.name })),
         },
         {
-            label: "Due Date",
-            value: "expectedDelivery",
+            label: "Status",
+            value: "status",
             options: [
-                { label: "Overdue", value: "overdue" },
-                { label: "Due This Week", value: "this_week" },
-                { label: "Due This Month", value: "this_month" },
-                { label: "All", value: "all" },
+                { label: "Pending", value: "PENDING" },
+                { label: "Approved", value: "APPROVED" },
+                { label: "Qty Approved", value: "QUANTITY_APPROVED" },
+                { label: "Vendor Pending", value: "VENDOR_PENDING" },
+                { label: "Rejected", value: "REJECTED" },
             ],
+        },
+        {
+            label: "Vendor",
+            value: "vendorName",
+            options: vendors.map(v => ({ label: v.name, value: v.name })),
         },
         {
             label: "Assignee",
@@ -157,19 +158,22 @@ export function IndentClientPage({
                 .filter((v, i, a) => a.findIndex(t => t.value === v.value) === i),
         },
         {
-            label: "Vendor Required",
-            value: "requiresVendor",
-            options: [
-                { label: "Required", value: "true" },
-                { label: "Not Required", value: "false" },
-            ],
+            label: "Indent",
+            value: "indentName",
+            options: Array.from(new Map(flattenedData.map(d => [d.indentName, d.indentName])).entries())
+                .map(([name, _]) => ({ label: name, value: name })),
+        },
+        {
+            label: "Material",
+            value: "materialName",
+            options: Array.from(new Set(flattenedData.map(d => d.materialName))).map(name => ({ label: name, value: name })),
         },
     ];
 
     return (
         <div className="flex-1 space-y-4">
             <div className="flex items-center justify-between space-y-2">
-                <h2 className="text-3xl font-bold tracking-tight">Indent Requests</h2>
+                <h2 className="text-3xl font-bold tracking-tight">Indent Items</h2>
                 <div className="flex items-center space-x-2">
                     {action}
                 </div>
@@ -177,9 +181,9 @@ export function IndentClientPage({
             <div className="h-full flex-1 flex-col space-y-8 md:flex">
                 <DataTable
                     columns={columns}
-                    data={tableData}
-                    searchKey="indentName"
-                    searchPlaceholder="Search indents..."
+                    data={flattenedData}
+                    searchKey="materialName"
+                    searchPlaceholder="Search materials..."
                     filterFields={filterFields}
                     filterDisplay="menu"
                 />

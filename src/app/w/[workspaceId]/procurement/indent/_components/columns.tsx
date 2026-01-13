@@ -2,23 +2,14 @@
 
 import { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { IconDots, IconFileText, IconEdit, IconTrash } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { IconDots, IconEdit, IconTrash } from "@tabler/icons-react";
 
-// Flatten indent items for table display
 export type IndentItemRow = {
-    id: string; // item id
+    id: string;
     indentId: string;
     indentKey: string;
     indentName: string;
@@ -28,60 +19,38 @@ export type IndentItemRow = {
     taskName: string | null;
     assigneeName: string | null;
     assigneeImage: string | null;
+    requestedByName: string | null;
+    requestedByImage: string | null;
     quantity: number;
     unit: string | null;
     vendorName: string | null;
     estimatedPrice: number | null;
+    startDate: Date;
     expectedDelivery: Date | null;
     status: string;
+    materialsCount: number;
+    requiresVendor: boolean;
 };
 
-export const getColumns = (
-    userRole: string,
+export const IndentItemColumns = (
     onEdit: (row: IndentItemRow) => void,
     onDelete: (row: IndentItemRow) => void
 ): ColumnDef<IndentItemRow>[] => [
         {
-            id: "select",
-            header: ({ table }) => (
-                <Checkbox
-                    checked={table.getIsAllPageRowsSelected()}
-                    onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-                    aria-label="Select all"
-                />
-            ),
-            cell: ({ row }) => (
-                <Checkbox
-                    checked={row.getIsSelected()}
-                    onCheckedChange={(value) => row.toggleSelected(!!value)}
-                    aria-label="Select row"
-                />
-            ),
-            enableSorting: false,
-            enableHiding: false,
-        },
-        {
-            accessorKey: "materialName",
-            id: "materialName",
-            header: "Material",
+            accessorKey: "indentName",
+            id: "indentName",
+            header: "Indent Name",
             filterFn: (row, id, value) => {
                 return value.includes(row.getValue(id));
             },
             cell: ({ row }) => (
                 <div className="flex flex-col gap-0 min-w-[200px] max-w-[200px]">
-                    <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm truncate" title={row.getValue("materialName")}>
-                            {row.getValue("materialName")}
-                        </span>
-                        <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 font-normal text-muted-foreground whitespace-nowrap">
-                            {row.original.indentKey}
-                        </Badge>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground truncate" title={row.original.indentName}>
-                            {row.original.indentName}
-                        </span>
-                    </div>
+                    <span className="font-medium text-sm truncate" title={row.original.indentName}>
+                        {row.original.indentName}
+                    </span>
+                    <span className="text-xs text-muted-foreground truncate" title={row.original.indentKey}>
+                        ID: {row.original.indentKey}
+                    </span>
                 </div>
             ),
         },
@@ -89,14 +58,17 @@ export const getColumns = (
             accessorKey: "projectName",
             id: "projectName",
             header: "Project / Task",
+            size: 200,
             filterFn: (row, id, value) => {
                 return value.includes(row.getValue(id));
             },
             cell: ({ row }) => (
-                <div className="flex flex-col gap-0.5 max-w-[120px]">
-                    <span className="font-medium text-sm truncate" title={row.original.projectName}>{row.original.projectName}</span>
+                <div className="flex flex-col gap-0.5">
+                    <span className="font-medium text-sm truncate" title={row.original.projectName}>
+                        {row.original.projectName}
+                    </span>
                     {row.original.taskName ? (
-                        <span className="text-xs text-muted-foreground truncate max-w-[120px]" title={row.original.taskName}>
+                        <span className="text-xs text-muted-foreground truncate" title={row.original.taskName}>
                             {row.original.taskName}
                         </span>
                     ) : (
@@ -106,9 +78,104 @@ export const getColumns = (
             ),
         },
         {
+            accessorKey: "materialsCount",
+            header: "Materials",
+            size: 100,
+            cell: ({ row }) => (
+                <div className="flex items-center justify-center">
+                    <span className="font-medium text-sm">
+                        {row.original.materialsCount}
+                    </span>
+                </div>
+            ),
+        },
+        {
+            accessorKey: "requiresVendor",
+            header: "Vendor",
+            size: 130,
+            filterFn: (row, id, value) => {
+                const requiresVendor = row.original.requiresVendor;
+                return value.includes(String(requiresVendor));
+            },
+            cell: ({ row }) => {
+                const requiresVendor = row.original.requiresVendor;
+                return (
+                    <Badge
+                        variant={requiresVendor ? "default" : "secondary"}
+                        className={requiresVendor ? "bg-blue-100 text-blue-800 border-blue-200" : ""}
+                    >
+                        {requiresVendor ? "Required" : "Not Required"}
+                    </Badge>
+                );
+            },
+        },
+        {
+            accessorKey: "startDate",
+            header: "Start Date",
+            size: 150,
+            cell: ({ row }) => {
+                const date = row.getValue("startDate") as Date | null;
+                return date ? (
+                    <span className="text-sm">{format(new Date(date), "MMM d, yyyy")}</span>
+                ) : (
+                    <span className="text-xs text-muted-foreground">-</span>
+                );
+            },
+        },
+        {
+            accessorKey: "expectedDelivery",
+            header: "Expected Delivery",
+            size: 150,
+            filterFn: (row, id, value) => {
+                const date = row.getValue(id) as Date | null;
+                if (!date) return false;
+
+                const deliveryDate = new Date(date);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                const oneWeekFromNow = new Date(today);
+                oneWeekFromNow.setDate(today.getDate() + 7);
+
+                const oneMonthFromNow = new Date(today);
+                oneMonthFromNow.setMonth(today.getMonth() + 1);
+
+                return value.some((filterValue: string) => {
+                    if (filterValue === "overdue") {
+                        return deliveryDate < today;
+                    } else if (filterValue === "this_week") {
+                        return deliveryDate >= today && deliveryDate <= oneWeekFromNow;
+                    } else if (filterValue === "this_month") {
+                        return deliveryDate >= today && deliveryDate <= oneMonthFromNow;
+                    } else if (filterValue === "all") {
+                        return true;
+                    }
+                    return false;
+                });
+            },
+            cell: ({ row }) => {
+                const date = row.getValue("expectedDelivery") as Date | null;
+                if (!date) {
+                    return <span className="text-xs text-muted-foreground">-</span>;
+                }
+
+                const deliveryDate = new Date(date);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const isOverdue = deliveryDate < today;
+
+                return (
+                    <span className={`text-sm ${isOverdue ? "text-red-600 font-semibold" : ""}`}>
+                        {format(deliveryDate, "MMM d, yyyy")}
+                    </span>
+                );
+            },
+        },
+        {
             accessorKey: "assigneeName",
             id: "assigneeName",
             header: "Assignee",
+            size: 120,
             filterFn: (row, id, value) => {
                 return value.includes(row.getValue(id));
             },
@@ -133,154 +200,81 @@ export const getColumns = (
                             <AvatarImage src={assigneeImage || undefined} alt={assigneeName} />
                             <AvatarFallback className="text-xs">{initials}</AvatarFallback>
                         </Avatar>
+                        <span className="text-sm truncate" title={assigneeName}>{assigneeName}</span>
                     </div>
                 );
             },
         },
         {
-            accessorKey: "quantity",
-            header: "QTY",
-            cell: ({ row }) => (
-                <span className="font-medium">
-                    {row.getValue("quantity")} {row.original.unit || "units"}
-                </span>
-            ),
-        },
-        {
-            accessorKey: "vendorName",
-            id: "vendorName",
-            header: "Vendor",
+            accessorKey: "requestedByName",
+            id: "requestedByName",
+            header: "Requested By",
+            size: 150,
             filterFn: (row, id, value) => {
                 return value.includes(row.getValue(id));
             },
             cell: ({ row }) => {
-                const vendor = row.getValue("vendorName") as string | null;
-                return vendor ? (
-                    <div className="max-w-[90px] truncate" title={vendor}>
-                        <span className="text-sm">{vendor}</span>
-                    </div>
-                ) : (
-                    <div className="text-xs text-muted-foreground max-w-[90px] truncate" title="Waiting for vendor">Waiting for vendor</div>
-                );
-            },
-        },
-        {
-            accessorKey: "estimatedPrice",
-            header: "Price / Piece",
-            cell: ({ row }) => {
-                const vendor = row.original.vendorName;
-                const price = row.getValue("estimatedPrice") as number | null;
+                const requestedByName = row.getValue("requestedByName") as string | null;
+                const requestedByImage = row.original.requestedByImage;
 
-                if (!vendor) {
-                    return <div className="text-xs text-muted-foreground italic max-w-[90px] truncate" title="Waiting for vendor">Waiting for vendor</div>;
+                if (!requestedByName) {
+                    return <span className="text-xs text-muted-foreground">-</span>;
                 }
 
-                return price ? (
-                    <div className="flex flex-col">
-                        <span className="font-medium">₹{price.toFixed(2)}</span>
-                        <span className="text-[10px] text-muted-foreground">per {row.original.unit || "piece"}</span>
-                    </div>
-                ) : (
-                    <span className="text-xs text-muted-foreground max-w-[90px] truncate">-</span>
-                );
-            },
-        },
-        {
-            accessorKey: "expectedDelivery",
-            header: "Expected Delivery",
-            cell: ({ row }) => {
-                const date = row.getValue("expectedDelivery") as Date | null;
-                return date ? (
-                    <span className="text-sm">{format(new Date(date), "MMM d, yyyy")}</span>
-                ) : (
-                    <span className="text-xs text-muted-foreground">-</span>
-                );
-            },
-        },
-        {
-            accessorKey: "status",
-            id: "status",
-            header: "Status",
-            filterFn: (row, id, value) => {
-                return value.includes(row.getValue(id));
-            },
-            cell: ({ row }) => {
-                const status = row.getValue("status") as string;
-
-                let colorClass = "bg-gray-100 text-gray-800 border-gray-200";
-
-                switch (status) {
-                    case "APPROVED":
-                        colorClass = "bg-green-100 text-green-800 border-green-200";
-                        break;
-                    case "PENDING":
-                        colorClass = "bg-yellow-100 text-yellow-800 border-yellow-200";
-                        break;
-                    case "REJECTED":
-                        colorClass = "bg-red-100 text-red-800 border-red-200";
-                        break;
-                    case "QUANTITY_APPROVED":
-                        colorClass = "bg-blue-100 text-blue-800 border-blue-200";
-                        break;
-                    case "VENDOR_PENDING":
-                        colorClass = "bg-orange-100 text-orange-800 border-orange-200";
-                        break;
-                }
+                const initials = requestedByName
+                    .split(' ')
+                    .map(n => n[0])
+                    .join('')
+                    .toUpperCase()
+                    .slice(0, 2);
 
                 return (
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-medium border whitespace-nowrap ${colorClass}`}>
-                        {status.replace(/_/g, " ")}
-                    </span>
+                    <div className="flex items-center gap-2">
+                        <Avatar className="h-7 w-7">
+                            <AvatarImage src={requestedByImage || undefined} alt={requestedByName} />
+                            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm truncate" title={requestedByName}>{requestedByName}</span>
+                    </div>
                 );
             },
         },
         {
             id: "actions",
-            header: "Actions",
+            header: "",
+            size: 60,
+            meta: {
+                sticky: "right",
+            },
             cell: ({ row }) => {
-                const { materialName, quantity, vendorName, estimatedPrice, status } = row.original;
-
-                // Check if all required fields are filled
-                const isComplete = materialName && quantity > 0 && vendorName && estimatedPrice && estimatedPrice > 0;
-                const isApproved = status === "APPROVED";
-                const canCreatePO = isComplete && isApproved;
-
                 return (
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <IconDots className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                                disabled={!canCreatePO}
-                                onClick={() => {
-                                    // TODO: Implement Create PO functionality
-                                    console.log("Create PO for:", row.original);
-                                }}
-                            >
-                                <IconFileText className="mr-2 h-4 w-4" />
-                                Create PO
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                                onClick={() => onEdit(row.original)}
-                            >
-                                <IconEdit className="mr-2 h-4 w-4" />
-                                Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                                className="text-destructive"
-                                onClick={() => onDelete(row.original)}
-                            >
-                                <IconTrash className="mr-2 h-4 w-4" />
-                                Delete
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                    <div className="flex justify-end pr-2">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                    <IconDots className="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                    onClick={() => onEdit(row.original)}
+                                >
+                                    <IconEdit className="mr-2 h-4 w-4" />
+                                    Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                    className="text-destructive"
+                                    onClick={() => onDelete(row.original)}
+                                >
+                                    <IconTrash className="mr-2 h-4 w-4" />
+                                    Delete
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
                 );
             },
         },

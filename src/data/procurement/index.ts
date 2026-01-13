@@ -53,6 +53,17 @@ export const getIndentRequests = cache(async (workspaceId: string) => {
                     taskSlug: true,
                 },
             },
+            assignee: {
+                select: {
+                    id: true,
+                    user: {
+                        select: {
+                            name: true,
+                            image: true,
+                        },
+                    },
+                },
+            },
             requestor: {
                 select: {
                     user: {
@@ -90,16 +101,6 @@ export const getIndentRequests = cache(async (workspaceId: string) => {
                         select: {
                             id: true,
                             name: true,
-                        },
-                    },
-                },
-            },
-            assignee: {
-                select: {
-                    user: {
-                        select: {
-                            name: true,
-                            image: true,
                         },
                     },
                 },

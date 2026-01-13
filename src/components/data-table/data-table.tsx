@@ -1,45 +1,15 @@
 "use client";
 
 import * as React from "react";
-import {
-    ColumnDef,
-    ColumnFiltersState,
-    SortingState,
-    VisibilityState,
-    flexRender,
-    getCoreRowModel,
-    getFilteredRowModel,
-    getPaginationRowModel,
-    getSortedRowModel,
-    getFacetedRowModel,
-    getFacetedUniqueValues,
-    useReactTable,
-} from "@tanstack/react-table";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import {
-    DropdownMenu,
-    DropdownMenuCheckboxItem,
-    DropdownMenuContent,
-    DropdownMenuTrigger,
-    DropdownMenuSub,
-    DropdownMenuSubTrigger,
-    DropdownMenuSubContent,
-    DropdownMenuSeparator,
-    DropdownMenuItem,
-} from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataTableFacetedFilter } from "./data-table-faceted-filter";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { IconChevronLeft, IconChevronRight, IconColumns, IconSearch, IconPlus, IconX, IconFilter } from "@tabler/icons-react";
+import { ColumnDef, ColumnFiltersState, SortingState, VisibilityState, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, getFacetedRowModel, getFacetedUniqueValues, useReactTable } from "@tanstack/react-table";
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 export interface DataTableFilterField<TData> {
     label: string;
@@ -164,7 +134,6 @@ export function DataTable<TData, TValue>({
                                             </DropdownMenuSubTrigger>
                                             <DropdownMenuSubContent className="w-[200px]">
                                                 {field.options?.map((option) => {
-                                                    // Handle array or string filter value
                                                     const filterValue = column.getFilterValue();
                                                     const isSelected = Array.isArray(filterValue)
                                                         ? filterValue.includes(option.value)
@@ -294,15 +263,23 @@ export function DataTable<TData, TValue>({
                                 >
                                     <span className="font-semibold mr-1">{field.label}:</span>
                                     {option?.label || val}
-                                    <IconX
-                                        className="ml-1 h-3 w-3 cursor-pointer hover:text-destructive"
-                                        onClick={() => {
+                                    <button
+                                        className="ml-1 ring-offset-background focus:ring-ring rounded-full outline-none focus:ring-2 focus:ring-offset-2"
+                                        onMouseDown={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                        }}
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
                                             const newValues = filterValue.filter((v) => v !== val);
                                             column?.setFilterValue(
                                                 newValues.length ? newValues : undefined
                                             );
                                         }}
-                                    />
+                                    >
+                                        <IconX className="h-3 w-3 hover:text-destructive" />
+                                    </button>
                                 </Badge>
                             );
                         });

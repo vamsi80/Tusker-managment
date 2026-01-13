@@ -1,11 +1,11 @@
 import { getProcurableProjects, getIndentRequests, getVendors } from "@/data/procurement";
-import { CreateIndentDialog } from "./_components/create-indent-dialog";
 import db from "@/lib/db";
 import { getWorkspaceMembers } from "@/data/workspace/get-workspace-members";
 import { Button } from "@/components/ui/button";
 import { IconFileText, IconPlus } from "@tabler/icons-react";
 import Link from "next/link";
-import { IndentClientPage } from "./_components/client";
+import { PoClientPage } from "./_componets/client";
+import { CreateIndentDialog } from "../indent/_components/create-indent-dialog";
 
 interface PageProps {
     params: Promise<{
@@ -16,6 +16,7 @@ interface PageProps {
 export default async function IndentPage({ params }: PageProps) {
     const { workspaceId } = await params;
 
+    // Fetch all required data in parallel
     const [indentsData, projectsData, materials, units, vendors, workspaceMembersResult] = await Promise.all([
         getIndentRequests(workspaceId),
         getProcurableProjects(workspaceId),
@@ -54,6 +55,8 @@ export default async function IndentPage({ params }: PageProps) {
     const { indentRequests, workspaceMember } = indentsData;
     const projects = projectsData || []
 
+
+    // Get all tasks from projects for the dialog
     const tasks = projects.flatMap((project) =>
         project.tasks?.map((task) => ({
             id: task.id,
@@ -64,7 +67,7 @@ export default async function IndentPage({ params }: PageProps) {
     );
 
     return (
-        <IndentClientPage
+        <PoClientPage
             data={indentRequests}
             userRole={workspaceMember.workspaceRole}
             workspaceId={workspaceId}
