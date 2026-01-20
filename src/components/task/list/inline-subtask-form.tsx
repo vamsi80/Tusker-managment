@@ -56,7 +56,7 @@ export function InlineSubTaskForm({
     const [pending, startTransition] = useTransition();
     const [subTaskName, setSubTaskName] = useState(subTask?.name || "");
     const [description, setDescription] = useState(subTask?.description || "");
-    const [assignee, setAssignee] = useState(subTask?.assignee?.workspaceMemberId || "");
+    const [assignee, setAssignee] = useState(subTask?.assignee?.id || "");
     const [status, setStatus] = useState<typeof SubTaskStatus[number]>(subTask?.status || "TO_DO");
     const [startDate, setStartDate] = useState(
         subTask?.startDate ? new Date(subTask.startDate).toISOString().split('T')[0] : ""
@@ -78,7 +78,7 @@ export function InlineSubTaskForm({
         }
 
         // Helper to get full objects for optimistic UI
-        const selectedMember = members.find(m => m.workspaceMember.id === assignee);
+        const selectedMember = members.find(m => m.workspaceMember.userId === assignee);
         const selectedTag = tags.find(t => t.id === tag);
 
         if (mode === "create") {
@@ -107,10 +107,10 @@ export function InlineSubTaskForm({
                 _count: { reviewComments: 0 },
                 // Include full objects for UI
                 assignee: selectedMember ? {
-                    workspaceMember: {
-                        id: selectedMember.workspaceMember.id,
-                        user: selectedMember.workspaceMember.user
-                    }
+                    id: selectedMember.workspaceMember.userId,
+                    name: selectedMember.workspaceMember.user.name,
+                    surname: selectedMember.workspaceMember.user.surname,
+                    image: selectedMember.workspaceMember.user.image,
                 } : null,
                 tag: selectedTag ? { id: selectedTag.id, name: selectedTag.name } : null
             };
@@ -165,10 +165,10 @@ export function InlineSubTaskForm({
                 days: parseInt(days) || 0,
                 // Include full objects for UI
                 assignee: selectedMember ? {
-                    workspaceMember: {
-                        id: selectedMember.workspaceMember.id,
-                        user: selectedMember.workspaceMember.user
-                    }
+                    id: selectedMember.workspaceMember.userId,
+                    name: selectedMember.workspaceMember.user.name,
+                    surname: selectedMember.workspaceMember.user.surname,
+                    image: selectedMember.workspaceMember.user.image,
                 } as any : null,
                 tag: selectedTag ? { id: selectedTag.id, name: selectedTag.name } as any : null
             };
@@ -271,7 +271,7 @@ export function InlineSubTaskForm({
                         </SelectTrigger>
                         <SelectContent>
                             {members.map((member) => (
-                                <SelectItem key={member.workspaceMember.id} value={member.workspaceMember.id}>
+                                <SelectItem key={member.workspaceMember.userId} value={member.workspaceMember.userId}>
                                     {member.workspaceMember.user.name} {member.workspaceMember.user.surname}
                                 </SelectItem>
                             ))}

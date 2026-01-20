@@ -53,7 +53,7 @@ export async function approveQuantity(itemId: string, workspaceId: string) {
             where: { id: itemId },
             data: {
                 quantityApproved: true,
-                quantityApprovedBy: workspaceMember.id,
+                quantityApprovedBy: workspaceMember.userId,
                 quantityApprovedAt: new Date(),
                 status: nextStatus,
             },
@@ -123,12 +123,12 @@ export async function approveFinal(itemId: string, workspaceId: string) {
             where: { id: itemId },
             data: {
                 finalApproved: true,
-                finalApprovedBy: workspaceMember.id,
+                finalApprovedBy: workspaceMember.userId,
                 finalApprovedAt: new Date(),
                 status: "APPROVED",
                 // Also mark quantity as approved if not already
                 quantityApproved: true,
-                quantityApprovedBy: item.quantityApprovedBy || workspaceMember.id,
+                quantityApprovedBy: item.quantityApprovedBy || workspaceMember.userId,
                 quantityApprovedAt: item.quantityApprovedAt || new Date(),
             },
         });

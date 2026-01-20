@@ -17,7 +17,6 @@ interface IndentClientPageProps {
     userRole: string;
     action?: React.ReactNode;
     workspaceId: string;
-    // Catalog props
     projects: { id: string; name: string }[];
     tasks: { id: string; name: string; projectId: string; assigneeId?: string | null }[];
     materials: { id: string; name: string; defaultUnitId: string | null; vendors?: { id: string; name: string }[] }[];
@@ -42,11 +41,10 @@ export function IndentClientPage({
 }: IndentClientPageProps) {
     const [editingIndent, setEditingIndent] = useState<{ id: string, data: IndentDialogFormData } | null>(null);
     const [deletingIndentId, setDeletingIndentId] = useState<string | null>(null);
+    const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
     const [pending, startTransition] = useTransition();
 
     const handleDelete = (row: IndentItemRow) => {
-        // We delete the whole indent by ID. 
-        // Note: The UI row is an item, but the action is on the Indent.
         setDeletingIndentId(row.indentId);
     };
 
@@ -182,8 +180,25 @@ export function IndentClientPage({
                     searchPlaceholder="Search indents..."
                     filterFields={filterFields}
                     filterDisplay="menu"
+                    onAdd={() => setIsCreateDialogOpen(true)}
+                    addButtonLabel="Create Indent"
                 />
             </div>
+
+            {/* Create Dialog */}
+            <CreateIndentDialog
+                open={isCreateDialogOpen}
+                onOpenChange={setIsCreateDialogOpen}
+                workspaceId={workspaceId}
+                projects={projects}
+                tasks={tasks}
+                materials={materials}
+                units={units}
+                vendors={vendors}
+                userRole={userRole as any}
+                workspaceMembers={workspaceMembers}
+                currentMemberId={currentMemberId}
+            />
 
             {/* Edit Dialog */}
             {editingIndent && (

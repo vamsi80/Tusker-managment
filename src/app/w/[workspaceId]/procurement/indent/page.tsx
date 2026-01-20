@@ -1,11 +1,11 @@
 import { getProcurableProjects, getIndentRequests, getVendors } from "@/data/procurement";
-import { CreateIndentDialog } from "./_components/create-indent-dialog";
 import db from "@/lib/db";
 import { getWorkspaceMembers } from "@/data/workspace/get-workspace-members";
 import { Button } from "@/components/ui/button";
 import { IconFileText, IconPlus } from "@tabler/icons-react";
 import Link from "next/link";
 import { IndentClientPage } from "./_components/client";
+import { CreateIndentDialog } from "./_components/create-indent-dialog";
 
 interface PageProps {
     params: Promise<{

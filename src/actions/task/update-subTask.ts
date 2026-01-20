@@ -53,7 +53,11 @@ export async function editSubTask(
                             { workspaceMember: { user: { id: validation.data.assignee } } }
                         ]
                     },
-                    select: { id: true }
+                    select: {
+                        workspaceMember: {
+                            select: { userId: true }
+                        }
+                    }
                 })
                 : Promise.resolve(null)
         ]);
@@ -68,7 +72,7 @@ export async function editSubTask(
             data: {
                 name: validation.data.name,
                 description: validation.data.description,
-                assigneeTo: assigneeInfo?.id || null,
+                assigneeTo: assigneeInfo?.workspaceMember.userId || null,
                 tagId: validation.data.tag || null,
                 startDate: validation.data.startDate ? new Date(validation.data.startDate) : null,
                 days: validation.data.days,

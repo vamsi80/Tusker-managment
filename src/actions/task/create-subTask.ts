@@ -52,7 +52,7 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
 
         let assigneeId: string | null = null;
         if (validation.data.assignee) {
-            // The assignee value is the workspaceMemberId, find the corresponding projectMember
+            // The assignee value is the workspaceMemberId, find the corresponding projectMember's user ID
             const assigneeProjectMember = await prisma.projectMember.findFirst({
                 where: {
                     projectId: values.projectId,
@@ -60,10 +60,13 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
                         { workspaceMemberId: validation.data.assignee },
                         { workspaceMember: { user: { id: validation.data.assignee } } }
                     ]
+                },
+                include: {
+                    workspaceMember: true
                 }
             });
             if (assigneeProjectMember) {
-                assigneeId = assigneeProjectMember.id;
+                assigneeId = assigneeProjectMember.workspaceMember.userId;
             }
         }
 
@@ -90,8 +93,9 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
                 description: validation.data.description,
                 status: validation.data.status,
                 projectId: validation.data.projectId,
+                workspaceId: project.workspaceId,
                 parentTaskId: validation.data.parentTaskId,
-                createdById: permissions.workspaceMember.id,
+                createdById: permissions.workspaceMember.userId,
                 assigneeTo: assigneeId,
                 tagId: validation.data.tag || null,
                 startDate: validation.data.startDate ? new Date(validation.data.startDate) : null,
@@ -99,19 +103,11 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
             },
             include: {
                 assignee: {
-                    include: {
-                        workspaceMember: {
-                            include: {
-                                user: {
-                                    select: {
-                                        id: true,
-                                        name: true,
-                                        surname: true,
-                                        image: true,
-                                    }
-                                }
-                            }
-                        }
+                    select: {
+                        id: true,
+                        name: true,
+                        surname: true,
+                        image: true,
                     }
                 },
                 tag: {

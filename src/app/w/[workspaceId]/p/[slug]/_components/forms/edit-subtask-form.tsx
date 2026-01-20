@@ -34,11 +34,7 @@ type SubTaskBase = {
     startDate: Date | string | null;
     days: number | null;
     assignee?: {
-        workspaceMember?: {
-            user?: {
-                id: string;
-            };
-        };
+        id: string;
     } | null;
 };
 
@@ -87,7 +83,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
             taskSlug: subTask.taskSlug || "placeholder-slug",
             projectId: projectId,
             parentTaskId: parentTaskId,
-            assignee: subTask.assignee?.workspaceMember?.user?.id || "",
+            assignee: subTask.assignee?.id || "",
             tag: subTask.tag || tags[0]?.id || "", // Use existing tag or first available tag
             status: (subTask.status || "TO_DO") as "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED",
             startDate: subTask.startDate ? new Date(subTask.startDate).toISOString().split('T')[0] : "",
@@ -102,7 +98,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
         const hasChanges =
             values.name !== subTask.name ||
             values.description !== (subTask.description || "") ||
-            values.assignee !== (subTask.assignee?.workspaceMember?.user?.id || "") ||
+            values.assignee !== (subTask.assignee?.id || "") ||
             values.tag !== subTask.tag ||
             values.startDate !== (subTask.startDate ? new Date(subTask.startDate).toISOString().split('T')[0] : "") ||
             values.days !== subTask.days;

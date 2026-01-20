@@ -18,6 +18,7 @@ import { getUserPermissions, getWorkspacePermissions } from "@/data/user/get-use
 async function _getAllTasksFlatInternal(
     workspaceId: string,
     workspaceMemberId: string,
+    userId: string,
     isAdmin: boolean,
     projectId?: string
 ) {
@@ -60,7 +61,7 @@ async function _getAllTasksFlatInternal(
                     subTasks: {
                         some: {
                             assignee: {
-                                workspaceMemberId: workspaceMemberId,
+                                id: userId,
                             },
                         },
                     },
@@ -69,7 +70,7 @@ async function _getAllTasksFlatInternal(
                 {
                     parentTaskId: { not: null },
                     assignee: {
-                        workspaceMemberId: workspaceMemberId,
+                        id: userId,
                     },
                 },
             ],
@@ -97,21 +98,12 @@ async function _getAllTasksFlatInternal(
                     slug: true,
                 },
             },
-            assignee: {
+            assignee: { // Flattened assignee select structure (already was this way)
                 select: {
                     id: true,
-                    workspaceMember: {
-                        select: {
-                            user: {
-                                select: {
-                                    id: true,
-                                    name: true,
-                                    surname: true,
-                                    image: true,
-                                },
-                            },
-                        },
-                    },
+                    name: true,
+                    surname: true,
+                    image: true,
                 },
             },
             _count: {
@@ -139,15 +131,16 @@ async function _getAllTasksFlatInternal(
 const getCachedAllTasksFlat = (
     workspaceId: string,
     workspaceMemberId: string,
+    userId: string,
     isAdmin: boolean,
     projectId?: string
 ) =>
     unstable_cache(
-        async () => _getAllTasksFlatInternal(workspaceId, workspaceMemberId, isAdmin, projectId),
+        async () => _getAllTasksFlatInternal(workspaceId, workspaceMemberId, userId, isAdmin, projectId),
         [
             projectId
-                ? `project-all-tasks-flat-${projectId}-member-${workspaceMemberId}-admin-${isAdmin}`
-                : `workspace-all-tasks-flat-${workspaceId}-member-${workspaceMemberId}-admin-${isAdmin}`
+                ? `project-all-tasks-flat-${projectId}-member-${workspaceMemberId}-user-${userId}-admin-${isAdmin}`
+                : `workspace-all-tasks-flat-${workspaceId}-member-${workspaceMemberId}-user-${userId}-admin-${isAdmin}`
         ],
         {
             tags: projectId
@@ -213,6 +206,7 @@ export const getAllTasksFlat = cache(
             return await getCachedAllTasksFlat(
                 workspaceId,
                 permissions.workspaceMemberId,
+                permissions.workspaceMember.userId,
                 isAdmin,
                 projectId
             );

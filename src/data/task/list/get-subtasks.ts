@@ -18,7 +18,7 @@ async function _getSubTasksInternal(
     parentTaskId: string,
     workspaceId: string,
     projectId: string,
-    workspaceMemberId: string,
+    userId: string,
     isMember: boolean,
     page: number,
     pageSize: number
@@ -30,7 +30,7 @@ async function _getSubTasksInternal(
         ? {
             parentTaskId: parentTaskId,
             assignee: {
-                workspaceMemberId: workspaceMemberId,
+                id: userId,
             },
         }
         : {
@@ -61,23 +61,11 @@ async function _getSubTasksInternal(
                 assignee: {
                     select: {
                         id: true,
-                        workspaceMemberId: true,
-                        workspaceMember: {
-                            select: {
-                                user: {
-                                    select: {
-                                        id: true,
-                                        name: true,
-                                        surname: true,
-                                        image: true,
-                                    },
-                                },
-                            },
-                        },
+                        name: true,
+                        surname: true,
+                        image: true,
                     },
                 },
-                // Removed dependsOn - not needed for subtasks list
-                // Removed parentTask - we already know the parent
                 _count: {
                     select: {
                         reviewComments: true,
@@ -113,16 +101,16 @@ const getCachedSubTasks = (
     parentTaskId: string,
     workspaceId: string,
     projectId: string,
-    workspaceMemberId: string,
+    userId: string,
     isMember: boolean,
     page: number,
     pageSize: number
 ) =>
     unstable_cache(
-        async () => _getSubTasksInternal(parentTaskId, workspaceId, projectId, workspaceMemberId, isMember, page, pageSize),
-        [`task-subtasks-${parentTaskId}-member-${workspaceMemberId}-page-${page}-size-${pageSize}`],
+        async () => _getSubTasksInternal(parentTaskId, workspaceId, projectId, userId, isMember, page, pageSize),
+        [`task-subtasks-${parentTaskId}-user-${userId}-page-${page}-size-${pageSize}`],
         {
-            tags: CacheTags.taskSubTasks(parentTaskId, workspaceMemberId),
+            tags: CacheTags.taskSubTasks(parentTaskId, userId),
             revalidate: 60, // 1 minute
         }
     )();
@@ -176,7 +164,7 @@ export const getSubTasks = cache(
                 parentTaskId,
                 workspaceId,
                 projectId,
-                permissions.workspaceMemberId,
+                permissions.workspaceMember.userId,
                 permissions.isMember,
                 page,
                 pageSize

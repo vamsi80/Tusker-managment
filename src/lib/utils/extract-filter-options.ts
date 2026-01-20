@@ -50,7 +50,9 @@ export function extractStatusOptions<T extends { status?: TaskStatus | string }>
 
 export function extractAssigneeOptions<T extends {
     assignee?: {
-        id?: string;
+        id: string;
+        name?: string;
+        surname?: string | null;
         workspaceMember?: {
             id?: string;
             user?: {
@@ -67,11 +69,24 @@ export function extractAssigneeOptions<T extends {
     const assigneesMap = new Map<string, { id: string; name: string; surname?: string }>();
 
     tasks.forEach((task) => {
-        const workspaceMember = task.assignee?.workspaceMember;
+        const assignee = task.assignee;
+        if (!assignee) return;
+
+        // Check for new flattened structure first
+        if (assignee.name) {
+            assigneesMap.set(assignee.id, {
+                id: assignee.id,
+                name: assignee.name,
+                surname: assignee.surname || undefined,
+            });
+            return;
+        }
+
+        const workspaceMember = assignee.workspaceMember;
         const user = workspaceMember?.user;
 
         // Try to get the workspace member ID from various possible sources
-        const workspaceMemberId = task.assignee?.workspaceMemberId || workspaceMember?.id;
+        const workspaceMemberId = assignee.workspaceMemberId || workspaceMember?.id;
 
         if (user && workspaceMemberId) {
             assigneesMap.set(workspaceMemberId, {
@@ -119,6 +134,8 @@ export function extractAllFilterOptions<T extends {
     subTasks?: any[];
     assignee?: {
         id?: string;
+        name?: string;
+        surname?: string | null;
         workspaceMember?: {
             id?: string;
             user?: {

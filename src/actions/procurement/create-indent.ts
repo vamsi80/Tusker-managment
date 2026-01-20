@@ -1,10 +1,6 @@
 "use server";
-
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import db from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
 import { createIndentRequestSchema, type CreateIndentRequestInput } from "@/lib/zodSchemas";
 
@@ -29,9 +25,9 @@ export async function createIndentRequest(input: CreateIndentRequestInput) {
         // Parallel validation queries for better performance
         const [itemRequestor, projectWithTask] = await Promise.all([
             // Verify assignedTo member belongs to workspace
-            db.workspaceMember.findUnique({
-                where: { id: validatedData.assignedTo },
-                select: { id: true, workspaceId: true },
+            db.workspaceMember.findFirst({
+                where: { userId: validatedData.assignedTo, workspaceId: validatedData.workspaceId },
+                select: { id: true },
             }),
             // Verify project and optionally task in one query
             db.project.findFirst({
@@ -48,8 +44,8 @@ export async function createIndentRequest(input: CreateIndentRequestInput) {
             }),
         ]);
 
-        if (!itemRequestor || itemRequestor.workspaceId !== validatedData.workspaceId) {
-            return { success: false, error: "Invalid assignee selected" };
+        if (!itemRequestor) {
+            return { success: false, error: "Invalid assignee selected or not in workspace" };
         }
 
         if (!projectWithTask) {
@@ -97,7 +93,8 @@ export async function createIndentRequest(input: CreateIndentRequestInput) {
                 description: validatedData.description || null,
                 expectedDelivery: validatedData.expectedDelivery || null,
                 requiresVendor: validatedData.requiresVendor ?? true,
-                requestedBy: workspaceMember.id,
+                requestedBy: workspaceMember.userId,
+                workspaceId: validatedData.workspaceId,
                 assignedTo: validatedData.assignedTo,
                 items: validatedData.materials ? {
                     create: validatedData.materials.map((item) => {
@@ -121,16 +118,16 @@ export async function createIndentRequest(input: CreateIndentRequestInput) {
                                 // Admin created with vendor + price → Full approval
                                 status = "APPROVED";
                                 quantityApproved = true;
-                                quantityApprovedBy = workspaceMember.id;
+                                quantityApprovedBy = workspaceMember.userId;
                                 quantityApprovedAt = now;
                                 finalApproved = true;
-                                finalApprovedBy = workspaceMember.id;
+                                finalApprovedBy = workspaceMember.userId;
                                 finalApprovedAt = now;
                             } else {
                                 // Admin created without vendor → Quantity approved
                                 status = "QUANTITY_APPROVED";
                                 quantityApproved = true;
-                                quantityApprovedBy = workspaceMember.id;
+                                quantityApprovedBy = workspaceMember.userId;
                                 quantityApprovedAt = now;
                             }
                         }

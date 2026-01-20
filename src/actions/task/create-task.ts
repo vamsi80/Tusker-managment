@@ -49,7 +49,8 @@ export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
                 name: validation.data.name,
                 taskSlug: validation.data.taskSlug,
                 projectId: validation.data.projectId,
-                createdById: permissions.workspaceMember.id,
+                workspaceId: project.workspaceId,
+                createdById: permissions.workspaceMember.userId,
             },
             include: {
                 _count: {
@@ -67,7 +68,7 @@ export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
             taskId: newTask.id,
             projectId: values.projectId,
             workspaceId: project.workspaceId,
-            userId: user.id
+            userId: permissions.workspaceMember.userId
         });
 
         return {

@@ -84,16 +84,16 @@ export function ProcurementTasksTable({
                                     <Badge variant="outline">{pt.project.name}</Badge>
                                 </TableCell>
                                 <TableCell>
-                                    {pt.task.assignee?.workspaceMember.user ? (
+                                    {pt.task.assignee ? (
                                         <div className="flex items-center gap-2">
                                             <Avatar className="h-6 w-6">
-                                                <AvatarImage src={pt.task.assignee.workspaceMember.user.image || undefined} />
+                                                <AvatarImage src={pt.task.assignee.image || undefined} />
                                                 <AvatarFallback className="text-[10px]">
-                                                    {pt.task.assignee.workspaceMember.user.name?.charAt(0) || "U"}
+                                                    {pt.task.assignee.name?.charAt(0) || "U"}
                                                 </AvatarFallback>
                                             </Avatar>
                                             <span className="text-sm">
-                                                {pt.task.assignee.workspaceMember.user.name}
+                                                {pt.task.assignee.name}
                                             </span>
                                         </div>
                                     ) : (

@@ -71,7 +71,7 @@ export function SubTaskRow({
         }
     };
 
-    const assignee = subTask.assignee?.workspaceMember?.user;
+    const assignee = subTask.assignee;
 
     // Use custom hooks for date calculations
     const dueDate = useDueDate(subTask.startDate, subTask.days);

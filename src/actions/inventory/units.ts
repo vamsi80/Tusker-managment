@@ -42,7 +42,7 @@ export async function createUnit(data: UnitSchemaType, workspaceId: string) {
                 category: validatedData.category || null,
                 isDefault: false, // User-created units are never default
                 isActive: validatedData.isActive !== false, // Default to true
-                createdBy: workspaceMember.id, // Track who created it (WorkspaceMember ID)
+                createdBy: workspaceMember.userId, // Track who created it (User ID)
                 workspaceId: workspaceId,
             },
         });
@@ -90,7 +90,7 @@ export async function updateUnit(id: string, data: UnitSchemaType, workspaceId: 
         // Check permissions
         // getWorkspacePermissions already calls requireUser() internally
         const { isWorkspaceAdmin, workspaceMember } = await getWorkspacePermissions(workspaceId);
-        const canEdit = (workspaceMember && unit.createdBy === workspaceMember.id) || isWorkspaceAdmin;
+        const canEdit = (workspaceMember && unit.createdBy === workspaceMember.userId) || isWorkspaceAdmin;
 
         if (!canEdit) {
             return {
@@ -171,7 +171,7 @@ export async function deleteUnit(id: string, workspaceId: string) {
         // Check if user has permission to delete
         // getWorkspacePermissions already calls requireUser() internally
         const { isWorkspaceAdmin, workspaceMember } = await getWorkspacePermissions(workspaceId);
-        const canDelete = (workspaceMember && unit.createdBy === workspaceMember.id) || isWorkspaceAdmin;
+        const canDelete = (workspaceMember && unit.createdBy === workspaceMember.userId) || isWorkspaceAdmin;
 
         if (!canDelete) {
             return {

@@ -30,7 +30,7 @@ export async function editIndent(input: EditIndentInput) {
         const canEdit =
             permissions.isWorkspaceAdmin ||
             permissions.isProjectLead ||
-            (permissions.workspaceMember.id === existingIndent.requestedBy && existingIndent.items.every(i => i.status === "PENDING"));
+            (permissions.workspaceMember.userId === existingIndent.requestedBy && existingIndent.items.every(i => i.status === "PENDING"));
 
         if (!canEdit) {
             return { success: false, error: "You do not have permission to edit this indent" };
@@ -88,22 +88,22 @@ export async function editIndent(input: EditIndentInput) {
                         if (validatedData.status === "APPROVED") {
                             status = "APPROVED";
                             quantityApproved = true;
-                            quantityApprovedBy = workspaceMember.id;
+                            quantityApprovedBy = workspaceMember.userId;
                             quantityApprovedAt = now;
                             finalApproved = true;
-                            finalApprovedBy = workspaceMember.id;
+                            finalApprovedBy = workspaceMember.userId;
                             finalApprovedAt = now;
                         } else if (item.itemStatus) {
                             // Respect Explicit Status (Edit Mode)
                             if (item.itemStatus === "APPROVED") {
                                 quantityApproved = true;
-                                quantityApprovedBy = workspaceMember.id;
+                                quantityApprovedBy = workspaceMember.userId;
                                 quantityApprovedAt = now;
 
                                 if (hasVendor && hasPrice) {
                                     status = "APPROVED";
                                     finalApproved = true;
-                                    finalApprovedBy = workspaceMember.id;
+                                    finalApprovedBy = workspaceMember.userId;
                                     finalApprovedAt = now;
                                 } else {
                                     status = "QUANTITY_APPROVED";
@@ -111,7 +111,7 @@ export async function editIndent(input: EditIndentInput) {
                             } else if (item.itemStatus === "QUANTITY_APPROVED" || item.itemStatus === "VENDOR_PENDING") {
                                 status = "QUANTITY_APPROVED";
                                 quantityApproved = true;
-                                quantityApprovedBy = workspaceMember.id;
+                                quantityApprovedBy = workspaceMember.userId;
                                 quantityApprovedAt = now;
                             }
                             // If PENDING, defaults apply (status=PENDING, approved=false)
@@ -120,15 +120,15 @@ export async function editIndent(input: EditIndentInput) {
                             if (hasVendor && hasPrice) {
                                 status = "APPROVED";
                                 quantityApproved = true;
-                                quantityApprovedBy = workspaceMember.id;
+                                quantityApprovedBy = workspaceMember.userId;
                                 quantityApprovedAt = now;
                                 finalApproved = true;
-                                finalApprovedBy = workspaceMember.id;
+                                finalApprovedBy = workspaceMember.userId;
                                 finalApprovedAt = now;
                             } else {
                                 status = "QUANTITY_APPROVED";
                                 quantityApproved = true;
-                                quantityApprovedBy = workspaceMember.id;
+                                quantityApprovedBy = workspaceMember.userId;
                                 quantityApprovedAt = now;
                             }
                         }

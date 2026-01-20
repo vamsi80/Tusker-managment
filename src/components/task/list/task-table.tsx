@@ -196,7 +196,7 @@ export function TaskTable({
         // Use pre-extracted assignees if provided (from getAllTasksFlat),
         // otherwise convert members to assignee format
         const assigneesForFilter = assignees || members.map(member => ({
-            id: member.workspaceMember.id,
+            id: member.workspaceMember.userId,
             name: member.workspaceMember.user.name,
             surname: member.workspaceMember.user.surname || undefined,
         })).sort((a, b) => {
@@ -514,8 +514,7 @@ export function TaskTable({
             // Apply assignee filter to subtasks
             if (filters.assigneeId) {
                 filteredSubTasks = filteredSubTasks.filter((subTask: SubTaskType) => {
-                    const assignee = (subTask as any).assignee;
-                    return assignee?.workspaceMemberId === filters.assigneeId;
+                    return subTask.assignee?.id === filters.assigneeId;
                 });
             }
 

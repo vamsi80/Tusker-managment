@@ -19,6 +19,7 @@ async function _getAllSubTasksInternal(
     projectId: string,
     workspaceId: string,
     workspaceMemberId: string,
+    userId: string,
     isMember: boolean
 ) {
     // Build where clause based on role
@@ -28,7 +29,7 @@ async function _getAllSubTasksInternal(
                 projectId: projectId,
             },
             assignee: {
-                workspaceMemberId: workspaceMemberId,
+                id: userId,
             },
         }
         : {
@@ -56,18 +57,6 @@ async function _getAllSubTasksInternal(
             parentTaskId: true,
             createdAt: true,
             updatedAt: true,
-            createdBy: {
-                select: {
-                    user: {
-                        select: {
-                            id: true,
-                            name: true,
-                            surname: true,
-                            image: true,
-                        },
-                    },
-                },
-            },
             parentTask: {
                 select: {
                     id: true,
@@ -78,19 +67,17 @@ async function _getAllSubTasksInternal(
             assignee: {
                 select: {
                     id: true,
-                    workspaceMember: {
-                        select: {
-                            id: true,
-                            user: {
-                                select: {
-                                    id: true,
-                                    name: true,
-                                    surname: true,
-                                    image: true,
-                                },
-                            },
-                        },
-                    },
+                    name: true,
+                    surname: true,
+                    image: true,
+                },
+            },
+            createdBy: {
+                select: {
+                    id: true,
+                    name: true,
+                    surname: true,
+                    image: true,
                 },
             },
             _count: {
@@ -99,7 +86,7 @@ async function _getAllSubTasksInternal(
                         ? {
                             where: {
                                 assignee: {
-                                    workspaceMemberId: workspaceMemberId,
+                                    id: userId,
                                 },
                             },
                         }
@@ -127,11 +114,12 @@ const getCachedAllSubTasks = (
     projectId: string,
     workspaceId: string,
     workspaceMemberId: string,
+    userId: string,
     isMember: boolean
 ) =>
     unstable_cache(
-        async () => _getAllSubTasksInternal(projectId, workspaceId, workspaceMemberId, isMember),
-        [`project-all-subtasks-${projectId}-member-${workspaceMemberId}`],
+        async () => _getAllSubTasksInternal(projectId, workspaceId, workspaceMemberId, userId, isMember),
+        [`project-all-subtasks-${projectId}-member-${workspaceMemberId}-user-${userId}`],
         {
             tags: CacheTags.projectSubTasks(projectId),
             revalidate: 60, // 1 minute
@@ -179,6 +167,7 @@ export const getAllSubTasks = cache(
                 projectId,
                 workspaceId,
                 permissions.workspaceMemberId,
+                permissions.workspaceMember.userId,
                 permissions.isMember
             );
         } catch (error) {

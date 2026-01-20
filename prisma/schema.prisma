@@ -10,25 +10,40 @@ datasource db {
 }
 
 model User {
-  id             String            @id
-  name           String
-  surname        String?
-  contactNumber  String?
-  email          String            @unique
-  emailVerified  Boolean           @default(false)
-  image          String?
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @default(now()) @updatedAt
-  role           String?
-  banned         Boolean?          @default(false)
-  banReason      String?
-  banExpires     DateTime?
+  id            String    @id
+  name          String
+  surname       String?
+  contactNumber String?
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now()) @updatedAt
+  role          String?
+  banned        Boolean?  @default(false)
+  banReason     String?
+  banExpires    DateTime?
+
+  // Ownership & Membership
   workspaceOwner Workspace[]
   workspaces     WorkspaceMember[]
   accounts       Account[]
-  auditLogs      AuditLog[]
-  comments       Comment[]
   sessions       Session[]
+
+  // Business Actions (User owns all actions)
+  createdTasks   Task[]          @relation("TaskCreator")
+  assignedTasks  Task[]          @relation("TaskAssignee")
+  comments       Comment[]
+  reviewComments ReviewComment[]
+
+  // Indent & Procurement Actions
+  requestedIndents      IndentDetails[] @relation("IndentRequestor")
+  assignedIndents       IndentDetails[] @relation("IndentAssignee")
+  quantityApprovedItems IndentItem[]    @relation("QuantityApprover")
+  finalApprovedItems    IndentItem[]    @relation("FinalApprover")
+
+  // Unit creation
+  createdUnits Unit[]
 
   @@map("user")
 }
@@ -94,29 +109,22 @@ model Workspace {
   members          WorkspaceMember[]
   materials        Material[]
   procurementTasks ProcurementTask[]
-  rfqs             Rfq[]
   units            Unit[]
   vendors          Vendor[]
 }
 
 model WorkspaceMember {
-  id                                                        String          @id @default(uuid())
-  userId                                                    String
-  workspaceId                                               String
-  workspaceRole                                             WorkspaceRole   @default(MEMBER)
-  createdAt                                                 DateTime        @default(now())
-  updatedAt                                                 DateTime        @updatedAt
-  projectMembers                                            ProjectMember[]
-  reviewComments                                            ReviewComment[]
-  tasks                                                     Task[]
-  user                                                      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspace                                                 Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  auditLogs                                                 AuditLog[]
-  indent_details_indent_details_assignedToToWorkspaceMember IndentDetails[] @relation("indent_details_assignedToToWorkspaceMember")
-  indentDetails                                             IndentDetails[]
-  units                                                     Unit[]
-  quantityApprovedItems                                     IndentItem[]    @relation("quantity_approver")
-  finalApprovedItems                                        IndentItem[]    @relation("final_approver")
+  id            String        @id @default(uuid())
+  userId        String
+  workspaceId   String
+  workspaceRole WorkspaceRole @default(MEMBER)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relations for authorization context only
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projectMembers ProjectMember[]
 
   @@unique([userId, workspaceId])
   @@index([workspaceId, workspaceRole])
@@ -138,7 +146,6 @@ model Project {
   workspace        Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   projectMembers   ProjectMember[]
   tasks            Task[]
-  auditLogs        AuditLog[]
   indentDetails    IndentDetails[]
   procurementTasks ProcurementTask[]
 
@@ -206,41 +213,54 @@ model Tag {
 }
 
 model Task {
-  id                    String           @id @default(uuid())
-  name                  String
-  taskSlug              String           @unique
-  description           String?
-  status                TaskStatus?      @default(TO_DO)
-  position              Int?
-  parentTaskId          String?
-  startDate             DateTime?
-  days                  Int?
-  tagId                 String?
-  assigneeTo            String?
-  createdById           String
-  projectId             String
-  purchaseRequired      Boolean?         @default(false)
-  isPinned              Boolean          @default(false)
-  pinnedAt              DateTime?
-  pinnedBy              String?
-  createdAt             DateTime         @default(now())
-  updatedAt             DateTime         @updatedAt
-  reviewComments        ReviewComment[]
-  assignee              ProjectMember?   @relation(fields: [assigneeTo], references: [id], onDelete: Cascade)
-  createdBy             WorkspaceMember  @relation(fields: [createdById], references: [id], onDelete: Cascade)
-  parentTask            Task?            @relation("Task_subTasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  id           String      @id @default(uuid())
+  name         String
+  taskSlug     String      @unique
+  description  String?
+  status       TaskStatus? @default(TO_DO)
+  position     Int?
+  parentTaskId String?
+  startDate    DateTime?
+  days         Int?
+  tagId        String?
+
+  // User-based fields (keeping original field names, now pointing to User)
+  createdById String
+  assigneeTo  String?
+
+  // Workspace context
+  workspaceId String
+  projectId   String
+
+  // Task metadata
+  purchaseRequired Boolean?  @default(false)
+  isPinned         Boolean   @default(false)
+  pinnedAt         DateTime?
+  pinnedBy         String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Relations
+  createdBy  User    @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  assignee   User?   @relation("TaskAssignee", fields: [assigneeTo], references: [id], onDelete: SetNull)
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tag        Tag?    @relation(fields: [tagId], references: [id])
+  parentTask Task?   @relation("Task_subTasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+
+  // Children
   subTasks              Task[]           @relation("Task_subTasks")
-  project               Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  tag                   Tag?             @relation(fields: [tagId], references: [id])
-  auditLogs             AuditLog[]
+  reviewComments        ReviewComment[]
   comments              Comment[]
   indentDetails         IndentDetails[]
   procurementTask       ProcurementTask?
   Task_TaskDependency_A Task[]           @relation("TaskDependency")
   Task_TaskDependency_B Task[]           @relation("TaskDependency")
+  projectMember         ProjectMember?   @relation(fields: [projectMemberId], references: [id])
+  projectMemberId       String?
 
   @@index([parentTaskId])
   @@index([projectId])
+  @@index([workspaceId])
   @@index([projectId, parentTaskId])
   @@index([projectId, status])
   @@index([status, createdAt])
@@ -252,17 +272,22 @@ model Task {
 }
 
 model ReviewComment {
-  id         String          @id @default(uuid())
-  subTaskId  String
-  authorId   String
-  text       String
-  attachment Json?
-  createdAt  DateTime        @default(now())
-  updatedAt  DateTime        @updatedAt
-  author     WorkspaceMember @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  subTask    Task            @relation(fields: [subTaskId], references: [id], onDelete: Cascade)
+  id          String   @id @default(uuid())
+  subTaskId   String
+  authorId    String
+  workspaceId String
+  text        String
+  attachment  Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  author  User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  subTask Task @relation(fields: [subTaskId], references: [id], onDelete: Cascade)
 
   @@index([subTaskId, createdAt])
+  @@index([authorId])
+  @@index([workspaceId])
 }
 
 model Comment {
@@ -289,36 +314,6 @@ model Comment {
   @@map("comment")
 }
 
-model AuditLog {
-  id                String          @id @default(cuid())
-  operationId       String          @unique
-  entityType        String
-  entityId          String
-  action            String
-  userId            String
-  workspaceMemberId String
-  beforeState       Json?
-  afterState        Json
-  projectId         String
-  taskId            String?
-  timestamp         DateTime        @default(now())
-  ipAddress         String?
-  userAgent         String?
-  project           Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  task              Task?           @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspaceMember   WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
-
-  @@index([entityId])
-  @@index([entityType])
-  @@index([action])
-  @@index([projectId])
-  @@index([userId])
-  @@index([timestamp])
-  @@index([operationId])
-  @@map("audit_log")
-}
-
 model ProcurementTask {
   id            String    @id @default(uuid())
   taskId        String    @unique
@@ -336,30 +331,42 @@ model ProcurementTask {
 }
 
 model IndentDetails {
-  id               String           @id @default(uuid())
-  key              String           @unique
-  name             String
-  projectId        String
-  taskId           String?
+  id   String @id @default(uuid())
+  key  String @unique
+  name String
+
+  // Workspace context
+  workspaceId String
+  projectId   String
+  taskId      String?
+
+  // User-based fields (keeping original field names, now pointing to User)
+  requestedBy String
+  assignedTo  String?
+
+  // Indent metadata
   description      String?
   expectedDelivery DateTime?
-  requiresVendor   Boolean          @default(true)
-  requestedBy      String
-  requestedAt      DateTime         @default(now())
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  assignedTo       String?
-  assignee         WorkspaceMember? @relation("indent_details_assignedToToWorkspaceMember", fields: [assignedTo], references: [id])
-  project          Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  requestor        WorkspaceMember  @relation(fields: [requestedBy], references: [id])
-  task             Task?            @relation(fields: [taskId], references: [id])
-  items            IndentItem[]
+  requiresVendor   Boolean   @default(true)
+  requestedAt      DateTime  @default(now())
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
+  // Relations
+  requestor User    @relation("IndentRequestor", fields: [requestedBy], references: [id])
+  assignee  User?   @relation("IndentAssignee", fields: [assignedTo], references: [id])
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task      Task?   @relation(fields: [taskId], references: [id])
+
+  // Children
+  items IndentItem[]
+
+  @@index([workspaceId])
   @@index([projectId])
   @@index([taskId])
   @@index([requestedBy])
-  @@index([key])
   @@index([assignedTo])
+  @@index([key])
   @@map("indent_details")
 }
 
@@ -374,7 +381,7 @@ model IndentItem {
   estimatedPrice  Float?
   vendorId        String?
 
-  // Approval workflow fields
+  // Approval workflow fields (keeping original field names, now pointing to User)
   status             IndentItemStatus @default(PENDING)
   quantityApproved   Boolean          @default(false)
   quantityApprovedBy String?
@@ -385,48 +392,59 @@ model IndentItem {
   rejectionReason    String?
 
   // Relations
-  indentDetails    IndentDetails    @relation(fields: [indentDetailsId], references: [id], onDelete: Cascade)
-  material         Material         @relation(fields: [materialId], references: [id])
-  unit             Unit?            @relation(fields: [unitId], references: [id], onDelete: Restrict)
-  vendor           Vendor?          @relation(fields: [vendorId], references: [id])
-  quantityApprover WorkspaceMember? @relation("quantity_approver", fields: [quantityApprovedBy], references: [id])
-  finalApprover    WorkspaceMember? @relation("final_approver", fields: [finalApprovedBy], references: [id])
-  rfqItems         RfqItem[]
+  indentDetails    IndentDetails @relation(fields: [indentDetailsId], references: [id], onDelete: Cascade)
+  material         Material      @relation(fields: [materialId], references: [id])
+  unit             Unit?         @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  vendor           Vendor?       @relation(fields: [vendorId], references: [id])
+  quantityApprover User?         @relation("QuantityApprover", fields: [quantityApprovedBy], references: [id])
+  finalApprover    User?         @relation("FinalApprover", fields: [finalApprovedBy], references: [id])
 
   @@index([indentDetailsId])
   @@index([materialId])
   @@index([vendorId])
   @@index([status])
+  @@index([quantityApprovedBy])
+  @@index([finalApprovedBy])
   @@map("indent_item")
 }
 
 enum IndentItemStatus {
-  PENDING // Initial state - awaiting quantity approval
-  QUANTITY_APPROVED // Quantity approved, waiting for vendor details
-  VENDOR_PENDING // Vendor added, waiting for final approval
-  APPROVED // Fully approved
-  REJECTED // Rejected by admin
+  PENDING
+  QUANTITY_APPROVED
+  VENDOR_PENDING
+  APPROVED
+  REJECTED
 }
 
 model Unit {
-  id           String           @id @default(uuid())
+  id           String  @id @default(uuid())
   name         String
   abbreviation String
   category     String?
-  isDefault    Boolean          @default(false)
-  isActive     Boolean          @default(true)
-  createdBy    String?
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
-  workspaceId  String?
-  indentItems  IndentItem[]
-  materials    Material[]
-  creator      WorkspaceMember? @relation(fields: [createdBy], references: [id])
-  workspace    Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  isDefault    Boolean @default(false)
+  isActive     Boolean @default(true)
+
+  // User-based creator field (keeping original field name, now pointing to User)
+  createdBy String?
+
+  // Workspace context
+  workspaceId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  creator   User?      @relation(fields: [createdBy], references: [id])
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  // Children
+  indentItems IndentItem[]
+  materials   Material[]
 
   @@index([isActive])
   @@index([isDefault])
   @@index([createdBy])
+  @@index([workspaceId])
   @@map("unit")
 }
 
@@ -464,76 +482,12 @@ model Vendor {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   indentItems   IndentItem[]
-  quotations    Quotation[]
   workspace     Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   materials     Material[]   @relation("MaterialToVendor")
-  rfqs          Rfq[]        @relation("RfqToVendor")
 
   @@index([workspaceId])
   @@index([name])
   @@map("vendor")
-}
-
-model Rfq {
-  id          String      @id @default(uuid())
-  key         String      @unique
-  workspaceId String
-  status      RfqStatus   @default(DRAFT)
-  deadline    DateTime?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  quotations  Quotation[]
-  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  items       RfqItem[]
-  vendors     Vendor[]    @relation("RfqToVendor")
-
-  @@index([workspaceId])
-  @@map("rfq")
-}
-
-model RfqItem {
-  id             String          @id @default(uuid())
-  rfqId          String
-  indentItemId   String
-  quantity       Float
-  quotationItems QuotationItem[]
-  indentItem     IndentItem      @relation(fields: [indentItemId], references: [id])
-  rfq            Rfq             @relation(fields: [rfqId], references: [id], onDelete: Cascade)
-
-  @@index([rfqId])
-  @@index([indentItemId])
-  @@map("rfq_item")
-}
-
-model Quotation {
-  id             String          @id @default(uuid())
-  rfqId          String
-  vendorId       String
-  quoteReference String?
-  totalAmount    Float?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  rfq            Rfq             @relation(fields: [rfqId], references: [id], onDelete: Cascade)
-  vendor         Vendor          @relation(fields: [vendorId], references: [id])
-  items          QuotationItem[]
-
-  @@unique([rfqId, vendorId])
-  @@index([rfqId])
-  @@index([vendorId])
-  @@map("quotation")
-}
-
-model QuotationItem {
-  id          String    @id @default(uuid())
-  quotationId String
-  rfqItemId   String
-  unitPrice   Float
-  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
-  rfqItem     RfqItem   @relation(fields: [rfqItemId], references: [id])
-
-  @@index([quotationId])
-  @@index([rfqItemId])
-  @@map("quotation_item")
 }
 
 enum WorkspaceRole {
@@ -562,11 +516,4 @@ enum RfqStatus {
   DRAFT
   OPEN
   CLOSED
-}
-
-enum IndentStatus {
-  REQUESTED
-  UNDER_REVIEW
-  APPROVED
-  REJECTED
 }

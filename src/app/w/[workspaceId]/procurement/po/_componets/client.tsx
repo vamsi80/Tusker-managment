@@ -9,6 +9,8 @@ import { deleteIndent } from "@/actions/procurement/delete-indent";
 import { WorkspaceMemberRow } from "@/data/workspace/get-workspace-members";
 import { DataTable, DataTableFilterField } from "@/components/data-table/data-table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { IconPlus } from "@tabler/icons-react";
 import { POItemColumns, POItemRow } from "./columns";
 
 interface PoClientPageProps {
@@ -41,7 +43,11 @@ export function PoClientPage({
 }: PoClientPageProps) {
     const [editingIndent, setEditingIndent] = useState<{ id: string, data: IndentDialogFormData } | null>(null);
     const [deletingIndentId, setDeletingIndentId] = useState<string | null>(null);
+    const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
     const [pending, startTransition] = useTransition();
+
+    // Calculate selected items count
+    const selectedCount = Object.keys(rowSelection).filter(key => rowSelection[key]).length;
 
     const handleDelete = (row: POItemRow) => {
         // We delete the whole indent by ID. 
@@ -113,8 +119,8 @@ export function PoClientPage({
                 materialName: item.material.name,
                 projectName: indent.project.name,
                 taskName: indent.task?.name || null,
-                assigneeName: indent.assignee?.user?.name || null,
-                assigneeImage: indent.assignee?.user?.image || null,
+                assigneeName: indent.assignee?.name || null,
+                assigneeImage: indent.assignee?.image || null,
                 quantity: item.quantity,
                 unit: item.unit?.abbreviation || null,
                 vendorName: item.vendor?.name || null,
@@ -173,9 +179,21 @@ export function PoClientPage({
     return (
         <div className="flex-1 space-y-4">
             <div className="flex items-center justify-between space-y-2">
-                <h2 className="text-3xl font-bold tracking-tight">Indent Items</h2>
+                <h2 className="text-3xl font-bold tracking-tight">PO Items</h2>
                 <div className="flex items-center space-x-2">
                     {action}
+                    <Button
+                        disabled={selectedCount === 0}
+                        onClick={() => {
+                            // TODO: Implement Create PO functionality
+                            const selectedItems = flattenedData.filter((_, index) => rowSelection[index]);
+                            console.log("Create PO for selected items:", selectedItems);
+                            toast.info(`Creating PO for ${selectedCount} item(s)`);
+                        }}
+                    >
+                        <IconPlus className="mr-2 h-4 w-4" />
+                        Create PO {selectedCount > 0 && `(${selectedCount})`}
+                    </Button>
                 </div>
             </div>
             <div className="h-full flex-1 flex-col space-y-8 md:flex">
@@ -186,6 +204,9 @@ export function PoClientPage({
                     searchPlaceholder="Search materials..."
                     filterFields={filterFields}
                     filterDisplay="menu"
+                    rowSelection={rowSelection}
+                    onRowSelectionChange={setRowSelection}
+                    getRowId={(row) => row.id}
                 />
             </div>
 

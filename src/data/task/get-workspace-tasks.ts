@@ -79,9 +79,7 @@ async function _getWorkspaceTasksInternal(
     // Apply assignee filter
     if (filters.assigneeId) {
         whereClause.assignee = {
-            workspaceMember: {
-                userId: filters.assigneeId,
-            },
+            id: filters.assigneeId,
         };
     }
 
@@ -132,31 +130,17 @@ async function _getWorkspaceTasksInternal(
                 assignee: {
                     select: {
                         id: true,
-                        workspaceMember: {
-                            select: {
-                                id: true,
-                                user: {
-                                    select: {
-                                        id: true,
-                                        name: true,
-                                        surname: true,
-                                        image: true,
-                                    },
-                                },
-                            },
-                        },
+                        name: true,
+                        surname: true,
+                        image: true,
                     },
                 },
                 createdBy: {
                     select: {
-                        user: {
-                            select: {
-                                id: true,
-                                name: true,
-                                surname: true,
-                                image: true,
-                            },
-                        },
+                        id: true,
+                        name: true,
+                        surname: true,
+                        image: true,
                     },
                 },
                 // Count subtasks but don't fetch them (lazy-loaded)

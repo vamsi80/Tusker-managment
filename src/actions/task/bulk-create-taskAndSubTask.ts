@@ -60,7 +60,7 @@ export async function bulkUploadTasksAndSubtasks(data: {
                 workspaceMember: {
                     include: {
                         user: {
-                            select: { email: true }
+                            select: { email: true, id: true }
                         }
                     }
                 }
@@ -71,7 +71,7 @@ export async function bulkUploadTasksAndSubtasks(data: {
         const emailToMemberId = new Map(
             projectMembers.map(pm => [
                 pm.workspaceMember.user.email,
-                pm.id
+                pm.workspaceMember.user.id
             ])
         );
 
@@ -193,7 +193,8 @@ export async function bulkUploadTasksAndSubtasks(data: {
                         name: taskName,
                         taskSlug: taskSlug,
                         projectId: data.projectId,
-                        createdById: permissions.workspaceMember.id,
+                        workspaceId: project.workspaceId,
+                        createdById: permissions.workspaceMember.userId,
                     },
                 });
 
@@ -242,7 +243,8 @@ export async function bulkUploadTasksAndSubtasks(data: {
                                 taskSlug: subtaskSlug,
                                 description: subtaskRow.description,
                                 projectId: data.projectId,
-                                createdById: permissions.workspaceMember.id,
+                                workspaceId: project.workspaceId,
+                                createdById: permissions.workspaceMember.userId,
                                 parentTaskId: parentTask.id,
                                 assigneeTo: subtaskAssigneeId,
                                 startDate: subtaskStartDate,
