@@ -182,7 +182,6 @@ const getCachedAllTasksFlat = (
  */
 export const getAllTasksFlat = cache(
     async (workspaceId: string, projectId?: string) => {
-        const user = await requireUser();
 
         try {
             let permissions;

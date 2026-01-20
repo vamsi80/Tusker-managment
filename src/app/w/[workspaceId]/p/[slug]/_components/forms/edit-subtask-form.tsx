@@ -29,7 +29,7 @@ type SubTaskBase = {
     name: string;
     description: string | null;
     taskSlug: string;
-    tag: string | null;
+    tag: { id: string } | null;
     status: string | null;
     startDate: Date | string | null;
     days: number | null;
@@ -84,7 +84,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
             projectId: projectId,
             parentTaskId: parentTaskId,
             assignee: subTask.assignee?.id || "",
-            tag: subTask.tag || tags[0]?.id || "", // Use existing tag or first available tag
+            tag: subTask.tag?.id || tags[0]?.id || "", // Use existing tag or first available tag
             status: (subTask.status || "TO_DO") as "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED",
             startDate: subTask.startDate ? new Date(subTask.startDate).toISOString().split('T')[0] : "",
             days: subTask.days || 0,
@@ -99,7 +99,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
             values.name !== subTask.name ||
             values.description !== (subTask.description || "") ||
             values.assignee !== (subTask.assignee?.id || "") ||
-            values.tag !== subTask.tag ||
+            values.tag !== (subTask.tag?.id || "") ||
             values.startDate !== (subTask.startDate ? new Date(subTask.startDate).toISOString().split('T')[0] : "") ||
             values.days !== subTask.days;
 

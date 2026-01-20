@@ -52,7 +52,13 @@ async function _getAllSubTasksInternal(
             position: true,
             startDate: true,
             days: true,
-            tagId: true, // Select tagId instead of tag relation
+            tag: {
+                select: {
+                    id: true,
+                    name: true,
+
+                },
+            },
             projectId: true,
             parentTaskId: true,
             createdAt: true,

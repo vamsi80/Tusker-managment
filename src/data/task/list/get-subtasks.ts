@@ -53,7 +53,12 @@ async function _getSubTasksInternal(
                 position: true,
                 startDate: true,
                 days: true,
-                tag: true,
+                tag: {
+                    select: {
+                        id: true,
+                        name: true,
+                    },
+                },
                 parentTaskId: true,
                 projectId: true,
                 createdAt: true,

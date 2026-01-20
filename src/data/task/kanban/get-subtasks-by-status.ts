@@ -26,6 +26,7 @@ type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COM
 async function _getSubTasksByStatusInternal(
     workspaceId: string,
     workspaceMemberId: string,
+    userId: string,
     isAdmin: boolean,
     isProjectLead: boolean,
     status: TaskStatus,
@@ -72,7 +73,7 @@ async function _getSubTasksByStatusInternal(
     // - Project LEAD (when filtering by that project): See all subtasks in that project
     // - MEMBER: See only assigned subtasks
     if (!isAdmin && !isProjectLead) {
-        whereClause.assignee = { workspaceMemberId: workspaceMemberId };
+        whereClause.assignee = { id: userId };
     }
 
     // Fetch count and data in transaction
@@ -90,7 +91,12 @@ async function _getSubTasksByStatusInternal(
                 position: true,
                 startDate: true,
                 days: true,
-                tagId: true, // Select tagId instead of tag relation
+                tag: {
+                    select: {
+                        id: true,
+                        name: true,
+                    },
+                },
                 parentTaskId: true,
                 isPinned: true,
                 pinnedAt: true,
@@ -112,18 +118,9 @@ async function _getSubTasksByStatusInternal(
                 assignee: {
                     select: {
                         id: true,
-                        workspaceMember: {
-                            select: {
-                                user: {
-                                    select: {
-                                        id: true,
-                                        name: true,
-                                        surname: true,
-                                        image: true,
-                                    },
-                                },
-                            },
-                        },
+                        name: true,
+                        surname: true,
+                        image: true,
                     },
                 },
                 _count: {
@@ -164,7 +161,7 @@ const getCachedSubTasksByStatus = (
     pageSize: number
 ) =>
     unstable_cache(
-        async () => _getSubTasksByStatusInternal(workspaceId, workspaceMemberId, isAdmin, isProjectLead, status, projectId, page, pageSize),
+        async () => _getSubTasksByStatusInternal(workspaceId, workspaceMemberId, userId, isAdmin, isProjectLead, status, projectId, page, pageSize),
         [`kanban - ws - ${workspaceId} -${projectId || 'all'} -${status} -${userId} -lead${isProjectLead} -p${page} -s${pageSize} `],
         {
             tags: projectId
@@ -231,7 +228,7 @@ export const getSubTasksByStatus = cache(
             // ✅ Pass permissions directly to avoid redundant checks
             return await getCachedSubTasksByStatus(
                 workspaceId,
-                permissions.workspaceMemberId,
+                permissions.workspaceMember!.userId,
                 permissions.workspaceMemberId,
                 permissions.isWorkspaceAdmin,
                 isProjectLead,
