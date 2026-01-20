@@ -385,3 +385,29 @@ export type IndentDialogFormData = z.infer<typeof indentDialogSchema>;
 export type CreateIndentRequestInput = z.infer<typeof createIndentRequestSchema>;
 export type DeleteIndentInput = z.infer<typeof deleteIndentSchema>;
 export type EditIndentInput = z.infer<typeof editIndentSchema>;
+
+export const updateWorkspaceInfoSchema = z.object({
+    workspaceId: z.string().uuid(),
+    name: z.string().min(3).max(100),
+    // Legal
+    legalName: z.string().min(1, "Legal Name is required").max(100),
+    gstNumber: z.string().min(1, "GST Number is required").max(20),
+    panNumber: z.string().max(20).optional().nullable(),
+    companyType: z.string().min(1, "Company Type is required"),
+    industry: z.string().min(1, "Industry is required"),
+    msmeNumber: z.string().min(1, "MSME Number is required"),
+    description: z.string().optional().nullable(),
+    // Contact
+    email: z.string().email("Invalid email address"),
+    phone: z.string().min(1, "Phone is required").max(20),
+    website: z.string().url().optional().nullable().or(z.literal("")),
+    // Address
+    addressLine1: z.string().min(1, "Address Line 1 is required").max(100),
+    addressLine2: z.string().max(100).optional().nullable(),
+    city: z.string().min(1, "City is required").max(50),
+    state: z.string().min(1, "State is required").max(50),
+    country: z.string().min(1, "Country is required").max(50),
+    pincode: z.string().min(1, "Pincode is required").max(20),
+});
+
+export type UpdateWorkspaceInfoType = z.infer<typeof updateWorkspaceInfoSchema>;

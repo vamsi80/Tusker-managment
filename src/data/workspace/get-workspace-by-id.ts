@@ -13,9 +13,29 @@ import { WorkspaceRole } from "@/generated/prisma/client";
 export type WorkspaceData = {
     id: string;
     name: string;
+    description: string | null;
+    slug: string;
     ownerId: string;
     createdAt: Date;
     updatedAt: Date;
+    // Legal Details
+    legalName: string | null;
+    gstNumber: string | null;
+    panNumber: string | null;
+    companyType: string | null;
+    industry: string | null;
+    msmeNumber: string | null;
+    // Address
+    addressLine1: string | null;
+    addressLine2: string | null;
+    city: string | null;
+    state: string | null;
+    country: string | null;
+    pincode: string | null;
+    // Contact
+    email: string | null;
+    phone: string | null;
+    website: string | null;
     members?: {
         id: string;
         userId: string;
@@ -40,9 +60,29 @@ async function _fetchWorkspaceByIdInternal(workspaceId: string): Promise<Workspa
         select: {
             id: true,
             name: true,
+            description: true,
+            slug: true,
             ownerId: true,
             createdAt: true,
             updatedAt: true,
+            // Legal
+            legalName: true,
+            gstNumber: true,
+            panNumber: true,
+            companyType: true,
+            industry: true,
+            msmeNumber: true,
+            // Address
+            addressLine1: true,
+            addressLine2: true,
+            city: true,
+            state: true,
+            country: true,
+            pincode: true,
+            // Contact
+            email: true,
+            phone: true,
+            website: true,
             members: {
                 select: {
                     id: true,
