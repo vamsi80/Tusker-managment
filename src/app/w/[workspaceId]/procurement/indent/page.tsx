@@ -59,7 +59,7 @@ export default async function IndentPage({ params }: PageProps) {
             id: task.id,
             name: task.name,
             projectId: project.id,
-            assigneeId: task.assignee?.workspaceMemberId,
+            assigneeId: task.assignee?.id,
         })) || []
     );
 

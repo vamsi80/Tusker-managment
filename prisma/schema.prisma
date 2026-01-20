@@ -94,10 +94,31 @@ model Verification {
 }
 
 model Workspace {
-  id               String            @id @default(uuid())
-  name             String
-  description      String?
-  slug             String            @unique
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+  slug        String  @unique
+
+  // ✅ COMPANY / LEGAL DETAILS
+  legalName   String?
+  gstNumber   String?
+  panNumber   String?
+  companyType String? // Pvt Ltd, LLP, Proprietorship
+  industry    String?
+  msmeNumber  String?
+
+  // ✅ CONTACT & ADDRESS
+  addressLine1 String?
+  addressLine2 String?
+  city         String?
+  state        String?
+  country      String?
+  pincode      String?
+
+  email   String?
+  phone   String?
+  website String?
+
   ownerId          String
   inviteCode       String            @unique
   image_url        String            @default("")

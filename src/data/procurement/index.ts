@@ -57,12 +57,14 @@ export const getIndentRequests = cache(async (workspaceId: string) => {
                 select: {
                     id: true,
                     name: true,
+                    surname: true,
                     image: true,
                 },
             },
             requestor: {
                 select: {
                     name: true,
+                    surname: true,
                     image: true,
                 },
             },
