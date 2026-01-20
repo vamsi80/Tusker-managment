@@ -113,7 +113,12 @@ async function _getWorkspaceTasksInternal(
                 position: true,
                 startDate: true,
                 days: true,
-                tag: true,
+                tag: {
+                    select: {
+                        id: true,
+                        name: true,
+                    },
+                },
                 projectId: true,
                 isPinned: true,
                 pinnedAt: true,

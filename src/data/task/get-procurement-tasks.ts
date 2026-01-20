@@ -35,33 +35,26 @@ async function _getProcurementTasksInternal(
                         status: true,
                         startDate: true,
                         days: true,
-                        tag: true,
+                        tag: {
+                            select: {
+                                id: true,
+                                name: true,
+                            },
+                        },
                         assignee: {
                             select: {
-                                workspaceMember: {
-                                    select: {
-                                        user: {
-                                            select: {
-                                                id: true,
-                                                name: true,
-                                                surname: true,
-                                                image: true
-                                            }
-                                        }
-                                    }
-                                }
+                                id: true,
+                                name: true,
+                                surname: true,
+                                image: true
                             }
                         },
                         createdBy: {
                             select: {
-                                user: {
-                                    select: {
-                                        id: true,
-                                        name: true,
-                                        surname: true,
-                                        image: true
-                                    }
-                                }
+                                id: true,
+                                name: true,
+                                surname: true,
+                                image: true
                             }
                         }
                     }

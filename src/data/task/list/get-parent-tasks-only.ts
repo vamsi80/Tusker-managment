@@ -3,7 +3,6 @@
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import prisma from "@/lib/db";
-import { requireUser } from "@/lib/auth/require-user";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
 import { CacheTags } from "@/data/cache-tags";
 
@@ -19,7 +18,6 @@ async function _getParentTasksOnlyInternal(
     projectId: string,
     workspaceId: string,
     userId: string,
-    workspaceMemberId: string,
     isMember: boolean,
     page: number = 1,
     pageSize: number = 10
@@ -37,7 +35,7 @@ async function _getParentTasksOnlyInternal(
                     subTasks: {
                         some: {
                             assignee: {
-                                workspaceMemberId: workspaceMemberId,
+                                id: userId,
                             },
                         },
                     },
@@ -45,7 +43,7 @@ async function _getParentTasksOnlyInternal(
                 // Parent tasks where user is directly assigned
                 {
                     assignee: {
-                        workspaceMemberId: workspaceMemberId,
+                        id: userId,
                     },
                 },
             ],
@@ -71,7 +69,12 @@ async function _getParentTasksOnlyInternal(
                 position: true,
                 startDate: true,
                 days: true,
-                tag: true,
+                tag: {
+                    select: {
+                        id: true,
+                        name: true,
+                    },
+                },
                 parentTaskId: true,
                 projectId: true,
                 createdAt: true,
@@ -79,18 +82,9 @@ async function _getParentTasksOnlyInternal(
                 assignee: {
                     select: {
                         id: true,
-                        workspaceMember: {
-                            select: {
-                                user: {
-                                    select: {
-                                        id: true,
-                                        name: true,
-                                        surname: true,
-                                        image: true,
-                                    },
-                                },
-                            },
-                        },
+                        name: true,
+                        surname: true,
+                        image: true,
                     },
                 },
                 parentTask: {
@@ -106,7 +100,7 @@ async function _getParentTasksOnlyInternal(
                             ? {
                                 where: {
                                     assignee: {
-                                        workspaceMemberId: workspaceMemberId,
+                                        id: userId,
                                     },
                                 },
                             }
@@ -142,13 +136,12 @@ const getCachedParentTasksOnly = (
     projectId: string,
     workspaceId: string,
     userId: string,
-    workspaceMemberId: string,
     isMember: boolean,
     page: number,
     pageSize: number
 ) =>
     unstable_cache(
-        async () => _getParentTasksOnlyInternal(projectId, workspaceId, userId, workspaceMemberId, isMember, page, pageSize),
+        async () => _getParentTasksOnlyInternal(projectId, workspaceId, userId, isMember, page, pageSize),
         [`project-parent-tasks-${projectId}-user-${userId}-page-${page}`],
         {
             tags: CacheTags.parentTasksOnly(projectId, userId),
@@ -181,8 +174,6 @@ const getCachedParentTasksOnly = (
  */
 export const getParentTasksOnly = cache(
     async (projectId: string, workspaceId: string, page: number = 1, pageSize: number = 10) => {
-        const user = await requireUser();
-
         try {
             const permissions = await getUserPermissions(workspaceId, projectId);
 
@@ -198,8 +189,7 @@ export const getParentTasksOnly = cache(
             return await getCachedParentTasksOnly(
                 projectId,
                 workspaceId,
-                user.id,
-                permissions.workspaceMemberId,
+                permissions.workspaceMember!.userId,
                 permissions.isMember,
                 page,
                 pageSize

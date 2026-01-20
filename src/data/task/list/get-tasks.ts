@@ -36,7 +36,7 @@ async function _getProjectTasksInternal(
             subTasks: {
                 some: {
                     assignee: {
-                        workspaceMemberId: workspaceMemberId,
+                        id: userId,
                     },
                 },
             },
@@ -62,33 +62,26 @@ async function _getProjectTasksInternal(
                 position: true,
                 startDate: true,
                 days: true,
-                tag: true,
+                tag: {
+                    select: {
+                        id: true,
+                        name: true,
+                    },
+                },
                 projectId: true,
                 createdBy: {
                     select: {
-                        user: {
-                            select: {
-                                name: true,
-                                surname: true,
-                                image: true,
-                            },
-                        },
+                        name: true,
+                        surname: true,
+                        image: true,
                     },
                 },
                 assignee: {
                     select: {
-                        workspaceMember: {
-                            select: {
-                                user: {
-                                    select: {
-                                        id: true,
-                                        name: true,
-                                        surname: true,
-                                        image: true,
-                                    },
-                                },
-                            },
-                        },
+                        id: true,
+                        name: true,
+                        surname: true,
+                        image: true,
                     },
                 },
                 // Include subtasks with filtering for members
@@ -96,7 +89,7 @@ async function _getProjectTasksInternal(
                     ? {
                         where: {
                             assignee: {
-                                workspaceMemberId: workspaceMemberId,
+                                id: userId,
                             },
                         },
                         select: {
@@ -108,21 +101,18 @@ async function _getProjectTasksInternal(
                             position: true,
                             startDate: true,
                             days: true,
-                            tag: true,
+                            tag: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                },
+                            },
                             assignee: {
                                 select: {
-                                    workspaceMember: {
-                                        select: {
-                                            user: {
-                                                select: {
-                                                    id: true,
-                                                    name: true,
-                                                    surname: true,
-                                                    image: true,
-                                                },
-                                            },
-                                        },
-                                    },
+                                    id: true,
+                                    name: true,
+                                    surname: true,
+                                    image: true,
                                 },
                             },
                         },
@@ -140,21 +130,18 @@ async function _getProjectTasksInternal(
                             position: true,
                             startDate: true,
                             days: true,
-                            tag: true,
+                            tag: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                },
+                            },
                             assignee: {
                                 select: {
-                                    workspaceMember: {
-                                        select: {
-                                            user: {
-                                                select: {
-                                                    id: true,
-                                                    name: true,
-                                                    surname: true,
-                                                    image: true,
-                                                },
-                                            },
-                                        },
-                                    },
+                                    id: true,
+                                    name: true,
+                                    surname: true,
+                                    image: true,
                                 },
                             },
                         },
@@ -168,7 +155,7 @@ async function _getProjectTasksInternal(
                             ? {
                                 where: {
                                     assignee: {
-                                        workspaceMemberId: workspaceMemberId,
+                                        id: userId,
                                     },
                                 },
                             }
@@ -200,6 +187,7 @@ async function _getTaskSubTasksInternal(
     parentTaskId: string,
     workspaceId: string,
     projectId: string,
+    userId: string,
     workspaceMemberId: string,
     isMember: boolean,
     page: number,
@@ -212,7 +200,7 @@ async function _getTaskSubTasksInternal(
         ? {
             parentTaskId: parentTaskId,
             assignee: {
-                workspaceMemberId: workspaceMemberId,
+                id: userId,
             },
         }
         : {
@@ -235,21 +223,18 @@ async function _getTaskSubTasksInternal(
                 position: true,
                 startDate: true,
                 days: true,
-                tag: true,
+                tag: {
+                    select: {
+                        id: true,
+                        name: true,
+                    },
+                },
                 assignee: {
                     select: {
-                        workspaceMember: {
-                            select: {
-                                user: {
-                                    select: {
-                                        id: true,
-                                        name: true,
-                                        surname: true,
-                                        image: true,
-                                    },
-                                },
-                            },
-                        },
+                        id: true,
+                        name: true,
+                        surname: true,
+                        image: true,
                     },
                 },
             },
@@ -302,13 +287,14 @@ const getCachedTaskSubTasks = (
     parentTaskId: string,
     workspaceId: string,
     projectId: string,
+    userId: string,
     workspaceMemberId: string,
     isMember: boolean,
     page: number,
     pageSize: number
 ) =>
     unstable_cache(
-        async () => _getTaskSubTasksInternal(parentTaskId, workspaceId, projectId, workspaceMemberId, isMember, page, pageSize),
+        async () => _getTaskSubTasksInternal(parentTaskId, workspaceId, projectId, userId, workspaceMemberId, isMember, page, pageSize),
         [`task-subtasks-${parentTaskId}-member-${workspaceMemberId}-page-${page}-size-${pageSize}`],
         {
             tags: CacheTags.taskSubTasks(parentTaskId, workspaceMemberId),

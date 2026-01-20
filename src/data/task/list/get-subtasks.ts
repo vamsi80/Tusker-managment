@@ -155,10 +155,7 @@ export const getSubTasks = cache(
         page: number = 1,
         pageSize: number = 10
     ) => {
-        const user = await requireUser();
-
         try {
-            // Get user's permissions using the centralized function
             const permissions = await getUserPermissions(workspaceId, projectId);
 
             if (!permissions.workspaceMemberId) {

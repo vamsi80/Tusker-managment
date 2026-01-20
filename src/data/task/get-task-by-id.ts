@@ -20,6 +20,7 @@ async function _getTaskByIdInternal(
     taskId: string,
     workspaceId: string,
     projectId: string,
+    userId: string,
     workspaceMemberId: string,
     isMember: boolean
 ) {
@@ -34,41 +35,32 @@ async function _getTaskByIdInternal(
             position: true,
             startDate: true,
             days: true,
-            tag: true,
+            tag: {
+                select: {
+                    id: true,
+                    name: true,
+                },
+            },
             projectId: true,
             parentTaskId: true,
             createdAt: true,
             updatedAt: true,
             createdBy: {
                 select: {
-                    user: {
-                        select: {
-                            id: true,
-                            name: true,
-                            surname: true,
-                            image: true,
-                            email: true,
-                        },
-                    },
+                    id: true,
+                    name: true,
+                    surname: true,
+                    image: true,
+                    email: true,
                 },
             },
             assignee: {
                 select: {
                     id: true,
-                    workspaceMember: {
-                        select: {
-                            id: true,
-                            user: {
-                                select: {
-                                    id: true,
-                                    name: true,
-                                    surname: true,
-                                    image: true,
-                                    email: true,
-                                },
-                            },
-                        },
-                    },
+                    name: true,
+                    surname: true,
+                    image: true,
+                    email: true,
                 },
             },
             project: {
@@ -91,7 +83,7 @@ async function _getTaskByIdInternal(
                 ? {
                     where: {
                         assignee: {
-                            workspaceMemberId: workspaceMemberId,
+                            id: userId,
                         },
                     },
                     select: {
@@ -103,22 +95,18 @@ async function _getTaskByIdInternal(
                         position: true,
                         startDate: true,
                         days: true,
-                        tag: true,
+                        tag: {
+                            select: {
+                                id: true,
+                                name: true,
+                            },
+                        },
                         assignee: {
                             select: {
                                 id: true,
-                                workspaceMember: {
-                                    select: {
-                                        user: {
-                                            select: {
-                                                id: true,
-                                                name: true,
-                                                surname: true,
-                                                image: true,
-                                            },
-                                        },
-                                    },
-                                },
+                                name: true,
+                                surname: true,
+                                image: true,
                             },
                         },
                         _count: {
@@ -141,22 +129,18 @@ async function _getTaskByIdInternal(
                         position: true,
                         startDate: true,
                         days: true,
-                        tag: true,
+                        tag: {
+                            select: {
+                                id: true,
+                                name: true,
+                            },
+                        },
                         assignee: {
                             select: {
                                 id: true,
-                                workspaceMember: {
-                                    select: {
-                                        user: {
-                                            select: {
-                                                id: true,
-                                                name: true,
-                                                surname: true,
-                                                image: true,
-                                            },
-                                        },
-                                    },
-                                },
+                                name: true,
+                                surname: true,
+                                image: true,
                             },
                         },
                         _count: {
@@ -175,7 +159,7 @@ async function _getTaskByIdInternal(
                         ? {
                             where: {
                                 assignee: {
-                                    workspaceMemberId: workspaceMemberId,
+                                    id: userId,
                                 },
                             },
                         }
@@ -195,7 +179,7 @@ async function _getTaskByIdInternal(
     if (isMember) {
         // If it's a subtask, check if user is assigned
         if (task.parentTaskId) {
-            const isAssigned = task.assignee?.workspaceMember?.id === workspaceMemberId;
+            const isAssigned = task.assignee?.id === userId;
             if (!isAssigned) {
                 return null; // Member doesn't have access to this subtask
             }
@@ -222,11 +206,12 @@ const getCachedTaskById = (
     taskId: string,
     workspaceId: string,
     projectId: string,
+    userId: string,
     workspaceMemberId: string,
     isMember: boolean
 ) =>
     unstable_cache(
-        async () => _getTaskByIdInternal(taskId, workspaceId, projectId, workspaceMemberId, isMember),
+        async () => _getTaskByIdInternal(taskId, workspaceId, projectId, userId, workspaceMemberId, isMember),
         [`task-${taskId}-user-member-${workspaceMemberId}`],
         {
             tags: CacheTags.taskDetails(taskId, projectId),
@@ -271,6 +256,7 @@ export const getTaskById = cache(
                 taskId,
                 workspaceId,
                 projectId,
+                user.id,
                 permissions.workspaceMemberId,
                 permissions.isMember
             );
