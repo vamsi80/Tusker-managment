@@ -213,6 +213,9 @@ export function PoClientPage({
                     onRowSelectionChange={setRowSelection}
                     getRowId={(row) => row.id}
                     enableRowSelection={(row) => !row.original.hasPO}
+                    getRowClassName={(row) =>
+                        row.original.hasPO ? 'opacity-50 bg-muted/30 cursor-not-allowed' : ''
+                    }
                 />
             </div>
 

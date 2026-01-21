@@ -1,0 +1,91 @@
+# Final Step: Add Row Styling to Client
+
+## Add getRowClassName Prop
+
+**File**: `src/app/w/[workspaceId]/procurement/po/_componets/client.tsx`
+
+**Line ~216** - Add this line after `enableRowSelection`:
+
+```typescript
+getRowClassName={(row) => 
+    row.original.hasPO ? 'opacity-50 bg-muted/30 cursor-not-allowed' : ''
+}
+```
+
+## Complete DataTable Section Should Look Like:
+
+```typescript
+<DataTable
+    columns={columns}
+    data={flattenedData}
+    searchKey="materialName"
+    searchPlaceholder="Search materials..."
+    filterFields={filterFields}
+    filterDisplay="menu"
+    rowSelection={rowSelection}
+    onRowSelectionChange={setRowSelection}
+    getRowId={(row) => row.id}
+    enableRowSelection={(row) => !row.original.hasPO}
+    getRowClassName={(row) => 
+        row.original.hasPO ? 'opacity-50 bg-muted/30 cursor-not-allowed' : ''
+    }
+/>
+```
+
+## What This Does:
+
+- **`opacity-50`**: Makes the row 50% transparent (dimmed)
+- **`bg-muted/30`**: Adds a light gray background
+- **`cursor-not-allowed`**: Shows ⛔ cursor when hovering
+
+## Visual Result:
+
+### Items WITHOUT PO:
+```
+☐ Cement - 100 bags - ₹500
+   ↑ Normal brightness, can select
+```
+
+### Items WITH PO:
+```
+☑ Cement [WT/2025-2026/000001] - 100 bags - ₹500
+   ↑ Grayed out, dimmed, can't select
+```
+
+## Alternative Styling Options:
+
+### More Subtle:
+```typescript
+getRowClassName={(row) => 
+    row.original.hasPO ? 'opacity-60 bg-muted/20' : ''
+}
+```
+
+### More Obvious:
+```typescript
+getRowClassName={(row) => 
+    row.original.hasPO ? 'opacity-40 bg-muted/50 cursor-not-allowed text-muted-foreground' : ''
+}
+```
+
+### With Left Border:
+```typescript
+getRowClassName={(row) => 
+    row.original.hasPO ? 'opacity-50 bg-muted/30 border-l-4 border-l-green-500/30' : ''
+}
+```
+
+## Testing:
+
+1. Save the file
+2. Create a PO for some items
+3. Refresh the page
+4. **Verify**:
+   - ✅ Items with POs are grayed out
+   - ✅ Items with POs have muted background
+   - ✅ Cursor shows "not-allowed" (⛔) on hover
+   - ✅ Checkbox is disabled
+   - ✅ Badge shows PO number
+   - ✅ Can't select these items
+
+✅ This completes the PO freeze feature with full visual feedback!
