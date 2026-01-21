@@ -97,6 +97,18 @@ export const getIndentRequests = cache(async (workspaceId: string) => {
                             name: true,
                         },
                     },
+                    purchaseOrderItems: {
+                        select: {
+                            id: true,
+                            purchaseOrderId: true,
+                            purchaseOrder: {
+                                select: {
+                                    poNumber: true,
+                                    status: true,
+                                }
+                            }
+                        }
+                    },
                 },
             },
         },

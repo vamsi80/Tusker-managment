@@ -13,13 +13,13 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Button } from "@/components/ui/button";
 import { IconPlus } from "@tabler/icons-react";
 import { POItemColumns, POItemRow } from "./columns";
+import { Item } from "@radix-ui/react-dropdown-menu";
 
 interface PoClientPageProps {
     data: IndentRequestWithRelations[];
     userRole: string;
     action?: React.ReactNode;
     workspaceId: string;
-    // Catalog props
     projects: { id: string; name: string }[];
     tasks: { id: string; name: string; projectId: string; assigneeId?: string | null }[];
     materials: { id: string; name: string; defaultUnitId: string | null; vendors?: { id: string; name: string }[] }[];
@@ -48,12 +48,9 @@ export function PoClientPage({
     const [createPODialogOpen, setCreatePODialogOpen] = useState(false);
     const [pending, startTransition] = useTransition();
 
-    // Calculate selected items count
     const selectedCount = Object.keys(rowSelection).filter(key => rowSelection[key]).length;
 
     const handleDelete = (row: POItemRow) => {
-        // We delete the whole indent by ID. 
-        // Note: The UI row is an item, but the action is on the Indent.
         setDeletingIndentId(row.indentId);
     };
 
@@ -85,7 +82,6 @@ export function PoClientPage({
         const indent = data.find((i) => i.id === row.indentId);
         if (!indent) return;
 
-        // Map IndentRequest to Form Data
         const formData: IndentDialogFormData = {
             name: indent.name,
             projectId: indent.projectId,
@@ -93,7 +89,7 @@ export function PoClientPage({
             description: indent.description || undefined,
             expectedDelivery: indent.expectedDelivery || new Date(),
             requiresVendor: indent.requiresVendor,
-            assignedTo: indent.assignedTo || "", // Should exist
+            assignedTo: indent.assignedTo || "",
             materials: indent.items.map(item => ({
                 materialId: item.materialId || item.material?.id,
                 quantity: item.quantity,
@@ -109,29 +105,39 @@ export function PoClientPage({
 
     const columns = POItemColumns(handleEdit, handleDelete);
 
-    // Flatten indent requests into individual item rows
     const flattenedData = useMemo<POItemRow[]>(() => {
         return data.flatMap((indent) =>
-            indent.items.map((item) => ({
-                id: item.id,
-                indentId: indent.id,
-                indentKey: indent.key,
-                indentName: indent.name,
-                materialId: item.material.id,
-                materialName: item.material.name,
-                projectName: indent.project.name,
-                taskName: indent.task?.name || null,
-                assigneeName: indent.assignee?.name || null,
-                assigneeImage: indent.assignee?.image || null,
-                quantity: item.quantity,
-                unitId: item.unit?.id || null,
-                unit: item.unit?.abbreviation || null,
-                vendorId: item.vendor?.id || null,
-                vendorName: item.vendor?.name || null,
-                estimatedPrice: item.estimatedPrice || null,
-                expectedDelivery: indent.expectedDelivery,
-                status: item.status,
-            }))
+            indent.items.map((item) => {
+                // Check if item has any PO items
+                const hasPO = item.purchaseOrderItems && item.purchaseOrderItems.length > 0;
+                const firstPO = hasPO ? item.purchaseOrderItems[0] : null;
+
+                return {
+                    id: item.id,
+                    indentId: indent.id,
+                    indentKey: indent.key,
+                    indentName: indent.name,
+                    materialId: item.material.id,
+                    materialName: item.material.name,
+                    projectName: indent.project.name,
+                    taskName: indent.task?.name || null,
+                    assigneeName: indent.assignee?.name || null,
+                    assigneeImage: indent.assignee?.image || null,
+                    quantity: item.quantity,
+                    unitId: item.unit?.id || null,
+                    unit: item.unit?.abbreviation || null,
+                    vendorId: item.vendor?.id || null,
+                    vendorName: item.vendor?.name || null,
+                    estimatedPrice: item.estimatedPrice || null,
+                    expectedDelivery: indent.expectedDelivery,
+                    status: item.status,
+
+                    // ADD THESE:
+                    hasPO: hasPO,
+                    poNumber: firstPO?.purchaseOrder?.poNumber,
+                    poStatus: firstPO?.purchaseOrder?.status,
+                };
+            })
         );
     }, [data]);
 
@@ -206,6 +212,7 @@ export function PoClientPage({
                     rowSelection={rowSelection}
                     onRowSelectionChange={setRowSelection}
                     getRowId={(row) => row.id}
+                    enableRowSelection={(row) => !row.original.hasPO}
                 />
             </div>
 
@@ -257,7 +264,7 @@ export function PoClientPage({
 
             {/* Create PO Dialog */}
             {createPODialogOpen && (() => {
-                const selectedItemsData = flattenedData.filter((_, index) => rowSelection[index]);
+                const selectedItemsData = flattenedData.filter((item) => rowSelection[item.id]);
                 console.log('=== CLIENT PASSING TO DIALOG ===');
                 console.log('Row Selection:', rowSelection);
                 console.log('Flattened Data Length:', flattenedData.length);

@@ -1,0 +1,36 @@
+// REPLACE Lines 349-366 with this code:
+
+                                                    <td className="p-2 text-right">
+                                                        <Select
+                                                            value={watchedItems[index]?.sgstPercent?.toString() || '9'}
+                                                            onValueChange={(value) => form.setValue(`items.${index}.sgstPercent`, parseFloat(value))}
+                                                        >
+                                                            <SelectTrigger className="w-20 text-right">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="0">0%</SelectItem>
+                                                                <SelectItem value="2.5">2.5%</SelectItem>
+                                                                <SelectItem value="6">6%</SelectItem>
+                                                                <SelectItem value="9">9%</SelectItem>
+                                                                <SelectItem value="14">14%</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </td>
+                                                    <td className="p-2 text-right">
+                                                        <Select
+                                                            value={watchedItems[index]?.cgstPercent?.toString() || '9'}
+                                                            onValueChange={(value) => form.setValue(`items.${index}.cgstPercent`, parseFloat(value))}
+                                                        >
+                                                            <SelectTrigger className="w-20 text-right">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="0">0%</SelectItem>
+                                                                <SelectItem value="2.5">2.5%</SelectItem>
+                                                                <SelectItem value="6">6%</SelectItem>
+                                                                <SelectItem value="9">9%</SelectItem>
+                                                                <SelectItem value="14">14%</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </td>

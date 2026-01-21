@@ -36,6 +36,9 @@ export type POItemRow = {
     estimatedPrice: number | null;
     expectedDelivery: Date | null;
     status: string;
+    hasPO: boolean;
+    poNumber?: string;
+    poStatus?: string;
 };
 
 export const POItemColumns = (
@@ -68,6 +71,7 @@ export const POItemColumns = (
             filterFn: (row, id, value) => {
                 return value.includes(row.getValue(id));
             },
+
             cell: ({ row }) => (
                 <div className="flex flex-col gap-0 min-w-[200px] max-w-[200px]">
                     <div className="flex items-center gap-2">
@@ -75,7 +79,7 @@ export const POItemColumns = (
                             {row.getValue("materialName")}
                         </span>
                         <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 font-normal text-muted-foreground whitespace-nowrap">
-                            {row.original.indentKey}
+                            {row.original.poNumber}
                         </Badge>
                     </div>
                     <div className="flex items-center gap-2">

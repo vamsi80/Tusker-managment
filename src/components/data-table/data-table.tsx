@@ -37,6 +37,7 @@ interface DataTableProps<TData, TValue> {
     rowSelection?: Record<string, boolean>;
     onRowSelectionChange?: (value: any) => void;
     filterDisplay?: "default" | "menu";
+    enableRowSelection?: (row: any) => boolean;
 }
 
 export function DataTable<TData, TValue>({
@@ -56,6 +57,7 @@ export function DataTable<TData, TValue>({
     rowSelection: controlledRowSelection,
     onRowSelectionChange: controlledOnRowSelectionChange,
     getRowId,
+    enableRowSelection,
 }: DataTableProps<TData, TValue> & { getRowId?: (row: TData) => string }) {
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -79,6 +81,7 @@ export function DataTable<TData, TValue>({
         onColumnVisibilityChange: setColumnVisibility,
         onRowSelectionChange: setRowSelection,
         getRowId,
+        enableRowSelection,
         state: {
             sorting,
             columnFilters,

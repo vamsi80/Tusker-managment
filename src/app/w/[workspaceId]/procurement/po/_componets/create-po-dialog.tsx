@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -56,15 +56,15 @@ export function CreatePODialog({
     onSuccess,
 }: CreatePODialogProps) {
     const [isPending, startTransition] = useTransition();
+    const [nextPONumber, setNextPONumber] = useState<string>('');
 
-    // DEBUG: Check what data we're receiving
-    console.log('=== CREATE PO DIALOG DEBUG ===');
-    console.log('Selected Items:', selectedItems);
-    console.log('Selected Items Length:', selectedItems.length);
-    console.log('Vendors:', vendors);
-    console.log('Projects:', projects);
-    console.log('Materials:', materials);
-    console.log('==============================');
+    useEffect(() => {
+        if (open && selectedItems.length > 0) {
+            const currentYear = new Date().getFullYear();
+            const nextYear = currentYear + 1;
+            setNextPONumber(`WT/${currentYear}-${nextYear}/000001`);
+        }
+    }, [open, selectedItems])
 
     // Group items by vendor
     const vendorGroups = selectedItems.reduce((acc, item) => {
@@ -170,7 +170,7 @@ export function CreatePODialog({
         startTransition(async () => {
             const result = await createPurchaseOrder(workspaceId, {
                 vendorId: data.vendorId,
-                projectId: data.projectId!, // Non-null assertion since Zod validates it's required
+                projectId: data.projectId, // Non-null assertion since Zod validates it's required
                 items: data.items.map(item => ({
                     materialId: item.materialId,
                     unitId: item.unitId,
@@ -194,7 +194,7 @@ export function CreatePODialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className=" min-w-[90vw] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>Create Purchase Order</DialogTitle>
                     <DialogDescription>
@@ -228,7 +228,17 @@ export function CreatePODialog({
 
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                     {/* PO Header */}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-4 gap-4">
+                        {/* PO Number */}
+                        <div className="space-y-2">
+                            <Label>PO Number</Label>
+                            <div className="h-10 px-3 py-2 rounded-md border bg-muted/50 flex items-center text-sm font-medium">
+                                {nextPONumber}
+                            </div>
+                            <p className="text-xs text-muted-foreground">Will be generated</p>
+                        </div>
+
+                        {/* Vendor */}
                         <div className="space-y-2">
                             <Label htmlFor="vendorId">Vendor *</Label>
                             <Select
@@ -252,6 +262,7 @@ export function CreatePODialog({
                             )}
                         </div>
 
+                        {/* Project */}
                         <div className="space-y-2">
                             <Label htmlFor="projectId">Project *</Label>
                             <Select
@@ -273,6 +284,19 @@ export function CreatePODialog({
                             {form.formState.errors.projectId && (
                                 <p className="text-sm text-destructive">{form.formState.errors.projectId.message}</p>
                             )}
+                        </div>
+
+                        {/* Date */}
+                        <div className="space-y-2">
+                            <Label>Date</Label>
+                            <div className="h-10 px-3 py-2 rounded-md border bg-muted/50 flex items-center text-sm">
+                                {new Date().toLocaleDateString('en-IN', {
+                                    day: '2-digit',
+                                    month: 'short',
+                                    year: 'numeric'
+                                })}
+                            </div>
+                            <p className="text-xs text-muted-foreground">Today</p>
                         </div>
                     </div>
 
@@ -308,36 +332,32 @@ export function CreatePODialog({
                                                         <div className="font-medium">{watchedItems[index]?.materialName}</div>
                                                         <div className="text-xs text-muted-foreground">{watchedItems[index]?.unitName}</div>
                                                     </td>
-                                                    <td className="p-2">
+                                                    <td className="p-2 text-right">
                                                         <Input
                                                             type="number"
-                                                            step="0.001"
+                                                            step="1"
                                                             className="w-20 text-right"
                                                             {...form.register(`items.${index}.orderedQuantity`, { valueAsNumber: true })}
                                                         />
                                                     </td>
-                                                    <td className="p-2">
+                                                    <td className="p-2 text-right">
                                                         <Input
-                                                            type="number"
-                                                            step="0.01"
                                                             className="w-24 text-right"
                                                             {...form.register(`items.${index}.unitPrice`, { valueAsNumber: true })}
                                                         />
                                                     </td>
-                                                    <td className="p-2">
+                                                    <td className="p-2 text-right">
                                                         <Input
                                                             type="number"
-                                                            step="0.01"
                                                             min="0"
                                                             max="100"
                                                             className="w-20 text-right"
                                                             {...form.register(`items.${index}.sgstPercent`, { valueAsNumber: true })}
                                                         />
                                                     </td>
-                                                    <td className="p-2">
+                                                    <td className="p-2 text-right">
                                                         <Input
                                                             type="number"
-                                                            step="0.01"
                                                             min="0"
                                                             max="100"
                                                             className="w-20 text-right"
@@ -364,7 +384,7 @@ export function CreatePODialog({
                                     </tbody>
                                     <tfoot className="border-t bg-muted/30">
                                         <tr>
-                                            <td colSpan={5} className="p-2 text-right font-medium">Subtotal:</td>
+                                            <td colSpan={5} className="p-2 text-right font-medium">GRAND TOTAL:</td>
                                             <td className="p-2 text-right font-semibold">₹{totals.subtotal.toFixed(2)}</td>
                                             <td className="p-2 text-right font-semibold text-muted-foreground">₹{totals.totalTax.toFixed(2)}</td>
                                             <td className="p-2 text-right font-bold text-lg">₹{totals.grandTotal.toFixed(2)}</td>
