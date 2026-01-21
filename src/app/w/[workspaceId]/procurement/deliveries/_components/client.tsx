@@ -1,11 +1,10 @@
 'use client';
 
-import { useState } from 'react';
 import { DataTable } from '@/components/data-table/data-table';
 import { DeliveryItemColumns, DeliveryItemRow } from './columns';
 
 interface DeliveriesClientPageProps {
-    data: any[]; // PurchaseOrder[]
+    data: any[];
     userRole: string;
     workspaceId: string;
 }
@@ -15,7 +14,6 @@ export function DeliveriesClientPage({
     userRole,
     workspaceId,
 }: DeliveriesClientPageProps) {
-    // Flatten PO items for table display
     const flattenedData: DeliveryItemRow[] = data.flatMap((po) =>
         (po.items || []).map((item: any) => ({
             id: item.id,
