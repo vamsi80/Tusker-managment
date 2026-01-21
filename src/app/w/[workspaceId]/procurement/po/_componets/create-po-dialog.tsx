@@ -41,6 +41,7 @@ interface CreatePODialogProps {
     workspaceId: string;
     vendors: { id: string; name: string }[];
     projects: { id: string; name: string }[];
+    materials: { id: string; name: string; defaultUnitId: string | null }[];
     onSuccess?: () => void;
 }
 
@@ -51,9 +52,19 @@ export function CreatePODialog({
     workspaceId,
     vendors,
     projects,
+    materials,
     onSuccess,
 }: CreatePODialogProps) {
     const [isPending, startTransition] = useTransition();
+
+    // DEBUG: Check what data we're receiving
+    console.log('=== CREATE PO DIALOG DEBUG ===');
+    console.log('Selected Items:', selectedItems);
+    console.log('Selected Items Length:', selectedItems.length);
+    console.log('Vendors:', vendors);
+    console.log('Projects:', projects);
+    console.log('Materials:', materials);
+    console.log('==============================');
 
     // Group items by vendor
     const vendorGroups = selectedItems.reduce((acc, item) => {
@@ -88,7 +99,7 @@ export function CreatePODialog({
             items: selectedItems.map(item => ({
                 materialId: item.materialId,
                 materialName: item.materialName,
-                unitId: '', // Will need to get from backend
+                unitId: item.unitId || '', // Use unitId from indent item
                 unitName: item.unit || '',
                 orderedQuantity: item.quantity,
                 unitPrice: item.estimatedPrice || 0,
@@ -159,7 +170,7 @@ export function CreatePODialog({
         startTransition(async () => {
             const result = await createPurchaseOrder(workspaceId, {
                 vendorId: data.vendorId,
-                projectId: data.projectId,
+                projectId: data.projectId!, // Non-null assertion since Zod validates it's required
                 items: data.items.map(item => ({
                     materialId: item.materialId,
                     unitId: item.unitId,
@@ -183,11 +194,16 @@ export function CreatePODialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>Create Purchase Order</DialogTitle>
                     <DialogDescription>
                         Create a PO for {selectedItems.length} selected item(s)
+                        {selectedItems.length > 0 && (
+                            <span className="ml-2 text-xs">
+                                ({selectedItems.map(i => i.materialName).join(', ')})
+                            </span>
+                        )}
                     </DialogDescription>
                 </DialogHeader>
 

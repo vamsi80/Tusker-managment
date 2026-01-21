@@ -29,7 +29,9 @@ export type POItemRow = {
     assigneeName: string | null;
     assigneeImage: string | null;
     quantity: number;
+    unitId: string | null; // Added for PO creation
     unit: string | null;
+    vendorId: string | null; // Added for PO creation
     vendorName: string | null;
     estimatedPrice: number | null;
     expectedDelivery: Date | null;

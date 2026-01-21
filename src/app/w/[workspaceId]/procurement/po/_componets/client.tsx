@@ -45,6 +45,7 @@ export function PoClientPage({
     const [editingIndent, setEditingIndent] = useState<{ id: string, data: IndentDialogFormData } | null>(null);
     const [deletingIndentId, setDeletingIndentId] = useState<string | null>(null);
     const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
+    const [createPODialogOpen, setCreatePODialogOpen] = useState(false);
     const [pending, startTransition] = useTransition();
 
     // Calculate selected items count
@@ -123,7 +124,9 @@ export function PoClientPage({
                 assigneeName: indent.assignee?.name || null,
                 assigneeImage: indent.assignee?.image || null,
                 quantity: item.quantity,
+                unitId: item.unit?.id || null,
                 unit: item.unit?.abbreviation || null,
+                vendorId: item.vendor?.id || null,
                 vendorName: item.vendor?.name || null,
                 estimatedPrice: item.estimatedPrice || null,
                 expectedDelivery: indent.expectedDelivery,
@@ -185,12 +188,7 @@ export function PoClientPage({
                     {action}
                     <Button
                         disabled={selectedCount === 0}
-                        onClick={() => {
-                            // TODO: Implement Create PO functionality
-                            const selectedItems = flattenedData.filter((_, index) => rowSelection[index]);
-                            console.log("Create PO for selected items:", selectedItems);
-                            toast.info(`Creating PO for ${selectedCount} item(s)`);
-                        }}
+                        onClick={() => setCreatePODialogOpen(true)}
                     >
                         <IconPlus className="mr-2 h-4 w-4" />
                         Create PO {selectedCount > 0 && `(${selectedCount})`}
@@ -256,6 +254,33 @@ export function PoClientPage({
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {/* Create PO Dialog */}
+            {createPODialogOpen && (() => {
+                const selectedItemsData = flattenedData.filter((_, index) => rowSelection[index]);
+                console.log('=== CLIENT PASSING TO DIALOG ===');
+                console.log('Row Selection:', rowSelection);
+                console.log('Flattened Data Length:', flattenedData.length);
+                console.log('Selected Items Data:', selectedItemsData);
+                console.log('Selected Items Length:', selectedItemsData.length);
+                console.log('===================================');
+
+                return (
+                    <CreatePODialog
+                        open={createPODialogOpen}
+                        onOpenChange={setCreatePODialogOpen}
+                        selectedItems={selectedItemsData}
+                        workspaceId={workspaceId}
+                        vendors={vendors}
+                        projects={projects}
+                        materials={materials}
+                        onSuccess={() => {
+                            setRowSelection({});
+                            setCreatePODialogOpen(false);
+                        }}
+                    />
+                );
+            })()}
         </div>
     );
 }
