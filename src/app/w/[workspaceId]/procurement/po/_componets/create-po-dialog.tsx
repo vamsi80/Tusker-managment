@@ -3,7 +3,6 @@
 import { useEffect, useState, useTransition } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { createPurchaseOrder } from '@/actions/procurement/create-purchase-order';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -13,26 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { IconTrash } from '@tabler/icons-react';
 import { POItemRow } from './columns';
-
-const createPOFormSchema = z.object({
-    vendorId: z.string().min(1, 'Vendor is required'),
-    projectId: z.string().min(1, 'Project is required'),
-    items: z.array(
-        z.object({
-            materialId: z.string(),
-            materialName: z.string(),
-            unitId: z.string(),
-            unitName: z.string(),
-            orderedQuantity: z.number().positive(),
-            unitPrice: z.number().nonnegative(),
-            sgstPercent: z.number().min(0).max(100).optional(),
-            cgstPercent: z.number().min(0).max(100).optional(),
-            indentItemId: z.string().optional(),
-        })
-    ).min(1),
-});
-
-type CreatePOFormData = z.infer<typeof createPOFormSchema>;
+import { createPOFormSchema, type CreatePOFormData } from '@/lib/zodSchemas';
 
 interface CreatePODialogProps {
     open: boolean;

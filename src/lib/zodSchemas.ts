@@ -68,6 +68,55 @@ export const workSpaceSchema = z.object({
         .min(3, { message: "description must be at least 3 charcters long" }),
 });
 
+export const updateWorkspaceInfoSchema = z.object({
+    workspaceId: z.string().uuid(),
+    name: z.string()
+        .min(3, { message: "Name must be at least 3 charcters long" })
+        .max(100, { message: "Name must be at most 100 character long" }),
+    // Legal
+    legalName: z.string()
+        .min(1, { message: "Legal Name is required" })
+        .max(100, { message: "Legal Name must be at most 100 character long" }),
+    gstNumber: z.string()
+        .min(1, { message: "GST Number is required" })
+        .max(20, { message: "GST Number must be at most 20 character long" }),
+    panNumber: z.string()
+        .max(20, { message: "Pan Number must be at most 20 character long" }).optional().nullable(),
+    companyType: z.string()
+        .min(1, { message: "Company Type is required" }),
+    industry: z.string()
+        .min(1, { message: "Industry is required" }),
+    msmeNumber: z.string()
+        .min(1, { message: "MSME Number is required" }),
+    description: z.string().optional().nullable(),
+    // Contact
+    email: z.string()
+        .email({ message: "Invalid email address" }),
+    phone: z.string()
+        .min(1, { message: "Phone is required" })
+        .max(20, { message: "Phone must be at most 20 character long" }),
+    website: z.string()
+        .url().optional().nullable().or(z.literal("")),
+    // Address
+    addressLine1: z.string()
+        .min(1, { message: "Address Line 1 is required" })
+        .max(100, { message: "Address Line 1 must be at most 100 character long" }),
+    addressLine2: z.string()
+        .max(100, { message: "Address Line 2 must be at most 100 character long" }).optional().nullable(),
+    city: z.string()
+        .min(1, { message: "City is required" })
+        .max(50, { message: "City must be at most 50 character long" }),
+    state: z.string()
+        .min(1, { message: "State is required" })
+        .max(50, { message: "State must be at most 50 character long" }),
+    country: z.string()
+        .min(1, { message: "Country is required" })
+        .max(50, { message: "Country must be at most 50 character long" }),
+    pincode: z.string()
+        .min(1, { message: "Pincode is required" })
+        .max(20, { message: "Pincode must be at most 20 character long" }),
+});
+
 export const projectSchema = z.object({
     name: z
         .string()
@@ -297,37 +346,39 @@ export const vendorSchema = z.object({
 });
 
 export const indentSchema = z.object({
-    name: z.string().min(1, "Indent name is required"),
-    indentKey: z.string().min(1, "Indent key is required"), // You might generate this automatically, but for schema we'll include it or make optional
+    name: z.string()
+        .min(1, { message: "Indent name is required" }),
+    indentKey: z.string()
+        .min(1, { message: "Indent key is required" }),
     projectId: z.string().optional().nullable(),
     description: z.string().optional(),
     requiredDate: z.date().optional().nullable(),
     procurementTaskId: z.string().optional().nullable(),
 });
 
-// Indent Request Schemas - Multi-step with validation
-// Step 1: Basic Information Schema (All users)
 export const indentStep1Schema = z.object({
-    name: z.string().min(3, "Name must be at least 3 characters"),
-    projectId: z.string().min(1, "Project is required"),
+    name: z.string()
+        .min(3, { message: "Name must be at least 3 characters" })
+        .max(150, { message: "Name must be at most 150 characters" }),
+    projectId: z.string()
+        .min(1, { message: "Project is required" })
+        .max(150, { message: "Project must be at most 150 characters" }),
     taskId: z.string().optional(),
     description: z.string().optional(),
     expectedDelivery: z.date({ message: "Expected delivery date is required" }),
     requiresVendor: z.boolean(),
-    assignedTo: z.string().min(1, "Assignee is required"),
-    status: z.enum(["PENDING", "APPROVED", "REJECTED", "QUANTITY_APPROVED", "VENDOR_PENDING"]).optional(),
+    assignedTo: z.string()
+        .min(1, { message: "Assignee is required" })
+        .max(150, { message: "Assignee must be at most 150 characters" }),
 });
 
-// Step 2: Material Item Schema with vendor/price validation
 export const materialItemSchema = z.object({
-    materialId: z.string().min(1, "Material is required"),
-    quantity: z.number().min(0.01, "Quantity must be greater than 0"),
+    materialId: z.string().min(1, { message: "Material is required" }),
+    quantity: z.number().min(0.01, { message: "Quantity must be greater than 0" }),
     unitId: z.string().optional(),
     vendorId: z.string().optional().nullable(),
     estimatedPrice: z.number().optional().nullable(),
-    itemStatus: z.enum(["PENDING", "APPROVED", "REJECTED", "QUANTITY_APPROVED", "VENDOR_PENDING"]).optional(),
 }).refine((data) => {
-    // If vendor is selected, price must be provided and > 0
     if (data.vendorId && (!data.estimatedPrice || data.estimatedPrice <= 0)) {
         return false;
     }
@@ -337,18 +388,17 @@ export const materialItemSchema = z.object({
     path: ["estimatedPrice"]
 });
 
-// Step 2: Material Selection Schema (Admin/Owner only)
 export const indentStep2Schema = z.object({
-    materials: z.array(materialItemSchema).min(1, "At least one material is required"),
+    materials: z.array(materialItemSchema)
+        .min(1, { message: "At least one material is required" }),
 });
 
-// Combined schema for dialog (partial materials for step-by-step)
 export const indentDialogSchema = indentStep1Schema.merge(indentStep2Schema.partial());
 
-// Server action schema (requires all fields including workspaceId)
 export const createIndentRequestSchema = z.object({
     workspaceId: z.string(),
-    name: z.string().min(3, { message: "Name must be at least 3 characters long" }),
+    name: z.string()
+        .min(3, { message: "Name must be at least 3 characters long" }),
     projectId: z.string(),
     taskId: z.string().optional(),
     description: z.string().optional(),
@@ -356,7 +406,6 @@ export const createIndentRequestSchema = z.object({
     materials: z.array(materialItemSchema).optional(),
     requiresVendor: z.boolean().default(true),
     assignedTo: z.string(),
-    status: z.enum(["PENDING", "APPROVED", "REJECTED", "QUANTITY_APPROVED", "VENDOR_PENDING"]).optional(),
 });
 
 export const deleteIndentSchema = z.object({
@@ -366,6 +415,43 @@ export const deleteIndentSchema = z.object({
 
 export const editIndentSchema = createIndentRequestSchema.extend({
     indentId: z.string(),
+});
+
+// Purchase Order Schemas
+export const createPOItemSchema = z.object({
+    materialId: z.string()
+        .min(1, { message: "Material is required" }),
+    materialName: z.string(),
+    unitId: z.string()
+        .min(1, { message: "Unit is required" }),
+    unitName: z.string(),
+    orderedQuantity: z.number()
+        .positive("Quantity must be greater than 0"),
+    unitPrice: z.number()
+        .nonnegative("Price must be 0 or greater"),
+    sgstPercent: z.number().min(0).max(100).optional(),
+    cgstPercent: z.number().min(0).max(100).optional(),
+    indentItemId: z.string().optional(),
+});
+
+export const createPOFormSchema = z.object({
+    vendorId: z.string()
+        .min(1, { message: "Vendor is required" }),
+    projectId: z.string()
+        .min(1, { message: "Project is required" }),
+    items: z.array(createPOItemSchema)
+        .min(1, { message: "At least one item is required" }),
+});
+
+export const createPOSchema = z.object({
+    workspaceId: z.string()
+        .uuid("Invalid workspace ID"),
+    vendorId: z.string()
+        .uuid("Invalid vendor ID"),
+    projectId: z.string()
+        .uuid("Invalid project ID"),
+    items: z.array(createPOItemSchema)
+        .min(1, { message: "At least one item is required" }),
 });
 
 export type InviteUserSchemaType = z.infer<typeof inviteUserSchema>;
@@ -385,29 +471,7 @@ export type IndentDialogFormData = z.infer<typeof indentDialogSchema>;
 export type CreateIndentRequestInput = z.infer<typeof createIndentRequestSchema>;
 export type DeleteIndentInput = z.infer<typeof deleteIndentSchema>;
 export type EditIndentInput = z.infer<typeof editIndentSchema>;
-
-export const updateWorkspaceInfoSchema = z.object({
-    workspaceId: z.string().uuid(),
-    name: z.string().min(3).max(100),
-    // Legal
-    legalName: z.string().min(1, "Legal Name is required").max(100),
-    gstNumber: z.string().min(1, "GST Number is required").max(20),
-    panNumber: z.string().max(20).optional().nullable(),
-    companyType: z.string().min(1, "Company Type is required"),
-    industry: z.string().min(1, "Industry is required"),
-    msmeNumber: z.string().min(1, "MSME Number is required"),
-    description: z.string().optional().nullable(),
-    // Contact
-    email: z.string().email("Invalid email address"),
-    phone: z.string().min(1, "Phone is required").max(20),
-    website: z.string().url().optional().nullable().or(z.literal("")),
-    // Address
-    addressLine1: z.string().min(1, "Address Line 1 is required").max(100),
-    addressLine2: z.string().max(100).optional().nullable(),
-    city: z.string().min(1, "City is required").max(50),
-    state: z.string().min(1, "State is required").max(50),
-    country: z.string().min(1, "Country is required").max(50),
-    pincode: z.string().min(1, "Pincode is required").max(20),
-});
-
+export type CreatePOItemInput = z.infer<typeof createPOItemSchema>;
+export type CreatePOFormData = z.infer<typeof createPOFormSchema>;
+export type CreatePOInput = z.infer<typeof createPOSchema>;
 export type UpdateWorkspaceInfoType = z.infer<typeof updateWorkspaceInfoSchema>;

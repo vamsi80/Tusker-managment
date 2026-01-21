@@ -131,8 +131,6 @@ export function PoClientPage({
                     estimatedPrice: item.estimatedPrice || null,
                     expectedDelivery: indent.expectedDelivery,
                     status: item.status,
-
-                    // ADD THESE:
                     hasPO: hasPO,
                     poNumber: firstPO?.purchaseOrder?.poNumber,
                     poStatus: firstPO?.purchaseOrder?.status,
@@ -268,12 +266,6 @@ export function PoClientPage({
             {/* Create PO Dialog */}
             {createPODialogOpen && (() => {
                 const selectedItemsData = flattenedData.filter((item) => rowSelection[item.id]);
-                console.log('=== CLIENT PASSING TO DIALOG ===');
-                console.log('Row Selection:', rowSelection);
-                console.log('Flattened Data Length:', flattenedData.length);
-                console.log('Selected Items Data:', selectedItemsData);
-                console.log('Selected Items Length:', selectedItemsData.length);
-                console.log('===================================');
 
                 return (
                     <CreatePODialog
