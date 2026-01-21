@@ -16,7 +16,7 @@ export default async function ProcurementLayout({
     const { workspaceId } = await params;
 
     // Check if user has procurement access
-    const { hasAccess, isWorkspaceAdmin, isProjectLead } = await getWorkspacePermissions(workspaceId);
+    const { hasAccess } = await getWorkspacePermissions(workspaceId);
 
     // If user doesn't have access, show access denied message
     if (!hasAccess) {

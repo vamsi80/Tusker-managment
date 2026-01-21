@@ -42,6 +42,11 @@ model User {
   quantityApprovedItems IndentItem[]    @relation("QuantityApprover")
   finalApprovedItems    IndentItem[]    @relation("FinalApprover")
 
+  // Purchase Order Actions
+  createdPurchaseOrders  PurchaseOrder[]        @relation("POCreator")
+  approvedPurchaseOrders PurchaseOrder[]        @relation("POApprover")
+  recordedPayments       PurchaseOrderPayment[] @relation("PaymentRecorder")
+
   // Unit creation
   createdUnits Unit[]
 
@@ -132,6 +137,7 @@ model Workspace {
   procurementTasks ProcurementTask[]
   units            Unit[]
   vendors          Vendor[]
+  purchaseOrders   PurchaseOrder[]
 }
 
 model WorkspaceMember {
@@ -169,6 +175,7 @@ model Project {
   tasks            Task[]
   indentDetails    IndentDetails[]
   procurementTasks ProcurementTask[]
+  purchaseOrders   PurchaseOrder[]
 
   @@index([workspaceId])
   @@index([workspaceId, createdAt])
@@ -413,12 +420,13 @@ model IndentItem {
   rejectionReason    String?
 
   // Relations
-  indentDetails    IndentDetails @relation(fields: [indentDetailsId], references: [id], onDelete: Cascade)
-  material         Material      @relation(fields: [materialId], references: [id])
-  unit             Unit?         @relation(fields: [unitId], references: [id], onDelete: Restrict)
-  vendor           Vendor?       @relation(fields: [vendorId], references: [id])
-  quantityApprover User?         @relation("QuantityApprover", fields: [quantityApprovedBy], references: [id])
-  finalApprover    User?         @relation("FinalApprover", fields: [finalApprovedBy], references: [id])
+  indentDetails      IndentDetails       @relation(fields: [indentDetailsId], references: [id], onDelete: Cascade)
+  material           Material            @relation(fields: [materialId], references: [id])
+  unit               Unit?               @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  vendor             Vendor?             @relation(fields: [vendorId], references: [id])
+  quantityApprover   User?               @relation("QuantityApprover", fields: [quantityApprovedBy], references: [id])
+  finalApprover      User?               @relation("FinalApprover", fields: [finalApprovedBy], references: [id])
+  purchaseOrderItems PurchaseOrderItem[]
 
   @@index([indentDetailsId])
   @@index([materialId])
@@ -459,8 +467,9 @@ model Unit {
   workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   // Children
-  indentItems IndentItem[]
-  materials   Material[]
+  indentItems        IndentItem[]
+  materials          Material[]
+  purchaseOrderItems PurchaseOrderItem[]
 
   @@index([isActive])
   @@index([isDefault])
@@ -470,18 +479,19 @@ model Unit {
 }
 
 model Material {
-  id             String       @id @default(uuid())
-  name           String       @unique
-  specifications String?
-  defaultUnitId  String
-  workspaceId    String
-  isActive       Boolean      @default(true)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  indentItems    IndentItem[]
-  defaultUnit    Unit         @relation(fields: [defaultUnitId], references: [id])
-  workspace      Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  vendors        Vendor[]     @relation("MaterialToVendor")
+  id                 String              @id @default(uuid())
+  name               String              @unique
+  specifications     String?
+  defaultUnitId      String
+  workspaceId        String
+  isActive           Boolean             @default(true)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  indentItems        IndentItem[]
+  defaultUnit        Unit                @relation(fields: [defaultUnitId], references: [id])
+  workspace          Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  vendors            Vendor[]            @relation("MaterialToVendor")
+  purchaseOrderItems PurchaseOrderItem[]
 
   @@index([workspaceId])
   @@index([isActive])
@@ -490,25 +500,177 @@ model Material {
 }
 
 model Vendor {
-  id            String       @id @default(uuid())
-  name          String
-  companyName   String?
-  contactPerson String?
-  contactNumber String?
-  email         String?
-  address       String?
-  gstNumber     String?
-  workspaceId   String
-  isActive      Boolean      @default(true)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  indentItems   IndentItem[]
-  workspace     Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  materials     Material[]   @relation("MaterialToVendor")
+  id             String          @id @default(uuid())
+  name           String
+  companyName    String?
+  contactPerson  String?
+  contactNumber  String?
+  email          String?
+  address        String?
+  gstNumber      String?
+  workspaceId    String
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  indentItems    IndentItem[]
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  materials      Material[]      @relation("MaterialToVendor")
+  purchaseOrders PurchaseOrder[]
 
   @@index([workspaceId])
   @@index([name])
   @@map("vendor")
+}
+
+// ============================================================================
+// PURCHASE ORDER MODULE
+// ============================================================================
+
+model PurchaseOrder {
+  id       String @id @default(uuid())
+  poNumber String @unique // Unique PO identifier (e.g., PO-2026-001)
+
+  // Multi-tenant context
+  workspaceId String
+  vendorId    String
+  projectId   String // Optional project linkage
+
+  // Financial details
+  subtotalAmount Decimal @default(0) @db.Decimal(15, 2) // Sum of all line totals (before tax)
+  totalTaxAmount Decimal @default(0) @db.Decimal(15, 2) // Sum of all tax amounts
+  totalAmount    Decimal @db.Decimal(15, 2) // Grand total (subtotal + tax)
+  currency       String  @default("INR") // Currency code (INR, USD, etc.)
+
+  // Lifecycle management
+  status POStatus @default(DRAFT)
+
+  // User actions (ownership tracking)
+  createdById  String
+  approvedById String?
+
+  // Timestamps
+  createdAt  DateTime  @default(now())
+  approvedAt DateTime?
+  updatedAt  DateTime  @updatedAt
+
+  // Relations
+  workspace  Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  vendor     Vendor    @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  project    Project   @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  createdBy  User      @relation("POCreator", fields: [createdById], references: [id])
+  approvedBy User?     @relation("POApprover", fields: [approvedById], references: [id])
+
+  // Children
+  items                 PurchaseOrderItem[]
+  purchaseOrderPayments PurchaseOrderPayment[]
+
+  @@index([workspaceId])
+  @@index([vendorId])
+  @@index([projectId])
+  @@index([status])
+  @@index([createdById])
+  @@index([approvedById])
+  @@index([poNumber])
+  @@index([workspaceId, status])
+  @@index([workspaceId, createdAt])
+  @@map("purchase_order")
+}
+
+model PurchaseOrderItem {
+  id              String @id @default(uuid())
+  purchaseOrderId String
+
+  // Material details
+  materialId String
+  unitId     String
+
+  // Quantity and pricing
+  orderedQuantity Decimal @db.Decimal(15, 3) // Quantity ordered
+  unitPrice       Decimal @db.Decimal(15, 2) // Price per unit (before tax)
+
+  // Tax details (Indian GST)
+  sgstPercent Decimal? @db.Decimal(5, 2) // SGST percentage (e.g., 9.00 for 9%)
+  cgstPercent Decimal? @db.Decimal(5, 2) // CGST percentage (e.g., 9.00 for 9%)
+
+  // Calculated totals
+  lineTotal   Decimal @db.Decimal(15, 2) // Subtotal: orderedQuantity * unitPrice (before tax)
+  taxAmount   Decimal @default(0) @db.Decimal(15, 2) // Total tax: (lineTotal * (sgst + cgst) / 100)
+  totalAmount Decimal @db.Decimal(15, 2) // Final total: lineTotal + taxAmount
+
+  // Traceability (optional link to source indent)
+  indentItemId String?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  material      Material      @relation(fields: [materialId], references: [id], onDelete: Restrict)
+  unit          Unit          @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  indentItem    IndentItem?   @relation(fields: [indentItemId], references: [id], onDelete: SetNull)
+
+  @@index([purchaseOrderId])
+  @@index([materialId])
+  @@index([indentItemId])
+  @@map("purchase_order_item")
+}
+
+// ============================================================================
+// PAYMENT TRACKING MODULE
+// ============================================================================
+
+model PurchaseOrderPayment {
+  id              String @id @default(uuid())
+  purchaseOrderId String
+
+  // Payment details
+  amountPaid  Decimal  @db.Decimal(15, 2) // Amount paid in this transaction
+  paymentDate DateTime // Date when payment was made
+  remarks     String? // Optional notes (e.g., "Advance payment", "Final settlement")
+
+  // Workspace context (for multi-tenant isolation)
+  workspaceId String
+
+  // User tracking (accountant who recorded this payment)
+  recordedById String
+
+  // Timestamps
+  createdAt DateTime @default(now()) // When this record was created
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  recordedBy    User          @relation("PaymentRecorder", fields: [recordedById], references: [id])
+
+  @@index([purchaseOrderId])
+  @@index([workspaceId])
+  @@index([recordedById])
+  @@index([paymentDate])
+  @@index([purchaseOrderId, paymentDate]) // For payment history queries
+  @@map("purchase_order_payment")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum PaymentStatus {
+  UNPAID // No payments made yet
+  PARTIALLY_PAID // Some payments made, but total < PO amount
+  PAID // Total payments >= PO amount
+  OVERPAID // Total payments > PO amount (edge case)
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum POStatus {
+  DRAFT // PO created but not yet approved
+  APPROVED // PO approved and sent to vendor
+  CANCELLED // PO cancelled (before or after approval)
+  CLOSED // PO fulfilled and closed
 }
 
 enum WorkspaceRole {

@@ -78,11 +78,6 @@ export async function editIndent(input: EditIndentInput) {
                     let finalApprovedAt: Date | null = null;
 
                     if (isAdmin) {
-                        console.log("Processing Indent Edit (Admin)", {
-                            globalStatus: validatedData.status,
-                            items: validatedData.materials?.map(m => ({ id: m.materialId, status: m.itemStatus }))
-                        });
-
                         const now = new Date();
                         // If Indent is being APPROVED, approve all items
                         if (validatedData.status === "APPROVED") {

@@ -811,41 +811,50 @@ export function CreateIndentDialog({
 
                                                     {/* Item Status/Approval (Visible to all in Edit, Editable by Admin) */}
                                                     {mode === "edit" && (
-                                                        <div className="flex items-center justify-center -mb-5">
-                                                            <FormField
-                                                                control={form.control}
-                                                                name={`materials.${index}.itemStatus`}
-                                                                render={({ field }) => {
-                                                                    const isAlreadyApproved = ["APPROVED", "QUANTITY_APPROVED", "VENDOR_PENDING"].includes(field.value || "");
+                                                        <FormField
+                                                            control={form.control}
+                                                            name={`materials.${index}.itemStatus`}
+                                                            render={({ field }) => {
+                                                                const status = field.value || "";
+                                                                const isAlreadyApproved = ["APPROVED", "QUANTITY_APPROVED", "VENDOR_PENDING"].includes(status);
 
-                                                                    if (isAlreadyApproved) {
-                                                                        return (
-                                                                            <div className="flex items-center justify-center h-8 px-2 text-green-600 font-medium text-[10px] border border-green-200 bg-green-50 rounded">
-                                                                                Approved
-                                                                            </div>
-                                                                        );
-                                                                    }
+                                                                // Check if vendor details are filled (if required)
+                                                                const hasVendorDetails = !requiresVendor || (itemValue.vendorId && itemValue.estimatedPrice !== undefined && itemValue.estimatedPrice !== null);
 
-                                                                    // Only allow Admins to approve pending items
-                                                                    if (isAdminOrOwner) {
-                                                                        return (
-                                                                            <FormItem className="flex items-center space-x-2">
-                                                                                <FormControl>
-                                                                                    <Checkbox
-                                                                                        checked={field.value === "APPROVED"}
-                                                                                        onCheckedChange={(checked) => field.onChange(checked ? "APPROVED" : "PENDING")}
-                                                                                        className="h-4 w-4"
-                                                                                        title="Approve Item"
-                                                                                    />
-                                                                                </FormControl>
-                                                                            </FormItem>
-                                                                        );
-                                                                    }
+                                                                if (isAlreadyApproved) {
+                                                                    return (
+                                                                        <div className="flex items-center justify-center h-8 px-2 text-green-600 font-medium text-[10px] border border-green-200 bg-green-50 rounded">
+                                                                            Approved
+                                                                        </div>
+                                                                    );
+                                                                }
 
-                                                                    return <></>;
-                                                                }}
-                                                            />
-                                                        </div>
+                                                                // Only allow Admins to approve pending items, and only if vendor details are present
+                                                                if (isAdminOrOwner && hasVendorDetails) {
+                                                                    return (
+                                                                        <FormItem className="flex items-center justify-center h-8">
+                                                                            <FormControl>
+                                                                                <Button
+                                                                                    type="button"
+                                                                                    variant="ghost"
+                                                                                    size="sm"
+                                                                                    className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-100 rounded-full"
+                                                                                    onClick={(e) => {
+                                                                                        e.preventDefault();
+                                                                                        field.onChange("APPROVED");
+                                                                                    }}
+                                                                                    title="Approve"
+                                                                                >
+                                                                                    <IconCheck className="h-5 w-5" />
+                                                                                </Button>
+                                                                            </FormControl>
+                                                                        </FormItem>
+                                                                    );
+                                                                }
+
+                                                                return <div className="w-8 h-8" />; // Spacer for alignment if needed
+                                                            }}
+                                                        />
                                                     )}
                                                 </div>
                                             </div>
@@ -890,11 +899,6 @@ export function CreateIndentDialog({
                                                 </span>
                                             </div>
                                         )}
-
-                                        {/* <div className="flex justify-between py-2 border-b">
-                                            <span className="text-sm text-muted-foreground">Quantity:</span>
-                                            <span className="text-sm font-medium">{form.getValues("quantity")}</span>
-                                        </div> */}
 
                                         {form.getValues("expectedDelivery") && (
                                             <div className="flex justify-between py-2 border-b">
