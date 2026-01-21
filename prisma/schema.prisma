@@ -541,6 +541,17 @@ model PurchaseOrder {
   totalAmount    Decimal @db.Decimal(15, 2) // Grand total (subtotal + tax)
   currency       String  @default("INR") // Currency code (INR, USD, etc.)
 
+  // Delivery details
+  deliveryAddressLine1 String
+  deliveryAddressLine2 String?
+  deliveryCity         String
+  deliveryState        String
+  deliveryCountry      String
+  deliveryPincode      String?
+
+  deliveryingAt      DateTime
+  termsAndConditions String?  @db.Text
+
   // Lifecycle management
   status POStatus @default(DRAFT)
 
@@ -563,6 +574,7 @@ model PurchaseOrder {
   // Children
   items                 PurchaseOrderItem[]
   purchaseOrderPayments PurchaseOrderPayment[]
+  purchaseOrderTerms    PurchaseOrderTerm[]
 
   @@index([workspaceId])
   @@index([vendorId])
@@ -574,6 +586,22 @@ model PurchaseOrder {
   @@index([workspaceId, status])
   @@index([workspaceId, createdAt])
   @@map("purchase_order")
+}
+
+model PurchaseOrderTerm {
+  id              String @id @default(uuid())
+  purchaseOrderId String
+
+  termNumber Int // 1, 2, 3, 4...
+  title      String? // Optional short heading
+  content    String // Full term text
+
+  createdAt DateTime @default(now())
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  @@unique([purchaseOrderId, termNumber])
+  @@index([purchaseOrderId])
 }
 
 model PurchaseOrderItem {

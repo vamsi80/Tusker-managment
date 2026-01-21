@@ -417,7 +417,6 @@ export const editIndentSchema = createIndentRequestSchema.extend({
     indentId: z.string(),
 });
 
-// Purchase Order Schemas
 export const createPOItemSchema = z.object({
     materialId: z.string()
         .min(1, { message: "Material is required" }),
@@ -434,25 +433,31 @@ export const createPOItemSchema = z.object({
     indentItemId: z.string().optional(),
 });
 
-export const createPOFormSchema = z.object({
-    vendorId: z.string()
-        .min(1, { message: "Vendor is required" }),
-    projectId: z.string()
-        .min(1, { message: "Project is required" }),
+// Unified PO Schema for both Form and Server
+export const createPOSchema = z.object({
+    workspaceId: z.string().uuid("Invalid workspace ID").optional(),
+    vendorId: z.string().uuid("Invalid vendor ID"),
+    projectId: z.string().uuid("Invalid project ID"),
+
+    // Unified fields
+    deliveryAddress: z.string()
+        .min(1, { message: "Address Line 1 is required" })
+        .max(500, { message: "Address must be at most 500 characters" }),
+    deliveryAddressLine2: z.string().optional(),
+    deliveryCity: z.string().min(1, { message: "City is required" }),
+    deliveryState: z.string().min(1, { message: "State is required" }),
+    deliveryCountry: z.string().min(1, { message: "Country is required" }),
+    deliveryPincode: z.string().optional(),
+
+    deliveryDate: z.date(),
+    termsAndConditions: z.string().optional(),
+
     items: z.array(createPOItemSchema)
         .min(1, { message: "At least one item is required" }),
 });
 
-export const createPOSchema = z.object({
-    workspaceId: z.string()
-        .uuid("Invalid workspace ID"),
-    vendorId: z.string()
-        .uuid("Invalid vendor ID"),
-    projectId: z.string()
-        .uuid("Invalid project ID"),
-    items: z.array(createPOItemSchema)
-        .min(1, { message: "At least one item is required" }),
-});
+// For backward compatibility / alias
+export const createPOFormSchema = createPOSchema;
 
 export type InviteUserSchemaType = z.infer<typeof inviteUserSchema>;
 export type WorkSpaceSchemaType = z.infer<typeof workSpaceSchema>;
@@ -472,6 +477,6 @@ export type CreateIndentRequestInput = z.infer<typeof createIndentRequestSchema>
 export type DeleteIndentInput = z.infer<typeof deleteIndentSchema>;
 export type EditIndentInput = z.infer<typeof editIndentSchema>;
 export type CreatePOItemInput = z.infer<typeof createPOItemSchema>;
-export type CreatePOFormData = z.infer<typeof createPOFormSchema>;
+// export type CreatePOFormData = z.infer<typeof createPOFormSchema>;
 export type CreatePOInput = z.infer<typeof createPOSchema>;
 export type UpdateWorkspaceInfoType = z.infer<typeof updateWorkspaceInfoSchema>;

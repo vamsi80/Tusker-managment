@@ -75,14 +75,6 @@ export default async function IndentPage({ params }: PageProps) {
             vendors={vendors}
             workspaceMembers={workspaceMembersResult.workspaceMembers}
             currentMemberId={workspaceMember.id}
-            action={
-                <Button asChild variant="outline">
-                    <Link href={`/w/${workspaceId}/procurement/createRFQ`}>
-                        <IconFileText className="mr-2 h-4 w-4" />
-                        Create RFQ
-                    </Link>
-                </Button>
-            }
         />
     );
 }

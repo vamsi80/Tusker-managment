@@ -13,7 +13,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { IconDots, IconFileText, IconEdit, IconTrash } from "@tabler/icons-react";
+import { IconDots, IconFileText, IconEdit, IconTrash, IconPlus, IconCheck } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 
 // Flatten indent items for table display
@@ -78,9 +78,11 @@ export const POItemColumns = (
                         <span className="font-medium text-sm truncate" title={row.getValue("materialName")}>
                             {row.getValue("materialName")}
                         </span>
-                        <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 font-normal text-muted-foreground whitespace-nowrap">
-                            {row.original.poNumber}
-                        </Badge>
+                        {row.original.poNumber && (
+                            <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 font-normal text-muted-foreground whitespace-nowrap">
+                                {row.original.poNumber}
+                            </Badge>
+                        )}
                     </div>
                     <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground truncate" title={row.original.indentName}>
@@ -261,49 +263,27 @@ export const POItemColumns = (
             id: "actions",
             header: "Actions",
             cell: ({ row }) => {
-                const { materialName, quantity, vendorName, estimatedPrice, status } = row.original;
-
-                // Check if all required fields are filled
-                const isComplete = materialName && quantity > 0 && vendorName && estimatedPrice && estimatedPrice > 0;
-                const isApproved = status === "APPROVED";
-                const canCreatePO = isComplete && isApproved;
-
+                const { hasPO } = row.original;
                 return (
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <IconDots className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                                disabled={!canCreatePO}
+                    <div className="flex items-center justify-center gap-2">
+                        {hasPO ? (
+                            <div className="flex items-center justify-center h-8 w-8 text-green-600" title="PO Created">
+                                <IconCheck className="h-5 w-5" />
+                            </div>
+                        ) : (
+                            <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => {
-                                    // TODO: Implement Create PO functionality
                                     console.log("Create PO for:", row.original);
                                 }}
+                                className="h-8 w-8 p-0"
+                                title="Create PO"
                             >
-                                <IconFileText className="mr-2 h-4 w-4" />
-                                Create PO
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                                onClick={() => onEdit(row.original)}
-                            >
-                                <IconEdit className="mr-2 h-4 w-4" />
-                                Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                                className="text-destructive"
-                                onClick={() => onDelete(row.original)}
-                            >
-                                <IconTrash className="mr-2 h-4 w-4" />
-                                Delete
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                                <IconPlus className="h-4 w-4" />
+                            </Button>
+                        )}
+                    </div>
                 );
             },
         },

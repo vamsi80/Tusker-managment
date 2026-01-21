@@ -8,11 +8,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { IconTrash } from '@tabler/icons-react';
 import { POItemRow } from './columns';
-import { createPOFormSchema, type CreatePOFormData } from '@/lib/zodSchemas';
+import { createPOFormSchema, CreatePOInput } from '@/lib/zodSchemas';
 
 interface CreatePODialogProps {
     open: boolean;
@@ -42,9 +43,17 @@ export function CreatePODialog({
         if (open && selectedItems.length > 0) {
             const currentYear = new Date().getFullYear();
             const nextYear = currentYear + 1;
-            setNextPONumber(`WT/${currentYear}-${nextYear}/000001`);
+
+            // Fetch PO number from server action (Prisma can't run in browser)
+            import('@/actions/procurement/get-next-po-number').then(({ getNextPONumber }) => {
+                getNextPONumber(workspaceId)
+                    .then((poNumber) => {
+                        console.log('✅ Generated PO number:', poNumber);
+                        setNextPONumber(poNumber);
+                    })
+            });
         }
-    }, [open, selectedItems])
+    }, [open, selectedItems, workspaceId])
 
     // Group items by vendor
     const vendorGroups = selectedItems.reduce((acc, item) => {
@@ -71,11 +80,13 @@ export function CreatePODialog({
         ? projects.find(p => p.name === Array.from(projectNames)[0])
         : undefined;
 
-    const form = useForm<CreatePOFormData>({
+    const form = useForm<CreatePOInput>({
         resolver: zodResolver(createPOFormSchema),
         defaultValues: {
             vendorId: commonVendor?.id || '',
             projectId: commonProject?.id || '',
+            deliveryAddress: '',
+            termsAndConditions: '',
             items: selectedItems.map(item => ({
                 materialId: item.materialId,
                 materialName: item.materialName,
@@ -136,7 +147,7 @@ export function CreatePODialog({
 
     const totals = calculatePOTotals();
 
-    async function onSubmit(data: CreatePOFormData) {
+    async function onSubmit(data: CreatePOInput) {
         if (hasMultipleVendors) {
             toast.error('Cannot create PO: Selected items have different vendors');
             return;
@@ -150,16 +161,16 @@ export function CreatePODialog({
         startTransition(async () => {
             const result = await createPurchaseOrder(workspaceId, {
                 vendorId: data.vendorId,
-                projectId: data.projectId, // Non-null assertion since Zod validates it's required
-                items: data.items.map(item => ({
-                    materialId: item.materialId,
-                    unitId: item.unitId,
-                    orderedQuantity: item.orderedQuantity,
-                    unitPrice: item.unitPrice,
-                    sgstPercent: item.sgstPercent,
-                    cgstPercent: item.cgstPercent,
-                    indentItemId: item.indentItemId,
-                })),
+                projectId: data.projectId,
+                deliveryAddress: data.deliveryAddress,
+                deliveryDate: data.deliveryDate,
+                deliveryAddressLine2: data.deliveryAddressLine2,
+                deliveryCity: data.deliveryCity,
+                deliveryState: data.deliveryState,
+                deliveryCountry: data.deliveryCountry,
+                deliveryPincode: data.deliveryPincode,
+                termsAndConditions: data.termsAndConditions,
+                items: data.items,
             });
 
             if (result.success) {
@@ -187,25 +198,6 @@ export function CreatePODialog({
                     </DialogDescription>
                 </DialogHeader>
 
-                {hasMultipleVendors && (
-                    <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive">
-                        <strong>Warning:</strong> Selected items have different vendors. Please select items from the same vendor.
-                        <div className="mt-2 space-y-1">
-                            {Object.entries(vendorGroups).map(([vendor, items]) => (
-                                <div key={vendor}>
-                                    • {vendor}: {items.length} item(s)
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {hasMissingVendor && (
-                    <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive">
-                        <strong>Warning:</strong> Some items do not have a vendor assigned. Please assign vendors to all items before creating a PO.
-                    </div>
-                )}
-
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                     {/* PO Header */}
                     <div className="grid grid-cols-4 gap-4">
@@ -224,9 +216,9 @@ export function CreatePODialog({
                             <Select
                                 value={form.watch('vendorId')}
                                 onValueChange={(value) => form.setValue('vendorId', value)}
-                                disabled={!!commonVendor}
+                                disabled={true}
                             >
-                                <SelectTrigger>
+                                <SelectTrigger className="bg-muted/50">
                                     <SelectValue placeholder="Select vendor" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -237,6 +229,7 @@ export function CreatePODialog({
                                     ))}
                                 </SelectContent>
                             </Select>
+                            <p className="text-xs text-muted-foreground">Fixed from selected items</p>
                             {form.formState.errors.vendorId && (
                                 <p className="text-sm text-destructive">{form.formState.errors.vendorId.message}</p>
                             )}
@@ -277,6 +270,52 @@ export function CreatePODialog({
                                 })}
                             </div>
                             <p className="text-xs text-muted-foreground">Today</p>
+                        </div>
+                    </div>
+
+                    {/* Delivery Details Section */}
+                    <div className="space-y-4 pt-4 border-t">
+                        <h3 className="font-semibold text-sm">Delivery Details</h3>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            {/* Delivery Timeline */}
+                            <div className="space-y-2">
+                                <Label htmlFor="deliveryDate">Expected Delivery Date *</Label>
+                                <Input
+                                    id="deliveryDate"
+                                    type="date"
+                                    {...form.register('deliveryDate', { valueAsDate: true })}
+                                />
+                                {form.formState.errors.deliveryDate && (
+                                    <p className="text-sm text-destructive">{form.formState.errors.deliveryDate.message}</p>
+                                )}
+                            </div>
+
+                            {/* Delivery Address */}
+                            <div className="space-y-2">
+                                <Label htmlFor="deliveryAddress">Delivery Address *</Label>
+                                <Textarea
+                                    id="deliveryAddress"
+                                    placeholder="Enter delivery address"
+                                    rows={3}
+                                    {...form.register('deliveryAddress')}
+                                />
+                                {form.formState.errors.deliveryAddress && (
+                                    <p className="text-sm text-destructive">{form.formState.errors.deliveryAddress.message}</p>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Terms and Conditions */}
+                        <div className="space-y-2">
+                            <Label htmlFor="termsAndConditions">Terms & Conditions</Label>
+                            <Textarea
+                                id="termsAndConditions"
+                                placeholder="Enter any terms and conditions for this PO (optional)"
+                                rows={4}
+                                {...form.register('termsAndConditions')}
+                            />
+                            <p className="text-xs text-muted-foreground">Payment terms, quality standards, penalties, etc.</p>
                         </div>
                     </div>
 

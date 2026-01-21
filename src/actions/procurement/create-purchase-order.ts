@@ -4,25 +4,7 @@ import db from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { getUserPermissions } from '@/data/user/get-user-permissions';
 import { generatePONumber } from '@/utils/po-utils';
-import { z } from 'zod';
-
-const createPOItemSchema = z.object({
-    materialId: z.string(),
-    unitId: z.string(),
-    orderedQuantity: z.number().positive(),
-    unitPrice: z.number().nonnegative(),
-    sgstPercent: z.number().min(0).max(100).optional(),
-    cgstPercent: z.number().min(0).max(100).optional(),
-    indentItemId: z.string().optional(),
-});
-
-const createPOSchema = z.object({
-    vendorId: z.string(),
-    projectId: z.string().min(1, 'Project is required'),
-    items: z.array(createPOItemSchema).min(1, 'At least one item is required'),
-});
-
-type CreatePOInput = z.infer<typeof createPOSchema>;
+import { CreatePOInput, createPOSchema } from '@/lib/zodSchemas';
 
 export async function createPurchaseOrder(
     workspaceId: string,
@@ -131,6 +113,13 @@ export async function createPurchaseOrder(
                     currency: 'INR',
                     status: 'DRAFT',
                     createdById: permissions.workspaceMember.userId,
+                    deliveryAddressLine1: validated.data.deliveryAddress,
+                    deliveryingAt: validated.data.deliveryDate,
+                    deliveryCountry: validated.data.deliveryCountry,
+                    deliveryState: validated.data.deliveryState,
+                    deliveryCity: validated.data.deliveryCity,
+                    deliveryPincode: validated.data.deliveryPincode,
+                    termsAndConditions: validated.data.termsAndConditions,
                     items: {
                         create: itemsWithTotals,
                     },

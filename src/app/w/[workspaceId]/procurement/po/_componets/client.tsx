@@ -13,12 +13,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Button } from "@/components/ui/button";
 import { IconPlus } from "@tabler/icons-react";
 import { POItemColumns, POItemRow } from "./columns";
-import { Item } from "@radix-ui/react-dropdown-menu";
 
 interface PoClientPageProps {
     data: IndentRequestWithRelations[];
     userRole: string;
-    action?: React.ReactNode;
     workspaceId: string;
     projects: { id: string; name: string }[];
     tasks: { id: string; name: string; projectId: string; assigneeId?: string | null }[];
@@ -32,7 +30,6 @@ interface PoClientPageProps {
 export function PoClientPage({
     data,
     userRole,
-    action,
     workspaceId,
     projects,
     tasks,
@@ -189,10 +186,33 @@ export function PoClientPage({
             <div className="flex items-center justify-between space-y-2">
                 <h2 className="text-3xl font-bold tracking-tight">PO Items</h2>
                 <div className="flex items-center space-x-2">
-                    {action}
                     <Button
                         disabled={selectedCount === 0}
-                        onClick={() => setCreatePODialogOpen(true)}
+                        onClick={() => {
+                            // Get selected items
+                            const selectedItemsData = flattenedData.filter((item) => rowSelection[item.id]);
+
+                            // Check vendor consistency
+                            const vendors = new Set(selectedItemsData.map(item => item.vendorId).filter(Boolean));
+                            const hasMissingVendor = selectedItemsData.some(item => !item.vendorId);
+
+                            if (hasMissingVendor) {
+                                toast.error('Cannot create PO', {
+                                    description: 'Some selected items do not have a vendor assigned. Please assign vendors to all items first.',
+                                });
+                                return;
+                            }
+
+                            if (vendors.size > 1) {
+                                toast.error('Cannot create PO', {
+                                    description: 'Selected items have different vendors. Please select items from the same vendor.',
+                                });
+                                return;
+                            }
+
+                            // All validations passed, open dialog
+                            setCreatePODialogOpen(true);
+                        }}
                     >
                         <IconPlus className="mr-2 h-4 w-4" />
                         Create PO {selectedCount > 0 && `(${selectedCount})`}
