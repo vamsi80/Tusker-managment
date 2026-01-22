@@ -402,7 +402,7 @@ model IndentItem {
   id                  String   @id @default(uuid())
   indentDetailsId     String
   materialId          String
-  documentDisplayName String?
+  documentDisplayName String   @default("")
   quantity            Float
   unitId              String?
   createdAt           DateTime @default(now())

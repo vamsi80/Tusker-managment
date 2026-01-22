@@ -3,7 +3,7 @@
 import { toast } from "sonner";
 import { IndentDialogFormData } from "@/lib/zodSchemas";
 import { useState, useTransition, useMemo } from "react";
-import { CreateIndentDialog } from "../../indent/_components/create-indent-dialog";
+import { CreateIndentDialog } from "../../../procurement/indent/_components/create-indent-dialog";
 import { CreatePODialog } from "./create-po-dialog";
 import { IndentRequestWithRelations } from "@/data/procurement";
 import { deleteIndent } from "@/actions/procurement/delete-indent";
@@ -20,7 +20,7 @@ interface PoClientPageProps {
     workspaceId: string;
     projects: { id: string; name: string }[];
     tasks: { id: string; name: string; projectId: string; assigneeId?: string | null }[];
-    materials: { id: string; name: string; documentDisplayName: string; defaultUnitId: string | null; vendors?: { id: string; name: string }[] }[];
+    materials: { id: string; name: string; defaultUnitId: string | null; vendors?: { id: string; name: string }[] }[];
     units: { id: string; name: string; abbreviation: string | null }[];
     vendors: { id: string; name: string }[];
     workspaceMembers: WorkspaceMemberRow[];
@@ -89,7 +89,7 @@ export function PoClientPage({
             assignedTo: indent.assignedTo || "",
             materials: indent.items.map(item => ({
                 materialId: item.materialId || item.material?.id,
-                documentDisplayName: item.documentDisplayName || "",
+                documentDisplayName: item.documentDisplayName,
                 quantity: item.quantity,
                 unitId: item.unitId || item.unit?.id || undefined,
                 vendorId: item.vendorId || item.vendor?.id || undefined,

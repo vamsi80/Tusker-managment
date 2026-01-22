@@ -29,11 +29,6 @@ export function ProcurementNav({ workspaceId }: ProcurementNavProps) {
             isActive: (path: string) => path.includes('/indent')
         },
         {
-            title: "PO",
-            href: `${basePath}/po`,
-            isActive: (path: string) => path.includes('/po')
-        },
-        {
             title: "Deliveries",
             href: `${basePath}/deliveries`,
             isActive: (path: string) => path.includes('/deliveries')

@@ -1,10 +1,7 @@
-import { getProcurableProjects, getIndentRequests, getVendors } from "@/data/procurement";
 import db from "@/lib/db";
-import { getWorkspaceMembers } from "@/data/workspace/get-workspace-members";
-import { Button } from "@/components/ui/button";
-import { IconFileText } from "@tabler/icons-react";
-import Link from "next/link";
 import { PoClientPage } from "./_componets/client";
+import { getWorkspaceMembers } from "@/data/workspace/get-workspace-members";
+import { getProcurableProjects, getIndentRequests, getVendors } from "@/data/procurement";
 
 interface PageProps {
     params: Promise<{
@@ -12,7 +9,7 @@ interface PageProps {
     }>;
 }
 
-export default async function IndentPage({ params }: PageProps) {
+export default async function PoPage({ params }: PageProps) {
     const { workspaceId } = await params;
 
     // Fetch all required data in parallel
