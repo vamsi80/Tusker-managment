@@ -12,9 +12,9 @@ import { DataTable, DataTableFilterField } from "@/components/data-table/data-ta
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { IconPlus } from "@tabler/icons-react";
-import { POItemColumns, POItemRow } from "./columns";
+import { PoPendingItemColumns, PoPendingItemRow } from "./columns";
 
-interface PoClientPageProps {
+interface PoPendingClientPageProps {
     data: IndentRequestWithRelations[];
     userRole: string;
     workspaceId: string;
@@ -27,7 +27,7 @@ interface PoClientPageProps {
     currentMemberId: string;
 }
 
-export function PoClientPage({
+export function PoPendingClientPage({
     data,
     userRole,
     workspaceId,
@@ -38,7 +38,7 @@ export function PoClientPage({
     vendors,
     workspaceMembers,
     currentMemberId,
-}: PoClientPageProps) {
+}: PoPendingClientPageProps) {
     const [editingIndent, setEditingIndent] = useState<{ id: string, data: IndentDialogFormData } | null>(null);
     const [deletingIndentId, setDeletingIndentId] = useState<string | null>(null);
     const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
@@ -47,7 +47,7 @@ export function PoClientPage({
 
     const selectedCount = Object.keys(rowSelection).filter(key => rowSelection[key]).length;
 
-    const handleDelete = (row: POItemRow) => {
+    const handleDelete = (row: PoPendingItemRow) => {
         setDeletingIndentId(row.indentId);
     };
 
@@ -75,7 +75,7 @@ export function PoClientPage({
         });
     };
 
-    const handleEdit = (row: POItemRow) => {
+    const handleEdit = (row: PoPendingItemRow) => {
         const indent = data.find((i) => i.id === row.indentId);
         if (!indent) return;
 
@@ -101,9 +101,9 @@ export function PoClientPage({
         setEditingIndent({ id: indent.id, data: formData });
     };
 
-    const columns = POItemColumns(handleEdit, handleDelete);
+    const columns = PoPendingItemColumns(handleEdit, handleDelete);
 
-    const flattenedData = useMemo<POItemRow[]>(() => {
+    const flattenedData = useMemo<PoPendingItemRow[]>(() => {
         return data.flatMap((indent) =>
             indent.items.map((item) => {
                 const hasPO = item.purchaseOrderItems && item.purchaseOrderItems.length > 0;
@@ -136,7 +136,7 @@ export function PoClientPage({
         );
     }, [data]);
 
-    const filterFields: DataTableFilterField<POItemRow>[] = [
+    const filterFields: DataTableFilterField<PoPendingItemRow>[] = [
         {
             label: "Project",
             value: "projectName",

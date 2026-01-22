@@ -12,14 +12,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { IconTrash, IconArrowUp, IconArrowDown } from '@tabler/icons-react';
-import { POItemRow } from './columns';
+import { PoPendingItemRow } from './columns';
 import { createPOFormSchema, CreatePOInput } from '@/lib/zodSchemas';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 
 interface CreatePODialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    selectedItems: POItemRow[];
+    selectedItems: PoPendingItemRow[];
     workspaceId: string;
     vendors: { id: string; name: string }[];
     projects: { id: string; name: string }[];
@@ -71,7 +71,7 @@ export function CreatePODialog({
         }
         acc[vendorName].push(item);
         return acc;
-    }, {} as Record<string, POItemRow[]>);
+    }, {} as Record<string, PoPendingItemRow[]>);
 
     // Check if all items have the same vendor
     const hasMultipleVendors = Object.keys(vendorGroups).length > 1;
@@ -104,12 +104,12 @@ export function CreatePODialog({
             items: selectedItems.map(item => ({
                 materialId: item.materialId,
                 materialName: item.materialName,
-                unitId: item.unitId || '', // Use unitId from indent item
+                unitId: item.unitId || '',
                 unitName: item.unit || '',
                 orderedQuantity: item.quantity,
                 unitPrice: item.estimatedPrice || 0,
-                sgstPercent: 9, // Default 9% SGST
-                cgstPercent: 9, // Default 9% CGST
+                sgstPercent: 9,
+                cgstPercent: 9,
                 indentItemId: item.id,
             })),
         },
@@ -122,7 +122,7 @@ export function CreatePODialog({
 
     const { fields: termFields, append: appendTerm, remove: removeTerm, move: moveTerm } = useFieldArray({
         control: form.control,
-        name: 'terms' as any, // Type cast since terms is optional in schema but we treat it as array here
+        name: 'terms' as any,
     });
 
     const watchedItems = form.watch('items');

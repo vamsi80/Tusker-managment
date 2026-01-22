@@ -546,8 +546,6 @@ model PurchaseOrder {
   deliveryingAt      DateTime
   termsAndConditions String?  @db.Text
 
-  status POStatus @default(ORDERED)
-
   createdById  String
   approvedById String?
   createdAt    DateTime  @default(now())
@@ -567,29 +565,11 @@ model PurchaseOrder {
   @@index([workspaceId])
   @@index([vendorId])
   @@index([projectId])
-  @@index([status])
   @@index([createdById])
   @@index([approvedById])
   @@index([poNumber])
-  @@index([workspaceId, status])
   @@index([workspaceId, createdAt])
   @@map("purchase_order")
-}
-
-model PurchaseOrderTerm {
-  id              String @id @default(uuid())
-  purchaseOrderId String
-
-  termNumber Int
-  title      String?
-  content    String
-
-  createdAt DateTime @default(now())
-
-  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-
-  @@unique([purchaseOrderId, termNumber])
-  @@index([purchaseOrderId])
 }
 
 model PurchaseOrderItem {
@@ -598,6 +578,7 @@ model PurchaseOrderItem {
 
   materialId String
   unitId     String
+  status     POStatus @default(ORDERED)
 
   orderedQuantity Decimal @db.Decimal(15, 3)
   unitPrice       Decimal @db.Decimal(15, 2)
@@ -623,6 +604,22 @@ model PurchaseOrderItem {
   @@index([materialId])
   @@index([indentItemId])
   @@map("purchase_order_item")
+}
+
+model PurchaseOrderTerm {
+  id              String @id @default(uuid())
+  purchaseOrderId String
+
+  termNumber Int
+  title      String?
+  content    String
+
+  createdAt DateTime @default(now())
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  @@unique([purchaseOrderId, termNumber])
+  @@index([purchaseOrderId])
 }
 
 model PurchaseOrderPayment {

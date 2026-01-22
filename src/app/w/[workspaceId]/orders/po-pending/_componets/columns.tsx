@@ -17,7 +17,7 @@ import { IconDots, IconFileText, IconEdit, IconTrash, IconPlus, IconCheck } from
 import { Badge } from "@/components/ui/badge";
 
 // Flatten indent items for table display
-export type POItemRow = {
+export type PoPendingItemRow = {
     id: string; // item id
     indentId: string;
     indentKey: string;
@@ -41,10 +41,10 @@ export type POItemRow = {
     poStatus?: string;
 };
 
-export const POItemColumns = (
-    onEdit: (row: POItemRow) => void,
-    onDelete: (row: POItemRow) => void
-): ColumnDef<POItemRow>[] => [
+export const PoPendingItemColumns = (
+    onEdit: (row: PoPendingItemRow) => void,
+    onDelete: (row: PoPendingItemRow) => void
+): ColumnDef<PoPendingItemRow>[] => [
         {
             id: "select",
             header: ({ table }) => (

@@ -19,9 +19,9 @@ export function OrdersNav({ workspaceId }: ProcurementNavProps) {
             isActive: (path: string) => path === basePath
         },
         {
-            title: "PO",
-            href: `${basePath}/po`,
-            isActive: (path: string) => path.includes('/po')
+            title: "PO Pending",
+            href: `${basePath}/po-pending`,
+            isActive: (path: string) => path.includes('/po-pending')
         },
     ];
 

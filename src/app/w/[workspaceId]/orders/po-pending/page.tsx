@@ -1,5 +1,5 @@
 import db from "@/lib/db";
-import { PoClientPage } from "./_componets/client";
+import { PoPendingClientPage } from "./_componets/client";
 import { getWorkspaceMembers } from "@/data/workspace/get-workspace-members";
 import { getProcurableProjects, getIndentRequests, getVendors } from "@/data/procurement";
 
@@ -61,7 +61,7 @@ export default async function PoPage({ params }: PageProps) {
     );
 
     return (
-        <PoClientPage
+        <PoPendingClientPage
             data={indentRequests}
             userRole={workspaceMember.workspaceRole}
             workspaceId={workspaceId}

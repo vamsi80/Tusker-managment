@@ -6,16 +6,13 @@ import { PurchaseOrderWithRelations } from '@/data/procurement';
 
 interface DeliveriesClientPageProps {
     data: PurchaseOrderWithRelations[];
-    userRole: string;
     workspaceId: string;
 }
 
 export function DeliveriesClientPage({
     data,
-    userRole,
     workspaceId,
 }: DeliveriesClientPageProps) {
-    // Map each PO to a single row with item count
     const tableData: DeliveryRow[] = data.map((po) => ({
         id: po.id,
         poNumber: po.poNumber,
