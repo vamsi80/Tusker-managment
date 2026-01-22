@@ -50,7 +50,6 @@ export default async function PoPage({ params }: PageProps) {
     const { indentRequests, workspaceMember } = indentsData;
     const projects = projectsData || []
 
-    // Get all tasks from projects for the dialog
     const tasks = projects.flatMap((project) =>
         project.tasks?.map((task) => ({
             id: task.id,
