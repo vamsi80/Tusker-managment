@@ -1,26 +1,26 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { IconPlus, IconLoader2, IconArrowLeft, IconArrowRight, IconCheck, IconX } from "@tabler/icons-react";
+import React from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
-import React from "react";
-import { indentDialogSchema, type IndentDialogFormData, type MaterialItemType } from "@/lib/zodSchemas";
-import { WorkspaceMemberRow } from "@/data/workspace/get-workspace-members";
-import { createIndentRequest } from "@/actions/procurement/create-indent";
+import { useForm } from "react-hook-form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useState, useTransition, useEffect } from "react";
 import { editIndent } from "@/actions/procurement/edit-indent";
+import { createIndentRequest } from "@/actions/procurement/create-indent";
+import { WorkspaceMemberRow } from "@/data/workspace/get-workspace-members";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { indentDialogSchema, type IndentDialogFormData, type MaterialItemType } from "@/lib/zodSchemas";
+import { IconPlus, IconLoader2, IconArrowLeft, IconArrowRight, IconCheck, IconX } from "@tabler/icons-react";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export interface CreateIndentDialogProps {
     workspaceId: string;
@@ -147,7 +147,7 @@ export function CreateIndentDialog({
 
     const addMaterial = () => {
         const current = form.getValues("materials") || [];
-        form.setValue("materials", [...current, { materialId: "", quantity: 1, unitId: undefined, vendorId: undefined, estimatedPrice: undefined }]);
+        form.setValue("materials", [...current, { materialId: "", quantity: 1, unitId: undefined, vendorId: undefined, estimatedPrice: undefined, itemStatus: "PENDING", documentDisplayName: "" }]);
     };
 
     const removeMaterial = (index: number) => {
@@ -261,7 +261,7 @@ export function CreateIndentDialog({
     return (
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
             {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-            <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto overflow-x-hidden">
+            <DialogContent className="min-w-[90vw] max-h-[90vh] overflow-y-auto overflow-x-hidden">
                 <DialogHeader>
                     <DialogTitle>Create Indent Request</DialogTitle>
                     <DialogDescription>
@@ -573,27 +573,49 @@ export function CreateIndentDialog({
                                     </Button>
                                 </div>
 
-                                {/* Requires Vendor Checkbox */}
+                                {/* Header Row */}
+                                <div className={cn(requiresVendor
+                                    ? "grid grid-cols-[2fr_2fr_2fr_1fr_0.7fr_0.7fr_30px] gap-2"
+                                    : "grid grid-cols-[3fr_3fr_1fr_1fr_30px] gap-2",
+                                    "px-2 mb-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider"
+                                )}>
+                                    <div>Material</div>
+                                    <div>Printed on PO & Invoice</div>
+                                    {requiresVendor && (
+                                        <>
+                                            <div>Preferred Vendor</div>
+                                            <div className="text-right">Est. Price</div>
+                                        </>
+                                    )}
+                                    <div>Qty</div>
+                                    <div>Unit</div>
+                                    <div></div>
+                                </div>
+
                                 <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
                                     {materialsList.map((itemValue: MaterialItemType, index: number) => {
                                         const isApproved = itemValue.itemStatus === "APPROVED" && mode === "edit";
 
+                                        const gridCols = requiresVendor
+                                            ? "grid grid-cols-[2fr_2fr_2fr_1fr_0.7fr_0.7fr_30px] gap-2"
+                                            : "grid grid-cols-[3fr_3fr_1fr_1fr_30px] gap-2";
+
                                         return (
-                                            <div key={index} className={`group relative bg-muted/30 hover:bg-muted/50 border rounded-md py-2 pl-2 pr-4 transition-colors ${isApproved ? 'opacity-80' : ''}`}>
+                                            <div key={index} className={`relative bg-muted/30 hover:bg-muted/50 border rounded-md p-2 transition-colors ${isApproved ? 'opacity-80' : ''}`}>
                                                 {materialsList.length > 1 && !isApproved && (
                                                     <Button
                                                         type="button"
                                                         variant="ghost"
                                                         size="sm"
-                                                        className="absolute -top-1 -right-1 h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity bg-background border shadow-sm"
+                                                        className="absolute -top-1 -right-1 h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity bg-background border shadow-sm z-10"
                                                         onClick={() => removeMaterial(index)}
                                                     >
                                                         <IconX className="h-3 w-3" />
                                                     </Button>
                                                 )}
 
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <div className="w-30">
+                                                <div className={`${gridCols} items-start`}>
+                                                    <div className="w-full">
                                                         <FormField
                                                             control={form.control}
                                                             name={`materials.${index}.materialId`}
@@ -619,7 +641,7 @@ export function CreateIndentDialog({
                                                                         value={field.value}
                                                                     >
                                                                         <FormControl>
-                                                                            <SelectTrigger className="h-8 text-xs w-full overflow-hidden">
+                                                                            <SelectTrigger className="h-9 text-xs w-full overflow-hidden">
                                                                                 <SelectValue placeholder="Select material..." className="truncate block" />
                                                                             </SelectTrigger>
                                                                         </FormControl>
@@ -644,9 +666,29 @@ export function CreateIndentDialog({
                                                         />
                                                     </div>
 
+                                                    <div className="w-full">
+                                                        <FormField
+                                                            control={form.control}
+                                                            name={`materials.${index}.documentDisplayName`}
+                                                            render={({ field }) => (
+                                                                <FormItem>
+                                                                    <FormControl>
+                                                                        <Input
+                                                                            placeholder="Desc/Remark"
+                                                                            className="h-9 text-xs w-full"
+                                                                            {...field}
+                                                                            value={field.value || ""}
+                                                                        />
+                                                                    </FormControl>
+                                                                    <FormMessage className="text-[10px]" />
+                                                                </FormItem>
+                                                            )}
+                                                        />
+                                                    </div>
+
                                                     {requiresVendor && (
                                                         <>
-                                                            <div className="w-32">
+                                                            <div className="w-full">
                                                                 <FormField
                                                                     control={form.control}
                                                                     name={`materials.${index}.vendorId`}
@@ -670,9 +712,6 @@ export function CreateIndentDialog({
                                                                             ? materialVendors
                                                                             : vendors;
 
-
-                                                                        // console.log('Filtered Vendors:', filteredVendors);
-
                                                                         return (
                                                                             <FormItem>
                                                                                 <Select
@@ -684,7 +723,7 @@ export function CreateIndentDialog({
                                                                                     disabled={(!selectedMaterialId) || isApproved}
                                                                                 >
                                                                                     <FormControl>
-                                                                                        <SelectTrigger className="h-8 text-xs w-full overflow-hidden">
+                                                                                        <SelectTrigger className="h-9 text-xs w-full overflow-hidden">
                                                                                             <SelectValue placeholder="Vendor (Opt)" className="truncate block" />
                                                                                         </SelectTrigger>
                                                                                     </FormControl>
@@ -716,7 +755,7 @@ export function CreateIndentDialog({
                                                                 />
                                                             </div>
 
-                                                            <div className="w-20">
+                                                            <div className="w-full">
                                                                 <FormField
                                                                     control={form.control}
                                                                     name={`materials.${index}.estimatedPrice`}
@@ -729,10 +768,10 @@ export function CreateIndentDialog({
                                                                                 <FormControl>
                                                                                     <Input
                                                                                         type="number"
-                                                                                        step="0.01"
-                                                                                        min="0"
+                                                                                        step="0.5"
+                                                                                        min="1"
                                                                                         placeholder="Price/Pc"
-                                                                                        className="h-8 text-xs text-right"
+                                                                                        className="h-9 text-xs text-right w-full"
                                                                                         value={field.value || ""}
                                                                                         onChange={(e) => {
                                                                                             field.onChange(e.target.value ? parseFloat(e.target.value) : undefined);
@@ -750,7 +789,7 @@ export function CreateIndentDialog({
                                                         </>
                                                     )}
 
-                                                    <div className="w-16">
+                                                    <div className="w-full">
                                                         <FormField
                                                             control={form.control}
                                                             name={`materials.${index}.quantity`}
@@ -768,6 +807,7 @@ export function CreateIndentDialog({
                                                                                 field.onChange(parseFloat(e.target.value) || 0);
                                                                                 form.setValue(`materials.${index}.itemStatus`, "PENDING" as any);
                                                                             }}
+                                                                            className="h-9 text-xs w-full"
                                                                         />
                                                                     </FormControl>
                                                                     <FormMessage className="text-[10px]" />
@@ -776,7 +816,7 @@ export function CreateIndentDialog({
                                                         />
                                                     </div>
 
-                                                    <div className="w-16">
+                                                    <div className="w-full">
                                                         <FormField
                                                             control={form.control}
                                                             name={`materials.${index}.unitId`}
@@ -791,7 +831,7 @@ export function CreateIndentDialog({
                                                                         disabled={isApproved}
                                                                     >
                                                                         <FormControl>
-                                                                            <SelectTrigger className="h-8 text-xs">
+                                                                            <SelectTrigger className="h-9 text-xs w-full">
                                                                                 <SelectValue placeholder="Unit" />
                                                                             </SelectTrigger>
                                                                         </FormControl>

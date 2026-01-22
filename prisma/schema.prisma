@@ -399,15 +399,16 @@ model IndentDetails {
 }
 
 model IndentItem {
-  id              String   @id @default(uuid())
-  indentDetailsId String
-  materialId      String
-  quantity        Float
-  unitId          String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  estimatedPrice  Float?
-  vendorId        String?
+  id                  String   @id @default(uuid())
+  indentDetailsId     String
+  materialId          String
+  documentDisplayName String?
+  quantity            Float
+  unitId              String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  estimatedPrice      Float?
+  vendorId            String?
 
   // Approval workflow fields (keeping original field names, now pointing to User)
   status             IndentItemStatus @default(PENDING)
@@ -522,26 +523,19 @@ model Vendor {
   @@map("vendor")
 }
 
-// ============================================================================
-// PURCHASE ORDER MODULE
-// ============================================================================
-
 model PurchaseOrder {
   id       String @id @default(uuid())
-  poNumber String @unique // Unique PO identifier (e.g., PO-2026-001)
+  poNumber String @unique
 
-  // Multi-tenant context
   workspaceId String
   vendorId    String
-  projectId   String // Optional project linkage
+  projectId   String
 
-  // Financial details
-  subtotalAmount Decimal @default(0) @db.Decimal(15, 2) // Sum of all line totals (before tax)
-  totalTaxAmount Decimal @default(0) @db.Decimal(15, 2) // Sum of all tax amounts
-  totalAmount    Decimal @db.Decimal(15, 2) // Grand total (subtotal + tax)
-  currency       String  @default("INR") // Currency code (INR, USD, etc.)
+  subtotalAmount Decimal @default(0) @db.Decimal(15, 2)
+  totalTaxAmount Decimal @default(0) @db.Decimal(15, 2)
+  totalAmount    Decimal @db.Decimal(15, 2)
+  currency       String  @default("INR")
 
-  // Delivery details
   deliveryAddressLine1 String
   deliveryAddressLine2 String?
   deliveryCity         String
@@ -552,26 +546,20 @@ model PurchaseOrder {
   deliveryingAt      DateTime
   termsAndConditions String?  @db.Text
 
-  // Lifecycle management
   status POStatus @default(DRAFT)
 
-  // User actions (ownership tracking)
   createdById  String
   approvedById String?
+  createdAt    DateTime  @default(now())
+  approvedAt   DateTime?
+  updatedAt    DateTime  @updatedAt
 
-  // Timestamps
-  createdAt  DateTime  @default(now())
-  approvedAt DateTime?
-  updatedAt  DateTime  @updatedAt
-
-  // Relations
   workspace  Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   vendor     Vendor    @relation(fields: [vendorId], references: [id], onDelete: Restrict)
   project    Project   @relation(fields: [projectId], references: [id], onDelete: SetNull)
   createdBy  User      @relation("POCreator", fields: [createdById], references: [id])
   approvedBy User?     @relation("POApprover", fields: [approvedById], references: [id])
 
-  // Children
   items                 PurchaseOrderItem[]
   purchaseOrderPayments PurchaseOrderPayment[]
   purchaseOrderTerms    PurchaseOrderTerm[]
@@ -592,9 +580,9 @@ model PurchaseOrderTerm {
   id              String @id @default(uuid())
   purchaseOrderId String
 
-  termNumber Int // 1, 2, 3, 4...
-  title      String? // Optional short heading
-  content    String // Full term text
+  termNumber Int
+  title      String?
+  content    String
 
   createdAt DateTime @default(now())
 
@@ -608,31 +596,24 @@ model PurchaseOrderItem {
   id              String @id @default(uuid())
   purchaseOrderId String
 
-  // Material details
   materialId String
   unitId     String
 
-  // Quantity and pricing
-  orderedQuantity Decimal @db.Decimal(15, 3) // Quantity ordered
-  unitPrice       Decimal @db.Decimal(15, 2) // Price per unit (before tax)
+  orderedQuantity Decimal @db.Decimal(15, 3)
+  unitPrice       Decimal @db.Decimal(15, 2)
 
-  // Tax details (Indian GST)
-  sgstPercent Decimal? @db.Decimal(5, 2) // SGST percentage (e.g., 9.00 for 9%)
-  cgstPercent Decimal? @db.Decimal(5, 2) // CGST percentage (e.g., 9.00 for 9%)
+  sgstPercent Decimal? @db.Decimal(5, 2)
+  cgstPercent Decimal? @db.Decimal(5, 2)
 
-  // Calculated totals
-  lineTotal   Decimal @db.Decimal(15, 2) // Subtotal: orderedQuantity * unitPrice (before tax)
-  taxAmount   Decimal @default(0) @db.Decimal(15, 2) // Total tax: (lineTotal * (sgst + cgst) / 100)
-  totalAmount Decimal @db.Decimal(15, 2) // Final total: lineTotal + taxAmount
+  lineTotal   Decimal @db.Decimal(15, 2)
+  taxAmount   Decimal @default(0) @db.Decimal(15, 2)
+  totalAmount Decimal @db.Decimal(15, 2)
 
-  // Traceability (optional link to source indent)
   indentItemId String?
 
-  // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relations
   purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
   material      Material      @relation(fields: [materialId], references: [id], onDelete: Restrict)
   unit          Unit          @relation(fields: [unitId], references: [id], onDelete: Restrict)
@@ -644,30 +625,20 @@ model PurchaseOrderItem {
   @@map("purchase_order_item")
 }
 
-// ============================================================================
-// PAYMENT TRACKING MODULE
-// ============================================================================
-
 model PurchaseOrderPayment {
   id              String @id @default(uuid())
   purchaseOrderId String
 
-  // Payment details
-  amountPaid  Decimal  @db.Decimal(15, 2) // Amount paid in this transaction
-  paymentDate DateTime // Date when payment was made
-  remarks     String? // Optional notes (e.g., "Advance payment", "Final settlement")
+  amountPaid  Decimal  @db.Decimal(15, 2)
+  paymentDate DateTime
+  remarks     String?
 
-  // Workspace context (for multi-tenant isolation)
-  workspaceId String
-
-  // User tracking (accountant who recorded this payment)
+  workspaceId  String
   recordedById String
 
-  // Timestamps
-  createdAt DateTime @default(now()) // When this record was created
+  createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relations
   purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
   recordedBy    User          @relation("PaymentRecorder", fields: [recordedById], references: [id])
 
@@ -675,30 +646,22 @@ model PurchaseOrderPayment {
   @@index([workspaceId])
   @@index([recordedById])
   @@index([paymentDate])
-  @@index([purchaseOrderId, paymentDate]) // For payment history queries
+  @@index([purchaseOrderId, paymentDate])
   @@map("purchase_order_payment")
 }
 
-// ============================================================================
-// ENUMS
-// ============================================================================
-
 enum PaymentStatus {
-  UNPAID // No payments made yet
-  PARTIALLY_PAID // Some payments made, but total < PO amount
-  PAID // Total payments >= PO amount
-  OVERPAID // Total payments > PO amount (edge case)
+  UNPAID
+  PARTIALLY_PAID
+  PAID
+  OVERPAID
 }
 
-// ============================================================================
-// ENUMS
-// ============================================================================
-
 enum POStatus {
-  DRAFT // PO created but not yet approved
-  APPROVED // PO approved and sent to vendor
-  CANCELLED // PO cancelled (before or after approval)
-  CLOSED // PO fulfilled and closed
+  DRAFT
+  APPROVED
+  CANCELLED
+  CLOSED
 }
 
 enum WorkspaceRole {
@@ -721,10 +684,4 @@ enum TaskStatus {
   REVIEW
   HOLD
   COMPLETED
-}
-
-enum RfqStatus {
-  DRAFT
-  OPEN
-  CLOSED
 }

@@ -18,13 +18,13 @@ export const STATUS_OPTIONS = SubTaskStatus.map(value => ({
     label: STATUS_LABELS[value]
 }));
 
-
-
 export const workspaceMemberRole = ["OWNER", "ADMIN", "MEMBER", "VIEWER"] as const
 
 export const projectRole = ["LEAD", "MEMBER", "VIEWER"] as const
 
 export const unitCategories = ["Weight", "Length", "Volume", "Area", "Quantity", "Time"] as const;
+
+export const materialIndentItemStatus = ["PENDING", "APPROVED", "REJECTED", "QUANTITY_APPROVED", "VENDOR_PENDING"] as const;
 
 export const inviteUserSchema = z.object({
     name: z
@@ -372,12 +372,16 @@ export const indentStep1Schema = z.object({
         .max(150, { message: "Assignee must be at most 150 characters" }),
 });
 
-export const materialItemSchema = z.object({
+export const materialIndentItemSchema = z.object({
     materialId: z.string().min(1, { message: "Material is required" }),
     quantity: z.number().min(0.01, { message: "Quantity must be greater than 0" }),
     unitId: z.string().optional(),
     vendorId: z.string().optional().nullable(),
     estimatedPrice: z.number().optional().nullable(),
+    itemStatus: z.enum(materialIndentItemStatus),
+    documentDisplayName: z.string()
+        .min(1, { message: "Document display name is required" })
+        .max(500, { message: "Document display name must be at most 500 characters" }),
 }).refine((data) => {
     if (data.vendorId && (!data.estimatedPrice || data.estimatedPrice <= 0)) {
         return false;
@@ -389,7 +393,7 @@ export const materialItemSchema = z.object({
 });
 
 export const indentStep2Schema = z.object({
-    materials: z.array(materialItemSchema)
+    materials: z.array(materialIndentItemSchema)
         .min(1, { message: "At least one material is required" }),
 });
 
@@ -403,7 +407,7 @@ export const createIndentRequestSchema = z.object({
     taskId: z.string().optional(),
     description: z.string().optional(),
     expectedDelivery: z.date(),
-    materials: z.array(materialItemSchema).optional(),
+    materials: z.array(materialIndentItemSchema).optional(),
     requiresVendor: z.boolean().default(true),
     assignedTo: z.string(),
 });
@@ -469,7 +473,7 @@ export type IndentSchemaType = z.infer<typeof indentSchema>;
 export type UnitSchemaType = z.infer<typeof unitSchema>;
 export type MaterialSchemaType = z.infer<typeof materialSchema>;
 export type VendorSchemaType = z.infer<typeof vendorSchema>;
-export type MaterialItemType = z.infer<typeof materialItemSchema>;
+export type MaterialItemType = z.infer<typeof materialIndentItemSchema>;
 export type IndentStep1Data = z.infer<typeof indentStep1Schema>;
 export type IndentStep2Data = z.infer<typeof indentStep2Schema>;
 export type IndentDialogFormData = z.infer<typeof indentDialogSchema>;
