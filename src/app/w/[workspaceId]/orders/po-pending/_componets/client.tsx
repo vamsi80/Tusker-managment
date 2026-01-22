@@ -184,7 +184,7 @@ export function PoPendingClientPage({
     return (
         <div className="flex-1 space-y-4">
             <div className="flex items-center justify-between space-y-2">
-                <h2 className="text-3xl font-bold tracking-tight">PO Items</h2>
+                <h2 className="text-3xl font-bold tracking-tight">Pending PO's</h2>
                 <div className="flex items-center space-x-2">
                     <Button
                         disabled={selectedCount === 0}
