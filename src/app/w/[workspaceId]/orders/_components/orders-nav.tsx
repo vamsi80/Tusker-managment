@@ -8,9 +8,9 @@ interface ProcurementNavProps {
     workspaceId: string;
 }
 
-export function ProcurementNav({ workspaceId }: ProcurementNavProps) {
+export function OrdersNav({ workspaceId }: ProcurementNavProps) {
     const pathname = usePathname();
-    const basePath = `/w/${workspaceId}/procurement`;
+    const basePath = `/w/${workspaceId}/orders`;
 
     const tabs = [
         {
@@ -19,30 +19,10 @@ export function ProcurementNav({ workspaceId }: ProcurementNavProps) {
             isActive: (path: string) => path === basePath
         },
         {
-            title: "Tasks",
-            href: `${basePath}/Tasks`,
-            isActive: (path: string) => path.includes('/Tasks') || path.includes('/tasks')
-        },
-        {
-            title: "Indent",
-            href: `${basePath}/indent`,
-            isActive: (path: string) => path.includes('/indent')
-        },
-        {
-            title: "PO",
+            title: "orders",
             href: `${basePath}/po`,
             isActive: (path: string) => path.includes('/po')
         },
-        {
-            title: "Deliveries",
-            href: `${basePath}/deliveries`,
-            isActive: (path: string) => path.includes('/deliveries')
-        },
-        {
-            title: "GRN",
-            href: `${basePath}/grn`,
-            isActive: (path: string) => path.includes('/grn')
-        }
     ];
 
     return (

@@ -546,7 +546,7 @@ model PurchaseOrder {
   deliveryingAt      DateTime
   termsAndConditions String?  @db.Text
 
-  status POStatus @default(DRAFT)
+  status POStatus @default(ORDERED)
 
   createdById  String
   approvedById String?
@@ -658,8 +658,8 @@ enum PaymentStatus {
 }
 
 enum POStatus {
-  DRAFT
-  APPROVED
+  ORDERED
+  DELIVERED
   CANCELLED
   CLOSED
 }

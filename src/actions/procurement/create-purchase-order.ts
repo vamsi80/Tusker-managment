@@ -111,7 +111,7 @@ export async function createPurchaseOrder(
                     totalTaxAmount: Math.round(totalTaxAmount * 100) / 100,
                     totalAmount: Math.round(totalAmount * 100) / 100,
                     currency: 'INR',
-                    status: 'DRAFT',
+                    status: 'ORDERED',
                     createdById: permissions.workspaceMember.userId,
                     deliveryAddressLine1: validated.data.deliveryAddress,
                     deliveryingAt: validated.data.deliveryDate,
@@ -120,6 +120,12 @@ export async function createPurchaseOrder(
                     deliveryCity: validated.data.deliveryCity,
                     deliveryPincode: validated.data.deliveryPincode,
                     termsAndConditions: validated.data.termsAndConditions,
+                    purchaseOrderTerms: {
+                        create: validated.data.terms?.map((term, index) => ({
+                            termNumber: index + 1,
+                            content: term,
+                        })) || [],
+                    },
                     items: {
                         create: itemsWithTotals,
                     },
@@ -150,8 +156,11 @@ export async function createPurchaseOrder(
 
         return {
             success: true,
-            purchaseOrder,
-            message: `Purchase Order ${poNumber} created successfully`,
+            message: `Purchase Order ${purchaseOrder.poNumber} created successfully`,
+            data: {
+                id: purchaseOrder.id,
+                poNumber: purchaseOrder.poNumber,
+            },
         };
     } catch (error) {
         console.error('Error creating purchase order:', error);

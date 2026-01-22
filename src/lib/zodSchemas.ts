@@ -455,6 +455,8 @@ export const createPOSchema = z.object({
 
     deliveryDate: z.date(),
     termsAndConditions: z.string().optional(),
+    terms: z.array(z.string())
+        .min(1, { message: "At least one term is required" }),
 
     items: z.array(createPOItemSchema)
         .min(1, { message: "At least one item is required" }),

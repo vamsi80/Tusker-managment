@@ -1,10 +1,11 @@
 'use client';
 
 import { DataTable } from '@/components/data-table/data-table';
-import { DeliveryItemColumns, DeliveryItemRow } from './columns';
+import { DeliveryColumns, DeliveryRow } from './columns';
+import { PurchaseOrderWithRelations } from '@/data/procurement';
 
 interface DeliveriesClientPageProps {
-    data: any[];
+    data: PurchaseOrderWithRelations[];
     userRole: string;
     workspaceId: string;
 }
@@ -14,28 +15,28 @@ export function DeliveriesClientPage({
     userRole,
     workspaceId,
 }: DeliveriesClientPageProps) {
-    const flattenedData: DeliveryItemRow[] = data.flatMap((po) =>
-        (po.items || []).map((item: any) => ({
-            id: item.id,
-            poId: po.id,
-            poNumber: po.poNumber,
-            poDate: po.createdAt,
-            poStatus: po.status,
-            materialId: item.materialId,
-            materialName: item.material?.name || 'Unknown',
-            quantity: item.orderedQuantity,
-            unit: item.unit?.abbreviation || '',
-            unitPrice: item.unitPrice,
-            totalAmount: item.totalAmount,
-            vendorName: po.vendor?.name || 'Unknown',
-            projectName: po.project?.name || 'Unknown',
-            deliveryStatus: item.deliveryStatus || 'PENDING',
-            deliveredQuantity: item.deliveredQuantity || 0,
-            expectedDelivery: po.expectedDeliveryDate,
-        }))
-    );
+    // Map each PO to a single row with item count
+    const tableData: DeliveryRow[] = data.map((po) => ({
+        id: po.id,
+        poNumber: po.poNumber,
+        poDate: po.createdAt,
+        status: po.status,
+        vendorName: po.vendor?.name || 'Unknown',
+        projectName: po.project?.name || 'Unknown',
+        itemCount: po.items?.length || 0,
+        totalAmount: po.totalAmount,
+        expectedDelivery: po.deliveryingAt,
+        deliveryAddress: [
+            po.deliveryAddressLine1,
+            po.deliveryAddressLine2,
+            po.deliveryCity,
+            po.deliveryState,
+            po.deliveryCountry,
+            po.deliveryPincode,
+        ].filter(Boolean).join(', '),
+    }));
 
-    const columns = DeliveryItemColumns();
+    const columns = DeliveryColumns(workspaceId);
 
     return (
         <div className="space-y-4">
@@ -51,28 +52,19 @@ export function DeliveriesClientPage({
             <div className="h-full flex-1 flex-col space-y-8 md:flex">
                 <DataTable
                     columns={columns}
-                    data={flattenedData}
-                    searchKey="materialName"
-                    searchPlaceholder="Search materials..."
+                    data={tableData}
+                    searchKey="poNumber"
+                    searchPlaceholder="Search by PO number..."
                     filterFields={[
                         {
-                            label: 'PO Status',
-                            value: 'poStatus',
+                            label: 'Status',
+                            value: 'status',
                             options: [
                                 { label: 'Draft', value: 'DRAFT' },
                                 { label: 'Pending', value: 'PENDING' },
                                 { label: 'Approved', value: 'APPROVED' },
                                 { label: 'Completed', value: 'COMPLETED' },
                                 { label: 'Cancelled', value: 'CANCELLED' },
-                            ],
-                        },
-                        {
-                            label: 'Delivery Status',
-                            value: 'deliveryStatus',
-                            options: [
-                                { label: 'Pending', value: 'PENDING' },
-                                { label: 'Partial', value: 'PARTIAL' },
-                                { label: 'Delivered', value: 'DELIVERED' },
                             ],
                         },
                     ]}

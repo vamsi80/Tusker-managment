@@ -7,7 +7,8 @@ import {
   IconTruck,
   IconBucket,
   IconSettings,
-  IconCube
+  IconCube,
+  IconBook
 } from "@tabler/icons-react";
 import { SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuButton, SidebarMenuItem, } from "@/components/ui/sidebar"
 import Link from "next/link";
@@ -21,6 +22,7 @@ const iconMap = {
   IconCheckupList,
   IconTruck,
   IconCube,
+  IconBook,
   IconSettings,
 } as const;
 

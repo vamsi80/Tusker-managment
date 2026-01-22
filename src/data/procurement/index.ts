@@ -1,7 +1,7 @@
 "use server";
 
-import { cache } from "react";
 import db from "@/lib/db";
+import { cache } from "react";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 
 /**
@@ -71,6 +71,7 @@ export const getIndentRequests = cache(async (workspaceId: string) => {
             items: {
                 select: {
                     id: true,
+                    documentDisplayName: true,
                     materialId: true,
                     quantity: true,
                     unitId: true,
@@ -294,9 +295,106 @@ export const getVendors = cache(async (workspaceId: string) => {
     return vendors;
 });
 
-// Type exports
+/**
+ * Get purchase orders with all relations for deliveries tracking
+ * Optimized with selective field selection
+ * Converts Decimal types to numbers for client-side serialization
+ */
+export const getPurchaseOrders = cache(async (workspaceId: string) => {
+    const { workspaceMember } = await getWorkspacePermissions(workspaceId);
+
+    if (!workspaceMember) {
+        throw new Error("Access denied");
+    }
+
+    const purchaseOrders = await db.purchaseOrder.findMany({
+        where: {
+            workspaceId,
+        },
+        select: {
+            id: true,
+            poNumber: true,
+            status: true,
+            totalAmount: true,
+            subtotalAmount: true,
+            totalTaxAmount: true,
+            currency: true,
+            deliveryingAt: true,
+            deliveryAddressLine1: true,
+            deliveryAddressLine2: true,
+            deliveryCity: true,
+            deliveryState: true,
+            deliveryCountry: true,
+            deliveryPincode: true,
+            createdAt: true,
+            updatedAt: true,
+            vendor: {
+                select: {
+                    id: true,
+                    name: true,
+                    contactPerson: true,
+                    contactNumber: true,
+                },
+            },
+            project: {
+                select: {
+                    id: true,
+                    name: true,
+                },
+            },
+            items: {
+                select: {
+                    id: true,
+                    materialId: true,
+                    orderedQuantity: true,
+                    unitPrice: true,
+                    lineTotal: true,
+                    taxAmount: true,
+                    totalAmount: true,
+                    sgstPercent: true,
+                    cgstPercent: true,
+                    material: {
+                        select: {
+                            id: true,
+                            name: true,
+                        },
+                    },
+                    unit: {
+                        select: {
+                            id: true,
+                            name: true,
+                            abbreviation: true,
+                        },
+                    },
+                },
+            },
+        },
+        orderBy: {
+            createdAt: "desc",
+        },
+    });
+
+    return purchaseOrders.map(po => ({
+        ...po,
+        totalAmount: Number(po.totalAmount),
+        subtotalAmount: Number(po.subtotalAmount),
+        totalTaxAmount: Number(po.totalTaxAmount),
+        items: po.items.map(item => ({
+            ...item,
+            orderedQuantity: Number(item.orderedQuantity),
+            unitPrice: Number(item.unitPrice),
+            lineTotal: Number(item.lineTotal),
+            taxAmount: Number(item.taxAmount),
+            totalAmount: Number(item.totalAmount),
+            sgstPercent: item.sgstPercent ? Number(item.sgstPercent) : null,
+            cgstPercent: item.cgstPercent ? Number(item.cgstPercent) : null,
+        })),
+    }));
+});
+
 export type IndentRequestWithRelations = Awaited<ReturnType<typeof getIndentRequests>>["indentRequests"][number];
 export type ProcurableProject = Awaited<ReturnType<typeof getProcurableProjects>>[number];
 export type ApprovedIndentItemWithRelations = Awaited<ReturnType<typeof getApprovedIndentItems>>[number];
 export type ProcurementTaskWithRelations = Awaited<ReturnType<typeof getProcurementTasks>>[number];
 export type Vendor = Awaited<ReturnType<typeof getVendors>>[number];
+export type PurchaseOrderWithRelations = Awaited<ReturnType<typeof getPurchaseOrders>>[number];

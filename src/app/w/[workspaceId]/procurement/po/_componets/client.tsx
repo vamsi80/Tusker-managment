@@ -20,7 +20,7 @@ interface PoClientPageProps {
     workspaceId: string;
     projects: { id: string; name: string }[];
     tasks: { id: string; name: string; projectId: string; assigneeId?: string | null }[];
-    materials: { id: string; name: string; defaultUnitId: string | null; vendors?: { id: string; name: string }[] }[];
+    materials: { id: string; name: string; documentDisplayName: string; defaultUnitId: string | null; vendors?: { id: string; name: string }[] }[];
     units: { id: string; name: string; abbreviation: string | null }[];
     vendors: { id: string; name: string }[];
     workspaceMembers: WorkspaceMemberRow[];
@@ -89,6 +89,7 @@ export function PoClientPage({
             assignedTo: indent.assignedTo || "",
             materials: indent.items.map(item => ({
                 materialId: item.materialId || item.material?.id,
+                documentDisplayName: item.documentDisplayName || "",
                 quantity: item.quantity,
                 unitId: item.unitId || item.unit?.id || undefined,
                 vendorId: item.vendorId || item.vendor?.id || undefined,
@@ -105,7 +106,6 @@ export function PoClientPage({
     const flattenedData = useMemo<POItemRow[]>(() => {
         return data.flatMap((indent) =>
             indent.items.map((item) => {
-                // Check if item has any PO items
                 const hasPO = item.purchaseOrderItems && item.purchaseOrderItems.length > 0;
                 const firstPO = hasPO ? item.purchaseOrderItems[0] : null;
 
