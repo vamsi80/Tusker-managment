@@ -314,7 +314,6 @@ export const getPurchaseOrders = cache(async (workspaceId: string) => {
         select: {
             id: true,
             poNumber: true,
-            status: true,
             totalAmount: true,
             subtotalAmount: true,
             totalTaxAmount: true,
@@ -328,6 +327,7 @@ export const getPurchaseOrders = cache(async (workspaceId: string) => {
             deliveryPincode: true,
             createdAt: true,
             updatedAt: true,
+            approvedById: true,
             vendor: {
                 select: {
                     id: true,
@@ -376,6 +376,7 @@ export const getPurchaseOrders = cache(async (workspaceId: string) => {
 
     return purchaseOrders.map(po => ({
         ...po,
+        status: po.approvedById ? 'APPROVED' : 'PENDING', // Derive status from approvedById
         totalAmount: Number(po.totalAmount),
         subtotalAmount: Number(po.subtotalAmount),
         totalTaxAmount: Number(po.totalTaxAmount),

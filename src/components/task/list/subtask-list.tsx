@@ -119,6 +119,7 @@ export function SubTaskList({
                         members={members}
                         projectId={projectId}
                         parentTaskId={task.id}
+                        parentTaskProject={task.project}
                         isSelected={selectedSubTasks.has(subTask.id)}
                         onSelectChange={(checked) => onSelectSubTask?.(subTask.id, checked)}
                         onSubTaskUpdated={onSubTaskUpdated}

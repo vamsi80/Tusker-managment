@@ -19,6 +19,7 @@ export type ColumnVisibility = {
     progress: boolean;
     tag: boolean;
     description: boolean;
+    project: boolean; // For workspace-level view
 };
 
 interface ColumnVisibilityProps {
@@ -88,6 +89,12 @@ export function ColumnVisibility({
                     onCheckedChange={() => setColumnVisibility((prev) => ({ ...prev, tag: !prev.tag }))}
                 >
                     Tag
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem
+                    checked={columnVisibility.project}
+                    onCheckedChange={() => setColumnVisibility((prev) => ({ ...prev, project: !prev.project }))}
+                >
+                    Project
                 </DropdownMenuCheckboxItem>
             </DropdownMenuContent>
         </DropdownMenu>

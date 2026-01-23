@@ -154,7 +154,7 @@ export function GlobalFilterToolbar({
             if (assignee) {
                 return {
                     ...filter,
-                    value: `${assignee.surname}`.trim()
+                    value: `${assignee.name} ${assignee.surname || ''}`.trim()
                 };
             }
         }
@@ -467,7 +467,7 @@ export function GlobalFilterToolbar({
                                                 <SelectItem value="__all__">All Assignees</SelectItem>
                                                 {members.map((member) => (
                                                     <SelectItem key={member.id} value={member.id}>
-                                                        {member.surname || ""}
+                                                        {`${member.name} ${member.surname || ''}`.trim()}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>

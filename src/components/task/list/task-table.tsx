@@ -5,11 +5,17 @@ import { cn } from "@/lib/utils";
 import { SubTaskList } from "./subtask-list";
 import { Button } from "@/components/ui/button";
 import React, { useState, useEffect } from "react";
-import { Loader2, ChevronsDown, Plus } from "lucide-react";
+import { Loader2, ChevronsDown, Plus, ChevronsUpDown, Maximize2, Minimize2 } from "lucide-react";
 import { loadMoreTasksAction, loadSubTasksAction } from "@/actions/task/list-actions";
 import { updateSubtaskPositions } from "@/actions/task/gantt";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
 import { TableCell, TableRow } from "@/components/ui/table";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 import { SubTaskType } from "@/data/task/list/get-subtasks";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
@@ -179,6 +185,7 @@ export function TaskTable({
     const [showInlineTaskForm, setShowInlineTaskForm] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [filters, setFilters] = useState<TaskFilters>({});
+    const [isLoadingFilters, setIsLoadingFilters] = useState(false); // Loading state for filter-triggered subtask loading
     const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
         assignee: true,
         startDate: true,
@@ -187,6 +194,7 @@ export function TaskTable({
         status: true,
         tag: true,
         description: true,
+        project: level === "workspace", // Show project column only in workspace view
     });
 
     // Extract filter options dynamically from tasks
@@ -196,7 +204,7 @@ export function TaskTable({
         // Use pre-extracted assignees if provided (from getAllTasksFlat),
         // otherwise convert members to assignee format
         const assigneesForFilter = assignees || members.map(member => ({
-            id: member.workspaceMember.userId,
+            id: member.workspaceMember.user?.id || member.workspaceMember.id, // Use user ID first, fallback to member ID if needed
             name: member.workspaceMember.user.name,
             surname: member.workspaceMember.user.surname || undefined,
         })).sort((a, b) => {
@@ -208,41 +216,54 @@ export function TaskTable({
         return {
             ...options,
             assignees: assigneesForFilter,
+            // Use tags from props instead of extracting from tasks
+            tags: tags,
         };
-    }, [tasks, showAdvancedFilters, members, assignees]);
+    }, [tasks, showAdvancedFilters, members, assignees, tags]);
 
     // Use global subtask sheet context
     const { openSubTaskSheet } = useSubTaskSheet();
 
     // Automatically load subtasks when ANY filter is applied
     useEffect(() => {
-        const hasAnyFilter = filters.assigneeId || filters.status || filters.tag || filters.startDate || filters.endDate;
+        const hasAnyFilter = filters.assigneeId || filters.status || filters.tag || filters.startDate || filters.endDate || filters.projectId;
 
         if (hasAnyFilter) {
-            // Load subtasks for all parent tasks that don't have them loaded yet
-            tasks.forEach(async (task) => {
-                if (!task.subTasks || task.subTasks.length === 0) {
-                    try {
-                        const response = await loadSubTasksAction(task.id, workspaceId, projectId, 1, 100);
-                        if (response.success && response.data && response.data.subTasks.length > 0) {
-                            setTasks(prev => prev.map(t =>
-                                t.id === task.id
-                                    ? {
-                                        ...t,
-                                        subTasks: response.data!.subTasks as any,
-                                        subTasksHasMore: response.data!.hasMore,
-                                        subTasksPage: 1
-                                    }
-                                    : t
-                            ));
+            // Find tasks that need subtasks loaded
+            const tasksNeedingSubtasks = tasks.filter(task => !task.subTasks || task.subTasks.length === 0);
+
+            if (tasksNeedingSubtasks.length > 0) {
+                setIsLoadingFilters(true);
+
+                // Load subtasks for all parent tasks that don't have them loaded yet
+                Promise.all(
+                    tasksNeedingSubtasks.map(async (task) => {
+                        try {
+                            const response = await loadSubTasksAction(task.id, workspaceId, projectId, 1, 100);
+                            if (response.success && response.data && response.data.subTasks.length > 0) {
+                                setTasks(prev => prev.map(t =>
+                                    t.id === task.id
+                                        ? {
+                                            ...t,
+                                            subTasks: response.data!.subTasks as any,
+                                            subTasksHasMore: response.data!.hasMore,
+                                            subTasksPage: 1
+                                        }
+                                        : t
+                                ));
+                            }
+                        } catch (error) {
+                            console.error('Error loading subtasks for filter:', error);
                         }
-                    } catch (error) {
-                        console.error('Error loading subtasks for filter:', error);
-                    }
-                }
-            });
+                    })
+                ).finally(() => {
+                    setIsLoadingFilters(false);
+                });
+            }
+        } else {
+            setIsLoadingFilters(false);
         }
-    }, [filters.assigneeId, filters.status, filters.tag, filters.startDate, filters.endDate, workspaceId, projectId]);
+    }, [filters.assigneeId, filters.status, filters.tag, filters.startDate, filters.endDate, filters.projectId, workspaceId, projectId]);
 
     const handleSubTaskClick = (subTask: SubTaskType) => {
         openSubTaskSheet(subTask);
@@ -335,6 +356,70 @@ export function TaskTable({
             // If subtasks already exist, just expand (no fetch needed)
         }
         // If collapsing, just toggle the UI (no fetch needed)
+    };
+
+    const handleExpandAll = async () => {
+        // 1. Mark all tasks as expanded immediately
+        const allExpanded = tasks.reduce((acc, task) => ({
+            ...acc,
+            [task.id]: true
+        }), {});
+        setExpanded(allExpanded);
+
+        // 2. Identify tasks that need subtasks loaded
+        const tasksNeedingSubtasks = tasks.filter(task => !task.subTasks);
+
+        if (tasksNeedingSubtasks.length > 0) {
+            // Set loading state for these tasks
+            const newLoadingState = tasksNeedingSubtasks.reduce((acc, task) => ({
+                ...acc,
+                [task.id]: true
+            }), {});
+            setLoadingSubTasks(prev => ({ ...prev, ...newLoadingState }));
+
+            try {
+                // Load subtasks in parallel
+                await Promise.all(tasksNeedingSubtasks.map(async (task) => {
+                    try {
+                        const response = await loadSubTasksAction(
+                            task.id,
+                            workspaceId,
+                            task.projectId || projectId, // Use task's projectId if available
+                            1,
+                            10
+                        );
+
+                        if (response.success && response.data) {
+                            setTasks(prevTasks => prevTasks.map(t =>
+                                t.id === task.id
+                                    ? {
+                                        ...t,
+                                        subTasks: response.data!.subTasks,
+                                        subTasksHasMore: response.data!.hasMore,
+                                        subTasksPage: 1
+                                    }
+                                    : t
+                            ));
+                        }
+                    } catch (err) {
+                        console.error(`Failed to load subtasks for task ${task.id}`, err);
+                    }
+                }));
+            } catch (error) {
+                console.error("Error expanding all tasks:", error);
+                toast.error("Some subtasks failed to load");
+            } finally {
+                setLoadingSubTasks(prev => {
+                    const next = { ...prev };
+                    tasksNeedingSubtasks.forEach(t => delete next[t.id]);
+                    return next;
+                });
+            }
+        }
+    };
+
+    const handleCollapseAll = () => {
+        setExpanded({});
     };
 
     const loadMoreSubTasks = async (taskId: string) => {
@@ -548,8 +633,13 @@ export function TaskTable({
                 subTasks: filteredSubTasks,
             };
         }).filter(task => {
+            // Apply project filter to parent tasks (workspace-level only)
+            if (filters.projectId && task.projectId !== filters.projectId) {
+                return false;
+            }
+
             // When ANY filter is active, only show parent tasks that have matching subtasks
-            const hasAnyFilter = filters.assigneeId || filters.status || filters.tag || filters.startDate || filters.endDate;
+            const hasAnyFilter = filters.assigneeId || filters.status || filters.tag || filters.startDate || filters.endDate || filters.projectId;
 
             if (hasAnyFilter) {
                 return task.subTasks && task.subTasks.length > 0;
@@ -561,6 +651,9 @@ export function TaskTable({
         });
     }, [tasks, searchQuery, filters]);
 
+    // Calculate visible columns count for colSpan: 2 fixed (expand, name) + dynamic + 1 fixed (actions)
+    const visibleColumnsCount = 2 + Object.values(columnVisibility).filter(Boolean).length + 1;
+
     return (
         <div className="space-y-4 mt-4">
             <GlobalFilterToolbar
@@ -570,6 +663,7 @@ export function TaskTable({
                 searchQuery={searchQuery}
                 projects={filterOptions.projects}
                 members={filterOptions.assignees}
+                tags={filterOptions.tags}
                 onFilterChange={setFilters}
                 onSearchChange={setSearchQuery}
                 onClearAll={() => {
@@ -579,6 +673,7 @@ export function TaskTable({
                 columnVisibility={columnVisibility}
                 setColumnVisibility={setColumnVisibility}
             />
+
 
             <div className="rounded-md border overflow-hidden">
                 <div className={cn(
@@ -598,8 +693,27 @@ export function TaskTable({
                         <table className="w-full caption-bottom text-sm">
                             <thead className="[&_tr]:border-b">
                                 <tr className="sticky top-0 z-10 bg-background border-b shadow-sm hover:bg-muted/50">
-                                    <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[50px] bg-background"></th>
+                                    <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[50px] bg-background">
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted">
+                                                    <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="start">
+                                                <DropdownMenuItem onClick={handleExpandAll}>
+                                                    <Maximize2 className="mr-2 h-4 w-4" />
+                                                    Expand All
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={handleCollapseAll}>
+                                                    <Minimize2 className="mr-2 h-4 w-4" />
+                                                    Collapse All
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </th>
                                     <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap min-w-[250px] bg-background">Task Name</th>
+                                    {columnVisibility.project && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[180px] bg-background">Project</th>}
                                     {columnVisibility.description && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[200px] bg-background">Description</th>}
                                     {columnVisibility.assignee && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[200px] bg-background">Assignee</th>}
                                     {columnVisibility.status && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[120px] bg-background">Status</th>}
@@ -662,9 +776,22 @@ export function TaskTable({
                                         )}
                                     </React.Fragment>
                                 ))}
-                                {filteredTasks.length === 0 && (
+
+                                {/* Loading indicator when loading subtasks for filters */}
+                                {isLoadingFilters && filteredTasks.length === 0 && (
                                     <TableRow>
-                                        <TableCell colSpan={9} className="h-24 text-center">
+                                        <TableCell colSpan={visibleColumnsCount} className="h-32 text-center">
+                                            <div className="flex flex-col items-center justify-center gap-2">
+                                                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                                                <span className="text-sm text-muted-foreground">Loading tasks...</span>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+
+                                {filteredTasks.length === 0 && !isLoadingFilters && (
+                                    <TableRow>
+                                        <TableCell colSpan={visibleColumnsCount} className="h-24 text-center">
                                             No tasks found.
                                         </TableCell>
                                     </TableRow>
@@ -673,7 +800,7 @@ export function TaskTable({
                                 {/* Load More Parent Tasks */}
                                 {hasMoreTasks && (
                                     <TableRow>
-                                        <TableCell colSpan={9} className="text-center p-4">
+                                        <TableCell colSpan={visibleColumnsCount} className="text-center p-4">
                                             <Button
                                                 variant="outline"
                                                 onClick={loadMoreTasks}
@@ -719,7 +846,7 @@ export function TaskTable({
                                         />
                                     ) : (
                                         <TableRow className="hover:bg-muted/20 cursor-pointer" onClick={() => setShowInlineTaskForm(true)}>
-                                            <TableCell colSpan={9} className="p-3 text-muted-foreground">
+                                            <TableCell colSpan={visibleColumnsCount} className="p-3 text-muted-foreground">
                                                 <div className="flex items-center gap-2">
                                                     <Plus className="h-4 w-4" />
                                                     <span>Add Task</span>

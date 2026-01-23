@@ -26,6 +26,7 @@ interface SubTaskRowProps {
     members: ProjectMembersType;
     projectId: string;
     parentTaskId: string;
+    parentTaskProject?: { id: string; name: string } | null; // Parent task's project info
     onSubTaskUpdated?: (subTaskId: string, updatedData: Partial<SubTaskType>) => void;
     onSubTaskDeleted?: (subTaskId: string) => void;
     tags?: { id: string; name: string; }[]; // Dynamic tags
@@ -40,6 +41,7 @@ export function SubTaskRow({
     members,
     projectId,
     parentTaskId,
+    parentTaskProject,
     onSubTaskUpdated,
     onSubTaskDeleted,
     tags = [], // Default to empty array
@@ -99,6 +101,11 @@ export function SubTaskRow({
                 <TableCell className="pl-4">
                     <Skeleton className="h-4 w-full max-w-xs" />
                 </TableCell>
+                {columnVisibility.project && (
+                    <TableCell>
+                        <Skeleton className="h-5 w-24" />
+                    </TableCell>
+                )}
                 {columnVisibility.description && (
                     <TableCell>
                         <Skeleton className="h-4 w-full max-w-md" />
@@ -167,10 +174,9 @@ export function SubTaskRow({
             ref={setNodeRef}
             style={style}
             className={cn(
-                "bg-muted/10 hover:bg-muted/20 cursor-pointer",
+                "bg-muted/10 hover:bg-muted/20",
                 (subTask as any).isOptimistic && "opacity-60 grayscale-[0.5]"
             )}
-            onClick={() => setIsEditing(true)}
         >
             <TableCell className="pl-4">
                 <Button
@@ -190,12 +196,27 @@ export function SubTaskRow({
                     <CornerDownRight className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span
                         className="truncate text-muted-foreground text-sm max-w-[200px] block cursor-pointer hover:text-foreground transition-colors"
-                        onClick={() => onClick && onClick(subTask)}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (onClick) onClick(subTask);
+                        }}
                     >
                         {subTask.name}
                     </span>
                 </div>
             </TableCell>
+
+            {columnVisibility.project && (
+                <TableCell>
+                    {parentTaskProject ? (
+                        <Badge variant="secondary" className="text-xs font-normal">
+                            {parentTaskProject.name}
+                        </Badge>
+                    ) : (
+                        <span className="text-muted-foreground text-xs">-</span>
+                    )}
+                </TableCell>
+            )}
 
             {columnVisibility.description && (
                 <TableCell>

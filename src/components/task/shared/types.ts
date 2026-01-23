@@ -58,8 +58,8 @@ export interface TaskFilters {
     /** End date filter (to) */
     endDate?: Date | string;
 
-    /** Tag filter */
-    tag?: TaskTag;
+    /** Tag filter - using string ID for dynamic tags */
+    tag?: string;
 
     /** Search query */
     search?: string;

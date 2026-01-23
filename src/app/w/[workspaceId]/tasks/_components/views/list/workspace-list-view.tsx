@@ -26,7 +26,7 @@ export async function WorkspaceListView({
 
     // Derived assignees from members instead of fetching all tasks
     const assigneesFromMembers = membersData.workspaceMembers.map(member => ({
-        id: member.id, // workspaceMemberId
+        id: member.user?.id || member.userId, // Use user ID for filtering matches task.assignee.id
         name: member.user?.name || '',
         surname: member.user?.surname || undefined,
     }));
@@ -69,7 +69,7 @@ export async function WorkspaceListView({
             members={formattedMembers as any}
             assignees={assigneesFromMembers}
             workspaceId={workspaceId}
-            projectId={tasks[0]?.projectId || ""}
+            projectId="" // Empty for workspace-level view
             canCreateSubTask={permissions.isWorkspaceAdmin || true} // Allow for members as well if they have access
             showAdvancedFilters={true}
             tags={tags}

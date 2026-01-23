@@ -40,6 +40,7 @@ export function TaskRow({
     // Calculate the number of columns to span
     // 2 (expand button) + 1 (task name) + visible columns (not including actions)
     let colSpan = 1; // Start with just task name cell
+    if (columnVisibility.project) colSpan++;
     if (columnVisibility.description) colSpan++;
     if (columnVisibility.assignee) colSpan++;
     if (columnVisibility.startDate) colSpan++;
@@ -100,6 +101,11 @@ export function TaskRow({
                     {subtaskCount > 0 && (
                         <Badge variant="outline" className="text-xs font-normal text-muted-foreground shrink-0">
                             {subtaskCount}
+                        </Badge>
+                    )}
+                    {columnVisibility.project && task.project && (
+                        <Badge variant="secondary" className="text-xs font-normal shrink-0">
+                            {task.project.name}
                         </Badge>
                     )}
                 </div>

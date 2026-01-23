@@ -23,7 +23,9 @@ interface SubtaskSheetHeaderProps {
  * - Status badge
  */
 export function SubtaskSheetHeader({ subTask }: SubtaskSheetHeaderProps) {
-    const assignee = subTask.assignee?.workspaceMember?.user;
+    // Assignee is directly on the task object (user fields) in both SubTaskType and TaskByIdType
+    // But we handle potential workspaceMember nesting just in case legacy types are passed
+    const assignee = (subTask.assignee as any)?.workspaceMember?.user || subTask.assignee;
 
     return (
         <div className="px-6 pt-6 pb-4 border-b flex-shrink-0">
@@ -81,7 +83,7 @@ export function SubtaskSheetHeader({ subTask }: SubtaskSheetHeaderProps) {
                         <span className="text-sm font-medium w-24">Tag</span>
                         {subTask.tag ? (
                             <Badge variant="secondary" className="rounded-md">
-                                {subTask.tag}
+                                {typeof subTask.tag === 'string' ? subTask.tag : subTask.tag.name}
                             </Badge>
                         ) : (
                             <span className="text-sm text-muted-foreground">No tag</span>

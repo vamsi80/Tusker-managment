@@ -15,10 +15,8 @@ export default async function ProcurementLayout({
 }: ProcurementLayoutProps) {
     const { workspaceId } = await params;
 
-    // Check if user has procurement access
     const { hasAccess } = await getWorkspacePermissions(workspaceId);
 
-    // If user doesn't have access, show access denied message
     if (!hasAccess) {
         return (
             <div className="h-full flex items-center justify-center">
