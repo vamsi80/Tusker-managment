@@ -70,7 +70,7 @@ export async function bulkUploadTasksAndSubtasks(data: {
         // Create email to member ID mapping
         const emailToMemberId = new Map(
             projectMembers.map(pm => [
-                pm.workspaceMember.user.email,
+                pm.workspaceMember.user.email.toLowerCase(),
                 pm.workspaceMember.user.id
             ])
         );
@@ -81,7 +81,7 @@ export async function bulkUploadTasksAndSubtasks(data: {
 
         for (const task of data.tasks) {
             if (task.assigneeEmail && task.assigneeEmail.trim()) {
-                uniqueAssigneeEmails.add(task.assigneeEmail.trim());
+                uniqueAssigneeEmails.add(task.assigneeEmail.trim().toLowerCase());
             }
         }
 
@@ -167,9 +167,10 @@ export async function bulkUploadTasksAndSubtasks(data: {
         }
 
         const allSubtaskSlugs = allSubtaskNames.length > 0
-            ? await generateUniqueSlugs(allSubtaskNames, 'task')
+            ? await generateUniqueSlugs(allSubtaskNames, 'task', undefined, taskSlugs)
             : [];
-        const subtaskSlugMap = new Map(allSubtaskNames.map((name, i) => [name, allSubtaskSlugs[i]]));
+        // Removed subtaskSlugMap as it causes issues with duplicate subtask names
+        // Used sequential index instead (see below)
 
         // Fetch all workspace tags for resolution
         const workspaceTags = await prisma.tag.findMany({
@@ -182,6 +183,8 @@ export async function bulkUploadTasksAndSubtasks(data: {
         );
 
         // Process each task group in a transaction with increased timeout
+        let globalSubtaskIndex = 0;
+
         await prisma.$transaction(async (tx) => {
             for (const [taskName, taskGroup] of taskGroups.entries()) {
                 // Get pre-generated slug
@@ -210,11 +213,11 @@ export async function bulkUploadTasksAndSubtasks(data: {
                     for (let i = 0; i < subtaskRows.length; i++) {
                         const subtaskRow = subtaskRows[i];
 
-                        // Get pre-generated slug for this subtask
-                        const subtaskSlug = subtaskSlugMap.get(subtaskRow.subtaskName!)!;
+                        // Get pre-generated slug for this subtask using sequential index
+                        const subtaskSlug = allSubtaskSlugs[globalSubtaskIndex++];
 
                         const subtaskAssigneeId = subtaskRow.assigneeEmail
-                            ? emailToMemberId.get(subtaskRow.assigneeEmail)
+                            ? emailToMemberId.get(subtaskRow.assigneeEmail.trim().toLowerCase())
                             : undefined;
 
                         const subtaskStartDate = subtaskRow.startDate

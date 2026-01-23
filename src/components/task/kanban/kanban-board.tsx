@@ -115,10 +115,10 @@ export function KanbanBoard({
     const [visibleColumns, setVisibleColumns] = useState<KanbanColumnVisibilityType>({
         TO_DO: true,
         IN_PROGRESS: true,
-        BLOCKED: false,
+        BLOCKED: true,
         REVIEW: true,
-        HOLD: false,
-        COMPLETED: false,
+        HOLD: true,
+        COMPLETED: true,
     });
 
     const sensors = useSensors(

@@ -3,7 +3,7 @@
 import { requireUser } from "@/lib/auth/require-user";
 import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
-import { hasWorkspacePermission } from "@/lib/constants/workspace-access";
+import { getUserPermissions } from "@/data/user/get-user-permissions";
 
 export async function deleteProject(projectId: string): Promise<ApiResponse> {
     const user = await requireUser();
@@ -13,11 +13,7 @@ export async function deleteProject(projectId: string): Promise<ApiResponse> {
         const project = await prisma.project.findUnique({
             where: { id: projectId },
             include: {
-                workspace: {
-                    include: {
-                        members: true,
-                    },
-                },
+                workspace: true, // Needed for ownerId check and cache invalidation
             },
         });
 
@@ -28,12 +24,13 @@ export async function deleteProject(projectId: string): Promise<ApiResponse> {
             };
         }
 
-        // Check if user has permission to delete projects (OWNER or ADMIN)
-        const workspaceMember = project.workspace.members.find(
-            (m) => m.userId === user.id
-        );
+        // 2. Check permissions using centralized helper
+        const permissions = await getUserPermissions(project.workspaceId, projectId);
 
-        if (!workspaceMember || !hasWorkspacePermission(workspaceMember.workspaceRole, "project:delete")) {
+        // Explicitly allow if user is the direct owner of the workspace (safeguard against missing member records)
+        const isOwner = project.workspace.ownerId === user.id;
+
+        if (!permissions.isWorkspaceAdmin && !isOwner) {
             return {
                 status: "error",
                 message: "Only workspace owners and admins can delete projects.",

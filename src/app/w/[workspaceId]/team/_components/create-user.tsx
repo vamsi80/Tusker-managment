@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
@@ -45,6 +46,7 @@ interface InviteUserFormProps {
 }
 
 export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onOpenChange: controlledOnOpenChange, hideTrigger }: InviteUserFormProps) => {
+    const router = useRouter();
     const [internalOpen, setInternalOpen] = useState(false);
     const isControlled = controlledOpen !== undefined;
     const open = isControlled ? controlledOpen : internalOpen;
@@ -101,6 +103,7 @@ export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onO
                 toast.success(result.message);
                 triggerConfetti();
                 form.reset();
+                router.refresh();
             } else (
                 toast.error(result.message)
             )

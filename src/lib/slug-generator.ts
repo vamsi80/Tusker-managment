@@ -133,21 +133,25 @@ export async function generateUniqueSlug(
 export async function generateUniqueSlugs(
     names: string[],
     tableName: 'task' | 'project' | 'workspace',
-    prefix?: string
+    prefix?: string,
+    existingSlugs: string[] = []
 ): Promise<string[]> {
-    const generatedSlugs: string[] = [];
+    // Start with existing slugs to check against
+    const allSlugs: string[] = [...existingSlugs];
+    const newSlugs: string[] = [];
 
     for (const name of names) {
         const slug = await generateUniqueSlug(
             name,
             tableName,
             prefix,
-            generatedSlugs // Pass previously generated slugs to prevent duplicates
+            allSlugs // Check against accumulated slugs
         );
-        generatedSlugs.push(slug);
+        allSlugs.push(slug);
+        newSlugs.push(slug);
     }
 
-    return generatedSlugs;
+    return newSlugs;
 }
 
 /**

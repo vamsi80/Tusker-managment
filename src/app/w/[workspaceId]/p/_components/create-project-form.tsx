@@ -300,7 +300,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin }: iAppProps) 
                                                             <CommandEmpty>No members found.</CommandEmpty>
 
                                                             <CommandGroup>
-                                                                {members?.filter(m => m.workspaceRole === "MEMBER").map((member) => {
+                                                                {members?.filter(m => m.workspaceRole !== "VIEWER").map((member) => {
                                                                     const userName = `${member.user?.surname}`;
                                                                     const accessLevelRaw =
                                                                         (member as any)?.accessLevel ??

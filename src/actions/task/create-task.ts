@@ -1,7 +1,7 @@
 "use server";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
+import slugify from "slugify";
 import { invalidateTaskMutation } from "@/lib/cache/invalidation";
-import { requireUser } from "@/lib/auth/require-user";
 import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
 import { TaskSchemaType, taskSchema } from "@/lib/zodSchemas";
@@ -9,9 +9,6 @@ import { syncTaskToProcurement } from "@/lib/procurement/logic";
 
 export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
     try {
-        // Authenticate user
-        const user = await requireUser();
-
         const validation = taskSchema.safeParse(values);
         if (!validation.success) {
             return {
@@ -43,11 +40,25 @@ export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
             };
         }
 
+        // Generate unique slug
+        let baseSlug = validation.data.taskSlug;
+        if (!baseSlug || baseSlug.trim() === "") {
+            baseSlug = slugify(validation.data.name, { lower: true, strict: true });
+        }
+
+        let slug = baseSlug;
+        let counter = 1;
+
+        while (await prisma.task.findUnique({ where: { taskSlug: slug } })) {
+            slug = `${baseSlug}-${counter}`;
+            counter++;
+        }
+
         // 3. Create the task
         const newTask = await prisma.task.create({
             data: {
                 name: validation.data.name,
-                taskSlug: validation.data.taskSlug,
+                taskSlug: slug,
                 projectId: validation.data.projectId,
                 workspaceId: project.workspaceId,
                 createdById: permissions.workspaceMember.userId,
