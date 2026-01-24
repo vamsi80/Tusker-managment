@@ -1,26 +1,25 @@
 "use client";
 
-import { useState } from "react";
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
-import { SubTasksByStatusResponse } from "@/data/task/kanban";
-import { SubTaskType } from "@/data/task";
+import { useState, useEffect } from "react";
+import { SubTasksByStatusResponse, KanbanSubTaskType } from "@/data/task/kanban";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 import { cn } from "@/lib/utils";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
 import { createReviewCommentAction } from "@/actions/comment";
 import { toast } from "sonner";
-import { updateSubTaskStatus } from "@/actions/task/kanban/update-subtask-status";
-import { ReviewCommentDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/review-comment-form";
-import { STATUS_COLORS, STATUS_LABELS } from "@/lib/colors/status-colors";
-import { loadMoreSubtasksAction } from "@/actions/task/kanban/load-more-subtasks";
 import { KanbanCard } from "./kanban-card";
-import { useReloadView } from "@/hooks/use-reload-view";
 import { KanbanColumn } from "./kanban-column";
-import { GlobalFilterToolbar, ParentTaskOption } from "../shared/global-filter-toolbar";
+import { useReloadView } from "@/hooks/use-reload-view";
 import { TaskFilters, type ProjectOption } from "../shared/types";
+import { STATUS_COLORS, STATUS_LABELS } from "@/lib/colors/status-colors";
+import { updateSubTaskStatus } from "@/actions/task/kanban/update-subtask-status";
+import { loadMoreSubtasksAction } from "@/actions/task/kanban/load-more-subtasks";
+import { GlobalFilterToolbar, ParentTaskOption } from "../shared/global-filter-toolbar";
 import { KanbanColumnVisibility as KanbanColumnVisibilityType } from "../shared/kanban-column-visibility";
+import { ReviewCommentDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/review-comment-form";
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 
-type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED";
+type TaskStatus = "TO_DO" | "IN_PROGRESS" | "CANCELLED" | "REVIEW" | "HOLD" | "COMPLETED";
 
 interface KanbanBoardProps {
     initialData: Record<TaskStatus, SubTasksByStatusResponse>;
@@ -43,14 +42,14 @@ const COLUMNS: { id: TaskStatus; title: string; color: string; bgColor: string; 
         ...STATUS_COLORS.IN_PROGRESS,
     },
     {
-        id: "BLOCKED",
-        title: STATUS_LABELS.BLOCKED,
-        ...STATUS_COLORS.BLOCKED,
-    },
-    {
         id: "REVIEW",
         title: STATUS_LABELS.REVIEW,
         ...STATUS_COLORS.REVIEW,
+    },
+    {
+        id: "COMPLETED",
+        title: STATUS_LABELS.COMPLETED,
+        ...STATUS_COLORS.COMPLETED,
     },
     {
         id: "HOLD",
@@ -58,9 +57,9 @@ const COLUMNS: { id: TaskStatus; title: string; color: string; bgColor: string; 
         ...STATUS_COLORS.HOLD,
     },
     {
-        id: "COMPLETED",
-        title: STATUS_LABELS.COMPLETED,
-        ...STATUS_COLORS.COMPLETED,
+        id: "CANCELLED",
+        title: STATUS_LABELS.CANCELLED,
+        ...STATUS_COLORS.CANCELLED,
     },
 ];
 
@@ -74,7 +73,7 @@ export function KanbanBoard({
 }: KanbanBoardProps) {
     // State for each column's data
     const [columnData, setColumnData] = useState<Record<TaskStatus, {
-        subTasks: SubTaskType[];
+        subTasks: KanbanSubTaskType[];
         totalCount: number;
         hasMore: boolean;
         currentPage: number;
@@ -96,26 +95,23 @@ export function KanbanBoard({
         Object.fromEntries(COLUMNS.map(col => [col.id, false])) as Record<TaskStatus, boolean>
     );
 
-    const [activeSubTask, setActiveSubTask] = useState<SubTaskType | null>(null);
+    const [activeSubTask, setActiveSubTask] = useState<KanbanSubTaskType | null>(null);
 
-    // Use global subtask sheet context
     const { openSubTaskSheet } = useSubTaskSheet();
     const reloadView = useReloadView();
 
-    // Review comment dialog state
     const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
     const [pendingReviewMove, setPendingReviewMove] = useState<{
         subTaskId: string;
         previousStatus: TaskStatus;
     } | null>(null);
 
-    // Filter states - using TaskFilters interface
     const [filters, setFilters] = useState<TaskFilters>({});
     const [searchQuery, setSearchQuery] = useState("");
     const [visibleColumns, setVisibleColumns] = useState<KanbanColumnVisibilityType>({
         TO_DO: true,
         IN_PROGRESS: true,
-        BLOCKED: true,
+        CANCELLED: true,
         REVIEW: true,
         HOLD: true,
         COMPLETED: true,
@@ -129,21 +125,89 @@ export function KanbanBoard({
         })
     );
 
-    // Load more function for a specific column
+    // Server-side filtering effect
+    useEffect(() => {
+        const timer = setTimeout(async () => {
+            const hasFilters = searchQuery || Object.keys(filters).length > 0;
+
+            if (!hasFilters) {
+                // Reset to initial unfiltered data (Page 1 Global)
+                setColumnData(Object.fromEntries(COLUMNS.map(col => [col.id, {
+                    subTasks: initialData[col.id].subTasks,
+                    totalCount: initialData[col.id].totalCount,
+                    hasMore: initialData[col.id].hasMore,
+                    currentPage: 1,
+                }])) as Record<TaskStatus, any>);
+                return;
+            }
+
+            // Set loading state
+            setLoadingColumns(Object.fromEntries(COLUMNS.map(col => [col.id, true])) as Record<TaskStatus, boolean>);
+
+            try {
+                // Fetch filtered Page 1 for all columns
+                const promises = COLUMNS.map(async (col) => {
+                    const targetProjectId = filters.projectId || projectId;
+                    const res = await loadMoreSubtasksAction(workspaceId, col.id, targetProjectId, 1, 5, {
+                        ...filters,
+                        startDate: filters.startDate ? new Date(filters.startDate).toISOString() : undefined,
+                        endDate: filters.endDate ? new Date(filters.endDate).toISOString() : undefined,
+                        searchQuery
+                    });
+                    return { id: col.id, res };
+                });
+
+                const results = await Promise.all(promises);
+
+                setColumnData(prev => {
+                    const newData = { ...prev };
+                    results.forEach(({ id, res }) => {
+                        if (res.success) {
+                            newData[id] = {
+                                subTasks: res.data.subTasks,
+                                totalCount: res.data.totalCount,
+                                hasMore: res.data.hasMore,
+                                currentPage: 1
+                            };
+                        }
+                    });
+                    return newData;
+                });
+            } catch (err) {
+                console.error("Error filtering subtasks", err);
+                toast.error("Failed to apply filters");
+            } finally {
+                setLoadingColumns(Object.fromEntries(COLUMNS.map(col => [col.id, false])) as Record<TaskStatus, boolean>);
+            }
+
+        }, 300); // Debounce
+
+        return () => clearTimeout(timer);
+    }, [filters, searchQuery, workspaceId, projectId]);
+
     const handleLoadMore = async (status: TaskStatus) => {
         setLoadingColumns(prev => ({ ...prev, [status]: true }));
 
         try {
             const nextPage = columnData[status].currentPage + 1;
+            const activeFilters = (searchQuery || Object.keys(filters).length > 0)
+                ? {
+                    ...filters,
+                    startDate: filters.startDate ? new Date(filters.startDate).toISOString() : undefined,
+                    endDate: filters.endDate ? new Date(filters.endDate).toISOString() : undefined,
+                    searchQuery
+                }
+                : undefined;
 
-            // ✅ Call server action (same data function as initial load)
-            // This uses React cache + Next.js unstable_cache
+            const targetProjectId = filters.projectId || projectId;
+
             const response = await loadMoreSubtasksAction(
                 workspaceId,
                 status,
-                projectId,
+                targetProjectId,
                 nextPage,
-                5
+                5,
+                activeFilters
             );
 
             if (!response.success) {
@@ -170,7 +234,6 @@ export function KanbanBoard({
 
     const handleDragStart = (event: DragStartEvent) => {
         const { active } = event;
-        // Find the subtask across all columns
         for (const status of COLUMNS.map(c => c.id)) {
             const subTask = columnData[status].subTasks.find((t) => t.id === active.id);
             if (subTask) {
@@ -191,14 +254,13 @@ export function KanbanBoard({
         const subTaskId = active.id as string;
         const newStatus = over.id as TaskStatus;
 
-        const validStatuses: TaskStatus[] = ["TO_DO", "IN_PROGRESS", "BLOCKED", "REVIEW", "HOLD", "COMPLETED"];
+        const validStatuses: TaskStatus[] = ["TO_DO", "IN_PROGRESS", "CANCELLED", "REVIEW", "HOLD", "COMPLETED"];
         if (!validStatuses.includes(newStatus)) {
             return;
         }
 
-        // Find the subtask and its current status
         let currentStatus: TaskStatus | null = null;
-        let subTask: SubTaskType | null = null;
+        let subTask: KanbanSubTaskType | null = null;
 
         for (const status of COLUMNS.map(c => c.id)) {
             const found = columnData[status].subTasks.find((t) => t.id === subTaskId);
@@ -216,7 +278,6 @@ export function KanbanBoard({
         const previousStatus = currentStatus;
 
         if (newStatus === "REVIEW") {
-            // Move task optimistically
             moveSubTaskBetweenColumns(subTaskId, previousStatus, newStatus);
 
             setPendingReviewMove({
@@ -259,7 +320,6 @@ export function KanbanBoard({
         });
     };
 
-    // Helper to get project ID for a task (handles workspace view where prop is empty)
     const getTaskProjectId = (subTaskId: string) => {
         for (const status of COLUMNS.map(c => c.id)) {
             const task = columnData[status].subTasks.find(t => t.id === subTaskId);
@@ -276,13 +336,11 @@ export function KanbanBoard({
         previousStatus: TaskStatus,
         reviewCommentId?: string
     ) => {
-        // Optimistic update
         moveSubTaskBetweenColumns(subTaskId, previousStatus, newStatus);
 
         const toastId = toast.loading("Updating subtask status...");
 
         try {
-            // content...
             const targetProjectId = getTaskProjectId(subTaskId) || projectId;
 
             const result = await updateSubTaskStatus(
@@ -299,10 +357,8 @@ export function KanbanBoard({
                     id: toastId,
                 });
 
-                // Reload all views to reflect the status change
                 reloadView();
             } else {
-                // Rollback
                 moveSubTaskBetweenColumns(subTaskId, newStatus, previousStatus);
 
                 toast.error(result.error || "Failed to update subtask status", {
@@ -310,7 +366,6 @@ export function KanbanBoard({
                 });
             }
         } catch (error) {
-            // Rollback
             moveSubTaskBetweenColumns(subTaskId, newStatus, previousStatus);
 
             toast.error("An unexpected error occurred. Please try again.", {
@@ -324,7 +379,7 @@ export function KanbanBoard({
         setActiveSubTask(null);
     };
 
-    const handleSubTaskClick = (subTask: SubTaskType) => {
+    const handleSubTaskClick = (subTask: KanbanSubTaskType) => {
         openSubTaskSheet(subTask);
     };
 
@@ -415,51 +470,10 @@ export function KanbanBoard({
         setIsReviewDialogOpen(false);
     };
 
-    // Get filtered subtasks for a specific column
     const getFilteredSubTasks = (status: TaskStatus) => {
-        return columnData[status].subTasks.filter((subTask) => {
-            const matchesParentTask = !filters.parentTaskId || subTask.parentTaskId === filters.parentTaskId;
-            const matchesAssignee = !filters.assigneeId || subTask.assignee?.id === filters.assigneeId;
-
-            // Date range filtering
-            let matchesDateRange = true;
-            if (filters.startDate || filters.endDate) {
-                const subTaskStartDate = subTask.startDate ? new Date(subTask.startDate) : null;
-
-                // Calculate due date (start date + days)
-                let subTaskDueDate: Date | null = null;
-                if (subTaskStartDate && subTask.days) {
-                    subTaskDueDate = new Date(subTaskStartDate);
-                    subTaskDueDate.setDate(subTaskDueDate.getDate() + subTask.days);
-                }
-
-                // Check if start date is within range
-                if (filters.startDate && subTaskStartDate) {
-                    const filterStartDate = new Date(filters.startDate);
-                    if (subTaskStartDate < filterStartDate) {
-                        matchesDateRange = false;
-                    }
-                }
-
-                // Check if due date is within range
-                if (filters.endDate && subTaskDueDate) {
-                    const filterEndDate = new Date(filters.endDate);
-                    if (subTaskDueDate > filterEndDate) {
-                        matchesDateRange = false;
-                    }
-                }
-
-                // If no valid dates on subtask, exclude it when date filter is active
-                if ((filters.startDate || filters.endDate) && !subTaskStartDate) {
-                    matchesDateRange = false;
-                }
-            }
-
-            return matchesParentTask && matchesAssignee && matchesDateRange;
-        });
+        return columnData[status].subTasks;
     };
 
-    // Get unique parent tasks for filter - convert to ParentTaskOption format
     const uniqueParentTasks: ParentTaskOption[] = Array.from(
         new Map(
             COLUMNS.flatMap(col =>
@@ -474,12 +488,22 @@ export function KanbanBoard({
         ).values()
     );
 
-    // Convert project members to MemberOption format
     const memberOptions = projectMembers.map(member => ({
-        id: member.id,
+        id: member.workspaceMember.user.id,
         name: member.workspaceMember.user.name,
         surname: member.workspaceMember.user.surname || undefined,
     }));
+
+    // Bi-directional filtering logic
+    const filteredProjects = projects?.filter(p =>
+        !filters.assigneeId || (p.memberIds && p.memberIds.includes(filters.assigneeId))
+    );
+
+    const filteredMembers = memberOptions.filter(m => {
+        if (!filters.projectId) return true;
+        const project = projects?.find(p => p.id === filters.projectId);
+        return project?.memberIds?.includes(m.id);
+    });
 
     return (
         <>
@@ -488,8 +512,8 @@ export function KanbanBoard({
                 view="kanban"
                 filters={filters}
                 searchQuery={searchQuery}
-                members={memberOptions}
-                projects={projects}
+                members={filteredMembers}
+                projects={filteredProjects}
                 parentTasks={uniqueParentTasks}
                 kanbanColumnVisibility={visibleColumns}
                 setKanbanColumnVisibility={setVisibleColumns}
@@ -509,7 +533,7 @@ export function KanbanBoard({
                 onDragCancel={handleDragCancel}
             >
                 <div className={cn(
-                    "flex gap-4 h-[calc(100vh-280px)] overflow-x-auto pb-2 mt-4",
+                    "flex gap-4 h-[calc(100vh-280px)] overflow-x-auto pb-2 mt-0",
                     // Custom horizontal scrollbar
                     "[&::-webkit-scrollbar]:h-2",
                     "[&::-webkit-scrollbar-track]:rounded-full",

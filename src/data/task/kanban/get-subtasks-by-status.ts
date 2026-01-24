@@ -7,7 +7,17 @@ import { requireUser } from "@/lib/auth/require-user";
 import { getUserPermissions, getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { CacheTags, withCustomTags } from "@/data/cache-tags";
 
-type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED";
+
+type TaskStatus = "TO_DO" | "IN_PROGRESS" | "CANCELLED" | "REVIEW" | "HOLD" | "COMPLETED";
+
+export interface KanbanFilters {
+    assigneeId?: string | null;
+    parentTaskId?: string | null;
+    startDate?: string | null;
+    endDate?: string | null;
+    searchQuery?: string;
+    tag?: string | null;
+}
 
 /**
  * Internal function to fetch subtasks by status with pagination
@@ -32,7 +42,8 @@ async function _getSubTasksByStatusInternal(
     status: TaskStatus,
     projectId: string | undefined,
     page: number,
-    pageSize: number
+    pageSize: number,
+    filters?: KanbanFilters
 ) {
     const skip = (page - 1) * pageSize;
 
@@ -67,6 +78,36 @@ async function _getSubTasksByStatusInternal(
         parentTaskId: { not: null }, // Only subtasks
         status,
     };
+
+    if (filters) {
+        if (filters.assigneeId) whereClause.assigneeTo = filters.assigneeId;
+        if (filters.parentTaskId) whereClause.parentTaskId = filters.parentTaskId;
+        if (filters.tag) whereClause.tag = { name: filters.tag };
+
+        if (filters.searchQuery) {
+            const q = filters.searchQuery;
+            whereClause.OR = [
+                { name: { contains: q, mode: 'insensitive' } },
+                { taskSlug: { contains: q, mode: 'insensitive' } },
+                { assignee: { name: { contains: q, mode: 'insensitive' } } },
+                { assignee: { surname: { contains: q, mode: 'insensitive' } } },
+            ];
+        }
+
+        if (filters.startDate || filters.endDate) {
+            if (filters.startDate) whereClause.startDate = { gte: new Date(filters.startDate) };
+            if (filters.endDate) {
+                // Logic for end date match (if due date <= filter end date)
+                // This requires days field logic which assumes startDate + days
+                // Simplified: filter by startDate <= endDate
+                // Or complex raw query. For now, let's filter purely on startDate range if simpler
+                // Or we can leave date filtering to client if server logic is too complex for Prisma basic filtering
+                // User asked for "filters". Let's apply start date at least.
+                if (!whereClause.startDate) whereClause.startDate = {};
+                whereClause.startDate.lte = new Date(filters.endDate);
+            }
+        }
+    }
 
     // Permission logic:
     // - ADMIN/OWNER: See all subtasks
@@ -111,6 +152,23 @@ async function _getSubTasksByStatusInternal(
                                 id: true,
                                 name: true,
                                 slug: true,
+                                projectMembers: {
+                                    where: { projectRole: "LEAD" },
+                                    take: 1,
+                                    select: {
+                                        workspaceMember: {
+                                            select: {
+                                                user: {
+                                                    select: {
+                                                        name: true,
+                                                        surname: true,
+                                                        image: true,
+                                                    },
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
                             },
                         },
                     },
@@ -158,23 +216,23 @@ const getCachedSubTasksByStatus = (
     status: TaskStatus,
     projectId: string | undefined,
     page: number,
-    pageSize: number
+    pageSize: number,
+    filters?: KanbanFilters
 ) =>
     unstable_cache(
-        async () => _getSubTasksByStatusInternal(workspaceId, workspaceMemberId, userId, isAdmin, isProjectLead, status, projectId, page, pageSize),
-        [`kanban - ws - ${workspaceId} -${projectId || 'all'} -${status} -${userId} -lead${isProjectLead} -p${page} -s${pageSize} `],
+        async () => _getSubTasksByStatusInternal(workspaceId, workspaceMemberId, userId, isAdmin, isProjectLead, status, projectId, page, pageSize, filters),
+        [`kanban-ws-${workspaceId}-${projectId || 'all'}-${status}-${userId}-lead${isProjectLead}-p${page}-s${pageSize}-f${JSON.stringify(filters || {})}-v3`],
         {
             tags: projectId
                 ? withCustomTags(
                     CacheTags.subtasksByStatus(projectId, status),
-                    `workspace - tasks - ${workspaceId} `
+                    `workspace-tasks-${workspaceId}`
                 )
                 : withCustomTags(
                     CacheTags.workspaceTasks(workspaceId),
-                    `kanban - ${status} `,
+                    `kanban-${status}`,
                     'kanban-all'
                 ),
-            revalidate: 30,
         }
     )();
 
@@ -201,7 +259,8 @@ export const getSubTasksByStatus = cache(
         status: TaskStatus,
         projectId?: string,
         page: number = 1,
-        pageSize: number = 5
+        pageSize: number = 5,
+        filters?: KanbanFilters
     ) => {
         try {
             let permissions;
@@ -235,7 +294,8 @@ export const getSubTasksByStatus = cache(
                 status,
                 projectId,
                 page,
-                pageSize
+                pageSize,
+                filters
             );
         } catch (error) {
             console.error("Error fetching subtasks by status:", error);

@@ -9,7 +9,7 @@ import {
     invalidateProjectSubTasks
 } from "@/lib/cache/invalidation";
 
-type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED";
+type TaskStatus = "TO_DO" | "IN_PROGRESS" | "CANCELLED" | "REVIEW" | "HOLD" | "COMPLETED";
 
 interface UpdateSubTaskStatusResult {
     success: boolean;
@@ -32,7 +32,7 @@ interface UpdateSubTaskStatusResult {
  * 
  * Permission Rules:
  * - Only assignee, project admin, or project lead can move cards
- * - Only admin/lead can move to COMPLETED, BLOCKED, or HOLD
+ * - Only admin/lead can move to COMPLETED, CANCELLED, or HOLD
  * - Moving to REVIEW requires a review comment (comment or attachment)
  * - All moves are logged to both legacy and new audit tables
  * 
@@ -127,7 +127,7 @@ export async function updateSubTaskStatus(
         }
 
         // 8. Check restricted status transitions
-        const restrictedStatuses: TaskStatus[] = ["COMPLETED", "BLOCKED", "HOLD"];
+        const restrictedStatuses: TaskStatus[] = ["COMPLETED", "CANCELLED", "HOLD"];
         if (restrictedStatuses.includes(newStatus) && !isAdminOrLead) {
             return {
                 success: false,

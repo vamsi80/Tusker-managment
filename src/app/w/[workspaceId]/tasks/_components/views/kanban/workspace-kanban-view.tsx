@@ -2,6 +2,7 @@ import { getSubTasksByStatus } from "@/data/task/kanban";
 import { getWorkspaceMembers } from "@/data/workspace";
 import { getUserProjects } from "@/data/project/get-projects";
 import { KanbanBoard } from "@/components/task/kanban/kanban-board";
+import prisma from "@/lib/db";
 
 interface WorkspaceKanbanViewProps {
     workspaceId: string;
@@ -25,28 +26,38 @@ export async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewPr
     const [
         todoData,
         inProgressData,
-        blockedData,
+        cancelledData,
         reviewData,
         holdData,
         completedData,
         workspaceMembers,
-        projects
+        projects,
+        projectMemberMatches
     ] = await Promise.all([
         getSubTasksByStatus(workspaceId, "TO_DO", undefined, 1, 5),
         getSubTasksByStatus(workspaceId, "IN_PROGRESS", undefined, 1, 5),
-        getSubTasksByStatus(workspaceId, "BLOCKED", undefined, 1, 5),
+        getSubTasksByStatus(workspaceId, "CANCELLED", undefined, 1, 5),
         getSubTasksByStatus(workspaceId, "REVIEW", undefined, 1, 5),
         getSubTasksByStatus(workspaceId, "HOLD", undefined, 1, 5),
         getSubTasksByStatus(workspaceId, "COMPLETED", undefined, 1, 5),
         getWorkspaceMembers(workspaceId),
         getUserProjects(workspaceId),
+        prisma.projectMember.findMany({
+            where: { project: { workspaceId } },
+            select: {
+                projectId: true,
+                workspaceMember: {
+                    select: { userId: true }
+                }
+            }
+        })
     ]);
 
     // Combine all initial data
     const initialData = {
         TO_DO: todoData,
         IN_PROGRESS: inProgressData,
-        BLOCKED: blockedData,
+        CANCELLED: cancelledData,
         REVIEW: reviewData,
         HOLD: holdData,
         COMPLETED: completedData,
@@ -80,11 +91,19 @@ export async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewPr
         },
     }));
 
+    // Build map of project -> userIds
+    const projectUserMap: Record<string, string[]> = {};
+    projectMemberMatches.forEach(pm => {
+        if (!projectUserMap[pm.projectId]) projectUserMap[pm.projectId] = [];
+        projectUserMap[pm.projectId].push(pm.workspaceMember.userId);
+    });
+
     // Convert projects to ProjectOption format for filters
     const projectOptions = projects.map(project => ({
         id: project.id,
         name: project.name,
         slug: project.slug,
+        memberIds: projectUserMap[project.id] || []
     }));
 
     return (

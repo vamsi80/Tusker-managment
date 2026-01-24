@@ -12,7 +12,7 @@ import {
 import { ListFilter } from "lucide-react";
 import { STATUS_LABELS } from "@/lib/zodSchemas";
 
-type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED";
+type TaskStatus = "TO_DO" | "IN_PROGRESS" | "CANCELLED" | "REVIEW" | "HOLD" | "COMPLETED";
 
 export type KanbanColumnVisibility = Record<TaskStatus, boolean>;
 

@@ -6,29 +6,23 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Calendar, Tag, GripVertical, MessageSquare, AlertCircle } from "lucide-react";
-import { SubTaskType } from "@/data/task";
+import { Calendar, Tag, GripVertical, MessageSquare, AlertCircle, Folder, Crown } from "lucide-react";
+import { KanbanSubTaskType } from "@/data/task/kanban";
 import { cn } from "@/lib/utils";
 
 /**
  * KanbanCard Component
- * 
- * Displays an individual subtask card in the Kanban board.
- * Supports drag-and-drop, displays assignee, dates, tags, and review count.
- * 
- * Compatible with both paginated and non-paginated Kanban boards.
- * 
- * @component
+ * ...
  */
 interface KanbanCardProps {
     /** The subtask data to display */
-    subTask: SubTaskType;
+    subTask: KanbanSubTaskType;
     /** Color class for the column (e.g., "text-blue-700") */
     columnColor: string;
     /** Whether the card is currently being dragged */
     isDragging?: boolean;
     /** Callback when the card name is clicked */
-    onSubTaskClick?: (subTask: SubTaskType) => void;
+    onSubTaskClick?: (subTask: KanbanSubTaskType) => void;
 }
 
 export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTaskClick }: KanbanCardProps) {
@@ -50,6 +44,10 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
 
     const assignee = subTask.assignee;
     const reviewCount = (subTask as any)._count?.reviewComments || 0;
+
+    // Get Project Info
+    const project = subTask.parentTask?.project;
+    const projectLead = project?.projectMembers?.[0]?.workspaceMember?.user;
 
     const calculateDueDate = () => {
         if (!subTask.startDate || !subTask.days) return null;
@@ -85,55 +83,64 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
             {...attributes}
             {...listeners}
         >
-            <CardContent className="p-3 space-y-4">
+            <CardContent className="p-3 space-y-3">
+                <div className="flex items-center justify-between text-[10px] text-muted-foreground pb-2 border-b border-border/50">
+                    <div className="flex items-center gap-1.5 truncate max-w-[70%]" title={project?.name}>
+                        <Folder className={cn("h-3 w-3 shrink-0", columnColor)} />
+                        <span className="truncate font-medium">{project?.name}</span>
+                    </div>
+                    {projectLead && (
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <div className="flex items-center gap-1 shrink-0 p-0.5 rounded-full bg-amber-50 dark:bg-amber-950/30">
+                                        <Crown className="h-2.5 w-2.5 text-amber-600 dark:text-amber-500" />
+                                        <Avatar className="h-4 w-4 border border-amber-200 dark:border-amber-800">
+                                            <AvatarImage src={projectLead.image || ""} />
+                                            <AvatarFallback className="text-[8px] bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+                                                {projectLead.name?.[0]}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                    </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="left" className="text-xs">
+                                    <p className="font-semibold">Project Lead</p>
+                                    <p>{projectLead.name} {projectLead.surname}</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    )}
+                </div>
                 <div className="flex items-center gap-1.5">
                     {subTask.parentTask && (
                         <Badge
                             variant="outline"
-                            className="text-xs px-2 py-0.5 max-w-[140px] truncate"
+                            className="text-xs px-2 py-0.5 max-w-[140px]"
                         >
-                            {subTask.parentTask.name}
+                            <span className="truncate">{subTask.parentTask.name}</span>
                         </Badge>
                     )}
                 </div>
 
                 <div>
                     <div className="flex items-start justify-between gap-2">
-                        <h4
-                            className="font-semibold text-sm leading-tight flex-1 line-clamp-2 cursor-pointer hover:text-primary transition-colors"
+                        <h5
+                            className="font-semibold text-[13px] leading-tight flex-1 truncate cursor-pointer hover:text-primary transition-colors"
                             onClick={handleNameClick}
+                            title={subTask.name}
                         >
                             {subTask.name}
-                        </h4>
+                        </h5>
                         <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                     </div>
                     {subTask.description && (
-                        <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                        <p className="text-xs text-muted-foreground truncate leading-relaxed">
                             {subTask.description}
                         </p>
                     )}
                 </div>
 
-                {assignee && (
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-muted-foreground flex-1">
-                            Assignee:
-                        </span>
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Avatar className="h-5 w-5 cursor-pointer">
-                                        <AvatarImage src={assignee.image || ""} />
-                                        <AvatarFallback className="text-[10px]">{assignee.name?.[0]}</AvatarFallback>
-                                    </Avatar>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>{assignee.surname}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                    </div>
-                )}
+
 
                 <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1">
@@ -164,37 +171,48 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                     )}
                 </div>
 
-                <div className="flex items-center justify-between pt-2 border-t">
-                    <div className="flex items-center gap-1.5">
-                        <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">
-                            {reviewCount > 0 ? (
-                                <span className="font-semibold">
-                                    {reviewCount} Review{reviewCount !== 1 ? 's' : ''}
+                <div className="flex items-center justify-between pt-2 border-t mt-auto">
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1.5 text-muted-foreground" title="Reviews">
+                            <MessageSquare className="h-3.5 w-3.5" />
+                            <span className="text-xs font-medium">{reviewCount}</span>
+                        </div>
+
+                        {dueDate && (
+                            <div
+                                className={cn(
+                                    "flex items-center gap-1 text-[10px] font-medium",
+                                    isOverdue
+                                        ? "text-destructive dark:text-red-400"
+                                        : "text-muted-foreground"
+                                )}
+                            >
+                                <Calendar className="h-3 w-3" />
+                                <span>
+                                    {new Date(dueDate).toLocaleDateString("en-GB", {
+                                        day: '2-digit',
+                                        month: 'short'
+                                    })}
                                 </span>
-                            ) : (
-                                <span className="italic">No reviews</span>
-                            )}
-                        </span>
+                                {isOverdue && <AlertCircle className="h-3 w-3" />}
+                            </div>
+                        )}
                     </div>
 
-                    {dueDate && (
-                        <div
-                            className={cn(
-                                "flex items-center gap-1 text-[10px] font-medium",
-                                isOverdue
-                                    ? "text-destructive dark:text-red-400"
-                                    : "text-muted-foreground"
-                            )}
-                        >
-                            <span>
-                                Due: {dueDate.toLocaleDateString("en-GB", {
-                                    day: '2-digit',
-                                    month: 'short'
-                                })}
-                            </span>
-                            {isOverdue && <AlertCircle className="h-3 w-3" />}
-                        </div>
+                    {assignee && (
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Avatar className="h-6 w-6 cursor-pointer border-2 border-background">
+                                        <AvatarImage src={assignee.image || ""} />
+                                        <AvatarFallback className="text-[10px]">{assignee.name?.[0]}</AvatarFallback>
+                                    </Avatar>
+                                </TooltipTrigger>
+                                <TooltipContent side="left">
+                                    <p>Assignee: {assignee.name} {assignee.surname}</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                     )}
                 </div>
             </CardContent>

@@ -2,6 +2,10 @@ import { getAllTasksFlat } from "@/data/task/gantt/get-all-tasks-flat";
 import { validateDependencies } from "@/components/task/gantt/utils";
 import { GanttSubtask, GanttTask } from "@/components/task/gantt/types";
 import { WorkspaceGanttClient } from "./workspace-gantt-client";
+import { getUserProjects } from "@/data/project/get-projects";
+import { getWorkspaceMembers } from "@/data/workspace/get-workspace-members";
+import prisma from "@/lib/db";
+import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
 
 interface WorkspaceGanttViewProps {
     workspaceId: string;
@@ -17,7 +21,22 @@ interface WorkspaceGanttViewProps {
  */
 export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProps) {
     // Get all tasks in a flat structure (parent tasks + subtasks) with permission-based filtering
-    const { tasks: allTasks } = await getAllTasksFlat(workspaceId);
+    const [allTasksData, projects, workspaceMembers, projectMemberMatches] = await Promise.all([
+        getAllTasksFlat(workspaceId),
+        getUserProjects(workspaceId),
+        getWorkspaceMembers(workspaceId),
+        prisma.projectMember.findMany({
+            where: { project: { workspaceId } },
+            select: {
+                projectId: true,
+                workspaceMember: {
+                    select: { userId: true }
+                }
+            }
+        })
+    ]);
+
+    const { tasks: allTasks } = allTasksData;
 
     // Separate parent tasks and subtasks
     const parentTasks = allTasks.filter(task => task.parentTaskId === null);
@@ -47,60 +66,39 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
         }
     });
 
-    // Transform data to GanttTask format
-    const ganttTasks: GanttTask[] = sortedParentTasks.map((parentTask) => {
-        // Get subtasks for this parent task
-        const taskSubtasks = subtasksMap.get(parentTask.id) || [];
-
-        // Sort subtasks by position
-        const sortedSubTasks = taskSubtasks.sort((a, b) => {
-            const posA = a.position ?? Number.MAX_SAFE_INTEGER;
-            const posB = b.position ?? Number.MAX_SAFE_INTEGER;
-            return posA - posB;
-        });
-
-        // Transform subtasks first
-        const rawSubtasks: GanttSubtask[] = sortedSubTasks.map((subtask) => {
-            const startDate = subtask.startDate ? new Date(subtask.startDate) : null;
-            const endDate = startDate && subtask.days
-                ? new Date(startDate.getTime() + (subtask.days - 1) * 24 * 60 * 60 * 1000)
-                : startDate;
-
-            // Format dates as YYYY-MM-DD using local time (not UTC)
-            const formatLocalDate = (date: Date | null): string => {
-                if (!date) return '';
-                const year = date.getFullYear();
-                const month = String(date.getMonth() + 1).padStart(2, '0');
-                const day = String(date.getDate()).padStart(2, '0');
-                return `${year}-${month}-${day}`;
-            };
-
-            return {
-                id: subtask.id,
-                name: subtask.name,
-                start: formatLocalDate(startDate),
-                end: formatLocalDate(endDate),
-                status: subtask.status || 'TO_DO',
-                // Extract dependency IDs from dependsOn relation
-                dependsOnIds: (subtask as any).dependsOn?.map((dep: any) => dep.id) || [],
-            };
-        });
-
-        // Validate dependencies to compute blocked status
-        const validatedSubtasks = validateDependencies(rawSubtasks);
-
-        return {
-            id: parentTask.id,
-            name: parentTask.name,
-            subtasks: validatedSubtasks,
-        };
+    // Build map of project -> userIds
+    const projectUserMap: Record<string, string[]> = {};
+    projectMemberMatches.forEach(pm => {
+        if (!projectUserMap[pm.projectId]) projectUserMap[pm.projectId] = [];
+        projectUserMap[pm.projectId].push(pm.workspaceMember.userId);
     });
+
+    // Format options
+    const projectOptions = projects.map(p => ({
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        memberIds: projectUserMap[p.id] || []
+    }));
+
+    const memberOptions = workspaceMembers.workspaceMembers.map(m => ({
+        id: m.userId,
+        name: m.user?.name || '',
+        surname: m.user?.surname || undefined,
+        email: m.user?.email || undefined
+    }));
+
+    // Transform data to GanttTask format
+    const ganttTasks = transformToGanttTasks(allTasks);
 
     return (
         <WorkspaceGanttClient
             workspaceId={workspaceId}
             initialTasks={ganttTasks}
+            allTasks={allTasks}
             subtaskDataMap={subtaskDataMap}
+            projects={projectOptions}
+            members={memberOptions}
         />
     );
 }

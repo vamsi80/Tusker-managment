@@ -3,9 +3,10 @@
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import prisma from "@/lib/db";
-import { requireUser } from "@/lib/auth/require-user";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
 import { CacheTags } from "@/data/cache-tags";
+import { TaskFilters } from "@/types/task-filters";
+import { buildSubTaskConditions } from "@/lib/tasks/filter-utils";
 
 // ============================================
 // INTERNAL FUNCTIONS (Actual DB queries)
@@ -20,22 +21,32 @@ async function _getSubTasksInternal(
     projectId: string,
     userId: string,
     isMember: boolean,
+    filters: Partial<TaskFilters> = {}, // Allow partial here
     page: number,
     pageSize: number
 ) {
     const skip = (page - 1) * pageSize;
 
-    // Build the where clause based on user role
-    const whereClause = isMember
-        ? {
-            parentTaskId: parentTaskId,
-            assignee: {
-                id: userId,
-            },
-        }
-        : {
-            parentTaskId: parentTaskId,
-        };
+    // 1. Permission filter (Members can only see their own tasks)
+    const permissionFilter = isMember
+        ? { assignee: { id: userId } }
+        : {};
+
+    // 2. User applied filters (status, assignee, search, etc.)
+    // Ensure workspaceId is present for buildSubTaskConditions
+    const fullFilters: TaskFilters = {
+        workspaceId,
+        ...filters
+    } as TaskFilters;
+
+    const filterConditions = buildSubTaskConditions(fullFilters);
+
+    // 3. Combine filters
+    const whereClause = {
+        parentTaskId: parentTaskId,
+        ...permissionFilter,
+        ...filterConditions
+    };
 
     // Use $transaction to combine count and data queries
     const [totalCount, subTasks] = await prisma.$transaction([
@@ -100,6 +111,23 @@ async function _getSubTasksInternal(
 // ============================================
 
 /**
+ * Generate a hash for filters to usage in cache key
+ */
+/**
+ * Generate a hash for filters to usage in cache key
+ */
+function getFilterHash(filters: Partial<TaskFilters>): string {
+    return JSON.stringify({
+        status: filters.status,
+        assigneeId: filters.assigneeId,
+        tagId: filters.tagId,
+        search: filters.search,
+        dueAfter: filters.dueAfter,
+        dueBefore: filters.dueBefore,
+    });
+}
+
+/**
  * Cached version of getSubTasks with role-based filtering
  */
 const getCachedSubTasks = (
@@ -108,17 +136,21 @@ const getCachedSubTasks = (
     projectId: string,
     userId: string,
     isMember: boolean,
+    filters: Partial<TaskFilters>,
     page: number,
     pageSize: number
-) =>
-    unstable_cache(
-        async () => _getSubTasksInternal(parentTaskId, workspaceId, projectId, userId, isMember, page, pageSize),
-        [`task-subtasks-${parentTaskId}-user-${userId}-page-${page}-size-${pageSize}`],
+) => {
+    const filterHash = getFilterHash(filters);
+
+    return unstable_cache(
+        async () => _getSubTasksInternal(parentTaskId, workspaceId, projectId, userId, isMember, filters, page, pageSize),
+        [`task-subtasks-${parentTaskId}-user-${userId}-filters-${filterHash}-page-${page}-size-${pageSize}`],
         {
             tags: CacheTags.taskSubTasks(parentTaskId, userId),
             revalidate: 60, // 1 minute
         }
     )();
+};
 
 // ============================================
 // PUBLIC API (React cache for request deduplication)
@@ -134,24 +166,17 @@ const getCachedSubTasks = (
  * @param parentTaskId - The parent task ID
  * @param workspaceId - The workspace ID
  * @param projectId - The project ID
+ * @param filters - Optional filters to apply to subtasks
  * @param page - Page number (default: 1)
  * @param pageSize - Number of items per page (default: 10)
  * @returns Object containing subtasks array and pagination info
- * 
- * @example
- * const { subTasks, totalCount, hasMore } = await getSubTasks(
- *   parentTaskId,
- *   workspaceId,
- *   projectId,
- *   1,
- *   10
- * );
  */
 export const getSubTasks = cache(
     async (
         parentTaskId: string,
         workspaceId: string,
         projectId: string,
+        filters: Partial<TaskFilters> = {},
         page: number = 1,
         pageSize: number = 10
     ) => {
@@ -168,6 +193,7 @@ export const getSubTasks = cache(
                 projectId,
                 permissions.workspaceMember.userId,
                 permissions.isMember,
+                filters,
                 page,
                 pageSize
             );

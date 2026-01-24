@@ -92,6 +92,7 @@ export interface ProjectOption {
     id: string;
     name: string;
     slug?: string;
+    memberIds?: string[];
 }
 
 /**
@@ -329,12 +330,12 @@ export function hasActiveFilters(filters: TaskFilters): boolean {
     return getActiveFilters(filters).length > 0;
 }
 
+import { WorkspaceTaskType } from "@/data/task";
 // ============================================================================
 // TASK TYPES
 // ============================================================================
 
 import { SubTaskType } from "@/data/task/list/get-subtasks";
-import { WorkspaceTaskType } from "@/data/task/get-workspace-tasks";
 
 /**
  * Task with its subtasks and pagination state

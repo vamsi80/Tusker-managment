@@ -4,12 +4,12 @@ import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { SubTaskType } from "@/data/task";
+import { KanbanSubTaskType } from "@/data/task/kanban";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import { KanbanCard } from "./kanban-card";
 
-type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED";
+type TaskStatus = "TO_DO" | "IN_PROGRESS" | "REVIEW" | "HOLD" | "COMPLETED" | "CANCELLED";
 
 interface KanbanColumnProps {
     column: {
@@ -19,11 +19,11 @@ interface KanbanColumnProps {
         bgColor: string;
         borderColor: string;
     };
-    subTasks: SubTaskType[];
+    subTasks: KanbanSubTaskType[];
     totalCount: number;
     hasMore: boolean;
     isLoadingMore: boolean;
-    onSubTaskClick: (subTask: SubTaskType) => void;
+    onSubTaskClick: (subTask: KanbanSubTaskType) => void;
     onLoadMore: () => void;
 }
 

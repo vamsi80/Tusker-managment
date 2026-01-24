@@ -1,15 +1,15 @@
 import { z } from 'zod'
 
-export const SubTaskStatus = ["TO_DO", "IN_PROGRESS", "BLOCKED", "REVIEW", "COMPLETED", "HOLD"] as const
+export const SubTaskStatus = ["TO_DO", "IN_PROGRESS", "REVIEW", "COMPLETED", "HOLD", "CANCELLED"] as const
 
 // Status labels - single source of truth
 export const STATUS_LABELS: Record<typeof SubTaskStatus[number], string> = {
     TO_DO: "To Do",
     IN_PROGRESS: "In Progress",
-    BLOCKED: "Blocked",
     REVIEW: "Review",
     COMPLETED: "Completed",
     HOLD: "On Hold",
+    CANCELLED: "Cancelled",
 } as const;
 
 // Status options for dropdowns

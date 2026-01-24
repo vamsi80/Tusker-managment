@@ -67,9 +67,30 @@ export function TaskTable({
     const [hasMoreTasks, setHasMoreTasks] = useState(initialHasMore);
     const [currentPage, setCurrentPage] = useState(1);
     const [loadingMoreTasks, setLoadingMoreTasks] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [filters, setFilters] = useState<TaskFilters>({});
+    const [isLoadingFilters, setIsLoadingFilters] = useState(false);
     const { lastEvent, clearEvent } = useNewTask();
+    const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+    const [loadingSubTasks, setLoadingSubTasks] = useState<Record<string, boolean>>({});
+    const [loadingMoreSubTasks, setLoadingMoreSubTasks] = useState<Record<string, boolean>>({});
+    const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
+    const [showInlineTaskForm, setShowInlineTaskForm] = useState(false);
+
+    // State for dynamic project filtering based on facets
+    const [filteredProjects, setFilteredProjects] = useState<{ id: string; name: string; }[]>(projects || []);
 
     useEffect(() => {
+        const hasActiveFilters = searchQuery || Object.keys(filters).length > 0;
+
+        // Reset projects if no filters are active
+        if (!hasActiveFilters && projects) {
+            setFilteredProjects(projects);
+        }
+
+        // Don't sync if filters are active - filter effect handles task updates
+        if (hasActiveFilters) return;
+
         setTasks(prevTasks => {
             return initialTasks.map((serverTask: TaskWithSubTasks) => {
                 const existingTask = prevTasks.find(t => t.id === serverTask.id);
@@ -85,7 +106,7 @@ export function TaskTable({
                 return serverTask;
             });
         });
-    }, [initialTasks]);
+    }, [initialTasks, searchQuery, filters, projects]);
 
     useEffect(() => {
         if (lastEvent) {
@@ -113,7 +134,7 @@ export function TaskTable({
                 if (task.id === taskId && task.subTasks) {
                     return {
                         ...task,
-                        subTasks: task.subTasks.map(subTask =>
+                        subTasks: task.subTasks.map((subTask: SubTaskType) =>
                             subTask.id === subTaskId
                                 ? { ...subTask, ...updatedData }
                                 : subTask
@@ -129,7 +150,7 @@ export function TaskTable({
         setTasks(prevTasks =>
             prevTasks.map(task => {
                 if (task.id === taskId && task.subTasks) {
-                    const newSubTasks = task.subTasks.filter(subTask => subTask.id !== subTaskId);
+                    const newSubTasks = task.subTasks.filter((subTask: SubTaskType) => subTask.id !== subTaskId);
                     return {
                         ...task,
                         subTasks: newSubTasks,
@@ -154,12 +175,12 @@ export function TaskTable({
                     if (tempId) {
                         return {
                             ...task,
-                            subTasks: currentSubTasks.map(st => st.id === tempId ? newSubTask : st)
+                            subTasks: currentSubTasks.map((st: SubTaskType) => st.id === tempId ? newSubTask : st)
                         };
                     }
 
                     // 2. Safety: Check if this real task already exists (e.g. from server refresh)
-                    if (currentSubTasks.some(st => st.id === newSubTask.id)) {
+                    if (currentSubTasks.some((st: SubTaskType) => st.id === newSubTask.id)) {
                         return task;
                     }
 
@@ -178,14 +199,6 @@ export function TaskTable({
         );
     };
 
-    const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-    const [loadingSubTasks, setLoadingSubTasks] = useState<Record<string, boolean>>({});
-    const [loadingMoreSubTasks, setLoadingMoreSubTasks] = useState<Record<string, boolean>>({});
-    const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
-    const [showInlineTaskForm, setShowInlineTaskForm] = useState(false);
-    const [searchQuery, setSearchQuery] = useState("");
-    const [filters, setFilters] = useState<TaskFilters>({});
-    const [isLoadingFilters, setIsLoadingFilters] = useState(false); // Loading state for filter-triggered subtask loading
     const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
         assignee: true,
         startDate: true,
@@ -218,52 +231,79 @@ export function TaskTable({
             assignees: assigneesForFilter,
             // Use tags from props instead of extracting from tasks
             tags: tags,
+            // Use dynamic projects derived from facets (or fallback to all)
+            projects: filteredProjects,
         };
-    }, [tasks, showAdvancedFilters, members, assignees, tags]);
+    }, [tasks, showAdvancedFilters, members, assignees, tags, filteredProjects]);
 
     // Use global subtask sheet context
     const { openSubTaskSheet } = useSubTaskSheet();
 
-    // Automatically load subtasks when ANY filter is applied
+    // Server-side filtering - only run when filters or search actually change
     useEffect(() => {
-        const hasAnyFilter = filters.assigneeId || filters.status || filters.tag || filters.startDate || filters.endDate || filters.projectId;
+        const hasFilters = searchQuery || Object.keys(filters).length > 0;
 
-        if (hasAnyFilter) {
-            // Find tasks that need subtasks loaded
-            const tasksNeedingSubtasks = tasks.filter(task => !task.subTasks || task.subTasks.length === 0);
+        // Only run if there are active filters or search
+        if (!hasFilters) return;
 
-            if (tasksNeedingSubtasks.length > 0) {
-                setIsLoadingFilters(true);
+        const timer = setTimeout(async () => {
+            setIsLoadingFilters(true);
+            try {
+                // Fetch Page 1 with filters
+                // Clean filters to remove undefined values before serialization
+                // Next.js Server Actions can have issues with undefined values or complex objects
+                const rawFilters = {
+                    ...filters,
+                    startDate: filters.startDate ? new Date(filters.startDate) : undefined,
+                    endDate: filters.endDate ? new Date(filters.endDate) : undefined,
+                    search: searchQuery || undefined
+                };
 
-                // Load subtasks for all parent tasks that don't have them loaded yet
-                Promise.all(
-                    tasksNeedingSubtasks.map(async (task) => {
-                        try {
-                            const response = await loadSubTasksAction(task.id, workspaceId, projectId, 1, 100);
-                            if (response.success && response.data && response.data.subTasks.length > 0) {
-                                setTasks(prev => prev.map(t =>
-                                    t.id === task.id
-                                        ? {
-                                            ...t,
-                                            subTasks: response.data!.subTasks as any,
-                                            subTasksHasMore: response.data!.hasMore,
-                                            subTasksPage: 1
-                                        }
-                                        : t
-                                ));
-                            }
-                        } catch (error) {
-                            console.error('Error loading subtasks for filter:', error);
-                        }
-                    })
-                ).finally(() => {
-                    setIsLoadingFilters(false);
+                const filtersToSend: any = {};
+                Object.keys(rawFilters).forEach(key => {
+                    // @ts-ignore
+                    const value = rawFilters[key];
+                    // Only include defined values
+                    if (value !== undefined && value !== null && value !== '') {
+                        filtersToSend[key] = value;
+                    }
                 });
+
+                console.log('🔍 [FRONTEND] Sending CLEAN filters:', filtersToSend);
+
+                const response = await loadMoreTasksAction(
+                    workspaceId,
+                    filtersToSend,
+                    1,
+                    10
+                );
+
+                if (response.success && response.data) {
+                    // Reset tasks list
+                    setTasks(response.data.tasks as any);
+                    setHasMoreTasks(response.data.hasMore);
+                    setCurrentPage(1);
+
+                    // Update dynamic projects based on facets
+                    // This enables "Faceted Search" - e.g. selecting an Assignee limits the Project dropdown to only their projects
+                    const facets = (response.data as any).facets;
+                    if (facets?.projects && projects) {
+                        const projectIds = Object.keys(facets.projects);
+                        const visible = projects.filter(p => projectIds.includes(p.id));
+                        setFilteredProjects(visible);
+                    }
+                } else {
+                    toast.error("Failed to apply filters");
+                }
+            } catch (error) {
+                console.error("Error applying filters:", error);
+            } finally {
+                setIsLoadingFilters(false);
             }
-        } else {
-            setIsLoadingFilters(false);
-        }
-    }, [filters.assigneeId, filters.status, filters.tag, filters.startDate, filters.endDate, filters.projectId, workspaceId, projectId]);
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [filters, searchQuery, workspaceId]);
 
     const handleSubTaskClick = (subTask: SubTaskType) => {
         openSubTaskSheet(subTask);
@@ -278,9 +318,16 @@ export function TaskTable({
             const nextPage = currentPage + 1;
 
             // Use the server action wrapper instead of direct data call
+            // Use current filters to maintain filter state during pagination
             const response = await loadMoreTasksAction(
                 workspaceId,
-                { projectId }, // Filter by project
+                {
+                    ...filters,
+                    projectId: projectId || filters.projectId, // Use projectId prop or filter
+                    startDate: filters.startDate ? new Date(filters.startDate) : undefined,
+                    endDate: filters.endDate ? new Date(filters.endDate) : undefined,
+                    search: searchQuery
+                },
                 nextPage,
                 10
             );
@@ -320,11 +367,28 @@ export function TaskTable({
                 setLoadingSubTasks((prev) => ({ ...prev, [taskId]: true }));
 
                 try {
+                    // Clean filters before passing to ensure serialization works
+                    const cleanFilters: any = {};
+                    const rawFilters = {
+                        ...filters,
+                        startDate: filters.startDate ? new Date(filters.startDate) : undefined,
+                        endDate: filters.endDate ? new Date(filters.endDate) : undefined,
+                        search: searchQuery || undefined
+                    };
+                    Object.keys(rawFilters).forEach(key => {
+                        // @ts-ignore
+                        const value = rawFilters[key];
+                        if (value !== undefined && value !== null && value !== '') {
+                            cleanFilters[key] = value;
+                        }
+                    });
+
                     // Use the server action wrapper instead of direct data call
                     const response = await loadSubTasksAction(
                         taskId,
                         workspaceId,
                         task.projectId || projectId, // Use task's projectId if available, fallback to prop
+                        cleanFilters,
                         1,
                         10
                     );
@@ -381,10 +445,27 @@ export function TaskTable({
                 // Load subtasks in parallel
                 await Promise.all(tasksNeedingSubtasks.map(async (task) => {
                     try {
+                        // Clean filters
+                        const cleanFilters: any = {};
+                        const rawFilters = {
+                            ...filters,
+                            startDate: filters.startDate ? new Date(filters.startDate) : undefined,
+                            endDate: filters.endDate ? new Date(filters.endDate) : undefined,
+                            search: searchQuery || undefined
+                        };
+                        Object.keys(rawFilters).forEach(key => {
+                            // @ts-ignore
+                            const value = rawFilters[key];
+                            if (value !== undefined && value !== null && value !== '') {
+                                cleanFilters[key] = value;
+                            }
+                        });
+
                         const response = await loadSubTasksAction(
                             task.id,
                             workspaceId,
                             task.projectId || projectId, // Use task's projectId if available
+                            cleanFilters,
                             1,
                             10
                         );
@@ -431,11 +512,28 @@ export function TaskTable({
         try {
             const nextPage = (task.subTasksPage || 1) + 1;
 
+            // Clean filters
+            const cleanFilters: any = {};
+            const rawFilters = {
+                ...filters,
+                startDate: filters.startDate ? new Date(filters.startDate) : undefined,
+                endDate: filters.endDate ? new Date(filters.endDate) : undefined,
+                search: searchQuery || undefined
+            };
+            Object.keys(rawFilters).forEach(key => {
+                // @ts-ignore
+                const value = rawFilters[key];
+                if (value !== undefined && value !== null && value !== '') {
+                    cleanFilters[key] = value;
+                }
+            });
+
             // Use the server action wrapper instead of direct data call
             const response = await loadSubTasksAction(
                 taskId,
                 workspaceId,
                 task.projectId || projectId, // Use task's projectId if available, fallback to prop
+                cleanFilters,
                 nextPage,
                 10
             );
@@ -473,28 +571,28 @@ export function TaskTable({
         const overSubTaskId = over.id as string;
 
         const parentTask = tasks.find((task) =>
-            task.subTasks?.some((sub) => sub.id === activeSubTaskId)
+            task.subTasks?.some((sub: SubTaskType) => sub.id === activeSubTaskId)
         );
 
         if (!parentTask || !parentTask.subTasks) return;
 
         const isOverInSameParent = parentTask.subTasks.some(
-            (sub) => sub.id === overSubTaskId
+            (sub: SubTaskType) => sub.id === overSubTaskId
         );
 
         if (isOverInSameParent) {
             const oldIndex = parentTask.subTasks.findIndex(
-                (sub) => sub.id === activeSubTaskId
+                (sub: SubTaskType) => sub.id === activeSubTaskId
             );
             const newIndex = parentTask.subTasks.findIndex(
-                (sub) => sub.id === overSubTaskId
+                (sub: SubTaskType) => sub.id === overSubTaskId
             );
 
             // Reorder the subtasks array
-            const newSubTasks = arrayMove(parentTask.subTasks, oldIndex, newIndex);
+            const newSubTasks = arrayMove(parentTask.subTasks, oldIndex, newIndex) as SubTaskType[];
 
             // Update position values based on new order
-            const updatedSubTasks = newSubTasks.map((subtask, index) => ({
+            const updatedSubTasks = newSubTasks.map((subtask: SubTaskType, index: number) => ({
                 ...subtask,
                 position: index
             }));
@@ -563,93 +661,8 @@ export function TaskTable({
 
 
     // Apply filters to subtasks (not parent tasks)
-    const filteredTasks = React.useMemo(() => {
-        // If no filters are active, return all tasks
-        if (!searchQuery && !hasActiveFilters(filters)) {
-            return tasks;
-        }
-
-        // Filter subtasks and show parent tasks that have matching subtasks
-        return tasks.map((task: TaskWithSubTasks) => {
-            // If task has no subtasks, skip filtering
-            if (!task.subTasks || task.subTasks.length === 0) {
-                return task;
-            }
-
-            // Filter subtasks
-            let filteredSubTasks = task.subTasks;
-
-            // Apply search filter to subtasks
-            if (searchQuery) {
-                const query = searchQuery.toLowerCase();
-                filteredSubTasks = filteredSubTasks.filter((subTask: SubTaskType) =>
-                    subTask.name.toLowerCase().includes(query) ||
-                    subTask.description?.toLowerCase().includes(query) ||
-                    subTask.taskSlug?.toLowerCase().includes(query)
-                );
-            }
-
-            // Apply status filter to subtasks
-            if (filters.status) {
-                filteredSubTasks = filteredSubTasks.filter((subTask: SubTaskType) =>
-                    subTask.status === filters.status
-                );
-            }
-
-            // Apply assignee filter to subtasks
-            if (filters.assigneeId) {
-                filteredSubTasks = filteredSubTasks.filter((subTask: SubTaskType) => {
-                    return subTask.assignee?.id === filters.assigneeId;
-                });
-            }
-
-            // Apply tag filter to subtasks
-            if (filters.tag) {
-                filteredSubTasks = filteredSubTasks.filter((subTask: SubTaskType) => {
-                    // subTask.tag is the tagId (string | null)
-                    const tagId = typeof subTask.tag === 'string' ? subTask.tag : (subTask.tag as any)?.id;
-                    return tagId === filters.tag;
-                });
-            }
-
-            // Apply date range filter to subtasks
-            if (filters.startDate) {
-                filteredSubTasks = filteredSubTasks.filter((subTask: SubTaskType) =>
-                    subTask.startDate && new Date(subTask.startDate) >= new Date(filters.startDate!)
-                );
-            }
-
-            if (filters.endDate) {
-                filteredSubTasks = filteredSubTasks.filter((subTask: SubTaskType) => {
-                    const dueDate = calculateDueDate(subTask.startDate, subTask.days);
-                    if (!dueDate) return false;
-                    return dueDate <= new Date(filters.endDate!);
-                });
-            }
-
-            // Return task with filtered subtasks
-            return {
-                ...task,
-                subTasks: filteredSubTasks,
-            };
-        }).filter(task => {
-            // Apply project filter to parent tasks (workspace-level only)
-            if (filters.projectId && task.projectId !== filters.projectId) {
-                return false;
-            }
-
-            // When ANY filter is active, only show parent tasks that have matching subtasks
-            const hasAnyFilter = filters.assigneeId || filters.status || filters.tag || filters.startDate || filters.endDate || filters.projectId;
-
-            if (hasAnyFilter) {
-                return task.subTasks && task.subTasks.length > 0;
-            }
-
-            // When no filters, show parent tasks that have matching subtasks
-            // OR tasks that don't have subtasks loaded yet
-            return !task.subTasks || task.subTasks.length > 0;
-        });
-    }, [tasks, searchQuery, filters]);
+    // Server-side filtered tasks
+    const filteredTasks = tasks;
 
     // Calculate visible columns count for colSpan: 2 fixed (expand, name) + dynamic + 1 fixed (actions)
     const visibleColumnsCount = 2 + Object.values(columnVisibility).filter(Boolean).length + 1;

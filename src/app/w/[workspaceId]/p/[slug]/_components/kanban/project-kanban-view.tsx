@@ -31,7 +31,7 @@ export async function ProjectKanbanView({
     const [
         todoData,
         inProgressData,
-        blockedData,
+        cancelledData,
         reviewData,
         holdData,
         completedData,
@@ -39,7 +39,7 @@ export async function ProjectKanbanView({
     ] = await Promise.all([
         getSubTasksByStatus(workspaceId, "TO_DO", projectId, 1, 5),
         getSubTasksByStatus(workspaceId, "IN_PROGRESS", projectId, 1, 5),
-        getSubTasksByStatus(workspaceId, "BLOCKED", projectId, 1, 5),
+        getSubTasksByStatus(workspaceId, "CANCELLED", projectId, 1, 5),
         getSubTasksByStatus(workspaceId, "REVIEW", projectId, 1, 5),
         getSubTasksByStatus(workspaceId, "HOLD", projectId, 1, 5),
         getSubTasksByStatus(workspaceId, "COMPLETED", projectId, 1, 5),
@@ -50,7 +50,7 @@ export async function ProjectKanbanView({
     const initialData = {
         TO_DO: todoData,
         IN_PROGRESS: inProgressData,
-        BLOCKED: blockedData,
+        CANCELLED: cancelledData,
         REVIEW: reviewData,
         HOLD: holdData,
         COMPLETED: completedData,
