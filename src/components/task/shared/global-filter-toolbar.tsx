@@ -148,13 +148,61 @@ export function GlobalFilterToolbar({
     const rawActiveFilters = getActiveFilters(filters);
 
     // Map IDs to labels (assignee name, formatted dates)
+    // Map IDs to labels (assignee name, formatted dates)
     const activeFilters = rawActiveFilters.map(filter => {
+        // Map Assignee ID to Name (Surname preferred)
         if (filter.key === 'assigneeId' && members) {
             const assignee = members.find(m => m.id === filter.value);
             if (assignee) {
+                // User requested "surname instead of name"
+                const displayName = assignee.surname ? assignee.surname : assignee.name;
                 return {
                     ...filter,
-                    value: `${assignee.name} ${assignee.surname || ''}`.trim()
+                    value: displayName
+                };
+            }
+        }
+
+        // Map Project ID to Project Name
+        if (filter.key === 'projectId' && projects) {
+            const project = projects.find(p => p.id === filter.value);
+            if (project) {
+                return {
+                    ...filter,
+                    value: project.name
+                };
+            }
+        }
+
+        // Map Tag ID to Tag Name
+        if (filter.key === 'tagId' && tags) {
+            const tag = tags.find(t => t.id === filter.value);
+            if (tag) {
+                return {
+                    ...filter,
+                    value: tag.name
+                };
+            }
+        }
+
+        // Map Status Value to Label
+        if (filter.key === 'status') {
+            const statusOption = STATUS_OPTIONS.find(s => s.value === filter.value);
+            if (statusOption) {
+                return {
+                    ...filter,
+                    value: statusOption.label
+                };
+            }
+        }
+
+        // Map Parent Task ID to Name
+        if (filter.key === 'parentTaskId' && parentTasks) {
+            const parent = parentTasks.find(p => p.id === filter.value);
+            if (parent) {
+                return {
+                    ...filter,
+                    value: parent.name
                 };
             }
         }
@@ -467,7 +515,7 @@ export function GlobalFilterToolbar({
                                                 <SelectItem value="__all__">All Assignees</SelectItem>
                                                 {members.map((member) => (
                                                     <SelectItem key={member.id} value={member.id}>
-                                                        {`${member.name} ${member.surname || ''}`.trim()}
+                                                        {member.surname ? member.surname : member.name}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
@@ -480,11 +528,11 @@ export function GlobalFilterToolbar({
                                     <div className="space-y-2">
                                         <div className="flex items-center justify-between">
                                             <h4 className="text-sm font-medium text-muted-foreground">Tag</h4>
-                                            {filters.tag && (
+                                            {filters.tagId && (
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
-                                                    onClick={() => handleFilterChange("tag", undefined)}
+                                                    onClick={() => handleFilterChange("tagId", undefined)}
                                                     className="h-auto p-0 text-xs text-blue-600 hover:text-blue-700 hover:bg-transparent"
                                                 >
                                                     Clear
@@ -492,8 +540,8 @@ export function GlobalFilterToolbar({
                                             )}
                                         </div>
                                         <Select
-                                            value={filters.tag || "__all__"}
-                                            onValueChange={(value) => handleFilterChange("tag", value)}
+                                            value={filters.tagId || "__all__"}
+                                            onValueChange={(value) => handleFilterChange("tagId", value)}
                                         >
                                             <SelectTrigger className="w-full h-9">
                                                 <SelectValue placeholder="Select tag" />

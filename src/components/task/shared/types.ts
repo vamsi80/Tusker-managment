@@ -58,8 +58,8 @@ export interface TaskFilters {
     /** End date filter (to) */
     endDate?: Date | string;
 
-    /** Tag filter - using string ID for dynamic tags */
-    tag?: string;
+    /** Tag ID filter (alias for tag) */
+    tagId?: string;
 
     /** Search query */
     search?: string;
@@ -310,8 +310,8 @@ export function getActiveFilters(filters: TaskFilters): ActiveFilter[] {
     if (filters.endDate) {
         active.push({ key: "endDate", label: "End Date", value: String(filters.endDate) });
     }
-    if (filters.tag) {
-        active.push({ key: "tag", label: "Tag", value: filters.tag });
+    if (filters.tagId) {
+        active.push({ key: "tagId", label: "Tag", value: filters.tagId });
     }
     if (filters.search) {
         active.push({ key: "search", label: "Search", value: filters.search });

@@ -652,7 +652,7 @@ export function TaskTable({
         return !!(
             filters.status ||
             filters.assigneeId ||
-            filters.tag ||
+            filters.tagId ||
             filters.startDate ||
             filters.endDate ||
             filters.projectId
@@ -688,7 +688,15 @@ export function TaskTable({
             />
 
 
-            <div className="rounded-md border overflow-hidden">
+            <div className="rounded-md border overflow-hidden relative">
+                {isLoadingFilters && (
+                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/50 backdrop-blur-sm transition-all duration-300">
+                        <div className="flex flex-col items-center gap-2">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            <span className="text-sm font-medium text-muted-foreground">Filtering...</span>
+                        </div>
+                    </div>
+                )}
                 <div className={cn(
                     "max-h-[calc(100vh-280px)] overflow-auto",
                     // Custom ultra-thin scrollbar

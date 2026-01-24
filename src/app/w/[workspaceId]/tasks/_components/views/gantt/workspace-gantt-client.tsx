@@ -6,7 +6,8 @@ import { FlatTaskType } from "@/data/task/gantt/get-all-tasks-flat";
 import { ProjectOption, MemberOption, TaskFilters } from "@/components/task/shared/types";
 import { GlobalFilterToolbar } from "@/components/task/shared/global-filter-toolbar";
 import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useTransition } from "react";
+import { Loader2 } from "lucide-react";
 
 interface WorkspaceGanttClientProps {
     workspaceId: string;
@@ -27,6 +28,7 @@ export function WorkspaceGanttClient({
 }: WorkspaceGanttClientProps) {
     const [filters, setFilters] = useState<TaskFilters>({});
     const [searchQuery, setSearchQuery] = useState("");
+    const [isPending, startTransition] = useTransition();
 
     // Bi-directional filtering
     const filteredProjects = useMemo(() => projects.filter((p: any) =>
@@ -61,9 +63,9 @@ export function WorkspaceGanttClient({
             if (filters.assigneeId && task.assignee?.id !== filters.assigneeId) return false;
 
             // Tag filtering - checking tag relation
-            if (filters.tag) {
+            if (filters.tagId) {
                 const tagName = (task.tag as any)?.name;
-                if (tagName !== filters.tag) return false;
+                if (tagName !== filters.tagId) return false;
             }
 
             if (filters.startDate && (!task.startDate || new Date(task.startDate) < new Date(filters.startDate))) return false;
@@ -91,6 +93,18 @@ export function WorkspaceGanttClient({
 
     }, [allTasks, initialTasks, filters, searchQuery]);
 
+    const handleFilterChange = (newFilters: TaskFilters) => {
+        startTransition(() => {
+            setFilters(newFilters);
+        });
+    };
+
+    const handleSearchChange = (query: string) => {
+        startTransition(() => {
+            setSearchQuery(query);
+        });
+    };
+
     return (
         <div className="space-y-4">
             <GlobalFilterToolbar
@@ -100,14 +114,29 @@ export function WorkspaceGanttClient({
                 searchQuery={searchQuery}
                 members={filteredMembers}
                 projects={filteredProjects}
-                onFilterChange={setFilters}
-                onSearchChange={setSearchQuery}
-                onClearAll={() => { setFilters({}); setSearchQuery(""); }}
+                onFilterChange={handleFilterChange}
+                onSearchChange={handleSearchChange}
+                onClearAll={() => {
+                    startTransition(() => {
+                        setFilters({});
+                        setSearchQuery("");
+                    });
+                }}
             />
-            <GanttChart
-                workspaceId={workspaceId}
-                tasks={ganttTasks}
-            />
+            <div className="relative min-h-[400px]">
+                {isPending && (
+                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/50 backdrop-blur-sm transition-all duration-300">
+                        <div className="flex flex-col items-center gap-2">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            <span className="text-sm font-medium text-muted-foreground">Filtering...</span>
+                        </div>
+                    </div>
+                )}
+                <GanttChart
+                    workspaceId={workspaceId}
+                    tasks={ganttTasks}
+                />
+            </div>
         </div>
     );
 }
