@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useTransition } from "react";
+import { useState, useMemo, useTransition, useEffect, useRef } from "react";
 import { Calendar, ChevronDown } from "lucide-react";
 import { calculateTimelineRange, getDaysBetween } from "./utils";
 import { TimelineHeader, TimelineGrid } from "./timeline-grid";
@@ -24,12 +24,32 @@ export function GanttChart({ tasks, workspaceId, projectId, className, onSubtask
     const [granularity, setGranularity] = useState<TimelineGranularity>('days');
     const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
     const [isPending, startTransition] = useTransition();
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     const timelineRange = useMemo(() => calculateTimelineRange(tasks), [tasks]);
     const totalDays = useMemo(
         () => getDaysBetween(timelineRange.start, timelineRange.end),
         [timelineRange]
     );
+
+    // Auto-scroll to today's date when component mounts
+    useEffect(() => {
+        if (!scrollContainerRef.current) return;
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Calculate today's position in the timeline
+        const daysFromStart = getDaysBetween(timelineRange.start, today);
+        const columnWidth = granularity === 'days' ? 40 : granularity === 'weeks' ? 80 : 120;
+        const todayPosition = daysFromStart * columnWidth;
+
+        // Scroll to position today in the center of the viewport
+        const containerWidth = scrollContainerRef.current.clientWidth;
+        const scrollPosition = Math.max(0, todayPosition - containerWidth / 2 + 200); // 200px offset for task names column
+
+        scrollContainerRef.current.scrollLeft = scrollPosition;
+    }, [timelineRange, granularity]);
 
     const toggleTask = (taskId: string) => {
         setExpandedTasks((prev) => {
@@ -51,14 +71,12 @@ export function GanttChart({ tasks, workspaceId, projectId, className, onSubtask
         setExpandedTasks(new Set());
     };
 
-    // Handle subtask reordering
     const handleSubtaskReorder = (taskId: string, subtaskIds: string[]) => {
         if (!workspaceId || !projectId) {
             toast.error("Cannot save changes - missing workspace or project information");
             return;
         }
 
-        // Show loading toast
         const toastId = toast.loading("Updating subtask order...");
 
         startTransition(async () => {
@@ -90,7 +108,7 @@ export function GanttChart({ tasks, workspaceId, projectId, className, onSubtask
     }
 
     return (
-        <div className={cn("flex flex-col h-full", className)}>
+        <div className={cn("flex flex-col", className)}>
             {/* Toolbar */}
             <div className="flex items-center justify-between gap-4 mb-4 px-1">
                 <div className="flex items-center gap-2">
@@ -136,8 +154,9 @@ export function GanttChart({ tasks, workspaceId, projectId, className, onSubtask
 
             {/* Gantt Container */}
             <div
+                ref={scrollContainerRef}
                 className={cn(
-                    "flex-1 overflow-auto rounded-lg border border-neutral-200 dark:border-neutral-700",
+                    "max-h-[calc(100vh-280px)] overflow-auto rounded-lg border border-neutral-200 dark:border-neutral-700",
                     "bg-white dark:bg-neutral-900",
                     "shadow-sm",
                     "[&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2",

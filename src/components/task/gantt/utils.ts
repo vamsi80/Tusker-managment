@@ -54,7 +54,7 @@ export function calculateTimelineRange(tasks: GanttTask[]): { start: Date; end: 
     const today = getIndianDate();
     let minDate = new Date(today);
     let maxDate = new Date(today);
-    maxDate.setDate(maxDate.getDate() + 30); // Default 30 days
+    maxDate.setDate(maxDate.getDate() + 60); // Default 60 days ahead
 
     for (const task of tasks) {
         const { start, end } = computeTaskDates(task);
@@ -62,9 +62,16 @@ export function calculateTimelineRange(tasks: GanttTask[]): { start: Date; end: 
         if (end && end > maxDate) maxDate = new Date(end);
     }
 
-    // Add padding
-    minDate.setDate(minDate.getDate() - 2);
-    maxDate.setDate(maxDate.getDate() + 5);
+    // Ensure today is always within the range
+    if (today < minDate) minDate = new Date(today);
+    if (today > maxDate) maxDate = new Date(today);
+
+    // Add padding - more padding before today, less after
+    const paddingBefore = 7; // 1 week before
+    const paddingAfter = 14; // 2 weeks after
+
+    minDate.setDate(minDate.getDate() - paddingBefore);
+    maxDate.setDate(maxDate.getDate() + paddingAfter);
 
     return { start: minDate, end: maxDate };
 }

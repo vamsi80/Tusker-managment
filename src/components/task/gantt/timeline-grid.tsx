@@ -50,14 +50,14 @@ export function TimelineHeader({ startDate, endDate, granularity }: TimelineHead
     const columnWidth = granularity === 'days' ? 40 : granularity === 'weeks' ? 80 : 120;
 
     return (
-        <div className="sticky top-0 z-20">
+        <div className="sticky top-0 z-40 bg-white dark:bg-neutral-900 min-w-full w-fit">
             {/* Month Row (for days view) */}
             {granularity === 'days' && (
                 <div
                     className="flex border-b border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800"
                 >
                     <div
-                        className="sticky left-0 z-30 w-[200px] min-w-[200px] shrink-0 px-3 py-1 bg-neutral-100 dark:bg-neutral-800 border-r border-neutral-200 dark:border-neutral-700"
+                        className="sticky left-0 z-50 w-[200px] min-w-[200px] shrink-0 px-3 py-1 bg-neutral-100 dark:bg-neutral-800 border-r border-neutral-200 dark:border-neutral-700"
                     />
                     <div className="flex">
                         {monthLabels.map((month, idx) => (
@@ -76,7 +76,7 @@ export function TimelineHeader({ startDate, endDate, granularity }: TimelineHead
             {/* Day/Week/Month Headers */}
             <div className="flex border-b border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900">
                 <div
-                    className="sticky left-0 z-30 w-[200px] min-w-[200px] shrink-0 px-3 py-2 bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-700"
+                    className="sticky left-0 z-50 w-[200px] min-w-[200px] shrink-0 px-3 py-2 bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-700"
                 >
                     <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         Tasks
@@ -180,7 +180,7 @@ export function TimelineGrid({ startDate, endDate, granularity, tasks, children 
     }, [startDate, endDate, columnWidth, granularity, columns]);
 
     return (
-        <div className="relative">
+        <div className="relative min-w-full w-fit">
             {/* Grid Background */}
             <div
                 className="absolute inset-0 flex pointer-events-none"

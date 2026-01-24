@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { computeTaskDates, calculateBarPosition, formatDateRange, getDaysBetween } from "./utils";
 import { SortableSubtaskList } from "./sortable-subtask-list";
@@ -45,6 +45,7 @@ export function TaskRow({
     const [dependencyPickerOpen, setDependencyPickerOpen] = useState(false);
     const [selectedSubtask, setSelectedSubtask] = useState<GanttSubtask | null>(null);
     const [visibleSubtaskCount, setVisibleSubtaskCount] = useState(SUBTASKS_PER_PAGE);
+    const sentinelRef = useRef<HTMLDivElement>(null);
 
     const { start, end } = useMemo(() => computeTaskDates(task), [task]);
 
@@ -69,17 +70,35 @@ export function TaskRow({
     const visibleSubtasks = task.subtasks.slice(0, visibleSubtaskCount);
     const hasMoreSubtasks = visibleSubtaskCount < task.subtasks.length;
 
+    useEffect(() => {
+        const node = sentinelRef.current;
+        if (!node || !hasMoreSubtasks) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting) {
+                    handleLoadMoreSubtasks();
+                }
+            },
+            { threshold: 0.1, rootMargin: '100px' }
+        );
+
+        observer.observe(node);
+
+        return () => observer.disconnect();
+    }, [hasMoreSubtasks, visibleSubtaskCount]);
+
     return (
         <>
             {/* Task Row */}
-            <div className="contents group">
+            <>
                 {/* Left Panel - Task Name */}
                 <div
                     className={cn(
-                        "sticky left-0 z-10 flex items-center gap-2 px-3 py-2 min-h-[40px]",
+                        "sticky left-0 z-30 w-[200px] min-w-[200px] flex items-center gap-2 px-3 py-2 min-h-[40px]",
                         "bg-white dark:bg-neutral-900",
                         "border-b border-r border-neutral-200 dark:border-neutral-700",
-                        "group-hover:bg-neutral-50 dark:group-hover:bg-neutral-800/50",
+                        "hover:bg-neutral-50 dark:hover:bg-neutral-800/50",
                         "transition-colors duration-150"
                     )}
                 >
@@ -114,7 +133,7 @@ export function TaskRow({
                     className={cn(
                         "relative min-h-[40px] flex items-center w-full",
                         "border-b border-neutral-200 dark:border-neutral-700",
-                        "group-hover:bg-neutral-50 dark:group-hover:bg-neutral-800/50",
+                        "hover:bg-neutral-50 dark:hover:bg-neutral-800/50",
                         "transition-colors duration-150"
                     )}
                 >
@@ -165,7 +184,7 @@ export function TaskRow({
                         </span>
                     )}
                 </div>
-            </div>
+            </>
 
             {/* Subtask Rows - Sortable */}
             {isExpanded && hasSubtasks && (
@@ -183,22 +202,23 @@ export function TaskRow({
                     />
 
                     {/* Load More Subtasks Button */}
+                    {/* Load More Subtasks Sentinel */}
                     {hasMoreSubtasks && (
                         <>
                             {/* Left Panel - Empty space for alignment */}
-                            <div className="sticky left-0 z-10 w-[200px] min-w-[200px] shrink-0 bg-neutral-50 dark:bg-neutral-800/30 border-b border-r border-neutral-200 dark:border-neutral-700" />
+                            <div className="sticky left-0 z-30 w-[200px] min-w-[200px] shrink-0 bg-neutral-50 dark:bg-neutral-800/30 border-b border-r border-neutral-200 dark:border-neutral-700" />
 
-                            {/* Right Panel - Load More Button */}
-                            <div className="relative min-h-[40px] flex items-center justify-center w-full bg-neutral-50 dark:bg-neutral-800/30 border-b border-neutral-200 dark:border-neutral-700">
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={handleLoadMoreSubtasks}
-                                    className="gap-2 text-xs"
+                            {/* Right Panel - Loading Indicator/Sentinel */}
+                            <div
+                                className="relative min-h-[40px] flex items-center justify-center w-full bg-neutral-50 dark:bg-neutral-800/30 border-b border-neutral-200 dark:border-neutral-700"
+                            >
+                                <div
+                                    ref={sentinelRef}
+                                    className="flex items-center gap-2 text-xs text-muted-foreground py-2"
                                 >
-                                    <ChevronDown className="h-3 w-3" />
-                                    Load More Subtasks ({task.subtasks.length - visibleSubtaskCount} remaining)
-                                </Button>
+                                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                    Loading more subtasks...
+                                </div>
                             </div>
                         </>
                     )}

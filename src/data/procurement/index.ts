@@ -105,7 +105,6 @@ export const getIndentRequests = cache(async (workspaceId: string) => {
                             purchaseOrder: {
                                 select: {
                                     poNumber: true,
-                                    status: true,
                                 }
                             }
                         }
