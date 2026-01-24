@@ -164,6 +164,7 @@ model WorkspaceMember {
 model Project {
   id               String            @id @default(uuid())
   name             String
+  color            String?
   description      String?
   slug             String            @unique
   workspaceId      String

@@ -10,14 +10,16 @@ import { toast } from "sonner";
 import { KanbanCard } from "./kanban-card";
 import { KanbanColumn } from "./kanban-column";
 import { useReloadView } from "@/hooks/use-reload-view";
-import { TaskFilters, type ProjectOption } from "../shared/types";
+import { TaskFilters, type ProjectOption, type TagOption } from "../shared/types";
 import { STATUS_COLORS, STATUS_LABELS } from "@/lib/colors/status-colors";
 import { updateSubTaskStatus } from "@/actions/task/kanban/update-subtask-status";
 import { loadMoreSubtasksAction } from "@/actions/task/kanban/load-more-subtasks";
+import { getKanbanBoardDataAction } from "@/actions/task/kanban/get-kanban-board-data";
 import { GlobalFilterToolbar, ParentTaskOption } from "../shared/global-filter-toolbar";
 import { KanbanColumnVisibility as KanbanColumnVisibilityType } from "../shared/kanban-column-visibility";
 import { ReviewCommentDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/review-comment-form";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { Loader2 } from "lucide-react";
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "CANCELLED" | "REVIEW" | "HOLD" | "COMPLETED";
 
@@ -27,6 +29,7 @@ interface KanbanBoardProps {
     workspaceId: string;
     projectId: string;
     projects?: ProjectOption[]; // Optional for workspace-level
+    tags?: TagOption[];
     level?: "project" | "workspace"; // Optional, defaults to "project"
 }
 
@@ -69,6 +72,7 @@ export function KanbanBoard({
     workspaceId,
     projectId,
     projects,
+    tags,
     level = "project"
 }: KanbanBoardProps) {
     // State for each column's data
@@ -125,6 +129,8 @@ export function KanbanBoard({
         })
     );
 
+    const [isFiltering, setIsFiltering] = useState(false);
+
     // Server-side filtering effect
     useEffect(() => {
         const timer = setTimeout(async () => {
@@ -138,6 +144,7 @@ export function KanbanBoard({
                     hasMore: initialData[col.id].hasMore,
                     currentPage: 1,
                 }])) as Record<TaskStatus, any>);
+                setIsFiltering(false);
                 return;
             }
 
@@ -145,45 +152,48 @@ export function KanbanBoard({
             setLoadingColumns(Object.fromEntries(COLUMNS.map(col => [col.id, true])) as Record<TaskStatus, boolean>);
 
             try {
-                // Fetch filtered Page 1 for all columns
-                const promises = COLUMNS.map(async (col) => {
-                    const targetProjectId = filters.projectId || projectId;
-                    const res = await loadMoreSubtasksAction(workspaceId, col.id, targetProjectId, 1, 5, {
+                // Fetch filtered Page 1 for all columns in a SINGLE request
+                // optimized for performance (1 roundtrip vs 6)
+                const targetProjectId = filters.projectId || projectId;
+
+                const response = await getKanbanBoardDataAction(
+                    workspaceId,
+                    targetProjectId,
+                    {
                         ...filters,
                         startDate: filters.startDate ? new Date(filters.startDate).toISOString() : undefined,
                         endDate: filters.endDate ? new Date(filters.endDate).toISOString() : undefined,
                         searchQuery
-                    });
-                    return { id: col.id, res };
-                });
+                    }
+                );
 
-                const results = await Promise.all(promises);
-
-                setColumnData(prev => {
-                    const newData = { ...prev };
-                    results.forEach(({ id, res }) => {
-                        if (res.success) {
-                            newData[id] = {
-                                subTasks: res.data.subTasks,
-                                totalCount: res.data.totalCount,
-                                hasMore: res.data.hasMore,
-                                currentPage: 1
-                            };
-                        }
-                    });
-                    return newData;
-                });
+                if (response.success && response.data) {
+                    setColumnData(response.data);
+                } else {
+                    toast.error("Failed to apply filters");
+                }
             } catch (err) {
                 console.error("Error filtering subtasks", err);
                 toast.error("Failed to apply filters");
             } finally {
                 setLoadingColumns(Object.fromEntries(COLUMNS.map(col => [col.id, false])) as Record<TaskStatus, boolean>);
+                setIsFiltering(false);
             }
 
         }, 300); // Debounce
 
         return () => clearTimeout(timer);
-    }, [filters, searchQuery, workspaceId, projectId]);
+    }, [filters, searchQuery, workspaceId, projectId, initialData]);
+
+    const handleFilterChange = (val: TaskFilters) => {
+        setIsFiltering(true);
+        setFilters(val);
+    };
+
+    const handleSearchChange = (val: string) => {
+        setIsFiltering(true);
+        setSearchQuery(val);
+    };
 
     const handleLoadMore = async (status: TaskStatus) => {
         setLoadingColumns(prev => ({ ...prev, [status]: true }));
@@ -514,12 +524,14 @@ export function KanbanBoard({
                 searchQuery={searchQuery}
                 members={filteredMembers}
                 projects={filteredProjects}
+                tags={tags}
                 parentTasks={uniqueParentTasks}
                 kanbanColumnVisibility={visibleColumns}
                 setKanbanColumnVisibility={setVisibleColumns}
-                onFilterChange={setFilters}
-                onSearchChange={setSearchQuery}
+                onFilterChange={handleFilterChange}
+                onSearchChange={handleSearchChange}
                 onClearAll={() => {
+                    setIsFiltering(true);
                     setFilters({});
                     setSearchQuery("");
                 }}
@@ -532,30 +544,41 @@ export function KanbanBoard({
                 onDragEnd={handleDragEnd}
                 onDragCancel={handleDragCancel}
             >
-                <div className={cn(
-                    "flex gap-4 h-[calc(100vh-280px)] overflow-x-auto pb-2 mt-0",
-                    // Custom horizontal scrollbar
-                    "[&::-webkit-scrollbar]:h-2",
-                    "[&::-webkit-scrollbar-track]:rounded-full",
-                    "[&::-webkit-scrollbar-thumb]:bg-accent",
-                    "[&::-webkit-scrollbar-thumb]:rounded-full",
-                    "[&::-webkit-scrollbar-thumb]:hover:bg-accent/50"
-                )}>
-                    {COLUMNS.filter((col) => visibleColumns[col.id]).map((column) => {
-                        const filteredSubTasks = getFilteredSubTasks(column.id);
-                        return (
-                            <KanbanColumn
-                                key={column.id}
-                                column={column}
-                                subTasks={filteredSubTasks}
-                                totalCount={columnData[column.id].totalCount}
-                                hasMore={columnData[column.id].hasMore}
-                                isLoadingMore={loadingColumns[column.id]}
-                                onSubTaskClick={handleSubTaskClick}
-                                onLoadMore={() => handleLoadMore(column.id)}
-                            />
-                        );
-                    })}
+                <div className="relative">
+                    {/* Loading Overlay */}
+                    {isFiltering && (
+                        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/50 backdrop-blur-sm transition-all duration-300 rounded-md">
+                            <div className="flex flex-col items-center gap-2">
+                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                <span className="text-sm font-medium text-muted-foreground">Filtering...</span>
+                            </div>
+                        </div>
+                    )}
+                    <div className={cn(
+                        "flex gap-4 h-[calc(100vh-280px)] overflow-x-auto pb-2 mt-0",
+                        // Custom horizontal scrollbar
+                        "[&::-webkit-scrollbar]:h-2",
+                        "[&::-webkit-scrollbar-track]:rounded-full",
+                        "[&::-webkit-scrollbar-thumb]:bg-accent",
+                        "[&::-webkit-scrollbar-thumb]:rounded-full",
+                        "[&::-webkit-scrollbar-thumb]:hover:bg-accent/50"
+                    )}>
+                        {COLUMNS.filter((col) => visibleColumns[col.id]).map((column) => {
+                            const filteredSubTasks = getFilteredSubTasks(column.id);
+                            return (
+                                <KanbanColumn
+                                    key={column.id}
+                                    column={column}
+                                    subTasks={filteredSubTasks}
+                                    totalCount={columnData[column.id].totalCount}
+                                    hasMore={columnData[column.id].hasMore}
+                                    isLoadingMore={loadingColumns[column.id]}
+                                    onSubTaskClick={handleSubTaskClick}
+                                    onLoadMore={() => handleLoadMore(column.id)}
+                                />
+                            );
+                        })}
+                    </div>
                 </div>
 
                 {/* Drag Overlay */}

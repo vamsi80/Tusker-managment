@@ -21,14 +21,6 @@ export type TaskStatus =
     | "COMPLETED";
 
 /**
- * Task tag enum
- */
-export type TaskTag =
-    | "DESIGN"
-    | "PROCUREMENT"
-    | "CONTRACTOR";
-
-/**
  * View level - determines which filters are available
  */
 export type ViewLevel = "project" | "workspace";
@@ -121,9 +113,8 @@ export interface StatusOption {
  * Tag option for dropdown
  */
 export interface TagOption {
-    value: TaskTag;
-    label: string;
-    icon?: React.ComponentType<{ className?: string }>;
+    id: string;
+    name: string;
 }
 
 // ============================================================================
@@ -216,17 +207,6 @@ export function isTaskStatus(value: unknown): value is TaskStatus {
         "REVIEW",
         "HOLD",
         "COMPLETED"
-    ].includes(value);
-}
-
-/**
- * Check if a value is a valid TaskTag
- */
-export function isTaskTag(value: unknown): value is TaskTag {
-    return typeof value === "string" && [
-        "DESIGN",
-        "PROCUREMENT",
-        "CONTRACTOR"
     ].includes(value);
 }
 

@@ -235,10 +235,10 @@ export function SubTaskRow({
                         <div className="flex items-center gap-2">
                             <Avatar className="h-5 w-5">
                                 <AvatarImage src={assignee.image || ""} />
-                                <AvatarFallback className="text-[10px]">{assignee.name?.[0]}</AvatarFallback>
+                                <AvatarFallback className="text-[10px]">{assignee.surname?.[0] || assignee.name?.[0]}</AvatarFallback>
                             </Avatar>
                             <span className="text-xs text-muted-foreground">
-                                {assignee.surname}
+                                {assignee.surname || assignee.name}
                             </span>
                         </div>
                     ) : (

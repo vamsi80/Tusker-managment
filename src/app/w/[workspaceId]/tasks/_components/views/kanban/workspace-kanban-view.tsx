@@ -1,4 +1,5 @@
 import { getSubTasksByStatus } from "@/data/task/kanban";
+import { getWorkspaceTags } from "@/data/tag/get-tags";
 import { getWorkspaceMembers } from "@/data/workspace";
 import { getUserProjects } from "@/data/project/get-projects";
 import { KanbanBoard } from "@/components/task/kanban/kanban-board";
@@ -32,7 +33,8 @@ export async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewPr
         completedData,
         workspaceMembers,
         projects,
-        projectMemberMatches
+        projectMemberMatches,
+        tags
     ] = await Promise.all([
         getSubTasksByStatus(workspaceId, "TO_DO", undefined, 1, 5),
         getSubTasksByStatus(workspaceId, "IN_PROGRESS", undefined, 1, 5),
@@ -50,7 +52,8 @@ export async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewPr
                     select: { userId: true }
                 }
             }
-        })
+        }),
+        getWorkspaceTags(workspaceId)
     ]);
 
     // Combine all initial data
@@ -114,6 +117,7 @@ export async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewPr
             projectId="" // Empty for workspace-level
             projects={projectOptions}
             level="workspace"
+            tags={tags.map(tag => ({ id: tag.id, name: tag.name }))}
         />
     );
 }

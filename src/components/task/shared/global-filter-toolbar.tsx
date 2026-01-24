@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { X, Filter, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { type TaskFilters, type ViewLevel, type ViewType, type ProjectOption, type MemberOption, getFilterConfig, getActiveFilters } from "./types";
+import { type TaskFilters, type ViewLevel, type ViewType, type ProjectOption, type MemberOption, type TagOption, getFilterConfig, getActiveFilters } from "./types";
 import { format } from "date-fns";
 import { DateRange, RangeKeyDict } from "react-date-range";
 import "react-date-range/dist/styles.css"; // main style file
@@ -21,10 +21,7 @@ export interface ParentTaskOption {
     taskSlug?: string;
 }
 
-export interface TagOption {
-    id: string;
-    name: string;
-}
+
 
 // Add custom theme overrides for react-date-range
 const DATE_RANGE_THEME_OVERRIDE = `

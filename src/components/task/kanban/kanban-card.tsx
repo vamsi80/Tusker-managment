@@ -98,14 +98,14 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                                         <Avatar className="h-4 w-4 border border-amber-200 dark:border-amber-800">
                                             <AvatarImage src={projectLead.image || ""} />
                                             <AvatarFallback className="text-[8px] bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
-                                                {projectLead.name?.[0]}
+                                                {projectLead.surname?.[0] || projectLead.name?.[0]}
                                             </AvatarFallback>
                                         </Avatar>
                                     </div>
                                 </TooltipTrigger>
                                 <TooltipContent side="left" className="text-xs">
                                     <p className="font-semibold">Project Lead</p>
-                                    <p>{projectLead.name} {projectLead.surname}</p>
+                                    <p>{projectLead.surname || projectLead.name}</p>
                                 </TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
@@ -205,11 +205,11 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                                 <TooltipTrigger asChild>
                                     <Avatar className="h-6 w-6 cursor-pointer border-2 border-background">
                                         <AvatarImage src={assignee.image || ""} />
-                                        <AvatarFallback className="text-[10px]">{assignee.name?.[0]}</AvatarFallback>
+                                        <AvatarFallback className="text-[10px]">{assignee.surname?.[0] || assignee.name?.[0]}</AvatarFallback>
                                     </Avatar>
                                 </TooltipTrigger>
                                 <TooltipContent side="left">
-                                    <p>Assignee: {assignee.name} {assignee.surname}</p>
+                                    <p>Assignee: {assignee.surname || assignee.name}</p>
                                 </TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
