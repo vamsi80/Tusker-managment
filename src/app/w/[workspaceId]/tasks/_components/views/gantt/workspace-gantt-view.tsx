@@ -78,6 +78,7 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
         id: p.id,
         name: p.name,
         slug: p.slug,
+        color: p.color || undefined,
         memberIds: projectUserMap[p.id] || []
     }));
 

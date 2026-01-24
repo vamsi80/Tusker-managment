@@ -18,12 +18,13 @@ import { useRouter } from "next/navigation";
 import { useTaskContext } from "@/app/w/[workspaceId]/_components/shared/task-context";
 import { createTask } from "@/actions/task/create-task";
 import { useReloadView } from "@/hooks/use-reload-view";
+import { getColorFromString } from "@/lib/colors/project-colors";
 
 interface iAppProps {
     workspaceId: string;
     projectId?: string; // Optional for workspace-level
     level?: "workspace" | "project"; // Explicitly define the level
-    projects?: { id: string; name: string; }[]; // For workspace-level project selection
+    projects?: { id: string; name: string; color?: string; }[]; // For workspace-level project selection
 }
 
 export const CreateTaskForm = ({
@@ -178,7 +179,10 @@ export const CreateTaskForm = ({
                                                     <SelectContent>
                                                         {projects.map((project) => (
                                                             <SelectItem key={project.id} value={project.id}>
-                                                                {project.name}
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="h-2 w-2 rounded-full border shadow-sm" style={{ backgroundColor: project.color || getColorFromString(project.name) }} />
+                                                                    {project.name}
+                                                                </div>
                                                             </SelectItem>
                                                         ))}
                                                     </SelectContent>

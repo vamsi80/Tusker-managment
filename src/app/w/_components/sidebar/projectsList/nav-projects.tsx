@@ -136,7 +136,7 @@ export function NavProjects({ projects, members, workspaceId, isAdmin }: iAppPro
                         : "text-muted-foreground"
                     }
                   >
-                    <Building2Icon />
+                    <Building2Icon style={{ color: proj.color || "currentColor" }} />
                     <span className="truncate">{proj.name}</span>
                   </Link>
                 </SidebarMenuButton>

@@ -151,6 +151,7 @@ export const getProcurableProjects = cache(async (workspaceId: string) => {
             id: true,
             name: true,
             slug: true,
+            color: true,
             description: true,
             tasks: {
                 select: {
@@ -263,6 +264,7 @@ export const getProcurementTasks = cache(async (workspaceId: string) => {
                 select: {
                     id: true,
                     name: true,
+                    color: true,
                 },
             },
         },

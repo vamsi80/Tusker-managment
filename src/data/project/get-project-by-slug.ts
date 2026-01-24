@@ -22,6 +22,7 @@ async function _getProjectBySlugInternal(workspaceId: string, slug: string) {
             id: true,
             name: true,
             slug: true,
+            color: true,
             workspaceId: true,
             description: true,
             createdAt: true,

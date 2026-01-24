@@ -106,6 +106,7 @@ export async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewPr
         id: project.id,
         name: project.name,
         slug: project.slug,
+        color: project.color,
         memberIds: projectUserMap[project.id] || []
     }));
 

@@ -17,6 +17,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ProcurementTaskWithRelations } from "@/data/procurement";
 
 import { WorkspaceMemberRow } from "@/data/workspace/get-workspace-members";
+import { getColorFromString } from "@/lib/colors/project-colors";
+import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
+import { cn } from "@/lib/utils";
 
 interface ProcurementTasksTableProps {
     workspaceId: string;
@@ -56,7 +59,7 @@ export function ProcurementTasksTable({
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead className="w-[300px]">Task Name</TableHead>
+                        <TableHead>Task Name</TableHead>
                         <TableHead>Project</TableHead>
                         <TableHead>Assignee</TableHead>
                         <TableHead>Start Date</TableHead>
@@ -73,7 +76,7 @@ export function ProcurementTasksTable({
                         return (
                             <TableRow key={pt.id} className={isIndentCreated ? "bg-muted/30" : ""}>
                                 <TableCell className="font-medium">
-                                    <div>{pt.task.name}</div>
+                                    <div className="truncate max-w-[250px]" title={pt.task.name}>{pt.task.name}</div>
                                     {pt.task.description && (
                                         <div className="text-xs text-muted-foreground truncate max-w-[200px]">
                                             {pt.task.description}
@@ -81,7 +84,10 @@ export function ProcurementTasksTable({
                                     )}
                                 </TableCell>
                                 <TableCell>
-                                    <Badge variant="outline">{pt.project.name}</Badge>
+                                    <Badge variant="secondary" className="text-xs font-normal shrink-0 gap-1.5 pl-1.5 flex items-center">
+                                        <div className="h-2 w-2 rounded-full" style={{ backgroundColor: pt.project.color || getColorFromString(pt.project.name) }} />
+                                        {pt.project.name}
+                                    </Badge>
                                 </TableCell>
                                 <TableCell>
                                     {pt.task.assignee ? (
@@ -108,8 +114,16 @@ export function ProcurementTasksTable({
                                     )}
                                 </TableCell>
                                 <TableCell>
-                                    <Badge variant="secondary" className="text-xs">
-                                        {pt.task.status?.replace("_", " ") || "TO DO"}
+                                    <Badge
+                                        variant="outline"
+                                        className={cn(
+                                            "text-xs font-medium",
+                                            getStatusColors(pt.task.status as any).color,
+                                            getStatusColors(pt.task.status as any).bgColor,
+                                            getStatusColors(pt.task.status as any).borderColor
+                                        )}
+                                    >
+                                        {getStatusLabel(pt.task.status as any)}
                                     </Badge>
                                 </TableCell>
                                 <TableCell className="text-right">

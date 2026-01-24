@@ -26,6 +26,7 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
                             id: true,
                             name: true,
                             slug: true,
+                            color: true,
                             description: true,
                             tasks: {
                                 select: {
@@ -56,6 +57,7 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
                 id: true,
                 name: true,
                 slug: true,
+                color: true,
                 description: true,
                 tasks: {
                     select: {

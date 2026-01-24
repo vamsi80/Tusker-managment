@@ -4,6 +4,8 @@
  * This file contains all shared TypeScript types and interfaces
  * used across task components (List, Kanban, Gantt, and shared components).
  */
+import { WorkspaceTaskType } from "@/data/task";
+import { SubTaskType } from "@/data/task/list/get-subtasks";
 
 // ============================================================================
 // FILTER TYPES
@@ -15,10 +17,24 @@
 export type TaskStatus =
     | "TO_DO"
     | "IN_PROGRESS"
-    | "BLOCKED"
     | "REVIEW"
     | "HOLD"
-    | "COMPLETED";
+    | "COMPLETED"
+    | "CANCELLED";
+
+/**
+ * Check if a value is a valid TaskStatus
+ */
+export function isTaskStatus(value: unknown): value is TaskStatus {
+    return typeof value === "string" && [
+        "TO_DO",
+        "IN_PROGRESS",
+        "REVIEW",
+        "HOLD",
+        "COMPLETED",
+        "CANCELLED"
+    ].includes(value);
+}
 
 /**
  * View level - determines which filters are available
@@ -29,6 +45,18 @@ export type ViewLevel = "project" | "workspace";
  * View type - determines which filters are shown
  */
 export type ViewType = "dashboard" | "list" | "kanban" | "gantt";
+
+/**
+ * Check if a value is a valid ViewType
+ */
+export function isViewType(value: unknown): value is ViewType {
+    return typeof value === "string" && [
+        "dashboard",
+        "list",
+        "kanban",
+        "gantt"
+    ].includes(value);
+}
 
 /**
  * Task filters interface
@@ -84,6 +112,7 @@ export interface ProjectOption {
     id: string;
     name: string;
     slug?: string;
+    color?: string;
     memberIds?: string[];
 }
 
@@ -193,36 +222,6 @@ export type FilterChangeHandler = (filters: Partial<TaskFilters>) => void;
 export type FilterClearHandler = () => void;
 
 // ============================================================================
-// HELPER FUNCTIONS (TYPE GUARDS)
-// ============================================================================
-
-/**
- * Check if a value is a valid TaskStatus
- */
-export function isTaskStatus(value: unknown): value is TaskStatus {
-    return typeof value === "string" && [
-        "TO_DO",
-        "IN_PROGRESS",
-        "BLOCKED",
-        "REVIEW",
-        "HOLD",
-        "COMPLETED"
-    ].includes(value);
-}
-
-/**
- * Check if a value is a valid ViewType
- */
-export function isViewType(value: unknown): value is ViewType {
-    return typeof value === "string" && [
-        "dashboard",
-        "list",
-        "kanban",
-        "gantt"
-    ].includes(value);
-}
-
-// ============================================================================
 // FILTER CONFIGURATIONS
 // ============================================================================
 
@@ -310,20 +309,19 @@ export function hasActiveFilters(filters: TaskFilters): boolean {
     return getActiveFilters(filters).length > 0;
 }
 
-import { WorkspaceTaskType } from "@/data/task";
 // ============================================================================
 // TASK TYPES
 // ============================================================================
 
-import { SubTaskType } from "@/data/task/list/get-subtasks";
-
 /**
  * Task with its subtasks and pagination state
  */
-export type TaskWithSubTasks = WorkspaceTaskType[number] & {
+export type TaskWithSubTasks = WorkspaceTaskType & {
     subTasks?: SubTaskType[];
     subTasksHasMore?: boolean;
     subTasksPage?: number;
+    // Add isOptimistic if needed generally, though often casted
+    isOptimistic?: boolean;
 };
 
 /**

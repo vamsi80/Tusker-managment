@@ -3,7 +3,7 @@
 import slugify from "slugify";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { useTransition } from "react";
+import { useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { tryCatch } from "@/hooks/try-catch";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { generateRandomColor, getColorFromString } from "@/lib/colors/project-colors";
 
 interface iAppProps {
     members: WorkspaceMembersResult["workspaceMembers"]
@@ -38,6 +39,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin }: iAppProps) 
             name: "",
             description: "",
             slug: "",
+            color: generateRandomColor(),
             address: "",
             directorName: "",
             companyName: "",
@@ -50,6 +52,14 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin }: iAppProps) 
             memberAccess: [] as string[],
         },
     })
+
+    const watchedName = form.watch("name");
+    useEffect(() => {
+        if (watchedName) {
+            const autoColor = getColorFromString(watchedName);
+            form.setValue("color", autoColor);
+        }
+    }, [watchedName, form]);
 
     function onSubmit(data: ProjectSchemaType) {
         startTransition(async () => {
@@ -87,7 +97,13 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin }: iAppProps) 
                 {/* Make the dialog content scrollable when form grows */}
                 <DialogContent className="max-h-[98vh] w-[min(900px,95vw)] overflow-hidden">
                     <DialogHeader>
-                        <DialogTitle>Create New Project</DialogTitle>
+                        <DialogTitle className="flex items-center gap-3">
+                            Create New Project
+                            <div
+                                className="h-5 w-5 rounded-full border shadow-sm transition-colors"
+                                style={{ backgroundColor: form.watch("color") || "#000000" }}
+                            />
+                        </DialogTitle>
                     </DialogHeader>
 
                     {/* The scrollable area. Keeps header/footer sticky if you want:
@@ -104,12 +120,13 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin }: iAppProps) 
                                             <FormControl>
                                                 <Input placeholder="Enter project name" {...field} />
                                             </FormControl>
+                                            <input type="hidden" {...form.register("color")} />
                                             <FormMessage />
                                         </FormItem>
                                     )}
                                 />
 
-                                <div className=" flex gap-4 items-end">
+                                <div className="flex gap-4 items-end">
                                     <FormField
                                         control={form.control}
                                         name="slug"
@@ -117,7 +134,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin }: iAppProps) 
                                             <FormItem className="w-full">
                                                 <FormLabel>Slug</FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="Slug"{...field} />
+                                                    <Input placeholder="Slug" {...field} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -132,6 +149,8 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin }: iAppProps) 
                                         Generate Slug <SparkleIcon className="ml-1" size={16} />
                                     </Button>
                                 </div>
+
+
 
                                 {/* Description */}
                                 <FormField

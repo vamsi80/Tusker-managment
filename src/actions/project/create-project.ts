@@ -8,6 +8,7 @@ import { ProjectRole } from "@/generated/prisma/client";
 import { hasWorkspacePermission } from "@/lib/constants/workspace-access";
 
 import { getWorkspaceById } from "@/data/workspace/get-workspace-by-id";
+import { getUniqueRandomColor } from "@/lib/colors/project-colors";
 
 export async function createProject(values: ProjectSchemaType): Promise<ApiResponse> {
     const user = await requireUser();
@@ -107,6 +108,23 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
             projectRole: "LEAD" as ProjectRole,
         };
 
+        // Determine project color
+        let finalColor = validation.data.color;
+
+        if (!finalColor) {
+            // Get existing project colors to ensure uniqueness if generating automatically
+            const existingProjects = await prisma.project.findMany({
+                where: { workspaceId: values.workspaceId },
+                select: { color: true },
+            });
+
+            const usedColors = existingProjects
+                .map((p) => p.color)
+                .filter((c): c is string => !!c);
+
+            finalColor = getUniqueRandomColor(usedColors);
+        }
+
         // Create project with nested create using relation connect form
         await prisma.$transaction([
             prisma.project.create({
@@ -114,6 +132,7 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
                     name: validation.data.name,
                     description: validation.data.description,
                     slug: validation.data.slug,
+                    color: finalColor,
                     workspaceId: values.workspaceId,
                     projectMembers: {
                         create: projectMemberCreate,

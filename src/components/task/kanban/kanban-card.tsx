@@ -9,6 +9,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Calendar, Tag, GripVertical, MessageSquare, AlertCircle, Folder, Crown } from "lucide-react";
 import { KanbanSubTaskType } from "@/data/task/kanban";
 import { cn } from "@/lib/utils";
+import { getColorFromString } from "@/lib/colors/project-colors";
 
 /**
  * KanbanCard Component
@@ -86,7 +87,10 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
             <CardContent className="p-3 space-y-3">
                 <div className="flex items-center justify-between text-[10px] text-muted-foreground pb-2 border-b border-border/50">
                     <div className="flex items-center gap-1.5 truncate max-w-[70%]" title={project?.name}>
-                        <Folder className={cn("h-3 w-3 shrink-0", columnColor)} />
+                        <div
+                            className="h-2 w-2 rounded-full border shadow-sm shrink-0"
+                            style={{ backgroundColor: project?.color || getColorFromString(project?.name || "") }}
+                        />
                         <span className="truncate font-medium">{project?.name}</span>
                     </div>
                     {projectLead && (

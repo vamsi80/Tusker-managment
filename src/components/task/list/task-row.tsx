@@ -11,6 +11,7 @@ import { EditTaskDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms
 import { DeleteTaskDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/delete-task-form";
 import { ColumnVisibility } from "../shared/column-visibility";
 import { cn } from "@/lib/utils";
+import { getColorFromString } from "@/lib/colors/project-colors";
 
 interface TaskRowProps {
     task: TaskWithSubTasks;
@@ -104,7 +105,11 @@ export function TaskRow({
                         </Badge>
                     )}
                     {columnVisibility.project && task.project && (
-                        <Badge variant="secondary" className="text-xs font-normal shrink-0">
+                        <Badge
+                            variant="secondary"
+                            className="text-xs font-normal shrink-0 gap-1.5 pl-1.5 flex items-center"
+                        >
+                            <div className="h-2 w-2 rounded-full" style={{ backgroundColor: task.project.color || getColorFromString(task.project.name) }} />
                             {task.project.name}
                         </Badge>
                     )}

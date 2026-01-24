@@ -73,7 +73,7 @@ export async function WorkspaceListView({
             canCreateSubTask={permissions.isWorkspaceAdmin || true} // Allow for members as well if they have access
             showAdvancedFilters={true}
             tags={tags}
-            projects={projects.map(p => ({ id: p.id, name: p.name }))}
+            projects={projects.map(p => ({ id: p.id, name: p.name, color: p.color || undefined }))}
             level="workspace"
         />
     );

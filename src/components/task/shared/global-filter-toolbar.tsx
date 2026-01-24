@@ -14,6 +14,7 @@ import { TaskSearch } from "./task-search";
 import { ColumnVisibility } from "./column-visibility";
 import { KanbanColumnVisibility, type KanbanColumnVisibility as KanbanColumnVisibilityType } from "./kanban-column-visibility";
 import { STATUS_OPTIONS } from "@/lib/zodSchemas";
+import { getColorFromString } from "@/lib/colors/project-colors";
 
 export interface ParentTaskOption {
     id: string;
@@ -404,7 +405,10 @@ export function GlobalFilterToolbar({
                                                 <SelectItem value="__all__">All Projects</SelectItem>
                                                 {projects.map((project) => (
                                                     <SelectItem key={project.id} value={project.id}>
-                                                        {project.name}
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="h-2 w-2 rounded-full border shadow-sm" style={{ backgroundColor: project.color || getColorFromString(project.name) }} />
+                                                            {project.name}
+                                                        </div>
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>

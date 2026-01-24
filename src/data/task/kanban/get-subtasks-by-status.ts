@@ -152,6 +152,7 @@ async function _getSubTasksByStatusInternal(
                                 id: true,
                                 name: true,
                                 slug: true,
+                                color: true,
                                 projectMembers: {
                                     where: { projectRole: "LEAD" },
                                     take: 1,

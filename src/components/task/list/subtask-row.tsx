@@ -14,6 +14,7 @@ import { ProjectMembersType } from "@/data/project/get-project-members";
 import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { getColorFromString } from "@/lib/colors/project-colors";
 import { EditSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/edit-subtask-form";
 import { DeleteSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/delete-subtask-form";
 import { InlineSubTaskForm } from "./inline-subtask-form";
@@ -26,7 +27,7 @@ interface SubTaskRowProps {
     members: ProjectMembersType;
     projectId: string;
     parentTaskId: string;
-    parentTaskProject?: { id: string; name: string } | null; // Parent task's project info
+    parentTaskProject?: { id: string; name: string; color?: string; } | null; // Parent task's project info
     onSubTaskUpdated?: (subTaskId: string, updatedData: Partial<SubTaskType>) => void;
     onSubTaskDeleted?: (subTaskId: string) => void;
     tags?: { id: string; name: string; }[]; // Dynamic tags
@@ -209,7 +210,8 @@ export function SubTaskRow({
             {columnVisibility.project && (
                 <TableCell>
                     {parentTaskProject ? (
-                        <Badge variant="secondary" className="text-xs font-normal">
+                        <Badge variant="secondary" className="text-xs font-normal shrink-0 gap-1.5 pl-1.5 flex items-center">
+                            <div className="h-2 w-2 rounded-full" style={{ backgroundColor: parentTaskProject.color || getColorFromString(parentTaskProject.name) }} />
                             {parentTaskProject.name}
                         </Badge>
                     ) : (

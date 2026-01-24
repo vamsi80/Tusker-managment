@@ -232,7 +232,7 @@ async function _getWorkspaceTasksInternal(
                     select: { id: true, name: true }
                 },
                 project: {
-                    select: { id: true, name: true, slug: true, workspaceId: true }
+                    select: { id: true, name: true, slug: true, workspaceId: true, color: true }
                 },
                 assignee: {
                     select: { id: true, name: true, surname: true, image: true }

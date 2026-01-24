@@ -129,6 +129,7 @@ export const projectSchema = z.object({
         .string()
         .min(3, { message: "Slug must be at least 3 charcters long" })
         .max(50, { message: "Slug must be at most 50 character long" }),
+    color: z.string().optional(),
     companyName: z
         .string()
         .min(3, { message: "Company Name must be at least 3 charcters long" })
