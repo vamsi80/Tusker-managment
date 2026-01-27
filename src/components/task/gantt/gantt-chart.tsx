@@ -206,8 +206,9 @@ export function GanttChart({
         setExpandedProjects(new Set());
     };
 
-    const handleExport = () => {
-        exportGanttToExcel(tasks, `gantt-export-${new Date().toISOString().split('T')[0]}.xlsx`);
+    const handleExport = async () => {
+        await exportGanttToExcel(tasks, `gantt-export-${new Date().toISOString().split('T')[0]}.xlsx`);
+        toast.success("Gantt chart exported! Upload this file to spreadsheet to see dynamic chart.");
     };
 
     const handleSubtaskReorder = (taskId: string, subtaskIds: string[]) => {
@@ -289,7 +290,7 @@ export function GanttChart({
                         className="h-8 gap-2 text-xs"
                     >
                         <Download className="h-3.5 w-3.5" />
-                        Export
+                        Export to Sheets
                     </Button>
                 </div>
 
