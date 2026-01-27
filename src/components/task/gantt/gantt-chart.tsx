@@ -7,12 +7,13 @@ import { ProjectRow } from "./project-row";
 import { Button } from "@/components/ui/button";
 import { ProjectOption } from "../shared/types";
 import { GanttTask, TimelineGranularity } from "./types";
-import { Calendar, ChevronDown, Folder } from "lucide-react";
 import { updateSubtaskPositions } from "@/actions/task/gantt";
 import { TimelineHeader, TimelineGrid } from "./timeline-grid";
 import { calculateTimelineRange, getDaysBetween } from "./utils";
 import { useState, useMemo, useTransition, useEffect, useRef } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Calendar, ChevronDown, Folder, Download } from "lucide-react";
+import { exportGanttToExcel } from "./export-utils";
 
 interface GanttChartProps {
     tasks: GanttTask[];
@@ -205,6 +206,10 @@ export function GanttChart({
         setExpandedProjects(new Set());
     };
 
+    const handleExport = () => {
+        exportGanttToExcel(tasks, `gantt-export-${new Date().toISOString().split('T')[0]}.xlsx`);
+    };
+
     const handleSubtaskReorder = (taskId: string, subtaskIds: string[]) => {
         if (!workspaceId) {
             toast.error("Cannot save changes - missing workspace information");
@@ -276,6 +281,15 @@ export function GanttChart({
                         className="text-xs"
                     >
                         Collapse All
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleExport}
+                        className="h-8 gap-2 text-xs"
+                    >
+                        <Download className="h-3.5 w-3.5" />
+                        Export
                     </Button>
                 </div>
 

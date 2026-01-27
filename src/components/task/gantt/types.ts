@@ -29,6 +29,7 @@ export interface GanttSubtask {
     dependsOnIds: string[];
     isBlocked?: boolean;
     blockedByNames?: string[];
+    assignee?: { id: string; name: string; image?: string | null };
 }
 
 // ============================================================================
@@ -41,6 +42,7 @@ export interface GanttTask {
     projectId?: string;
     projectName?: string;
     subtasks: GanttSubtask[];
+    assignee?: { id: string; name: string; image?: string | null };
 }
 
 // ============================================================================

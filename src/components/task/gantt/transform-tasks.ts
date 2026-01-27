@@ -63,6 +63,11 @@ export function transformToGanttTasks(allTasks: FlatTaskType[]): GanttTask[] {
                 status: subtask.status || 'TO_DO',
                 // Extract dependency IDs from dependsOn relation
                 dependsOnIds: (subtask as any).dependsOn?.map((dep: any) => dep.id) || [],
+                assignee: subtask.assignee ? {
+                    id: subtask.assignee.id,
+                    name: subtask.assignee.name,
+                    image: subtask.assignee.image
+                } : undefined,
             };
         });
 
@@ -75,6 +80,11 @@ export function transformToGanttTasks(allTasks: FlatTaskType[]): GanttTask[] {
             projectId: parentTask.project?.id,
             projectName: parentTask.project?.name,
             subtasks: validatedSubtasks,
+            assignee: parentTask.assignee ? {
+                id: parentTask.assignee.id,
+                name: parentTask.assignee.name,
+                image: parentTask.assignee.image
+            } : undefined,
         };
     });
 
