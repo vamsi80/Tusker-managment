@@ -169,7 +169,7 @@ export const exportGanttToExcel = (tasks: GanttTask[], fileName: string = "gantt
 
             // Determine Color based on Status
             const normalizedStatus = (rowData.status || "").toUpperCase().trim();
-            const color = statusColors[normalizedStatus] || "93C5FD"; // Default to blue
+            const rowColor = statusColors[normalizedStatus] || "93C5FD"; // Default to blue
 
             // Calculate which dates fall within the task range
             const taskStart = rowData.start;
@@ -184,9 +184,9 @@ export const exportGanttToExcel = (tasks: GanttTask[], fileName: string = "gantt
                 // Check if this timeline date is within the task's date range
                 const isWithinRange = timelineDate >= taskStart && timelineDate <= taskEnd;
 
-                // Formula: IF(AND(timeline_date >= start_date, timeline_date <= end_date), " ", "")
-                // This will recalculate when you change the Duration (which updates End Date via formula)
-                const formula = `IF(AND(${colLetter}$1>=$F${excelRowNumber},${colLetter}$1<=$G${excelRowNumber})," ","")`;
+                // Formula: IF(AND(timeline_date >= start_date, timeline_date <= start_date + duration - 1), " ", "")
+                // Using F (Start Date) and H (Duration) so it updates when you change Duration
+                const formula = `IF(AND(${colLetter}$1>=$F${excelRowNumber},${colLetter}$1<=$F${excelRowNumber}+$H${excelRowNumber}-1)," ","")`;
 
                 if (isWithinRange) {
                     // Cell is within range - add formula with colored background
@@ -196,7 +196,7 @@ export const exportGanttToExcel = (tasks: GanttTask[], fileName: string = "gantt
                         s: {
                             fill: {
                                 patternType: "solid",
-                                fgColor: { rgb: color }
+                                fgColor: { rgb: rowColor }
                             },
                             alignment: {
                                 horizontal: "center",

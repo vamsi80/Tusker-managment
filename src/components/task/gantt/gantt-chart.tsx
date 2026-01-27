@@ -294,7 +294,7 @@ export function GanttChart({
                 </div>
 
                 <div className="flex items-center gap-2">
-                    {showProjectFilter && projects && (
+                    {/* {showProjectFilter && projects && (
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button variant="outline" size="sm" className="gap-2">
@@ -326,7 +326,7 @@ export function GanttChart({
                                 ))}
                             </DropdownMenuContent>
                         </DropdownMenu>
-                    )}
+                    )} */}
 
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
