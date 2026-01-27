@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { AlertCircle, Link, Link2 } from "lucide-react";
 import { parseDate, calculateBarPosition, formatDate, getDaysBetween } from "./utils";
 import { cn } from "@/lib/utils";

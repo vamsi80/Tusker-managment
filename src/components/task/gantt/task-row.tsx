@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useRef, useEffect } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, CornerDownRight } from "lucide-react";
 import { computeTaskDates, calculateBarPosition, formatDateRange, getDaysBetween } from "./utils";
 import { SortableSubtaskList } from "./sortable-subtask-list";
 import { DependencyPicker } from "./dependency-picker";
@@ -28,6 +28,7 @@ interface TaskRowProps {
     allTasks?: GanttTask[]; // All tasks for dependency picker
     workspaceId?: string;
     projectId?: string;
+    isNestedInProject?: boolean;
 }
 
 export function TaskRow({
@@ -40,12 +41,13 @@ export function TaskRow({
     onSubtaskClick,
     allTasks,
     workspaceId,
-    projectId
+    projectId,
+    isNestedInProject = false
 }: TaskRowProps) {
     const [dependencyPickerOpen, setDependencyPickerOpen] = useState(false);
     const [selectedSubtask, setSelectedSubtask] = useState<GanttSubtask | null>(null);
     const [visibleSubtaskCount, setVisibleSubtaskCount] = useState(SUBTASKS_PER_PAGE);
-    const sentinelRef = useRef<HTMLDivElement>(null);
+
 
     const { start, end } = useMemo(() => computeTaskDates(task), [task]);
 
@@ -70,23 +72,7 @@ export function TaskRow({
     const visibleSubtasks = task.subtasks.slice(0, visibleSubtaskCount);
     const hasMoreSubtasks = visibleSubtaskCount < task.subtasks.length;
 
-    useEffect(() => {
-        const node = sentinelRef.current;
-        if (!node || !hasMoreSubtasks) return;
 
-        const observer = new IntersectionObserver(
-            (entries) => {
-                if (entries[0].isIntersecting) {
-                    handleLoadMoreSubtasks();
-                }
-            },
-            { threshold: 0.1, rootMargin: '100px' }
-        );
-
-        observer.observe(node);
-
-        return () => observer.disconnect();
-    }, [hasMoreSubtasks, visibleSubtaskCount]);
 
     return (
         <>
@@ -99,9 +85,13 @@ export function TaskRow({
                         "bg-white dark:bg-neutral-900",
                         "border-b border-r border-neutral-200 dark:border-neutral-700",
                         "hover:bg-neutral-50 dark:hover:bg-neutral-800/50",
-                        "transition-colors duration-150"
+                        "transition-colors duration-150",
+                        isNestedInProject && "pl-5"
                     )}
                 >
+                    {isNestedInProject && (
+                        <CornerDownRight className="h-3 w-3 text-muted-foreground/50 shrink-0 mr-[-4px]" />
+                    )}
                     <button
                         onClick={onToggle}
                         className={cn(
@@ -202,24 +192,24 @@ export function TaskRow({
                     />
 
                     {/* Load More Subtasks Button */}
-                    {/* Load More Subtasks Sentinel */}
+                    {/* Load More Subtasks Button */}
                     {hasMoreSubtasks && (
                         <>
-                            {/* Left Panel - Empty space for alignment */}
-                            <div className="sticky left-0 z-30 w-[200px] min-w-[200px] shrink-0 bg-neutral-50 dark:bg-neutral-800/30 border-b border-r border-neutral-200 dark:border-neutral-700" />
-
-                            {/* Right Panel - Loading Indicator/Sentinel */}
-                            <div
-                                className="relative min-h-[40px] flex items-center justify-center w-full bg-neutral-50 dark:bg-neutral-800/30 border-b border-neutral-200 dark:border-neutral-700"
-                            >
-                                <div
-                                    ref={sentinelRef}
-                                    className="flex items-center gap-2 text-xs text-muted-foreground py-2"
+                            {/* Left Panel - Load More Button */}
+                            <div className="sticky left-0 z-30 w-[200px] min-w-[200px] shrink-0 bg-neutral-50 dark:bg-neutral-800/30 border-b border-r border-neutral-200 dark:border-neutral-700 flex items-center px-2 py-1.5 pl-8">
+                                <button
+                                    onClick={handleLoadMoreSubtasks}
+                                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700/50 w-full text-left"
                                 >
-                                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                                    Loading more subtasks...
-                                </div>
+                                    <ChevronDown className="h-3 w-3" />
+                                    <span>Load more subtasks</span>
+                                </button>
                             </div>
+
+                            {/* Right Panel - Spacer */}
+                            <div
+                                className="relative min-h-[32px] w-full bg-neutral-50/50 dark:bg-neutral-800/10 border-b border-neutral-200 dark:border-neutral-700"
+                            />
                         </>
                     )}
 

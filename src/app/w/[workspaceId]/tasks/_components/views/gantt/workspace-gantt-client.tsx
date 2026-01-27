@@ -7,7 +7,9 @@ import { ProjectOption, MemberOption, TaskFilters } from "@/components/task/shar
 import { GlobalFilterToolbar } from "@/components/task/shared/global-filter-toolbar";
 import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
 import { useState, useMemo, useTransition } from "react";
-import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, ChevronDown } from "lucide-react";
+import { useEffect } from "react";
 
 interface WorkspaceGanttClientProps {
     workspaceId: string;
@@ -135,6 +137,13 @@ export function WorkspaceGanttClient({
                 <GanttChart
                     workspaceId={workspaceId}
                     tasks={ganttTasks}
+                    showProjectFilter={true}
+                    projects={filteredProjects}
+                    selectedProjectId={filters.projectId}
+                    onProjectChange={(projectId) => {
+                        handleFilterChange({ ...filters, projectId: projectId || undefined });
+                    }}
+                    groupByProject={true}
                 />
             </div>
         </div>

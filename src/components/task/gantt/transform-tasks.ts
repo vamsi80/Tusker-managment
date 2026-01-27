@@ -72,6 +72,8 @@ export function transformToGanttTasks(allTasks: FlatTaskType[]): GanttTask[] {
         return {
             id: parentTask.id,
             name: parentTask.name,
+            projectId: parentTask.project?.id,
+            projectName: parentTask.project?.name,
             subtasks: validatedSubtasks,
         };
     });

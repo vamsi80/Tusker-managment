@@ -18,7 +18,7 @@ import {
     verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical } from "lucide-react";
+import { GripVertical, CornerDownRight } from "lucide-react";
 import { DraggableSubtaskBar } from "./draggable-subtask-bar";
 import { cn } from "@/lib/utils";
 import { GanttSubtask } from "./types";
@@ -55,7 +55,7 @@ function SortableSubtaskRow({ subtask, timelineStart, totalDays, onManageDepende
                 ref={setNodeRef}
                 style={style}
                 className={cn(
-                    "sticky left-0 z-30 w-[200px] min-w-[200px] flex items-center gap-1 px-2 py-1.5 pl-6 min-h-[32px]",
+                    "sticky left-0 z-30 w-[200px] min-w-[200px] flex items-center gap-1 px-2 py-1.5 pl-8 min-h-[32px]",
                     "bg-neutral-50 dark:bg-neutral-800/30",
                     "border-b border-r border-neutral-200 dark:border-neutral-700",
                     "transition-colors duration-150",
@@ -63,6 +63,7 @@ function SortableSubtaskRow({ subtask, timelineStart, totalDays, onManageDepende
                     isDragging && "bg-blue-100 dark:bg-blue-900/40 border-blue-300 dark:border-blue-600 opacity-50"
                 )}
             >
+                <CornerDownRight className="h-3 w-3 text-muted-foreground/30 shrink-0 mr-[-4px]" />
                 {/* Drag Handle */}
                 <div
                     {...attributes}

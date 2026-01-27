@@ -38,6 +38,8 @@ export interface GanttSubtask {
 export interface GanttTask {
     id: string;
     name: string;
+    projectId?: string;
+    projectName?: string;
     subtasks: GanttSubtask[];
 }
 
