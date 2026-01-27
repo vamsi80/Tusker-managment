@@ -257,7 +257,7 @@ export function getFilterConfig(view: ViewType, level: ViewLevel): FilterConfig 
         },
         gantt: {
             showProjectFilter: level === "workspace",
-            showStatusFilter: false,
+            showStatusFilter: true, // Enable status
             showAssigneeFilter: true,
             showDateRangeFilter: true, // Timeline focus
             showTagFilter: true,

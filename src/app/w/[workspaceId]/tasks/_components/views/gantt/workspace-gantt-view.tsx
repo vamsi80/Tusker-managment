@@ -6,6 +6,7 @@ import { getUserProjects } from "@/data/project/get-projects";
 import { getWorkspaceMembers } from "@/data/workspace/get-workspace-members";
 import prisma from "@/lib/db";
 import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
+import { getWorkspaceTags } from "@/data/tag/get-tags";
 
 interface WorkspaceGanttViewProps {
     workspaceId: string;
@@ -21,7 +22,7 @@ interface WorkspaceGanttViewProps {
  */
 export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProps) {
     // Get all tasks in a flat structure (parent tasks + subtasks) with permission-based filtering
-    const [allTasksData, projects, workspaceMembers, projectMemberMatches] = await Promise.all([
+    const [allTasksData, projects, workspaceMembers, projectMemberMatches, tags] = await Promise.all([
         getAllTasksFlat(workspaceId),
         getUserProjects(workspaceId),
         getWorkspaceMembers(workspaceId),
@@ -33,7 +34,8 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
                     select: { userId: true }
                 }
             }
-        })
+        }),
+        getWorkspaceTags(workspaceId)
     ]);
 
     const { tasks: allTasks } = allTasksData;
@@ -89,6 +91,11 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
         email: m.user?.email || undefined
     }));
 
+    const tagOptions = tags.map(t => ({
+        id: t.id,
+        name: t.name
+    }));
+
     // Transform data to GanttTask format
     const ganttTasks = transformToGanttTasks(allTasks);
 
@@ -100,6 +107,7 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
             subtaskDataMap={subtaskDataMap}
             projects={projectOptions}
             members={memberOptions}
+            tags={tagOptions}
         />
     );
 }

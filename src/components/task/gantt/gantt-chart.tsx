@@ -1,18 +1,18 @@
 "use client";
 
-import { useState, useMemo, useTransition, useEffect, useRef } from "react";
-import { Calendar, ChevronDown, Folder } from "lucide-react";
-import { calculateTimelineRange, getDaysBetween } from "./utils";
-import { TimelineHeader, TimelineGrid } from "./timeline-grid";
-import { TaskRow } from "./task-row";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { GanttTask, TimelineGranularity } from "./types";
-import { ProjectOption } from "../shared/types";
+import { cn } from "@/lib/utils";
+import { TaskRow } from "./task-row";
 import { ProjectRow } from "./project-row";
+import { Button } from "@/components/ui/button";
+import { ProjectOption } from "../shared/types";
+import { GanttTask, TimelineGranularity } from "./types";
+import { Calendar, ChevronDown, Folder } from "lucide-react";
 import { updateSubtaskPositions } from "@/actions/task/gantt";
+import { TimelineHeader, TimelineGrid } from "./timeline-grid";
+import { calculateTimelineRange, getDaysBetween } from "./utils";
+import { useState, useMemo, useTransition, useEffect, useRef } from "react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 interface GanttChartProps {
     tasks: GanttTask[];

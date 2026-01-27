@@ -3,7 +3,7 @@
 import { GanttChart } from "@/components/task/gantt/gantt-chart";
 import { GanttTask } from "@/components/task/gantt/types";
 import { FlatTaskType } from "@/data/task/gantt/get-all-tasks-flat";
-import { ProjectOption, MemberOption, TaskFilters } from "@/components/task/shared/types";
+import { ProjectOption, MemberOption, TaskFilters, TagOption } from "@/components/task/shared/types";
 import { GlobalFilterToolbar } from "@/components/task/shared/global-filter-toolbar";
 import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
 import { useState, useMemo, useTransition } from "react";
@@ -18,6 +18,7 @@ interface WorkspaceGanttClientProps {
     subtaskDataMap: Map<string, any>;
     projects: ProjectOption[];
     members: MemberOption[];
+    tags: TagOption[];
 }
 
 export function WorkspaceGanttClient({
@@ -26,7 +27,8 @@ export function WorkspaceGanttClient({
     allTasks,
     subtaskDataMap,
     projects,
-    members
+    members,
+    tags
 }: WorkspaceGanttClientProps) {
     const [filters, setFilters] = useState<TaskFilters>({});
     const [searchQuery, setSearchQuery] = useState("");
@@ -66,8 +68,9 @@ export function WorkspaceGanttClient({
 
             // Tag filtering - checking tag relation
             if (filters.tagId) {
-                const tagName = (task.tag as any)?.name;
-                if (tagName !== filters.tagId) return false;
+                // Check if task has a tag and matches the filter
+                const tag = task.tag as any;
+                if (!tag || tag.id !== filters.tagId) return false;
             }
 
             if (filters.startDate && (!task.startDate || new Date(task.startDate) < new Date(filters.startDate))) return false;
@@ -116,6 +119,7 @@ export function WorkspaceGanttClient({
                 searchQuery={searchQuery}
                 members={filteredMembers}
                 projects={filteredProjects}
+                tags={tags}
                 onFilterChange={handleFilterChange}
                 onSearchChange={handleSearchChange}
                 onClearAll={() => {
