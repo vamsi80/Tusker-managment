@@ -12,6 +12,7 @@ import { SubTaskSkeleton } from "@/components/task/list/list-skeleton";
 import { InlineSubTaskForm } from "./inline-subtask-form";
 import { SubTaskRow } from "./subtask-row";
 import { TaskWithSubTasks } from "@/components/task/shared/types";
+import { UserPermissionsType } from "@/data/user/get-user-permissions";
 
 interface SubTaskListProps {
     task: TaskWithSubTasks;
@@ -31,6 +32,12 @@ interface SubTaskListProps {
     onSelectSubTask?: (subTaskId: string, checked: boolean) => void;
     level?: "workspace" | "project";
     tags?: { id: string; name: string; }[];
+    // Permission props
+    permissions?: UserPermissionsType; // For project view
+    userId?: string;
+    isWorkspaceAdmin?: boolean; // For workspace view
+    leadProjectIds?: string[]; // For workspace view
+    projects?: Array<{ id: string; canManageMembers?: boolean }>; // For workspace view
 }
 
 export function SubTaskList({
@@ -51,6 +58,11 @@ export function SubTaskList({
     onSelectSubTask,
     level = "project",
     tags = [],
+    permissions,
+    userId,
+    isWorkspaceAdmin,
+    leadProjectIds,
+    projects,
 }: SubTaskListProps) {
     const [showInlineSubTaskForm, setShowInlineSubTaskForm] = useState(false);
 
@@ -125,6 +137,11 @@ export function SubTaskList({
                         onSubTaskUpdated={onSubTaskUpdated}
                         onSubTaskDeleted={onSubTaskDeleted}
                         tags={tags}
+                        permissions={permissions}
+                        userId={userId}
+                        isWorkspaceAdmin={isWorkspaceAdmin}
+                        leadProjectIds={leadProjectIds}
+                        projects={projects}
                     />
                 ))}
             </SortableContext>

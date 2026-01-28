@@ -5,6 +5,7 @@ import { getWorkspaceTags } from "@/data/tag/get-tags";
 import { getWorkspaceMembers } from "@/data/workspace/get-workspace-members";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { getUserProjects } from "@/data/project/get-projects";
+import { requireUser } from "@/lib/auth/require-user";
 
 interface WorkspaceListViewProps {
     workspaceId: string;
@@ -13,6 +14,9 @@ interface WorkspaceListViewProps {
 export async function WorkspaceListView({
     workspaceId,
 }: WorkspaceListViewProps) {
+    // Get current user
+    const user = await requireUser();
+
     // Fetch data in parallel - REMOVED getAllTasksFlat for performance
     const [tasksData, tagsData, membersData, permissions, projects] = await Promise.all([
         getWorkspaceTasks(workspaceId, {}, 1, 10),
@@ -26,7 +30,7 @@ export async function WorkspaceListView({
 
     // Derived assignees from members instead of fetching all tasks
     const assigneesFromMembers = membersData.workspaceMembers.map(member => ({
-        id: member.user?.id || member.userId, // Use user ID for filtering matches task.assignee.id
+        id: member.user?.id || member.userId,
         name: member.user?.name || '',
         surname: member.user?.surname || undefined,
     }));
@@ -72,10 +76,11 @@ export async function WorkspaceListView({
             canCreateSubTask={permissions.hasAccess} // Only Admins and Project Leads can create subtasks
             showAdvancedFilters={true}
             tags={tags}
-            projects={projects.map(p => ({ id: p.id, name: p.name, color: p.color || undefined }))}
+            projects={projects.map(p => ({ id: p.id, name: p.name, color: p.color || undefined, canManageMembers: p.canManageMembers }))}
             leadProjectIds={permissions.leadProjectIds || []} // Pass projects where user is lead
             isWorkspaceAdmin={permissions.isWorkspaceAdmin}
             level="workspace"
+            userId={user.id}
         />
     );
 }

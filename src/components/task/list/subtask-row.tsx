@@ -19,6 +19,7 @@ import { EditSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/form
 import { DeleteSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/delete-subtask-form";
 import { InlineSubTaskForm } from "./inline-subtask-form";
 import { ColumnVisibility } from "../shared/column-visibility";
+import { UserPermissionsType } from "@/data/user/get-user-permissions";
 
 interface SubTaskRowProps {
     subTask: SubTaskType;
@@ -33,6 +34,12 @@ interface SubTaskRowProps {
     tags?: { id: string; name: string; }[]; // Dynamic tags
     isSelected?: boolean;
     onSelectChange?: (checked: boolean) => void;
+    // Permission props
+    permissions?: UserPermissionsType; // For project view
+    userId?: string;
+    isWorkspaceAdmin?: boolean; // For workspace view
+    leadProjectIds?: string[]; // For workspace view
+    projects?: Array<{ id: string; canManageMembers?: boolean }>; // For workspace view
 }
 
 export function SubTaskRow({
@@ -46,9 +53,45 @@ export function SubTaskRow({
     onSubTaskUpdated,
     onSubTaskDeleted,
     tags = [], // Default to empty array
+    permissions,
+    userId,
+    isWorkspaceAdmin,
+    leadProjectIds,
+    projects,
 }: SubTaskRowProps) {
     const [isUpdating, setIsUpdating] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
+
+    // Determine if user can edit/delete this subtask
+    const canEditSubTask = () => {
+        // Get the creator ID - handle both direct field and relation object
+        const subTaskCreatorId = (subTask as any).createdById || (subTask as any).createdBy?.userId;
+
+        // Project view (has permissions object)
+        if (permissions) {
+            return permissions.isWorkspaceAdmin ||
+                permissions.isProjectManager ||
+                (permissions.isProjectLead && subTaskCreatorId === userId);
+        }
+
+        // Workspace view (use alternative data)
+        if (isWorkspaceAdmin) return true;
+
+        // For subtasks, we need to check the parent task's project ID if subtask doesn't have one explicitly
+        // Usually subtasks share the same project as parent
+        const projectIdToCheck = (subTask as any).projectId || projectId;
+
+        // Check if user is PROJECT_MANAGER of this task's project
+        const taskProject = projects?.find(p => p.id === projectIdToCheck);
+        if (taskProject?.canManageMembers) return true;
+
+        // Check if user is LEAD in this project and created the task
+        if (leadProjectIds?.includes(projectIdToCheck) && subTaskCreatorId === userId) {
+            return true;
+        }
+
+        return false;
+    };
 
     const {
         attributes,
@@ -340,31 +383,33 @@ export function SubTaskRow({
             )}
 
             <TableCell>
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7">
-                            <MoreHorizontal className="h-3.5 w-3.5" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
-                            <EditSubTaskForm
-                                subTask={subTask as any}
-                                tags={tags}
-                                members={members}
-                                projectId={projectId}
-                                parentTaskId={parentTaskId}
-                                onSubTaskUpdated={handleSubTaskUpdated}
-                            />
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
-                            <DeleteSubTaskForm
-                                subTask={subTask}
-                                onSubTaskDeleted={onSubTaskDeleted}
-                            />
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                {canEditSubTask() && (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7">
+                                <MoreHorizontal className="h-3.5 w-3.5" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
+                                <EditSubTaskForm
+                                    subTask={subTask as any}
+                                    tags={tags}
+                                    members={members}
+                                    projectId={projectId}
+                                    parentTaskId={parentTaskId}
+                                    onSubTaskUpdated={handleSubTaskUpdated}
+                                />
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
+                                <DeleteSubTaskForm
+                                    subTask={subTask}
+                                    onSubTaskDeleted={onSubTaskDeleted}
+                                />
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
             </TableCell>
         </TableRow>
     );

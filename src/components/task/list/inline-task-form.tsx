@@ -1,9 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { taskSchema, TaskSchemaType } from "@/lib/zodSchemas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { X, Check, Loader2 } from "lucide-react";
@@ -20,7 +17,7 @@ interface InlineTaskFormProps {
     onCancel: () => void;
     onTaskCreated?: (task: any, tempId?: string) => void;
     onTaskDeleted?: (taskId: string) => void;
-    projects?: { id: string; name: string; }[];
+    projects?: { id: string; name: string; canManageMembers?: boolean; }[];
     level?: "workspace" | "project";
     leadProjectIds?: string[];
     isWorkspaceAdmin?: boolean;
@@ -48,9 +45,9 @@ export function InlineTaskForm({
     // Logic:
     // 1. If NOT workspace level (e.g. project view), show all (usually scoped by parent)
     // 2. If Admin, show all
-    // 3. Otherwise, strictly show ONLY projects where user is Lead
+    // 3. Otherwise, strictly show ONLY projects where user is Lead OR Project Manager
     const availableProjects = level === "workspace"
-        ? (isWorkspaceAdmin ? projects : projects.filter(p => leadProjectIds.includes(p.id)))
+        ? (isWorkspaceAdmin ? projects : projects.filter(p => leadProjectIds.includes(p.id) || p.canManageMembers))
         : projects;
 
     const [selectedProjectId, setSelectedProjectId] = useState(initialProjectId || (availableProjects[0]?.id || ""));

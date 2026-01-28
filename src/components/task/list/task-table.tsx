@@ -41,7 +41,7 @@ interface TaskTableProps {
     canCreateSubTask: boolean;
     showAdvancedFilters?: boolean;
     tags?: { id: string; name: string; }[]; // Dynamic tags
-    projects?: { id: string; name: string; }[];
+    projects?: { id: string; name: string; canManageMembers?: boolean; }[];
     leadProjectIds?: string[]; // Projects where user is lead (for global view)
     isWorkspaceAdmin?: boolean;
     level?: "workspace" | "project";
@@ -776,6 +776,11 @@ export function TaskTable({
                                                     prevTasks.filter(t => t.id !== taskId)
                                                 );
                                             }}
+                                            permissions={permissions}
+                                            userId={userId}
+                                            isWorkspaceAdmin={isWorkspaceAdmin}
+                                            leadProjectIds={leadProjectIds}
+                                            projects={projects}
                                         />
                                         {expanded[task.id] && (
                                             <SubTaskList
@@ -787,7 +792,11 @@ export function TaskTable({
                                                 canCreateSubTask={
                                                     level === 'project'
                                                         ? canCreateSubTask
-                                                        : (canCreateSubTask && task.projectId ? leadProjectIds.includes(task.projectId) : false)
+                                                        : (canCreateSubTask && task.projectId ? (
+                                                            leadProjectIds.includes(task.projectId) ||
+                                                            !!isWorkspaceAdmin ||
+                                                            !!projects?.find(p => p.id === task.projectId)?.canManageMembers
+                                                        ) : false)
                                                 }
                                                 columnVisibility={columnVisibility}
                                                 isLoading={!!loadingSubTasks[task.id]}
@@ -803,6 +812,12 @@ export function TaskTable({
                                                 onSubTaskCreated={(newSubTask, tempId) =>
                                                     handleSubTaskCreated(task.id, newSubTask, tempId)
                                                 }
+                                                permissions={permissions}
+                                                userId={userId}
+                                                isWorkspaceAdmin={isWorkspaceAdmin}
+                                                leadProjectIds={leadProjectIds}
+                                                projects={projects}
+                                                level={level}
                                             />
                                         )}
                                     </React.Fragment>

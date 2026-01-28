@@ -34,28 +34,45 @@ export const getWorkspacePermissions = cache(async (workspaceId: string) => {
         const isWorkspaceAdmin = workspaceMember.workspaceRole === "OWNER" || workspaceMember.workspaceRole === "ADMIN";
         const canCreateProject = isWorkspaceAdmin || workspaceMember.workspaceRole === "MANAGER";
 
-        // Check if user is a project lead in any project
-        const leadingProjects = await prisma.projectMember.findMany({
+        // Check if user is a project lead or manager in any project
+        const projectRoles = await prisma.projectMember.findMany({
             where: {
                 workspaceMemberId: workspaceMember.id,
-                projectRole: "LEAD",
+                projectRole: {
+                    in: ["LEAD", "PROJECT_MANAGER"]
+                },
                 project: {
                     workspaceId: workspaceId,
                 },
             },
-            select: { projectId: true }
+            select: {
+                projectId: true,
+                projectRole: true
+            }
         });
 
-        const isProjectLead = leadingProjects.length > 0;
-        const hasAccess = isWorkspaceAdmin || isProjectLead;
-        const leadProjectIds = leadingProjects.map(p => p.projectId);
+        const isProjectLead = projectRoles.some(p => p.projectRole === "LEAD");
+        const isProjectManager = projectRoles.some(p => p.projectRole === "PROJECT_MANAGER");
+
+        // Allow access if admin, or holds any leadership role in a project
+        const hasAccess = isWorkspaceAdmin || isProjectLead || isProjectManager;
+
+        const leadProjectIds = projectRoles
+            .filter(p => p.projectRole === "LEAD")
+            .map(p => p.projectId);
+
+        const managedProjectIds = projectRoles
+            .filter(p => p.projectRole === "PROJECT_MANAGER")
+            .map(p => p.projectId);
 
         return {
             isWorkspaceAdmin,
             canCreateProject,
             isProjectLead,
+            isProjectManager,
             hasAccess,
             leadProjectIds,
+            managedProjectIds,
             workspaceMemberId: workspaceMember.id,
             workspaceMember,
         };

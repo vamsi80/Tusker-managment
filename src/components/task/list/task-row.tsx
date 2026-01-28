@@ -12,6 +12,7 @@ import { DeleteTaskDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/for
 import { ColumnVisibility } from "../shared/column-visibility";
 import { cn } from "@/lib/utils";
 import { getColorFromString } from "@/lib/colors/project-colors";
+import { UserPermissionsType } from "@/data/user/get-user-permissions";
 
 interface TaskRowProps {
     task: TaskWithSubTasks;
@@ -23,6 +24,12 @@ interface TaskRowProps {
     onUpdateEnd?: () => void;
     onTaskUpdated?: (updatedTask: { name: string; taskSlug: string }) => void;
     onTaskDeleted?: (taskId: string) => void;
+    // Permission props
+    permissions?: UserPermissionsType; // For project view
+    userId?: string;
+    isWorkspaceAdmin?: boolean; // For workspace view
+    leadProjectIds?: string[]; // For workspace view
+    projects?: Array<{ id: string; canManageMembers?: boolean }>; // For workspace view
 }
 
 export function TaskRow({
@@ -35,6 +42,11 @@ export function TaskRow({
     onUpdateEnd,
     onTaskUpdated,
     onTaskDeleted,
+    permissions,
+    userId,
+    isWorkspaceAdmin,
+    leadProjectIds,
+    projects,
 }: TaskRowProps) {
     const subtaskCount = task._count?.subTasks || 0;
 
@@ -55,6 +67,33 @@ export function TaskRow({
         if (onTaskUpdated) {
             onTaskUpdated(updatedTask);
         }
+    };
+
+    // Determine if user can edit/delete this task
+    const canEditTask = () => {
+        // Get the creator ID - handle both direct field and relation object
+        const taskCreatorId = (task as any).createdById || (task as any).createdBy?.userId;
+
+        // Project view (has permissions object)
+        if (permissions) {
+            return permissions.isWorkspaceAdmin ||
+                permissions.isProjectManager ||
+                (permissions.isProjectLead && taskCreatorId === userId);
+        }
+
+        // Workspace view (use alternative data)
+        if (isWorkspaceAdmin) return true;
+
+        // Check if user is PROJECT_MANAGER of this task's project
+        const taskProject = projects?.find(p => p.id === task.projectId);
+        if (taskProject?.canManageMembers) return true;
+
+        // Check if user is LEAD in this project and created the task
+        if (leadProjectIds?.includes(task.projectId) && taskCreatorId === userId) {
+            return true;
+        }
+
+        return false;
     };
 
     // Show skeleton while updating OR while refresh is pending
@@ -116,29 +155,31 @@ export function TaskRow({
                 </div>
             </TableCell>
             <TableCell>
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
-                            <EditTaskDialog
-                                task={task}
-                                onTaskUpdated={handleTaskUpdated}
-                                onUpdateStart={onUpdateStart}
-                                onUpdateEnd={onUpdateEnd}
-                            />
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
-                            <DeleteTaskDialog
-                                task={task}
-                                onTaskDeleted={onTaskDeleted}
-                            />
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                {canEditTask() && (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
+                                <EditTaskDialog
+                                    task={task}
+                                    onTaskUpdated={handleTaskUpdated}
+                                    onUpdateStart={onUpdateStart}
+                                    onUpdateEnd={onUpdateEnd}
+                                />
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
+                                <DeleteTaskDialog
+                                    task={task}
+                                    onTaskDeleted={onTaskDeleted}
+                                />
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
             </TableCell>
         </TableRow>
     );
