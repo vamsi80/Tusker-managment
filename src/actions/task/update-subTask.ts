@@ -66,6 +66,22 @@ export async function editSubTask(
             return { status: "error", message: "You are not a member of this workspace" };
         }
 
+        // Permission logic:
+        // - Workspace ADMIN: Can edit all subtasks
+        // - PROJECT_MANAGER: Can edit all subtasks in their project
+        // - LEAD: Can edit only subtasks they created
+        const canEditAllTasks = permissions.isWorkspaceAdmin || permissions.isProjectManager;
+        const canEditOwnTasks = permissions.isProjectLead && existingSubTask.createdById === user.id;
+
+        if (!canEditAllTasks && !canEditOwnTasks) {
+            return {
+                status: "error",
+                message: permissions.isProjectLead
+                    ? "You can only edit subtasks you created"
+                    : "You don't have permission to edit this subtask",
+            };
+        }
+
         // Perform the update
         await prisma.task.update({
             where: { id: subTaskId },

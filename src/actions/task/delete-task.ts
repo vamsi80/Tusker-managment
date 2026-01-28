@@ -34,16 +34,25 @@ export async function deleteTask(
             };
         }
 
-        // 2. Check permissions - only workspace admin or project lead can delete tasks
+        // 2. Check permissions
         const permissions = await getUserPermissions(
             existingTask.project.workspaceId,
             existingTask.project.id
         );
 
-        if (!permissions.isWorkspaceAdmin && !permissions.isProjectLead) {
+        // Permission logic:
+        // - Workspace ADMIN: Can delete all tasks
+        // - PROJECT_MANAGER: Can delete all tasks in their project
+        // - LEAD: Can delete only tasks they created
+        const canDeleteAllTasks = permissions.isWorkspaceAdmin || permissions.isProjectManager;
+        const canDeleteOwnTasks = permissions.isProjectLead && existingTask.createdById === user.id;
+
+        if (!canDeleteAllTasks && !canDeleteOwnTasks) {
             return {
                 status: "error",
-                message: "You don't have permission to delete this task",
+                message: permissions.isProjectLead
+                    ? "You can only delete tasks you created"
+                    : "You don't have permission to delete this task",
             };
         }
 

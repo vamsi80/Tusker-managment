@@ -79,6 +79,11 @@ export function getWorkspacePermissions(role: WorkspaceRole): WorkspacePermissio
                 "project:access-all",
             ];
 
+        case "MANAGER":
+            return [
+                "project:create",
+            ];
+
         case "MEMBER":
             return [
                 // Limited permissions - can only work on assigned projects
@@ -97,7 +102,8 @@ export function getWorkspacePermissions(role: WorkspaceRole): WorkspacePermissio
 /**
  * Check if a role can manage another role
  * OWNER can manage all roles
- * ADMIN can manage MEMBER and VIEWER, but not OWNER or other ADMINs
+ * ADMIN can manage MANAGER, MEMBER and VIEWER, but not OWNER or other ADMINs
+ * MANAGER can manage MEMBER and VIEWER
  * MEMBER and VIEWER cannot manage anyone
  */
 export function canManageRole(
@@ -109,7 +115,11 @@ export function canManageRole(
     }
 
     if (managerRole === "ADMIN") {
-        // Admin can manage MEMBER and VIEWER, but not OWNER or other ADMINs
+        // Admin can manage MANAGER, MEMBER and VIEWER, but not OWNER or other ADMINs
+        return targetRole === "MANAGER" || targetRole === "MEMBER" || targetRole === "VIEWER";
+    }
+
+    if (managerRole === "MANAGER") {
         return targetRole === "MEMBER" || targetRole === "VIEWER";
     }
 
@@ -119,7 +129,8 @@ export function canManageRole(
 /**
  * Check if a role can be assigned by another role
  * OWNER can assign any role including ADMIN
- * ADMIN can assign MEMBER and VIEWER only
+ * ADMIN can assign MANAGER, MEMBER and VIEWER
+ * MANAGER can assign MEMBER and VIEWER
  */
 export function canAssignRole(
     assignerRole: WorkspaceRole,
@@ -131,7 +142,11 @@ export function canAssignRole(
     }
 
     if (assignerRole === "ADMIN") {
-        // Admin can only assign MEMBER and VIEWER
+        // Admin can only assign MANAGER, MEMBER and VIEWER
+        return roleToAssign === "MANAGER" || roleToAssign === "MEMBER" || roleToAssign === "VIEWER";
+    }
+
+    if (assignerRole === "MANAGER") {
         return roleToAssign === "MEMBER" || roleToAssign === "VIEWER";
     }
 
@@ -141,7 +156,8 @@ export function canAssignRole(
 /**
  * Check if a role can remove another role from workspace
  * OWNER can remove anyone except themselves
- * ADMIN can remove MEMBER and VIEWER only
+ * ADMIN can remove MANAGER, MEMBER and VIEWER only
+ * MANAGER can remove MEMBER and VIEWER
  */
 export function canRemoveMember(
     removerRole: WorkspaceRole,
@@ -158,7 +174,11 @@ export function canRemoveMember(
     }
 
     if (removerRole === "ADMIN") {
-        // Admin can remove MEMBER and VIEWER, but not other admins or owner
+        // Admin can remove MANAGER, MEMBER and VIEWER
+        return targetRole === "MANAGER" || targetRole === "MEMBER" || targetRole === "VIEWER";
+    }
+
+    if (removerRole === "MANAGER") {
         return targetRole === "MEMBER" || targetRole === "VIEWER";
     }
 
@@ -171,8 +191,10 @@ export function canRemoveMember(
 export function getRoleLevel(role: WorkspaceRole): number {
     switch (role) {
         case "OWNER":
-            return 4;
+            return 5;
         case "ADMIN":
+            return 4;
+        case "MANAGER":
             return 3;
         case "MEMBER":
             return 2;
@@ -206,6 +228,8 @@ export function getRoleDisplayName(role: WorkspaceRole): string {
             return "Owner";
         case "ADMIN":
             return "Admin";
+        case "MANAGER":
+            return "Manager";
         case "MEMBER":
             return "Member";
         case "VIEWER":
@@ -224,6 +248,8 @@ export function getRoleDescription(role: WorkspaceRole): string {
             return "Full control over workspace, can transfer ownership";
         case "ADMIN":
             return "Can manage workspace, projects, and members";
+        case "MANAGER":
+            return "Can create projects and manage members";
         case "MEMBER":
             return "Can access assigned projects and create tasks";
         case "VIEWER":

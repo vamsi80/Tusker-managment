@@ -168,6 +168,7 @@ model Project {
   slug             String            @unique
   description      String?
   workspaceId      String
+  createdBy        String?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   clint            Clints[]
@@ -180,6 +181,7 @@ model Project {
 
   @@index([workspaceId])
   @@index([workspaceId, createdAt])
+  @@index([workspaceId, createdBy])
   @@index([slug])
 }
 
@@ -665,11 +667,13 @@ enum POStatus {
 enum WorkspaceRole {
   OWNER
   ADMIN
+  MANAGER
   MEMBER
   VIEWER
 }
 
 enum ProjectRole {
+  PROJECT_MANAGER
   LEAD
   MEMBER
   VIEWER

@@ -34,16 +34,25 @@ export async function deleteSubTask(
             };
         }
 
-        // Check permissions - only workspace admin or project lead can delete subtasks
+        // Check permissions
         const permissions = await getUserPermissions(
             existingSubTask.project.workspaceId,
             existingSubTask.project.id
         );
 
-        if (!permissions.isWorkspaceAdmin && !permissions.isProjectLead) {
+        // Permission logic:
+        // - Workspace ADMIN: Can delete all subtasks
+        // - PROJECT_MANAGER: Can delete all subtasks in their project
+        // - LEAD: Can delete only subtasks they created
+        const canDeleteAllTasks = permissions.isWorkspaceAdmin || permissions.isProjectManager;
+        const canDeleteOwnTasks = permissions.isProjectLead && existingSubTask.createdById === user.id;
+
+        if (!canDeleteAllTasks && !canDeleteOwnTasks) {
             return {
                 status: "error",
-                message: "You don't have permission to delete this subtask",
+                message: permissions.isProjectLead
+                    ? "You can only delete subtasks you created"
+                    : "You don't have permission to delete this subtask",
             };
         }
 

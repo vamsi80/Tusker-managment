@@ -23,6 +23,7 @@ export const getWorkspacePermissions = cache(async (workspaceId: string) => {
         if (!workspaceMember) {
             return {
                 isWorkspaceAdmin: false,
+                canCreateProject: false,
                 isProjectLead: false,
                 hasAccess: false,
                 workspaceMemberId: null,
@@ -31,6 +32,7 @@ export const getWorkspacePermissions = cache(async (workspaceId: string) => {
         }
 
         const isWorkspaceAdmin = workspaceMember.workspaceRole === "OWNER" || workspaceMember.workspaceRole === "ADMIN";
+        const canCreateProject = isWorkspaceAdmin || workspaceMember.workspaceRole === "MANAGER";
 
         // Check if user is a project lead in any project
         const leadingProjects = await prisma.projectMember.findMany({
@@ -50,6 +52,7 @@ export const getWorkspacePermissions = cache(async (workspaceId: string) => {
 
         return {
             isWorkspaceAdmin,
+            canCreateProject,
             isProjectLead,
             hasAccess,
             leadProjectIds,
@@ -60,6 +63,7 @@ export const getWorkspacePermissions = cache(async (workspaceId: string) => {
         console.error("Error fetching workspace permissions:", error);
         return {
             isWorkspaceAdmin: false,
+            canCreateProject: false,
             isProjectLead: false,
             hasAccess: false,
             leadProjectIds: [],
@@ -105,13 +109,15 @@ export const getUserPermissions = cache(async (workspaceId: string, projectId: s
         });
 
         const isWorkspaceAdmin = workspaceMember.workspaceRole === "OWNER" || workspaceMember.workspaceRole === "ADMIN";
+        const isProjectManager = projectMember?.projectRole === "PROJECT_MANAGER";
         const isProjectLead = projectMember?.projectRole === "LEAD";
         const isMember = workspaceMember.workspaceRole === "MEMBER" && (!projectMember || projectMember.projectRole === "MEMBER");
-        const canCreateSubTask = isWorkspaceAdmin || isProjectLead;
-        const canPerformBulkOperations = isWorkspaceAdmin || isProjectLead;
+        const canCreateSubTask = isWorkspaceAdmin || isProjectManager || isProjectLead;
+        const canPerformBulkOperations = isWorkspaceAdmin || isProjectManager || isProjectLead;
 
         return {
             isWorkspaceAdmin,
+            isProjectManager,
             isProjectLead,
             isMember,
             canCreateSubTask,
@@ -124,6 +130,7 @@ export const getUserPermissions = cache(async (workspaceId: string, projectId: s
         console.error("Error fetching user permissions:", error);
         return {
             isWorkspaceAdmin: false,
+            isProjectManager: false,
             isProjectLead: false,
             isMember: false,
             canCreateSubTask: false,

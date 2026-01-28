@@ -64,11 +64,19 @@ export async function editTask(
             };
         }
 
-        // Check if user has permission to update tasks (workspace admin or project lead)
-        if (!permissions.canCreateSubTask) {
+        // Permission logic:
+        // - Workspace ADMIN: Can edit all tasks
+        // - PROJECT_MANAGER: Can edit all tasks in their project
+        // - LEAD: Can edit only tasks they created
+        const canEditAllTasks = permissions.isWorkspaceAdmin || permissions.isProjectManager;
+        const canEditOwnTasks = permissions.isProjectLead && existingTask.createdById === user.id;
+
+        if (!canEditAllTasks && !canEditOwnTasks) {
             return {
                 status: "error",
-                message: "You don't have permission to update tasks. Only workspace admins and project leads can update tasks.",
+                message: permissions.isProjectLead
+                    ? "You can only edit tasks you created"
+                    : "You don't have permission to edit this task",
             };
         }
 

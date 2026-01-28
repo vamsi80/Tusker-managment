@@ -4,12 +4,15 @@ import { ProjectMembersType } from "@/data/project/get-project-members";
 import { TaskTable } from "@/components/task/list/task-table";
 import { extractAssigneeOptions } from "@/lib/utils/extract-filter-options";
 import { getWorkspaceTags } from "@/data/tag/get-tags";
+import { UserPermissionsType } from "@/data/user/get-user-permissions";
 
 interface ProjectTaskListViewProps {
     workspaceId: string;
     projectId: string;
     members: ProjectMembersType;
     canCreateSubTask: boolean;
+    permissions: UserPermissionsType;
+    userId: string;
 }
 
 /**
@@ -24,6 +27,8 @@ export async function ProjectTaskListView({
     projectId,
     members,
     canCreateSubTask,
+    permissions,
+    userId,
 }: ProjectTaskListViewProps) {
     // Get first 10 tasks filtered by project (workspace-level query with project filter)
     const { tasks, hasMore, totalCount } = await getWorkspaceTasks(
@@ -57,6 +62,8 @@ export async function ProjectTaskListView({
             workspaceId={workspaceId}
             projectId={projectId}
             canCreateSubTask={canCreateSubTask}
+            permissions={permissions}
+            userId={userId}
             tags={tags}
         />
     );

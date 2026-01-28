@@ -285,13 +285,18 @@ export const ManageProjectMembersDialog = ({
                                                     <div className="flex items-center gap-2 mt-1">
                                                         <Badge
                                                             variant={
-                                                                member.projectRole === "LEAD"
+                                                                member.projectRole === "PROJECT_MANAGER"
                                                                     ? "default"
-                                                                    : "secondary"
+                                                                    : member.projectRole === "LEAD"
+                                                                        ? "secondary"
+                                                                        : "outline"
                                                             }
-                                                            className="text-xs"
+                                                            className={cn(
+                                                                "text-xs",
+                                                                member.projectRole === "PROJECT_MANAGER" && "bg-amber-500 hover:bg-amber-600"
+                                                            )}
                                                         >
-                                                            {member.projectRole}
+                                                            {member.projectRole === "PROJECT_MANAGER" ? "Manager" : member.projectRole}
                                                         </Badge>
                                                         {!member.hasAccess && (
                                                             <Badge variant="destructive" className="text-xs">
@@ -303,42 +308,50 @@ export const ManageProjectMembersDialog = ({
                                             </div>
 
                                             <div className="flex items-center gap-2">
-                                                {/* Role Selector */}
-                                                <Select
-                                                    value={member.projectRole}
-                                                    onValueChange={(value) =>
-                                                        handleUpdateRole(member.userId, value as ProjectRole)
-                                                    }
-                                                    disabled={pending}
-                                                >
-                                                    <SelectTrigger className="w-28 h-8 text-xs">
-                                                        <SelectValue />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="LEAD">Lead</SelectItem>
-                                                        <SelectItem value="MEMBER">Member</SelectItem>
-                                                        <SelectItem value="VIEWER">Viewer</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
+                                                {/* Role Selector - Only show for non-PROJECT_MANAGER roles */}
+                                                {member.projectRole !== "PROJECT_MANAGER" ? (
+                                                    <Select
+                                                        value={member.projectRole}
+                                                        onValueChange={(value) =>
+                                                            handleUpdateRole(member.userId, value as ProjectRole)
+                                                        }
+                                                        disabled={pending}
+                                                    >
+                                                        <SelectTrigger className="w-28 h-8 text-xs">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="LEAD">Lead</SelectItem>
+                                                            <SelectItem value="MEMBER">Member</SelectItem>
+                                                            <SelectItem value="VIEWER">Viewer</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                ) : (
+                                                    <div className="w-28 h-8 flex items-center justify-center text-xs text-muted-foreground">
+                                                        Fixed Role
+                                                    </div>
+                                                )}
 
-                                                {/* Toggle Access Button */}
+                                                {/* Toggle Access Button - Disabled for PROJECT_MANAGER */}
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
                                                     onClick={() => handleToggleAccess(member.userId)}
-                                                    disabled={pending}
+                                                    disabled={pending || member.projectRole === "PROJECT_MANAGER"}
                                                     className="h-8"
+                                                    title={member.projectRole === "PROJECT_MANAGER" ? "Cannot toggle access for project manager" : "Toggle access"}
                                                 >
                                                     <UserCog className="h-3 w-3" />
                                                 </Button>
 
-                                                {/* Remove Button */}
+                                                {/* Remove Button - Disabled for PROJECT_MANAGER */}
                                                 <Button
                                                     variant="destructive"
                                                     size="sm"
                                                     onClick={() => handleRemoveMember(member.userId)}
-                                                    disabled={pending}
+                                                    disabled={pending || member.projectRole === "PROJECT_MANAGER"}
                                                     className="h-8"
+                                                    title={member.projectRole === "PROJECT_MANAGER" ? "Cannot remove project manager" : "Remove member"}
                                                 >
                                                     <Trash2 className="h-3 w-3" />
                                                 </Button>

@@ -21,9 +21,12 @@ interface iAppProps {
   members: WorkspaceMembersType;
   workspaceId: string;
   isAdmin: boolean;
+  canCreateProject?: boolean;
+  userRole?: string;
+  currentUserId?: string;
 }
 
-export function NavProjects({ projects, members, workspaceId, isAdmin }: iAppProps) {
+export function NavProjects({ projects, members, workspaceId, isAdmin, canCreateProject, userRole, currentUserId }: iAppProps) {
   const { isMobile } = useSidebar();
   const pathname = usePathname();
   const router = useRouter();
@@ -116,7 +119,10 @@ export function NavProjects({ projects, members, workspaceId, isAdmin }: iAppPro
             <CreateProjectForm
               members={members}
               workspaceId={workspaceId}
-              isAdmin={isAdmin}
+              isAdmin={isAdmin} // Still used?
+              canCreateProject={canCreateProject ?? isAdmin} // Fallback to isAdmin if undefined
+              userRole={userRole}
+              currentUserId={currentUserId}
             />
           </div>
         </SidebarGroupLabel>
@@ -158,39 +164,43 @@ export function NavProjects({ projects, members, workspaceId, isAdmin }: iAppPro
                       </Link>
                     </DropdownMenuItem>
 
-                    {/* Edit - Admin only */}
-                    {isAdmin && (
+                    {/* Edit - PROJECT_MANAGER or Admin */}
+                    {proj.canManageMembers && (
+                      <DropdownMenuItem
+                        className="flex items-center gap-2 cursor-pointer"
+                        disabled={isLoadingProject}
+                        onClick={() => handleEditClick(proj.id)}
+                      >
+                        {isLoadingProject ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Pencil className="h-4 w-4" />
+                        )}
+                        <span>{isLoadingProject ? "Loading..." : "Edit Project"}</span>
+                      </DropdownMenuItem>
+                    )}
+
+                    {/* Manage Members - PROJECT_MANAGER or Admin */}
+                    {proj.canManageMembers && (
+                      <DropdownMenuItem
+                        className="flex items-center gap-2 cursor-pointer"
+                        disabled={isLoadingProject}
+                        onClick={() => handleManageMembersClick(proj.id)}
+                      >
+                        {isLoadingProject ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Users className="h-4 w-4" />
+                        )}
+                        <span>{isLoadingProject ? "Loading..." : "Manage Members"}</span>
+                      </DropdownMenuItem>
+                    )}
+
+                    {proj.canManageMembers && (
                       <>
-                        <DropdownMenuItem
-                          className="flex items-center gap-2 cursor-pointer"
-                          disabled={isLoadingProject}
-                          onClick={() => handleEditClick(proj.id)}
-                        >
-                          {isLoadingProject ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Pencil className="h-4 w-4" />
-                          )}
-                          <span>{isLoadingProject ? "Loading..." : "Edit Project"}</span>
-                        </DropdownMenuItem>
-
-                        {/* Manage Members - Admin only */}
-                        <DropdownMenuItem
-                          className="flex items-center gap-2 cursor-pointer"
-                          disabled={isLoadingProject}
-                          onClick={() => handleManageMembersClick(proj.id)}
-                        >
-                          {isLoadingProject ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Users className="h-4 w-4" />
-                          )}
-                          <span>{isLoadingProject ? "Loading..." : "Manage Members"}</span>
-                        </DropdownMenuItem>
-
                         <DropdownMenuSeparator />
 
-                        {/* Delete - Admin only */}
+                        {/* Delete - PROJECT_MANAGER or Admin */}
                         <DropdownMenuItem
                           className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive"
                           onClick={() => handleDeleteClick({ id: proj.id, name: proj.name })}

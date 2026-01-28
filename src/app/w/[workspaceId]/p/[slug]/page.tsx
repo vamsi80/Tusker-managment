@@ -24,6 +24,7 @@ async function ProjectDashboardPage() {
 }
 
 import { getUserPermissions } from "@/data/user/get-user-permissions";
+import { requireUser } from "@/lib/auth/require-user";
 
 /**
  * Task List View
@@ -39,19 +40,23 @@ async function TaskListView({
   workspaceId,
   projectId,
   projectMembers,
-  canCreateSubTask
+  permissions,
+  userId
 }: {
   workspaceId: string;
   projectId: string;
   projectMembers: Awaited<ReturnType<typeof getProjectMembers>>;
-  canCreateSubTask: boolean;
+  permissions: Awaited<ReturnType<typeof getUserPermissions>>;
+  userId: string;
 }) {
   return (
     <ProjectTaskListView
       workspaceId={workspaceId}
       projectId={projectId}
       members={projectMembers}
-      canCreateSubTask={canCreateSubTask}
+      canCreateSubTask={permissions.canCreateSubTask}
+      permissions={permissions}
+      userId={userId}
     />
   );
 }
@@ -115,6 +120,9 @@ export default async function ProjectPage({ params, searchParams }: iAppProps) {
     return <div>Project not found</div>;
   }
 
+  // ✅ Get current user
+  const user = await requireUser();
+
   // ✅ Only fetch project members if needed (for list view)
   const projectMembers = currentView === 'list'
     ? await getProjectMembers(project.id)
@@ -141,7 +149,8 @@ export default async function ProjectPage({ params, searchParams }: iAppProps) {
               workspaceId={workspaceId}
               projectId={project.id}
               projectMembers={projectMembers}
-              canCreateSubTask={permissions.canCreateSubTask}
+              permissions={permissions}
+              userId={user.id}
             />
           </Suspense>
         </ReloadableView>

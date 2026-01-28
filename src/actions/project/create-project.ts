@@ -8,6 +8,13 @@ import { ProjectRole } from "@/generated/prisma/client";
 import { hasWorkspacePermission } from "@/lib/constants/workspace-access";
 import { getUniqueRandomColor } from "@/lib/colors/project-colors";
 
+/**
+ * Create a new project with strict RBAC enforcement
+ * 
+ * Rules:
+ * - OWNER/ADMIN: Can assign multiple PROJECT_MANAGERs, optionally include themselves
+ * - MANAGER: Auto-assigned as PROJECT_MANAGER, cannot assign others
+ */
 export async function createProject(values: ProjectSchemaType): Promise<ApiResponse> {
     const user = await requireUser();
 
@@ -26,16 +33,8 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
         };
     }
 
-    if (!values?.projectLead) {
-        return {
-            status: "error",
-            message: "Please select a project lead before creating the project.",
-        };
-    }
-
-
     try {
-        // Fetch workspace directly to ensure fresh data (bypass cache)
+        // Fetch workspace with members
         const workspace = await prisma.workspace.findUnique({
             where: { id: values.workspaceId },
             include: {
@@ -71,46 +70,70 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
             };
         }
 
-        // Check if user has permission to create projects (OWNER or ADMIN)
+        // Check if user has permission to create projects
         if (!hasWorkspacePermission(currentMemberRecord.workspaceRole, "project:create")) {
             return {
                 status: "error",
-                message: "Only workspace owners and admins can create projects.",
+                message: "You don't have permission to create projects.",
             };
         }
 
-        // Get the project lead user ID
-        const projectLeadUserId = String(values.projectLead);
-
-
-        // Build map userId -> workspaceMemberId for quick lookup
+        // Build userId -> workspaceMemberId map
         const workspaceMemberMap = new Map<string, string>();
         for (const wm of workspaceMembers) {
             if (wm?.userId && wm?.id) workspaceMemberMap.set(String(wm.userId), String(wm.id));
         }
 
-        // Get the workspace member ID for the project lead
-        const leadWorkspaceMemberId = workspaceMemberMap.get(projectLeadUserId);
+        // Determine project managers based on creator's role
+        const isOwnerOrAdmin = currentMemberRecord.workspaceRole === "OWNER" ||
+            currentMemberRecord.workspaceRole === "ADMIN";
+        const isManager = currentMemberRecord.workspaceRole === "MANAGER";
 
-        if (!leadWorkspaceMemberId) {
+        let projectManagersToAdd: string[] = [];
+
+        if (isOwnerOrAdmin) {
+            // OWNER/ADMIN: Use provided projectManagers array or fall back to projectLead
+            if (values.projectManagers && values.projectManagers.length > 0) {
+                projectManagersToAdd = values.projectManagers;
+            } else if (values.projectLead) {
+                projectManagersToAdd = [values.projectLead];
+            } else {
+                return {
+                    status: "error",
+                    message: "At least one project manager must be assigned.",
+                };
+            }
+
+            // Validate all project managers are workspace members
+            for (const pmUserId of projectManagersToAdd) {
+                if (!workspaceMemberMap.has(pmUserId)) {
+                    return {
+                        status: "error",
+                        message: "All project managers must be members of this workspace.",
+                    };
+                }
+            }
+        } else if (isManager) {
+            // MANAGER: Auto-assign themselves as PROJECT_MANAGER
+            projectManagersToAdd = [user.id];
+        } else {
             return {
                 status: "error",
-                message: "The selected project lead is not a member of this workspace.",
+                message: "Insufficient permissions to create projects.",
             };
         }
 
-        // Create only the project lead as a member with LEAD role
-        const projectMemberCreate = {
-            workspaceMember: { connect: { id: leadWorkspaceMemberId } },
+        // Create project member records for all project managers
+        const projectMembersCreate = projectManagersToAdd.map(userId => ({
+            workspaceMember: { connect: { id: workspaceMemberMap.get(userId)! } },
             hasAccess: true,
-            projectRole: "LEAD" as ProjectRole,
-        };
+            projectRole: "PROJECT_MANAGER" as ProjectRole,
+        }));
 
         // Determine project color
         let finalColor = validation.data.color;
 
         if (!finalColor) {
-            // Get existing project colors to ensure uniqueness if generating automatically
             const existingProjects = await prisma.project.findMany({
                 where: { workspaceId: values.workspaceId },
                 select: { color: true },
@@ -123,36 +146,35 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
             finalColor = getUniqueRandomColor(usedColors);
         }
 
-        // Create project with nested create using relation connect form
-        await prisma.$transaction([
-            prisma.project.create({
-                data: {
-                    name: validation.data.name,
-                    description: validation.data.description,
-                    slug: validation.data.slug,
-                    color: finalColor,
-                    workspaceId: values.workspaceId,
-                    projectMembers: {
-                        create: projectMemberCreate,
-                    },
-                    clint: {
-                        create: {
-                            name: validation.data.companyName,
-                            registeredCompanyName: validation.data.registeredCompanyName,
-                            directorName: validation.data.directorName,
-                            address: validation.data.address,
-                            gstNumber: validation.data.gstNumber,
-                            clintMembers: {
-                                create: {
-                                    name: validation.data.contactPerson,
-                                    contactNumber: validation.data.contactNumber,
-                                },
+        // Create project with project managers
+        const newProject = await prisma.project.create({
+            data: {
+                name: validation.data.name,
+                description: validation.data.description,
+                slug: validation.data.slug,
+                color: finalColor,
+                workspaceId: values.workspaceId,
+                createdBy: user.id, // Track who created the project
+                projectMembers: {
+                    create: projectMembersCreate,
+                },
+                clint: {
+                    create: {
+                        name: validation.data.companyName,
+                        registeredCompanyName: validation.data.registeredCompanyName,
+                        directorName: validation.data.directorName,
+                        address: validation.data.address,
+                        gstNumber: validation.data.gstNumber,
+                        clintMembers: {
+                            create: {
+                                name: validation.data.contactPerson,
+                                contactNumber: validation.data.contactNumber,
                             },
                         },
                     },
                 },
-            }),
-        ]);
+            },
+        });
 
         // Invalidate project cache for all users in the workspace
         const { invalidateWorkspaceProjects } = await import("@/lib/cache/invalidation");

@@ -300,15 +300,15 @@ export const EditProjectForm = ({
                                 />
                             </div>
 
-                            {/* Project Lead Selection */}
+                            {/* Project Manager Selection */}
                             <FormField
                                 control={form.control}
                                 name="projectLead"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Project Lead</FormLabel>
+                                        <FormLabel>Project Manager</FormLabel>
                                         <FormDescription className="text-xs text-muted-foreground mb-2">
-                                            Select the project lead (only one allowed).
+                                            Select the project manager who will have full project access.
                                         </FormDescription>
                                         <div className="space-y-2">
                                             <Popover>
@@ -324,7 +324,7 @@ export const EditProjectForm = ({
                                                                 );
                                                                 return `${m?.user?.surname}`;
                                                             })()
-                                                            : "Select a team lead"}
+                                                            : "Select a project manager"}
                                                     </Button>
                                                 </PopoverTrigger>
 
@@ -341,7 +341,7 @@ export const EditProjectForm = ({
                                                                     const accessLevelRaw =
                                                                         (member as any)?.accessLevel ??
                                                                         (member as any)?.role ??
-                                                                        "Lead";
+                                                                        "Manager";
 
                                                                     const accessLevel =
                                                                         typeof accessLevelRaw === "string"

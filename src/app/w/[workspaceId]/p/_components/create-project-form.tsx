@@ -17,21 +17,31 @@ import { createProject } from "@/actions/project/create-project";
 import { projectSchema, ProjectSchemaType } from "@/lib/zodSchemas";
 import { Check, Loader2, Plus, PlusIcon, SparkleIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { generateRandomColor, getColorFromString } from "@/lib/colors/project-colors";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { generateRandomColor, getColorFromString } from "@/lib/colors/project-colors";
 
 interface iAppProps {
     members: WorkspaceMembersResult["workspaceMembers"]
     workspaceId: string,
     isAdmin: boolean;
+    canCreateProject?: boolean;
+    userRole?: string; // Workspace role of current user
+    currentUserId?: string; // Current user's ID
 }
 
-export const CreateProjectForm = ({ members, workspaceId, isAdmin }: iAppProps) => {
+export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProject, userRole, currentUserId }: iAppProps) => {
     const [pending, startTransition] = useTransition();
     const router = useRouter();
     const { triggerConfetti } = useConfetti();
+
+    // Use explicit permission if provided, otherwise fallback to legacy isAdmin check
+    const showCreateButton = canCreateProject ?? isAdmin;
+
+    // Determine if user is MANAGER (auto-assigned as project manager)
+    const isManager = userRole === "MANAGER";
+    const isOwnerOrAdmin = userRole === "OWNER" || userRole === "ADMIN";
 
     const form = useForm<ProjectSchemaType>({
         resolver: zodResolver(projectSchema) as unknown as Resolver<ProjectSchemaType>,
@@ -48,7 +58,8 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin }: iAppProps) 
             contactPerson: "",
             contactNumber: "",
             workspaceId: workspaceId as string,
-            projectLead: "",
+            // Auto-assign MANAGER as project lead
+            projectLead: isManager ? currentUserId : "",
             memberAccess: [] as string[],
         },
     })
@@ -96,7 +107,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin }: iAppProps) 
     return (
         <>
             <Dialog>
-                {isAdmin && (
+                {showCreateButton && (
                     <DialogTrigger asChild>
                         <button className="cursor-pointer">
                             <Plus size={16} />
@@ -305,67 +316,75 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin }: iAppProps) 
                                     name="projectLead"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Project Lead</FormLabel>
+                                            <FormLabel>Project Manager</FormLabel>
                                             <FormDescription className="text-xs text-muted-foreground mb-2">
-                                                Select the project lead (only one allowed).
+                                                {isManager
+                                                    ? "As a workspace manager, you will be automatically assigned as the project manager."
+                                                    : "Select one project manager who will have full project access."
+                                                }
                                             </FormDescription>
                                             <div className="space-y-2">
-                                                <Popover>
-                                                    <PopoverTrigger asChild>
-                                                        <Button variant="outline" className="w-full justify-between font-normal">
-                                                            {field.value
-                                                                ? (() => {
-                                                                    const m = members?.find((m) => m.userId === field.value);
-                                                                    return `${m?.user?.surname}`;
-                                                                })()
-                                                                : "Select a team lead"}
-                                                        </Button>
-                                                    </PopoverTrigger>
+                                                {isManager ? (
+                                                    // For MANAGER: Show non-editable field with their name
+                                                    <Input
+                                                        value={(() => {
+                                                            const currentMember = members?.find((m) => m.userId === currentUserId);
+                                                            return currentMember?.user?.surname || "You";
+                                                        })()}
+                                                        disabled
+                                                        className="bg-muted cursor-not-allowed"
+                                                    />
+                                                ) : (
+                                                    // For OWNER/ADMIN: Show dropdown to select project manager
+                                                    <Popover>
+                                                        <PopoverTrigger asChild>
+                                                            <Button variant="outline" className="w-full justify-between font-normal">
+                                                                {field.value
+                                                                    ? (() => {
+                                                                        const m = members?.find((m) => m.userId === field.value);
+                                                                        return `${m?.user?.surname}`;
+                                                                    })()
+                                                                    : "Select project manager"}
+                                                            </Button>
+                                                        </PopoverTrigger>
 
-                                                    <PopoverContent className="p-0 w-64">
-                                                        <Command>
-                                                            <CommandInput placeholder="Search members…" />
-                                                            <CommandEmpty>No members found.</CommandEmpty>
+                                                        <PopoverContent className="p-0 w-64">
+                                                            <Command>
+                                                                <CommandInput placeholder="Search managers…" />
+                                                                <CommandEmpty>No workspace managers found.</CommandEmpty>
 
-                                                            <CommandGroup>
-                                                                {members?.filter(m => m.workspaceRole !== "VIEWER").map((member) => {
-                                                                    const userName = `${member.user?.surname}`;
-                                                                    const accessLevelRaw =
-                                                                        (member as any)?.accessLevel ??
-                                                                        (member as any)?.role ??
-                                                                        "Lead";
+                                                                <CommandGroup>
+                                                                    {members?.filter(m => m.workspaceRole === "MANAGER").map((member) => {
+                                                                        const userName = `${member.user?.surname}`;
+                                                                        const roleDisplay = "Manager";
 
-                                                                    const accessLevel =
-                                                                        typeof accessLevelRaw === "string"
-                                                                            ? accessLevelRaw.toLowerCase()
-                                                                            : "member";
+                                                                        // Check if this member is the one selected
+                                                                        const isSelected = field.value === member.userId;
 
-                                                                    // Check if this member is the one selected
-                                                                    const isSelected = field.value === member.userId;
-
-                                                                    return (
-                                                                        <CommandItem
-                                                                            key={member.userId}
-                                                                            value={userName}
-                                                                            onSelect={() => {
-                                                                                // Single select: set the value to this user
-                                                                                field.onChange(member.userId);
-                                                                            }}
-                                                                        >
-                                                                            <Check
-                                                                                className={cn(
-                                                                                    "mr-2 h-4 w-4",
-                                                                                    isSelected ? "opacity-100" : "opacity-0"
-                                                                                )}
-                                                                            />
-                                                                            {userName} ({accessLevel})
-                                                                        </CommandItem>
-                                                                    );
-                                                                })}
-                                                            </CommandGroup>
-                                                        </Command>
-                                                    </PopoverContent>
-                                                </Popover>
+                                                                        return (
+                                                                            <CommandItem
+                                                                                key={member.userId}
+                                                                                value={userName}
+                                                                                onSelect={() => {
+                                                                                    // Single select: set the value to this user
+                                                                                    field.onChange(member.userId);
+                                                                                }}
+                                                                            >
+                                                                                <Check
+                                                                                    className={cn(
+                                                                                        "mr-2 h-4 w-4",
+                                                                                        isSelected ? "opacity-100" : "opacity-0"
+                                                                                    )}
+                                                                                />
+                                                                                {userName} ({roleDisplay})
+                                                                            </CommandItem>
+                                                                        );
+                                                                    })}
+                                                                </CommandGroup>
+                                                            </Command>
+                                                        </PopoverContent>
+                                                    </Popover>
+                                                )}
                                             </div>
                                             <FormMessage />
                                         </FormItem>

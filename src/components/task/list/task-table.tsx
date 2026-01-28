@@ -29,6 +29,7 @@ import { ColumnVisibility } from "../shared/column-visibility";
 import { extractAllFilterOptions } from "@/lib/utils/extract-filter-options";
 import { calculateDueDate } from "@/hooks/use-due-date";
 import { InlineTaskForm } from "./inline-task-form";
+import { UserPermissionsType } from "@/data/user/get-user-permissions";
 
 interface TaskTableProps {
     initialTasks: TaskWithSubTasks[];
@@ -44,12 +45,10 @@ interface TaskTableProps {
     leadProjectIds?: string[]; // Projects where user is lead (for global view)
     isWorkspaceAdmin?: boolean;
     level?: "workspace" | "project";
+    permissions?: UserPermissionsType;
+    userId?: string;
 }
 
-/**
- * Main task table component with drag-and-drop and filtering
- * Supports pagination for both parent tasks and subtasks
- */
 const DEFAULT_TAGS: { id: string; name: string; }[] = [];
 const DEFAULT_PROJECTS: { id: string; name: string; }[] = [];
 
@@ -67,6 +66,8 @@ export function TaskTable({
     leadProjectIds = [],
     isWorkspaceAdmin = false,
     level = "project",
+    permissions,
+    userId,
 }: TaskTableProps) {
     const [tasks, setTasks] = useState<TaskWithSubTasks[]>(initialTasks);
     const [hasMoreTasks, setHasMoreTasks] = useState(initialHasMore);
@@ -854,7 +855,7 @@ export function TaskTable({
                                 )}
 
                                 {/* Add Task - Inline Form or Button */}
-                                {!hasActiveFilters(filters) && !searchQuery && (
+                                {canCreateSubTask && !hasActiveFilters(filters) && !searchQuery && (
                                     showInlineTaskForm ? (
                                         <InlineTaskForm
                                             workspaceId={workspaceId}

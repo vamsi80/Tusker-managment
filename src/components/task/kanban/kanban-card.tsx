@@ -108,7 +108,7 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                                     </div>
                                 </TooltipTrigger>
                                 <TooltipContent side="left" className="text-xs">
-                                    <p className="font-semibold">Project Lead</p>
+                                    <p className="font-semibold">Project Manager</p>
                                     <p>{projectLead.surname || projectLead.name}</p>
                                 </TooltipContent>
                             </Tooltip>
