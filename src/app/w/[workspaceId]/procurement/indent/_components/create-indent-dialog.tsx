@@ -258,6 +258,119 @@ export function CreateIndentDialog({
         }
     };
 
+    function ExpectedDeliveryField({
+        field,
+    }: {
+        field: any;
+    }) {
+        const [open, setOpen] = React.useState(false);
+
+        return (
+            <FormItem className="flex flex-col">
+                <FormLabel>
+                    Expected Delivery <span className="text-red-500">*</span>
+                </FormLabel>
+
+                <Popover open={open} onOpenChange={setOpen}>
+                    <PopoverTrigger asChild>
+                        <FormControl>
+                            <Button
+                                variant="outline"
+                                className={cn(
+                                    "w-full min-w-0 pl-3 text-left font-normal",
+                                    !field.value && "text-muted-foreground"
+                                )}
+                            >
+                                <span className="truncate block">
+                                    {field.value ? format(field.value, "PPP") : "Pick a date *"}
+                                </span>
+                            </Button>
+                        </FormControl>
+                    </PopoverTrigger>
+
+                    <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={(date) => {
+                                field.onChange(date);
+                                setOpen(false);
+                            }}
+                            disabled={(date) => date < new Date()}
+                            initialFocus
+                        />
+                    </PopoverContent>
+                </Popover>
+
+                <FormMessage />
+            </FormItem>
+        );
+    }
+
+    function AssignedToField({
+        field,
+        form,
+        tasks,
+        workspaceMembers,
+        mode,
+    }: {
+        field: any;
+        form: any;
+        tasks: any[];
+        workspaceMembers: any[];
+        mode: string;
+    }) {
+        const selectedTask = tasks.find(t => t.id === form.getValues("taskId"));
+        const isLocked = !!selectedTask?.assigneeId;
+        const selectedMember = workspaceMembers.find(m => m.id === field.value);
+
+        React.useEffect(() => {
+            if (isLocked && field.value) {
+                form.clearErrors("assignedTo");
+            }
+        }, [isLocked, field.value, form]);
+
+        return (
+            <FormItem>
+                <FormLabel>
+                    Assign To <span className="text-red-500">*</span>
+                </FormLabel>
+
+                <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    disabled={isLocked || mode === "edit"}
+                >
+                    <FormControl>
+                        <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select assignee">
+                                {selectedMember
+                                    ? `${selectedMember.user?.name ?? ""} ${selectedMember.user?.surname ?? ""}`.trim()
+                                    : "Select assignee"}
+                            </SelectValue>
+                        </SelectTrigger>
+                    </FormControl>
+
+                    <SelectContent>
+                        {workspaceMembers.map(member => (
+                            <SelectItem key={member.id} value={member.id}>
+                                {member.user?.name} {member.user?.surname}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+
+                <FormMessage />
+
+                {isLocked && (
+                    <FormDescription>
+                        Assignee is locked to the task assignee.
+                    </FormDescription>
+                )}
+            </FormItem>
+        );
+    }
+
     return (
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
             {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
@@ -415,49 +528,7 @@ export function CreateIndentDialog({
                                     <FormField
                                         control={form.control}
                                         name="expectedDelivery"
-                                        render={({ field }) => {
-                                            const [isOpen, setIsOpen] = React.useState(false);
-
-                                            return (
-                                                <FormItem className="flex flex-col">
-                                                    <FormLabel>Expected Delivery <span className="text-red-500">*</span></FormLabel>
-                                                    <Popover open={isOpen} onOpenChange={setIsOpen}>
-                                                        <PopoverTrigger asChild>
-                                                            <FormControl>
-                                                                <Button
-                                                                    variant="outline"
-                                                                    className={cn(
-                                                                        "w-full min-w-0 pl-3 text-left font-normal",
-                                                                        !field.value && "text-muted-foreground"
-                                                                    )}
-                                                                >
-                                                                    <span className="truncate block">
-                                                                        {field.value ? (
-                                                                            format(field.value, "PPP")
-                                                                        ) : (
-                                                                            "Pick a date *"
-                                                                        )}
-                                                                    </span>
-                                                                </Button>
-                                                            </FormControl>
-                                                        </PopoverTrigger>
-                                                        <PopoverContent className="w-auto p-0" align="start">
-                                                            <Calendar
-                                                                mode="single"
-                                                                selected={field.value}
-                                                                onSelect={(date) => {
-                                                                    field.onChange(date);
-                                                                    setIsOpen(false);
-                                                                }}
-                                                                disabled={(date) => date < new Date()}
-                                                                initialFocus
-                                                            />
-                                                        </PopoverContent>
-                                                    </Popover>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            );
-                                        }}
+                                        render={({ field }) => <ExpectedDeliveryField field={field} />}
                                     />
                                 </div>
 
@@ -480,7 +551,6 @@ export function CreateIndentDialog({
                                     )}
                                 />
 
-                                {/* Requires Vendor Checkbox (Moved to Step 1) */}
                                 <FormField
                                     control={form.control}
                                     name="requiresVendor"
@@ -508,50 +578,15 @@ export function CreateIndentDialog({
                                 <FormField
                                     control={form.control}
                                     name="assignedTo"
-                                    render={({ field }) => {
-                                        const selectedTask = tasks.find(t => t.id === form.getValues("taskId"));
-                                        const isLocked = !!(selectedTask?.assigneeId);
-                                        const selectedMember = workspaceMembers?.find(m => m.id === field.value);
-
-                                        // Clear error when locked and has value
-                                        React.useEffect(() => {
-                                            if (isLocked && field.value) {
-                                                form.clearErrors("assignedTo");
-                                            }
-                                        }, [isLocked, field.value]);
-
-                                        return (
-                                            <FormItem>
-                                                <FormLabel>Assign To <span className="text-red-500">*</span></FormLabel>
-                                                <Select
-                                                    onValueChange={field.onChange}
-                                                    value={field.value}
-                                                    disabled={!!selectedTask?.assigneeId || mode === "edit"}
-                                                >
-                                                    <FormControl>
-                                                        <SelectTrigger className="w-full">
-                                                            <SelectValue placeholder="Select assignee">
-                                                                {selectedMember ? `${selectedMember.user?.name || ''} ${selectedMember.user?.surname || ''}`.trim() : 'Select assignee'}
-                                                            </SelectValue>
-                                                        </SelectTrigger>
-                                                    </FormControl>
-                                                    <SelectContent>
-                                                        {workspaceMembers?.map((member) => (
-                                                            <SelectItem key={member.id} value={member.id}>
-                                                                {member.user?.name} {member.user?.surname}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                                <FormMessage />
-                                                {isLocked && (
-                                                    <FormDescription>
-                                                        Assignee is locked to the task assignee.
-                                                    </FormDescription>
-                                                )}
-                                            </FormItem>
-                                        );
-                                    }}
+                                    render={({ field }) => (
+                                        <AssignedToField
+                                            field={field}
+                                            form={form}
+                                            tasks={tasks}
+                                            workspaceMembers={workspaceMembers}
+                                            mode={mode}
+                                        />
+                                    )}
                                 />
                             </div>
                         )}

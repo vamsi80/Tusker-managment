@@ -53,42 +53,35 @@ export function DraggableSubtaskBar({
 
     // Sync optimistic state with incoming prop changes (from server)
     // Only sync if we're not waiting for an update, or if the server data matches our optimistic update
-    useEffect(() => {
+    // Sync optimistic state with incoming prop changes (from server)
+    const [prevSubtask, setPrevSubtask] = useState(subtask);
+
+    if (subtask !== prevSubtask) {
+        setPrevSubtask(subtask);
         if (!isPendingUpdate) {
-            // No pending update, safe to sync
             setOptimisticSubtask(subtask);
         } else {
             // Check if server data matches our optimistic update
             if (subtask.start === optimisticSubtask.start && subtask.end === optimisticSubtask.end) {
-                // Server has caught up with our optimistic update
                 setOptimisticSubtask(subtask);
                 setIsPendingUpdate(false);
             }
-            // Otherwise, keep the optimistic state until server catches up
         }
-    }, [subtask, isPendingUpdate, optimisticSubtask.start, optimisticSubtask.end]);
+    }
 
     const startDate = parseDate(optimisticSubtask.start);
     const endDate = parseDate(optimisticSubtask.end);
 
-    if (!startDate || !endDate) {
-        return (
-            <div className="h-6 flex items-center px-2">
-                <span className="text-xs text-destructive">Invalid dates</span>
-            </div>
-        );
-    }
-
     // Normalize dates to midnight for accurate day-based positioning
-    const normalizedStartDate = new Date(startDate);
+    const normalizedStartDate = startDate ? new Date(startDate) : new Date();
     normalizedStartDate.setHours(0, 0, 0, 0);
-    const normalizedEndDate = new Date(endDate);
+    const normalizedEndDate = endDate ? new Date(endDate) : new Date();
     normalizedEndDate.setHours(0, 0, 0, 0);
     const normalizedTimelineStart = new Date(timelineStart);
     normalizedTimelineStart.setHours(0, 0, 0, 0);
 
-    const startOffset = getDaysBetween(normalizedTimelineStart, normalizedStartDate);
-    const duration = getDaysBetween(normalizedStartDate, normalizedEndDate) + 1;
+    const startOffset = startDate ? getDaysBetween(normalizedTimelineStart, normalizedStartDate) : 0;
+    const duration = (startDate && endDate) ? (getDaysBetween(normalizedStartDate, normalizedEndDate) + 1) : 1;
 
     // Use live position if dragging, otherwise calculate from dates
     const leftPercent = livePosition ? livePosition.left : (startOffset / totalDays) * 100;
@@ -100,7 +93,7 @@ export function DraggableSubtaskBar({
 
     // Handle bar drag (move dates)
     const handleBarMouseDown = (e: React.MouseEvent) => {
-        if (!workspaceId || !projectId || isResizing) return;
+        if (!workspaceId || !projectId || isResizing || !startDate) return;
 
         e.preventDefault();
         setIsDragging(true);
@@ -109,7 +102,7 @@ export function DraggableSubtaskBar({
 
     // Handle resize drag from right edge (change end date)
     const handleResizeRightMouseDown = (e: React.MouseEvent) => {
-        if (!workspaceId || !projectId) return;
+        if (!workspaceId || !projectId || !endDate) return;
 
         e.stopPropagation();
         e.preventDefault();
@@ -120,7 +113,7 @@ export function DraggableSubtaskBar({
 
     // Handle resize drag from left edge (change start date)
     const handleResizeLeftMouseDown = (e: React.MouseEvent) => {
-        if (!workspaceId || !projectId) return;
+        if (!workspaceId || !projectId || !startDate) return;
 
         e.stopPropagation();
         e.preventDefault();
@@ -184,6 +177,8 @@ export function DraggableSubtaskBar({
         const handleMouseUp = (e: MouseEvent) => {
             if (!isDragging && !isResizing) return;
             if (!containerRef.current || !workspaceId || !projectId) return;
+            // Ensure end date exists for calculations
+            if (!endDate) return;
 
             const container = containerRef.current.parentElement;
             if (!container) return;
@@ -235,6 +230,9 @@ export function DraggableSubtaskBar({
             } else if (isResizing && daysDelta !== 0) {
                 if (resizeEdge === 'right') {
                     // Resizing from right edge - change end date
+                    // Ensure start date exists
+                    if (!startDate) return;
+
                     const newEndDate = new Date(dragStart.date);
                     newEndDate.setDate(newEndDate.getDate() + daysDelta);
 
@@ -330,23 +328,19 @@ export function DraggableSubtaskBar({
     }, [isDragging, isResizing, resizeEdge, dragStart, subtask.id, startDate, endDate, totalDays, workspaceId, projectId, startOffset, duration, widthPercent, leftPercent]);
 
     // Reset live position when subtask data changes (after server update)
-    // Use a ref to track previous values to avoid resetting on every render
-    const prevDatesRef = useRef({ start: optimisticSubtask.start, end: optimisticSubtask.end });
+    // Adjusting state during rendering to avoid useEffect cascading updates
+    const [prevDates, setPrevDates] = useState({ start: optimisticSubtask.start, end: optimisticSubtask.end });
 
-    useEffect(() => {
-        // Only reset if we're not currently dragging AND the dates actually changed from server
-        if (!isDragging && !isResizing) {
-            const datesChanged =
-                prevDatesRef.current.start !== optimisticSubtask.start ||
-                prevDatesRef.current.end !== optimisticSubtask.end;
+    if (!isDragging && !isResizing) {
+        const datesChanged =
+            prevDates.start !== optimisticSubtask.start ||
+            prevDates.end !== optimisticSubtask.end;
 
-            if (datesChanged) {
-                // Server data has updated, reset live position
-                setLivePosition(null);
-                prevDatesRef.current = { start: optimisticSubtask.start, end: optimisticSubtask.end };
-            }
+        if (datesChanged) {
+            setPrevDates({ start: optimisticSubtask.start, end: optimisticSubtask.end });
+            setLivePosition(null);
         }
-    }, [optimisticSubtask.start, optimisticSubtask.end, isDragging, isResizing]);
+    }
 
     return (
         <div ref={containerRef} className="h-6 relative w-full group/bar">
@@ -378,7 +372,7 @@ export function DraggableSubtaskBar({
                             onMouseDown={handleBarMouseDown}
                             tabIndex={0}
                             role="button"
-                            aria-label={`${optimisticSubtask.name}: ${formatDate(startDate)} to ${formatDate(endDate)}`}
+                            aria-label={`${optimisticSubtask.name}: ${startDate ? formatDate(startDate) : 'N/A'} to ${endDate ? formatDate(endDate) : 'N/A'}`}
                         >
                             {/* Resize handles */}
                             {workspaceId && projectId && (
@@ -449,7 +443,7 @@ export function DraggableSubtaskBar({
                                 )}
                             </div>
                             <p className="text-xs text-muted-foreground">
-                                {formatDate(startDate)} — {formatDate(endDate)}
+                                {startDate ? formatDate(startDate) : 'N/A'} — {endDate ? formatDate(endDate) : 'N/A'}
                             </p>
                             <p className="text-xs text-muted-foreground">
                                 {duration} days

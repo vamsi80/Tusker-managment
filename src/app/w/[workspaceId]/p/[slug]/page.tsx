@@ -10,8 +10,8 @@ import { ProjectTaskListView } from "./_components/list/project-task-list-view";
 import { ProjectDashboardSkeleton } from "./_components/layout/project-dashboard-skeleton";
 
 interface iAppProps {
-  params: { workspaceId: string; slug: string };
-  searchParams: { view?: string };
+  params: Promise<{ workspaceId: string; slug: string }>;
+  searchParams: Promise<{ view?: string }>;
 }
 
 /**
@@ -22,6 +22,8 @@ async function ProjectDashboardPage() {
     <ProjectDashboard />
   )
 }
+
+import { getUserPermissions } from "@/data/user/get-user-permissions";
 
 /**
  * Task List View
@@ -36,18 +38,20 @@ async function ProjectDashboardPage() {
 async function TaskListView({
   workspaceId,
   projectId,
-  projectMembers
+  projectMembers,
+  canCreateSubTask
 }: {
   workspaceId: string;
   projectId: string;
   projectMembers: Awaited<ReturnType<typeof getProjectMembers>>;
+  canCreateSubTask: boolean;
 }) {
   return (
     <ProjectTaskListView
       workspaceId={workspaceId}
       projectId={projectId}
       members={projectMembers}
-      canCreateSubTask={true} // Will be determined by workspace function internally
+      canCreateSubTask={canCreateSubTask}
     />
   );
 }
@@ -116,6 +120,9 @@ export default async function ProjectPage({ params, searchParams }: iAppProps) {
     ? await getProjectMembers(project.id)
     : [];
 
+  // ✅ Fetch permissions
+  const permissions = await getUserPermissions(workspaceId, project.id);
+
   return (
     <>
       {/* Content streams in based on view */}
@@ -134,6 +141,7 @@ export default async function ProjectPage({ params, searchParams }: iAppProps) {
               workspaceId={workspaceId}
               projectId={project.id}
               projectMembers={projectMembers}
+              canCreateSubTask={permissions.canCreateSubTask}
             />
           </Suspense>
         </ReloadableView>

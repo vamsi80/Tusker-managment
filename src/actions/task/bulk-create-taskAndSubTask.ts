@@ -208,7 +208,7 @@ export async function bulkUploadTasksAndSubtasks(data: {
 
                 if (subtaskRows.length > 0) {
                     // Validation arrays for subtasks
-                    const validStatus = ['TO_DO', 'IN_PROGRESS', 'REVIEW', 'COMPLETED', 'BLOCKED', 'HOLD'];
+                    const validStatus = ['TO_DO', 'IN_PROGRESS', 'REVIEW', 'COMPLETED', 'CANCELLED', 'HOLD'];
 
                     for (let i = 0; i < subtaskRows.length; i++) {
                         const subtaskRow = subtaskRows[i];

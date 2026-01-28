@@ -33,7 +33,7 @@ export const getWorkspacePermissions = cache(async (workspaceId: string) => {
         const isWorkspaceAdmin = workspaceMember.workspaceRole === "OWNER" || workspaceMember.workspaceRole === "ADMIN";
 
         // Check if user is a project lead in any project
-        const projectLeadCount = await prisma.projectMember.count({
+        const leadingProjects = await prisma.projectMember.findMany({
             where: {
                 workspaceMemberId: workspaceMember.id,
                 projectRole: "LEAD",
@@ -41,15 +41,18 @@ export const getWorkspacePermissions = cache(async (workspaceId: string) => {
                     workspaceId: workspaceId,
                 },
             },
+            select: { projectId: true }
         });
 
-        const isProjectLead = projectLeadCount > 0;
+        const isProjectLead = leadingProjects.length > 0;
         const hasAccess = isWorkspaceAdmin || isProjectLead;
+        const leadProjectIds = leadingProjects.map(p => p.projectId);
 
         return {
             isWorkspaceAdmin,
             isProjectLead,
             hasAccess,
+            leadProjectIds,
             workspaceMemberId: workspaceMember.id,
             workspaceMember,
         };
@@ -59,6 +62,7 @@ export const getWorkspacePermissions = cache(async (workspaceId: string) => {
             isWorkspaceAdmin: false,
             isProjectLead: false,
             hasAccess: false,
+            leadProjectIds: [],
             workspaceMemberId: null,
             workspaceMember: null,
         };

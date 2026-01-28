@@ -22,6 +22,8 @@ interface InlineTaskFormProps {
     onTaskDeleted?: (taskId: string) => void;
     projects?: { id: string; name: string; }[];
     level?: "workspace" | "project";
+    leadProjectIds?: string[];
+    isWorkspaceAdmin?: boolean;
 }
 
 /**
@@ -36,10 +38,22 @@ export function InlineTaskForm({
     onTaskDeleted,
     projects = [],
     level = "project",
+    leadProjectIds = [],
+    isWorkspaceAdmin = false,
 }: InlineTaskFormProps) {
     const [pending, startTransition] = useTransition();
     const [taskName, setTaskName] = useState("");
-    const [selectedProjectId, setSelectedProjectId] = useState(initialProjectId || (projects[0]?.id || ""));
+
+    // Filter projects where the user is a lead if viewing at workspace level
+    // Logic:
+    // 1. If NOT workspace level (e.g. project view), show all (usually scoped by parent)
+    // 2. If Admin, show all
+    // 3. Otherwise, strictly show ONLY projects where user is Lead
+    const availableProjects = level === "workspace"
+        ? (isWorkspaceAdmin ? projects : projects.filter(p => leadProjectIds.includes(p.id)))
+        : projects;
+
+    const [selectedProjectId, setSelectedProjectId] = useState(initialProjectId || (availableProjects[0]?.id || ""));
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -139,7 +153,7 @@ export function InlineTaskForm({
                             <SelectValue placeholder="Select project" />
                         </SelectTrigger>
                         <SelectContent>
-                            {projects.map((p) => (
+                            {availableProjects.map((p) => (
                                 <SelectItem key={p.id} value={p.id}>
                                     {p.name}
                                 </SelectItem>

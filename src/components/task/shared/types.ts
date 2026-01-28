@@ -37,6 +37,11 @@ export function isTaskStatus(value: unknown): value is TaskStatus {
 }
 
 /**
+ * Task Tag Type
+ */
+export type TaskTag = string;
+
+/**
  * View level - determines which filters are available
  */
 export type ViewLevel = "project" | "workspace";
@@ -322,6 +327,8 @@ export type TaskWithSubTasks = WorkspaceTaskType & {
     subTasksPage?: number;
     // Add isOptimistic if needed generally, though often casted
     isOptimistic?: boolean;
+    // Add taskSlug for easier access if it's not on WorkspaceTaskType directly
+    taskSlug?: string;
 };
 
 /**

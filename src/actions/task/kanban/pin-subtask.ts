@@ -4,10 +4,7 @@ import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
 import { headers } from "next/headers";
-import {
-    invalidateTaskMutation,
-    invalidateProjectSubTasks
-} from "@/lib/cache/invalidation";
+import { invalidateTaskMutation, invalidateProjectSubTasks } from "@/lib/cache/invalidation";
 
 interface PinSubTaskResult {
     success: boolean;
@@ -71,37 +68,6 @@ export async function pinSubTask(
             };
         }
 
-        // 4. Check for duplicate operation (idempotency)
-        const existingAuditLog = await prisma.auditLog.findUnique({
-            where: { operationId },
-            select: {
-                id: true,
-                action: true,
-                timestamp: true,
-                afterState: true,
-            },
-        });
-
-        if (existingAuditLog) {
-            // Operation already processed, return cached result
-            const afterState = existingAuditLog.afterState as any;
-            return {
-                success: true,
-                subTask: {
-                    id: subTaskId,
-                    isPinned: afterState.isPinned,
-                    pinnedAt: afterState.pinnedAt ? new Date(afterState.pinnedAt) : null,
-                    updatedAt: existingAuditLog.timestamp,
-                },
-                auditLog: {
-                    id: existingAuditLog.id,
-                    operationId: operationId,
-                    action: existingAuditLog.action,
-                    timestamp: existingAuditLog.timestamp,
-                },
-            };
-        }
-
         // 5. Fetch the subtask with current state
         const subTask = await prisma.task.findUnique({
             where: { id: subTaskId },
@@ -148,8 +114,6 @@ export async function pinSubTask(
 
         // 8. Get request metadata
         const headersList = await headers();
-        const ipAddress = headersList.get("x-forwarded-for") || headersList.get("x-real-ip") || "unknown";
-        const userAgent = headersList.get("user-agent") || "unknown";
 
         // 9. Update subtask and create audit log in a transaction
         const result = await prisma.$transaction(async (tx) => {
@@ -169,40 +133,7 @@ export async function pinSubTask(
                 },
             });
 
-            // Create audit log
-            const auditLog = await tx.auditLog.create({
-                data: {
-                    operationId: operationId,
-                    entityType: "SUBTASK",
-                    entityId: subTaskId,
-                    action: isPinned ? "PIN" : "UNPIN",
-                    userId: user.id,
-                    workspaceMemberId: permissions.workspaceMemberId,
-                    beforeState: {
-                        isPinned: subTask.isPinned,
-                        pinnedAt: subTask.pinnedAt,
-                        pinnedBy: subTask.pinnedBy,
-                    },
-                    afterState: {
-                        isPinned: updated.isPinned,
-                        pinnedAt: updated.pinnedAt,
-                        pinnedBy: isPinned ? user.id : null,
-                    },
-                    projectId: projectId,
-                    taskId: subTaskId,
-                    timestamp: new Date(),
-                    ipAddress: ipAddress,
-                    userAgent: userAgent,
-                },
-                select: {
-                    id: true,
-                    operationId: true,
-                    action: true,
-                    timestamp: true,
-                },
-            });
-
-            return { updated, auditLog };
+            return { updated };
         });
 
         // 10. OPTIMIZED: Use comprehensive cache invalidation
@@ -224,13 +155,7 @@ export async function pinSubTask(
                 isPinned: result.updated.isPinned,
                 pinnedAt: result.updated.pinnedAt,
                 updatedAt: result.updated.updatedAt,
-            },
-            auditLog: {
-                id: result.auditLog.id,
-                operationId: result.auditLog.operationId,
-                action: result.auditLog.action,
-                timestamp: result.auditLog.timestamp,
-            },
+            }
         };
     } catch (error) {
         console.error("Error pinning/unpinning subtask:", error);
@@ -239,14 +164,4 @@ export async function pinSubTask(
             error: "An unexpected error occurred while pinning/unpinning the subtask. Please try again.",
         };
     }
-}
-
-/**
- * Generate a unique operation ID for idempotency
- * Format: {action}-{entityId}-{timestamp}-{random}
- */
-export function generateOperationId(action: string, entityId: string): string {
-    const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(2, 9);
-    return `${action}-${entityId}-${timestamp}-${random}`;
 }

@@ -111,7 +111,6 @@ export async function createPurchaseOrder(
                     totalTaxAmount: Math.round(totalTaxAmount * 100) / 100,
                     totalAmount: Math.round(totalAmount * 100) / 100,
                     currency: 'INR',
-                    status: 'ORDERED',
                     createdById: permissions.workspaceMember.userId,
                     deliveryAddressLine1: validated.data.deliveryAddress,
                     deliveryingAt: validated.data.deliveryDate,

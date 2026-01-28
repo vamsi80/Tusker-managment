@@ -9,7 +9,7 @@ import { tryCatch } from "@/hooks/try-catch";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useConfetti } from "@/hooks/use-confetti";
-import { Resolver, useForm } from "react-hook-form";
+import { Resolver, useForm, useWatch } from "react-hook-form";
 import { Textarea } from "@/components/ui/textarea";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { WorkspaceMembersResult } from "@/data/workspace";
@@ -53,11 +53,20 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin }: iAppProps) 
         },
     })
 
-    const watchedName = form.watch("name");
+    const watchedName = useWatch({
+        control: form.control,
+        name: "name",
+    });
+
+    const watchedColor = useWatch({
+        control: form.control,
+        name: "color",
+    });
+
     useEffect(() => {
         if (watchedName) {
             const autoColor = getColorFromString(watchedName);
-            form.setValue("color", autoColor);
+            form.setValue("color", autoColor, { shouldDirty: true });
         }
     }, [watchedName, form]);
 
@@ -101,7 +110,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin }: iAppProps) 
                             Create New Project
                             <div
                                 className="h-5 w-5 rounded-full border shadow-sm transition-colors"
-                                style={{ backgroundColor: form.watch("color") || "#000000" }}
+                                style={{ backgroundColor: watchedColor || "#000000" }}
                             />
                         </DialogTitle>
                     </DialogHeader>

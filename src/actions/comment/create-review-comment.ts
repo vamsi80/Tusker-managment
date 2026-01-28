@@ -102,7 +102,8 @@ export async function createReviewCommentAction(
         const reviewComment = await prisma.reviewComment.create({
             data: {
                 subTaskId: subTaskId,
-                authorId: permissions.workspaceMemberId,
+                authorId: user.id,
+                workspaceId: workspaceId,
                 text: text.trim() || "(No comment - attachment only)",
                 attachment: attachmentJson as any,
             },

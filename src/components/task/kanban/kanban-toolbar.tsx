@@ -19,7 +19,7 @@ import {
 import { ListFilter, User, Layers, X } from "lucide-react";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 
-type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED";
+type TaskStatus = "TO_DO" | "IN_PROGRESS" | "CANCELLED" | "REVIEW" | "HOLD" | "COMPLETED";
 
 /** Minimal parent task data for filtering */
 interface ParentTask {
@@ -65,7 +65,7 @@ interface KanbanToolbarProps {
 const COLUMN_LABELS: Record<TaskStatus, string> = {
     TO_DO: "To Do",
     IN_PROGRESS: "In Progress",
-    BLOCKED: "Blocked",
+    CANCELLED: "Cancelled",
     REVIEW: "Review",
     HOLD: "On Hold",
     COMPLETED: "Completed",

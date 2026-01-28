@@ -138,7 +138,7 @@ export async function createIndentRequest(input: CreateIndentRequestInput) {
                             unitId: item.unitId,
                             estimatedPrice: item.estimatedPrice || null,
                             vendorId: item.vendorId || null,
-                            documentDisplayName: item.documentDisplayName || null,
+                            documentDisplayName: item.documentDisplayName || "",
                             status,
                             quantityApproved,
                             quantityApprovedBy,

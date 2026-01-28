@@ -29,13 +29,7 @@ export async function canUserCommentOnTask(
                     }
                 }
             },
-            assignee: {
-                include: {
-                    workspaceMember: {
-                        select: { userId: true }
-                    }
-                }
-            }
+
         }
     });
 
@@ -50,7 +44,7 @@ export async function canUserCommentOnTask(
     if (projectMember?.projectRole === 'LEAD') return true;
 
     // Check if user is assigned to the task
-    if (task.assignee?.workspaceMember?.userId === userId) return true;
+    if (task.assigneeTo === userId) return true;
 
     return false;
 }

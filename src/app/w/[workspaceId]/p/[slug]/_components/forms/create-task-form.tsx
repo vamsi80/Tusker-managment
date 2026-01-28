@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState, useTransition, useEffect } from "react";
-import { Resolver, useForm } from "react-hook-form";
+import { Resolver, useForm, useWatch } from "react-hook-form";
 import { Loader2, Plus, PlusIcon, SparkleIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -50,21 +50,19 @@ export const CreateTaskForm = ({
         },
     })
 
-    // Auto-update slug when task name changes
+    const watchedName = useWatch({
+        control: form.control,
+        name: "name",
+    });
+
     useEffect(() => {
         if (!autoSlugEnabled || !open) return;
+        if (!watchedName) return;
 
-        const subscription = form.watch((value, { name: fieldName }) => {
-            if (fieldName === 'name' && value.name) {
-                const newSlug = slugify(value.name, { lower: true, strict: true });
-                form.setValue('taskSlug', newSlug, { shouldValidate: false });
-            }
-        });
+        const newSlug = slugify(watchedName, { lower: true, strict: true });
+        form.setValue("taskSlug", newSlug, { shouldValidate: false });
+    }, [watchedName, autoSlugEnabled, open, form]);
 
-        return () => subscription.unsubscribe();
-    }, [form, autoSlugEnabled, open]);
-
-    // Reset auto-slug when dialog opens
     useEffect(() => {
         if (open) {
             setAutoSlugEnabled(true);
@@ -72,8 +70,7 @@ export const CreateTaskForm = ({
     }, [open]);
 
     function onSubmit(values: TaskSchemaType) {
-        // Optimistic UI Update
-        const tempId = `temp-${Date.now()}`;
+        const tempId = `temp-${crypto.randomUUID()}`;
         const optimisticTask = {
             id: tempId,
             name: values.name,

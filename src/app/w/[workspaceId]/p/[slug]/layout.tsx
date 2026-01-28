@@ -5,15 +5,18 @@ import { TaskPageWrapper } from "@/app/w/[workspaceId]/_components/shared/task-p
 import { TaskPageProvider } from "@/app/w/[workspaceId]/_components/shared/task-page-context";
 import { ProjectHeaderSkeleton } from "./_components/layout/project-header-skeleton";
 
-interface Props {
+export default async function ProjectLayout({
+    children,
+    params,
+}: {
     children: React.ReactNode;
-    params: { workspaceId: string; slug: string };
-}
-
-export default async function ProjectLayout({ children, params }: Props) {
+    params: Promise<{
+        workspaceId: string;
+        slug: string;
+    }>;
+}) {
     const { workspaceId, slug } = await params;
 
-    // Fetch project data ONCE at layout level
     const pageData = await getTaskPageData(workspaceId, slug);
 
     if (!pageData) {
@@ -35,9 +38,7 @@ export default async function ProjectLayout({ children, params }: Props) {
                         <ProjectHeader />
                     </Suspense>
 
-                    <div className="flex-1">
-                        {children}
-                    </div>
+                    <div className="flex-1">{children}</div>
                 </div>
             </TaskPageWrapper>
         </TaskPageProvider>

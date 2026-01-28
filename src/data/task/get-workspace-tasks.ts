@@ -97,8 +97,9 @@ const toArray = <T>(val: T | T[] | undefined): T[] | undefined => {
 async function _getWorkspaceTasksInternal(
     workspaceId: string,
     workspaceMemberId: string,
+    userId: string, // NEW: User ID for assignee checks
     isAdmin: boolean,
-    isProjectLead: boolean,
+    leadProjectIds: string[], // Projects where the user is a LEAD
     filters: WorkspaceTaskFilters = {},
     page: number = 1,
     pageSize: number = 10
@@ -111,7 +112,7 @@ async function _getWorkspaceTasksInternal(
     if (!isAdmin) {
         const projects = await prisma.projectMember.findMany({
             where: {
-                workspaceMemberId: workspaceMemberId,
+                workspaceMemberId: workspaceMemberId, // ProjectMember links to WorkspaceMember
                 hasAccess: true,
             },
             select: { projectId: true }
@@ -151,20 +152,97 @@ async function _getWorkspaceTasksInternal(
     };
 
     // ========================================================================
-    // STEP 3: Build WHERE Clauses (Index-Optimized)
+    // STEP 3: Build WHERE Clauses (Permission & Index Optimized)
     // ========================================================================
 
-    // Main query: includes ALL filters
-    const mainWhere = buildTaskFilter(baseFilterInput, authorizedProjectIds);
+    // 3a. Build Baseline Filters (Shared)
+    // We do NOT pass authorizedProjectIds here yet, we handle permissions manually below
+    // We also do not pass assigneeId yet if we are doing hybrid filtering
+    const isHybridUser = !isAdmin && leadProjectIds.length > 0 && authorizedProjectIds && authorizedProjectIds.length > leadProjectIds.length;
+    const isMemberOnly = !isAdmin && leadProjectIds.length === 0;
+
+    let mainWhere: any = {};
+
+    // If strict member-only (no lead projects), enforce assignee filter globally
+    if (isMemberOnly) {
+        // Force assignee ID to User ID (Task.assigneeTo stores User ID)
+        baseFilterInput.assigneeId = [userId];
+        mainWhere = buildTaskFilter(baseFilterInput, authorizedProjectIds);
+    }
+    // If Hybrid User (Lead in A, Member in B)
+    else if (isHybridUser && authorizedProjectIds) {
+        // We calculate "Member Only" projects
+        const memberOnlyProjectIds = authorizedProjectIds.filter(id => !leadProjectIds.includes(id));
+
+        // Base filters MINUS assignee (we apply assignee selectively)
+        // If user actively requested an assignee filter, we must respect it everywhere? 
+        // Or does the "Access Control" override?
+        // Access Control says: "In member projects, YOU MUST be the assignee".
+        // If user filters for "Bob", and I am a member in Proj B, I see NOTHING in Proj B (since I can only see ME).
+        // If I filter for "Me", I see Me in Proj B.
+        // So effectively: (Proj IN Lead) OR (Proj IN Member AND Assignee = Me)
+
+        // 1. Build common filters (Status, Tags, Search, etc)
+        // We TEMPORARILY remove assignee to build the base, then re-apply logic
+        const commonFilters = { ...baseFilterInput };
+        // If user explicitly filtered by assignee, we keep it? 
+        // If I filter by "User X", in Member projects I see Nothing.
+        // So the permission logic is:
+        // PermissionWhere = (Projs IN LeadIds) OR (Projs IN MemberIds AND SubTasks.Assignee = Me)
+
+        // Let's modify commonFilters to exclude the "Project" scope for a moment
+        // checking buildTaskFilter implementation... it handles projectIds.
+
+        // We will generate the "Content" filters
+        const contentWhere = buildTaskFilter(commonFilters, undefined); // No project scope yet
+
+        // Now construct the Permission Gate
+        const permissionGate = {
+            OR: [
+                // 1. Projects where I am Lead: I see everything (that matches content filters)
+                { projectId: { in: leadProjectIds } },
+
+                // 2. Projects where I am Member: I see only tasks assigned to ME (User ID)
+                {
+                    projectId: { in: memberOnlyProjectIds },
+                    subTasks: { some: { assigneeTo: userId } }
+                }
+            ]
+        };
+
+        // AND them together
+        mainWhere = {
+            AND: [
+                contentWhere,
+                permissionGate
+            ]
+        };
+    }
+    // If Admin or Full Lead (Lead in ALL authorized projects)
+    else {
+        // Standard behavior
+        mainWhere = buildTaskFilter(baseFilterInput, authorizedProjectIds);
+    }
 
     // Facet queries: Query SUBTASKS directly to reflect the content user cares about
+    // We need to replicate the permission logic for facets too, essentially.
+    // For simplicity/perf, we might stick to "Permissable Projects" for facets
+    // But technically a Member shouldn't see counts for tasks they can't access.
+    // It might show counts for tasks you can't see (e.g. "Status: Done (5)" but when you click you see 0).
+    // This is often acceptable for performance.
+    // BUT, if we want to be strict:
+
     const facetBaseWhere = {
         workspaceId,
-        // Project ID filter (single or authorized list) must be respected if we are checking other facets
-        // But for Project Facet, we exclude the project filter itself
-        projectId: authorizedProjectIds ? { in: authorizedProjectIds } : undefined, // Start with permissable projects
-        parentTaskId: { not: null } // Explicitly Subtasks
+        projectId: authorizedProjectIds ? { in: authorizedProjectIds } : undefined,
+        parentTaskId: { not: null }
     };
+
+    // Standard Facet Logic (ignoring hybrid complexity for speed, or applying assignee filter if member-only)
+    if (isMemberOnly) {
+        // @ts-ignore
+        facetBaseWhere.assigneeTo = userId;
+    }
 
     // Helper to get facet conditions: 
     // Takes base filters, removes the facet logic itself, builds the rest
@@ -175,7 +253,7 @@ async function _getWorkspaceTasksInternal(
     const statusWhere = {
         ...facetBaseWhere,
         projectId: filters.projectId || facetBaseWhere.projectId, // Use selected project if any
-        ...buildSubTaskConditions(statusFilters)
+        ...buildSubTaskConditions(statusFilters) // This adds status/tag/etc filters to the subtask query
     };
 
     // Assignee Facet
@@ -213,7 +291,7 @@ async function _getWorkspaceTasksInternal(
     const [tasks, totalCount, statusCounts, assigneeCounts, tagCounts, projectCounts] = await prisma.$transaction([
         // Query 1: Paginated task data
         prisma.task.findMany({
-            where: mainWhere,
+            where: mainWhere, // Uses Hybrid Logic
             select: {
                 id: true,
                 name: true,
@@ -256,7 +334,7 @@ async function _getWorkspaceTasksInternal(
         // Query 2: Total count (index-only scan)
         prisma.task.count({ where: mainWhere }),
 
-        // Query 3: Status facet (on SUBTASKS)
+        // Query 3: Status facet (on SUBTASKS) - Uses simplified logic for perf
         prisma.task.groupBy({
             by: ['status'],
             where: statusWhere,
@@ -315,29 +393,6 @@ async function _getWorkspaceTasksInternal(
  * ============================================================================
  * CACHING STRATEGY
  * ============================================================================
- * 
- * WHAT TO CACHE:
- * ✅ Filtered task lists (this function)
- * ✅ Facet counts
- * ✅ Permission checks (via getWorkspacePermissions)
- * 
- * WHAT NOT TO CACHE:
- * ❌ Real-time task updates (use optimistic UI instead)
- * ❌ User-specific data that changes frequently
- * 
- * CACHE INVALIDATION:
- * - Tagged with workspaceId + workspaceMemberId
- * - 30-second revalidation (balance between freshness and performance)
- * - Surgical invalidation via CacheTags.workspaceTasks()
- * 
- * WHEN TO USE REDIS INSTEAD:
- * - If you need cache TTL > 5 minutes
- * - If you need cross-instance cache sharing
- * - If you need cache warming strategies
- * 
- * For most use cases, Next.js unstable_cache is sufficient and faster.
- * 
- * ============================================================================
  */
 
 /**
@@ -363,25 +418,30 @@ function getFilterHash(filters: WorkspaceTaskFilters): string {
 const getCachedWorkspaceTasks = (
     workspaceId: string,
     workspaceMemberId: string,
+    userId: string,
     isAdmin: boolean,
-    isProjectLead: boolean,
+    leadProjectIds: string[],
     filters: WorkspaceTaskFilters,
     page: number,
     pageSize: number
 ) => {
     const filterHash = getFilterHash(filters);
+    // Include leadProjectIds in cache key to handle role changes
+    const roleHash = isAdmin ? 'admin' : `lead-${leadProjectIds.sort().join(',')}`;
 
     return unstable_cache(
         async () => _getWorkspaceTasksInternal(
             workspaceId,
             workspaceMemberId,
+            userId,
             isAdmin,
-            isProjectLead,
+            leadProjectIds,
             filters,
             page,
             pageSize
         ),
-        [`workspace-tasks-${workspaceId}-filters-${filterHash}-page-${page}`],
+        // Cache key MUST include userId now
+        [`workspace-tasks-${workspaceId}-user-${userId}-filters-${filterHash}-role-${roleHash}-page-${page}`],
         {
             tags: CacheTags.workspaceTasks(workspaceId, workspaceMemberId),
             revalidate: 30, // 30 seconds
@@ -392,33 +452,6 @@ const getCachedWorkspaceTasks = (
 /**
  * ============================================================================
  * PUBLIC API
- * ============================================================================
- * 
- * This is the main entry point for fetching workspace tasks.
- * 
- * USAGE:
- * 
- * ```typescript
- * // Global workspace filter
- * const result = await getWorkspaceTasks('workspace-123', {
- *   status: ['TODO', 'IN_PROGRESS'],
- *   assigneeId: ['user-1', 'user-2'],
- *   search: 'urgent'
- * });
- * 
- * // Project-scoped filter
- * const result = await getWorkspaceTasks('workspace-123', {
- *   projectId: 'project-456',
- *   status: 'TODO'
- * });
- * ```
- * 
- * RESPONSE:
- * - tasks: Paginated task array
- * - totalCount: Total matching tasks
- * - hasMore: Whether more pages exist
- * - facets: Available filter options (status, assignee, tags)
- * 
  * ============================================================================
  */
 export const getWorkspaceTasks = cache(
@@ -443,12 +476,30 @@ export const getWorkspaceTasks = cache(
                 };
             }
 
+            // Derive leadProjectIds based on context
+            let leadProjectIds: string[] = [];
+
+            if ('leadProjectIds' in permissions && permissions.leadProjectIds) {
+                // Workspace permissions - explicit list
+                leadProjectIds = permissions.leadProjectIds;
+            } else if ('isProjectLead' in permissions && permissions.isProjectLead && filters.projectId) {
+                // Project permissions - if lead, then this project is a lead project
+                leadProjectIds = [filters.projectId];
+            }
+
+            // ENFORCE RLS: Regular members can only see tasks assigned to them
+            // Important: Use User ID, not Member ID
+            if (!permissions.isWorkspaceAdmin && !permissions.isProjectLead) {
+                filters.assigneeId = permissions.workspaceMember!.userId;
+            }
+
             // Execute cached query
             return await getCachedWorkspaceTasks(
                 workspaceId,
                 permissions.workspaceMemberId,
+                permissions.workspaceMember!.userId, // Pass User ID
                 permissions.isWorkspaceAdmin,
-                permissions.isProjectLead,
+                leadProjectIds,
                 filters,
                 page,
                 pageSize

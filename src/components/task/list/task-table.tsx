@@ -33,7 +33,6 @@ import { InlineTaskForm } from "./inline-task-form";
 interface TaskTableProps {
     initialTasks: TaskWithSubTasks[];
     initialHasMore: boolean;
-    initialTotalCount: number;
     members: ProjectMembersType;
     assignees?: Array<{ id: string; name: string; surname?: string }>; // Optional pre-extracted assignees
     workspaceId: string;
@@ -42,6 +41,8 @@ interface TaskTableProps {
     showAdvancedFilters?: boolean;
     tags?: { id: string; name: string; }[]; // Dynamic tags
     projects?: { id: string; name: string; }[];
+    leadProjectIds?: string[]; // Projects where user is lead (for global view)
+    isWorkspaceAdmin?: boolean;
     level?: "workspace" | "project";
 }
 
@@ -49,18 +50,22 @@ interface TaskTableProps {
  * Main task table component with drag-and-drop and filtering
  * Supports pagination for both parent tasks and subtasks
  */
+const DEFAULT_TAGS: { id: string; name: string; }[] = [];
+const DEFAULT_PROJECTS: { id: string; name: string; }[] = [];
+
 export function TaskTable({
     initialTasks,
     initialHasMore,
-    initialTotalCount,
     members,
     assignees,
     workspaceId,
     projectId,
     canCreateSubTask,
     showAdvancedFilters = false,
-    tags = [], // Default to empty array
-    projects = [],
+    tags = DEFAULT_TAGS,
+    projects = DEFAULT_PROJECTS,
+    leadProjectIds = [],
+    isWorkspaceAdmin = false,
     level = "project",
 }: TaskTableProps) {
     const [tasks, setTasks] = useState<TaskWithSubTasks[]>(initialTasks);
@@ -778,7 +783,11 @@ export function TaskTable({
                                                 members={members}
                                                 workspaceId={workspaceId}
                                                 projectId={task.projectId || projectId}
-                                                canCreateSubTask={canCreateSubTask}
+                                                canCreateSubTask={
+                                                    level === 'project'
+                                                        ? canCreateSubTask
+                                                        : (canCreateSubTask && task.projectId ? leadProjectIds.includes(task.projectId) : false)
+                                                }
                                                 columnVisibility={columnVisibility}
                                                 isLoading={!!loadingSubTasks[task.id]}
                                                 isLoadingMore={!!loadingMoreSubTasks[task.id]}
@@ -852,6 +861,8 @@ export function TaskTable({
                                             projectId={projectId}
                                             projects={projects}
                                             level={level}
+                                            leadProjectIds={leadProjectIds}
+                                            isWorkspaceAdmin={isWorkspaceAdmin}
                                             onCancel={() => setShowInlineTaskForm(false)}
                                             onTaskDeleted={(taskId) => {
                                                 setTasks(prev => prev.filter(t => t.id !== taskId));

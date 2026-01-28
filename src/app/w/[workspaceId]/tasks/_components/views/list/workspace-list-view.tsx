@@ -65,15 +65,16 @@ export async function WorkspaceListView({
         <TaskTable
             initialTasks={transformedTasks as any}
             initialHasMore={hasMore ?? false}
-            initialTotalCount={totalCount}
             members={formattedMembers as any}
             assignees={assigneesFromMembers}
             workspaceId={workspaceId}
             projectId="" // Empty for workspace-level view
-            canCreateSubTask={permissions.isWorkspaceAdmin || true} // Allow for members as well if they have access
+            canCreateSubTask={permissions.hasAccess} // Only Admins and Project Leads can create subtasks
             showAdvancedFilters={true}
             tags={tags}
             projects={projects.map(p => ({ id: p.id, name: p.name, color: p.color || undefined }))}
+            leadProjectIds={permissions.leadProjectIds || []} // Pass projects where user is lead
+            isWorkspaceAdmin={permissions.isWorkspaceAdmin}
             level="workspace"
         />
     );

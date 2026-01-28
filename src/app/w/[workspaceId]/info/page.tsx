@@ -11,6 +11,20 @@ interface InfoPageProps {
     }>;
 }
 
+// Helper to render a detail row
+const DetailRow = ({ label, value, icon: Icon }: { label: string; value: string | null | undefined, icon?: React.ElementType }) => {
+    if (!value) return null;
+    return (
+        <div className="flex items-start py-3 border-b last:border-0 border-border/50">
+            {Icon && <Icon className="w-5 h-5 mr-3 text-muted-foreground mt-0.5 shrink-0" />}
+            <div className="flex-1">
+                <p className="text-sm font-medium text-muted-foreground mb-1">{label}</p>
+                <p className="text-base font-semibold text-foreground">{value}</p>
+            </div>
+        </div>
+    );
+};
+
 export default async function InfoPage({ params }: InfoPageProps) {
     const { workspaceId } = await params;
     const [workspace, permissions] = await Promise.all([
@@ -33,19 +47,6 @@ export default async function InfoPage({ params }: InfoPageProps) {
     }
 
     // Read-only view for non-admins
-    // Helper to render a detail row
-    const DetailRow = ({ label, value, icon: Icon }: { label: string; value: string | null | undefined, icon?: React.ElementType }) => {
-        if (!value) return null;
-        return (
-            <div className="flex items-start py-3 border-b last:border-0 border-border/50">
-                {Icon && <Icon className="w-5 h-5 mr-3 text-muted-foreground mt-0.5 shrink-0" />}
-                <div className="flex-1">
-                    <p className="text-sm font-medium text-muted-foreground mb-1">{label}</p>
-                    <p className="text-base font-semibold text-foreground">{value}</p>
-                </div>
-            </div>
-        );
-    };
 
     const hasAddress = workspace.addressLine1 || workspace.city || workspace.state || workspace.country || workspace.pincode;
 

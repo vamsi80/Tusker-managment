@@ -48,8 +48,8 @@ export function GanttChartSkeleton() {
                             <Skeleton
                                 className="h-6 rounded-md"
                                 style={{
-                                    width: `${30 + Math.random() * 40}%`,
-                                    marginLeft: `${Math.random() * 30}%`
+                                    width: `${30 + (i * 7) % 40}%`,
+                                    marginLeft: `${(i * 5) % 30}%`
                                 }}
                             />
                         </div>

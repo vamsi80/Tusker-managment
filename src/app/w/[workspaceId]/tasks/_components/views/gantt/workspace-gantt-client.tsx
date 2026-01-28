@@ -139,6 +139,7 @@ export function WorkspaceGanttClient({
                     </div>
                 )}
                 <GanttChart
+                    key={JSON.stringify(filters) + searchQuery}
                     workspaceId={workspaceId}
                     tasks={ganttTasks}
                     showProjectFilter={true}

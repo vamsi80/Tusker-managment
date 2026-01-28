@@ -105,7 +105,7 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
                 * IN_PROGRESS
                 * REVIEW
                 * COMPLETED
-                * BLOCKED
+                * CANCELLED
                 * HOLD
 
             8. Tag (OPTIONAL)

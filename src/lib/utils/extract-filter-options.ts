@@ -44,7 +44,7 @@ export function extractStatusOptions<T extends { status?: TaskStatus | string }>
     });
 
     // Return in a logical order
-    const statusOrder: TaskStatus[] = ["TO_DO", "IN_PROGRESS", "REVIEW", "BLOCKED", "HOLD", "COMPLETED"];
+    const statusOrder: TaskStatus[] = ["TO_DO", "IN_PROGRESS", "REVIEW", "HOLD", "COMPLETED", "COMPLETED"];
     return statusOrder.filter(status => statusesSet.has(status));
 }
 

@@ -20,7 +20,7 @@ export async function WorkspaceTasksHeader({ workspaceId }: WorkspaceTasksHeader
             permissions={{
                 isWorkspaceAdmin: permissions.isWorkspaceAdmin,
                 canCreateTasks: permissions.isWorkspaceAdmin,
-                canCreateSubTasks: true // Standard permission
+                canCreateSubTasks: permissions.hasAccess // Only Admins and Project Leads
             }}
         />
     );

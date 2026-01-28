@@ -88,6 +88,7 @@ export function IndentClientPage({
             materials: indent.items.map(item => ({
                 materialId: item.materialId || item.material?.id,
                 quantity: item.quantity,
+                documentDisplayName: item.documentDisplayName,
                 unitId: item.unitId || item.unit?.id || undefined,
                 vendorId: item.vendorId || item.vendor?.id || undefined,
                 estimatedPrice: item.estimatedPrice || undefined,

@@ -80,15 +80,7 @@ export async function editIndent(input: EditIndentInput) {
                     if (isAdmin) {
                         const now = new Date();
                         // If Indent is being APPROVED, approve all items
-                        if (validatedData.status === "APPROVED") {
-                            status = "APPROVED";
-                            quantityApproved = true;
-                            quantityApprovedBy = workspaceMember.userId;
-                            quantityApprovedAt = now;
-                            finalApproved = true;
-                            finalApprovedBy = workspaceMember.userId;
-                            finalApprovedAt = now;
-                        } else if (item.itemStatus) {
+                        if (item.itemStatus) {
                             // Respect Explicit Status (Edit Mode)
                             if (item.itemStatus === "APPROVED") {
                                 quantityApproved = true;

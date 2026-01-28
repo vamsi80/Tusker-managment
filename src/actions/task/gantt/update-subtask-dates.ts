@@ -67,10 +67,15 @@ export async function updateSubtaskDates(
             where: { id: subtaskId },
             select: {
                 id: true,
+                parentTaskId: true,
                 assignee: {
                     select: {
-                        workspaceMemberId: true,
-                    },
+                        id: true,
+                        name: true,
+                        surname: true,
+                        image: true,
+                        email: true,
+                    }
                 },
                 parentTask: {
                     select: {
@@ -97,7 +102,7 @@ export async function updateSubtaskDates(
         }
 
         // 6. Check permissions
-        const isAssignee = subtask.assignee?.workspaceMemberId === permissions.workspaceMemberId;
+        const isAssignee = subtask.assignee?.id === user.id;
         const isAdminOrLead = permissions.isWorkspaceAdmin || permissions.isProjectLead;
 
         if (!isAssignee && !isAdminOrLead) {
@@ -149,7 +154,7 @@ export async function updateSubtaskDates(
             projectId: projectId,
             workspaceId: workspaceId,
             userId: user.id,
-            parentTaskId: subtask.parentTask?.projectId ? subtaskId : undefined
+            parentTaskId: subtask.parentTaskId || undefined
         });
 
         // Also invalidate project subtasks for Gantt view

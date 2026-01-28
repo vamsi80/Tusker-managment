@@ -85,7 +85,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
             parentTaskId: parentTaskId,
             assignee: subTask.assignee?.id || "",
             tag: subTask.tag?.id || tags[0]?.id || "", // Use existing tag or first available tag
-            status: (subTask.status || "TO_DO") as "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED",
+            status: (subTask.status || "TO_DO") as "TO_DO" | "IN_PROGRESS" | "CANCELLED" | "REVIEW" | "HOLD" | "COMPLETED",
             startDate: subTask.startDate ? new Date(subTask.startDate).toISOString().split('T')[0] : "",
             days: subTask.days || 0,
         },

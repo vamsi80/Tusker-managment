@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getWorkspaces } from "@/data/workspace/get-workspaces";
 
 type Props = {
-  params: { workspaceId: string };
+  params: Promise<{ workspaceId: string }>;
 };
 
 export default async function WorkSpacePage({ params }: Props) {

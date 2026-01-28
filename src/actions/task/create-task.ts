@@ -40,6 +40,14 @@ export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
             };
         }
 
+        // Check if user has permission to create tasks (workspace admin or project lead)
+        if (!permissions.canCreateSubTask) {
+            return {
+                status: "error",
+                message: "You don't have permission to create tasks. Only workspace admins and project leads can create tasks.",
+            };
+        }
+
         // Generate unique slug
         let baseSlug = validation.data.taskSlug;
         if (!baseSlug || baseSlug.trim() === "") {

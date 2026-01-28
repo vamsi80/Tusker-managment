@@ -29,7 +29,6 @@ import { format } from "date-fns";
 const STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
     { value: "TO_DO", label: "To Do" },
     { value: "IN_PROGRESS", label: "In Progress" },
-    { value: "BLOCKED", label: "Blocked" },
     { value: "REVIEW", label: "Review" },
     { value: "HOLD", label: "On Hold" },
     { value: "COMPLETED", label: "Completed" },
@@ -189,8 +188,8 @@ export function TaskFilters({
                 {/* Tag Filter */}
                 {config.showTagFilter && (
                     <Select
-                        value={filters.tag || ""}
-                        onValueChange={(value) => handleFilterChange("tag", value)}
+                        value={filters.tagId || ""}
+                        onValueChange={(value) => handleFilterChange("tagId", value)}
                     >
                         <SelectTrigger className="w-[160px]">
                             <SelectValue placeholder="All Tags" />

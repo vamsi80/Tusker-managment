@@ -52,7 +52,6 @@ export async function ProjectTaskListView({
         <TaskTable
             initialTasks={tasks}
             initialHasMore={hasMore ?? false}
-            initialTotalCount={totalCount}
             members={members}
             assignees={assigneesFromTasks}
             workspaceId={workspaceId}

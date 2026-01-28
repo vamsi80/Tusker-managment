@@ -1,22 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import {
-    DndContext,
-    closestCenter,
-    KeyboardSensor,
-    PointerSensor,
-    useSensor,
-    useSensors,
-    DragEndEvent,
-} from "@dnd-kit/core";
-import {
-    arrayMove,
-    SortableContext,
-    sortableKeyboardCoordinates,
-    useSortable,
-    verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
+import { useState } from "react";
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, CornerDownRight } from "lucide-react";
 import { DraggableSubtaskBar } from "./draggable-subtask-bar";
@@ -142,31 +128,7 @@ export function SortableSubtaskList({
     projectId,
 }: SortableSubtaskListProps) {
     const [items, setItems] = useState(subtasks);
-
-    // Update items when subtasks are added/removed, but preserve order when just data changes
-    // Compare the set of IDs, not their order
-    useEffect(() => {
-        const currentIds = new Set(items.map(item => item.id));
-        const newIds = new Set(subtasks.map(sub => sub.id));
-
-        // Check if IDs have changed (added or removed)
-        const idsChanged =
-            currentIds.size !== newIds.size ||
-            [...currentIds].some(id => !newIds.has(id));
-
-        if (idsChanged) {
-            // Items were added or removed, update the entire list
-            setItems(subtasks);
-        } else {
-            // Same items, just update their data while preserving current order
-            setItems(prevItems =>
-                prevItems.map(prevItem => {
-                    const updatedItem = subtasks.find(sub => sub.id === prevItem.id);
-                    return updatedItem || prevItem;
-                })
-            );
-        }
-    }, [subtasks]);
+    const [prevSubtasks, setPrevSubtasks] = useState(subtasks);
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -174,6 +136,37 @@ export function SortableSubtaskList({
             coordinateGetter: sortableKeyboardCoordinates,
         })
     );
+
+    // Update items when subtasks are added/removed, but preserve order when just data changes
+    if (subtasks !== prevSubtasks) {
+        setPrevSubtasks(subtasks);
+
+        const currentIds = new Set(items.map(item => item.id));
+        const newIds = new Set(subtasks.map(sub => sub.id));
+
+        const idsChanged =
+            currentIds.size !== newIds.size ||
+            [...currentIds].some(id => !newIds.has(id));
+
+        if (idsChanged) {
+            setItems(subtasks);
+        } else {
+            setItems(prevItems => {
+                let hasChanges = false;
+                const nextItems = prevItems.map(prevItem => {
+                    const updatedItem = subtasks.find(sub => sub.id === prevItem.id);
+                    if (updatedItem && JSON.stringify(updatedItem) !== JSON.stringify(prevItem)) {
+                        hasChanges = true;
+                        return updatedItem;
+                    }
+                    return prevItem;
+                });
+                return hasChanges ? nextItems : prevItems;
+            });
+        }
+    }
+
+
 
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
@@ -185,7 +178,6 @@ export function SortableSubtaskList({
             const newItems = arrayMove(items, oldIndex, newIndex);
             setItems(newItems);
 
-            // Call the onReorder callback with new order
             onReorder(taskId, newItems.map((item) => item.id));
         }
     };

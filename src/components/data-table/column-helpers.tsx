@@ -43,31 +43,31 @@ export function createSortableHeader<T>(
 /**
  * Creates a checkbox column for row selection
  */
-// export function createSelectColumn<T>(): ColumnDef<T> {
-//     return {
-//         id: "select",
-//         header: ({ table }) => (
-//             <Checkbox
-//                 checked={
-//                     table.getIsAllPageRowsSelected() ||
-//                     (table.getIsSomePageRowsSelected() && "indeterminate")
-//                 }
-//                 onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-//                 aria-label="Select all"
-//             />
-//         ),
-//         cell: ({ row }) => (
-//             <Checkbox
-//                 checked={row.getIsSelected()}
-//                 onCheckedChange={(value) => row.toggleSelected(!!value)}
-//                 aria-label="Select row"
-//                 onClick={(e) => e.stopPropagation()}
-//             />
-//         ),
-//         enableSorting: false,
-//         enableHiding: false,
-//     };
-// }
+export function createSelectColumn<T>(): ColumnDef<T> {
+    return {
+        id: "select",
+        header: ({ table }) => (
+            <Checkbox
+                checked={
+                    table.getIsAllPageRowsSelected() ||
+                    (table.getIsSomePageRowsSelected() && "indeterminate")
+                }
+                onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+                aria-label="Select all"
+            />
+        ),
+        cell: ({ row }) => (
+            <Checkbox
+                checked={row.getIsSelected()}
+                onCheckedChange={(value) => row.toggleSelected(!!value)}
+                aria-label="Select row"
+                onClick={(e) => e.stopPropagation()}
+            />
+        ),
+        enableSorting: false,
+        enableHiding: false,
+    };
+}
 
 /**
  * Creates an actions column with dropdown menu

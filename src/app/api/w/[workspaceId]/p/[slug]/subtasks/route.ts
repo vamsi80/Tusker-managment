@@ -25,6 +25,7 @@ export async function GET(
             parentTaskId,
             workspaceId,
             projectId,
+            {}, // filters
             page,
             pageSize
         );

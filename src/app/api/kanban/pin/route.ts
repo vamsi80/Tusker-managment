@@ -1,4 +1,5 @@
-import { generateOperationId, pinSubTask } from "@/actions/task/kanban/pin-subtask";
+import { pinSubTask } from "@/actions/task/kanban/pin-subtask";
+import { generateOperationId } from "@/lib/idempotency";
 import { NextRequest, NextResponse } from "next/server";
 
 interface PinCardRequest {

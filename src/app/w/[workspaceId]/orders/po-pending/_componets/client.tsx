@@ -130,7 +130,7 @@ export function PoPendingClientPage({
                     status: item.status,
                     hasPO: hasPO,
                     poNumber: firstPO?.purchaseOrder?.poNumber,
-                    poStatus: firstPO?.purchaseOrder?.status,
+                    poStatus: firstPO?.purchaseOrder?.approvedById ? 'APPROVED' : 'PENDING',
                 };
             })
         );

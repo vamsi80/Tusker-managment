@@ -92,14 +92,11 @@ async function _getReviewCommentsInternal(subTaskId: string) {
         },
         include: {
             author: {
-                include: {
-                    user: {
-                        select: {
-                            name: true,
-                            surname: true,
-                            image: true,
-                        },
-                    },
+                select: {
+                    id: true,
+                    name: true,
+                    surname: true,
+                    image: true,
                 },
             },
         },

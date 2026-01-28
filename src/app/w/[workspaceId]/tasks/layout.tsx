@@ -5,7 +5,7 @@ import { TaskPageProvider } from "../_components/shared/task-page-context";
 
 interface Props {
     children: React.ReactNode;
-    params: { workspaceId: string };
+    params: Promise<{ workspaceId: string }>;
 }
 
 export default async function WorkspaceTasksLayout({ children, params }: Props) {

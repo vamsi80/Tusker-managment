@@ -145,7 +145,7 @@ export const exportGanttToExcel = (tasks: GanttTask[], fileName: string = "gantt
         // Format Start Date (Col F = index 5)
         const startCellRef = XLSX.utils.encode_cell({ c: 5, r: worksheetRowIndex });
         if (worksheet[startCellRef]) {
-            worksheet[startCellRef].z = "yyyy-mm-dd";
+            worksheet[startCellRef].z = "dd/mm/yyyy";
         }
 
         // Only apply formulas if we have start/end data (Subtasks)
@@ -158,7 +158,7 @@ export const exportGanttToExcel = (tasks: GanttTask[], fileName: string = "gantt
             worksheet[endCellRef] = {
                 t: 'n',
                 f: `${startRef}+${durRef}-1`,
-                z: "yyyy-mm-dd",
+                z: "dd/mm/yyyy",
                 s: {
                     border: {
                         top: { style: "thin", color: { rgb: "E5E7EB" } },

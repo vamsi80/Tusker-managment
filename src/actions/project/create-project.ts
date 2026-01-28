@@ -6,8 +6,6 @@ import { ApiResponse } from "@/lib/types";
 import { projectSchema, ProjectSchemaType } from "@/lib/zodSchemas";
 import { ProjectRole } from "@/generated/prisma/client";
 import { hasWorkspacePermission } from "@/lib/constants/workspace-access";
-
-import { getWorkspaceById } from "@/data/workspace/get-workspace-by-id";
 import { getUniqueRandomColor } from "@/lib/colors/project-colors";
 
 export async function createProject(values: ProjectSchemaType): Promise<ApiResponse> {

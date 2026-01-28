@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateMoveOperationId } from "@/utils/operation-id";
 import { updateSubTaskStatus } from "@/actions/task/kanban/update-subtask-status";
 
-type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED";
+type TaskStatus = "TO_DO" | "IN_PROGRESS" | "CANCELLED" | "REVIEW" | "HOLD" | "COMPLETED";
 
 interface MoveCardRequest {
     subTaskId: string;
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Validate status
-        const validStatuses: TaskStatus[] = ["TO_DO", "IN_PROGRESS", "BLOCKED", "REVIEW", "HOLD", "COMPLETED"];
+        const validStatuses: TaskStatus[] = ["TO_DO", "IN_PROGRESS", "CANCELLED", "REVIEW", "HOLD", "COMPLETED"];
         if (!validStatuses.includes(body.newStatus)) {
             return NextResponse.json(
                 {

@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState, useTransition, useEffect } from "react";
-import { Resolver, useForm } from "react-hook-form";
+import { Resolver, useForm, useWatch } from "react-hook-form";
 import { Loader2, Pencil, SparkleIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -58,26 +58,18 @@ export function EditTaskDialog({
         },
     });
 
-    // Auto-update slug when task name changes
+    const watchedName = useWatch({
+        control: form.control,
+        name: "name",
+    });
+
     useEffect(() => {
         if (!autoSlugEnabled || !open) return;
+        if (!watchedName) return;
 
-        const subscription = form.watch((value, { name: fieldName }) => {
-            if (fieldName === 'name' && value.name) {
-                const newSlug = slugify(value.name, { lower: true, strict: true });
-                form.setValue('taskSlug', newSlug, { shouldValidate: false });
-            }
-        });
-
-        return () => subscription.unsubscribe();
-    }, [form, autoSlugEnabled, open]);
-
-    // Reset auto-slug when dialog opens
-    useEffect(() => {
-        if (open) {
-            setAutoSlugEnabled(true);
-        }
-    }, [open]);
+        const newSlug = slugify(watchedName, { lower: true, strict: true });
+        form.setValue("taskSlug", newSlug, { shouldValidate: false });
+    }, [watchedName, autoSlugEnabled, open, form]);
 
     function onSubmit(values: TaskSchemaType) {
         // Check if there are any actual changes
@@ -129,7 +121,16 @@ export function EditTaskDialog({
     };
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog
+            open={open}
+            onOpenChange={(nextOpen) => {
+                setOpen(nextOpen);
+
+                if (nextOpen) {
+                    setAutoSlugEnabled(true);
+                }
+            }}
+        >
             <DialogTrigger asChild>
                 <Button variant="ghost" size="sm" className="w-full justify-start">
                     <Pencil className="mr-2 h-4 w-4" />

@@ -46,7 +46,6 @@ export function GanttChart({
 }: GanttChartProps & { groupByProject?: boolean }) {
     const [granularity, setGranularity] = useState<TimelineGranularity>('days');
     const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
-    // Initialize all projects as expanded by default
     const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
     const [isPending, startTransition] = useTransition();
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -56,24 +55,21 @@ export function GanttChart({
     const [visibleTasksPerProject, setVisibleTasksPerProject] = useState<Map<string, number>>(new Map());
     const [visibleFlatCount, setVisibleFlatCount] = useState(ITEMS_PER_PAGE);
 
-    // Reset pagination when mode changes or tasks change (filtering)
-    useEffect(() => {
-        setVisibleProjectCount(PROJECTS_PER_PAGE);
-        setVisibleTasksPerProject(new Map());
-        setVisibleFlatCount(ITEMS_PER_PAGE);
-    }, [groupByProject, tasks]);
-
-    // Initial expansion effects - Only expand first project by default
+    // Initial expansion effects
     const initializedRef = useRef(false);
     useEffect(() => {
         if (groupByProject && tasks.length > 0 && !initializedRef.current) {
             const firstTask = tasks.find(t => t.projectId);
             if (firstTask && firstTask.projectId) {
-                setExpandedProjects(new Set([firstTask.projectId]));
+                const pid = firstTask.projectId;
+                // Use setTimeout to avoid setState excessive warning during hydration if any
+                setTimeout(() => {
+                    setExpandedProjects(new Set([pid]));
+                }, 0);
             }
             initializedRef.current = true;
         }
-    }, [groupByProject, tasks]);
+    }, [groupByProject]); // Reduced dependency to just grouping mode
 
     const timelineRange = useMemo(() => calculateTimelineRange(tasks), [tasks]);
     const totalDays = useMemo(
@@ -81,7 +77,6 @@ export function GanttChart({
         [timelineRange]
     );
 
-    // Group tasks by project
     const groupedTasks = useMemo(() => {
         if (!groupByProject) return null;
 
@@ -105,7 +100,6 @@ export function GanttChart({
             }
         });
 
-        // Convert groups to array and paginate
         const allGroups = Array.from(groups.entries());
         const paginatedGroups = allGroups.slice(0, visibleProjectCount).map(([pid, group]) => {
             const limit = visibleTasksPerProject.get(pid) || ITEMS_PER_PAGE;
@@ -126,7 +120,6 @@ export function GanttChart({
         };
     }, [tasks, groupByProject, projects, visibleProjectCount, visibleTasksPerProject]);
 
-    // Flat tasks pagination
     const visibleFlatTasks = useMemo(() => {
         if (groupByProject) return [];
         return tasks.slice(0, visibleFlatCount);
@@ -149,21 +142,18 @@ export function GanttChart({
         setVisibleFlatCount(prev => prev + ITEMS_PER_PAGE);
     };
 
-    // Auto-scroll to today's date when component mounts
     useEffect(() => {
         if (!scrollContainerRef.current) return;
 
+        // Auto-scroll logic
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        // Calculate today's position in the timeline
         const daysFromStart = getDaysBetween(timelineRange.start, today);
         const columnWidth = granularity === 'days' ? 40 : granularity === 'weeks' ? 80 : 120;
         const todayPosition = daysFromStart * columnWidth;
-
-        // Scroll to position today in the center of the viewport
         const containerWidth = scrollContainerRef.current.clientWidth;
-        const scrollPosition = Math.max(0, todayPosition - containerWidth / 2 + 200); // 200px offset for task names column
+        const scrollPosition = Math.max(0, todayPosition - containerWidth / 2 + 200);
 
         scrollContainerRef.current.scrollLeft = scrollPosition;
     }, [timelineRange, granularity]);
