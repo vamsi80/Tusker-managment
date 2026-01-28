@@ -144,7 +144,7 @@ const getCachedSubTasks = (
 
     return unstable_cache(
         async () => _getSubTasksInternal(parentTaskId, workspaceId, projectId, userId, isMember, filters, page, pageSize),
-        [`task-subtasks-${parentTaskId}-user-${userId}-filters-${filterHash}-page-${page}-size-${pageSize}`],
+        [`task-subtasks-${parentTaskId}-user-${userId}-member-${isMember}-filters-${filterHash}-page-${page}-size-${pageSize}-v1`],
         {
             tags: CacheTags.taskSubTasks(parentTaskId, userId),
             revalidate: 60, // 1 minute

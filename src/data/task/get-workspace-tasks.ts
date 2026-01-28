@@ -99,7 +99,7 @@ async function _getWorkspaceTasksInternal(
     workspaceMemberId: string,
     userId: string, // NEW: User ID for assignee checks
     isAdmin: boolean,
-    leadProjectIds: string[], // Projects where the user is a LEAD
+    fullAccessProjectIds: string[], // Projects where the user is a LEAD or MANAGER (Full Access)
     filters: WorkspaceTaskFilters = {},
     page: number = 1,
     pageSize: number = 10
@@ -158,40 +158,24 @@ async function _getWorkspaceTasksInternal(
     // 3a. Build Baseline Filters (Shared)
     // We do NOT pass authorizedProjectIds here yet, we handle permissions manually below
     // We also do not pass assigneeId yet if we are doing hybrid filtering
-    const isHybridUser = !isAdmin && leadProjectIds.length > 0 && authorizedProjectIds && authorizedProjectIds.length > leadProjectIds.length;
-    const isMemberOnly = !isAdmin && leadProjectIds.length === 0;
+    const isHybridUser = !isAdmin && fullAccessProjectIds.length > 0 && authorizedProjectIds && authorizedProjectIds.length > fullAccessProjectIds.length;
+    const isMemberOnly = !isAdmin && fullAccessProjectIds.length === 0;
 
     let mainWhere: any = {};
 
-    // If strict member-only (no lead projects), enforce assignee filter globally
+    // If strict member-only (no lead/manager projects), enforce assignee filter globally
     if (isMemberOnly) {
         // Force assignee ID to User ID (Task.assigneeTo stores User ID)
         baseFilterInput.assigneeId = [userId];
         mainWhere = buildTaskFilter(baseFilterInput, authorizedProjectIds);
     }
-    // If Hybrid User (Lead in A, Member in B)
+    // If Hybrid User (Lead/Manager in A, Member in B)
     else if (isHybridUser && authorizedProjectIds) {
         // We calculate "Member Only" projects
-        const memberOnlyProjectIds = authorizedProjectIds.filter(id => !leadProjectIds.includes(id));
+        const memberOnlyProjectIds = authorizedProjectIds.filter(id => !fullAccessProjectIds.includes(id));
 
         // Base filters MINUS assignee (we apply assignee selectively)
-        // If user actively requested an assignee filter, we must respect it everywhere? 
-        // Or does the "Access Control" override?
-        // Access Control says: "In member projects, YOU MUST be the assignee".
-        // If user filters for "Bob", and I am a member in Proj B, I see NOTHING in Proj B (since I can only see ME).
-        // If I filter for "Me", I see Me in Proj B.
-        // So effectively: (Proj IN Lead) OR (Proj IN Member AND Assignee = Me)
-
-        // 1. Build common filters (Status, Tags, Search, etc)
-        // We TEMPORARILY remove assignee to build the base, then re-apply logic
         const commonFilters = { ...baseFilterInput };
-        // If user explicitly filtered by assignee, we keep it? 
-        // If I filter by "User X", in Member projects I see Nothing.
-        // So the permission logic is:
-        // PermissionWhere = (Projs IN LeadIds) OR (Projs IN MemberIds AND SubTasks.Assignee = Me)
-
-        // Let's modify commonFilters to exclude the "Project" scope for a moment
-        // checking buildTaskFilter implementation... it handles projectIds.
 
         // We will generate the "Content" filters
         const contentWhere = buildTaskFilter(commonFilters, undefined); // No project scope yet
@@ -199,8 +183,8 @@ async function _getWorkspaceTasksInternal(
         // Now construct the Permission Gate
         const permissionGate = {
             OR: [
-                // 1. Projects where I am Lead: I see everything (that matches content filters)
-                { projectId: { in: leadProjectIds } },
+                // 1. Projects where I am Lead/Manager: I see everything (that matches content filters)
+                { projectId: { in: fullAccessProjectIds } },
 
                 // 2. Projects where I am Member: I see only tasks assigned to ME (User ID)
                 {
@@ -218,19 +202,13 @@ async function _getWorkspaceTasksInternal(
             ]
         };
     }
-    // If Admin or Full Lead (Lead in ALL authorized projects)
+    // If Admin or Full Lead (Lead/Manager in ALL authorized projects)
     else {
         // Standard behavior
         mainWhere = buildTaskFilter(baseFilterInput, authorizedProjectIds);
     }
 
     // Facet queries: Query SUBTASKS directly to reflect the content user cares about
-    // We need to replicate the permission logic for facets too, essentially.
-    // For simplicity/perf, we might stick to "Permissable Projects" for facets
-    // But technically a Member shouldn't see counts for tasks they can't access.
-    // It might show counts for tasks you can't see (e.g. "Status: Done (5)" but when you click you see 0).
-    // This is often acceptable for performance.
-    // BUT, if we want to be strict:
 
     const facetBaseWhere = {
         workspaceId,
@@ -407,7 +385,7 @@ function getFilterHash(filters: WorkspaceTaskFilters): string {
         tagId: filters.tagId || filters.tag,
         search: filters.search,
         dueAfter: filters.dueAfter || filters.startDate,
-        dueBefore: filters.dueBefore || filters.endDate,
+        dueBefore: filters.endDate || filters.dueBefore,
         isPinned: filters.isPinned,
     });
 }
@@ -420,14 +398,14 @@ const getCachedWorkspaceTasks = (
     workspaceMemberId: string,
     userId: string,
     isAdmin: boolean,
-    leadProjectIds: string[],
+    fullAccessProjectIds: string[],
     filters: WorkspaceTaskFilters,
     page: number,
     pageSize: number
 ) => {
     const filterHash = getFilterHash(filters);
-    // Include leadProjectIds in cache key to handle role changes
-    const roleHash = isAdmin ? 'admin' : `lead-${leadProjectIds.sort().join(',')}`;
+    // Include fullAccessProjectIds in cache key to handle role changes
+    const roleHash = isAdmin ? 'admin' : `access-${fullAccessProjectIds.sort().join(',')}`;
 
     return unstable_cache(
         async () => _getWorkspaceTasksInternal(
@@ -435,13 +413,13 @@ const getCachedWorkspaceTasks = (
             workspaceMemberId,
             userId,
             isAdmin,
-            leadProjectIds,
+            fullAccessProjectIds,
             filters,
             page,
             pageSize
         ),
         // Cache key MUST include userId now
-        [`workspace-tasks-${workspaceId}-user-${userId}-filters-${filterHash}-role-${roleHash}-page-${page}`],
+        [`workspace-tasks-${workspaceId}-user-${userId}-filters-${filterHash}-role-${roleHash}-page-${page}-v2`], // Bumping version
         {
             tags: CacheTags.workspaceTasks(workspaceId, workspaceMemberId),
             revalidate: 30, // 30 seconds
@@ -476,20 +454,32 @@ export const getWorkspaceTasks = cache(
                 };
             }
 
-            // Derive leadProjectIds based on context
-            let leadProjectIds: string[] = [];
+            // Derive fullAccessProjectIds (Lead + Project Manager)
+            let fullAccessProjectIds: string[] = [];
 
-            if ('leadProjectIds' in permissions && permissions.leadProjectIds) {
-                // Workspace permissions - explicit list
-                leadProjectIds = permissions.leadProjectIds;
-            } else if ('isProjectLead' in permissions && permissions.isProjectLead && filters.projectId) {
-                // Project permissions - if lead, then this project is a lead project
-                leadProjectIds = [filters.projectId];
+            if ('leadProjectIds' in permissions) {
+                // Workspace permissions 
+                const leads = permissions.leadProjectIds || [];
+                const managers = (permissions as any).managedProjectIds || [];
+                fullAccessProjectIds = [...new Set([...leads, ...managers])];
+            } else if ('isProjectLead' in permissions && filters.projectId) {
+                // Project permissions
+                if (permissions.isProjectLead || permissions.isProjectManager) {
+                    fullAccessProjectIds = [filters.projectId];
+                }
             }
+
+            const hasFullAccess = permissions.isWorkspaceAdmin || fullAccessProjectIds.length > 0;
 
             // ENFORCE RLS: Regular members can only see tasks assigned to them
             // Important: Use User ID, not Member ID
-            if (!permissions.isWorkspaceAdmin && !permissions.isProjectLead) {
+            if (!permissions.isWorkspaceAdmin && !hasFullAccess) {
+                // Check if user has access to AT LEAST ONE project fully
+                // If filters.projectId is set, and user is manager there, they have full access.
+                // If filters.projectId is NOT set (global view), we need to check if they have ANY full access project.
+                // If they have fullAccessProjectIds, the _getWorkspaceTasksInternal logic handles the hybrid view.
+
+                // If fullAccessProjectIds is empty, we strictly enforce assignee filter
                 filters.assigneeId = permissions.workspaceMember!.userId;
             }
 
@@ -499,7 +489,7 @@ export const getWorkspaceTasks = cache(
                 permissions.workspaceMemberId,
                 permissions.workspaceMember!.userId, // Pass User ID
                 permissions.isWorkspaceAdmin,
-                leadProjectIds,
+                fullAccessProjectIds,
                 filters,
                 page,
                 pageSize

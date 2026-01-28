@@ -38,7 +38,7 @@ async function _getSubTasksByStatusInternal(
     workspaceMemberId: string,
     userId: string,
     isAdmin: boolean,
-    isProjectLead: boolean,
+    fullAccessProjectIds: string[],
     status: TaskStatus,
     projectId: string | undefined,
     page: number,
@@ -109,12 +109,22 @@ async function _getSubTasksByStatusInternal(
         }
     }
 
-    // Permission logic:
-    // - ADMIN/OWNER: See all subtasks
-    // - Project LEAD (when filtering by that project): See all subtasks in that project
-    // - MEMBER: See only assigned subtasks
-    if (!isAdmin && !isProjectLead) {
-        whereClause.assignee = { id: userId };
+    // Permission logic (Hybrid):
+    // - ADMIN: See all subtasks
+    // - Full Access Projects: See all subtasks
+    // - Member Projects: See only assigned subtasks
+    if (!isAdmin) {
+        if (fullAccessProjectIds.length > 0) {
+            // Hybrid: Full access projects OR Assigned to me
+            // Note: The base query already restricts to 'projectIds' (authorized projects)
+            whereClause.OR = [
+                { parentTask: { projectId: { in: fullAccessProjectIds } } },
+                { assigneeTo: userId }
+            ];
+        } else {
+            // Access only assigned tasks
+            whereClause.assignee = { id: userId };
+        }
     }
 
     // Fetch count and data in transaction
@@ -154,7 +164,7 @@ async function _getSubTasksByStatusInternal(
                                 slug: true,
                                 color: true,
                                 projectMembers: {
-                                    where: { projectRole: "LEAD" },
+                                    where: { projectRole: "PROJECT_MANAGER" },
                                     take: 1,
                                     select: {
                                         workspaceMember: {
@@ -213,7 +223,7 @@ const getCachedSubTasksByStatus = (
     userId: string,
     workspaceMemberId: string,
     isAdmin: boolean,
-    isProjectLead: boolean,
+    fullAccessProjectIds: string[],
     status: TaskStatus,
     projectId: string | undefined,
     page: number,
@@ -221,8 +231,8 @@ const getCachedSubTasksByStatus = (
     filters?: KanbanFilters
 ) =>
     unstable_cache(
-        async () => _getSubTasksByStatusInternal(workspaceId, workspaceMemberId, userId, isAdmin, isProjectLead, status, projectId, page, pageSize, filters),
-        [`kanban-ws-${workspaceId}-${projectId || 'all'}-${status}-${userId}-lead${isProjectLead}-p${page}-s${pageSize}-f${JSON.stringify(filters || {})}-v3`],
+        async () => _getSubTasksByStatusInternal(workspaceId, workspaceMemberId, userId, isAdmin, fullAccessProjectIds, status, projectId, page, pageSize, filters),
+        [`kanban-ws-${workspaceId}-${projectId || 'all'}-${status}-${userId}-access-${fullAccessProjectIds.sort().join(',')}-p${page}-s${pageSize}-f${JSON.stringify(filters || {})}-v5`],
         {
             tags: projectId
                 ? withCustomTags(
@@ -267,13 +277,22 @@ export const getSubTasksByStatus = cache(
             let permissions;
             let isProjectLead = false;
 
+            let fullAccessProjectIds: string[] = [];
+
             if (projectId) {
                 // ✅ When filtering by project, use getUserPermissions (includes everything!)
                 permissions = await getUserPermissions(workspaceId, projectId);
-                isProjectLead = permissions.isProjectLead;
+                if (permissions.isProjectLead || permissions.isProjectManager) {
+                    fullAccessProjectIds = [projectId];
+                }
             } else {
                 // ✅ For workspace-level, use getWorkspacePermissions
                 permissions = await getWorkspacePermissions(workspaceId);
+                // @ts-ignore
+                const leads = permissions.leadProjectIds || [];
+                // @ts-ignore
+                const managers = permissions.managedProjectIds || [];
+                fullAccessProjectIds = [...new Set([...leads, ...managers])];
             }
 
             if (!permissions.workspaceMemberId) {
@@ -291,7 +310,7 @@ export const getSubTasksByStatus = cache(
                 permissions.workspaceMember!.userId,
                 permissions.workspaceMemberId,
                 permissions.isWorkspaceAdmin,
-                isProjectLead,
+                fullAccessProjectIds,
                 status,
                 projectId,
                 page,

@@ -128,7 +128,7 @@ export const getUserPermissions = cache(async (workspaceId: string, projectId: s
         const isWorkspaceAdmin = workspaceMember.workspaceRole === "OWNER" || workspaceMember.workspaceRole === "ADMIN";
         const isProjectManager = projectMember?.projectRole === "PROJECT_MANAGER";
         const isProjectLead = projectMember?.projectRole === "LEAD";
-        const isMember = workspaceMember.workspaceRole === "MEMBER" && (!projectMember || projectMember.projectRole === "MEMBER");
+        const isMember = !isWorkspaceAdmin && !isProjectManager && !isProjectLead;
         const canCreateSubTask = isWorkspaceAdmin || isProjectManager || isProjectLead;
         const canPerformBulkOperations = isWorkspaceAdmin || isProjectManager || isProjectLead;
 
