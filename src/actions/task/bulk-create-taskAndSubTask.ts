@@ -15,6 +15,7 @@ export async function bulkUploadTasksAndSubtasks(data: {
         subtaskName?: string;
         description?: string;
         assigneeEmail?: string;
+        reviewerEmail?: string;
         startDate?: string;
         days?: number;
         status?: string;
@@ -75,26 +76,44 @@ export async function bulkUploadTasksAndSubtasks(data: {
             ])
         );
 
-        // Validate assignee emails BEFORE starting the transaction
-        const invalidEmails: string[] = [];
+        // Validate assignee and reviewer emails BEFORE starting the transaction
+        const invalidAssigneeEmails: string[] = [];
+        const invalidReviewerEmails: string[] = [];
         const uniqueAssigneeEmails = new Set<string>();
+        const uniqueReviewerEmails = new Set<string>();
 
         for (const task of data.tasks) {
             if (task.assigneeEmail && task.assigneeEmail.trim()) {
                 uniqueAssigneeEmails.add(task.assigneeEmail.trim().toLowerCase());
             }
+            if (task.reviewerEmail && task.reviewerEmail.trim()) {
+                uniqueReviewerEmails.add(task.reviewerEmail.trim().toLowerCase());
+            }
         }
 
         for (const email of uniqueAssigneeEmails) {
             if (!emailToMemberId.has(email)) {
-                invalidEmails.push(email);
+                invalidAssigneeEmails.push(email);
             }
         }
 
-        if (invalidEmails.length > 0) {
+        for (const email of uniqueReviewerEmails) {
+            if (!emailToMemberId.has(email)) {
+                invalidReviewerEmails.push(email);
+            }
+        }
+
+        if (invalidAssigneeEmails.length > 0) {
             return {
                 status: "error",
-                message: `The following assignee email(s) are not members of this project: ${invalidEmails.join(', ')}. Please add them to the project first or remove them from the CSV file.`,
+                message: `The following assignee email(s) are not members of this project: ${invalidAssigneeEmails.join(', ')}. Please add them to the project first or remove them from the CSV file.`,
+            };
+        }
+
+        if (invalidReviewerEmails.length > 0) {
+            return {
+                status: "error",
+                message: `The following reviewer email(s) are not members of this project: ${invalidReviewerEmails.join(', ')}. Please add them to the project first or remove them from the CSV file.`,
             };
         }
 
@@ -220,6 +239,11 @@ export async function bulkUploadTasksAndSubtasks(data: {
                             ? emailToMemberId.get(subtaskRow.assigneeEmail.trim().toLowerCase())
                             : undefined;
 
+                        // Default reviewer to creator if not specified
+                        const subtaskReviewerId = subtaskRow.reviewerEmail
+                            ? emailToMemberId.get(subtaskRow.reviewerEmail.trim().toLowerCase())
+                            : permissions.workspaceMember.userId;
+
                         const subtaskStartDate = subtaskRow.startDate
                             ? new Date(subtaskRow.startDate)
                             : undefined;
@@ -250,6 +274,7 @@ export async function bulkUploadTasksAndSubtasks(data: {
                                 createdById: permissions.workspaceMember.userId,
                                 parentTaskId: parentTask.id,
                                 assigneeTo: subtaskAssigneeId,
+                                reviewerId: subtaskReviewerId,
                                 startDate: subtaskStartDate,
                                 days: subtaskRow.days,
                                 status: subtaskStatus as any,

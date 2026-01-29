@@ -247,7 +247,6 @@ export function NavProjects({ projects, members, workspaceId, isAdmin, canCreate
               userId: pm.userId,
               userName: pm.userName || "Unknown",
               projectRole: pm.projectRole,
-              hasAccess: pm.hasAccess,
             })) || []
           }
           workspaceMembers={members}

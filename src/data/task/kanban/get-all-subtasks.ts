@@ -159,7 +159,6 @@ const getCachedAllSubTasks = (
  */
 export const getAllSubTasks = cache(
     async (projectId: string, workspaceId: string) => {
-        const user = await requireUser();
 
         try {
             // Get user's permissions using the centralized function

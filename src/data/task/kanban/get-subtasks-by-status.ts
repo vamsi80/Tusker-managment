@@ -275,7 +275,6 @@ export const getSubTasksByStatus = cache(
     ) => {
         try {
             let permissions;
-            let isProjectLead = false;
 
             let fullAccessProjectIds: string[] = [];
 

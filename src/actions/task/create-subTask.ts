@@ -83,6 +83,9 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
             };
         }
 
+        // Default reviewer to creator
+        const reviewerId = validation.data.reviewerId ?? permissions.workspaceMember.userId;
+
         // Create unique slug for subtask by combining parent slug with subtask slug
         const uniqueSubtaskSlug = `${parentTask.taskSlug}-${validation.data.taskSlug}`;
 
@@ -100,6 +103,7 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
                 tagId: validation.data.tag || null,
                 startDate: validation.data.startDate ? new Date(validation.data.startDate) : null,
                 days: validation.data.days,
+                reviewerId: reviewerId,
             },
             include: {
                 assignee: {
@@ -114,6 +118,14 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
                     select: {
                         id: true,
                         name: true,
+                    }
+                },
+                reviewer: {
+                    select: {
+                        id: true,
+                        name: true,
+                        surname: true,
+                        image: true,
                     }
                 }
             }

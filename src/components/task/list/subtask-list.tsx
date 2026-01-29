@@ -87,6 +87,7 @@ export function SubTaskList({
                             members={members}
                             tags={tags}
                             columnVisibility={columnVisibility}
+                            userId={userId}
                             onCancel={() => setShowInlineSubTaskForm(false)}
                             onSubTaskCreated={(subTask, tempId) => {
                                 onSubTaskCreated?.(subTask, tempId);
@@ -183,6 +184,7 @@ export function SubTaskList({
                         members={members}
                         tags={tags}
                         columnVisibility={columnVisibility}
+                        userId={userId}
                         onCancel={() => setShowInlineSubTaskForm(false)}
                         onSubTaskCreated={(subTask, tempId) => {
                             onSubTaskCreated?.(subTask, tempId);

@@ -100,6 +100,7 @@ export async function editTask(
             data: {
                 name: validation.data.name,
                 taskSlug: validation.data.taskSlug,
+                reviewerId: validation.data.reviewerId,
             },
         });
 

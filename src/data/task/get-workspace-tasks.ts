@@ -296,6 +296,10 @@ async function _getWorkspaceTasksInternal(
                 createdBy: {
                     select: { id: true, name: true, surname: true, image: true }
                 },
+                reviewerId: true,
+                reviewer: {
+                    select: { id: true, name: true, surname: true, image: true }
+                },
                 _count: {
                     select: { subTasks: true }
                 }
@@ -419,7 +423,7 @@ const getCachedWorkspaceTasks = (
             pageSize
         ),
         // Cache key MUST include userId now
-        [`workspace-tasks-${workspaceId}-user-${userId}-filters-${filterHash}-role-${roleHash}-page-${page}-v2`], // Bumping version
+        [`workspace-tasks-${workspaceId}-user-${userId}-filters-${filterHash}-role-${roleHash}-page-${page}-v3`], // Bumping version
         {
             tags: CacheTags.workspaceTasks(workspaceId, workspaceMemberId),
             revalidate: 30, // 30 seconds

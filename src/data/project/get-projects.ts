@@ -85,7 +85,7 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
             },
         });
 
-        // Add canManageMembers flag for each project
+        // Add canManageMembers flag and statistics for each project
         return allProjects.map(project => {
             const userProjectMember = project.projectMembers.find(
                 pm => pm.workspaceMember.userId === userId
@@ -93,9 +93,23 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
             const isProjectManager = userProjectMember?.projectRole === "PROJECT_MANAGER";
             const isCreator = project.createdBy === userId;
 
+            // Calculate project statistics
+            const managers = project.projectMembers
+                .filter(pm => pm.projectRole === "PROJECT_MANAGER")
+                .map(pm => pm.workspaceMember.userId);
+
+            const leads = project.projectMembers
+                .filter(pm => pm.projectRole === "LEAD")
+                .map(pm => pm.workspaceMember.userId);
+
+            const memberCount = project.projectMembers.length;
+
             return {
                 ...project,
                 canManageMembers: isOwnerOrAdmin || isProjectManager || isCreator,
+                memberCount,
+                managers,
+                leads,
             };
         });
     }
@@ -153,7 +167,7 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
             },
         });
 
-        // Add canManageMembers flag for each project
+        // Add canManageMembers flag and statistics for each project
         return managerProjects.map(project => {
             const userProjectMember = project.projectMembers.find(
                 pm => pm.workspaceMember.userId === userId
@@ -161,9 +175,23 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
             const isProjectManager = userProjectMember?.projectRole === "PROJECT_MANAGER";
             const isCreator = project.createdBy === userId;
 
+            // Calculate project statistics
+            const managers = project.projectMembers
+                .filter(pm => pm.projectRole === "PROJECT_MANAGER")
+                .map(pm => pm.workspaceMember.userId);
+
+            const leads = project.projectMembers
+                .filter(pm => pm.projectRole === "LEAD")
+                .map(pm => pm.workspaceMember.userId);
+
+            const memberCount = project.projectMembers.length;
+
             return {
                 ...project,
                 canManageMembers: isProjectManager || isCreator,
+                memberCount,
+                managers,
+                leads,
             };
         });
     }
@@ -213,7 +241,7 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
         },
     });
 
-    // Add canManageMembers flag for each project
+    // Add canManageMembers flag and statistics for each project
     return memberProjects.map(project => {
         const userProjectMember = project.projectMembers.find(
             pm => pm.workspaceMember.userId === userId
@@ -221,9 +249,23 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
         const isProjectManager = userProjectMember?.projectRole === "PROJECT_MANAGER";
         const isCreator = project.createdBy === userId;
 
+        // Calculate project statistics
+        const managers = project.projectMembers
+            .filter(pm => pm.projectRole === "PROJECT_MANAGER")
+            .map(pm => pm.workspaceMember.userId);
+
+        const leads = project.projectMembers
+            .filter(pm => pm.projectRole === "LEAD")
+            .map(pm => pm.workspaceMember.userId);
+
+        const memberCount = project.projectMembers.length;
+
         return {
             ...project,
             canManageMembers: isProjectManager || isCreator,
+            memberCount,
+            managers,
+            leads,
         };
     });
 }
