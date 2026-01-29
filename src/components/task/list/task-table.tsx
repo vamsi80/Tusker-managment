@@ -4,8 +4,8 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { SubTaskList } from "./subtask-list";
 import { Button } from "@/components/ui/button";
-import React, { useState, useEffect } from "react";
-import { Loader2, ChevronsDown, Plus, ChevronsUpDown, Maximize2, Minimize2 } from "lucide-react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import { ChevronDown, ChevronRight, Folder, Loader2, ArrowUpDown, Filter, X, Plus, ChevronsUpDown, Calendar, LayoutGrid, List as ListIcon, Clock, ChevronsDown, GripVertical, CornerDownRight, Maximize2, Minimize2 } from "lucide-react";
 import { loadMoreTasksAction, loadSubTasksAction } from "@/actions/task/list-actions";
 import { updateSubtaskPositions } from "@/actions/task/gantt";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
@@ -23,6 +23,7 @@ import { GlobalFilterToolbar } from "../shared/global-filter-toolbar";
 import { ColumnVisibility } from "../shared/column-visibility";
 import { extractAllFilterOptions } from "@/lib/utils/extract-filter-options";
 import { InlineTaskForm } from "./inline-task-form";
+import { ProjectRow } from "./project-row";
 import { UserPermissionsType } from "@/data/user/get-user-permissions";
 
 interface TaskTableProps {
@@ -35,7 +36,7 @@ interface TaskTableProps {
     canCreateSubTask: boolean;
     showAdvancedFilters?: boolean;
     tags?: { id: string; name: string; }[];
-    projects?: { id: string; name: string; canManageMembers?: boolean; }[];
+    projects?: { id: string; name: string; canManageMembers?: boolean; color?: string }[];
     leadProjectIds?: string[];
     isWorkspaceAdmin?: boolean;
     level?: "workspace" | "project";
@@ -75,7 +76,22 @@ export function TaskTable({
     const [loadingSubTasks, setLoadingSubTasks] = useState<Record<string, boolean>>({});
     const [loadingMoreSubTasks, setLoadingMoreSubTasks] = useState<Record<string, boolean>>({});
     const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
-    const [showInlineTaskForm, setShowInlineTaskForm] = useState(false);
+    const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({});
+
+    // Auto-expand all projects when groups change
+    useEffect(() => {
+        if (filters.projectId) return; // If filtered by project, usually just one is shown (or logic differs)
+        // logic to expand all by default could be here, but let's do it lazily or init
+        // Actually, let's just default to true in the render check if key is missing, or set keys here.
+    }, [tasks, level]);
+
+    const toggleProjectExpand = (projectId: string) => {
+        setExpandedProjects(prev => ({
+            ...prev,
+            [projectId]: prev[projectId] === undefined ? true : !prev[projectId] // Default to collapsed, so toggle sets to true
+        }));
+    };
+    const [activeInlineProjectId, setActiveInlineProjectId] = useState<string | null>(null);
 
     const [filteredProjects, setFilteredProjects] = useState<{ id: string; name: string; }[]>(projects || []);
 
@@ -613,27 +629,80 @@ export function TaskTable({
     const filteredTasks = tasks;
 
     // Calculate visible columns count for colSpan: 2 fixed (expand, name) + dynamic + 1 fixed (actions)
-    const visibleColumnsCount = 2 + Object.values(columnVisibility).filter(Boolean).length + 1;
+    // Exclude 'project' from count as we are removing the column (grouping replaces it)
+    const visibleColumnsCount = 2 + Object.entries(columnVisibility).filter(([k, v]) => k !== 'project' && v).length + 1;
+
+    // Group tasks by project for workspace view
+    const groupedTasks = useMemo(() => {
+        if (level !== "workspace") return null;
+
+        const groups: Record<string, TaskWithSubTasks[]> = {};
+
+        // Initialize with all projects to ensure empty ones are shown
+        projects.forEach(project => {
+            groups[project.id] = [];
+        });
+
+        filteredTasks.forEach((task) => {
+            const pId = task.projectId;
+            if (!groups[pId]) {
+                groups[pId] = [];
+            }
+            groups[pId].push(task);
+        });
+
+        return groups;
+    }, [filteredTasks, level, projects]);
+
+    // Infinite Scroll Implementation
+    const bottomRef = useRef<HTMLTableRowElement>(null);
+
+    useEffect(() => {
+        if (!hasMoreTasks || loadingMoreTasks) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting) {
+                    loadMoreTasks();
+                }
+            },
+            { rootMargin: "100px" }
+        );
+
+        const currentRef = bottomRef.current;
+        if (currentRef) {
+            observer.observe(currentRef);
+        }
+
+        return () => {
+            if (currentRef) {
+                observer.unobserve(currentRef);
+            }
+        };
+    }, [hasMoreTasks, loadingMoreTasks, loadMoreTasks]); // loadMoreTasks creates new reference on render, causing re-subscription, but essential for closure freshness
 
     return (
         <div className="space-y-4 mt-4">
-            <GlobalFilterToolbar
-                level={showAdvancedFilters ? "workspace" : "project"}
-                view="list"
-                filters={filters}
-                searchQuery={searchQuery}
-                projects={filterOptions.projects}
-                members={filterOptions.assignees}
-                tags={filterOptions.tags}
-                onFilterChange={setFilters}
-                onSearchChange={setSearchQuery}
-                onClearAll={() => {
-                    setFilters({});
-                    setSearchQuery("");
-                }}
-                columnVisibility={columnVisibility}
-                setColumnVisibility={setColumnVisibility}
-            />
+            <div className="flex items-center gap-2 mb-4">
+                <GlobalFilterToolbar
+                    className="flex-1"
+                    level={showAdvancedFilters ? "workspace" : "project"}
+                    view="list"
+                    filters={filters}
+                    searchQuery={searchQuery}
+                    projects={filterOptions.projects}
+                    members={filterOptions.assignees}
+                    tags={filterOptions.tags}
+                    onFilterChange={setFilters}
+                    onSearchChange={setSearchQuery}
+                    onClearAll={() => {
+                        setFilters({});
+                        setSearchQuery("");
+                    }}
+                    columnVisibility={columnVisibility}
+                    setColumnVisibility={setColumnVisibility}
+                />
+            </div>
 
 
             <div className="rounded-md border overflow-hidden relative">
@@ -682,7 +751,7 @@ export function TaskTable({
                                         </DropdownMenu>
                                     </th>
                                     <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[250px] bg-background">Task Name</th>
-                                    {columnVisibility.project && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[180px] bg-background">Project</th>}
+                                    {/* Project column removed (using grouping instead) */}
                                     {columnVisibility.description && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[200px] bg-background">Description</th>}
                                     {columnVisibility.assignee && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] bg-background">Assignee</th>}
                                     {columnVisibility.reviewer && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] bg-background">Reviewer</th>}
@@ -695,76 +764,209 @@ export function TaskTable({
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredTasks.map((task) => (
-                                    <React.Fragment key={task.id}>
-                                        <TaskRow
-                                            task={task}
-                                            isExpanded={!!expanded[task.id]}
-                                            onToggleExpand={() => toggleExpand(task.id)}
-                                            columnVisibility={columnVisibility}
-                                            isUpdating={updatingTaskId === task.id}
-                                            onUpdateStart={() => setUpdatingTaskId(task.id)}
-                                            onUpdateEnd={() => setUpdatingTaskId(null)}
-                                            onTaskUpdated={(updatedTask) => {
-                                                setTasks(prevTasks =>
-                                                    prevTasks.map(t =>
-                                                        t.id === task.id
-                                                            ? { ...t, name: updatedTask.name, taskSlug: updatedTask.taskSlug }
-                                                            : t
-                                                    )
-                                                );
-                                            }}
-                                            onTaskDeleted={(taskId) => {
-                                                setTasks(prevTasks =>
-                                                    prevTasks.filter(t => t.id !== taskId)
-                                                );
-                                            }}
-                                            permissions={permissions}
-                                            userId={userId}
-                                            isWorkspaceAdmin={isWorkspaceAdmin}
-                                            leadProjectIds={leadProjectIds}
-                                            projects={projects}
-                                        />
-                                        {expanded[task.id] && (
-                                            <SubTaskList
+                                {groupedTasks ? (
+                                    // Grouped View (Workspace)
+                                    Object.entries(groupedTasks).map(([projectId, projectTasks]) => {
+                                        const project = projects?.find(p => p.id === projectId);
+                                        // Skip unknown project group if empty (optional)
+                                        if (projectId === 'unknown' && projectTasks.length === 0) return null;
+
+                                        const isProjectExpanded = expandedProjects[projectId] === true; // Default to collapsed
+
+                                        return (
+                                            <React.Fragment key={projectId}>
+                                                {/* Project Header Row (Collapsible) */}
+                                                <ProjectRow
+                                                    project={project || { id: projectId, name: "Unknown Project" }}
+                                                    tasksCount={projectTasks.length}
+                                                    isExpanded={isProjectExpanded}
+                                                    onToggle={() => toggleProjectExpand(projectId)}
+                                                    colSpan={visibleColumnsCount}
+                                                >
+
+                                                    {/* Tasks in Project */}
+                                                    {isProjectExpanded && projectTasks.map((task) => (
+                                                        <React.Fragment key={task.id}>
+                                                            <TaskRow
+                                                                task={task}
+                                                                isExpanded={!!expanded[task.id]}
+                                                                onToggleExpand={() => toggleExpand(task.id)}
+                                                                columnVisibility={columnVisibility}
+                                                                isUpdating={updatingTaskId === task.id}
+                                                                onUpdateStart={() => setUpdatingTaskId(task.id)}
+                                                                onUpdateEnd={() => setUpdatingTaskId(null)}
+                                                                onTaskUpdated={(updatedTask) => {
+                                                                    setTasks(prevTasks =>
+                                                                        prevTasks.map(t =>
+                                                                            t.id === task.id
+                                                                                ? { ...t, name: updatedTask.name, taskSlug: updatedTask.taskSlug }
+                                                                                : t
+                                                                        )
+                                                                    );
+                                                                }}
+                                                                onTaskDeleted={(taskId) => {
+                                                                    setTasks(prevTasks =>
+                                                                        prevTasks.filter(t => t.id !== taskId)
+                                                                    );
+                                                                }}
+                                                                permissions={permissions}
+                                                                userId={userId}
+                                                                isWorkspaceAdmin={isWorkspaceAdmin}
+                                                                leadProjectIds={leadProjectIds}
+                                                                projects={projects}
+                                                            >
+                                                                <SubTaskList
+                                                                    task={task}
+                                                                    tags={tags}
+                                                                    members={members}
+                                                                    workspaceId={workspaceId}
+                                                                    projectId={task.projectId || projectId}
+                                                                    canCreateSubTask={
+                                                                        level === 'project'
+                                                                            ? canCreateSubTask
+                                                                            : (canCreateSubTask && task.projectId ? (
+                                                                                leadProjectIds.includes(task.projectId) ||
+                                                                                !!isWorkspaceAdmin ||
+                                                                                !!projects?.find(p => p.id === task.projectId)?.canManageMembers
+                                                                            ) : false)
+                                                                    }
+                                                                    columnVisibility={columnVisibility}
+                                                                    isLoading={!!loadingSubTasks[task.id]}
+                                                                    isLoadingMore={!!loadingMoreSubTasks[task.id]}
+                                                                    onLoadMore={() => loadMoreSubTasks(task.id)}
+                                                                    onSubTaskClick={handleSubTaskClick}
+                                                                    onSubTaskUpdated={(subTaskId, updatedData) =>
+                                                                        handleSubTaskUpdated(task.id, subTaskId, updatedData)
+                                                                    }
+                                                                    onSubTaskDeleted={(subTaskId) =>
+                                                                        handleSubTaskDeleted(task.id, subTaskId)
+                                                                    }
+                                                                    onSubTaskCreated={(newSubTask, tempId) =>
+                                                                        handleSubTaskCreated(task.id, newSubTask, tempId)
+                                                                    }
+                                                                    permissions={permissions}
+                                                                    userId={userId}
+                                                                    isWorkspaceAdmin={isWorkspaceAdmin}
+                                                                    leadProjectIds={leadProjectIds}
+                                                                    projects={projects}
+                                                                    level={level}
+                                                                />
+                                                            </TaskRow>
+                                                        </React.Fragment>
+                                                    ))}
+                                                    {/* Add Task inside Project Group */}
+                                                    {isProjectExpanded && canCreateSubTask && !searchQuery && Object.keys(filters).length === 0 && (
+                                                        activeInlineProjectId === projectId ? (
+                                                            <InlineTaskForm
+                                                                workspaceId={workspaceId}
+                                                                projectId={projectId}
+                                                                projects={projects}
+                                                                level={level}
+                                                                leadProjectIds={leadProjectIds}
+                                                                isWorkspaceAdmin={isWorkspaceAdmin}
+                                                                onCancel={() => setActiveInlineProjectId(null)}
+                                                                onTaskDeleted={(taskId) => {
+                                                                    setTasks(prev => prev.filter(t => t.id !== taskId));
+                                                                }}
+                                                                onTaskCreated={(task, tempId) => {
+                                                                    if (tempId) {
+                                                                        setTasks(prev => prev.map(t => t.id === tempId ? task : t));
+                                                                    } else {
+                                                                        setTasks(prev => [task, ...prev]);
+                                                                    }
+                                                                    setActiveInlineProjectId(null);
+                                                                }}
+                                                            />
+                                                        ) : (
+                                                            <TableRow
+                                                                className="hover:bg-muted/20 cursor-pointer h-8"
+                                                                onClick={(e) => { e.stopPropagation(); setActiveInlineProjectId(projectId); }}
+                                                            >
+                                                                <TableCell colSpan={visibleColumnsCount} className="py-1 px-2 pl-8">
+                                                                    <div className="flex items-center gap-2 text-primary font-medium hover:text-primary/80 transition-colors">
+                                                                        <Plus className="h-4 w-4" />
+                                                                        <span>Add Task</span>
+                                                                    </div>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        )
+                                                    )}
+                                                </ProjectRow>
+                                            </React.Fragment>
+                                        );
+                                    })
+                                ) : (
+                                    // Flat View (Original)
+                                    filteredTasks.map((task) => (
+                                        <React.Fragment key={task.id}>
+                                            <TaskRow
                                                 task={task}
-                                                tags={tags}
-                                                members={members}
-                                                workspaceId={workspaceId}
-                                                projectId={task.projectId || projectId}
-                                                canCreateSubTask={
-                                                    level === 'project'
-                                                        ? canCreateSubTask
-                                                        : (canCreateSubTask && task.projectId ? (
-                                                            leadProjectIds.includes(task.projectId) ||
-                                                            !!isWorkspaceAdmin ||
-                                                            !!projects?.find(p => p.id === task.projectId)?.canManageMembers
-                                                        ) : false)
-                                                }
+                                                isExpanded={!!expanded[task.id]}
+                                                onToggleExpand={() => toggleExpand(task.id)}
                                                 columnVisibility={columnVisibility}
-                                                isLoading={!!loadingSubTasks[task.id]}
-                                                isLoadingMore={!!loadingMoreSubTasks[task.id]}
-                                                onLoadMore={() => loadMoreSubTasks(task.id)}
-                                                onSubTaskClick={handleSubTaskClick}
-                                                onSubTaskUpdated={(subTaskId, updatedData) =>
-                                                    handleSubTaskUpdated(task.id, subTaskId, updatedData)
-                                                }
-                                                onSubTaskDeleted={(subTaskId) =>
-                                                    handleSubTaskDeleted(task.id, subTaskId)
-                                                }
-                                                onSubTaskCreated={(newSubTask, tempId) =>
-                                                    handleSubTaskCreated(task.id, newSubTask, tempId)
-                                                }
+                                                isUpdating={updatingTaskId === task.id}
+                                                onUpdateStart={() => setUpdatingTaskId(task.id)}
+                                                onUpdateEnd={() => setUpdatingTaskId(null)}
+                                                onTaskUpdated={(updatedTask) => {
+                                                    setTasks(prevTasks =>
+                                                        prevTasks.map(t =>
+                                                            t.id === task.id
+                                                                ? { ...t, name: updatedTask.name, taskSlug: updatedTask.taskSlug }
+                                                                : t
+                                                        )
+                                                    );
+                                                }}
+                                                onTaskDeleted={(taskId) => {
+                                                    setTasks(prevTasks =>
+                                                        prevTasks.filter(t => t.id !== taskId)
+                                                    );
+                                                }}
                                                 permissions={permissions}
                                                 userId={userId}
                                                 isWorkspaceAdmin={isWorkspaceAdmin}
                                                 leadProjectIds={leadProjectIds}
                                                 projects={projects}
-                                                level={level}
-                                            />
-                                        )}
-                                    </React.Fragment>
-                                ))}
+                                            >
+                                                <SubTaskList
+                                                    task={task}
+                                                    tags={tags}
+                                                    members={members}
+                                                    workspaceId={workspaceId}
+                                                    projectId={task.projectId || projectId}
+                                                    canCreateSubTask={
+                                                        level === 'project'
+                                                            ? canCreateSubTask
+                                                            : (canCreateSubTask && task.projectId ? (
+                                                                leadProjectIds.includes(task.projectId) ||
+                                                                !!isWorkspaceAdmin ||
+                                                                !!projects?.find(p => p.id === task.projectId)?.canManageMembers
+                                                            ) : false)
+                                                    }
+                                                    columnVisibility={columnVisibility}
+                                                    isLoading={!!loadingSubTasks[task.id]}
+                                                    isLoadingMore={!!loadingMoreSubTasks[task.id]}
+                                                    onLoadMore={() => loadMoreSubTasks(task.id)}
+                                                    onSubTaskClick={handleSubTaskClick}
+                                                    onSubTaskUpdated={(subTaskId, updatedData) =>
+                                                        handleSubTaskUpdated(task.id, subTaskId, updatedData)
+                                                    }
+                                                    onSubTaskDeleted={(subTaskId) =>
+                                                        handleSubTaskDeleted(task.id, subTaskId)
+                                                    }
+                                                    onSubTaskCreated={(newSubTask, tempId) =>
+                                                        handleSubTaskCreated(task.id, newSubTask, tempId)
+                                                    }
+                                                    permissions={permissions}
+                                                    userId={userId}
+                                                    isWorkspaceAdmin={isWorkspaceAdmin}
+                                                    leadProjectIds={leadProjectIds}
+                                                    projects={projects}
+                                                    level={level}
+                                                />
+                                            </TaskRow>
+                                        </React.Fragment>
+                                    ))
+                                )}
 
                                 {/* Loading indicator when loading subtasks for filters */}
                                 {isLoadingFilters && filteredTasks.length === 0 && (
@@ -786,35 +988,22 @@ export function TaskTable({
                                     </TableRow>
                                 )}
 
-                                {/* Load More Parent Tasks */}
+                                {/* Infinite Scroll Trigger / Loader */}
                                 {hasMoreTasks && (
-                                    <TableRow>
-                                        <TableCell colSpan={visibleColumnsCount} className="text-center p-4">
-                                            <Button
-                                                variant="outline"
-                                                onClick={loadMoreTasks}
-                                                disabled={loadingMoreTasks}
-                                                className="w-full"
-                                            >
-                                                {loadingMoreTasks ? (
-                                                    <>
-                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                        Loading more tasks...
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <ChevronsDown className="mr-2 h-4 w-4" />
-                                                        Load More Tasks
-                                                    </>
-                                                )}
-                                            </Button>
+                                    <TableRow ref={bottomRef}>
+                                        <TableCell colSpan={visibleColumnsCount} className="text-center py-2 h-10">
+                                            {loadingMoreTasks && (
+                                                <div className="flex items-center justify-center w-full">
+                                                    <Loader2 className="h-6 w-6 animate-spin text-primary/50" />
+                                                </div>
+                                            )}
                                         </TableCell>
                                     </TableRow>
                                 )}
 
-                                {/* Add Task - Inline Form or Button */}
-                                {canCreateSubTask && !hasActiveFilters(filters) && !searchQuery && (
-                                    showInlineTaskForm ? (
+                                {/* Add Task - Flat View Only */}
+                                {canCreateSubTask && !groupedTasks && !hasActiveFilters(filters) && !searchQuery && (
+                                    activeInlineProjectId === projectId ? (
                                         <InlineTaskForm
                                             workspaceId={workspaceId}
                                             projectId={projectId}
@@ -822,7 +1011,7 @@ export function TaskTable({
                                             level={level}
                                             leadProjectIds={leadProjectIds}
                                             isWorkspaceAdmin={isWorkspaceAdmin}
-                                            onCancel={() => setShowInlineTaskForm(false)}
+                                            onCancel={() => setActiveInlineProjectId(null)}
                                             onTaskDeleted={(taskId) => {
                                                 setTasks(prev => prev.filter(t => t.id !== taskId));
                                             }}
@@ -832,13 +1021,13 @@ export function TaskTable({
                                                 } else {
                                                     setTasks(prev => [task, ...prev]);
                                                 }
-                                                setShowInlineTaskForm(false);
+                                                setActiveInlineProjectId(null);
                                             }}
                                         />
                                     ) : (
-                                        <TableRow className="hover:bg-muted/20 cursor-pointer" onClick={() => setShowInlineTaskForm(true)}>
-                                            <TableCell colSpan={visibleColumnsCount} className="p-3 text-muted-foreground">
-                                                <div className="flex items-center gap-2">
+                                        <TableRow className="hover:bg-muted/20 cursor-pointer h-8" onClick={() => setActiveInlineProjectId(projectId)}>
+                                            <TableCell colSpan={visibleColumnsCount} className="py-1 px-2 text-muted-foreground">
+                                                <div className="flex items-center gap-2 text-primary font-medium hover:text-primary/80">
                                                     <Plus className="h-4 w-4" />
                                                     <span>Add Task</span>
                                                 </div>

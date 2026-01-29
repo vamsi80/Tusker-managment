@@ -260,7 +260,7 @@ export const subTaskSchema = z.object({
         .string()
         .min(3, { message: "At least task should assign to one person" })
         .optional(),
-    reviewerId: z.string().uuid({ message: "Invalid reviewer id" }).optional().nullable(),
+    reviewerId: z.string().optional().nullable(),
     startDate: z
         .string()
         .min(3, { message: "Due date should select" })

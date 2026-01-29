@@ -1,4 +1,4 @@
-import { getWorkspaceTasks } from "@/data/task/get-workspace-tasks";
+import { getAllTasksFlat } from "@/data/task";
 import { TaskTable } from "@/components/task/list/task-table";
 import { extractAssigneeOptions } from "@/lib/utils/extract-filter-options";
 import { getWorkspaceTags } from "@/data/tag/get-tags";
@@ -17,23 +17,38 @@ export async function WorkspaceListView({
     // Get current user
     const user = await requireUser();
 
-    // Fetch data in parallel - REMOVED getAllTasksFlat for performance
-    const [tasksData, tagsData, membersData, permissions, projects] = await Promise.all([
-        getWorkspaceTasks(workspaceId, {}, 1, 10),
+    // Fetch data in parallel - using getAllTasksFlat for consistency with Gantt
+    const [allTasksFlat, tagsData, membersData, permissions, projects] = await Promise.all([
+        getAllTasksFlat(workspaceId), // Same data source as Gantt chart
         getWorkspaceTags(workspaceId),
         getWorkspaceMembers(workspaceId),
         getWorkspacePermissions(workspaceId),
         getUserProjects(workspaceId),
     ]);
 
-    const { tasks, hasMore, totalCount } = tasksData;
+    // Transform flat list into hierarchical structure
+    // Group subtasks under their parent tasks
+    const taskMap = new Map();
+    const parentTasks: any[] = [];
 
-    // Derived assignees from members instead of fetching all tasks
-    const assigneesFromMembers = membersData.workspaceMembers.map(member => ({
-        id: member.user?.id || member.userId,
-        name: member.user?.name || '',
-        surname: member.user?.surname || undefined,
-    }));
+    allTasksFlat.tasks.forEach(task => {
+        if (task.parentTaskId === null) {
+            // This is a parent task
+            const parentTask = {
+                ...task,
+                subTasks: undefined, // Will be loaded on-demand
+                createdBy: { user: { name: '', surname: '', image: '' } },
+                _count: {
+                    subTasks: task._count.subTasks,
+                },
+            };
+            taskMap.set(task.id, parentTask);
+            parentTasks.push(parentTask);
+        }
+    });
+
+    // Extract assignees from all tasks (including subtasks)
+    const assigneesFromTasks = extractAssigneeOptions(allTasksFlat.tasks);
 
     // Map workspace members to the structure expected by components (matching ProjectMembersType)
     const formattedMembers = membersData.workspaceMembers.map(member => ({
@@ -49,17 +64,6 @@ export async function WorkspaceListView({
         }
     }));
 
-    // Transform workspace tasks to match TaskWithSubTasks format
-    const transformedTasks = tasks.map(task => ({
-        ...task,
-        subTasks: undefined,
-        createdBy: task.createdBy || { user: { name: '', surname: '', image: '' } },
-        _count: {
-            subTasks: task._count.subTasks,
-        },
-        projectId: task.projectId,
-    }));
-
     const tags = tagsData.map(tag => ({
         id: tag.id,
         name: tag.name,
@@ -67,17 +71,17 @@ export async function WorkspaceListView({
 
     return (
         <TaskTable
-            initialTasks={transformedTasks as any}
-            initialHasMore={hasMore ?? false}
+            initialTasks={parentTasks as any}
+            initialHasMore={false} // All tasks loaded from flat list
             members={formattedMembers as any}
-            assignees={assigneesFromMembers}
+            assignees={assigneesFromTasks}
             workspaceId={workspaceId}
             projectId="" // Empty for workspace-level view
-            canCreateSubTask={permissions.hasAccess} // Only Admins and Project Leads can create subtasks
+            canCreateSubTask={permissions.hasAccess}
             showAdvancedFilters={true}
             tags={tags}
             projects={projects.map(p => ({ id: p.id, name: p.name, color: p.color || undefined, canManageMembers: p.canManageMembers }))}
-            leadProjectIds={permissions.leadProjectIds || []} // Pass projects where user is lead
+            leadProjectIds={permissions.leadProjectIds || []}
             isWorkspaceAdmin={permissions.isWorkspaceAdmin}
             level="workspace"
             userId={user.id}

@@ -13,7 +13,7 @@ import { tryCatch } from "@/hooks/try-catch";
 import { toast } from "sonner";
 import slugify from "slugify";
 import { TableCell, TableRow } from "@/components/ui/table";
-import { ProjectMembersType } from "@/data/project/get-project-members";
+import { ProjectMembersType, getProjectMembers } from "@/data/project/get-project-members";
 import { SubTaskStatus, STATUS_OPTIONS } from "@/lib/zodSchemas";
 import { ColumnVisibility } from "../shared/column-visibility";
 import { SubTaskType } from "@/data/task/list/get-subtasks";
@@ -69,6 +69,27 @@ export function InlineSubTaskForm({
     );
     const [days, setDays] = useState(String(subTask?.days || 0));
     const [tag, setTag] = useState(subTask?.tag?.id || "");
+
+    const [availableMembers, setAvailableMembers] = useState<ProjectMembersType>(members);
+
+    // Fetch project members for this specific project (to fix global view scope)
+    useEffect(() => {
+        const fetchMembers = async () => {
+            if (projectId) {
+                try {
+                    // Start with passed members as fallback or loading state
+                    // Fetch real project members
+                    const pMembers = await getProjectMembers(projectId);
+                    if (pMembers && pMembers.length > 0) {
+                        setAvailableMembers(pMembers);
+                    }
+                } catch (error) {
+                    console.error("Failed to fetch project members", error);
+                }
+            }
+        };
+        fetchMembers();
+    }, [projectId]);
 
     // Fetch reviewers and set default reviewer to current user when component mounts
     useEffect(() => {
@@ -171,7 +192,7 @@ export function InlineSubTaskForm({
                         reviewerId: reviewer || undefined,
                         tag: tag || undefined,
                         startDate: startDate || undefined,
-                        days: days ? Number(days) : undefined,
+                        days: (days && Number(days) > 0) ? Number(days) : undefined,
                     })
                 );
 
@@ -245,7 +266,10 @@ export function InlineSubTaskForm({
     };
 
     return (
-        <TableRow className={mode === "edit" ? "bg-primary/5 hover:bg-primary/10" : "bg-muted/20 hover:bg-muted/30"}>
+        <TableRow className={cn(
+            mode === "edit" ? "bg-primary/5 hover:bg-primary/10" : "bg-muted/20 hover:bg-muted/30",
+            "h-8 [&_td]:p-0"
+        )}>
             {/* Drag Handle - Empty */}
             <TableCell className="w-[50px]"></TableCell>
 
@@ -313,7 +337,7 @@ export function InlineSubTaskForm({
                             <SelectValue placeholder="Select assignee..." className="truncate" />
                         </SelectTrigger>
                         <SelectContent>
-                            {members.map((member) => (
+                            {availableMembers.map((member) => (
                                 <SelectItem key={member.workspaceMember.userId} value={member.workspaceMember.userId}>
                                     <span className="truncate block">
                                         {member.workspaceMember.user.name} {member.workspaceMember.user.surname}

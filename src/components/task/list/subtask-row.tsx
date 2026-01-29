@@ -14,7 +14,6 @@ import { ProjectMembersType } from "@/data/project/get-project-members";
 import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { getColorFromString } from "@/lib/colors/project-colors";
 import { EditSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/edit-subtask-form";
 import { DeleteSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/delete-subtask-form";
 import { InlineSubTaskForm } from "./inline-subtask-form";
@@ -49,7 +48,6 @@ export function SubTaskRow({
     members,
     projectId,
     parentTaskId,
-    parentTaskProject,
     onSubTaskUpdated,
     onSubTaskDeleted,
     tags = [], // Default to empty array
@@ -218,7 +216,7 @@ export function SubTaskRow({
             ref={setNodeRef}
             style={style}
             className={cn(
-                "bg-muted/10 hover:bg-muted/20",
+                "bg-muted/10 hover:bg-muted/20 h-8 [&_td]:py-2",
                 (subTask as any).isOptimistic && "opacity-60 grayscale-[0.5]"
             )}
         >
@@ -231,13 +229,12 @@ export function SubTaskRow({
                     {...listeners}
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+                    <CornerDownRight className="h-3 w-3 text-muted-foreground" />
                 </Button>
             </TableCell>
 
             <TableCell className="pl-3">
                 <div className="flex items-center gap-2">
-                    <CornerDownRight className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span
                         className="truncate text-muted-foreground text-sm max-w-[200px] block cursor-pointer hover:text-foreground transition-colors"
                         onClick={(e) => {
@@ -250,18 +247,7 @@ export function SubTaskRow({
                 </div>
             </TableCell>
 
-            {columnVisibility.project && (
-                <TableCell className="w-[180px] max-w-[180px]">
-                    {parentTaskProject ? (
-                        <Badge variant="secondary" className="text-xs font-normal shrink-0 gap-1.5 pl-1.5 flex items-center max-w-full">
-                            <div className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: parentTaskProject.color || getColorFromString(parentTaskProject.name) }} />
-                            <span className="truncate">{parentTaskProject.name}</span>
-                        </Badge>
-                    ) : (
-                        <span className="text-muted-foreground text-xs">-</span>
-                    )}
-                </TableCell>
-            )}
+            {/* Project column removed */}
 
             {columnVisibility.description && (
                 <TableCell className="w-[200px] max-w-[200px]">
@@ -316,7 +302,7 @@ export function SubTaskRow({
                         <Badge
                             variant="outline"
                             className={cn(
-                                "text-xs font-medium",
+                                "text-xs font-medium h-5 px-1.5 flex items-center justify-center whitespace-nowrap",
                                 getStatusColors(subTask.status).color,
                                 getStatusColors(subTask.status).bgColor,
                                 getStatusColors(subTask.status).borderColor
@@ -404,8 +390,8 @@ export function SubTaskRow({
                 {canEditSubTask() && (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7">
-                                <MoreHorizontal className="h-3.5 w-3.5" />
+                            <Button variant="ghost" size="icon" className="h-6 w-6">
+                                <MoreHorizontal className="h-2 w-2" />
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">

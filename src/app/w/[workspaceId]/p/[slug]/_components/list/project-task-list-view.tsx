@@ -1,4 +1,3 @@
-import { getWorkspaceTasks } from "@/data/task/get-workspace-tasks";
 import { getAllTasksFlat } from "@/data/task";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 import { TaskTable } from "@/components/task/list/task-table";
@@ -17,9 +16,9 @@ interface ProjectTaskListViewProps {
 
 /**
  * Server component that fetches initial task data and passes it to the client TaskTable component
- * Uses getWorkspaceTasks() with project filter - workspace-first architecture
- * - Fetches tasks from workspace level
- * - Filters by projectId for project-specific view
+ * Uses getAllTasksFlat() - same data source as Gantt chart for consistency
+ * - Fetches both parent tasks and subtasks as a flat list
+ * - Transforms flat list into hierarchical structure for TaskTable
  * - Role-based filtering (ADMINs/LEADs see all, MEMBERs see only assigned)
  */
 export async function ProjectTaskListView({
@@ -30,24 +29,37 @@ export async function ProjectTaskListView({
     permissions,
     userId,
 }: ProjectTaskListViewProps) {
-    // Get first 10 tasks filtered by project (workspace-level query with project filter)
-    const { tasks, hasMore, totalCount } = await getWorkspaceTasks(
-        workspaceId,
-        { projectId }, // Filter by project
-        1,
-        10
-    );
-
-    // Fetch all tasks (flat) to extract assignees for the filter
-    // This includes all subtasks, so we can show all assignees in the filter
+    // Fetch all tasks (flat) - same data source as Gantt chart
     const { tasks: allTasksFlat } = await getAllTasksFlat(workspaceId, projectId);
+
+    // Transform flat list into hierarchical structure
+    // Group subtasks under their parent tasks
+    const taskMap = new Map();
+    const parentTasks: any[] = [];
+
+    allTasksFlat.forEach(task => {
+        if (task.parentTaskId === null) {
+            // This is a parent task
+            const parentTask = {
+                ...task,
+                subTasks: undefined, // Will be loaded on-demand
+                createdBy: { user: { name: '', surname: '', image: '' } },
+                _count: {
+                    subTasks: task._count.subTasks,
+                },
+            };
+            taskMap.set(task.id, parentTask);
+            parentTasks.push(parentTask);
+        }
+    });
+
+    // Extract assignees from all tasks (including subtasks)
     const assigneesFromTasks = extractAssigneeOptions(allTasksFlat);
 
     // Fetch workspace tags for subtask creation/editing
     const tagsData = await getWorkspaceTags(workspaceId);
 
     // Map tags to only include necessary fields (id, name)
-    // This prevents passing database fields like createdAt, updatedAt to client components
     const tags = tagsData.map(tag => ({
         id: tag.id,
         name: tag.name,
@@ -55,8 +67,8 @@ export async function ProjectTaskListView({
 
     return (
         <TaskTable
-            initialTasks={tasks}
-            initialHasMore={hasMore ?? false}
+            initialTasks={parentTasks}
+            initialHasMore={false} // All tasks loaded from flat list
             members={members}
             assignees={assigneesFromTasks}
             workspaceId={workspaceId}

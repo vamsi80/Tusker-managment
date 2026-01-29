@@ -114,7 +114,7 @@ export function InlineTaskForm({
     };
 
     return (
-        <TableRow className="bg-muted/20 hover:bg-muted/30">
+        <TableRow className="bg-muted/20 hover:bg-muted/30 h-8 [&_td]:p-0">
             <TableCell className="w-[50px]"></TableCell>
 
             {/* Task Name Input */}
