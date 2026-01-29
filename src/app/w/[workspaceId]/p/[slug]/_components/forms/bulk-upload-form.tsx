@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useTransition, useRef } from "react";
-import { Loader2, Upload, Download, FileSpreadsheet, Info } from "lucide-react";
+import { useState, useTransition, useCallback } from "react";
+import { Loader2, Download, FileSpreadsheet, Info, Upload, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,9 @@ import { useRouter } from "next/navigation";
 import { useTaskContext } from "@/app/w/[workspaceId]/_components/shared/task-context";
 import { ApiResponse } from "@/lib/types";
 import { bulkUploadTasksAndSubtasks } from "@/actions/task/bulk-create-taskAndSubTask";
+import { useDropzone, FileRejection } from "react-dropzone";
+import { cn } from "@/lib/utils";
+
 
 interface BulkUploadFormProps {
     projectId: string;
@@ -22,6 +25,7 @@ interface ParsedTask {
     subtaskName?: string;
     description?: string;
     assigneeEmail?: string;
+    reviewerEmail?: string;
     startDate?: string;
     days?: number;
     status?: string;
@@ -34,20 +38,19 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
     const [open, setOpen] = useState(false);
     const router = useRouter();
     const { setIsAddingTask } = useTaskContext();
-    const fileInputRef = useRef<HTMLInputElement>(null);
     const [parsedData, setParsedData] = useState<ParsedTask[]>([]);
     const [fileName, setFileName] = useState<string>("");
 
     const downloadTemplate = () => {
-        const csvContent = `Task Name,Subtask Name,Description,Assignee Email,Start Date,Days,Status,Tag
-            Design Homepage,,,,,,,
-            Design Homepage,Create wireframe,Design wireframe mockup for homepage,john@example.com,2024-01-15,3,COMPLETED,DESIGN
-            Design Homepage,Design components,Create reusable UI components,jane@example.com,2024-01-18,4,IN_PROGRESS,DESIGN
-            Design Homepage,Review design,Final design review and approval,mike@example.com,2024-01-22,2,TO_DO,DESIGN
-            Procurement,,,,,,,
-            Procurement,Get quotes,Collect vendor quotes for materials,vendor@example.com,2024-01-20,2,TO_DO,PROCUREMENT
-            Procurement,Compare prices,Analyze and compare vendor pricing,admin@example.com,2024-01-22,1,TO_DO,PROCUREMENT
-            Project Kickoff,,,,,,,`;
+        const csvContent = `Task Name,Subtask Name,Description,Assignee Email,Reviewer Email,Start Date,Days,Status,Tag
+Design Homepage,,,,,,,,
+Design Homepage,Create wireframe,Design wireframe mockup for homepage,john@example.com,mike@example.com,2024-01-15,3,COMPLETED,DESIGN
+Design Homepage,Design components,Create reusable UI components,jane@example.com,admin@example.com,2024-01-18,4,IN_PROGRESS,DESIGN
+Design Homepage,Review design,Final design review and approval,mike@example.com,,2024-01-22,2,TO_DO,DESIGN
+Procurement,,,,,,,,
+Procurement,Get quotes,Collect vendor quotes for materials,vendor@example.com,admin@example.com,2024-01-20,2,TO_DO,PROCUREMENT
+Procurement,Compare prices,Analyze and compare vendor pricing,admin@example.com,,2024-01-22,1,TO_DO,PROCUREMENT
+Project Kickoff,,,,,,,,`;
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
@@ -90,16 +93,21 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
             - Member must be added to the project first
             - Example: "john@example.com"
 
-            5. Start Date (OPTIONAL)
+            5. Reviewer Email (OPTIONAL)
+            - Email address of reviewer (must be Owner/Admin/PM/Lead)
+            - If left empty, defaults to task creator
+            - Example: "admin@example.com"
+
+            6. Start Date (OPTIONAL)
             - Format: YYYY-MM-DD
             - Example: "2024-01-15"
 
-            6. Days (OPTIONAL)
+            7. Days (OPTIONAL)
             - Number of days to complete the subtask
             - Must be an integer
             - Example: 3, 5, 10
 
-            7. Status (OPTIONAL)
+            8. Status (OPTIONAL)
             - Valid values:
                 * TO_DO (default)
                 * IN_PROGRESS
@@ -108,7 +116,7 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
                 * CANCELLED
                 * HOLD
 
-            8. Tag (OPTIONAL)
+            9. Tag (OPTIONAL)
             - Valid values:
                 * DESIGN
                 * PROCUREMENT
@@ -174,12 +182,12 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
         for (const line of dataLines) {
             const values = line.split(',').map(v => sanitizeString(v));
 
-            // Pad the values array to ensure we have at least 8 elements
-            while (values.length < 8) {
+            // Pad the values array to ensure we have at least 9 elements
+            while (values.length < 9) {
                 values.push('');
             }
 
-            const [taskName, subtaskName, description, assigneeEmail, startDate, days, status, tag] = values;
+            const [taskName, subtaskName, description, assigneeEmail, reviewerEmail, startDate, days, status, tag] = values;
 
             // Skip rows without a task name
             if (!taskName) continue;
@@ -189,6 +197,7 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
                 subtaskName: subtaskName || undefined,
                 description: description || undefined,
                 assigneeEmail: assigneeEmail || undefined,
+                reviewerEmail: reviewerEmail || undefined,
                 startDate: startDate || undefined,
                 days: days ? parseInt(days) : undefined,
                 status: status || undefined,
@@ -199,10 +208,12 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
         return tasks;
     };
 
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
+    const clearFile = () => {
+        setParsedData([]);
+        setFileName("");
+    };
 
+    const processFile = async (file: File) => {
         setFileName(file.name);
 
         try {
@@ -226,9 +237,6 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
                 );
                 setParsedData([]);
                 setFileName("");
-                if (fileInputRef.current) {
-                    fileInputRef.current.value = "";
-                }
                 return;
             }
 
@@ -240,9 +248,6 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
                 toast.error("The file doesn't appear to be a valid CSV. Please ensure it's a comma-separated values file.");
                 setParsedData([]);
                 setFileName("");
-                if (fileInputRef.current) {
-                    fileInputRef.current.value = "";
-                }
                 return;
             }
 
@@ -263,6 +268,55 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
             setFileName("");
         }
     };
+
+    const onDrop = useCallback((acceptedFiles: File[]) => {
+        if (acceptedFiles.length > 0) {
+            processFile(acceptedFiles[0]);
+        }
+    }, []);
+
+    const onDropRejected = useCallback((fileRejections: FileRejection[]) => {
+        if (fileRejections.length) {
+            const tooManyFiles = fileRejections.find(
+                (rejection) => rejection.errors[0].code === 'too-many-files'
+            );
+
+            const fileSizeToBig = fileRejections.find(
+                (rejection) => rejection.errors[0].code === 'file-too-large'
+            );
+
+            const wrongFileType = fileRejections.find(
+                (rejection) => rejection.errors[0].code === 'file-invalid-type'
+            );
+
+            if (tooManyFiles) {
+                toast.error('Too many files selected, max is 1');
+            }
+
+            if (fileSizeToBig) {
+                toast.error('File size exceeds the limit (10MB)');
+            }
+
+            if (wrongFileType) {
+                toast.error('Invalid file type. Please upload a CSV file');
+            }
+        }
+    }, []);
+
+    const { getRootProps, getInputProps, isDragActive } = useDropzone({
+        onDrop,
+        accept: {
+            'text/csv': ['.csv'],
+            'application/vnd.ms-excel': ['.csv'],
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+            'application/vnd.ms-excel.sheet.macroEnabled.12': ['.xlsm']
+        },
+        maxFiles: 1,
+        multiple: false,
+        maxSize: 10 * 1024 * 1024, // 10MB
+        onDropRejected,
+        disabled: pending || parsedData.length > 0,
+    });
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -304,9 +358,6 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
 
                 setParsedData([]);
                 setFileName("");
-                if (fileInputRef.current) {
-                    fileInputRef.current.value = "";
-                }
                 setOpen(false);
 
                 router.refresh();
@@ -379,42 +430,62 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
 
                     {/* File Upload */}
                     <div className="space-y-3">
-                        <Label htmlFor="file-upload">Upload CSV File</Label>
-                        <input
-                            ref={fileInputRef}
-                            id="file-upload"
-                            type="file"
-                            accept=".csv,.xlsx,.xls"
-                            onChange={handleFileUpload}
-                            disabled={pending}
-                            className="hidden"
-                        />
+                        <Label>Upload CSV File</Label>
                         <div
-                            onClick={() => fileInputRef.current?.click()}
-                            className="w-full border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-8 hover:border-primary hover:bg-accent/50 transition-colors cursor-pointer"
+                            {...getRootProps()}
+                            className={cn(
+                                "relative border-2 border-dashed rounded-lg p-8 transition-all duration-200 cursor-pointer",
+                                isDragActive
+                                    ? "border-primary bg-primary/10 border-solid"
+                                    : parsedData.length > 0
+                                        ? "border-green-500 bg-green-50 dark:bg-green-950/20"
+                                        : "border-gray-300 dark:border-gray-700 hover:border-primary hover:bg-accent/50",
+                                (pending || parsedData.length > 0) && "cursor-not-allowed opacity-60"
+                            )}
                         >
+                            <input {...getInputProps()} />
                             <div className="flex flex-col items-center justify-center gap-3">
-                                <div className="p-3 rounded-full bg-primary/10">
-                                    <Upload className="h-6 w-6 text-primary" />
-                                </div>
-                                {fileName ? (
-                                    <div className="text-center">
-                                        <p className="text-sm font-medium text-foreground">
-                                            {fileName}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground mt-1">
-                                            Click to choose a different file
-                                        </p>
-                                    </div>
+                                {parsedData.length > 0 ? (
+                                    <>
+                                        <div className="p-3 rounded-full bg-green-500/10">
+                                            <FileSpreadsheet className="h-6 w-6 text-green-600 dark:text-green-400" />
+                                        </div>
+                                        <div className="text-center">
+                                            <p className="text-sm font-medium text-foreground flex items-center gap-2 justify-center">
+                                                {fileName}
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-6 w-6 p-0"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        clearFile();
+                                                    }}
+                                                    disabled={pending}
+                                                >
+                                                    <X className="h-4 w-4" />
+                                                </Button>
+                                            </p>
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                File loaded successfully
+                                            </p>
+                                        </div>
+                                    </>
                                 ) : (
-                                    <div className="text-center">
-                                        <p className="text-sm font-medium text-foreground">
-                                            Click to upload or drag and drop
-                                        </p>
-                                        <p className="text-xs text-muted-foreground mt-1">
-                                            CSV, XLSX, or XLS files only
-                                        </p>
-                                    </div>
+                                    <>
+                                        <div className="p-3 rounded-full bg-primary/10">
+                                            <Upload className="h-6 w-6 text-primary" />
+                                        </div>
+                                        <div className="text-center">
+                                            <p className="text-sm font-medium text-foreground">
+                                                {isDragActive ? "Drop the file here" : "Click to upload or drag and drop"}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                CSV, XLSX, or XLS files only (max 10MB)
+                                            </p>
+                                        </div>
+                                    </>
                                 )}
                             </div>
                         </div>

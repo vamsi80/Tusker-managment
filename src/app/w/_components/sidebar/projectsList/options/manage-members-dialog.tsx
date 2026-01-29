@@ -8,11 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { Check, Loader2, Plus, Trash2, UserCog, Users } from "lucide-react";
+import { Check, Loader2, Plus, Trash2, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { tryCatch } from "@/hooks/try-catch";
-import { addProjectMembers, removeProjectMembers, updateProjectMemberRole, toggleProjectMemberAccess } from "@/actions/project/manage-members";
+import { addProjectMembers, removeProjectMembers, updateProjectMemberRole } from "@/actions/project/manage-members";
 import { ProjectRole } from "@/generated/prisma/client";
 import { WorkspaceMembersResult } from "@/data/workspace";
 
@@ -21,7 +21,6 @@ interface ProjectMember {
     userId: string;
     userName: string;
     projectRole: ProjectRole;
-    hasAccess: boolean;
 }
 
 interface ManageProjectMembersDialogProps {
@@ -103,27 +102,6 @@ export const ManageProjectMembersDialog = ({
         startTransition(async () => {
             const { data: result, error } = await tryCatch(
                 updateProjectMemberRole(projectId, memberUserId, newRole)
-            );
-
-            if (error) {
-                toast.error(error.message);
-                console.error(error);
-                return;
-            }
-
-            if (result.status === "success") {
-                toast.success(result.message);
-                router.refresh();
-            } else {
-                toast.error(result.message);
-            }
-        });
-    };
-
-    const handleToggleAccess = (memberUserId: string) => {
-        startTransition(async () => {
-            const { data: result, error } = await tryCatch(
-                toggleProjectMemberAccess(projectId, memberUserId)
             );
 
             if (error) {
@@ -298,11 +276,6 @@ export const ManageProjectMembersDialog = ({
                                                         >
                                                             {member.projectRole === "PROJECT_MANAGER" ? "Manager" : member.projectRole}
                                                         </Badge>
-                                                        {!member.hasAccess && (
-                                                            <Badge variant="destructive" className="text-xs">
-                                                                No Access
-                                                            </Badge>
-                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
@@ -331,18 +304,6 @@ export const ManageProjectMembersDialog = ({
                                                         Fixed Role
                                                     </div>
                                                 )}
-
-                                                {/* Toggle Access Button - Disabled for PROJECT_MANAGER */}
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => handleToggleAccess(member.userId)}
-                                                    disabled={pending || member.projectRole === "PROJECT_MANAGER"}
-                                                    className="h-8"
-                                                    title={member.projectRole === "PROJECT_MANAGER" ? "Cannot toggle access for project manager" : "Toggle access"}
-                                                >
-                                                    <UserCog className="h-3 w-3" />
-                                                </Button>
 
                                                 {/* Remove Button - Disabled for PROJECT_MANAGER */}
                                                 <Button

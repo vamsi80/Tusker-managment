@@ -12,7 +12,6 @@ interface ProjectMember {
     userId: string;
     userName: string;
     projectRole: ProjectRole;
-    hasAccess: boolean;
 }
 
 interface ManageMembersButtonProps {

@@ -5,11 +5,12 @@ import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
 import { ProjectRole } from "@/generated/prisma/client";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
-import { invalidateWorkspaceProjects } from "@/lib/cache/invalidation";
+import { invalidateWorkspaceProjects, invalidateProjectMembers } from "@/lib/cache/invalidation";
+import { revalidatePath } from "next/cache";
 
 /**
  * Add members to an existing project
- * Only workspace admins and project leads can add members
+ * Only workspace admins and project managers can add members
  */
 export async function addProjectMembers(
     projectId: string,
@@ -75,11 +76,11 @@ export async function addProjectMembers(
             };
         }
 
-        // Only workspace admins (OWNER/ADMIN) and project leads can add members
-        if (!permissions.isWorkspaceAdmin && !permissions.isProjectLead) {
+        // Only workspace admins (OWNER/ADMIN) and project managers can add members
+        if (!permissions.isWorkspaceAdmin && !permissions.isProjectManager) {
             return {
                 status: "error",
-                message: "Only workspace owners/admins and project leads can add members.",
+                message: "Only workspace owners/admins and project managers can add members.",
             };
         }
 
@@ -139,7 +140,13 @@ export async function addProjectMembers(
         await prisma.projectMember.createMany({
             data: newMembers,
         });
+
+        // Invalidate caches
         await invalidateWorkspaceProjects(project.workspaceId);
+        await invalidateProjectMembers(projectId);
+
+        // Revalidate the current path to refresh the UI
+        revalidatePath(`/w/${project.workspaceId}/p/${project.slug}`);
 
         return {
             status: "success",
@@ -156,8 +163,8 @@ export async function addProjectMembers(
 
 /**
  * Remove members from a project
- * Only workspace admins and project leads can remove members
- * Cannot remove the last project lead
+ * Only workspace admins and project managers can remove members
+ * Cannot remove the last project manager
  */
 export async function removeProjectMembers(
     projectId: string,
@@ -223,11 +230,11 @@ export async function removeProjectMembers(
             };
         }
 
-        // Only workspace admins and project leads can remove members
-        if (!permissions.isWorkspaceAdmin && !permissions.isProjectLead) {
+        // Only workspace admins and project managers can remove members
+        if (!permissions.isWorkspaceAdmin && !permissions.isProjectManager) {
             return {
                 status: "error",
-                message: "Only workspace admins and project leads can remove members.",
+                message: "Only workspace admins and project managers can remove members.",
             };
         }
 
@@ -243,18 +250,18 @@ export async function removeProjectMembers(
             };
         }
 
-        // Check if we're removing all project leads
-        const currentLeads = project.projectMembers.filter(
-            (pm) => pm.projectRole === "LEAD"
+        // Check if we're removing all project managers
+        const currentManagers = project.projectMembers.filter(
+            (pm) => pm.projectRole === "PROJECT_MANAGER"
         );
-        const remainingLeads = currentLeads.filter(
+        const remainingManagers = currentManagers.filter(
             (pm) => !workspaceMemberIdsToRemove.includes(pm.workspaceMemberId)
         );
 
-        if (currentLeads.length > 0 && remainingLeads.length === 0) {
+        if (currentManagers.length > 0 && remainingManagers.length === 0) {
             return {
                 status: "error",
-                message: "Cannot remove all project leads. At least one lead must remain.",
+                message: "Cannot remove all project managers. At least one manager must remain.",
             };
         }
 
@@ -267,7 +274,13 @@ export async function removeProjectMembers(
                 },
             },
         });
+
+        // Invalidate caches
         await invalidateWorkspaceProjects(project.workspaceId);
+        await invalidateProjectMembers(projectId);
+
+        // Revalidate the current path to refresh the UI
+        revalidatePath(`/w/${project.workspaceId}/p/${project.slug}`);
 
         return {
             status: "success",
@@ -284,8 +297,8 @@ export async function removeProjectMembers(
 
 /**
  * Update a project member's role
- * Only workspace admins and project leads can update roles
- * Cannot demote the last project lead
+ * Only workspace admins and project managers can update roles
+ * Cannot demote the last project manager
  */
 export async function updateProjectMemberRole(
     projectId: string,
@@ -310,10 +323,10 @@ export async function updateProjectMemberRole(
             };
         }
 
-        if (!newRole || !["LEAD", "MEMBER", "VIEWER"].includes(newRole)) {
+        if (!newRole || !["PROJECT_MANAGER", "LEAD", "MEMBER", "VIEWER"].includes(newRole)) {
             return {
                 status: "error",
-                message: "Invalid role. Must be LEAD, MEMBER, or VIEWER.",
+                message: "Invalid role. Must be PROJECT_MANAGER, LEAD, MEMBER, or VIEWER.",
             };
         }
 
@@ -355,11 +368,11 @@ export async function updateProjectMemberRole(
             };
         }
 
-        // Only workspace admins and project leads can update member roles
-        if (!permissions.isWorkspaceAdmin && !permissions.isProjectLead) {
+        // Only workspace admins and project managers can update member roles
+        if (!permissions.isWorkspaceAdmin && !permissions.isProjectManager) {
             return {
                 status: "error",
-                message: "Only workspace admins and project leads can update member roles.",
+                message: "Only workspace admins and project managers can update member roles.",
             };
         }
 
@@ -375,16 +388,16 @@ export async function updateProjectMemberRole(
             };
         }
 
-        // Check if we're demoting the last lead
-        if (targetMember.projectRole === "LEAD" && newRole !== "LEAD") {
-            const currentLeads = project.projectMembers.filter(
-                (pm) => pm.projectRole === "LEAD"
+        // Check if we're demoting the last project manager
+        if (targetMember.projectRole === "PROJECT_MANAGER" && newRole !== "PROJECT_MANAGER") {
+            const currentManagers = project.projectMembers.filter(
+                (pm) => pm.projectRole === "PROJECT_MANAGER"
             );
 
-            if (currentLeads.length === 1) {
+            if (currentManagers.length === 1) {
                 return {
                     status: "error",
-                    message: "Cannot demote the last project lead. Promote another member to lead first.",
+                    message: "Cannot demote the last project manager. Promote another member to manager first.",
                 };
             }
         }
@@ -397,8 +410,12 @@ export async function updateProjectMemberRole(
             },
         });
 
-        // Invalidate project cache
+        // Invalidate caches
         await invalidateWorkspaceProjects(project.workspaceId);
+        await invalidateProjectMembers(projectId);
+
+        // Revalidate the current path to refresh the UI
+        revalidatePath(`/w/${project.workspaceId}/p/${project.slug}`);
 
         const memberName = targetMember.workspaceMember.user?.surname || "Member";
         return {
@@ -416,7 +433,7 @@ export async function updateProjectMemberRole(
 
 /**
  * Toggle member access (enable/disable)
- * Only workspace admins and project leads can toggle access
+ * Only workspace admins and project managers can toggle access
  */
 export async function toggleProjectMemberAccess(
     projectId: string,
@@ -478,11 +495,11 @@ export async function toggleProjectMemberAccess(
             };
         }
 
-        // Only workspace admins and project leads can toggle member access
-        if (!permissions.isWorkspaceAdmin && !permissions.isProjectLead) {
+        // Only workspace admins and project managers can toggle member access
+        if (!permissions.isWorkspaceAdmin && !permissions.isProjectManager) {
             return {
                 status: "error",
-                message: "Only workspace admins and project leads can toggle member access.",
+                message: "Only workspace admins and project managers can toggle member access.",
             };
         }
 
@@ -508,8 +525,12 @@ export async function toggleProjectMemberAccess(
             },
         });
 
-        // Invalidate project cache
+        // Invalidate caches
         await invalidateWorkspaceProjects(project.workspaceId);
+        await invalidateProjectMembers(projectId);
+
+        // Revalidate the current path to refresh the UI
+        revalidatePath(`/w/${project.workspaceId}/p/${project.slug}`);
 
         return {
             status: "success",
