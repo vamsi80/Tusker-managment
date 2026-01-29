@@ -13,6 +13,7 @@ import { Settings2 } from "lucide-react";
 
 export type ColumnVisibility = {
     assignee: boolean;
+    reviewer: boolean;
     status: boolean;
     startDate: boolean;
     dueDate: boolean;
@@ -59,6 +60,12 @@ export function ColumnVisibility({
                     onCheckedChange={() => setColumnVisibility((prev) => ({ ...prev, assignee: !prev.assignee }))}
                 >
                     Assignee
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem
+                    checked={columnVisibility.reviewer}
+                    onCheckedChange={() => setColumnVisibility((prev) => ({ ...prev, reviewer: !prev.reviewer }))}
+                >
+                    Reviewer
                 </DropdownMenuCheckboxItem>
                 <DropdownMenuCheckboxItem
                     checked={columnVisibility.status}

@@ -207,6 +207,7 @@ export function TaskTable({
 
     const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
         assignee: true,
+        reviewer: true, // Show reviewer column by default
         startDate: true,
         dueDate: true,
         progress: true,
@@ -743,6 +744,7 @@ export function TaskTable({
                                     {columnVisibility.project && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[180px] bg-background">Project</th>}
                                     {columnVisibility.description && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[200px] bg-background">Description</th>}
                                     {columnVisibility.assignee && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[200px] bg-background">Assignee</th>}
+                                    {columnVisibility.reviewer && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[200px] bg-background">Reviewer</th>}
                                     {columnVisibility.status && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[120px] bg-background">Status</th>}
                                     {columnVisibility.startDate && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[150px] bg-background">Start Date</th>}
                                     {columnVisibility.dueDate && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[150px] bg-background">Due Date</th>}

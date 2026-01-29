@@ -14,6 +14,7 @@ import { tryCatch } from "@/hooks/try-catch";
 import { toast } from "sonner";
 import slugify from "slugify";
 import { editTask } from "@/actions/task/update-task";
+import { getProjectReviewers, ProjectReviewer } from "@/actions/project/get-project-reviewers";
 import { TaskWithSubTasks } from "../list/types";
 import { useReloadView } from "@/hooks/use-reload-view";
 
@@ -55,8 +56,31 @@ export function EditTaskDialog({
             name: task.name,
             taskSlug: task.taskSlug,
             projectId: task.projectId,
+            reviewerId: (task as any).reviewerId || null,
         },
     });
+
+    const [reviewers, setReviewers] = useState<ProjectReviewer[]>([]);
+
+    useEffect(() => {
+        if (open && selectedProjectId) {
+            getProjectReviewers(selectedProjectId)
+                .then((fetchedReviewers) => {
+                    setReviewers(fetchedReviewers);
+
+                    // Default to Task Creator if no reviewer set
+                    if (!form.getValues("reviewerId")) {
+                        const creatorId = (task as any).createdById || (task as any).createdBy?.userId;
+                        const creator = fetchedReviewers.find(r => r.id === creatorId);
+
+                        if (creator) {
+                            form.setValue("reviewerId", creator.id);
+                        }
+                    }
+                })
+                .catch(err => console.error("Failed to fetch reviewers", err));
+        }
+    }, [open, selectedProjectId, form]);
 
     const watchedName = useWatch({
         control: form.control,
@@ -196,6 +220,40 @@ export function EditTaskDialog({
                                                 {...field}
                                             />
                                         </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <FormField
+                                control={form.control}
+                                name="reviewerId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Review By</FormLabel>
+                                        <Select
+                                            onValueChange={(value) => field.onChange(value === "unassigned" ? null : value)}
+                                            value={field.value || "unassigned"}
+                                        >
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select a reviewer" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                <SelectItem value="unassigned">No Reviewer</SelectItem>
+                                                {reviewers.map((reviewer) => (
+                                                    <SelectItem key={reviewer.id} value={reviewer.id}>
+                                                        <div className="flex items-center gap-2">
+                                                            <span>{reviewer.name}</span>
+                                                            <span className="text-xs text-muted-foreground ml-1">
+                                                                ({reviewer.role})
+                                                            </span>
+                                                        </div>
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                         <FormMessage />
                                     </FormItem>
                                 )}

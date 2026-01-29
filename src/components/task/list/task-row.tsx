@@ -61,6 +61,7 @@ export function TaskRow({
     if (columnVisibility.status) colSpan++;
     if (columnVisibility.progress) colSpan++;
     if (columnVisibility.tag) colSpan++;
+    if (columnVisibility.reviewer) colSpan++; // Added reviewer
 
     const handleTaskUpdated = (updatedTask: { name: string; taskSlug: string }) => {
         // Update the task in parent state immediately (Optimistic Level 1)

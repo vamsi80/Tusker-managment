@@ -292,6 +292,24 @@ export function SubTaskRow({
                 </TableCell>
             )}
 
+            {columnVisibility.reviewer && (
+                <TableCell>
+                    {subTask.reviewer ? (
+                        <div className="flex items-center gap-2">
+                            <Avatar className="h-5 w-5">
+                                <AvatarImage src={subTask.reviewer.image || ""} />
+                                <AvatarFallback className="text-[10px]">{subTask.reviewer.surname?.[0] || subTask.reviewer.name?.[0]}</AvatarFallback>
+                            </Avatar>
+                            <span className="text-xs text-muted-foreground">
+                                {subTask.reviewer.surname || subTask.reviewer.name}
+                            </span>
+                        </div>
+                    ) : (
+                        <span className="text-xs text-muted-foreground">No Reviewer</span>
+                    )}
+                </TableCell>
+            )}
+
             {columnVisibility.status && (
                 <TableCell>
                     {subTask.status ? (

@@ -82,6 +82,15 @@ async function _getSubTasksInternal(
                         image: true,
                     },
                 },
+                reviewerId: true,
+                reviewer: {
+                    select: {
+                        id: true,
+                        name: true,
+                        surname: true,
+                        image: true,
+                    },
+                },
                 _count: {
                     select: {
                         reviewComments: true,

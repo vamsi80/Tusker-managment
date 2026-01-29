@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -18,6 +18,7 @@ import { SubTaskStatus, STATUS_OPTIONS } from "@/lib/zodSchemas";
 import { ColumnVisibility } from "../shared/column-visibility";
 import { SubTaskType } from "@/data/task/list/get-subtasks";
 import { ApiResponse } from "@/lib/types";
+import { getProjectReviewers, ProjectReviewer } from "@/actions/project/get-project-reviewers";
 
 interface InlineSubTaskFormProps {
     workspaceId: string;
@@ -33,6 +34,7 @@ interface InlineSubTaskFormProps {
     // Edit mode props
     mode?: "create" | "edit";
     subTask?: SubTaskType; // Required when mode is "edit"
+    userId?: string; // Current user ID for default reviewer
 }
 
 /**
@@ -52,17 +54,53 @@ export function InlineSubTaskForm({
     onSubTaskDeleted,
     mode = "create",
     subTask,
+    userId,
 }: InlineSubTaskFormProps) {
     const [pending, startTransition] = useTransition();
     const [subTaskName, setSubTaskName] = useState(subTask?.name || "");
     const [description, setDescription] = useState(subTask?.description || "");
     const [assignee, setAssignee] = useState(subTask?.assignee?.id || "");
+    const [reviewer, setReviewer] = useState(subTask?.reviewerId || "");
+    const [reviewers, setReviewers] = useState<ProjectReviewer[]>([]);
     const [status, setStatus] = useState<typeof SubTaskStatus[number]>(subTask?.status || "TO_DO");
     const [startDate, setStartDate] = useState(
         subTask?.startDate ? new Date(subTask.startDate).toISOString().split('T')[0] : ""
     );
     const [days, setDays] = useState(String(subTask?.days || 0));
     const [tag, setTag] = useState(subTask?.tag?.id || "");
+
+    // Fetch reviewers and set default reviewer to current user when component mounts
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const fetchedReviewers = await getProjectReviewers(projectId);
+                setReviewers(fetchedReviewers);
+
+                // For create mode, set current user as default reviewer if they're eligible
+                if (mode === "create" && !reviewer && userId) {
+                    const isReviewer = fetchedReviewers.find(r => r.id === userId);
+                    if (isReviewer) {
+                        setReviewer(userId);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch reviewers", err);
+            }
+        };
+
+        fetchData();
+    }, [projectId, mode, reviewer, userId]);
+
+    // Helper function to get role shortcuts
+    const getRoleShortcut = (role: string): string => {
+        const shortcuts: Record<string, string> = {
+            'PROJECT_MANAGER': 'PM',
+            'LEAD': 'Lead',
+            'OWNER': 'Owner',
+            'ADMIN': 'Admin',
+        };
+        return shortcuts[role] || role;
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -123,15 +161,16 @@ export function InlineSubTaskForm({
                 const { data: result, error } = await tryCatch(
                     createSubTask({
                         name: subTaskName.trim(),
+                        taskSlug,
                         description: description.trim() || undefined,
-                        taskSlug: taskSlug,
+                        status,
                         projectId,
                         parentTaskId,
-                        status,
                         assignee: assignee || undefined,
-                        startDate: startDate || undefined,
-                        days: parseInt(days) || 0,
+                        reviewerId: reviewer || undefined,
                         tag: tag || undefined,
+                        startDate: startDate || undefined,
+                        days: days ? Number(days) : undefined,
                     })
                 );
 
@@ -273,6 +312,24 @@ export function InlineSubTaskForm({
                             {members.map((member) => (
                                 <SelectItem key={member.workspaceMember.userId} value={member.workspaceMember.userId}>
                                     {member.workspaceMember.user.name} {member.workspaceMember.user.surname}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </TableCell>
+            )}
+
+            {/* Reviewer */}
+            {columnVisibility.reviewer && (
+                <TableCell className="w-[200px]">
+                    <Select value={reviewer} onValueChange={setReviewer} disabled={pending}>
+                        <SelectTrigger className="h-8">
+                            <SelectValue placeholder="No reviewer" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {reviewers.map((rev) => (
+                                <SelectItem key={rev.id} value={rev.id}>
+                                    {rev.name} ({getRoleShortcut(rev.role)})
                                 </SelectItem>
                             ))}
                         </SelectContent>
