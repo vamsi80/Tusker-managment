@@ -718,7 +718,7 @@ export function TaskTable({
                         collisionDetection={closestCenter}
                         onDragEnd={handleDragEnd}
                     >
-                        <table className="w-full caption-bottom text-sm">
+                        <table className="w-full caption-bottom text-sm table-fixed">
                             <thead className="[&_tr]:border-b">
                                 <tr className="sticky top-0 z-10 bg-background border-b shadow-sm hover:bg-muted/50">
                                     <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[50px] bg-background">
@@ -740,16 +740,16 @@ export function TaskTable({
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </th>
-                                    <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap min-w-[250px] bg-background">Task Name</th>
+                                    <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[250px] bg-background">Task Name</th>
                                     {columnVisibility.project && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[180px] bg-background">Project</th>}
                                     {columnVisibility.description && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[200px] bg-background">Description</th>}
-                                    {columnVisibility.assignee && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[200px] bg-background">Assignee</th>}
-                                    {columnVisibility.reviewer && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[200px] bg-background">Reviewer</th>}
-                                    {columnVisibility.status && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[120px] bg-background">Status</th>}
-                                    {columnVisibility.startDate && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[150px] bg-background">Start Date</th>}
-                                    {columnVisibility.dueDate && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[150px] bg-background">Due Date</th>}
-                                    {columnVisibility.progress && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[120px] bg-background">Progress</th>}
-                                    {columnVisibility.tag && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[150px] bg-background">Tag</th>}
+                                    {columnVisibility.assignee && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] bg-background">Assignee</th>}
+                                    {columnVisibility.reviewer && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] bg-background">Reviewer</th>}
+                                    {columnVisibility.status && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] bg-background">Status</th>}
+                                    {columnVisibility.startDate && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] bg-background">Start Date</th>}
+                                    {columnVisibility.dueDate && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] bg-background">Due Date</th>}
+                                    {columnVisibility.progress && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] bg-background">Progress</th>}
+                                    {columnVisibility.tag && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[120px] bg-background">Tag</th>}
                                     <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[50px] bg-background"></th>
                                 </tr>
                             </thead>

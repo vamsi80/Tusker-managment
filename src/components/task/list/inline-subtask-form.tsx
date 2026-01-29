@@ -19,6 +19,7 @@ import { ColumnVisibility } from "../shared/column-visibility";
 import { SubTaskType } from "@/data/task/list/get-subtasks";
 import { ApiResponse } from "@/lib/types";
 import { getProjectReviewers, ProjectReviewer } from "@/actions/project/get-project-reviewers";
+import { cn } from "@/lib/utils";
 
 interface InlineSubTaskFormProps {
     workspaceId: string;
@@ -249,7 +250,7 @@ export function InlineSubTaskForm({
             <TableCell className="w-[50px]"></TableCell>
 
             {/* SubTask Name Input */}
-            <TableCell className="min-w-[250px] pl-0">
+            <TableCell className="w-[250px] pl-0">
                 <Input
                     placeholder="SubTask name..."
                     value={subTaskName}
@@ -279,7 +280,10 @@ export function InlineSubTaskForm({
                                 className="h-8 w-full justify-start text-left font-normal"
                                 disabled={pending}
                             >
-                                <span className={description ? "text-foreground" : "text-muted-foreground"}>
+                                <span className={cn(
+                                    "truncate block",
+                                    description ? "text-foreground" : "text-muted-foreground"
+                                )}>
                                     {description || "Add description..."}
                                 </span>
                             </Button>
@@ -303,15 +307,17 @@ export function InlineSubTaskForm({
 
             {/* Assignee */}
             {columnVisibility.assignee && (
-                <TableCell className="w-[200px]">
+                <TableCell className="w-[100px] max-w-[100px]">
                     <Select value={assignee} onValueChange={setAssignee} disabled={pending}>
-                        <SelectTrigger className="h-8">
-                            <SelectValue placeholder="Select assignee..." />
+                        <SelectTrigger className="h-8 w-full">
+                            <SelectValue placeholder="Select assignee..." className="truncate" />
                         </SelectTrigger>
                         <SelectContent>
                             {members.map((member) => (
                                 <SelectItem key={member.workspaceMember.userId} value={member.workspaceMember.userId}>
-                                    {member.workspaceMember.user.name} {member.workspaceMember.user.surname}
+                                    <span className="truncate block">
+                                        {member.workspaceMember.user.name} {member.workspaceMember.user.surname}
+                                    </span>
                                 </SelectItem>
                             ))}
                         </SelectContent>
@@ -321,15 +327,17 @@ export function InlineSubTaskForm({
 
             {/* Reviewer */}
             {columnVisibility.reviewer && (
-                <TableCell className="w-[200px]">
+                <TableCell className="w-[100px] max-w-[100px]">
                     <Select value={reviewer} onValueChange={setReviewer} disabled={pending}>
-                        <SelectTrigger className="h-8">
-                            <SelectValue placeholder="No reviewer" />
+                        <SelectTrigger className="h-8 w-full">
+                            <SelectValue placeholder="Select reviewer..." className="truncate" />
                         </SelectTrigger>
                         <SelectContent>
                             {reviewers.map((rev) => (
                                 <SelectItem key={rev.id} value={rev.id}>
-                                    {rev.name} ({getRoleShortcut(rev.role)})
+                                    <span className="truncate block">
+                                        {rev.name} ({getRoleShortcut(rev.role)})
+                                    </span>
                                 </SelectItem>
                             ))}
                         </SelectContent>
@@ -339,10 +347,10 @@ export function InlineSubTaskForm({
 
             {/* Status */}
             {columnVisibility.status && (
-                <TableCell className="w-[120px]">
+                <TableCell className="w-[120px] max-w-[120px]">
                     <Select value={status} onValueChange={(value) => setStatus(value as typeof SubTaskStatus[number])} disabled={pending}>
-                        <SelectTrigger className="h-8">
-                            <SelectValue />
+                        <SelectTrigger className="h-8 w-full">
+                            <SelectValue className="truncate" />
                         </SelectTrigger>
                         <SelectContent>
                             {STATUS_OPTIONS.map((option) => (
@@ -357,7 +365,7 @@ export function InlineSubTaskForm({
 
             {/* Start Date */}
             {columnVisibility.startDate && (
-                <TableCell className="w-[150px]">
+                <TableCell className="w-[120px]">
                     <Input
                         type="date"
                         value={startDate}
@@ -370,7 +378,7 @@ export function InlineSubTaskForm({
 
             {/* Days (for due date calculation) */}
             {columnVisibility.dueDate && (
-                <TableCell className="w-[150px]">
+                <TableCell className="w-[120px]">
                     <Input
                         type="number"
                         placeholder="Days..."
@@ -390,15 +398,15 @@ export function InlineSubTaskForm({
 
             {/* Tag */}
             {columnVisibility.tag && (
-                <TableCell className="w-[150px]">
+                <TableCell className="w-[120px] max-w-[120px]">
                     <Select value={tag} onValueChange={setTag} disabled={pending}>
-                        <SelectTrigger className="h-8">
-                            <SelectValue placeholder="Select tag..." />
+                        <SelectTrigger className="h-8 w-full">
+                            <SelectValue placeholder="Select tag..." className="truncate" />
                         </SelectTrigger>
                         <SelectContent>
                             {tags.map((t) => (
                                 <SelectItem key={t.id} value={t.id}>
-                                    {t.name}
+                                    <span className="truncate block">{t.name}</span>
                                 </SelectItem>
                             ))}
                         </SelectContent>
@@ -406,30 +414,33 @@ export function InlineSubTaskForm({
                 </TableCell>
             )}
 
-            {/* Action Buttons */}
-            <TableCell className="w-[50px]">
-                <div className="flex items-center gap-1">
+            <TableCell className="w-[50px] px-0">
+                <div className="flex items-center justify-center gap-0.5">
+                    {subTaskName.trim().length >= 3 && (
+                        <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6 hover:bg-green-100 hover:text-green-600"
+                            onClick={handleSubmit}
+                            disabled={pending}
+                            title="Save (Enter)"
+                        >
+                            {pending ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                                <Check className="h-3.5 w-3.5" />
+                            )}
+                        </Button>
+                    )}
                     <Button
-                        size="sm"
+                        size="icon"
                         variant="ghost"
-                        className="h-7 w-7 p-0 hover:bg-green-100 hover:text-green-600"
-                        onClick={handleSubmit}
-                        disabled={pending || subTaskName.trim().length < 3}
-                    >
-                        {pending ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                            <Check className="h-4 w-4" />
-                        )}
-                    </Button>
-                    <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 w-7 p-0 hover:bg-red-100 hover:text-red-600"
+                        className="h-6 w-6 hover:bg-red-100 hover:text-red-600"
                         onClick={onCancel}
                         disabled={pending}
+                        title="Cancel (Esc)"
                     >
-                        <X className="h-4 w-4" />
+                        <X className="h-3.5 w-3.5" />
                     </Button>
                 </div>
             </TableCell>
