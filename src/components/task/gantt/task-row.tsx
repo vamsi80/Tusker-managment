@@ -81,17 +81,14 @@ export function TaskRow({
                 {/* Left Panel - Task Name */}
                 <div
                     className={cn(
-                        "sticky left-0 z-30 w-[200px] min-w-[200px] flex items-center gap-2 px-3 py-2 min-h-[40px]",
+                        "sticky left-0 z-30 w-[200px] min-w-[200px] flex items-center gap-1 px-3 py-2 min-h-[36px]",
                         "bg-white dark:bg-neutral-900",
                         "border-b border-r border-neutral-200 dark:border-neutral-700",
                         "hover:bg-neutral-50 dark:hover:bg-neutral-800/50",
                         "transition-colors duration-150",
-                        isNestedInProject && "pl-5"
+                        isNestedInProject && "pl-6"
                     )}
                 >
-                    {isNestedInProject && (
-                        <CornerDownRight className="h-3 w-3 text-muted-foreground/50 shrink-0 mr-[-4px]" />
-                    )}
                     <button
                         onClick={onToggle}
                         className={cn(
@@ -121,7 +118,7 @@ export function TaskRow({
                 {/* Right Panel - Task Bar */}
                 <div
                     className={cn(
-                        "relative min-h-[40px] flex items-center w-full",
+                        "relative min-h-[36px] flex items-center w-full",
                         "border-b border-neutral-200 dark:border-neutral-700",
                         "hover:bg-neutral-50 dark:hover:bg-neutral-800/50",
                         "transition-colors duration-150"
@@ -133,9 +130,8 @@ export function TaskRow({
                                 <TooltipTrigger asChild>
                                     <div
                                         className={cn(
-                                            "absolute h-6 rounded-md cursor-pointer",
-                                            "bg-blue-600 dark:bg-blue-500",
-                                            "hover:bg-blue-700 dark:hover:bg-blue-600",
+                                            "absolute h-4 rounded-full cursor-pointer",
+                                            "hover:brightness-110",
                                             "transition-all duration-200 ease-out",
                                             "shadow-md hover:shadow-lg",
                                             "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
@@ -143,7 +139,9 @@ export function TaskRow({
                                         style={{
                                             left: `${position.left}%`,
                                             width: `${position.width}%`,
-                                            minWidth: '12px'
+                                            minWidth: '12px',
+                                            backgroundColor: task.projectColor,
+                                            opacity: 0.5
                                         }}
                                         tabIndex={0}
                                         role="button"
@@ -191,8 +189,6 @@ export function TaskRow({
                         projectId={projectId}
                     />
 
-                    {/* Load More Subtasks Button */}
-                    {/* Load More Subtasks Button */}
                     {hasMoreSubtasks && (
                         <>
                             {/* Left Panel - Load More Button */}

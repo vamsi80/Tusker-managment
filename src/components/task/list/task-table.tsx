@@ -29,7 +29,7 @@ import { UserPermissionsType } from "@/data/user/get-user-permissions";
 interface TaskTableProps {
     initialTasks: TaskWithSubTasks[];
     initialHasMore: boolean;
-    initialTotalCount?: number; // Total count of tasks for display
+    initialTotalCount?: number;
     members: ProjectMembersType;
     assignees?: Array<{ id: string; name: string; surname?: string }>;
     workspaceId: string;
@@ -65,8 +65,6 @@ export function TaskTable({
     userId,
 }: TaskTableProps) {
     const [tasks, setTasks] = useState<TaskWithSubTasks[]>(initialTasks);
-    // Project-First Pagination State
-    // keys: projectId, values: pagination info
     const [projectPagination, setProjectPagination] = useState<Record<string, { page: number; hasMore: boolean; isLoading: boolean }>>({});
 
     const [searchQuery, setSearchQuery] = useState("");
@@ -83,10 +81,6 @@ export function TaskTable({
     const loadProjectTasksRef = useRef<((id: string) => Promise<void>) | null>(null);
     const autoExpandRef = useRef(false);
 
-    // Keep ref updated
-
-
-    // Cleanup observer
     useEffect(() => {
         return () => observerRef.current?.disconnect();
     }, []);
@@ -110,24 +104,16 @@ export function TaskTable({
     useEffect(() => {
         subTasksCacheRef.current = {};
         setExpanded({});
-        // Reset pagination when filters/search change
         setProjectPagination({});
-        // Note: We might want to clear tasks too if we want fresh results, 
-        // but that happens via setFilters/Search usually triggering data refresh?
-        // In this architecture, setFilters should probably clear tasks.
         if (Object.keys(filters).length > 0 || searchQuery) {
             setTasks([]);
         }
     }, [filters, searchQuery]);
 
-    // Auto-expand all projects when groups change? No, we want lazy load.
-    // We remove the old auto-expand logic which might force loading.
-
     const [activeInlineProjectId, setActiveInlineProjectId] = useState<string | null>(null);
     const [filteredProjects, setFilteredProjects] = useState<{ id: string; name: string; }[]>(projects || []);
     const totalCount = tasks.length;
 
-    // Load Tasks for a specific Project
     const loadProjectTasks = async (targetProjectId: string) => {
         const currentPagination = projectPagination[targetProjectId] || { page: 0, hasMore: true, isLoading: false };
 
@@ -144,13 +130,13 @@ export function TaskTable({
                 workspaceId,
                 {
                     ...filters,
-                    projectId: targetProjectId, // Scope to this project
+                    projectId: targetProjectId,
                     startDate: filters.startDate ? new Date(filters.startDate) : undefined,
                     endDate: filters.endDate ? new Date(filters.endDate) : undefined,
                     search: searchQuery
                 },
                 nextPage,
-                10 // Page size
+                10
             );
 
             if (response.success && response.data) {
@@ -159,11 +145,7 @@ export function TaskTable({
                     const newTasks = (response.data!.tasks as unknown as TaskWithSubTasks[])
                         .filter(task => !existingIds.has(task.id));
 
-                    // Auto-expand new tasks if "Expand All" mode is active
                     if (autoExpandRef.current && newTasks.length > 0) {
-                        // Use setTimeout to avoid conflict with the rendering batch? 
-                        // No, state updates are batched usually. But we can just setExpanded.
-                        // We need to do it nicely.
                         setTimeout(() => {
                             setExpanded(prevExpanded => {
                                 const newExpanded = { ...prevExpanded };
@@ -201,7 +183,6 @@ export function TaskTable({
         }
     };
 
-    // Keep ref updated
     useEffect(() => {
         loadProjectTasksRef.current = loadProjectTasks;
     }, [loadProjectTasks]);
@@ -209,22 +190,13 @@ export function TaskTable({
     const toggleProjectExpand = (targetProjectId: string) => {
         setExpandedProjects(prev => {
             const isExpanding = !prev[targetProjectId];
-
-            // Lazy Load: If expanding and not loaded (or strictly if not tracked yet), load first page
-            // We use the 'prev' state logic but side-effect must be outside or via callback? 
-            // Better to do side effect after state update.
             return {
                 ...prev,
                 [targetProjectId]: isExpanding
             };
         });
-
-        // Trigger load if expanding and no pagination state exists (never loaded)
-        // Check current expanded state? No, check based on intent.
-        // We can't access 'isExpanding' computed inside setState here reliably if we use simple toggle.
-        // So we reimplement logic:
         const isCurrentlyExpanded = expandedProjects[targetProjectId];
-        if (!isCurrentlyExpanded) { // We are about to expand
+        if (!isCurrentlyExpanded) {
             if (!projectPagination[targetProjectId]) {
                 loadProjectTasks(targetProjectId);
             }
@@ -235,7 +207,6 @@ export function TaskTable({
         openSubTaskSheet(subTask);
     };
 
-    // Initialize/Auto-load for Single Project View
     useEffect(() => {
         if (level === 'project' && projectId && !projectPagination[projectId]) {
             loadProjectTasks(projectId);
@@ -898,6 +869,13 @@ export function TaskTable({
                                                             </TableCell>
                                                         </TableRow>
                                                     )}
+                                                    {isProjectExpanded && !projectPagination[projectId]?.isLoading && projectTasks.length === 0 && (!!searchQuery || hasActiveFilters(filters) || !canCreateSubTask) && (
+                                                        <TableRow>
+                                                            <TableCell colSpan={visibleColumnsCount} className="h-24 text-center text-muted-foreground">
+                                                                No tasks found.
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    )}
                                                     {isProjectExpanded && canCreateSubTask && !searchQuery && Object.keys(filters).length === 0 && (
                                                         activeInlineProjectId === projectId ? (
                                                             <InlineTaskForm
@@ -1020,7 +998,7 @@ export function TaskTable({
                                     </TableRow>
                                 )}
 
-                                {filteredTasks.length === 0 && !isLoadingFilters && (
+                                {filteredTasks.length === 0 && !isLoadingFilters && !groupedTasks && (
                                     <TableRow>
                                         <TableCell colSpan={visibleColumnsCount} className="h-24 text-center">
                                             No tasks found.

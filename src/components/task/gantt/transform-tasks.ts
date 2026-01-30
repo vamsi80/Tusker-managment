@@ -79,6 +79,7 @@ export function transformToGanttTasks(allTasks: any[]): GanttTask[] {
             name: parentTask.name,
             projectId: parentTask.project?.id,
             projectName: parentTask.project?.name,
+            projectColor: parentTask.project?.color,
             subtasks: validatedSubtasks,
             assignee: parentTask.assignee ? {
                 id: parentTask.assignee.id,

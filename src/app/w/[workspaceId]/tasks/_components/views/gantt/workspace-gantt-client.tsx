@@ -1,14 +1,12 @@
 "use client";
 
-import { GanttChart } from "@/components/task/gantt/gantt-chart";
-import { GanttTask } from "@/components/task/gantt/types";
-import { ProjectOption, MemberOption, TaskFilters, TagOption } from "@/components/task/shared/types";
-import { GlobalFilterToolbar } from "@/components/task/shared/global-filter-toolbar";
-import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
+import { Loader2 } from "lucide-react";
 import { useState, useMemo, useTransition } from "react";
-import { Button } from "@/components/ui/button";
-import { Loader2, ChevronDown } from "lucide-react";
-import { useEffect } from "react";
+import { GanttTask } from "@/components/task/gantt/types";
+import { GanttChart } from "@/components/task/gantt/gantt-chart";
+import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
+import { GlobalFilterToolbar } from "@/components/task/shared/global-filter-toolbar";
+import { ProjectOption, MemberOption, TaskFilters, TagOption } from "@/components/task/shared/types";
 
 interface WorkspaceGanttClientProps {
     workspaceId: string;

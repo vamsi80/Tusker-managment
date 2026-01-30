@@ -78,7 +78,7 @@ export function ProjectRow({
                 {/* Left Panel - Project Name */}
                 <div
                     className={cn(
-                        "sticky left-0 z-30 w-[200px] min-w-[200px] flex items-center gap-2 px-3 py-2 min-h-[40px]",
+                        "sticky left-0 z-30 w-[200px] min-w-[200px] flex items-center gap-1 px-3 py-2 min-h-[32px]",
                         "bg-neutral-100 dark:bg-neutral-800",
                         "border-b border-r border-neutral-200 dark:border-neutral-700",
                         "hover:bg-neutral-200 dark:hover:bg-neutral-700/50",
@@ -115,7 +115,7 @@ export function ProjectRow({
                 {/* Right Panel - Project Bar */}
                 <div
                     className={cn(
-                        "relative min-h-[40px] flex items-center w-full",
+                        "relative min-h-[32px] flex items-center w-full",
                         "bg-neutral-50/50 dark:bg-neutral-900/50", // Slight background diff
                         "border-b border-neutral-200 dark:border-neutral-700"
                     )}
@@ -135,7 +135,7 @@ export function ProjectRow({
                                             width: `${position.width}%`,
                                             backgroundColor: color || '#888',
                                             minWidth: '12px',
-                                            top: '12px'
+                                            top: '8px'
                                         }}
                                     />
                                 </TooltipTrigger>
