@@ -1,4 +1,5 @@
-import { getAllTasksFlat } from "@/data/task/gantt/get-all-tasks-flat";
+import { getWorkspaceTasks } from "@/data/task/get-workspace-tasks";
+import { getSubTasksByParentIds } from "@/data/task/list/get-subtasks-batch";
 import { validateDependencies } from "@/components/task/gantt/utils";
 import { GanttSubtask, GanttTask } from "@/components/task/gantt/types";
 import { WorkspaceGanttClient } from "./workspace-gantt-client";
@@ -22,8 +23,9 @@ interface WorkspaceGanttViewProps {
  */
 export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProps) {
     // Get all tasks in a flat structure (parent tasks + subtasks) with permission-based filtering
-    const [allTasksData, projects, workspaceMembers, projectMemberMatches, tags] = await Promise.all([
-        getAllTasksFlat(workspaceId),
+    // We use getWorkspaceTasks (same as List view) for parents, and then fetch subtasks
+    const [tasksData, projects, workspaceMembers, projectMemberMatches, tags] = await Promise.all([
+        getWorkspaceTasks(workspaceId, {}, 1, 1000), // Get up to 1000 parent tasks
         getUserProjects(workspaceId),
         getWorkspaceMembers(workspaceId),
         prisma.projectMember.findMany({
@@ -38,11 +40,30 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
         getWorkspaceTags(workspaceId)
     ]);
 
-    const { tasks: allTasks } = allTasksData;
+    // Fetch subtasks for the parent tasks
+    const parentTasksList = tasksData.tasks;
+    const parentIds = parentTasksList.map(t => t.id);
+
+    const subtaskResults = await getSubTasksByParentIds(
+        parentIds,
+        workspaceId,
+        undefined, // No project filter
+        {}, // No specific filters
+        100 // up to 100 subtasks per parent
+    );
+
+    const subtasks = subtaskResults.flatMap(r => r.subTasks);
+    const allTasks = [...parentTasksList, ...subtasks];
 
     // Separate parent tasks and subtasks
-    const parentTasks = allTasks.filter(task => task.parentTaskId === null);
-    const subtasksMap = new Map<string, typeof allTasks>();
+    // Note: getWorkspaceTasks returns parents, so we can use parentTasksList directly, 
+    // but for consistency with original structure we filter from allTasks if needed, 
+    // or just rely on parentTaskId property.
+
+    const parentTasks = allTasks.filter(task => !task.parentTaskId);
+
+    // Fix: Explicitly type the map to avoid 'never' inference
+    const subtasksMap = new Map<string, any[]>();
 
     allTasks.forEach(task => {
         if (task.parentTaskId) {

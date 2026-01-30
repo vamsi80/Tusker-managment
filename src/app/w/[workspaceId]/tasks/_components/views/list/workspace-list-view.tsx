@@ -1,6 +1,4 @@
-import { getAllTasksFlat } from "@/data/task";
 import { TaskTable } from "@/components/task/list/task-table";
-import { extractAssigneeOptions } from "@/lib/utils/extract-filter-options";
 import { getWorkspaceTags } from "@/data/tag/get-tags";
 import { getWorkspaceMembers } from "@/data/workspace/get-workspace-members";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
@@ -17,40 +15,15 @@ export async function WorkspaceListView({
     // Get current user
     const user = await requireUser();
 
-    // Fetch data in parallel - using getAllTasksFlat for consistency with Gantt
-    const [allTasksFlat, tagsData, membersData, permissions, projects] = await Promise.all([
-        getAllTasksFlat(workspaceId), // Same data source as Gantt chart
+    // Fetch ONLY necessary metadata - NO TASKS
+    const [tagsData, membersData, permissions, projects] = await Promise.all([
         getWorkspaceTags(workspaceId),
         getWorkspaceMembers(workspaceId),
         getWorkspacePermissions(workspaceId),
         getUserProjects(workspaceId),
     ]);
 
-    // Transform flat list into hierarchical structure
-    // Group subtasks under their parent tasks
-    const taskMap = new Map();
-    const parentTasks: any[] = [];
-
-    allTasksFlat.tasks.forEach(task => {
-        if (task.parentTaskId === null) {
-            // This is a parent task
-            const parentTask = {
-                ...task,
-                subTasks: undefined, // Will be loaded on-demand
-                createdBy: { user: { name: '', surname: '', image: '' } },
-                _count: {
-                    subTasks: task._count.subTasks,
-                },
-            };
-            taskMap.set(task.id, parentTask);
-            parentTasks.push(parentTask);
-        }
-    });
-
-    // Extract assignees from all tasks (including subtasks)
-    const assigneesFromTasks = extractAssigneeOptions(allTasksFlat.tasks);
-
-    // Map workspace members to the structure expected by components (matching ProjectMembersType)
+    // Map workspace members to the structure expected by components
     const formattedMembers = membersData.workspaceMembers.map(member => ({
         workspaceMember: {
             id: member.id,
@@ -71,10 +44,11 @@ export async function WorkspaceListView({
 
     return (
         <TaskTable
-            initialTasks={parentTasks as any}
-            initialHasMore={false} // All tasks loaded from flat list
+            initialTasks={[]}
+            initialHasMore={false}
+            initialTotalCount={0}
             members={formattedMembers as any}
-            assignees={assigneesFromTasks}
+            assignees={[]} // Will be populated as tasks are loaded
             workspaceId={workspaceId}
             projectId="" // Empty for workspace-level view
             canCreateSubTask={permissions.hasAccess}

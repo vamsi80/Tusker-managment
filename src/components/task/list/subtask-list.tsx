@@ -1,10 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { TableCell, TableRow } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Loader2, ChevronsDown, Plus } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 import { SubTaskType } from "@/data/task/list/get-subtasks";
 import { ColumnVisibility } from "../shared/column-visibility";
@@ -66,6 +65,33 @@ export function SubTaskList({
 }: SubTaskListProps) {
     const [showInlineSubTaskForm, setShowInlineSubTaskForm] = useState(false);
 
+    // Infinite Scroll Implementation for Subtasks - MUST be at top level (Rules of Hooks)
+    const bottomRef = useRef<HTMLTableRowElement>(null);
+
+    useEffect(() => {
+        if (!task.subTasksHasMore || isLoadingMore) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting) {
+                    onLoadMore();
+                }
+            },
+            { rootMargin: "100px" }
+        );
+
+        const currentRef = bottomRef.current;
+        if (currentRef) {
+            observer.observe(currentRef);
+        }
+
+        return () => {
+            if (currentRef) {
+                observer.unobserve(currentRef);
+            }
+        };
+    }, [task.subTasksHasMore, isLoadingMore, onLoadMore]);
+
     // Calculate total columns: drag + name + visible columns + actions (no checkbox anymore)
     const visibleColumnsCount = 2 + Object.values(columnVisibility).filter(Boolean).length + 1;
 
@@ -97,7 +123,7 @@ export function SubTaskList({
                         />
                     ) : (
                         <TableRow className="bg-muted/30 hover:bg-muted/20 cursor-pointer" onClick={() => setShowInlineSubTaskForm(true)}>
-                            <TableCell colSpan={visibleColumnsCount} className="p-3 pl-12 text-muted-foreground">
+                            <TableCell colSpan={visibleColumnsCount} className="p-3 pl-12 text-primary">
                                 <div className="flex items-center gap-2">
                                     <Plus className="h-4 w-4" />
                                     <span>Add SubTask</span>
@@ -147,34 +173,18 @@ export function SubTaskList({
                 ))}
             </SortableContext>
 
-            {/* Load More Subtasks Button */}
+            {/* Infinite Scroll Trigger / Loader for Subtasks */}
             {task.subTasksHasMore && (
-                <TableRow className="bg-muted/10">
-                    <TableCell colSpan={visibleColumnsCount} className="p-2 pl-12">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={onLoadMore}
-                            disabled={isLoadingMore}
-                            className="w-full"
-                        >
-                            {isLoadingMore ? (
-                                <>
-                                    <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                                    Loading more subtasks...
-                                </>
-                            ) : (
-                                <>
-                                    <ChevronsDown className="mr-2 h-3 w-3" />
-                                    Load More Subtasks
-                                </>
-                            )}
-                        </Button>
+                <TableRow ref={bottomRef} className="bg-muted/10">
+                    <TableCell colSpan={visibleColumnsCount} className="text-center py-2 h-10">
+                        {isLoadingMore && (
+                            <div className="flex items-center justify-center w-full">
+                                <Loader2 className="h-4 w-4 animate-spin text-primary/50" />
+                            </div>
+                        )}
                     </TableCell>
                 </TableRow>
             )}
-
-            {/* Add SubTask - Inline Form or Button */}
             {canCreateSubTask && (
                 showInlineSubTaskForm ? (
                     <InlineSubTaskForm
@@ -194,7 +204,7 @@ export function SubTaskList({
                     />
                 ) : (
                     <TableRow className="bg-muted/30 hover:bg-muted/20 cursor-pointer" onClick={() => setShowInlineSubTaskForm(true)}>
-                        <TableCell colSpan={visibleColumnsCount} className="p-3 pl-12 text-muted-foreground">
+                        <TableCell colSpan={visibleColumnsCount} className="p-3 pl-12 text-primary">
                             <div className="flex items-center gap-2">
                                 <Plus className="h-4 w-4" />
                                 <span>Add SubTask</span>

@@ -5,17 +5,17 @@ import { cn } from "@/lib/utils";
 import { SubTaskList } from "./subtask-list";
 import { Button } from "@/components/ui/button";
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { ChevronDown, ChevronRight, Folder, Loader2, ArrowUpDown, Filter, X, Plus, ChevronsUpDown, Calendar, LayoutGrid, List as ListIcon, Clock, ChevronsDown, GripVertical, CornerDownRight, Maximize2, Minimize2 } from "lucide-react";
-import { loadMoreTasksAction, loadSubTasksAction } from "@/actions/task/list-actions";
+import { Loader2, Plus, ChevronsUpDown, Maximize2, Minimize2 } from "lucide-react";
+import { loadMoreTasksAction, loadMoreTasksFlatAction, loadSubTasksAction, loadSubTasksBatchAction } from "@/actions/task/list-actions";
 import { updateSubtaskPositions } from "@/actions/task/gantt";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 import { SubTaskType } from "@/data/task/list/get-subtasks";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
-import { useNewTask } from "@/app/w/[workspaceId]/_components/shared/task-page-wrapper";
 import { TaskWithSubTasks } from "@/components/task/shared/types";
 import { TaskRow } from "./task-row";
 import { TaskFilters } from "../shared/types";
@@ -29,6 +29,7 @@ import { UserPermissionsType } from "@/data/user/get-user-permissions";
 interface TaskTableProps {
     initialTasks: TaskWithSubTasks[];
     initialHasMore: boolean;
+    initialTotalCount?: number; // Total count of tasks for display
     members: ProjectMembersType;
     assignees?: Array<{ id: string; name: string; surname?: string }>;
     workspaceId: string;
@@ -49,7 +50,6 @@ const DEFAULT_PROJECTS: { id: string; name: string; }[] = [];
 
 export function TaskTable({
     initialTasks,
-    initialHasMore,
     members,
     assignees,
     workspaceId,
@@ -65,80 +65,205 @@ export function TaskTable({
     userId,
 }: TaskTableProps) {
     const [tasks, setTasks] = useState<TaskWithSubTasks[]>(initialTasks);
-    const [hasMoreTasks, setHasMoreTasks] = useState(initialHasMore);
-    const [currentPage, setCurrentPage] = useState(1);
-    const [loadingMoreTasks, setLoadingMoreTasks] = useState(false);
+    // Project-First Pagination State
+    // keys: projectId, values: pagination info
+    const [projectPagination, setProjectPagination] = useState<Record<string, { page: number; hasMore: boolean; isLoading: boolean }>>({});
+
     const [searchQuery, setSearchQuery] = useState("");
     const [filters, setFilters] = useState<TaskFilters>({});
     const [isLoadingFilters, setIsLoadingFilters] = useState(false);
-    const { lastEvent, clearEvent } = useNewTask();
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
     const [loadingSubTasks, setLoadingSubTasks] = useState<Record<string, boolean>>({});
     const [loadingMoreSubTasks, setLoadingMoreSubTasks] = useState<Record<string, boolean>>({});
     const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
     const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({});
 
-    // Auto-expand all projects when groups change
+    const subTasksCacheRef = useRef<Record<string, { subTasks: SubTaskType[]; hasMore: boolean; page: number }>>({});
+    const observerRef = useRef<IntersectionObserver | null>(null);
+    const loadProjectTasksRef = useRef<((id: string) => Promise<void>) | null>(null);
+    const autoExpandRef = useRef(false);
+
+    // Keep ref updated
+
+
+    // Cleanup observer
     useEffect(() => {
-        if (filters.projectId) return; // If filtered by project, usually just one is shown (or logic differs)
-        // logic to expand all by default could be here, but let's do it lazily or init
-        // Actually, let's just default to true in the render check if key is missing, or set keys here.
-    }, [tasks, level]);
+        return () => observerRef.current?.disconnect();
+    }, []);
 
-    const toggleProjectExpand = (projectId: string) => {
-        setExpandedProjects(prev => ({
-            ...prev,
-            [projectId]: prev[projectId] === undefined ? true : !prev[projectId] // Default to collapsed, so toggle sets to true
-        }));
-    };
-    const [activeInlineProjectId, setActiveInlineProjectId] = useState<string | null>(null);
-
-    const [filteredProjects, setFilteredProjects] = useState<{ id: string; name: string; }[]>(projects || []);
-
-    useEffect(() => {
-        const hasActiveFilters = searchQuery || Object.keys(filters).length > 0;
-
-        if (!hasActiveFilters && projects) {
-            setFilteredProjects(projects);
-        }
-
-        if (hasActiveFilters) return;
-
-        setTasks(prevTasks => {
-            return initialTasks.map((serverTask: TaskWithSubTasks) => {
-                const existingTask = prevTasks.find(t => t.id === serverTask.id);
-                if (existingTask?.subTasks) {
-                    return {
-                        ...serverTask,
-                        subTasks: existingTask.subTasks,
-                        subTasksHasMore: existingTask.subTasksHasMore,
-                        subTasksPage: existingTask.subTasksPage,
-                    };
-                }
-
-                return serverTask;
-            });
-        });
-    }, [initialTasks, searchQuery, filters, projects]);
-
-    useEffect(() => {
-        if (lastEvent) {
-            if (lastEvent.type === 'ADD' && lastEvent.task) {
-                const newTask = lastEvent.task as TaskWithSubTasks;
-                setTasks(prev => {
-                    if (prev.some(t => t.id === newTask.id)) return prev;
-                    return [newTask, ...prev];
+    const getObserver = () => {
+        if (!observerRef.current) {
+            observerRef.current = new IntersectionObserver((entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting) {
+                        const projectId = (entry.target as HTMLElement).dataset.projectId;
+                        if (projectId && loadProjectTasksRef.current) {
+                            loadProjectTasksRef.current(projectId);
+                        }
+                    }
                 });
-            } else if (lastEvent.type === 'UPDATE' && lastEvent.taskId) {
-                setTasks(prev => prev.map(t =>
-                    t.id === lastEvent.taskId ? { ...t, ...lastEvent.task } as TaskWithSubTasks : t
-                ));
-            } else if (lastEvent.type === 'REMOVE' && lastEvent.taskId) {
-                setTasks(prev => prev.filter(t => t.id !== lastEvent.taskId));
-            }
-            clearEvent();
+            }, { rootMargin: "200px" });
         }
-    }, [lastEvent, clearEvent]);
+        return observerRef.current;
+    };
+
+    useEffect(() => {
+        subTasksCacheRef.current = {};
+        setExpanded({});
+        // Reset pagination when filters/search change
+        setProjectPagination({});
+        // Note: We might want to clear tasks too if we want fresh results, 
+        // but that happens via setFilters/Search usually triggering data refresh?
+        // In this architecture, setFilters should probably clear tasks.
+        if (Object.keys(filters).length > 0 || searchQuery) {
+            setTasks([]);
+        }
+    }, [filters, searchQuery]);
+
+    // Auto-expand all projects when groups change? No, we want lazy load.
+    // We remove the old auto-expand logic which might force loading.
+
+    const [activeInlineProjectId, setActiveInlineProjectId] = useState<string | null>(null);
+    const [filteredProjects, setFilteredProjects] = useState<{ id: string; name: string; }[]>(projects || []);
+    const totalCount = tasks.length;
+
+    // Load Tasks for a specific Project
+    const loadProjectTasks = async (targetProjectId: string) => {
+        const currentPagination = projectPagination[targetProjectId] || { page: 0, hasMore: true, isLoading: false };
+
+        if (currentPagination.isLoading || !currentPagination.hasMore) return;
+
+        setProjectPagination(prev => ({
+            ...prev,
+            [targetProjectId]: { ...currentPagination, isLoading: true }
+        }));
+
+        try {
+            const nextPage = currentPagination.page + 1;
+            const response = await loadMoreTasksAction(
+                workspaceId,
+                {
+                    ...filters,
+                    projectId: targetProjectId, // Scope to this project
+                    startDate: filters.startDate ? new Date(filters.startDate) : undefined,
+                    endDate: filters.endDate ? new Date(filters.endDate) : undefined,
+                    search: searchQuery
+                },
+                nextPage,
+                10 // Page size
+            );
+
+            if (response.success && response.data) {
+                setTasks(prev => {
+                    const existingIds = new Set(prev.map(t => t.id));
+                    const newTasks = (response.data!.tasks as unknown as TaskWithSubTasks[])
+                        .filter(task => !existingIds.has(task.id));
+
+                    // Auto-expand new tasks if "Expand All" mode is active
+                    if (autoExpandRef.current && newTasks.length > 0) {
+                        // Use setTimeout to avoid conflict with the rendering batch? 
+                        // No, state updates are batched usually. But we can just setExpanded.
+                        // We need to do it nicely.
+                        setTimeout(() => {
+                            setExpanded(prevExpanded => {
+                                const newExpanded = { ...prevExpanded };
+                                newTasks.forEach(t => { newExpanded[t.id] = true; });
+                                return newExpanded;
+                            });
+                        }, 0);
+                    }
+
+                    return [...prev, ...newTasks];
+                });
+
+                setProjectPagination(prev => ({
+                    ...prev,
+                    [targetProjectId]: {
+                        page: nextPage,
+                        hasMore: response.data!.hasMore ?? false,
+                        isLoading: false
+                    }
+                }));
+            } else {
+                toast.error(response.error || "Failed to load tasks");
+                setProjectPagination(prev => ({
+                    ...prev,
+                    [targetProjectId]: { ...currentPagination, isLoading: false }
+                }));
+            }
+        } catch (error) {
+            console.error("Error loading project tasks:", error);
+            toast.error("Failed to load project tasks");
+            setProjectPagination(prev => ({
+                ...prev,
+                [targetProjectId]: { ...currentPagination, isLoading: false }
+            }));
+        }
+    };
+
+    // Keep ref updated
+    useEffect(() => {
+        loadProjectTasksRef.current = loadProjectTasks;
+    }, [loadProjectTasks]);
+
+    const toggleProjectExpand = (targetProjectId: string) => {
+        setExpandedProjects(prev => {
+            const isExpanding = !prev[targetProjectId];
+
+            // Lazy Load: If expanding and not loaded (or strictly if not tracked yet), load first page
+            // We use the 'prev' state logic but side-effect must be outside or via callback? 
+            // Better to do side effect after state update.
+            return {
+                ...prev,
+                [targetProjectId]: isExpanding
+            };
+        });
+
+        // Trigger load if expanding and no pagination state exists (never loaded)
+        // Check current expanded state? No, check based on intent.
+        // We can't access 'isExpanding' computed inside setState here reliably if we use simple toggle.
+        // So we reimplement logic:
+        const isCurrentlyExpanded = expandedProjects[targetProjectId];
+        if (!isCurrentlyExpanded) { // We are about to expand
+            if (!projectPagination[targetProjectId]) {
+                loadProjectTasks(targetProjectId);
+            }
+        }
+    };
+
+    const handleSubTaskClick = (subTask: SubTaskType) => {
+        openSubTaskSheet(subTask);
+    };
+
+    // Initialize/Auto-load for Single Project View
+    useEffect(() => {
+        if (level === 'project' && projectId && !projectPagination[projectId]) {
+            loadProjectTasks(projectId);
+        }
+    }, [level, projectId]);
+
+    const { openSubTaskSheet } = useSubTaskSheet();
+
+    const filterOptions = React.useMemo(() => {
+        const options = extractAllFilterOptions(tasks as any, showAdvancedFilters ? 'workspace' : 'project');
+
+        const assigneesForFilter = assignees || members.map(member => ({
+            id: member.workspaceMember.user?.id || member.workspaceMember.id,
+            name: member.workspaceMember.user.name,
+            surname: member.workspaceMember.user.surname || undefined,
+        })).sort((a, b) => {
+            const nameA = `${a.name} ${a.surname || ''}`.trim();
+            const nameB = `${b.name} ${b.surname || ''}`.trim();
+            return nameA.localeCompare(nameB);
+        });
+
+        return {
+            ...options,
+            assignees: assigneesForFilter,
+            tags: tags,
+            projects: filteredProjects,
+        };
+    }, [tasks, showAdvancedFilters, members, assignees, tags, filteredProjects]);
 
     const handleSubTaskUpdated = (taskId: string, subTaskId: string, updatedData: Partial<SubTaskType>) => {
         setTasks(prevTasks =>
@@ -208,6 +333,34 @@ export function TaskTable({
         );
     };
 
+    // Calculate project task counts
+    const projectTaskCounts = useMemo(() => {
+        const counts: Record<string, number> = {};
+        tasks.forEach(task => {
+            const pId = task.projectId || 'unknown';
+            counts[pId] = (counts[pId] || 0) + 1;
+        });
+        return counts;
+    }, [tasks]);
+
+    // Calculate grouped tasks - MOVED UP before use
+    const filteredTasks = tasks;
+    const groupedTasks = useMemo(() => {
+        if (level !== "workspace") return null;
+        const groups: Record<string, TaskWithSubTasks[]> = {};
+        projects.forEach(project => {
+            groups[project.id] = [];
+        });
+        filteredTasks.forEach((task) => {
+            const pId = task.projectId;
+            if (!groups[pId]) {
+                groups[pId] = [];
+            }
+            groups[pId].push(task);
+        });
+        return groups;
+    }, [filteredTasks, level, projects]);
+
     const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
         assignee: true,
         reviewer: true,
@@ -220,264 +373,148 @@ export function TaskTable({
         project: level === "workspace",
     });
 
-    const filterOptions = React.useMemo(() => {
-        const options = extractAllFilterOptions(tasks as any, showAdvancedFilters ? 'workspace' : 'project');
+    const visibleColumnsCount = 2 + Object.entries(columnVisibility).filter(([k, v]) => k !== 'project' && v).length + 1;
 
-        const assigneesForFilter = assignees || members.map(member => ({
-            id: member.workspaceMember.user?.id || member.workspaceMember.id,
-            name: member.workspaceMember.user.name,
-            surname: member.workspaceMember.user.surname || undefined,
-        })).sort((a, b) => {
-            const nameA = `${a.name} ${a.surname || ''}`.trim();
-            const nameB = `${b.name} ${b.surname || ''}`.trim();
-            return nameA.localeCompare(nameB);
+    // 🔥 MASTER SUBTASK LOADER: The Single Source of Truth
+    // Tracks which tasks have been processed (fetched or confirmed empty) to prevent redundant work
+    const processedSubTasksRef = useRef<Set<string>>(new Set());
+    const fetchingSubTasksRef = useRef<Set<string>>(new Set());
+
+    // 1. Compute Visible Parent Task IDs
+    // This is the source of truth for what SHOULD be loaded
+    const visibleParentTaskIds = useMemo(() => {
+        // Workspace grouped view: Only tasks in expanded projects are visible
+        if (groupedTasks && level === 'workspace') {
+            return Object.entries(groupedTasks)
+                .filter(([projectId]) => expandedProjects[projectId])
+                .flatMap(([, tasks]) => tasks.map(t => t.id));
+        }
+
+        // Project-level view (or ungrouped): All loaded tasks are effectively visible candidates
+        return tasks.map(t => t.id);
+    }, [groupedTasks, expandedProjects, tasks, level]);
+
+    // 2. Central Effect to ensure subtasks exist for visible parents
+    useEffect(() => {
+        if (visibleParentTaskIds.length === 0) return;
+
+        // Identify missing subtasks that haven't been processed or aren't currently fetching
+        const missing = visibleParentTaskIds.filter(taskId => {
+            // Already processed (loaded or empty)
+            if (processedSubTasksRef.current.has(taskId)) return false;
+            // Currently fetching
+            if (fetchingSubTasksRef.current.has(taskId)) return false;
+
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return false;
+
+            // Optimization: If specialized count check says 0, mark as processed and skip
+            if ((task._count?.subTasks ?? 0) === 0) {
+                processedSubTasksRef.current.add(taskId);
+                return false;
+            }
+
+            // If subTasks matches undefined, it needs fetching
+            // (Empty array [] means loaded but empty, which is fine)
+            return task.subTasks === undefined;
         });
 
-        return {
-            ...options,
-            assignees: assigneesForFilter,
-            tags: tags,
-            projects: filteredProjects,
-        };
-    }, [tasks, showAdvancedFilters, members, assignees, tags, filteredProjects]);
+        if (missing.length === 0) return;
 
-    const { openSubTaskSheet } = useSubTaskSheet();
+        // Mark as fetching immediately to prevent race conditions
+        missing.forEach(id => fetchingSubTasksRef.current.add(id));
 
-    useEffect(() => {
-        const hasFilters = searchQuery || Object.keys(filters).length > 0;
-
-        if (!hasFilters) return;
-
-        const timer = setTimeout(async () => {
-            setIsLoadingFilters(true);
-            try {
-                const rawFilters = {
-                    ...filters,
-                    startDate: filters.startDate ? new Date(filters.startDate) : undefined,
-                    endDate: filters.endDate ? new Date(filters.endDate) : undefined,
-                    search: searchQuery || undefined
-                };
-
-                const filtersToSend: any = {};
-                Object.keys(rawFilters).forEach(key => {
-                    // @ts-ignore
-                    const value = rawFilters[key];
-                    if (value !== undefined && value !== null && value !== '') {
-                        filtersToSend[key] = value;
-                    }
-                });
-
-                const response = await loadMoreTasksAction(
-                    workspaceId,
-                    filtersToSend,
-                    1,
-                    10
-                );
-
-                if (response.success && response.data) {
-                    setTasks(response.data.tasks as any);
-                    setHasMoreTasks(response.data.hasMore);
-                    setCurrentPage(1);
-
-                    const facets = (response.data as any).facets;
-                    if (facets?.projects && projects) {
-                        const projectIds = Object.keys(facets.projects);
-                        const visible = projects.filter(p => projectIds.includes(p.id));
-                        setFilteredProjects(visible);
-                    }
-                } else {
-                    toast.error("Failed to apply filters");
-                }
-            } catch (error) {
-                console.error("Error applying filters:", error);
-            } finally {
-                setIsLoadingFilters(false);
-            }
-        }, 300);
-
-        return () => clearTimeout(timer);
-    }, [filters, searchQuery, workspaceId]);
-
-    const handleSubTaskClick = (subTask: SubTaskType) => {
-        openSubTaskSheet(subTask);
-    };
-
-    const loadMoreTasks = async () => {
-        if (loadingMoreTasks || !hasMoreTasks) return;
-
-        setLoadingMoreTasks(true);
-        try {
-            const nextPage = currentPage + 1;
-            const response = await loadMoreTasksAction(
-                workspaceId,
-                {
-                    ...filters,
-                    projectId: projectId || filters.projectId,
-                    startDate: filters.startDate ? new Date(filters.startDate) : undefined,
-                    endDate: filters.endDate ? new Date(filters.endDate) : undefined,
-                    search: searchQuery
-                },
-                nextPage,
-                10
-            );
+        // 🚀 BATCH LOAD
+        // We do this silently (background) to update the state
+        loadSubTasksBatchAction(
+            missing,
+            workspaceId,
+            projectId || undefined,
+            {}, // Filters are usually applied at parent level, strict hierarchy for now
+            10
+        ).then(response => {
+            // Cleanup fetching status
+            missing.forEach(id => fetchingSubTasksRef.current.delete(id));
 
             if (response.success && response.data) {
-                setTasks(prev => [...prev, ...response.data!.tasks as unknown as TaskWithSubTasks[]]);
-                setHasMoreTasks(response.data!.hasMore ?? false);
-                setCurrentPage(nextPage);
-            } else {
-                toast.error(response.error || "Failed to load more tasks");
-            }
-        } catch (error) {
-            console.error("Error loading more tasks:", error);
-            toast.error("Failed to load more tasks");
-        } finally {
-            setLoadingMoreTasks(false);
-        }
-    };
+                // Update Cache and Processed Status
+                response.data.forEach(result => {
+                    processedSubTasksRef.current.add(result.parentTaskId);
 
-    /**
-     * Toggle task expansion
-     * Subtasks are loaded ON-DEMAND only when:
-     * 1. User expands a task (not when collapsing)
-     * 2. Subtasks haven't been loaded yet
-     * This ensures we don't fetch data until it's actually needed
-     */
-    const toggleExpand = async (taskId: string) => {
-        const isCurrentlyExpanded = expanded[taskId];
-        setExpanded((prev) => ({ ...prev, [taskId]: !prev[taskId] }));
-
-        if (!isCurrentlyExpanded) {
-            const task = tasks.find((t) => t.id === taskId);
-
-            if (task && !task.subTasks) {
-                setLoadingSubTasks((prev) => ({ ...prev, [taskId]: true }));
-
-                try {
-                    const cleanFilters: any = {};
-                    const rawFilters = {
-                        ...filters,
-                        startDate: filters.startDate ? new Date(filters.startDate) : undefined,
-                        endDate: filters.endDate ? new Date(filters.endDate) : undefined,
-                        search: searchQuery || undefined
-                    };
-                    Object.keys(rawFilters).forEach(key => {
-                        // @ts-ignore
-                        const value = rawFilters[key];
-                        if (value !== undefined && value !== null && value !== '') {
-                            cleanFilters[key] = value;
-                        }
+                    // Deduplicate
+                    const seenIds = new Set<string>();
+                    const uniqueSubTasks = result.subTasks.filter(st => {
+                        if (!st.id || seenIds.has(st.id)) return false;
+                        seenIds.add(st.id);
+                        return true;
                     });
 
-                    const response = await loadSubTasksAction(
-                        taskId,
-                        workspaceId,
-                        task.projectId || projectId,
-                        cleanFilters,
-                        1,
-                        10
-                    );
+                    subTasksCacheRef.current[result.parentTaskId] = {
+                        subTasks: uniqueSubTasks,
+                        hasMore: result.hasMore,
+                        page: 1,
+                    };
+                });
 
-                    if (response.success && response.data) {
-                        setTasks((prevTasks) =>
-                            prevTasks.map((t) =>
-                                t.id === taskId
-                                    ? {
-                                        ...t,
-                                        subTasks: response.data!.subTasks,
-                                        subTasksHasMore: response.data!.hasMore,
-                                        subTasksPage: 1,
-                                    }
-                                    : t
-                            )
-                        );
-                    } else {
-                        toast.error(response.error || "Failed to load subtasks");
+                // Update React State
+                setTasks(prevTasks => prevTasks.map(t => {
+                    const cached = subTasksCacheRef.current[t.id];
+                    // Only update tasks that were missing and now have data
+                    if (missing.includes(t.id) && cached) {
+                        return {
+                            ...t,
+                            subTasks: cached.subTasks,
+                            subTasksHasMore: cached.hasMore,
+                            subTasksPage: 1
+                        };
                     }
-                } catch (error) {
-                    console.error("Error loading subtasks:", error);
-                    toast.error("Failed to load subtasks");
-                } finally {
-                    setLoadingSubTasks((prev) => ({ ...prev, [taskId]: false }));
-                }
+                    return t;
+                }));
             }
-        }
+        }).catch(err => {
+            console.error("Auto-load subtasks failed", err);
+            // Ensure we remove fetching status on error too so it can retry
+            missing.forEach(id => fetchingSubTasksRef.current.delete(id));
+        });
+
+    }, [visibleParentTaskIds, tasks, workspaceId, projectId]);
+
+
+    // 3. UI-ONLY Toggle
+    const toggleExpand = (taskId: string) => {
+        setExpanded(prev => ({ ...prev, [taskId]: !prev[taskId] }));
     };
 
-    const handleExpandAll = async () => {
-        const allExpanded = tasks.reduce((acc, task) => ({
-            ...acc,
-            [task.id]: true
-        }), {});
-        setExpanded(allExpanded);
+    // 4. UI-ONLY Expand All
+    // 4. UI-ONLY Expand All + Trigger Load
+    const handleExpandAll = () => {
+        autoExpandRef.current = true;
 
-        const tasksNeedingSubtasks = tasks.filter(task => !task.subTasks);
+        // Expand all projects
+        const allProjectIds = projects.map(p => p.id);
+        const allProjects = allProjectIds.reduce((acc, pId) => ({ ...acc, [pId]: true }), {});
+        setExpandedProjects(allProjects);
 
-        if (tasksNeedingSubtasks.length > 0) {
-            const newLoadingState = tasksNeedingSubtasks.reduce((acc, task) => ({
-                ...acc,
-                [task.id]: true
-            }), {});
-            setLoadingSubTasks(prev => ({ ...prev, ...newLoadingState }));
-
-            try {
-                await Promise.all(tasksNeedingSubtasks.map(async (task) => {
-                    try {
-                        const cleanFilters: any = {};
-                        const rawFilters = {
-                            ...filters,
-                            startDate: filters.startDate ? new Date(filters.startDate) : undefined,
-                            endDate: filters.endDate ? new Date(filters.endDate) : undefined,
-                            search: searchQuery || undefined
-                        };
-                        Object.keys(rawFilters).forEach(key => {
-                            // @ts-ignore
-                            const value = rawFilters[key];
-                            if (value !== undefined && value !== null && value !== '') {
-                                cleanFilters[key] = value;
-                            }
-                        });
-
-                        const response = await loadSubTasksAction(
-                            task.id,
-                            workspaceId,
-                            task.projectId || projectId, // Use task's projectId if available
-                            cleanFilters,
-                            1,
-                            10
-                        );
-
-                        if (response.success && response.data) {
-                            setTasks(prevTasks => prevTasks.map(t =>
-                                t.id === task.id
-                                    ? {
-                                        ...t,
-                                        subTasks: response.data!.subTasks,
-                                        subTasksHasMore: response.data!.hasMore,
-                                        subTasksPage: 1
-                                    }
-                                    : t
-                            ));
-                        }
-                    } catch (err) {
-                        console.error(`Failed to load subtasks for task ${task.id}`, err);
-                    }
-                }));
-            } catch (error) {
-                console.error("Error expanding all tasks:", error);
-                toast.error("Some subtasks failed to load");
-            } finally {
-                setLoadingSubTasks(prev => {
-                    const next = { ...prev };
-                    tasksNeedingSubtasks.forEach(t => delete next[t.id]);
-                    return next;
-                });
+        // Load tasks for all unloaded projects (Project-First)
+        allProjectIds.forEach(id => {
+            if (!projectPagination[id]) {
+                loadProjectTasks(id);
             }
-        }
+        });
+
+        // Expand all LOADED tasks
+        // Note: Tasks that load later won't be auto-expanded by this call unless we track "Expand All" intent.
+        // For now, this expands what is available.
+        const allTasks = tasks.reduce((acc, task) => ({ ...acc, [task.id]: true }), {});
+        setExpanded(allTasks);
     };
 
     const handleCollapseAll = () => {
+        autoExpandRef.current = false;
+        // Collapse all tasks
         setExpanded({});
+        // Collapse all projects
+        setExpandedProjects({});
     };
 
     const loadMoreSubTasks = async (taskId: string) => {
@@ -513,12 +550,27 @@ export function TaskTable({
             );
 
             if (response.success && response.data) {
+                // Deduplicate: combine existing + new subtasks, remove duplicates
+                const existingSubTasks = task.subTasks || [];
+                const existingIds = new Set(existingSubTasks.map(st => st.id));
+                const newSubTasks = response.data.subTasks.filter(st =>
+                    st.id && !existingIds.has(st.id)
+                );
+                const combinedSubTasks = [...existingSubTasks, ...newSubTasks];
+
+                // Update cache
+                subTasksCacheRef.current[taskId] = {
+                    subTasks: combinedSubTasks,
+                    hasMore: response.data.hasMore,
+                    page: nextPage,
+                };
+
                 setTasks((prevTasks) =>
                     prevTasks.map((t) =>
                         t.id === taskId
                             ? {
                                 ...t,
-                                subTasks: [...(t.subTasks || []), ...response.data!.subTasks],
+                                subTasks: combinedSubTasks,
                                 subTasksHasMore: response.data!.hasMore,
                                 subTasksPage: nextPage,
                             }
@@ -597,7 +649,6 @@ export function TaskTable({
                 }
             } catch (error) {
                 console.error("Error updating subtask positions:", error);
-                // Revert on error
                 setTasks(tasks);
                 toast.error("Failed to update subtask order", { id: toastId });
             }
@@ -624,62 +675,8 @@ export function TaskTable({
     };
 
 
-    // Apply filters to subtasks (not parent tasks)
-    // Server-side filtered tasks
-    const filteredTasks = tasks;
 
-    // Calculate visible columns count for colSpan: 2 fixed (expand, name) + dynamic + 1 fixed (actions)
-    // Exclude 'project' from count as we are removing the column (grouping replaces it)
-    const visibleColumnsCount = 2 + Object.entries(columnVisibility).filter(([k, v]) => k !== 'project' && v).length + 1;
 
-    // Group tasks by project for workspace view
-    const groupedTasks = useMemo(() => {
-        if (level !== "workspace") return null;
-
-        const groups: Record<string, TaskWithSubTasks[]> = {};
-
-        // Initialize with all projects to ensure empty ones are shown
-        projects.forEach(project => {
-            groups[project.id] = [];
-        });
-
-        filteredTasks.forEach((task) => {
-            const pId = task.projectId;
-            if (!groups[pId]) {
-                groups[pId] = [];
-            }
-            groups[pId].push(task);
-        });
-
-        return groups;
-    }, [filteredTasks, level, projects]);
-
-    // Infinite Scroll Implementation
-    const bottomRef = useRef<HTMLTableRowElement>(null);
-
-    useEffect(() => {
-        if (!hasMoreTasks || loadingMoreTasks) return;
-
-        const observer = new IntersectionObserver(
-            (entries) => {
-                if (entries[0].isIntersecting) {
-                    loadMoreTasks();
-                }
-            },
-            { rootMargin: "100px" }
-        );
-
-        const currentRef = bottomRef.current;
-        if (currentRef) {
-            observer.observe(currentRef);
-        }
-
-        return () => {
-            if (currentRef) {
-                observer.unobserve(currentRef);
-            }
-        };
-    }, [hasMoreTasks, loadingMoreTasks, loadMoreTasks]); // loadMoreTasks creates new reference on render, causing re-subscription, but essential for closure freshness
 
     return (
         <div className="space-y-4 mt-4">
@@ -716,8 +713,8 @@ export function TaskTable({
                 )}
                 <div className={cn(
                     "max-h-[calc(100vh-280px)] overflow-auto",
-                    // Custom ultra-thin scrollbar
                     "[&::-webkit-scrollbar]:w-0.5",
+                    "[&::-webkit-scrollbar]:h-1",
                     "[&::-webkit-scrollbar-track]:bg-transparent",
                     "[&::-webkit-scrollbar-thumb]:bg-slate-300",
                     "[&::-webkit-scrollbar-thumb]:rounded-full",
@@ -750,7 +747,16 @@ export function TaskTable({
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </th>
-                                    <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[250px] bg-background">Task Name</th>
+                                    <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[250px] bg-background">
+                                        <div className="flex items-center gap-2">
+                                            <span>Task Name</span>
+                                            {totalCount > 0 && (
+                                                <span className="text-xs text-muted-foreground font-normal">
+                                                    ({totalCount} tasks)
+                                                </span>
+                                            )}
+                                        </div>
+                                    </th>
                                     {/* Project column removed (using grouping instead) */}
                                     {columnVisibility.description && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[200px] bg-background">Description</th>}
                                     {columnVisibility.assignee && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] bg-background">Assignee</th>}
@@ -765,26 +771,21 @@ export function TaskTable({
                             </thead>
                             <tbody>
                                 {groupedTasks ? (
-                                    // Grouped View (Workspace)
                                     Object.entries(groupedTasks).map(([projectId, projectTasks]) => {
                                         const project = projects?.find(p => p.id === projectId);
-                                        // Skip unknown project group if empty (optional)
                                         if (projectId === 'unknown' && projectTasks.length === 0) return null;
 
-                                        const isProjectExpanded = expandedProjects[projectId] === true; // Default to collapsed
+                                        const isProjectExpanded = expandedProjects[projectId] === true;
 
                                         return (
                                             <React.Fragment key={projectId}>
-                                                {/* Project Header Row (Collapsible) */}
                                                 <ProjectRow
                                                     project={project || { id: projectId, name: "Unknown Project" }}
-                                                    tasksCount={projectTasks.length}
+                                                    totalTasksCount={projectTaskCounts[projectId]}
                                                     isExpanded={isProjectExpanded}
                                                     onToggle={() => toggleProjectExpand(projectId)}
                                                     colSpan={visibleColumnsCount}
                                                 >
-
-                                                    {/* Tasks in Project */}
                                                     {isProjectExpanded && projectTasks.map((task) => (
                                                         <React.Fragment key={task.id}>
                                                             <TaskRow
@@ -854,7 +855,49 @@ export function TaskTable({
                                                             </TaskRow>
                                                         </React.Fragment>
                                                     ))}
-                                                    {/* Add Task inside Project Group */}
+                                                    {/* Initial Load Skeletons (when project expanded but no tasks yet) */}
+                                                    {isProjectExpanded && projectPagination[projectId]?.isLoading && projectTasks.length === 0 && (
+                                                        Array.from({ length: 3 }).map((_, i) => (
+                                                            <TableRow key={`skeleton-${projectId}-${i}`}>
+                                                                <TableCell colSpan={visibleColumnsCount} className="p-4">
+                                                                    <div className="flex items-center gap-4">
+                                                                        <Skeleton className="h-4 w-4 rounded" />
+                                                                        <div className="flex-1 space-y-2">
+                                                                            <Skeleton className="h-4 w-[200px]" />
+                                                                        </div>
+                                                                        <Skeleton className="h-4 w-[100px]" />
+                                                                        <Skeleton className="h-4 w-[80px]" />
+                                                                        <Skeleton className="h-4 w-[80px]" />
+                                                                    </div>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ))
+                                                    )}
+
+                                                    {/* Infinite Scroll Sentinel + Loading Skeleton */}
+                                                    {isProjectExpanded && projectPagination[projectId]?.hasMore && (
+                                                        <TableRow
+                                                            ref={(node) => {
+                                                                if (node) getObserver().observe(node);
+                                                            }}
+                                                            data-project-id={projectId}
+                                                        >
+                                                            <TableCell colSpan={visibleColumnsCount} className="py-2 h-10">
+                                                                {projectPagination[projectId]?.isLoading ? (
+                                                                    <div className="flex items-center gap-4 px-2 opacity-60">
+                                                                        <Skeleton className="h-4 w-4 rounded" />
+                                                                        <div className="flex-1">
+                                                                            <Skeleton className="h-4 w-[150px]" />
+                                                                        </div>
+                                                                        <Skeleton className="h-4 w-[100px]" />
+                                                                    </div>
+                                                                ) : (
+                                                                    /* Invisible trigger when idle/waiting for scroll */
+                                                                    <div className="h-1 w-full" />
+                                                                )}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    )}
                                                     {isProjectExpanded && canCreateSubTask && !searchQuery && Object.keys(filters).length === 0 && (
                                                         activeInlineProjectId === projectId ? (
                                                             <InlineTaskForm
@@ -882,7 +925,7 @@ export function TaskTable({
                                                                 className="hover:bg-muted/20 cursor-pointer h-8"
                                                                 onClick={(e) => { e.stopPropagation(); setActiveInlineProjectId(projectId); }}
                                                             >
-                                                                <TableCell colSpan={visibleColumnsCount} className="py-1 px-2 pl-8">
+                                                                <TableCell colSpan={visibleColumnsCount} className="py-2 px-2 pl-8">
                                                                     <div className="flex items-center gap-2 text-primary font-medium hover:text-primary/80 transition-colors">
                                                                         <Plus className="h-4 w-4" />
                                                                         <span>Add Task</span>
@@ -896,7 +939,6 @@ export function TaskTable({
                                         );
                                     })
                                 ) : (
-                                    // Flat View (Original)
                                     filteredTasks.map((task) => (
                                         <React.Fragment key={task.id}>
                                             <TaskRow
@@ -967,8 +1009,6 @@ export function TaskTable({
                                         </React.Fragment>
                                     ))
                                 )}
-
-                                {/* Loading indicator when loading subtasks for filters */}
                                 {isLoadingFilters && filteredTasks.length === 0 && (
                                     <TableRow>
                                         <TableCell colSpan={visibleColumnsCount} className="h-32 text-center">
@@ -988,20 +1028,7 @@ export function TaskTable({
                                     </TableRow>
                                 )}
 
-                                {/* Infinite Scroll Trigger / Loader */}
-                                {hasMoreTasks && (
-                                    <TableRow ref={bottomRef}>
-                                        <TableCell colSpan={visibleColumnsCount} className="text-center py-2 h-10">
-                                            {loadingMoreTasks && (
-                                                <div className="flex items-center justify-center w-full">
-                                                    <Loader2 className="h-6 w-6 animate-spin text-primary/50" />
-                                                </div>
-                                            )}
-                                        </TableCell>
-                                    </TableRow>
-                                )}
 
-                                {/* Add Task - Flat View Only */}
                                 {canCreateSubTask && !groupedTasks && !hasActiveFilters(filters) && !searchQuery && (
                                     activeInlineProjectId === projectId ? (
                                         <InlineTaskForm
@@ -1026,7 +1053,7 @@ export function TaskTable({
                                         />
                                     ) : (
                                         <TableRow className="hover:bg-muted/20 cursor-pointer h-8" onClick={() => setActiveInlineProjectId(projectId)}>
-                                            <TableCell colSpan={visibleColumnsCount} className="py-1 px-2 text-muted-foreground">
+                                            <TableCell colSpan={visibleColumnsCount} className="py-2 px-2 text-muted-foreground">
                                                 <div className="flex items-center gap-2 text-primary font-medium hover:text-primary/80">
                                                     <Plus className="h-4 w-4" />
                                                     <span>Add Task</span>

@@ -187,6 +187,7 @@
 /* Chrome / Edge / Safari */
 .thin-scrollbar::-webkit-scrollbar {
   width: 4px;
+  height: 4px; /* Horizontal scrollbar height */
 }
 
 .thin-scrollbar::-webkit-scrollbar-track {

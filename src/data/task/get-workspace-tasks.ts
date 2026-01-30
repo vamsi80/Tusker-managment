@@ -293,6 +293,7 @@ async function _getWorkspaceTasksInternal(
                 assignee: {
                     select: { id: true, name: true, surname: true, image: true }
                 },
+                createdById: true,
                 createdBy: {
                     select: { id: true, name: true, surname: true, image: true }
                 },
@@ -300,6 +301,7 @@ async function _getWorkspaceTasksInternal(
                 reviewer: {
                     select: { id: true, name: true, surname: true, image: true }
                 },
+                parentTaskId: true,
                 _count: {
                     select: { subTasks: true }
                 }

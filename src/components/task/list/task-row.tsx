@@ -23,12 +23,12 @@ interface TaskRowProps {
     onUpdateEnd?: () => void;
     onTaskUpdated?: (updatedTask: { name: string; taskSlug: string }) => void;
     onTaskDeleted?: (taskId: string) => void;
-    // Permission props
-    permissions?: UserPermissionsType; // For project view
+    permissions?: UserPermissionsType;
     userId?: string;
-    isWorkspaceAdmin?: boolean; // For workspace view
-    leadProjectIds?: string[]; // For workspace view
-    projects?: Array<{ id: string; canManageMembers?: boolean }>; // For workspace view
+    isWorkspaceAdmin?: boolean;
+    leadProjectIds?: string[];
+    projects?: Array<{ id: string; canManageMembers?: boolean }>;
+    isSubtask?: boolean;
     children?: React.ReactNode;
 }
 
@@ -53,7 +53,7 @@ export function TaskRow({
 
     // Calculate the number of columns to span
     // 2 (expand button) + 1 (task name) + visible columns (not including actions)
-    let colSpan = 1; // Start with just task name cell
+    let colSpan = 1;
     // Project column removed
     if (columnVisibility.description) colSpan++;
     if (columnVisibility.assignee) colSpan++;
@@ -122,33 +122,38 @@ export function TaskRow({
         <>
             <TableRow
                 className={cn(
-                    "group [&_td]:py-1",
+                    "group [&_td]:py-2",
                     (task as any).isOptimistic && "opacity-60 grayscale-[0.5]"
                 )}>
-                <TableCell>
-                    <div className="flex items-center justify-end pr-1">
-                        <CornerDownRight className="h-3 w-3 text-muted-foreground mr-1" />
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={onToggleExpand}
-                        >
-                            {isExpanded ? (
-                                <ChevronDown className="h-2 w-2" />
-                            ) : (
-                                <ChevronRight className="h-2 w-2" />
-                            )}
-                        </Button>
-                    </div>
-                </TableCell>
-                <TableCell className="font-medium" colSpan={colSpan}>
-                    <div className="flex items-center gap-2">
-                        <span>{task.name}</span>
+                <TableCell className="font-semibold text-sm" colSpan={colSpan + 1} >
+                    <div className="flex items-center gap-2 ml-2">
+                        <div className="flex items-center">
+                            <div className="flex items-center gap-0">
+                                <div className="w-6 flex justify-center shrink-0">
+                                    <CornerDownRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                </div>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-4 w-4 shrink-0 p-0.5"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onToggleExpand();
+                                    }}
+                                >
+                                    {isExpanded ? (
+                                        <ChevronDown className="h-4 w-4" />
+                                    ) : (
+                                        <ChevronRight className="h-4 w-4" />
+                                    )}
+                                </Button>
+                            </div>
+                        </div>
+                        <span className="truncate">{task.name}</span>
                         {subtaskCount > 0 && (
-                            <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-normal text-muted-foreground shrink-0 flex items-center justify-center">
+                            <span className="text-xs text-muted-foreground">
                                 {subtaskCount}
-                            </Badge>
+                            </span>
                         )}
                     </div>
                 </TableCell>

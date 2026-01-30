@@ -2,7 +2,6 @@
 
 import { GanttChart } from "@/components/task/gantt/gantt-chart";
 import { GanttTask } from "@/components/task/gantt/types";
-import { FlatTaskType } from "@/data/task/gantt/get-all-tasks-flat";
 import { ProjectOption, MemberOption, TaskFilters, TagOption } from "@/components/task/shared/types";
 import { GlobalFilterToolbar } from "@/components/task/shared/global-filter-toolbar";
 import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
@@ -14,7 +13,7 @@ import { useEffect } from "react";
 interface WorkspaceGanttClientProps {
     workspaceId: string;
     initialTasks: GanttTask[];
-    allTasks: FlatTaskType[];
+    allTasks: any[];
     subtaskDataMap: Map<string, any>;
     projects: ProjectOption[];
     members: MemberOption[];

@@ -3,9 +3,8 @@
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import prisma from "@/lib/db";
-import { requireUser } from "@/lib/auth/require-user";
-import { getUserPermissions, getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { CacheTags, withCustomTags } from "@/data/cache-tags";
+import { getUserPermissions, getWorkspacePermissions } from "@/data/user/get-user-permissions";
 
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "CANCELLED" | "REVIEW" | "HOLD" | "COMPLETED";
@@ -136,6 +135,7 @@ async function _getSubTasksByStatusInternal(
                 id: true,
                 projectId: true, // Add this
                 name: true,
+                createdById: true,
                 taskSlug: true,
                 description: true,
                 status: true,

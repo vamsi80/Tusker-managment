@@ -3,6 +3,7 @@
 import { getUserPermissions } from "@/data/user/get-user-permissions";
 import { invalidateTaskMutation } from "@/lib/cache/invalidation";
 import { requireUser } from "@/lib/auth/require-user";
+import { generateUniqueSlug } from "@/lib/slug-generator";
 import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
 import { SubTaskSchemaType, subTaskSchema } from "@/lib/zodSchemas";
@@ -84,10 +85,12 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
         }
 
         // Default reviewer to creator
-        const reviewerId = validation.data.reviewerId ?? permissions.workspaceMember.userId;
+        const providedReviewerId = validation.data.reviewerId || null;
+        const reviewerId = providedReviewerId ?? permissions.workspaceMember.userId;
 
-        // Create unique slug for subtask by combining parent slug with subtask slug
-        const uniqueSubtaskSlug = `${parentTask.taskSlug}-${validation.data.taskSlug}`;
+        // Create unique slug for subtask using helper to prevent collisions
+        // We use validation.data.name because generateUniqueSlug slugifies it internally
+        const uniqueSubtaskSlug = await generateUniqueSlug(validation.data.name, 'task', parentTask.taskSlug);
 
         const newSubTask = await prisma.task.create({
             data: {

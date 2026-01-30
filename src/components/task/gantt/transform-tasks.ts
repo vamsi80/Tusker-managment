@@ -6,10 +6,10 @@ import { validateDependencies } from "@/components/task/gantt/utils";
 /**
  * Transform flat tasks list into Gantt structure
  */
-export function transformToGanttTasks(allTasks: FlatTaskType[]): GanttTask[] {
+export function transformToGanttTasks(allTasks: any[]): GanttTask[] {
     // Separate parent tasks and subtasks
-    const parentTasks = allTasks.filter(task => task.parentTaskId === null);
-    const subtasksMap = new Map<string, typeof allTasks>();
+    const parentTasks = allTasks.filter(task => !task.parentTaskId);
+    const subtasksMap = new Map<string, any[]>();
 
     allTasks.forEach(task => {
         if (task.parentTaskId) {

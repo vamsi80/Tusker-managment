@@ -27,7 +27,9 @@ async function _getSubTasksInternal(
 ) {
     const skip = (page - 1) * pageSize;
 
-    // 1. Permission filter (Members can only see their own tasks)
+    // 1. Permission filter
+    // - ADMINS, PROJECT_MANAGERS, and LEADS: See all subtasks (isMember = false)
+    // - MEMBERS: Only see subtasks assigned to them (isMember = true)
     const permissionFilter = isMember
         ? { assignee: { id: userId } }
         : {};
@@ -97,6 +99,7 @@ async function _getSubTasksInternal(
                         subTasks: true,
                     },
                 },
+                createdById: true,
             },
             orderBy: {
                 position: 'asc',

@@ -39,13 +39,14 @@ export async function editProject(values: EditProjectSchemaType): Promise<ApiRes
         }
 
         // Get user permissions for this project
+        // Get user permissions for this project
         const permissions = await getUserPermissions(project.workspaceId, values.projectId);
 
         // Check if user has admin access (workspace admin or project lead)
         const workspaceRole = permissions.workspaceMember?.workspaceRole;
         const projectRole = permissions.projectMember?.projectRole || null;
 
-        if (!workspaceRole || !isProjectAdmin(projectRole, workspaceRole)) {
+        if (!permissions.isWorkspaceAdmin && !isProjectAdmin(projectRole)) {
             return {
                 status: "error",
                 message: "Only workspace owners/admins and project leads can edit projects.",

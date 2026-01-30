@@ -220,21 +220,18 @@ export function SubTaskRow({
                 (subTask as any).isOptimistic && "opacity-60 grayscale-[0.5]"
             )}
         >
-            <TableCell className="pl-4">
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 cursor-grab active:cursor-grabbing"
-                    {...attributes}
-                    {...listeners}
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <CornerDownRight className="h-3 w-3 text-muted-foreground" />
-                </Button>
-            </TableCell>
-
-            <TableCell className="pl-3">
-                <div className="flex items-center gap-2">
+            <TableCell className="pl-6" colSpan={2}>
+                <div className="flex items-center gap-1 ml-2">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 cursor-grab active:cursor-grabbing shrink-0"
+                        {...attributes}
+                        {...listeners}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <CornerDownRight className="h-3.5 w-3.5 text-muted-foreground" />
+                    </Button>
                     <span
                         className="truncate text-muted-foreground text-sm max-w-[200px] block cursor-pointer hover:text-foreground transition-colors"
                         onClick={(e) => {

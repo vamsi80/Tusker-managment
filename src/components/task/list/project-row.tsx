@@ -5,7 +5,7 @@ import { ChevronDown, ChevronRight, Folder, CornerDownRight } from "lucide-react
 
 interface ProjectRowProps {
     project: { id: string; name: string; color?: string };
-    tasksCount: number;
+    totalTasksCount?: number; // Total parent tasks for this project (if available)
     isExpanded: boolean;
     onToggle: () => void;
     colSpan: number;
@@ -14,7 +14,7 @@ interface ProjectRowProps {
 
 export function ProjectRow({
     project,
-    tasksCount,
+    totalTasksCount,
     isExpanded,
     onToggle,
     colSpan,
@@ -23,12 +23,11 @@ export function ProjectRow({
     return (
         <>
             <TableRow
-                className="bg-muted/50 hover:bg-muted/70 cursor-pointer transition-colors h-8"
+                className="group [&_td]:py-2 bg-muted/50 hover:bg-muted/70 cursor-pointer transition-colors h-8"
                 onClick={onToggle}
             >
-                <TableCell colSpan={colSpan} className="py-1 px-2 font-medium">
+                <TableCell colSpan={colSpan} className="py-2 px-2 font-medium">
                     <div className="flex items-center gap-2">
-                        <CornerDownRight className="h-3 w-3 text-muted-foreground" />
                         <Button
                             variant="ghost"
                             size="sm"
@@ -52,9 +51,11 @@ export function ProjectRow({
 
                         <span className="text-sm font-semibold">{project.name}</span>
 
-                        <span className="text-xs text-muted-foreground ml-2">
-                            {tasksCount}
-                        </span>
+                        {totalTasksCount !== undefined && totalTasksCount > 0 && (
+                            <span className="text-xs text-muted-foreground ml-2">
+                                ({totalTasksCount} tasks)
+                            </span>
+                        )}
                     </div>
                 </TableCell>
             </TableRow>

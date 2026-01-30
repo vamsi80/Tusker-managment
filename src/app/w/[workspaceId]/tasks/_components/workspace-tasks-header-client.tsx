@@ -49,7 +49,6 @@ export function WorkspaceTasksHeaderClient({
 
     // Safety check for permissions
     if (!permissions) {
-        console.error('Permissions object is undefined in WorkspaceTasksHeaderClient');
         return (
             <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -66,16 +65,6 @@ export function WorkspaceTasksHeaderClient({
 
     return (
         <div className="space-y-4">
-            {/* Title and Action Buttons */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">All Tasks</h1>
-                    <p className="text-muted-foreground">
-                        View and manage tasks across all projects
-                    </p>
-                </div>
-            </div>
-
             {/* View Tabs */}
             <div className="border-b">
                 <div className="flex h-10 items-center gap-4 overflow-x-auto scrollbar-hide">
