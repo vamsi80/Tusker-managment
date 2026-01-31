@@ -15,7 +15,10 @@ import {
 } from "@/components/ui/tooltip";
 import { GanttSubtask, GanttTask } from "./types";
 
-const SUBTASKS_PER_PAGE = 10;
+// ...
+// ... (imports)
+
+const SUBTASKS_PER_PAGE = 50;
 
 interface TaskRowProps {
     task: GanttTask;
@@ -48,7 +51,6 @@ export function TaskRow({
     const [selectedSubtask, setSelectedSubtask] = useState<GanttSubtask | null>(null);
     const [visibleSubtaskCount, setVisibleSubtaskCount] = useState(SUBTASKS_PER_PAGE);
 
-
     const { start, end } = useMemo(() => computeTaskDates(task), [task]);
 
     const position = useMemo(() => {
@@ -72,7 +74,18 @@ export function TaskRow({
     const visibleSubtasks = task.subtasks.slice(0, visibleSubtaskCount);
     const hasMoreSubtasks = visibleSubtaskCount < task.subtasks.length;
 
-
+    // Auto-scroll trigger for subtasks
+    const subtaskLoaderRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (!subtaskLoaderRef.current) return;
+        const observer = new IntersectionObserver(([entry]) => {
+            if (entry.isIntersecting && hasMoreSubtasks) {
+                handleLoadMoreSubtasks();
+            }
+        }, { threshold: 0.1 });
+        observer.observe(subtaskLoaderRef.current);
+        return () => observer.disconnect();
+    }, [hasMoreSubtasks]);
 
     return (
         <>
@@ -191,15 +204,9 @@ export function TaskRow({
 
                     {hasMoreSubtasks && (
                         <>
-                            {/* Left Panel - Load More Button */}
-                            <div className="sticky left-0 z-30 w-[200px] min-w-[200px] shrink-0 bg-neutral-50 dark:bg-neutral-800/30 border-b border-r border-neutral-200 dark:border-neutral-700 flex items-center px-2 py-1.5 pl-8">
-                                <button
-                                    onClick={handleLoadMoreSubtasks}
-                                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700/50 w-full text-left"
-                                >
-                                    <ChevronDown className="h-3 w-3" />
-                                    <span>Load more subtasks</span>
-                                </button>
+                            {/* Left Panel - Auto Load Trigger */}
+                            <div ref={subtaskLoaderRef} className="sticky left-0 z-30 w-[200px] min-w-[200px] shrink-0 bg-neutral-50 dark:bg-neutral-800/30 border-b border-r border-neutral-200 dark:border-neutral-700 flex items-center px-2 py-1.5 pl-8">
+                                <span className="text-xs text-muted-foreground ml-6">Loading more subtasks...</span>
                             </div>
 
                             {/* Right Panel - Spacer */}

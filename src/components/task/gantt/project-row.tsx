@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef, useEffect } from "react";
 import { ChevronDown, ChevronRight, Folder } from "lucide-react";
 import { calculateBarPosition, formatDateRange, getDaysBetween } from "./utils";
 import { cn } from "@/lib/utils";
@@ -24,6 +24,7 @@ interface ProjectRowProps {
     color?: string;
     hasMore?: boolean;
     onLoadMore?: () => void;
+    totalTasksCount?: number;
 }
 
 export function ProjectRow({
@@ -37,7 +38,8 @@ export function ProjectRow({
     children,
     color = "#666",
     hasMore,
-    onLoadMore
+    onLoadMore,
+    totalTasksCount
 }: ProjectRowProps) {
     const { start, end } = useMemo(() => {
         let minStart: Date | null = null;
@@ -70,6 +72,19 @@ export function ProjectRow({
         if (!start || !end) return null;
         return calculateBarPosition(start, end, timelineStart, totalDays);
     }, [start, end, timelineStart, totalDays]);
+
+    // Auto-scroll trigger for project tasks
+    const loaderRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (!loaderRef.current || !onLoadMore) return;
+        const observer = new IntersectionObserver(([entry]) => {
+            if (entry.isIntersecting && hasMore) {
+                onLoadMore();
+            }
+        }, { threshold: 0.1 });
+        observer.observe(loaderRef.current);
+        return () => observer.disconnect();
+    }, [hasMore, onLoadMore]);
 
     return (
         <>
@@ -108,7 +123,7 @@ export function ProjectRow({
                         {name}
                     </span>
                     <span className="text-xs text-muted-foreground ml-auto">
-                        {tasks.length}
+                        {totalTasksCount ?? tasks.length}
                     </span>
                 </div>
 
@@ -149,7 +164,7 @@ export function ProjectRow({
                                             {formatDateRange(start, end)}
                                         </p>
                                         <p className="text-xs text-muted-foreground">
-                                            {tasks.length} tasks
+                                            {totalTasksCount ?? tasks.length} tasks
                                         </p>
                                     </div>
                                 </TooltipContent>
@@ -166,14 +181,8 @@ export function ProjectRow({
             {isExpanded && hasMore && (
                 <>
                     {/* Left Panel */}
-                    <div className="sticky left-0 z-30 w-[200px] min-w-[200px] shrink-0 bg-neutral-50 dark:bg-neutral-800/30 border-b border-r border-neutral-200 dark:border-neutral-700 flex items-center px-3 py-1.5 pl-8">
-                        <button
-                            onClick={onLoadMore}
-                            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700/50 w-full text-left"
-                        >
-                            <ChevronDown className="h-3 w-3" />
-                            <span>Load more tasks</span>
-                        </button>
+                    <div ref={loaderRef} className="sticky left-0 z-30 w-[200px] min-w-[200px] shrink-0 bg-neutral-50 dark:bg-neutral-800/30 border-b border-r border-neutral-200 dark:border-neutral-700 flex items-center px-3 py-1.5 pl-8">
+                        <span className="text-xs text-muted-foreground">Loading more...</span>
                     </div>
                     {/* Right Panel */}
                     <div className="relative min-h-[32px] w-full bg-neutral-50/50 dark:bg-neutral-800/10 border-b border-neutral-200 dark:border-neutral-700" />

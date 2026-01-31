@@ -46,6 +46,7 @@ interface TaskTableProps {
     level?: "workspace" | "project";
     permissions?: UserPermissionsType;
     userId?: string;
+    projectCounts?: Record<string, number>;
 }
 
 const DEFAULT_TAGS: { id: string; name: string; }[] = [];
@@ -67,6 +68,7 @@ export function TaskTable({
     permissions,
     userId,
     initialHasMore,
+    projectCounts,
 }: TaskTableProps) {
 
     const [searchQuery, setSearchQuery] = useState("");
@@ -201,7 +203,7 @@ export function TaskTable({
 
             loadSortedSubTasksAction(
                 workspaceId,
-                sortFilters,
+                { ...sortFilters, workspaceId },
                 sorts,
                 1,
                 100 // Load more items for sorted view
@@ -246,7 +248,8 @@ export function TaskTable({
                     projectId: targetProjectId,
                     startDate: filters.startDate ? new Date(filters.startDate) : undefined,
                     endDate: filters.endDate ? new Date(filters.endDate) : undefined,
-                    search: searchQuery
+                    search: searchQuery,
+                    workspaceId
                 },
                 nextPage,
                 10
@@ -569,7 +572,7 @@ export function TaskTable({
 
                 fetchingSubTasksRef.current.add(taskId);
 
-                loadSubTasksAction(taskId, workspaceId, taskProjectId, {}, 1, 10)
+                loadSubTasksAction(taskId, workspaceId, taskProjectId, { workspaceId }, 1, 10)
                     .then(response => {
                         if (response.success && response.data) {
                             const result = response.data;
@@ -1036,7 +1039,7 @@ export function TaskTable({
                                                 <React.Fragment key={projectId}>
                                                     <ProjectRow
                                                         project={project || { id: projectId, name: "Unknown Project" }}
-                                                        totalTasksCount={projectTaskCounts[projectId]}
+                                                        totalTasksCount={projectCounts ? (projectCounts[projectId] || 0) : projectTaskCounts[projectId]}
                                                         isExpanded={isProjectExpanded}
                                                         onToggle={() => toggleProjectExpand(projectId)}
                                                         colSpan={visibleColumnsCount}

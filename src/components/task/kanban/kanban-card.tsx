@@ -132,7 +132,7 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                 <div>
                     <div className="flex items-start justify-between gap-2">
                         <h5
-                            className="font-semibold text-[13px] leading-snug flex-1 cursor-pointer hover:text-primary transition-colors line-clamp-2"
+                            className="font-semibold text-[13px] leading-snug flex-1 cursor-pointer hover:text-primary transition-colors line-clamp-1"
                             onClick={handleNameClick}
                             title={subTask.name}
                         >
@@ -141,7 +141,7 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                         <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
                     {subTask.description && (
-                        <p className="text-xs text-muted-foreground line-clamp-2 mt-1 leading-relaxed">
+                        <p className="text-xs text-muted-foreground line-clamp-1 mt-1 leading-relaxed">
                             {subTask.description}
                         </p>
                     )}

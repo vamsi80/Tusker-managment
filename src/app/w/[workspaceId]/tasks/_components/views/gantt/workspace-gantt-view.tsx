@@ -1,7 +1,5 @@
-import { getWorkspaceTasks } from "@/data/task/get-workspace-tasks";
+import { getWorkspaceTasks } from "@/data/task";
 import { getSubTasksByParentIds } from "@/data/task/list/get-subtasks-batch";
-import { validateDependencies } from "@/components/task/gantt/utils";
-import { GanttSubtask, GanttTask } from "@/components/task/gantt/types";
 import { WorkspaceGanttClient } from "./workspace-gantt-client";
 import { getUserProjects } from "@/data/project/get-projects";
 import { getWorkspaceMembers } from "@/data/workspace/get-workspace-members";
@@ -22,10 +20,8 @@ interface WorkspaceGanttViewProps {
  * - MEMBER: See only tasks from assigned projects and their assigned subtasks
  */
 export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProps) {
-    // Get all tasks in a flat structure (parent tasks + subtasks) with permission-based filtering
-    // We use getWorkspaceTasks (same as List view) for parents, and then fetch subtasks
     const [tasksData, projects, workspaceMembers, projectMemberMatches, tags] = await Promise.all([
-        getWorkspaceTasks(workspaceId, {}, 1, 1000), // Get up to 1000 parent tasks
+        getWorkspaceTasks({ workspaceId, page: 1, limit: 5000, includeFacets: true }), // Get up to 5000 parent tasks
         getUserProjects(workspaceId),
         getWorkspaceMembers(workspaceId),
         prisma.projectMember.findMany({
@@ -129,6 +125,7 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
             projects={projectOptions}
             members={memberOptions}
             tags={tagOptions}
+            projectCounts={tasksData.facets.projects}
         />
     );
 }

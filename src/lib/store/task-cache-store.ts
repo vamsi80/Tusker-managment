@@ -46,10 +46,11 @@ export const useTaskCacheStore = create<TaskCacheState>((set, get) => ({
 
     upsertTasks: (tasks) => set(state => {
         const newEntities = { ...state.entities };
-        tasks.forEach(t => {
-            const existing = newEntities[t.id] || {};
-            newEntities[t.id] = { ...existing, ...t };
-        });
+        for (const t of tasks) {
+            const existing = newEntities[t.id];
+            // Only spread if existing entity found, otherwise direct assignment
+            newEntities[t.id] = existing ? { ...existing, ...t } : t;
+        }
         return { entities: newEntities };
     }),
 

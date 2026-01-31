@@ -1,6 +1,6 @@
-import { getAllTasksFlat, FlatTaskType } from "@/data/task";
-import { validateDependencies } from "../../../../../../../components/task/gantt/utils";
-import { GanttSubtask, GanttTask } from "../../../../../../../components/task/gantt/types";
+import { getTasks } from "@/data/task/get-tasks";
+import { getSubTasksByParentIds } from "@/data/task/list/get-subtasks-batch";
+import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
 import { ProjectGanttClient } from "./project-gantt-client";
 
 interface GanttServerWrapperProps {
@@ -10,88 +10,47 @@ interface GanttServerWrapperProps {
 
 /**
  * Server component that fetches Gantt data
- * This ensures data is fetched on the server (GET request) not client (POST request)
+ * Uses unified getTasks for parent tasks and then fetches subtasks
  */
 export async function GanttServerWrapper({ workspaceId, projectId }: GanttServerWrapperProps) {
-    // Get all tasks in a flat structure (parent tasks + subtasks) with permission-based filtering
-    const { tasks: allTasks } = await getAllTasksFlat(workspaceId, projectId);
-
-    // Separate parent tasks and subtasks
-    const parentTasks = allTasks.filter(task => task.parentTaskId === null);
-    const subtasksMap = new Map<string, FlatTaskType[]>();
-
-    allTasks.forEach(task => {
-        if (task.parentTaskId) {
-            if (!subtasksMap.has(task.parentTaskId)) {
-                subtasksMap.set(task.parentTaskId, []);
-            }
-            subtasksMap.get(task.parentTaskId)!.push(task);
-        }
+    // 1. Fetch Parent Tasks (Unified Function)
+    const tasksData = await getTasks({
+        workspaceId,
+        projectId,
+        view: 'gantt', // Fetches parent tasks
+        page: 1,
+        limit: 5000,
+        includeFacets: true
     });
 
-    // Sort parent tasks by position
-    const sortedParentTasks = [...parentTasks].sort((a, b) => {
-        const posA = a.position ?? Number.MAX_SAFE_INTEGER;
-        const posB = b.position ?? Number.MAX_SAFE_INTEGER;
-        return posA - posB;
-    });
+    const parentTasks = tasksData.tasks;
+    const parentIds = parentTasks.map(t => t.id);
 
-    // Create a map of subtask ID to full subtask data for the details sheet
+    // 2. Fetch Subtasks for these parents
+    const subtaskResults = await getSubTasksByParentIds(
+        parentIds,
+        workspaceId,
+        projectId, // Project scope
+        {},
+        100 // Limit subtasks per parent
+    );
+
+    const subtasks = subtaskResults.flatMap(r => r.subTasks);
+    const allTasks = [...parentTasks, ...subtasks];
+
+    // 3. Create map for subtask data
     const subtaskDataMap = new Map();
     allTasks.forEach(task => {
-        if (task.parentTaskId) {
+        if (task.parentTaskId) { // If it's a subtask
             subtaskDataMap.set(task.id, task);
         }
     });
 
-    // Transform data to GanttTask format
-    const ganttTasks: GanttTask[] = sortedParentTasks.map((parentTask) => {
-        // Get subtasks for this parent task
-        const taskSubtasks = subtasksMap.get(parentTask.id) || [];
+    // 4. Transform to Gantt Structure
+    const ganttTasks = transformToGanttTasks(allTasks);
 
-        // Sort subtasks by position
-        const sortedSubTasks = taskSubtasks.sort((a, b) => {
-            const posA = a.position ?? Number.MAX_SAFE_INTEGER;
-            const posB = b.position ?? Number.MAX_SAFE_INTEGER;
-            return posA - posB;
-        });
-
-        // Transform subtasks first
-        const rawSubtasks: GanttSubtask[] = sortedSubTasks.map((subtask) => {
-            const startDate = subtask.startDate ? new Date(subtask.startDate) : null;
-            const endDate = startDate && subtask.days
-                ? new Date(startDate.getTime() + (subtask.days - 1) * 24 * 60 * 60 * 1000)
-                : startDate;
-
-            // Format dates as YYYY-MM-DD using local time (not UTC)
-            const formatLocalDate = (date: Date | null): string => {
-                if (!date) return '';
-                const year = date.getFullYear();
-                const month = String(date.getMonth() + 1).padStart(2, '0');
-                const day = String(date.getDate()).padStart(2, '0');
-                return `${year}-${month}-${day}`;
-            };
-
-            return {
-                id: subtask.id,
-                name: subtask.name,
-                start: formatLocalDate(startDate),
-                end: formatLocalDate(endDate),
-                status: subtask.status || 'TO_DO',
-                // Extract dependency IDs from dependsOn relation
-                dependsOnIds: (subtask as any).dependsOn?.map((dep: any) => dep.id) || [],
-            };
-        });
-
-        // Validate dependencies to compute blocked status
-        const validatedSubtasks = validateDependencies(rawSubtasks);
-
-        return {
-            id: parentTask.id,
-            name: parentTask.name,
-            subtasks: validatedSubtasks,
-        };
-    });
+    // 5. Get Project Counts
+    const projectCounts = tasksData.facets.projects;
 
     return (
         <ProjectGanttClient
@@ -99,6 +58,7 @@ export async function GanttServerWrapper({ workspaceId, projectId }: GanttServer
             projectId={projectId}
             initialTasks={ganttTasks}
             subtaskDataMap={subtaskDataMap}
+            projectCounts={projectCounts}
         />
     );
 }

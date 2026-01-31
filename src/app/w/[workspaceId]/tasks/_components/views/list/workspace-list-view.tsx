@@ -27,7 +27,8 @@ export async function WorkspaceListView({
             workspaceId,
             view: "list",
             page: 1,
-            limit: 20
+            limit: 20,
+            includeFacets: true
         })
     ]);
 
@@ -71,6 +72,7 @@ export async function WorkspaceListView({
             isWorkspaceAdmin={permissions.isWorkspaceAdmin}
             level="workspace"
             userId={user.id}
+            projectCounts={tasksData.facets.projects}
         />
     );
 }

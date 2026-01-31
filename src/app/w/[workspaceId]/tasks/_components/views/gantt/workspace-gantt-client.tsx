@@ -16,6 +16,7 @@ interface WorkspaceGanttClientProps {
     projects: ProjectOption[];
     members: MemberOption[];
     tags: TagOption[];
+    projectCounts?: Record<string, number>;
 }
 
 export function WorkspaceGanttClient({
@@ -25,7 +26,8 @@ export function WorkspaceGanttClient({
     subtaskDataMap,
     projects,
     members,
-    tags
+    tags,
+    projectCounts
 }: WorkspaceGanttClientProps) {
     const [filters, setFilters] = useState<TaskFilters>({});
     const [searchQuery, setSearchQuery] = useState("");
@@ -146,6 +148,7 @@ export function WorkspaceGanttClient({
                         handleFilterChange({ ...filters, projectId: projectId || undefined });
                     }}
                     groupByProject={true}
+                    projectCounts={projectCounts}
                 />
             </div>
         </div>

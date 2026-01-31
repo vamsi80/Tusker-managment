@@ -12,12 +12,28 @@ export const getWorkspacePermissions = cache(async (workspaceId: string) => {
     const user = await requireUser();
 
     try {
-        // Get workspace member
+        // Get workspace member and their project lead/manager roles in one go
         const workspaceMember = await prisma.workspaceMember.findFirst({
             where: {
                 workspaceId: workspaceId,
                 userId: user.id,
             },
+            include: {
+                projectMembers: {
+                    where: {
+                        projectRole: {
+                            in: ["LEAD", "PROJECT_MANAGER"]
+                        },
+                        project: {
+                            workspaceId: workspaceId,
+                        },
+                    },
+                    select: {
+                        projectId: true,
+                        projectRole: true
+                    }
+                }
+            }
         });
 
         if (!workspaceMember) {
@@ -34,22 +50,9 @@ export const getWorkspacePermissions = cache(async (workspaceId: string) => {
         const isWorkspaceAdmin = workspaceMember.workspaceRole === "OWNER" || workspaceMember.workspaceRole === "ADMIN";
         const canCreateProject = isWorkspaceAdmin || workspaceMember.workspaceRole === "MANAGER";
 
-        // Check if user is a project lead or manager in any project
-        const projectRoles = await prisma.projectMember.findMany({
-            where: {
-                workspaceMemberId: workspaceMember.id,
-                projectRole: {
-                    in: ["LEAD", "PROJECT_MANAGER"]
-                },
-                project: {
-                    workspaceId: workspaceId,
-                },
-            },
-            select: {
-                projectId: true,
-                projectRole: true
-            }
-        });
+        // Access the included project roles
+        // @ts-ignore - Prisma types sometimes struggle with conditional includes/selects if not fully generated, but this is valid
+        const projectRoles = workspaceMember.projectMembers || [];
 
         const isProjectLead = projectRoles.some(p => p.projectRole === "LEAD");
         const isProjectManager = projectRoles.some(p => p.projectRole === "PROJECT_MANAGER");

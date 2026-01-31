@@ -27,10 +27,11 @@ interface GanttChartProps {
     onProjectChange?: (projectId: string | null) => void;
     hasMore?: boolean;
     onLoadMore?: () => void;
+    projectCounts?: Record<string, number>;
 }
 
-const ITEMS_PER_PAGE = 10;
-const PROJECTS_PER_PAGE = 5;
+const ITEMS_PER_PAGE = 50;
+const PROJECTS_PER_PAGE = 20;
 
 export function GanttChart({
     tasks,
@@ -40,9 +41,8 @@ export function GanttChart({
     onSubtaskClick,
     showProjectFilter,
     projects,
-    selectedProjectId,
-    onProjectChange,
-    groupByProject = false
+    groupByProject = false,
+    projectCounts
 }: GanttChartProps & { groupByProject?: boolean }) {
     const [granularity, setGranularity] = useState<TimelineGranularity>('days');
     const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
@@ -141,6 +141,30 @@ export function GanttChart({
     const handleLoadMoreFlat = () => {
         setVisibleFlatCount(prev => prev + ITEMS_PER_PAGE);
     };
+
+    // Infinite Scroll Implementation
+    const projectsLoaderRef = useRef<HTMLDivElement>(null);
+    const flatTasksLoaderRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    if (entry.target === projectsLoaderRef.current && groupedTasks?.hasMoreProjects) {
+                        handleLoadMoreProjects();
+                    }
+                    if (entry.target === flatTasksLoaderRef.current && !groupByProject && tasks.length > visibleFlatCount) {
+                        handleLoadMoreFlat();
+                    }
+                }
+            });
+        }, { threshold: 0.1, rootMargin: '200px' });
+
+        if (projectsLoaderRef.current) observer.observe(projectsLoaderRef.current);
+        if (flatTasksLoaderRef.current) observer.observe(flatTasksLoaderRef.current);
+
+        return () => observer.disconnect();
+    }, [groupedTasks?.hasMoreProjects, groupByProject, tasks.length, visibleFlatCount]);
 
     useEffect(() => {
         if (!scrollContainerRef.current) return;
@@ -388,6 +412,7 @@ export function GanttChart({
                                     color={group.color}
                                     hasMore={group.hasMoreTasks}
                                     onLoadMore={() => handleLoadMoreTasksForProject(group.id)}
+                                    totalTasksCount={projectCounts ? (projectCounts[group.id] || 0) : group.totalTasks}
                                 >
                                     {group.visibleTasks.map(task => (
                                         <TaskRow
@@ -427,15 +452,8 @@ export function GanttChart({
                             {/* Load More Projects Row */}
                             {groupedTasks.hasMoreProjects && (
                                 <>
-                                    <div className="sticky left-0 z-30 w-[200px] min-w-[200px] flex items-center justify-center p-2 bg-white dark:bg-neutral-900 border-b border-r border-neutral-200 dark:border-neutral-700">
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="w-full text-xs text-muted-foreground hover:text-foreground"
-                                            onClick={handleLoadMoreProjects}
-                                        >
-                                            Load More Projects
-                                        </Button>
+                                    <div ref={projectsLoaderRef} className="sticky left-0 z-30 w-[200px] min-w-[200px] flex items-center justify-center p-2 bg-white dark:bg-neutral-900 border-b border-r border-neutral-200 dark:border-neutral-700">
+                                        <span className="text-xs text-muted-foreground">Loading more projects...</span>
                                     </div>
                                     <div className="bg-neutral-50/30 dark:bg-neutral-900/10 border-b border-neutral-200 dark:border-neutral-700" />
                                 </>
@@ -462,15 +480,8 @@ export function GanttChart({
                             {/* Load More Flat Tasks Row */}
                             {!groupByProject && (tasks.length > visibleFlatCount) && (
                                 <>
-                                    <div className="sticky left-0 z-30 w-[200px] min-w-[200px] flex items-center justify-center p-2 bg-white dark:bg-neutral-900 border-b border-r border-neutral-200 dark:border-neutral-700">
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="w-full text-xs text-muted-foreground hover:text-foreground"
-                                            onClick={handleLoadMoreFlat}
-                                        >
-                                            Load More Tasks
-                                        </Button>
+                                    <div ref={flatTasksLoaderRef} className="sticky left-0 z-30 w-[200px] min-w-[200px] flex items-center justify-center p-2 bg-white dark:bg-neutral-900 border-b border-r border-neutral-200 dark:border-neutral-700">
+                                        <span className="text-xs text-muted-foreground">Loading more tasks...</span>
                                     </div>
                                     <div className="bg-neutral-50/30 dark:bg-neutral-900/10 border-b border-neutral-200 dark:border-neutral-700" />
                                 </>

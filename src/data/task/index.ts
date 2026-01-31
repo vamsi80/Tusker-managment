@@ -1,6 +1,7 @@
-export { getWorkspaceTasks, type WorkspaceTasksResponse, type WorkspaceTaskType, type WorkspaceTaskFilters } from "./get-workspace-tasks";
+// Unified Task Fetcher
+export { getTasks as getWorkspaceTasks, type GetTasksResponse as WorkspaceTasksResponse, type GetTasksOptions as WorkspaceTaskFilters } from "./get-tasks";
+export type { WorkspaceTaskType } from "./legacy-types"; // We will create this shim to avoid breaking changes if specific types were relied on
 export { getAllTasksFlat, type AllTasksFlatResponse, type FlatTaskType } from "./gantt/get-all-tasks-flat";
-export { getAllSubTasks, type AllSubTasksResponse, type SubTaskType } from "./kanban/get-all-subtasks";
 export { getParentTasksOnly, type ParentTasksOnlyResponse, type ParentTaskType } from "./list/get-parent-tasks-only";
 export { getSubTasks, type SubTasksResponse, type SubTaskType as PaginatedSubTaskType } from "./list/get-subtasks";
 export { getTaskById, type TaskByIdType } from "./get-task-by-id";

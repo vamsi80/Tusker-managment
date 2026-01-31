@@ -13,13 +13,20 @@ import { SortConfig } from "@/components/task/shared/types";
  */
 export async function loadMoreTasksAction(
     workspaceId: string,
-    filters: WorkspaceTaskFilters = {},
+    filters: WorkspaceTaskFilters = {} as any,
     page: number = 1,
     pageSize: number = 10
 ) {
     try {
 
-        const result = await getWorkspaceTasks(workspaceId, filters, page, pageSize);
+        const result = await getWorkspaceTasks({
+            ...filters,
+            workspaceId,
+            status: filters.status as any, // Cast to any to avoid string[] vs TaskStatus[] mismatch from legacy types
+            page,
+            limit: pageSize,
+            includeFacets: true
+        });
         return {
             success: true,
             data: result,
@@ -79,7 +86,7 @@ export async function loadSubTasksAction(
     parentTaskId: string,
     workspaceId: string,
     projectId: string,
-    filters: WorkspaceTaskFilters = {},
+    filters: WorkspaceTaskFilters = {} as any,
     page: number = 1,
     pageSize: number = 10
 ) {
@@ -93,12 +100,12 @@ export async function loadSubTasksAction(
         const taskFilters: TaskFilters = {
             workspaceId,
             projectId: filters.projectId,
-            status: toArray(filters.status),
+            status: toArray(filters.status) as any,
             assigneeId: toArray(filters.assigneeId),
             tagId: toArray(filters.tagId || filters.tag),
             search: filters.search,
-            dueAfter: filters.startDate || filters.dueAfter,
-            dueBefore: filters.endDate || filters.dueBefore,
+            dueAfter: (filters.startDate || filters.dueAfter) as any,
+            dueBefore: (filters.endDate || filters.dueBefore) as any,
             isPinned: filters.isPinned,
         };
 
@@ -133,7 +140,7 @@ export async function loadSubTasksBatchAction(
     parentTaskIds: string[],
     workspaceId: string,
     projectId?: string,
-    filters: WorkspaceTaskFilters = {},
+    filters: WorkspaceTaskFilters = {} as any,
     pageSize: number = 10
 ) {
     try {
@@ -153,12 +160,12 @@ export async function loadSubTasksBatchAction(
         const taskFilters: TaskFilters = {
             workspaceId,
             projectId: filters.projectId,
-            status: toArray(filters.status),
+            status: toArray(filters.status) as any,
             assigneeId: toArray(filters.assigneeId),
             tagId: toArray(filters.tagId || filters.tag),
             search: filters.search,
-            dueAfter: filters.startDate || filters.dueAfter,
-            dueBefore: filters.endDate || filters.dueBefore,
+            dueAfter: (filters.startDate || filters.dueAfter) as any,
+            dueBefore: (filters.endDate || filters.dueBefore) as any,
             isPinned: filters.isPinned,
         };
 
@@ -191,7 +198,7 @@ export async function loadSubTasksBatchAction(
  */
 export async function loadSortedSubTasksAction(
     workspaceId: string,
-    filters: WorkspaceTaskFilters = {},
+    filters: WorkspaceTaskFilters = {} as any,
     sorts: SortConfig[] = [],
     page: number = 1,
     pageSize: number = 50
@@ -205,12 +212,12 @@ export async function loadSortedSubTasksAction(
         // Map WorkspaceTaskFilters to the format expected by getSortedSubTasks
         const taskFilters = {
             projectId: filters.projectId,
-            status: toArray(filters.status),
+            status: toArray(filters.status) as any,
             assigneeId: toArray(filters.assigneeId),
             tagId: toArray(filters.tagId || filters.tag),
             search: filters.search,
-            dueAfter: filters.startDate || filters.dueAfter,
-            dueBefore: filters.endDate || filters.dueBefore,
+            dueAfter: (filters.startDate || filters.dueAfter) as any,
+            dueBefore: (filters.endDate || filters.dueBefore) as any,
             isPinned: filters.isPinned,
         };
 
