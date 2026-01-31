@@ -65,6 +65,7 @@ async function _getSubTasksInternal(
                 status: true,
                 position: true,
                 startDate: true,
+                dueDate: true,
                 days: true,
                 tag: {
                     select: {

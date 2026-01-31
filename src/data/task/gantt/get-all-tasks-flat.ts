@@ -148,6 +148,7 @@ async function _getAllTasksFlatInternal(
                 status: true,
                 tag: true,
                 startDate: true,
+                dueDate: true,
                 days: true,
                 parentTaskId: true,
                 projectId: true,

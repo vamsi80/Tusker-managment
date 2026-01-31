@@ -3,11 +3,12 @@
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { KanbanSubTaskType } from "@/data/task/kanban";
 import { cn } from "@/lib/utils";
-import { Loader2 } from "lucide-react";
 import { KanbanCard } from "./kanban-card";
+import { KanbanCardSkeleton } from "./kanban-skeleton";
+import { useInView } from "react-intersection-observer";
+import { useEffect } from "react";
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "REVIEW" | "HOLD" | "COMPLETED" | "CANCELLED";
 
@@ -29,22 +30,7 @@ interface KanbanColumnProps {
 
 /**
  * Kanban Column Component
- * 
- * A droppable column for the Kanban board that displays subtasks for a specific status.
- * Features:
- * - Drag and drop support via @dnd-kit
- * - Individual scrolling per column
- * - Load more pagination
- * - Visual feedback when dragging over
- * - Custom ultra-thin scrollbar
- * 
- * @param column - Column configuration (id, title, colors)
- * @param subTasks - Array of subtasks to display in this column
- * @param totalCount - Total number of subtasks for this status
- * @param hasMore - Whether there are more subtasks to load
- * @param isLoadingMore - Whether currently loading more subtasks
- * @param onSubTaskClick - Callback when a subtask is clicked
- * @param onLoadMore - Callback to load more subtasks
+ * ...
  */
 export function KanbanColumn({
     column,
@@ -58,6 +44,17 @@ export function KanbanColumn({
     const { setNodeRef, isOver } = useDroppable({
         id: column.id,
     });
+
+    const { ref: loadMoreRef, inView } = useInView({
+        threshold: 0,
+        rootMargin: '100px', // Trigger before hitting bottom slightly
+    });
+
+    useEffect(() => {
+        if (inView && hasMore && !isLoadingMore) {
+            onLoadMore();
+        }
+    }, [inView, hasMore, isLoadingMore, onLoadMore]);
 
     return (
         <div className="flex-shrink-0 w-80 flex flex-col h-full">
@@ -111,27 +108,20 @@ export function KanbanColumn({
                             />
                         ))}
 
-                        {/* Load More Button */}
-                        {hasMore && (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="w-full"
-                                onClick={onLoadMore}
-                                disabled={isLoadingMore}
-                            >
+                        {/* Infinite Scroll Sentinel & Skeleton */}
+                        {(hasMore || isLoadingMore) && (
+                            <div ref={loadMoreRef} className="py-2 w-full">
                                 {isLoadingMore ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Loading...
-                                    </>
+                                    <div className="space-y-3">
+                                        <KanbanCardSkeleton />
+                                    </div>
                                 ) : (
-                                    `Load More (${totalCount - subTasks.length} remaining)`
+                                    <div className="h-4 w-full" /> // Invisible sentinel
                                 )}
-                            </Button>
+                            </div>
                         )}
 
-                        {subTasks.length === 0 && (
+                        {subTasks.length === 0 && !isLoadingMore && (
                             <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
                                 No subtasks
                             </div>

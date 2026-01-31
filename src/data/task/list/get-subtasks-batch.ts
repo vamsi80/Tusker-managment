@@ -112,7 +112,6 @@ async function _getSubTasksByParentIdsInternal(
                 parentTaskId: 'asc'
             }
         }),
-        // Get actual subtasks
         prisma.task.findMany({
             where: whereClause,
             select: {
@@ -123,6 +122,7 @@ async function _getSubTasksByParentIdsInternal(
                 status: true,
                 position: true,
                 startDate: true,
+                dueDate: true,
                 days: true,
                 tag: {
                     select: {

@@ -1,4 +1,4 @@
-import { getSubTasksByStatus } from "@/data/task/kanban";
+import { getTasks } from "@/data/task/get-tasks";
 import { getProjectMembers } from "@/data/project/get-project-members";
 import { KanbanBoard } from "@/components/task/kanban/kanban-board";
 
@@ -7,27 +7,31 @@ interface ProjectKanbanViewProps {
     projectId: string;
 }
 
-// type TaskStatus = "TO_DO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "HOLD" | "COMPLETED";
-
-/**
- * Optimized Kanban Container with Per-Column Pagination
- * 
- * Loads only the first 5 cards per column on initial load.
- * Additional cards are loaded on-demand when user clicks "Load More".
- * 
- * Uses workspace-level query with project filtering for consistency.
- * 
- * Performance Benefits:
- * - Initial load: ~200-300ms (vs 2-3s for all cards)
- * - Reduced memory usage
- * - Faster rendering
- */
 export async function ProjectKanbanView({
     workspaceId,
     projectId
 }: ProjectKanbanViewProps) {
     // Fetch first page (5 cards) for each status column in parallel
-    // Using workspace-level query with project filter
+    // Using unified getTasks function
+    const fetchColumn = async (status: string) => {
+        const res = await getTasks({
+            workspaceId,
+            projectId,
+            view: "kanban",
+            status,
+            page: 1,
+            limit: 5
+        });
+
+        // Adapt response to match component expectation
+        return {
+            subTasks: res.tasks,
+            totalCount: res.totalCount,
+            hasMore: res.hasMore,
+            currentPage: 1
+        };
+    };
+
     const [
         todoData,
         inProgressData,
@@ -37,12 +41,12 @@ export async function ProjectKanbanView({
         completedData,
         projectMembers
     ] = await Promise.all([
-        getSubTasksByStatus(workspaceId, "TO_DO", projectId, 1, 5),
-        getSubTasksByStatus(workspaceId, "IN_PROGRESS", projectId, 1, 5),
-        getSubTasksByStatus(workspaceId, "CANCELLED", projectId, 1, 5),
-        getSubTasksByStatus(workspaceId, "REVIEW", projectId, 1, 5),
-        getSubTasksByStatus(workspaceId, "HOLD", projectId, 1, 5),
-        getSubTasksByStatus(workspaceId, "COMPLETED", projectId, 1, 5),
+        fetchColumn("TO_DO"),
+        fetchColumn("IN_PROGRESS"),
+        fetchColumn("CANCELLED"),
+        fetchColumn("REVIEW"),
+        fetchColumn("HOLD"),
+        fetchColumn("COMPLETED"),
         getProjectMembers(projectId),
     ]);
 
@@ -58,7 +62,7 @@ export async function ProjectKanbanView({
 
     return (
         <KanbanBoard
-            initialData={initialData}
+            initialData={initialData as any} // Cast to satisfy legacy types
             projectMembers={projectMembers}
             workspaceId={workspaceId}
             projectId={projectId}

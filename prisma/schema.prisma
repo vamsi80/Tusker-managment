@@ -6,7 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -253,6 +255,7 @@ model Task {
   position     Int?
   parentTaskId String?
   startDate    DateTime?
+  dueDate      DateTime?
   days         Int?
   tagId        String?
 

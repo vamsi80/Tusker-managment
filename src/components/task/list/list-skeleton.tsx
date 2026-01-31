@@ -60,86 +60,27 @@ export function TaskTableSkeleton() {
     );
 }
 
-export function SubTaskSkeleton({ columnVisibility, count = 2 }: SubTaskSkeletonProps) {
+export function SubTaskSkeleton({ columnVisibility, count = 1 }: SubTaskSkeletonProps) {
+    // Calculate total columns
+    let colSpan = 2; // drag handle + task name
+    if (columnVisibility.description) colSpan++;
+    if (columnVisibility.assignee) colSpan++;
+    if (columnVisibility.reviewer) colSpan++;
+    if (columnVisibility.status) colSpan++;
+    if (columnVisibility.startDate) colSpan++;
+    if (columnVisibility.dueDate) colSpan++;
+    if (columnVisibility.progress) colSpan++;
+    if (columnVisibility.tag) colSpan++;
+    colSpan++; // actions column
 
     return (
         <>
             {Array.from({ length: count }).map((_, index) => (
-                <TableRow key={index} className="bg-muted/10">
-
-                    {/* Drag handle column */}
-                    <TableCell className="pl-4">
-                        <Skeleton className="h-6 w-6" />
-                    </TableCell>
-
-                    {/* Task name column with indent icon */}
-                    <TableCell className="pl-3">
+                <TableRow key={index} className="bg-muted/10 animate-pulse">
+                    <TableCell colSpan={colSpan} className="h-12 pl-12">
                         <div className="flex items-center gap-2">
-                            <Skeleton className="h-4 w-4 shrink-0" />
-                            <Skeleton className="h-4 w-48" />
+                            <Skeleton className="h-4 w-full animate-pulse" />
                         </div>
-                    </TableCell>
-
-                    {/* Description column */}
-                    {columnVisibility.description && (
-                        <TableCell>
-                            <Skeleton className="h-4 w-32" />
-                        </TableCell>
-                    )}
-
-                    {/* Assignee column */}
-                    {columnVisibility.assignee && (
-                        <TableCell>
-                            <div className="flex items-center gap-2">
-                                <Skeleton className="h-5 w-5 rounded-full" />
-                                <Skeleton className="h-3 w-20" />
-                            </div>
-                        </TableCell>
-                    )}
-
-                    {/* Start Date column */}
-                    {columnVisibility.startDate && (
-                        <TableCell>
-                            <div className="flex items-center gap-2">
-                                <Skeleton className="h-3 w-3" />
-                                <Skeleton className="h-3 w-16" />
-                            </div>
-                        </TableCell>
-                    )}
-
-                    {/* Due Date column */}
-                    {columnVisibility.dueDate && (
-                        <TableCell>
-                            <div className="flex items-center gap-2">
-                                <Skeleton className="h-3 w-3" />
-                                <Skeleton className="h-3 w-16" />
-                            </div>
-                        </TableCell>
-                    )}
-
-                    {/* Progress column */}
-                    {columnVisibility.progress && (
-                        <TableCell>
-                            <div className="flex items-center gap-2">
-                                <Skeleton className="h-3 w-3 rounded-full" />
-                                <Skeleton className="h-3 w-12" />
-                            </div>
-                        </TableCell>
-                    )}
-
-                    {/* Tag column */}
-                    {columnVisibility.tag && (
-                        <TableCell>
-                            <div className="flex items-center gap-1">
-                                <Skeleton className="h-3 w-3" />
-                                <Skeleton className="h-3 w-12" />
-                            </div>
-                        </TableCell>
-                    )}
-
-                    {/* Actions column */}
-                    <TableCell>
-                        <Skeleton className="h-7 w-7" />
                     </TableCell>
                 </TableRow>
             ))}

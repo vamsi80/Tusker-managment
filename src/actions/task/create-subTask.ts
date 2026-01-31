@@ -88,6 +88,14 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
         const providedReviewerId = validation.data.reviewerId || null;
         const reviewerId = providedReviewerId ?? permissions.workspaceMember.userId;
 
+        // Calculate dueDate from startDate and days
+        let dueDate: Date | null = null;
+        if (validation.data.startDate && validation.data.days) {
+            const startDate = new Date(validation.data.startDate);
+            dueDate = new Date(startDate);
+            dueDate.setDate(dueDate.getDate() + validation.data.days);
+        }
+
         // Create unique slug for subtask using helper to prevent collisions
         // We use validation.data.name because generateUniqueSlug slugifies it internally
         const uniqueSubtaskSlug = await generateUniqueSlug(validation.data.name, 'task', parentTask.taskSlug);
@@ -105,6 +113,7 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
                 assigneeTo: assigneeId,
                 tagId: validation.data.tag || null,
                 startDate: validation.data.startDate ? new Date(validation.data.startDate) : null,
+                dueDate: dueDate,
                 days: validation.data.days,
                 reviewerId: reviewerId,
             },

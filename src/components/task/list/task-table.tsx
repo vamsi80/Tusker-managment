@@ -27,6 +27,7 @@ import { ProjectRow } from "./project-row";
 import { SortedTaskRow } from "./sorted-task-row";
 import { SortableHeader } from "./sortable-header";
 import { UserPermissionsType } from "@/data/user/get-user-permissions";
+import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 
 interface TaskTableProps {
     initialTasks: TaskWithSubTasks[];
@@ -65,9 +66,69 @@ export function TaskTable({
     level = "project",
     permissions,
     userId,
+    initialHasMore,
 }: TaskTableProps) {
-    const [tasks, setTasks] = useState<TaskWithSubTasks[]>(initialTasks);
-    const [projectPagination, setProjectPagination] = useState<Record<string, { page: number; hasMore: boolean; isLoading: boolean }>>({});
+    const [tasks, setTasks] = useState<TaskWithSubTasks[]>(() => {
+        if (level === 'project' && projectId) {
+            const cached = useTaskCacheStore.getState().getProjectTasksCache(projectId);
+            if (cached && cached.tasks.length > 0) return cached.tasks;
+        } else if (level === 'workspace') {
+            const cachedTasks = projects.flatMap(p => {
+                const cached = useTaskCacheStore.getState().getProjectTasksCache(p.id);
+                return cached ? cached.tasks : [];
+            });
+
+            if (cachedTasks.length > 0) {
+                const allTasks = [...initialTasks, ...cachedTasks];
+                const seen = new Set();
+                return allTasks.filter(t => {
+                    if (seen.has(t.id)) return false;
+                    seen.add(t.id);
+                    return true;
+                });
+            }
+        }
+        return initialTasks;
+    });
+
+    const [projectPagination, setProjectPagination] = useState<Record<string, { page: number; hasMore: boolean; isLoading: boolean }>>(() => {
+        if (level === 'project' && projectId) {
+            const cached = useTaskCacheStore.getState().getProjectTasksCache(projectId);
+            if (cached) {
+                return {
+                    [projectId]: {
+                        page: cached.page,
+                        hasMore: cached.hasMore,
+                        isLoading: false
+                    }
+                };
+            }
+        } else if (level === 'workspace') {
+            const initialState: Record<string, { page: number; hasMore: boolean; isLoading: boolean }> = {};
+            projects.forEach(p => {
+                const cached = useTaskCacheStore.getState().getProjectTasksCache(p.id);
+                if (cached) {
+                    initialState[p.id] = {
+                        page: cached.page,
+                        hasMore: cached.hasMore,
+                        isLoading: false
+                    };
+                }
+            });
+            if (Object.keys(initialState).length > 0) return initialState;
+        }
+
+        if (level === 'project' && projectId && initialTasks.length > 0) {
+            return {
+                [projectId]: {
+                    page: 1,
+                    hasMore: initialHasMore,
+                    isLoading: false
+                }
+            };
+        }
+        return {};
+    });
 
     const [searchQuery, setSearchQuery] = useState("");
     const [filters, setFilters] = useState<TaskFilters>({});
@@ -83,7 +144,12 @@ export function TaskTable({
     const [sortedTasks, setSortedTasks] = useState<Record<string, any[]>>({});
     const [isSortedViewLoading, setIsSortedViewLoading] = useState(false);
 
-    const subTasksCacheRef = useRef<Record<string, { subTasks: SubTaskType[]; hasMore: boolean; page: number }>>({});
+    const setCachedSubTasks = useTaskCacheStore(state => state.setCachedSubTasks);
+    const getCachedSubTasks = useTaskCacheStore(state => state.getCachedSubTasks);
+    const setProjectTasksCache = useTaskCacheStore(state => state.setProjectTasksCache);
+    const clearCache = useTaskCacheStore(state => state.clearCache);
+
+    // subTasksCacheRef removed
     const observerRef = useRef<IntersectionObserver | null>(null);
     const loadProjectTasksRef = useRef<((id: string) => Promise<void>) | null>(null);
     const autoExpandRef = useRef(false);
@@ -114,7 +180,7 @@ export function TaskTable({
     };
 
     useEffect(() => {
-        subTasksCacheRef.current = {};
+        clearCache();
         setExpanded({});
         setProjectPagination({});
         if (Object.keys(filters).length > 0 || searchQuery) {
@@ -122,7 +188,7 @@ export function TaskTable({
         }
         // Clear sorted tasks when filters or search change
         setSortedTasks({});
-    }, [filters, searchQuery]);
+    }, [filters, searchQuery, clearCache]);
 
     // Effect to load sorted tasks when sorting is active
     useEffect(() => {
@@ -197,6 +263,16 @@ export function TaskTable({
                     const existingIds = new Set(prev.map(t => t.id));
                     const newTasks = (response.data!.tasks as unknown as TaskWithSubTasks[])
                         .filter(task => !existingIds.has(task.id));
+                    const updatedList = [...prev, ...newTasks];
+
+                    // Cache Logic
+                    const tasksForCache = updatedList.filter(t => t.projectId === targetProjectId);
+                    setProjectTasksCache(targetProjectId, {
+                        tasks: tasksForCache,
+                        hasMore: response.data!.hasMore ?? false,
+                        page: nextPage,
+                        totalCount: response.data!.totalCount
+                    });
 
                     if (autoExpandRef.current && newTasks.length > 0) {
                         setTimeout(() => {
@@ -208,7 +284,7 @@ export function TaskTable({
                         }, 0);
                     }
 
-                    return [...prev, ...newTasks];
+                    return updatedList;
                 });
 
                 setProjectPagination(prev => ({
@@ -422,89 +498,130 @@ export function TaskTable({
     }, [groupedTasks, expandedProjects, tasks, level]);
 
     // 2. Central Effect to ensure subtasks exist for visible parents
+    // 2. Central Effect to ensure subtasks exist for visible parents
     useEffect(() => {
         if (visibleParentTaskIds.length === 0) return;
 
-        // Identify missing subtasks that haven't been processed or aren't currently fetching
-        const missing = visibleParentTaskIds.filter(taskId => {
-            // Already processed (loaded or empty)
-            if (processedSubTasksRef.current.has(taskId)) return false;
+        const idsToUpdateFromCache: string[] = [];
+        const idsToFetch: string[] = [];
+
+        // Identify missing or cached subtasks
+        visibleParentTaskIds.forEach(taskId => {
+            // Already processed (loaded or confirmed empty)
+            if (processedSubTasksRef.current.has(taskId)) return;
             // Currently fetching
-            if (fetchingSubTasksRef.current.has(taskId)) return false;
+            if (fetchingSubTasksRef.current.has(taskId)) return;
 
             const task = tasks.find(t => t.id === taskId);
-            if (!task) return false;
+            if (!task) return;
 
-            // Optimization: If specialized count check says 0, mark as processed and skip
+            // Checked specialized count (optimization)
             if ((task._count?.subTasks ?? 0) === 0) {
                 processedSubTasksRef.current.add(taskId);
-                return false;
+                return;
             }
 
-            // If subTasks matches undefined, it needs fetching
-            // (Empty array [] means loaded but empty, which is fine)
-            return task.subTasks === undefined;
+            // Already loaded in state?
+            if (task.subTasks !== undefined) {
+                processedSubTasksRef.current.add(taskId);
+                return;
+            }
+
+            // Check Cache
+            const cached = getCachedSubTasks(taskId);
+            if (cached) {
+                idsToUpdateFromCache.push(taskId);
+                processedSubTasksRef.current.add(taskId);
+            } else {
+                // Must fetch
+                idsToFetch.push(taskId);
+            }
         });
 
-        if (missing.length === 0) return;
-
-        // Mark as fetching immediately to prevent race conditions
-        missing.forEach(id => fetchingSubTasksRef.current.add(id));
-
-        // 🚀 BATCH LOAD
-        // We do this silently (background) to update the state
-        loadSubTasksBatchAction(
-            missing,
-            workspaceId,
-            projectId || undefined,
-            {}, // Filters are usually applied at parent level, strict hierarchy for now
-            10
-        ).then(response => {
-            // Cleanup fetching status
-            missing.forEach(id => fetchingSubTasksRef.current.delete(id));
-
-            if (response.success && response.data) {
-                // Update Cache and Processed Status
-                response.data.forEach(result => {
-                    processedSubTasksRef.current.add(result.parentTaskId);
-
-                    // Deduplicate
-                    const seenIds = new Set<string>();
-                    const uniqueSubTasks = result.subTasks.filter(st => {
-                        if (!st.id || seenIds.has(st.id)) return false;
-                        seenIds.add(st.id);
-                        return true;
-                    });
-
-                    subTasksCacheRef.current[result.parentTaskId] = {
-                        subTasks: uniqueSubTasks,
-                        hasMore: result.hasMore,
-                        page: 1,
-                    };
-                });
-
-                // Update React State
-                setTasks(prevTasks => prevTasks.map(t => {
-                    const cached = subTasksCacheRef.current[t.id];
-                    // Only update tasks that were missing and now have data
-                    if (missing.includes(t.id) && cached) {
+        // 1. Apply Cache updates (Synchronously set state)
+        if (idsToUpdateFromCache.length > 0) {
+            setTasks(prevTasks => prevTasks.map(t => {
+                if (idsToUpdateFromCache.includes(t.id)) {
+                    const cached = getCachedSubTasks(t.id);
+                    if (cached) {
                         return {
                             ...t,
                             subTasks: cached.subTasks,
                             subTasksHasMore: cached.hasMore,
-                            subTasksPage: 1
+                            subTasksPage: cached.page
                         };
                     }
-                    return t;
-                }));
-            }
-        }).catch(err => {
-            console.error("Auto-load subtasks failed", err);
-            // Ensure we remove fetching status on error too so it can retry
-            missing.forEach(id => fetchingSubTasksRef.current.delete(id));
-        });
+                }
+                return t;
+            }));
+        }
 
-    }, [visibleParentTaskIds, tasks, workspaceId, projectId]);
+        // 2. Fetch Missing
+        if (idsToFetch.length > 0) {
+            // Update Loading State for ALL missing items first
+            setLoadingSubTasks(prev => {
+                const next = { ...prev };
+                idsToFetch.forEach(id => next[id] = true);
+                return next;
+            });
+
+            // Fire individual requests
+            idsToFetch.forEach(taskId => {
+                if (fetchingSubTasksRef.current.has(taskId)) return;
+
+                const task = tasks.find(t => t.id === taskId);
+                // Ensure we have a valid project ID string
+                const taskProjectId = task?.projectId || projectId || "";
+
+                fetchingSubTasksRef.current.add(taskId);
+
+                loadSubTasksAction(taskId, workspaceId, taskProjectId, {}, 1, 10)
+                    .then(response => {
+                        if (response.success && response.data) {
+                            const result = response.data;
+                            processedSubTasksRef.current.add(taskId);
+
+                            // Deduplicate logic (if needed, though API should be clean)
+                            const uniqueSubTasks = result.subTasks.filter((st, index, self) =>
+                                index === self.findIndex((t) => (t.id === st.id))
+                            );
+
+                            // Save to Store
+                            setCachedSubTasks(taskId, {
+                                subTasks: uniqueSubTasks,
+                                hasMore: result.hasMore,
+                                page: 1
+                            });
+
+                            // Update React State INDIVIDUALLY
+                            setTasks(prev => prev.map(t => {
+                                if (t.id === taskId) {
+                                    return {
+                                        ...t,
+                                        subTasks: uniqueSubTasks,
+                                        subTasksHasMore: result.hasMore,
+                                        subTasksPage: 1
+                                    };
+                                }
+                                return t;
+                            }));
+                        }
+                    })
+                    .catch(err => {
+                        console.error(`Failed to load subtasks for ${taskId}`, err);
+                    })
+                    .finally(() => {
+                        fetchingSubTasksRef.current.delete(taskId);
+                        setLoadingSubTasks(prev => {
+                            const next = { ...prev };
+                            delete next[taskId];
+                            return next;
+                        });
+                    });
+            });
+        }
+
+    }, [visibleParentTaskIds, tasks, workspaceId, projectId, getCachedSubTasks, setCachedSubTasks]);
 
 
     // 3. UI-ONLY Toggle
@@ -586,11 +703,11 @@ export function TaskTable({
                 const combinedSubTasks = [...existingSubTasks, ...newSubTasks];
 
                 // Update cache
-                subTasksCacheRef.current[taskId] = {
+                setCachedSubTasks(taskId, {
                     subTasks: combinedSubTasks,
-                    hasMore: response.data.hasMore,
+                    hasMore: response.data!.hasMore,
                     page: nextPage,
-                };
+                });
 
                 setTasks((prevTasks) =>
                     prevTasks.map((t) =>
@@ -842,7 +959,7 @@ export function TaskTable({
                                     {columnVisibility.progress && (
                                         <SortableHeader
                                             field="progress"
-                                            label="Progress"
+                                            label="Deadline"
                                             sorts={sorts}
                                             onSortChange={handleSort}
                                             className="w-[100px]"
@@ -861,16 +978,14 @@ export function TaskTable({
                                 {viewMode === "sorted" ? (
                                     isSortedViewLoading ? (
                                         <TableRow>
-                                            <TableCell colSpan={visibleColumnsCount} className="h-32 text-center">
-                                                <div className="flex flex-col items-center justify-center gap-2">
-                                                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                                    <span className="text-sm text-muted-foreground">Loading sorted tasks...</span>
+                                            <TableCell colSpan={visibleColumnsCount} className="h-12">
+                                                <div className="flex items-center gap-2 px-2">
+                                                    <Skeleton className="h-4 w-full" />
                                                 </div>
                                             </TableCell>
                                         </TableRow>
                                     ) : Object.keys(sortedTasks).length > 0 ? (
                                         level === 'workspace' ? (
-                                            // Workspace view: Show project grouping
                                             Object.entries(sortedTasks).map(([projectId, projectSortedTasks]) => {
                                                 const project = projects?.find(p => p.id === projectId);
                                                 if (projectId === 'unknown' && projectSortedTasks.length === 0) return null;

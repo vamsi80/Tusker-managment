@@ -4,6 +4,8 @@ import { getWorkspaceMembers } from "@/data/workspace/get-workspace-members";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { getUserProjects } from "@/data/project/get-projects";
 import { requireUser } from "@/lib/auth/require-user";
+import { getTasks } from "@/data/task/get-tasks";
+import { TaskWithSubTasks } from "@/components/task/shared/types";
 
 interface WorkspaceListViewProps {
     workspaceId: string;
@@ -15,12 +17,18 @@ export async function WorkspaceListView({
     // Get current user
     const user = await requireUser();
 
-    // Fetch ONLY necessary metadata - NO TASKS
-    const [tagsData, membersData, permissions, projects] = await Promise.all([
+    // Fetch initial tasks and metadata in parallel
+    const [tagsData, membersData, permissions, projects, tasksData] = await Promise.all([
         getWorkspaceTags(workspaceId),
         getWorkspaceMembers(workspaceId),
         getWorkspacePermissions(workspaceId),
         getUserProjects(workspaceId),
+        getTasks({
+            workspaceId,
+            view: "list",
+            page: 1,
+            limit: 20
+        })
     ]);
 
     // Map workspace members to the structure expected by components
@@ -42,11 +50,16 @@ export async function WorkspaceListView({
         name: tag.name,
     }));
 
+    const initialTasks = tasksData.tasks.map(t => ({
+        ...t,
+        subTasks: undefined
+    })) as TaskWithSubTasks[];
+
     return (
         <TaskTable
-            initialTasks={[]}
-            initialHasMore={false}
-            initialTotalCount={0}
+            initialTasks={initialTasks}
+            initialHasMore={tasksData.hasMore}
+            initialTotalCount={tasksData.totalCount}
             members={formattedMembers as any}
             workspaceId={workspaceId}
             projectId="" // Empty for workspace-level view

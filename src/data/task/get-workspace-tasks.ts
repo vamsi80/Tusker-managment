@@ -278,6 +278,7 @@ async function _getWorkspaceTasksInternal(
                 status: true,
                 position: true,
                 startDate: true,
+                dueDate: true,
                 days: true,
                 projectId: true,
                 isPinned: true,

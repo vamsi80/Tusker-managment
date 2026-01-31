@@ -118,7 +118,8 @@ export function SubTaskRow({
     const assignee = subTask.assignee;
 
     // Use custom hooks for date calculations
-    const dueDate = useDueDate(subTask.startDate, subTask.days);
+    const calculatedDueDate = useDueDate(subTask.startDate, subTask.days);
+    const dueDate = subTask.dueDate ? new Date(subTask.dueDate) : calculatedDueDate;
     const { remainingDays, isOverdue } = useRemainingDays(subTask.startDate, subTask.days);
 
     const getProgressColor = () => {

@@ -1,4 +1,4 @@
-import { getSubTasksByStatus } from "@/data/task/kanban";
+import { getTasks } from "@/data/task/get-tasks";
 import { getWorkspaceTags } from "@/data/tag/get-tags";
 import { getWorkspaceMembers } from "@/data/workspace";
 import { getUserProjects } from "@/data/project/get-projects";
@@ -13,17 +13,30 @@ interface WorkspaceKanbanViewProps {
  * Workspace Kanban View
  * 
  * Shows all subtasks from all projects in Kanban format
- * Loads only the first 5 cards per column on initial load for performance
- * Additional cards are loaded on-demand when user clicks "Load More"
- * 
- * Performance Benefits:
- * - Initial load: ~200-300ms (vs 2-3s for all cards)
- * - Reduced memory usage
- * - Faster rendering
+ * Uses unified getTasks function for consistent data access
  */
 export async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewProps) {
     // Fetch first page (5 cards) for each status column in parallel
-    // Using workspace-level query (no project filter)
+    // Using unified getTasks function
+    const fetchColumn = async (status: string) => {
+        const res = await getTasks({
+            workspaceId,
+            view: "kanban",
+            status,
+            page: 1,
+            limit: 5
+            // projectId intentionally undefined for workspace level
+        });
+
+        // Adapt response to match component expectation
+        return {
+            subTasks: res.tasks as any,
+            totalCount: res.totalCount,
+            hasMore: res.hasMore,
+            currentPage: 1
+        };
+    };
+
     const [
         todoData,
         inProgressData,
@@ -36,12 +49,12 @@ export async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewPr
         projectMemberMatches,
         tags
     ] = await Promise.all([
-        getSubTasksByStatus(workspaceId, "TO_DO", undefined, 1, 5),
-        getSubTasksByStatus(workspaceId, "IN_PROGRESS", undefined, 1, 5),
-        getSubTasksByStatus(workspaceId, "CANCELLED", undefined, 1, 5),
-        getSubTasksByStatus(workspaceId, "REVIEW", undefined, 1, 5),
-        getSubTasksByStatus(workspaceId, "HOLD", undefined, 1, 5),
-        getSubTasksByStatus(workspaceId, "COMPLETED", undefined, 1, 5),
+        fetchColumn("TO_DO"),
+        fetchColumn("IN_PROGRESS"),
+        fetchColumn("CANCELLED"),
+        fetchColumn("REVIEW"),
+        fetchColumn("HOLD"),
+        fetchColumn("COMPLETED"),
         getWorkspaceMembers(workspaceId),
         getUserProjects(workspaceId),
         prisma.projectMember.findMany({

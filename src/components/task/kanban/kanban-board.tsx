@@ -19,6 +19,7 @@ import { GlobalFilterToolbar, ParentTaskOption } from "../shared/global-filter-t
 import { KanbanColumnVisibility as KanbanColumnVisibilityType } from "../shared/kanban-column-visibility";
 import { ReviewCommentDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/review-comment-form";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 import { Loader2 } from "lucide-react";
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "CANCELLED" | "REVIEW" | "HOLD" | "COMPLETED";
@@ -75,25 +76,52 @@ export function KanbanBoard({
     tags,
     level = "project"
 }: KanbanBoardProps) {
+    const setKanbanTasksCache = useTaskCacheStore(state => state.setKanbanTasksCache);
+
     // State for each column's data
     const [columnData, setColumnData] = useState<Record<TaskStatus, {
         subTasks: KanbanSubTaskType[];
         totalCount: number;
         hasMore: boolean;
         currentPage: number;
-    }>>(
-        Object.fromEntries(
-            COLUMNS.map(col => [
-                col.id,
-                {
-                    subTasks: initialData[col.id].subTasks,
-                    totalCount: initialData[col.id].totalCount,
-                    hasMore: initialData[col.id].hasMore,
-                    currentPage: 1,
+    }>>(() => {
+        const map: any = {};
+        const contextId = projectId || "";
+
+        COLUMNS.forEach(col => {
+            const cacheKey = `${workspaceId}-${contextId}-${col.id}`;
+            const cached = useTaskCacheStore.getState().getKanbanTasksCache(cacheKey);
+
+            // 1. Base Data: From Cache (if exists) or Server Initial
+            let tasks = cached && cached.tasks.length > 0 ? cached.tasks : initialData[col.id].subTasks;
+            let totalCount = cached ? (cached.totalCount ?? 0) : initialData[col.id].totalCount;
+            let hasMore = cached ? cached.hasMore : initialData[col.id].hasMore;
+            let page = cached ? cached.page : 1;
+
+            // 2. Workspace Aggregation: Merge cached tasks from ALL projects
+            if (level === 'workspace' && projects) {
+                const projectTasks = projects.flatMap(p => {
+                    const pKey = `${workspaceId}-${p.id}-${col.id}`;
+                    const pCached = useTaskCacheStore.getState().getKanbanTasksCache(pKey);
+                    return pCached && pCached.tasks ? pCached.tasks : [];
+                });
+
+                if (projectTasks.length > 0) {
+                    const seen = new Set(tasks.map((t: any) => t.id));
+                    const newUnique = projectTasks.filter((t: any) => !seen.has(t.id));
+                    tasks = [...tasks, ...newUnique];
                 }
-            ])
-        ) as Record<TaskStatus, any>
-    );
+            }
+
+            map[col.id] = {
+                subTasks: tasks,
+                totalCount: totalCount,
+                hasMore: hasMore,
+                currentPage: page
+            };
+        });
+        return map;
+    });
 
     const [loadingColumns, setLoadingColumns] = useState<Record<TaskStatus, boolean>>(
         Object.fromEntries(COLUMNS.map(col => [col.id, false])) as Record<TaskStatus, boolean>
@@ -225,15 +253,32 @@ export function KanbanBoard({
                 return;
             }
 
-            setColumnData(prev => ({
-                ...prev,
-                [status]: {
-                    subTasks: [...prev[status].subTasks, ...response.data.subTasks],
-                    totalCount: response.data.totalCount,
-                    hasMore: response.data.hasMore,
-                    currentPage: nextPage,
+            setColumnData(prev => {
+                const newData = {
+                    ...prev,
+                    [status]: {
+                        subTasks: [...prev[status].subTasks, ...response.data.subTasks],
+                        totalCount: response.data.totalCount,
+                        hasMore: response.data.hasMore,
+                        currentPage: nextPage,
+                    }
+                };
+
+                // Update Cache (only if no filters)
+                const isFiltered = searchQuery || Object.keys(filters).length > 0;
+                if (!isFiltered) {
+                    const contextId = projectId || "";
+                    const cacheKey = `${workspaceId}-${contextId}-${status}`;
+                    setKanbanTasksCache(cacheKey, {
+                        tasks: newData[status].subTasks,
+                        hasMore: response.data.hasMore,
+                        page: nextPage,
+                        totalCount: response.data.totalCount
+                    });
                 }
-            }));
+
+                return newData;
+            });
         } catch (error) {
             console.error(`Error loading more subtasks for ${status}:`, error);
             toast.error("Failed to load more subtasks");

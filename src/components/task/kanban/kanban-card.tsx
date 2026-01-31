@@ -16,13 +16,9 @@ import { getColorFromString } from "@/lib/colors/project-colors";
  * ...
  */
 interface KanbanCardProps {
-    /** The subtask data to display */
     subTask: KanbanSubTaskType;
-    /** Color class for the column (e.g., "text-blue-700") */
     columnColor: string;
-    /** Whether the card is currently being dragged */
     isDragging?: boolean;
-    /** Callback when the card name is clicked */
     onSubTaskClick?: (subTask: KanbanSubTaskType) => void;
 }
 
@@ -47,18 +43,18 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
     const reviewCount = (subTask as any)._count?.reviewComments || 0;
 
     // Get Project Info
-    const project = subTask.parentTask?.project;
+    // @ts-ignore - project is directly available now due to backend change
+    const project = subTask.project;
     const projectManager = project?.projectMembers?.[0]?.workspaceMember?.user;
 
-    const calculateDueDate = () => {
+    const dueDate = subTask.dueDate ? new Date(subTask.dueDate) : (() => {
         if (!subTask.startDate || !subTask.days) return null;
         const start = new Date(subTask.startDate);
         const due = new Date(start);
         due.setDate(due.getDate() + subTask.days);
         return due;
-    };
+    })();
 
-    const dueDate = calculateDueDate();
     const isOverdue = dueDate && new Date() > dueDate;
 
     const handleNameClick = (e: React.MouseEvent) => {
@@ -115,30 +111,37 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                         </TooltipProvider>
                     )}
                 </div>
-                <div className="flex items-center gap-1.5">
-                    {subTask.parentTask && (
-                        <Badge
-                            variant="outline"
-                            className="text-xs px-2 py-0.5 max-w-[140px]"
-                        >
-                            <span className="truncate">{subTask.parentTask.name}</span>
-                        </Badge>
-                    )}
+                <div className="flex items-center justify-between gap-1.5 min-h-[16px]">
+                    <div className="flex items-center gap-1.5 overflow-hidden">
+                        {subTask.parentTask && (
+                            <Badge
+                                variant="outline"
+                                className="text-[10px] px-1.5 py-0 h-5 max-w-[120px]"
+                            >
+                                <span className="truncate">{subTask.parentTask.name}</span>
+                            </Badge>
+                        )}
+                    </div>
+                    {/* {subTask.taskSlug && (
+                        <span className="text-[10px] text-muted-foreground font-mono shrink-0 opacity-70">
+                            {subTask.taskSlug}
+                        </span>
+                    )} */}
                 </div>
 
                 <div>
                     <div className="flex items-start justify-between gap-2">
                         <h5
-                            className="font-semibold text-[13px] leading-tight flex-1 truncate cursor-pointer hover:text-primary transition-colors"
+                            className="font-semibold text-[13px] leading-snug flex-1 cursor-pointer hover:text-primary transition-colors line-clamp-2"
                             onClick={handleNameClick}
                             title={subTask.name}
                         >
                             {subTask.name}
                         </h5>
-                        <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
                     {subTask.description && (
-                        <p className="text-xs text-muted-foreground truncate leading-relaxed">
+                        <p className="text-xs text-muted-foreground line-clamp-2 mt-1 leading-relaxed">
                             {subTask.description}
                         </p>
                     )}
@@ -148,16 +151,16 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
 
                 <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3 text-muted-foreground" />
-                        {subTask.startDate ? (
-                            <span className="text-[10px] font-medium text-muted-foreground">
-                                {new Date(subTask.startDate).toLocaleDateString("en-GB", {
-                                    day: '2-digit',
-                                    month: 'short'
-                                })}
-                            </span>
-                        ) : (
-                            <span className="text-[10px] text-muted-foreground italic">No date</span>
+                        {subTask.startDate && (
+                            <>
+                                <Calendar className="h-3 w-3 text-muted-foreground" />
+                                <span className="text-[10px] font-medium text-muted-foreground">
+                                    {new Date(subTask.startDate).toLocaleDateString("en-GB", {
+                                        day: '2-digit',
+                                        month: 'short'
+                                    })}
+                                </span>
+                            </>
                         )}
                     </div>
 

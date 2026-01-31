@@ -72,9 +72,10 @@ async function _getSubTasksByStatusInternal(
     }
 
     // Build where clause
+    // Build where clause
     const whereClause: any = {
-        parentTask: { projectId: { in: projectIds } },
-        parentTaskId: { not: null }, // Only subtasks
+        projectId: { in: projectIds }, // Filter by project directly
+        parentTaskId: null, // Fetch Parent Tasks (aligned with List View)
         status,
     };
 
@@ -96,12 +97,7 @@ async function _getSubTasksByStatusInternal(
         if (filters.startDate || filters.endDate) {
             if (filters.startDate) whereClause.startDate = { gte: new Date(filters.startDate) };
             if (filters.endDate) {
-                // Logic for end date match (if due date <= filter end date)
-                // This requires days field logic which assumes startDate + days
-                // Simplified: filter by startDate <= endDate
-                // Or complex raw query. For now, let's filter purely on startDate range if simpler
-                // Or we can leave date filtering to client if server logic is too complex for Prisma basic filtering
-                // User asked for "filters". Let's apply start date at least.
+                // Apply end date filter
                 if (!whereClause.startDate) whereClause.startDate = {};
                 whereClause.startDate.lte = new Date(filters.endDate);
             }
@@ -109,15 +105,14 @@ async function _getSubTasksByStatusInternal(
     }
 
     // Permission logic (Hybrid):
-    // - ADMIN: See all subtasks
-    // - Full Access Projects: See all subtasks
-    // - Member Projects: See only assigned subtasks
+    // - ADMIN: See all tasks
+    // - Full Access Projects: See all tasks
+    // - Member Projects: See only assigned tasks
     if (!isAdmin) {
         if (fullAccessProjectIds.length > 0) {
             // Hybrid: Full access projects OR Assigned to me
-            // Note: The base query already restricts to 'projectIds' (authorized projects)
             whereClause.OR = [
-                { parentTask: { projectId: { in: fullAccessProjectIds } } },
+                { projectId: { in: fullAccessProjectIds } },
                 { assigneeTo: userId }
             ];
         } else {
@@ -133,7 +128,7 @@ async function _getSubTasksByStatusInternal(
             where: whereClause,
             select: {
                 id: true,
-                projectId: true, // Add this
+                projectId: true,
                 name: true,
                 createdById: true,
                 taskSlug: true,
@@ -141,6 +136,7 @@ async function _getSubTasksByStatusInternal(
                 status: true,
                 position: true,
                 startDate: true,
+                dueDate: true,
                 days: true,
                 tag: {
                     select: {
@@ -151,31 +147,24 @@ async function _getSubTasksByStatusInternal(
                 parentTaskId: true,
                 isPinned: true,
                 pinnedAt: true,
-                parentTask: {
+                // Fetch project directly
+                project: {
                     select: {
                         id: true,
                         name: true,
-                        taskSlug: true,
-                        projectId: true,
-                        project: {
+                        slug: true,
+                        color: true,
+                        projectMembers: {
+                            where: { projectRole: "PROJECT_MANAGER" },
+                            take: 1,
                             select: {
-                                id: true,
-                                name: true,
-                                slug: true,
-                                color: true,
-                                projectMembers: {
-                                    where: { projectRole: "PROJECT_MANAGER" },
-                                    take: 1,
+                                workspaceMember: {
                                     select: {
-                                        workspaceMember: {
+                                        user: {
                                             select: {
-                                                user: {
-                                                    select: {
-                                                        name: true,
-                                                        surname: true,
-                                                        image: true,
-                                                    },
-                                                },
+                                                name: true,
+                                                surname: true,
+                                                image: true,
                                             },
                                         },
                                     },
@@ -183,6 +172,14 @@ async function _getSubTasksByStatusInternal(
                             },
                         },
                     },
+                },
+                // Fetch Parent Task Info
+                parentTask: {
+                    select: {
+                        id: true,
+                        name: true,
+                        taskSlug: true,
+                    }
                 },
                 assignee: {
                     select: {
@@ -195,6 +192,7 @@ async function _getSubTasksByStatusInternal(
                 _count: {
                     select: {
                         reviewComments: true,
+                        subTasks: true, // Also fetch subtasks count
                     },
                 },
             },
@@ -232,7 +230,7 @@ const getCachedSubTasksByStatus = (
 ) =>
     unstable_cache(
         async () => _getSubTasksByStatusInternal(workspaceId, workspaceMemberId, userId, isAdmin, fullAccessProjectIds, status, projectId, page, pageSize, filters),
-        [`kanban-ws-${workspaceId}-${projectId || 'all'}-${status}-${userId}-access-${fullAccessProjectIds.sort().join(',')}-p${page}-s${pageSize}-f${JSON.stringify(filters || {})}-v5`],
+        [`kanban-ws-${workspaceId}-${projectId || 'all'}-${status}-${userId}-access-${fullAccessProjectIds.sort().join(',')}-p${page}-s${pageSize}-f${JSON.stringify(filters || {})}-v7`],
         {
             tags: projectId
                 ? withCustomTags(

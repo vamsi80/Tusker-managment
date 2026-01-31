@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect } from "react";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { TableCell, TableRow } from "@/components/ui/table";
-import { Loader2, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 import { SubTaskType } from "@/data/task/list/get-subtasks";
 import { ColumnVisibility } from "../shared/column-visibility";
@@ -173,13 +174,12 @@ export function SubTaskList({
                 ))}
             </SortableContext>
 
-            {/* Infinite Scroll Trigger / Loader for Subtasks */}
             {task.subTasksHasMore && (
-                <TableRow ref={bottomRef} className="bg-muted/10">
-                    <TableCell colSpan={visibleColumnsCount} className="text-center py-2 h-10">
+                <TableRow ref={bottomRef} className="bg-muted/10 animate-pulse">
+                    <TableCell colSpan={visibleColumnsCount} className="py-2 h-10 pl-12">
                         {isLoadingMore && (
-                            <div className="flex items-center justify-center w-full">
-                                <Loader2 className="h-4 w-4 animate-spin text-primary/50" />
+                            <div className="flex items-center gap-2">
+                                <Skeleton className="h-4 w-full animate-pulse" />
                             </div>
                         )}
                     </TableCell>
