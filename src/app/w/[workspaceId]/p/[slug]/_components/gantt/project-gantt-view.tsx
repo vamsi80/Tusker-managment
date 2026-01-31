@@ -1,4 +1,4 @@
-import { getAllTasksFlat } from "@/data/task";
+import { getAllTasksFlat, FlatTaskType } from "@/data/task";
 import { validateDependencies } from "../../../../../../../components/task/gantt/utils";
 import { GanttSubtask, GanttTask } from "../../../../../../../components/task/gantt/types";
 import { ProjectGanttClient } from "./project-gantt-client";
@@ -18,7 +18,7 @@ export async function GanttServerWrapper({ workspaceId, projectId }: GanttServer
 
     // Separate parent tasks and subtasks
     const parentTasks = allTasks.filter(task => task.parentTaskId === null);
-    const subtasksMap = new Map<string, typeof allTasks>();
+    const subtasksMap = new Map<string, FlatTaskType[]>();
 
     allTasks.forEach(task => {
         if (task.parentTaskId) {

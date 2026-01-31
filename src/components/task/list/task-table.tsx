@@ -68,6 +68,29 @@ export function TaskTable({
     userId,
     initialHasMore,
 }: TaskTableProps) {
+
+    const [searchQuery, setSearchQuery] = useState("");
+    const [filters, setFilters] = useState<TaskFilters>({});
+    const [isLoadingFilters, setIsLoadingFilters] = useState(false);
+    const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+    const [loadingSubTasks, setLoadingSubTasks] = useState<Record<string, boolean>>({});
+    const [loadingMoreSubTasks, setLoadingMoreSubTasks] = useState<Record<string, boolean>>({});
+    const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
+    const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({});
+    const [sorts, setSorts] = useState<SortConfig[]>([]);
+    const [sortedTasks, setSortedTasks] = useState<Record<string, any[]>>({});
+    const [isSortedViewLoading, setIsSortedViewLoading] = useState(false);
+    const setCachedSubTasks = useTaskCacheStore(state => state.setCachedSubTasks);
+    const getCachedSubTasks = useTaskCacheStore(state => state.getCachedSubTasks);
+    const setProjectTasksCache = useTaskCacheStore(state => state.setProjectTasksCache);
+    const clearCache = useTaskCacheStore(state => state.clearCache);
+    const observerRef = useRef<IntersectionObserver | null>(null);
+    const loadProjectTasksRef = useRef<((id: string) => Promise<void>) | null>(null);
+    const autoExpandRef = useRef(false);
+    const viewMode: TableViewMode = useMemo(() => {
+        return sorts.length > 0 ? "sorted" : "hierarchy";
+    }, [sorts]);
+
     const [tasks, setTasks] = useState<TaskWithSubTasks[]>(() => {
         if (level === 'project' && projectId) {
             const cached = useTaskCacheStore.getState().getProjectTasksCache(projectId);
@@ -129,35 +152,6 @@ export function TaskTable({
         }
         return {};
     });
-
-    const [searchQuery, setSearchQuery] = useState("");
-    const [filters, setFilters] = useState<TaskFilters>({});
-    const [isLoadingFilters, setIsLoadingFilters] = useState(false);
-    const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-    const [loadingSubTasks, setLoadingSubTasks] = useState<Record<string, boolean>>({});
-    const [loadingMoreSubTasks, setLoadingMoreSubTasks] = useState<Record<string, boolean>>({});
-    const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
-    const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({});
-
-    // Sorting state
-    const [sorts, setSorts] = useState<SortConfig[]>([]);
-    const [sortedTasks, setSortedTasks] = useState<Record<string, any[]>>({});
-    const [isSortedViewLoading, setIsSortedViewLoading] = useState(false);
-
-    const setCachedSubTasks = useTaskCacheStore(state => state.setCachedSubTasks);
-    const getCachedSubTasks = useTaskCacheStore(state => state.getCachedSubTasks);
-    const setProjectTasksCache = useTaskCacheStore(state => state.setProjectTasksCache);
-    const clearCache = useTaskCacheStore(state => state.clearCache);
-
-    // subTasksCacheRef removed
-    const observerRef = useRef<IntersectionObserver | null>(null);
-    const loadProjectTasksRef = useRef<((id: string) => Promise<void>) | null>(null);
-    const autoExpandRef = useRef(false);
-
-    // Determine view mode based on sorting
-    const viewMode: TableViewMode = useMemo(() => {
-        return sorts.length > 0 ? "sorted" : "hierarchy";
-    }, [sorts]);
 
     useEffect(() => {
         return () => observerRef.current?.disconnect();
