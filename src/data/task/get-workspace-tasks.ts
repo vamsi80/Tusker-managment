@@ -54,11 +54,11 @@ export interface WorkspaceTaskFilters {
     status?: TaskStatus | TaskStatus[];
     projectId?: string;
     assigneeId?: string | string[];
-    tag?: string | string[]; // Legacy support for 'tag', acting as tagId
+    tag?: string | string[];
     tagId?: string | string[];
     search?: string;
-    startDate?: Date; // Legacy
-    endDate?: Date;   // Legacy
+    startDate?: Date;
+    endDate?: Date;
     dueBefore?: Date;
     dueAfter?: Date;
     isPinned?: boolean;

@@ -3,7 +3,10 @@
 import { getWorkspaceTasks, WorkspaceTaskFilters, getAllTasksFlat } from "@/data/task";
 import { getSubTasks } from "@/data/task/list/get-subtasks";
 import { getSubTasksByParentIds } from "@/data/task/list/get-subtasks-batch";
+import { getSortedSubTasks } from "@/data/task/get-sorted-subtasks";
 import { TaskFilters } from "@/types/task-filters";
+import { SortConfig } from "@/components/task/shared/types";
+
 
 /**
  * Server Action: Load more parent tasks for the list view
@@ -179,3 +182,56 @@ export async function loadSubTasksBatchAction(
         };
     }
 }
+
+/**
+ * Server Action: Load sorted subtasks for the sorted view
+ * 
+ * This is used when sorting is active in the task table.
+ * It fetches all subtasks (at any depth) and sorts them within each project.
+ */
+export async function loadSortedSubTasksAction(
+    workspaceId: string,
+    filters: WorkspaceTaskFilters = {},
+    sorts: SortConfig[] = [],
+    page: number = 1,
+    pageSize: number = 50
+) {
+    try {
+        const toArray = <T>(val: T | T[] | undefined): T[] | undefined => {
+            if (val === undefined) return undefined;
+            return Array.isArray(val) ? val : [val];
+        };
+
+        // Map WorkspaceTaskFilters to the format expected by getSortedSubTasks
+        const taskFilters = {
+            projectId: filters.projectId,
+            status: toArray(filters.status),
+            assigneeId: toArray(filters.assigneeId),
+            tagId: toArray(filters.tagId || filters.tag),
+            search: filters.search,
+            dueAfter: filters.startDate || filters.dueAfter,
+            dueBefore: filters.endDate || filters.dueBefore,
+            isPinned: filters.isPinned,
+        };
+
+        const result = await getSortedSubTasks(
+            workspaceId,
+            taskFilters,
+            sorts,
+            page,
+            pageSize
+        );
+
+        return {
+            success: true,
+            data: result,
+        };
+    } catch (error) {
+        console.error("Error in loadSortedSubTasksAction:", error);
+        return {
+            success: false,
+            error: "Failed to load sorted subtasks",
+        };
+    }
+}
+

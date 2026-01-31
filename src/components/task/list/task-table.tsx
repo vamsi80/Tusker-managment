@@ -6,7 +6,7 @@ import { SubTaskList } from "./subtask-list";
 import { Button } from "@/components/ui/button";
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Loader2, Plus, ChevronsUpDown, Maximize2, Minimize2 } from "lucide-react";
-import { loadMoreTasksAction, loadMoreTasksFlatAction, loadSubTasksAction, loadSubTasksBatchAction } from "@/actions/task/list-actions";
+import { loadMoreTasksAction, loadMoreTasksFlatAction, loadSubTasksAction, loadSubTasksBatchAction, loadSortedSubTasksAction } from "@/actions/task/list-actions";
 import { updateSubtaskPositions } from "@/actions/task/gantt";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
 import { TableCell, TableRow } from "@/components/ui/table";
@@ -16,7 +16,7 @@ import { ProjectMembersType } from "@/data/project/get-project-members";
 import { SubTaskType } from "@/data/task/list/get-subtasks";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
-import { TaskWithSubTasks } from "@/components/task/shared/types";
+import { TaskWithSubTasks, SortConfig, TableViewMode, SortField } from "@/components/task/shared/types";
 import { TaskRow } from "./task-row";
 import { TaskFilters } from "../shared/types";
 import { GlobalFilterToolbar } from "../shared/global-filter-toolbar";
@@ -24,6 +24,8 @@ import { ColumnVisibility } from "../shared/column-visibility";
 import { extractAllFilterOptions } from "@/lib/utils/extract-filter-options";
 import { InlineTaskForm } from "./inline-task-form";
 import { ProjectRow } from "./project-row";
+import { SortedTaskRow } from "./sorted-task-row";
+import { SortableHeader } from "./sortable-header";
 import { UserPermissionsType } from "@/data/user/get-user-permissions";
 
 interface TaskTableProps {
@@ -76,10 +78,20 @@ export function TaskTable({
     const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
     const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({});
 
+    // Sorting state
+    const [sorts, setSorts] = useState<SortConfig[]>([]);
+    const [sortedTasks, setSortedTasks] = useState<Record<string, any[]>>({});
+    const [isSortedViewLoading, setIsSortedViewLoading] = useState(false);
+
     const subTasksCacheRef = useRef<Record<string, { subTasks: SubTaskType[]; hasMore: boolean; page: number }>>({});
     const observerRef = useRef<IntersectionObserver | null>(null);
     const loadProjectTasksRef = useRef<((id: string) => Promise<void>) | null>(null);
     const autoExpandRef = useRef(false);
+
+    // Determine view mode based on sorting
+    const viewMode: TableViewMode = useMemo(() => {
+        return sorts.length > 0 ? "sorted" : "hierarchy";
+    }, [sorts]);
 
     useEffect(() => {
         return () => observerRef.current?.disconnect();
@@ -108,7 +120,48 @@ export function TaskTable({
         if (Object.keys(filters).length > 0 || searchQuery) {
             setTasks([]);
         }
+        // Clear sorted tasks when filters or search change
+        setSortedTasks({});
     }, [filters, searchQuery]);
+
+    // Effect to load sorted tasks when sorting is active
+    useEffect(() => {
+        if (viewMode === "sorted" && sorts.length > 0) {
+            setIsSortedViewLoading(true);
+
+            // Build filters with projectId if in project view
+            const sortFilters = {
+                ...filters,
+                startDate: filters.startDate ? new Date(filters.startDate) : undefined,
+                endDate: filters.endDate ? new Date(filters.endDate) : undefined,
+                search: searchQuery,
+                // Add projectId filter if in project view (level === 'project')
+                ...(level === 'project' && projectId ? { projectId } : {})
+            };
+
+            loadSortedSubTasksAction(
+                workspaceId,
+                sortFilters,
+                sorts,
+                1,
+                100 // Load more items for sorted view
+            ).then(response => {
+                if (response.success && response.data) {
+                    setSortedTasks(response.data.tasksByProject);
+                } else {
+                    toast.error(response.error || "Failed to load sorted tasks");
+                }
+            }).catch(error => {
+                console.error("Error loading sorted tasks:", error);
+                toast.error("Failed to load sorted tasks");
+            }).finally(() => {
+                setIsSortedViewLoading(false);
+            });
+        } else {
+            // Clear sorted tasks when switching back to hierarchy view
+            setSortedTasks({});
+        }
+    }, [viewMode, sorts, workspaceId, filters, searchQuery, projectId, level]);
 
     const [activeInlineProjectId, setActiveInlineProjectId] = useState<string | null>(null);
     const [filteredProjects, setFilteredProjects] = useState<{ id: string; name: string; }[]>(projects || []);
@@ -218,15 +271,18 @@ export function TaskTable({
     const filterOptions = React.useMemo(() => {
         const options = extractAllFilterOptions(tasks as any, showAdvancedFilters ? 'workspace' : 'project');
 
-        const assigneesForFilter = assignees || members.map(member => ({
-            id: member.workspaceMember.user?.id || member.workspaceMember.id,
-            name: member.workspaceMember.user.name,
-            surname: member.workspaceMember.user.surname || undefined,
-        })).sort((a, b) => {
-            const nameA = `${a.name} ${a.surname || ''}`.trim();
-            const nameB = `${b.name} ${b.surname || ''}`.trim();
-            return nameA.localeCompare(nameB);
-        });
+        const assigneesForFilter = assignees || members
+            .filter(member => member.workspaceMember?.user) // Filter out members without user data
+            .map(member => ({
+                id: member.workspaceMember.user!.id,
+                name: member.workspaceMember.user!.name,
+                surname: member.workspaceMember.user!.surname || undefined,
+            }))
+            .sort((a, b) => {
+                const nameA = `${a.name} ${a.surname || ''}`.trim();
+                const nameB = `${b.name} ${b.surname || ''}`.trim();
+                return nameA.localeCompare(nameB);
+            });
 
         return {
             ...options,
@@ -645,9 +701,27 @@ export function TaskTable({
         );
     };
 
+    // Handle sort column click
+    const handleSort = (field: SortField) => {
+        setSorts(prevSorts => {
+            const existingSort = prevSorts.find(s => s.field === field);
 
-
-
+            if (existingSort) {
+                // Toggle direction or remove if already descending
+                if (existingSort.direction === "asc") {
+                    return prevSorts.map(s =>
+                        s.field === field ? { ...s, direction: "desc" as const } : s
+                    );
+                } else {
+                    // Remove this sort
+                    return prevSorts.filter(s => s.field !== field);
+                }
+            } else {
+                // Add new sort
+                return [...prevSorts, { field, direction: "asc" as const }];
+            }
+        });
+    };
 
     return (
         <div className="space-y-4 mt-4">
@@ -666,6 +740,7 @@ export function TaskTable({
                     onClearAll={() => {
                         setFilters({});
                         setSearchQuery("");
+                        setSorts([]); // Also clear sorts when clearing all filters
                     }}
                     columnVisibility={columnVisibility}
                     setColumnVisibility={setColumnVisibility}
@@ -718,274 +793,372 @@ export function TaskTable({
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </th>
-                                    <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[250px] bg-background">
-                                        <div className="flex items-center gap-2">
-                                            <span>Task Name</span>
-                                            {totalCount > 0 && (
-                                                <span className="text-xs text-muted-foreground font-normal">
-                                                    ({totalCount} tasks)
-                                                </span>
-                                            )}
-                                        </div>
-                                    </th>
+                                    <SortableHeader
+                                        field="name"
+                                        label="Task Name"
+                                        sorts={sorts}
+                                        onSortChange={handleSort}
+                                        className="w-[250px]"
+                                    />
                                     {/* Project column removed (using grouping instead) */}
                                     {columnVisibility.description && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[200px] bg-background">Description</th>}
-                                    {columnVisibility.assignee && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] bg-background">Assignee</th>}
-                                    {columnVisibility.reviewer && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] bg-background">Reviewer</th>}
-                                    {columnVisibility.status && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] bg-background">Status</th>}
-                                    {columnVisibility.startDate && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] bg-background">Start Date</th>}
-                                    {columnVisibility.dueDate && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] bg-background">Due Date</th>}
-                                    {columnVisibility.progress && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] bg-background">Progress</th>}
-                                    {columnVisibility.tag && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[120px] bg-background">Tag</th>}
+                                    {columnVisibility.assignee && (
+                                        <SortableHeader
+                                            field="assignee"
+                                            label="Assignee"
+                                            sorts={sorts}
+                                            onSortChange={handleSort}
+                                            className="w-[100px]"
+                                        />
+                                    )}
+                                    {columnVisibility.reviewer && (
+                                        <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] bg-background">
+                                            Reviewer
+                                        </th>
+                                    )}
+                                    {columnVisibility.status && (
+                                        <SortableHeader
+                                            field="status"
+                                            label="Status"
+                                            sorts={sorts}
+                                            onSortChange={handleSort}
+                                            className="w-[100px]"
+                                        />
+                                    )}
+                                    {columnVisibility.startDate && (
+                                        <SortableHeader
+                                            field="startDate"
+                                            label="Start Date"
+                                            sorts={sorts}
+                                            onSortChange={handleSort}
+                                            className="w-[100px]"
+                                        />
+                                    )}
+                                    {columnVisibility.dueDate && (
+                                        <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] bg-background">
+                                            Due Date
+                                        </th>
+                                    )}
+                                    {columnVisibility.progress && (
+                                        <SortableHeader
+                                            field="progress"
+                                            label="Progress"
+                                            sorts={sorts}
+                                            onSortChange={handleSort}
+                                            className="w-[100px]"
+                                        />
+                                    )}
+                                    {columnVisibility.tag && (
+                                        <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[120px] bg-background">
+                                            Tag
+                                        </th>
+                                    )}
                                     <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[50px] bg-background"></th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {groupedTasks ? (
-                                    Object.entries(groupedTasks).map(([projectId, projectTasks]) => {
-                                        const project = projects?.find(p => p.id === projectId);
-                                        if (projectId === 'unknown' && projectTasks.length === 0) return null;
+                                {/* SORTED VIEW: Flat task rows grouped by project */}
+                                {viewMode === "sorted" ? (
+                                    isSortedViewLoading ? (
+                                        <TableRow>
+                                            <TableCell colSpan={visibleColumnsCount} className="h-32 text-center">
+                                                <div className="flex flex-col items-center justify-center gap-2">
+                                                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                                    <span className="text-sm text-muted-foreground">Loading sorted tasks...</span>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : Object.keys(sortedTasks).length > 0 ? (
+                                        level === 'workspace' ? (
+                                            // Workspace view: Show project grouping
+                                            Object.entries(sortedTasks).map(([projectId, projectSortedTasks]) => {
+                                                const project = projects?.find(p => p.id === projectId);
+                                                if (projectId === 'unknown' && projectSortedTasks.length === 0) return null;
 
-                                        const isProjectExpanded = expandedProjects[projectId] === true;
+                                                const isProjectExpanded = expandedProjects[projectId] === true;
 
-                                        return (
-                                            <React.Fragment key={projectId}>
-                                                <ProjectRow
-                                                    project={project || { id: projectId, name: "Unknown Project" }}
-                                                    totalTasksCount={projectTaskCounts[projectId]}
-                                                    isExpanded={isProjectExpanded}
-                                                    onToggle={() => toggleProjectExpand(projectId)}
-                                                    colSpan={visibleColumnsCount}
-                                                >
-                                                    {isProjectExpanded && projectTasks.map((task) => (
-                                                        <React.Fragment key={task.id}>
-                                                            <TaskRow
-                                                                task={task}
-                                                                isExpanded={!!expanded[task.id]}
-                                                                onToggleExpand={() => toggleExpand(task.id)}
-                                                                columnVisibility={columnVisibility}
-                                                                isUpdating={updatingTaskId === task.id}
-                                                                onUpdateStart={() => setUpdatingTaskId(task.id)}
-                                                                onUpdateEnd={() => setUpdatingTaskId(null)}
-                                                                onTaskUpdated={(updatedTask) => {
-                                                                    setTasks(prevTasks =>
-                                                                        prevTasks.map(t =>
-                                                                            t.id === task.id
-                                                                                ? { ...t, name: updatedTask.name, taskSlug: updatedTask.taskSlug }
-                                                                                : t
-                                                                        )
-                                                                    );
-                                                                }}
-                                                                onTaskDeleted={(taskId) => {
-                                                                    setTasks(prevTasks =>
-                                                                        prevTasks.filter(t => t.id !== taskId)
-                                                                    );
-                                                                }}
-                                                                permissions={permissions}
-                                                                userId={userId}
-                                                                isWorkspaceAdmin={isWorkspaceAdmin}
-                                                                leadProjectIds={leadProjectIds}
-                                                                projects={projects}
-                                                            >
-                                                                <SubTaskList
+                                                return (
+                                                    <React.Fragment key={`sorted-${projectId}`}>
+                                                        <ProjectRow
+                                                            project={project || { id: projectId, name: "Unknown Project" }}
+                                                            totalTasksCount={projectSortedTasks.length}
+                                                            isExpanded={isProjectExpanded}
+                                                            onToggle={() => toggleProjectExpand(projectId)}
+                                                            colSpan={visibleColumnsCount}
+                                                        >
+                                                            {isProjectExpanded && projectSortedTasks.map((task: any) => (
+                                                                <SortedTaskRow
+                                                                    key={task.id}
                                                                     task={task}
-                                                                    tags={tags}
-                                                                    members={members}
-                                                                    workspaceId={workspaceId}
-                                                                    projectId={task.projectId || projectId}
-                                                                    canCreateSubTask={
-                                                                        level === 'project'
-                                                                            ? canCreateSubTask
-                                                                            : (canCreateSubTask && task.projectId ? (
-                                                                                leadProjectIds.includes(task.projectId) ||
-                                                                                !!isWorkspaceAdmin ||
-                                                                                !!projects?.find(p => p.id === task.projectId)?.canManageMembers
-                                                                            ) : false)
-                                                                    }
                                                                     columnVisibility={columnVisibility}
-                                                                    isLoading={!!loadingSubTasks[task.id]}
-                                                                    isLoadingMore={!!loadingMoreSubTasks[task.id]}
-                                                                    onLoadMore={() => loadMoreSubTasks(task.id)}
-                                                                    onSubTaskClick={handleSubTaskClick}
-                                                                    onSubTaskUpdated={(subTaskId, updatedData) =>
-                                                                        handleSubTaskUpdated(task.id, subTaskId, updatedData)
-                                                                    }
-                                                                    onSubTaskDeleted={(subTaskId) =>
-                                                                        handleSubTaskDeleted(task.id, subTaskId)
-                                                                    }
-                                                                    onSubTaskCreated={(newSubTask, tempId) =>
-                                                                        handleSubTaskCreated(task.id, newSubTask, tempId)
-                                                                    }
+                                                                    onClick={() => handleSubTaskClick(task)}
+                                                                />
+                                                            ))}
+                                                        </ProjectRow>
+                                                    </React.Fragment>
+                                                );
+                                            })
+                                        ) : (
+                                            Object.values(sortedTasks).flat().map((task: any) => (
+                                                <SortedTaskRow
+                                                    key={task.id}
+                                                    task={task}
+                                                    columnVisibility={columnVisibility}
+                                                    onClick={() => handleSubTaskClick(task)}
+                                                />
+                                            ))
+                                        )
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell colSpan={visibleColumnsCount} className="h-24 text-center text-muted-foreground">
+                                                No tasks found.
+                                            </TableCell>
+                                        </TableRow>
+                                    )
+                                ) : (
+                                    groupedTasks ? (
+                                        Object.entries(groupedTasks).map(([projectId, projectTasks]) => {
+                                            const project = projects?.find(p => p.id === projectId);
+                                            if (projectId === 'unknown' && projectTasks.length === 0) return null;
+
+                                            const isProjectExpanded = expandedProjects[projectId] === true;
+
+                                            return (
+                                                <React.Fragment key={projectId}>
+                                                    <ProjectRow
+                                                        project={project || { id: projectId, name: "Unknown Project" }}
+                                                        totalTasksCount={projectTaskCounts[projectId]}
+                                                        isExpanded={isProjectExpanded}
+                                                        onToggle={() => toggleProjectExpand(projectId)}
+                                                        colSpan={visibleColumnsCount}
+                                                    >
+                                                        {isProjectExpanded && projectTasks.map((task) => (
+                                                            <React.Fragment key={task.id}>
+                                                                <TaskRow
+                                                                    task={task}
+                                                                    isExpanded={!!expanded[task.id]}
+                                                                    onToggleExpand={() => toggleExpand(task.id)}
+                                                                    columnVisibility={columnVisibility}
+                                                                    isUpdating={updatingTaskId === task.id}
+                                                                    onUpdateStart={() => setUpdatingTaskId(task.id)}
+                                                                    onUpdateEnd={() => setUpdatingTaskId(null)}
+                                                                    onTaskUpdated={(updatedTask) => {
+                                                                        setTasks(prevTasks =>
+                                                                            prevTasks.map(t =>
+                                                                                t.id === task.id
+                                                                                    ? { ...t, name: updatedTask.name, taskSlug: updatedTask.taskSlug }
+                                                                                    : t
+                                                                            )
+                                                                        );
+                                                                    }}
+                                                                    onTaskDeleted={(taskId) => {
+                                                                        setTasks(prevTasks =>
+                                                                            prevTasks.filter(t => t.id !== taskId)
+                                                                        );
+                                                                    }}
                                                                     permissions={permissions}
                                                                     userId={userId}
                                                                     isWorkspaceAdmin={isWorkspaceAdmin}
                                                                     leadProjectIds={leadProjectIds}
                                                                     projects={projects}
-                                                                    level={level}
-                                                                />
-                                                            </TaskRow>
-                                                        </React.Fragment>
-                                                    ))}
-                                                    {/* Initial Load Skeletons (when project expanded but no tasks yet) */}
-                                                    {isProjectExpanded && projectPagination[projectId]?.isLoading && projectTasks.length === 0 && (
-                                                        Array.from({ length: 3 }).map((_, i) => (
-                                                            <TableRow key={`skeleton-${projectId}-${i}`}>
-                                                                <TableCell colSpan={visibleColumnsCount} className="p-4">
-                                                                    <div className="flex items-center gap-4">
-                                                                        <Skeleton className="h-4 w-4 rounded" />
-                                                                        <div className="flex-1 space-y-2">
-                                                                            <Skeleton className="h-4 w-[200px]" />
+                                                                >
+                                                                    <SubTaskList
+                                                                        task={task}
+                                                                        tags={tags}
+                                                                        members={members}
+                                                                        workspaceId={workspaceId}
+                                                                        projectId={task.projectId || projectId}
+                                                                        canCreateSubTask={
+                                                                            level === 'project'
+                                                                                ? canCreateSubTask
+                                                                                : (canCreateSubTask && task.projectId ? (
+                                                                                    leadProjectIds.includes(task.projectId) ||
+                                                                                    !!isWorkspaceAdmin ||
+                                                                                    !!projects?.find(p => p.id === task.projectId)?.canManageMembers
+                                                                                ) : false)
+                                                                        }
+                                                                        columnVisibility={columnVisibility}
+                                                                        isLoading={!!loadingSubTasks[task.id]}
+                                                                        isLoadingMore={!!loadingMoreSubTasks[task.id]}
+                                                                        onLoadMore={() => loadMoreSubTasks(task.id)}
+                                                                        onSubTaskClick={handleSubTaskClick}
+                                                                        onSubTaskUpdated={(subTaskId, updatedData) =>
+                                                                            handleSubTaskUpdated(task.id, subTaskId, updatedData)
+                                                                        }
+                                                                        onSubTaskDeleted={(subTaskId) =>
+                                                                            handleSubTaskDeleted(task.id, subTaskId)
+                                                                        }
+                                                                        onSubTaskCreated={(newSubTask, tempId) =>
+                                                                            handleSubTaskCreated(task.id, newSubTask, tempId)
+                                                                        }
+                                                                        permissions={permissions}
+                                                                        userId={userId}
+                                                                        isWorkspaceAdmin={isWorkspaceAdmin}
+                                                                        leadProjectIds={leadProjectIds}
+                                                                        projects={projects}
+                                                                        level={level}
+                                                                    />
+                                                                </TaskRow>
+                                                            </React.Fragment>
+                                                        ))}
+                                                        {isProjectExpanded && projectPagination[projectId]?.isLoading && projectTasks.length === 0 && (
+                                                            Array.from({ length: 3 }).map((_, i) => (
+                                                                <TableRow key={`skeleton-${projectId}-${i}`}>
+                                                                    <TableCell colSpan={visibleColumnsCount} className="p-4">
+                                                                        <div className="flex items-center gap-4">
+                                                                            <Skeleton className="h-4 w-4 rounded" />
+                                                                            <div className="flex-1 space-y-2">
+                                                                                <Skeleton className="h-4 w-[200px]" />
+                                                                            </div>
+                                                                            <Skeleton className="h-4 w-[100px]" />
+                                                                            <Skeleton className="h-4 w-[80px]" />
+                                                                            <Skeleton className="h-4 w-[80px]" />
                                                                         </div>
-                                                                        <Skeleton className="h-4 w-[100px]" />
-                                                                        <Skeleton className="h-4 w-[80px]" />
-                                                                        <Skeleton className="h-4 w-[80px]" />
-                                                                    </div>
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        ))
-                                                    )}
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            ))
+                                                        )}
 
-                                                    {/* Infinite Scroll Sentinel + Loading Skeleton */}
-                                                    {isProjectExpanded && projectPagination[projectId]?.hasMore && (
-                                                        <TableRow
-                                                            ref={(node) => {
-                                                                if (node) getObserver().observe(node);
-                                                            }}
-                                                            data-project-id={projectId}
-                                                        >
-                                                            <TableCell colSpan={visibleColumnsCount} className="py-2 h-10">
-                                                                {projectPagination[projectId]?.isLoading ? (
-                                                                    <div className="flex items-center gap-4 px-2 opacity-60">
-                                                                        <Skeleton className="h-4 w-4 rounded" />
-                                                                        <div className="flex-1">
-                                                                            <Skeleton className="h-4 w-[150px]" />
-                                                                        </div>
-                                                                        <Skeleton className="h-4 w-[100px]" />
-                                                                    </div>
-                                                                ) : (
-                                                                    /* Invisible trigger when idle/waiting for scroll */
-                                                                    <div className="h-1 w-full" />
-                                                                )}
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    )}
-                                                    {isProjectExpanded && !projectPagination[projectId]?.isLoading && projectTasks.length === 0 && (!!searchQuery || hasActiveFilters(filters) || !canCreateSubTask) && (
-                                                        <TableRow>
-                                                            <TableCell colSpan={visibleColumnsCount} className="h-24 text-center text-muted-foreground">
-                                                                No tasks found.
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    )}
-                                                    {isProjectExpanded && canCreateSubTask && !searchQuery && Object.keys(filters).length === 0 && (
-                                                        activeInlineProjectId === projectId ? (
-                                                            <InlineTaskForm
-                                                                workspaceId={workspaceId}
-                                                                projectId={projectId}
-                                                                projects={projects}
-                                                                level={level}
-                                                                leadProjectIds={leadProjectIds}
-                                                                isWorkspaceAdmin={isWorkspaceAdmin}
-                                                                onCancel={() => setActiveInlineProjectId(null)}
-                                                                onTaskDeleted={(taskId) => {
-                                                                    setTasks(prev => prev.filter(t => t.id !== taskId));
-                                                                }}
-                                                                onTaskCreated={(task, tempId) => {
-                                                                    if (tempId) {
-                                                                        setTasks(prev => prev.map(t => t.id === tempId ? task : t));
-                                                                    } else {
-                                                                        setTasks(prev => [task, ...prev]);
-                                                                    }
-                                                                    setActiveInlineProjectId(null);
-                                                                }}
-                                                            />
-                                                        ) : (
+                                                        {isProjectExpanded && projectPagination[projectId]?.hasMore && (
                                                             <TableRow
-                                                                className="hover:bg-muted/20 cursor-pointer h-8"
-                                                                onClick={(e) => { e.stopPropagation(); setActiveInlineProjectId(projectId); }}
+                                                                ref={(node) => {
+                                                                    if (node) getObserver().observe(node);
+                                                                }}
+                                                                data-project-id={projectId}
                                                             >
-                                                                <TableCell colSpan={visibleColumnsCount} className="py-2 px-2 pl-8">
-                                                                    <div className="flex items-center gap-2 text-primary font-medium hover:text-primary/80 transition-colors">
-                                                                        <Plus className="h-4 w-4" />
-                                                                        <span>Add Task</span>
-                                                                    </div>
+                                                                <TableCell colSpan={visibleColumnsCount} className="py-2 h-10">
+                                                                    {projectPagination[projectId]?.isLoading ? (
+                                                                        <div className="flex items-center gap-4 px-2 opacity-60">
+                                                                            <Skeleton className="h-4 w-4 rounded" />
+                                                                            <div className="flex-1">
+                                                                                <Skeleton className="h-4 w-[150px]" />
+                                                                            </div>
+                                                                            <Skeleton className="h-4 w-[100px]" />
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="h-1 w-full" />
+                                                                    )}
                                                                 </TableCell>
                                                             </TableRow>
-                                                        )
-                                                    )}
-                                                </ProjectRow>
-                                            </React.Fragment>
-                                        );
-                                    })
-                                ) : (
-                                    filteredTasks.map((task) => (
-                                        <React.Fragment key={task.id}>
-                                            <TaskRow
-                                                task={task}
-                                                isExpanded={!!expanded[task.id]}
-                                                onToggleExpand={() => toggleExpand(task.id)}
-                                                columnVisibility={columnVisibility}
-                                                isUpdating={updatingTaskId === task.id}
-                                                onUpdateStart={() => setUpdatingTaskId(task.id)}
-                                                onUpdateEnd={() => setUpdatingTaskId(null)}
-                                                onTaskUpdated={(updatedTask) => {
-                                                    setTasks(prevTasks =>
-                                                        prevTasks.map(t =>
-                                                            t.id === task.id
-                                                                ? { ...t, name: updatedTask.name, taskSlug: updatedTask.taskSlug }
-                                                                : t
-                                                        )
-                                                    );
-                                                }}
-                                                onTaskDeleted={(taskId) => {
-                                                    setTasks(prevTasks =>
-                                                        prevTasks.filter(t => t.id !== taskId)
-                                                    );
-                                                }}
-                                                permissions={permissions}
-                                                userId={userId}
-                                                isWorkspaceAdmin={isWorkspaceAdmin}
-                                                leadProjectIds={leadProjectIds}
-                                                projects={projects}
-                                            >
-                                                <SubTaskList
+                                                        )}
+                                                        {isProjectExpanded && !projectPagination[projectId]?.isLoading && projectTasks.length === 0 && (!!searchQuery || hasActiveFilters(filters) || !canCreateSubTask) && (
+                                                            <TableRow>
+                                                                <TableCell colSpan={visibleColumnsCount} className="h-24 text-center text-muted-foreground">
+                                                                    No tasks found.
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        )}
+                                                        {isProjectExpanded && canCreateSubTask && !searchQuery && Object.keys(filters).length === 0 && (
+                                                            activeInlineProjectId === projectId ? (
+                                                                <InlineTaskForm
+                                                                    workspaceId={workspaceId}
+                                                                    projectId={projectId}
+                                                                    projects={projects}
+                                                                    level={level}
+                                                                    leadProjectIds={leadProjectIds}
+                                                                    isWorkspaceAdmin={isWorkspaceAdmin}
+                                                                    onCancel={() => setActiveInlineProjectId(null)}
+                                                                    onTaskDeleted={(taskId) => {
+                                                                        setTasks(prev => prev.filter(t => t.id !== taskId));
+                                                                    }}
+                                                                    onTaskCreated={(task, tempId) => {
+                                                                        if (tempId) {
+                                                                            setTasks(prev => prev.map(t => t.id === tempId ? task : t));
+                                                                        } else {
+                                                                            setTasks(prev => [task, ...prev]);
+                                                                        }
+                                                                        setActiveInlineProjectId(null);
+                                                                    }}
+                                                                />
+                                                            ) : (
+                                                                <TableRow
+                                                                    className="hover:bg-muted/20 cursor-pointer h-8"
+                                                                    onClick={(e) => { e.stopPropagation(); setActiveInlineProjectId(projectId); }}
+                                                                >
+                                                                    <TableCell colSpan={visibleColumnsCount} className="py-2 px-2 pl-8">
+                                                                        <div className="flex items-center gap-2 text-primary font-medium hover:text-primary/80 transition-colors">
+                                                                            <Plus className="h-4 w-4" />
+                                                                            <span>Add Task</span>
+                                                                        </div>
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            )
+                                                        )}
+                                                    </ProjectRow>
+                                                </React.Fragment>
+                                            );
+                                        })
+                                    ) : (
+                                        filteredTasks.map((task) => (
+                                            <React.Fragment key={task.id}>
+                                                <TaskRow
                                                     task={task}
-                                                    tags={tags}
-                                                    members={members}
-                                                    workspaceId={workspaceId}
-                                                    projectId={task.projectId || projectId}
-                                                    canCreateSubTask={
-                                                        level === 'project'
-                                                            ? canCreateSubTask
-                                                            : (canCreateSubTask && task.projectId ? (
-                                                                leadProjectIds.includes(task.projectId) ||
-                                                                !!isWorkspaceAdmin ||
-                                                                !!projects?.find(p => p.id === task.projectId)?.canManageMembers
-                                                            ) : false)
-                                                    }
+                                                    isExpanded={!!expanded[task.id]}
+                                                    onToggleExpand={() => toggleExpand(task.id)}
                                                     columnVisibility={columnVisibility}
-                                                    isLoading={!!loadingSubTasks[task.id]}
-                                                    isLoadingMore={!!loadingMoreSubTasks[task.id]}
-                                                    onLoadMore={() => loadMoreSubTasks(task.id)}
-                                                    onSubTaskClick={handleSubTaskClick}
-                                                    onSubTaskUpdated={(subTaskId, updatedData) =>
-                                                        handleSubTaskUpdated(task.id, subTaskId, updatedData)
-                                                    }
-                                                    onSubTaskDeleted={(subTaskId) =>
-                                                        handleSubTaskDeleted(task.id, subTaskId)
-                                                    }
-                                                    onSubTaskCreated={(newSubTask, tempId) =>
-                                                        handleSubTaskCreated(task.id, newSubTask, tempId)
-                                                    }
+                                                    isUpdating={updatingTaskId === task.id}
+                                                    onUpdateStart={() => setUpdatingTaskId(task.id)}
+                                                    onUpdateEnd={() => setUpdatingTaskId(null)}
+                                                    onTaskUpdated={(updatedTask) => {
+                                                        setTasks(prevTasks =>
+                                                            prevTasks.map(t =>
+                                                                t.id === task.id
+                                                                    ? { ...t, name: updatedTask.name, taskSlug: updatedTask.taskSlug }
+                                                                    : t
+                                                            )
+                                                        );
+                                                    }}
+                                                    onTaskDeleted={(taskId) => {
+                                                        setTasks(prevTasks =>
+                                                            prevTasks.filter(t => t.id !== taskId)
+                                                        );
+                                                    }}
                                                     permissions={permissions}
                                                     userId={userId}
                                                     isWorkspaceAdmin={isWorkspaceAdmin}
                                                     leadProjectIds={leadProjectIds}
                                                     projects={projects}
-                                                    level={level}
-                                                />
-                                            </TaskRow>
-                                        </React.Fragment>
-                                    ))
+                                                >
+                                                    <SubTaskList
+                                                        task={task}
+                                                        tags={tags}
+                                                        members={members}
+                                                        workspaceId={workspaceId}
+                                                        projectId={task.projectId || projectId}
+                                                        canCreateSubTask={
+                                                            level === 'project'
+                                                                ? canCreateSubTask
+                                                                : (canCreateSubTask && task.projectId ? (
+                                                                    leadProjectIds.includes(task.projectId) ||
+                                                                    !!isWorkspaceAdmin ||
+                                                                    !!projects?.find(p => p.id === task.projectId)?.canManageMembers
+                                                                ) : false)
+                                                        }
+                                                        columnVisibility={columnVisibility}
+                                                        isLoading={!!loadingSubTasks[task.id]}
+                                                        isLoadingMore={!!loadingMoreSubTasks[task.id]}
+                                                        onLoadMore={() => loadMoreSubTasks(task.id)}
+                                                        onSubTaskClick={handleSubTaskClick}
+                                                        onSubTaskUpdated={(subTaskId, updatedData) =>
+                                                            handleSubTaskUpdated(task.id, subTaskId, updatedData)
+                                                        }
+                                                        onSubTaskDeleted={(subTaskId) =>
+                                                            handleSubTaskDeleted(task.id, subTaskId)
+                                                        }
+                                                        onSubTaskCreated={(newSubTask, tempId) =>
+                                                            handleSubTaskCreated(task.id, newSubTask, tempId)
+                                                        }
+                                                        permissions={permissions}
+                                                        userId={userId}
+                                                        isWorkspaceAdmin={isWorkspaceAdmin}
+                                                        leadProjectIds={leadProjectIds}
+                                                        projects={projects}
+                                                        level={level}
+                                                    />
+                                                </TaskRow>
+                                            </React.Fragment>
+                                        ))
+                                    )
                                 )}
                                 {isLoadingFilters && filteredTasks.length === 0 && (
                                     <TableRow>

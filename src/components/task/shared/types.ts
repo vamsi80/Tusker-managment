@@ -64,6 +64,37 @@ export function isViewType(value: unknown): value is ViewType {
 }
 
 /**
+ * Table view mode - determines how tasks are displayed
+ */
+export type TableViewMode = "hierarchy" | "sorted";
+
+/**
+ * Sort field options
+ */
+export type SortField =
+    | "name"
+    | "assignee"
+    | "reviewer"
+    | "status"
+    | "startDate"
+    | "dueDate"
+    | "progress"
+    | "tags";
+
+/**
+ * Sort direction
+ */
+export type SortDirection = "asc" | "desc";
+
+/**
+ * Sort configuration
+ */
+export interface SortConfig {
+    field: SortField;
+    direction: SortDirection;
+}
+
+/**
  * Task filters interface
  * Used for filtering tasks across all views
  */
@@ -91,6 +122,9 @@ export interface TaskFilters {
 
     /** Parent task ID filter (Kanban-specific) */
     parentTaskId?: string;
+
+    /** Sorting configuration */
+    sorts?: SortConfig[];
 }
 
 /**

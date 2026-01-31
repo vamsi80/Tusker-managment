@@ -48,7 +48,6 @@ export async function WorkspaceListView({
             initialHasMore={false}
             initialTotalCount={0}
             members={formattedMembers as any}
-            assignees={[]} // Will be populated as tasks are loaded
             workspaceId={workspaceId}
             projectId="" // Empty for workspace-level view
             canCreateSubTask={permissions.hasAccess}
