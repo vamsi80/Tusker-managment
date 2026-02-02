@@ -13,7 +13,7 @@ import {
 import { SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuButton, SidebarMenuItem, } from "@/components/ui/sidebar"
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { QuickCreateSubTask } from "./quick-create-subtask";
+
 
 // Icon mapping to resolve string names to actual components
 const iconMap = {
@@ -35,7 +35,7 @@ type IconName = keyof typeof iconMap;
 export function NavMain({
   items,
   workspaceId,
-  quickCreateData,
+  quickCreateButton,
 }: {
   items: {
     title: string
@@ -43,13 +43,7 @@ export function NavMain({
     icon?: IconName
   }[]
   workspaceId: string
-  quickCreateData: {
-    permissions: { canCreateSubTasks: boolean };
-    parentTasks: any[];
-    members: any[];
-    tags: any[];
-    projects: any[];
-  } | null
+  quickCreateButton?: React.ReactNode
 }) {
   const pathname = usePathname();
 
@@ -58,7 +52,7 @@ export function NavMain({
       <SidebarGroupContent className="flex flex-col gap-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <QuickCreateSubTask workspaceId={workspaceId} data={quickCreateData} />
+            {quickCreateButton}
           </SidebarMenuItem>
         </SidebarMenu>
 

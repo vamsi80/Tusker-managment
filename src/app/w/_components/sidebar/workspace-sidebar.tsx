@@ -8,7 +8,8 @@ import { NavFooter } from "./footer/nav-footer";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuItem } from "@/components/ui/sidebar";
 import { NavProjectsSkeleton } from "./projectsList/projects-skeleton";
 import { WorkspacesType } from "@/data/workspace/get-workspaces";
-import { getWorkspaceTaskCreationData } from "@/data/workspace/get-workspace-task-creation-data";
+import { QuickCreateSubTaskAsync, QuickCreateSubTaskSkeleton } from "./header/quick-create-subtask-async";
+import { Suspense } from "react";
 
 interface iAppProps {
   data: WorkspacesType;
@@ -42,9 +43,6 @@ export async function AppSidebar({ data, workspaceId, ...props }: React.Componen
       { title: "Settings", url: `/w/${workspaceId}/settings`, icon: "IconSettings" },
     ];
 
-  // Fetch data for quick create button
-  const quickCreateData = await getWorkspaceTaskCreationData(workspaceId);
-
   return (
     <Sidebar collapsible="offcanvas" {...props} className="border-r border-border/50">
       <SidebarHeader>
@@ -56,7 +54,15 @@ export async function AppSidebar({ data, workspaceId, ...props }: React.Componen
       </SidebarHeader>
 
       <SidebarContent className="px-2">
-        <NavMain items={mainNavItems} workspaceId={workspaceId} quickCreateData={quickCreateData} />
+        <NavMain
+          items={mainNavItems}
+          workspaceId={workspaceId}
+          quickCreateButton={
+            <Suspense fallback={<QuickCreateSubTaskSkeleton />}>
+              <QuickCreateSubTaskAsync workspaceId={workspaceId} />
+            </Suspense>
+          }
+        />
 
         <React.Suspense fallback={<NavProjectsSkeleton />}>
           <NavProjectsAsync workspaceId={workspaceId} />

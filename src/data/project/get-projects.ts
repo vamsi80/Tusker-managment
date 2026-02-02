@@ -69,16 +69,7 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
                         },
                     },
                 },
-                tasks: {
-                    select: {
-                        id: true,
-                        name: true,
-                        taskSlug: true,
-                    },
-                    orderBy: {
-                        createdAt: "desc",
-                    },
-                },
+
             },
             orderBy: {
                 createdAt: "desc",
@@ -151,16 +142,7 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
                         },
                     },
                 },
-                tasks: {
-                    select: {
-                        id: true,
-                        name: true,
-                        taskSlug: true,
-                    },
-                    orderBy: {
-                        createdAt: "desc",
-                    },
-                },
+
             },
             orderBy: {
                 createdAt: "desc",
@@ -225,16 +207,7 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
                     },
                 },
             },
-            tasks: {
-                select: {
-                    id: true,
-                    name: true,
-                    taskSlug: true,
-                },
-                orderBy: {
-                    createdAt: "desc",
-                },
-            },
+
         },
         orderBy: {
             createdAt: "desc",

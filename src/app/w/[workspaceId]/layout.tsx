@@ -8,8 +8,18 @@ interface Props {
     params: Promise<{ workspaceId: string }>;
 }
 
+import { getWorkspaceMetadata } from "@/data/workspace/get-workspace-metadata";
+import { notFound } from "next/navigation";
+
 export default async function WorkSpaceLayout({ children, params }: Props) {
     const { workspaceId } = await params;
+
+    // Fast validation using lightweight metadata
+    const workspace = await getWorkspaceMetadata(workspaceId);
+    if (!workspace) {
+        return notFound();
+    }
+
     const data = await getWorkspaces();
 
     return (

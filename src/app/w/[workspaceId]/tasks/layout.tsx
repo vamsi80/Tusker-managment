@@ -1,21 +1,30 @@
-import { Suspense } from "react";
-import { getTaskPageData } from "@/data/task";
 import { TaskPageWrapper } from "../_components/shared/task-page-wrapper";
-import { TaskPageProvider } from "../_components/shared/task-page-context";
+import { getWorkspaceMetadata } from "@/data/workspace/get-workspace-metadata";
 
 interface Props {
     children: React.ReactNode;
     params: Promise<{ workspaceId: string }>;
 }
 
+/**
+ * Workspace Tasks Layout
+ * 
+ * IMPORTANT: This layout ONLY provides structure.
+ * It does NOT fetch business data (tasks, projects, members, etc.)
+ * 
+ * Data fetching happens in:
+ * - page.tsx for initial page data
+ * - Individual view components for their specific data
+ * - Server Actions for mutations and lazy loading
+ */
 export default async function WorkspaceTasksLayout({ children, params }: Props) {
     console.log("🟢 RSC: tasks/layout.tsx render");
     const { workspaceId } = await params;
 
-    // Fetch workspace data ONCE at layout level
-    const pageData = await getTaskPageData(workspaceId);
+    // Only fetch minimal metadata for access control
+    const workspace = await getWorkspaceMetadata(workspaceId);
 
-    if (!pageData) {
+    if (!workspace) {
         return (
             <div className="p-6">
                 <h1 className="text-2xl font-semibold">Access Denied</h1>
@@ -27,10 +36,8 @@ export default async function WorkspaceTasksLayout({ children, params }: Props) 
     }
 
     return (
-        <TaskPageProvider pageData={pageData}>
-            <TaskPageWrapper>
-                {children}
-            </TaskPageWrapper>
-        </TaskPageProvider>
+        <TaskPageWrapper>
+            {children}
+        </TaskPageWrapper>
     );
 }
