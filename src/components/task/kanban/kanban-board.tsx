@@ -78,6 +78,24 @@ export function KanbanBoard({
 }: KanbanBoardProps) {
     const setKanbanTasksCache = useTaskCacheStore(state => state.setKanbanTasksCache);
 
+    // Sync initial data to cache on mount to populate the unified entity store
+    useEffect(() => {
+        COLUMNS.forEach(col => {
+            const contextId = projectId || "";
+            const cacheKey = `${workspaceId}-${contextId}-${col.id}`;
+            const cached = useTaskCacheStore.getState().getKanbanTasksCache(cacheKey);
+
+            if (!cached && initialData[col.id]) {
+                setKanbanTasksCache(cacheKey, {
+                    tasks: initialData[col.id].subTasks,
+                    hasMore: initialData[col.id].hasMore,
+                    page: 1,
+                    totalCount: initialData[col.id].totalCount
+                });
+            }
+        });
+    }, [initialData, projectId, workspaceId, setKanbanTasksCache]);
+
     // State for each column's data
     const [columnData, setColumnData] = useState<Record<TaskStatus, {
         subTasks: KanbanSubTaskType[];

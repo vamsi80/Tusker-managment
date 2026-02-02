@@ -122,7 +122,9 @@ export function TaskTable({
         const getCache = useTaskCacheStore.getState().getProjectTasksCache;
         const cachedTasks = relevantProjectIds.flatMap(pId => {
             const cache = getCache(pId);
-            return cache ? cache.tasks : [];
+            // Limit initial render to 100 items to prevent browser freeze when coming from Gantt (5000+ items)
+            // AND Filter out subtasks (since Gantt might cache flat list which pollutes the root list)
+            return cache ? cache.tasks.filter(t => !t.parentTaskId).slice(0, 100) : [];
         });
 
         // Merge Strategy: Cache + Initial (Deduplicate by ID)
@@ -196,8 +198,9 @@ export function TaskTable({
             if (cached) {
                 return {
                     [projectId]: {
-                        page: cached.page,
-                        hasMore: cached.hasMore,
+                        // If cache has more than we rendered (100), reset pagination to continue from there
+                        page: cached.tasks.length > 100 ? 2 : cached.page,
+                        hasMore: cached.tasks.length > 100 ? true : cached.hasMore,
                         isLoading: false
                     }
                 };
@@ -208,8 +211,8 @@ export function TaskTable({
                 const cached = useTaskCacheStore.getState().getProjectTasksCache(p.id);
                 if (cached) {
                     initialState[p.id] = {
-                        page: cached.page,
-                        hasMore: cached.hasMore,
+                        page: cached.tasks.length > 100 ? 2 : cached.page,
+                        hasMore: cached.tasks.length > 100 ? true : cached.hasMore,
                         isLoading: false
                     };
                 }

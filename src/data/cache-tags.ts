@@ -188,6 +188,7 @@ export const CacheTags = {
         const tags = [
             `project-subtasks-${projectId}`,
             `project-subtasks-status-${status}`,
+            `project-tasks-${projectId}`,
         ];
         if (parentTaskId) tags.push(`task-subtasks-${parentTaskId}`);
         return tags;
