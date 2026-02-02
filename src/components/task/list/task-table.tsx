@@ -86,7 +86,6 @@ export function TaskTable({
     const setCachedSubTasks = useTaskCacheStore(state => state.setCachedSubTasks);
     const getCachedSubTasks = useTaskCacheStore(state => state.getCachedSubTasks);
     const setProjectTasksCache = useTaskCacheStore(state => state.setProjectTasksCache);
-    const clearCache = useTaskCacheStore(state => state.clearCache);
     const observerRef = useRef<IntersectionObserver | null>(null);
     const loadProjectTasksRef = useRef<((id: string) => Promise<void>) | null>(null);
     const autoExpandRef = useRef(false);
@@ -975,7 +974,7 @@ export function TaskTable({
                                     )}
                                     {columnVisibility.progress && (
                                         <SortableHeader
-                                            field="progress"
+                                            field="dueDate"
                                             label="Deadline"
                                             sorts={sorts}
                                             onSortChange={handleSort}

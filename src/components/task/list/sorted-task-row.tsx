@@ -7,6 +7,8 @@ import { getStatusColors } from "@/lib/colors/status-colors";
 import { formatDate } from "@/components/task/gantt/utils";
 import { ColumnVisibility } from "../shared/column-visibility";
 import { cn } from "@/lib/utils";
+import { useRemainingDays } from "@/hooks/use-due-date";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface SortedTaskRowProps {
     task: any;
@@ -26,6 +28,19 @@ interface SortedTaskRowProps {
  */
 export function SortedTaskRow({ task, columnVisibility, onClick }: SortedTaskRowProps) {
     const statusColors = getStatusColors(task.status);
+    const { remainingDays, isOverdue, dueDate } = useRemainingDays(task.startDate, task.days);
+
+    const getProgressColor = () => {
+        if (!task.startDate || !task.days || remainingDays === null) return "bg-gray-300";
+
+        if (isOverdue) return "bg-red-500";
+        if (remainingDays <= 10) return "bg-red-500";
+        if (remainingDays <= 20) return "bg-orange-500";
+        if (remainingDays <= 30) return "bg-yellow-500";
+        return "bg-green-500";
+    };
+
+    const progressColor = getProgressColor();
 
     return (
         <TableRow
@@ -131,9 +146,36 @@ export function SortedTaskRow({ task, columnVisibility, onClick }: SortedTaskRow
             {/* Progress */}
             {columnVisibility.progress && (
                 <TableCell className="w-[100px]">
-                    <div className="text-sm">
-                        {task.days ? `${task.days} days` : "-"}
-                    </div>
+                    {task.startDate && task.days && remainingDays !== null ? (
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <div className="flex items-center gap-2 min-w-0 cursor-help">
+                                    <div className={cn("h-3 w-3 rounded-full flex-shrink-0", progressColor)} />
+                                    <div className="text-sm truncate">
+                                        {remainingDays > 0
+                                            ? `${remainingDays} day${remainingDays !== 1 ? 's' : ''} left`
+                                            : remainingDays === 0
+                                                ? 'Due today'
+                                                : `${Math.abs(remainingDays)} day${Math.abs(remainingDays) !== 1 ? 's' : ''} delayed`
+                                        }
+                                    </div>
+                                </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <div className="space-y-1 text-xs">
+                                    <div className="font-semibold">Deadline Details</div>
+                                    <div>Start: {task.startDate ? formatDate(new Date(task.startDate)) : "N/A"}</div>
+                                    <div>Duration: {task.days || 0} days</div>
+                                    <div>Due: {dueDate ? formatDate(dueDate) : "N/A"}</div>
+                                    <div>Status: {task.status.replace(/_/g, " ")}</div>
+                                </div>
+                            </TooltipContent>
+                        </Tooltip>
+                    ) : (
+                        <div className="text-sm">
+                            {task.days ? `${task.days} days` : "-"}
+                        </div>
+                    )}
                 </TableCell>
             )}
 
