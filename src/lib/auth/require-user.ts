@@ -45,34 +45,35 @@ async function retryWithBackoff<T>(
     throw lastError;
 }
 
-export const requireUser = cache(async () => {
+export const getSession = cache(async () => {
     try {
-        const session = await retryWithBackoff(async () => {
+        return await retryWithBackoff(async () => {
             return await auth.api.getSession({
                 headers: await headers(),
             });
         });
-
-        if (!session) {
-            console.warn('[requireUser] No session found, redirecting to sign-in');
-            return redirect('/sign-in');
-        }
-
-        return session.user;
     } catch (error) {
-        // Log the error with context
-        console.error('[requireUser] Session fetch failed', {
+        console.error('[getSession] Session fetch failed', {
             error: error instanceof Error ? error.message : String(error),
             stack: error instanceof Error ? error.stack : undefined,
             timestamp: new Date().toISOString()
         });
 
-        // If it's a redirect error, re-throw it
         if (error instanceof Error && error.message.includes('NEXT_REDIRECT')) {
             throw error;
         }
 
-        // For all other errors, redirect to sign-in
-        return redirect('/sign-in?error=session-failed');
+        return null;
     }
 });
+
+export const requireUser = async () => {
+    const session = await getSession();
+
+    if (!session) {
+        console.warn('[requireUser] No session found, redirecting to sign-in');
+        return redirect('/sign-in');
+    }
+
+    return session.user;
+};
