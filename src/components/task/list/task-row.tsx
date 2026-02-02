@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,8 @@ interface TaskRowProps {
     leadProjectIds?: string[];
     projects?: Array<{ id: string; canManageMembers?: boolean }>;
     isSubtask?: boolean;
+    onRequestSubtasks?: (taskId: string) => void;
+    isCached?: boolean;
     children?: React.ReactNode;
 }
 
@@ -47,9 +50,38 @@ export function TaskRow({
     isWorkspaceAdmin,
     leadProjectIds,
     projects,
+    onRequestSubtasks,
+    isCached = false,
     children
 }: TaskRowProps) {
     const subtaskCount = task._count?.subTasks || 0;
+    const rowRef = useRef<HTMLTableRowElement>(null);
+
+    // Lazy load subtasks when visible and expanded
+    useEffect(() => {
+        if (!isExpanded || !onRequestSubtasks || (task.subTasks !== undefined) || subtaskCount === 0) return;
+
+        // If data is already in cache, load immediately without waiting for intersection
+        if (isCached) {
+            onRequestSubtasks(task.id);
+            return;
+        }
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting) {
+                    onRequestSubtasks(task.id);
+                }
+            },
+            { rootMargin: "100px" }
+        );
+
+        if (rowRef.current) {
+            observer.observe(rowRef.current);
+        }
+
+        return () => observer.disconnect();
+    }, [isExpanded, task.subTasks, task.id, subtaskCount, onRequestSubtasks, isCached]);
 
     // Calculate the number of columns to span
     // 2 (expand button) + 1 (task name) + visible columns (not including actions)
@@ -121,6 +153,7 @@ export function TaskRow({
     return (
         <>
             <TableRow
+                ref={rowRef}
                 className={cn(
                     "group [&_td]:py-2",
                     (task as any).isOptimistic && "opacity-60 grayscale-[0.5]"

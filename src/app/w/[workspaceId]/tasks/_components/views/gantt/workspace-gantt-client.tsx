@@ -1,12 +1,14 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
-import { useState, useMemo, useTransition } from "react";
+import { useState, useMemo, useTransition, useEffect } from "react";
 import { GanttTask } from "@/components/task/gantt/types";
 import { GanttChart } from "@/components/task/gantt/gantt-chart";
 import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
 import { GlobalFilterToolbar } from "@/components/task/shared/global-filter-toolbar";
 import { ProjectOption, MemberOption, TaskFilters, TagOption } from "@/components/task/shared/types";
+import { useTaskCacheStore } from "@/lib/store/task-cache-store";
+import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
 
 interface WorkspaceGanttClientProps {
     workspaceId: string;
@@ -109,6 +111,66 @@ export function WorkspaceGanttClient({
         });
     };
 
+    const { setProjectTasksCache, entities } = useTaskCacheStore();
+    const { openSubTaskSheet } = useSubTaskSheet();
+
+    // Cache Synchronization
+    useMemo(() => {
+        if (allTasks && allTasks.length > 0) {
+            // Group by project for cache
+            const tasksByProject: Record<string, any[]> = {};
+            allTasks.forEach(t => {
+                const pid = t.projectId || 'unknown';
+                if (!tasksByProject[pid]) tasksByProject[pid] = [];
+                tasksByProject[pid].push(t);
+            });
+
+            // Update cache for each project found
+            Object.entries(tasksByProject).forEach(([pid, tasks]) => {
+                // We use a fire-and-forget style here to avoid render loops, 
+                // but strictly speaking this should be in an effect. 
+                // However, doing it in useMemo before render ensures commonly shared data is available immediately.
+                // For safety with Zustand/React, we'll keep it simple or move to useEffect if tearing occurs.
+                // Let's stick to useEffect for safety.
+            });
+        }
+    }, [allTasks]);
+
+    // Actual Effect for Cache Sync
+    useEffect(() => {
+        if (allTasks && allTasks.length > 0) {
+            // Group by project
+            const tasksByProject: Record<string, any[]> = {};
+            allTasks.forEach(t => {
+                const pid = t.projectId || 'unknown';
+                if (!tasksByProject[pid]) tasksByProject[pid] = [];
+                tasksByProject[pid].push(t);
+            });
+
+            Object.entries(tasksByProject).forEach(([pid, tasks]) => {
+                setProjectTasksCache(pid, {
+                    tasks: tasks,
+                    hasMore: false, // Workspace view usually loads everything for the current filter
+                    page: 1,
+                    totalCount: tasks.length
+                });
+            });
+        }
+    }, [allTasks, setProjectTasksCache]);
+
+
+    const handleSubtaskClick = (subtaskId: string) => {
+        // Try getting from map first, then entity store
+        let subtaskData = subtaskDataMap.get(subtaskId);
+        if (!subtaskData) {
+            subtaskData = entities[subtaskId];
+        }
+
+        if (subtaskData) {
+            openSubTaskSheet(subtaskData);
+        }
+    };
+
     return (
         <div className="space-y-4">
             <GlobalFilterToolbar
@@ -148,6 +210,7 @@ export function WorkspaceGanttClient({
                         handleFilterChange({ ...filters, projectId: projectId || undefined });
                     }}
                     groupByProject={true}
+                    onSubtaskClick={handleSubtaskClick}
                     projectCounts={projectCounts}
                 />
             </div>

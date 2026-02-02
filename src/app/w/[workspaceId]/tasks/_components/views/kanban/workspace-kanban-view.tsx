@@ -24,7 +24,7 @@ export async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewPr
             view: "kanban",
             status,
             page: 1,
-            limit: 5
+            limit: 15
             // projectId intentionally undefined for workspace level
         });
 

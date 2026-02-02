@@ -32,6 +32,7 @@ export default async function WorkspaceTasksPage({
     params,
     searchParams,
 }: WorkspaceTasksPageProps) {
+    console.log("🟢 RSC: tasks/page.tsx render");
     // Ensure user is authenticated
     await requireUser();
 

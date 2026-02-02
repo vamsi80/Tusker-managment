@@ -27,7 +27,7 @@ export async function WorkspaceListView({
             workspaceId,
             view: "list",
             page: 1,
-            limit: 20,
+            limit: 50,
             includeFacets: true
         })
     ]);

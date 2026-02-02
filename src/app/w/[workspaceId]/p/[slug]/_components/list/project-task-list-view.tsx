@@ -32,7 +32,7 @@ export async function ProjectTaskListView({
         projectId,
         view: "list",
         page: 1,
-        limit: 20 // Load reasonable initial batch
+        limit: 50 // Load reasonable initial batch
     });
 
     // Transform to TaskWithSubTasks structure

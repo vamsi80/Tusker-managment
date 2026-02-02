@@ -17,6 +17,7 @@ export async function loadMoreTasksAction(
     page: number = 1,
     pageSize: number = 10
 ) {
+    console.log("🟢 ACTION: loadMoreTasksAction");
     try {
 
         const result = await getWorkspaceTasks({
@@ -49,6 +50,7 @@ export async function loadMoreTasksFlatAction(
     page: number = 1,
     pageSize: number = 10
 ) {
+    console.log("🟢 ACTION: loadMoreTasksFlatAction");
     try {
         const result = await getAllTasksFlat(workspaceId, projectId, page, pageSize);
 
@@ -90,6 +92,7 @@ export async function loadSubTasksAction(
     page: number = 1,
     pageSize: number = 10
 ) {
+    console.log("🟢 ACTION: loadSubTasksAction", parentTaskId);
     try {
         const toArray = <T>(val: T | T[] | undefined): T[] | undefined => {
             if (val === undefined) return undefined;
@@ -143,6 +146,7 @@ export async function loadSubTasksBatchAction(
     filters: WorkspaceTaskFilters = {} as any,
     pageSize: number = 10
 ) {
+    console.log("🟢 ACTION: loadSubTasksBatchAction", parentTaskIds.length);
     try {
         if (parentTaskIds.length === 0) {
             return {
@@ -203,6 +207,7 @@ export async function loadSortedSubTasksAction(
     page: number = 1,
     pageSize: number = 50
 ) {
+    console.log("🟢 ACTION: loadSortedSubTasksAction");
     try {
         const toArray = <T>(val: T | T[] | undefined): T[] | undefined => {
             if (val === undefined) return undefined;

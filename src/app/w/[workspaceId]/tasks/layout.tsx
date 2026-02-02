@@ -9,6 +9,7 @@ interface Props {
 }
 
 export default async function WorkspaceTasksLayout({ children, params }: Props) {
+    console.log("🟢 RSC: tasks/layout.tsx render");
     const { workspaceId } = await params;
 
     // Fetch workspace data ONCE at layout level
