@@ -38,7 +38,7 @@ export async function updateWorkspaceInfo(values: UpdateWorkspaceInfoType): Prom
 
         // Revalidate cache
         const tags = CacheTags.workspace(workspaceId);
-        tags.forEach(tag => revalidateTag(tag));
+        tags.forEach(tag => revalidateTag(tag, "layout"));
 
         return {
             status: "success",

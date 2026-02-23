@@ -16,29 +16,29 @@ export async function revalidateTaskData(
         switch (view) {
             case 'list':
                 // Revalidate list view data
-                revalidateTag(`project-tasks-${projectId}`);
-                revalidateTag(`project-tasks-user-${userId}`);
+                revalidateTag(`project-tasks-${projectId}`, "layout");
+                revalidateTag(`project-tasks-user-${userId}`, "layout");
                 break;
 
             case 'kanban':
                 // Revalidate kanban view data (all subtasks)
-                revalidateTag(`project-tasks-${projectId}`);
-                revalidateTag(`task-subtasks-all`);
+                revalidateTag(`project-tasks-${projectId}`, "layout");
+                revalidateTag(`task-subtasks-all`, "layout");
                 break;
 
             case 'gantt':
                 // Revalidate gantt view data
-                revalidateTag(`project-tasks-${projectId}`);
-                revalidateTag(`task-subtasks-all`);
+                revalidateTag(`project-tasks-${projectId}`, "layout");
+                revalidateTag(`task-subtasks-all`, "layout");
                 break;
 
             case 'all':
             default:
                 // Revalidate everything
-                revalidateTag(`project-tasks-${projectId}`);
-                revalidateTag(`project-tasks-user-${userId}`);
-                revalidateTag(`project-tasks-all`);
-                revalidateTag(`task-subtasks-all`);
+                revalidateTag(`project-tasks-${projectId}`, "layout");
+                revalidateTag(`project-tasks-user-${userId}`, "layout");
+                revalidateTag(`project-tasks-all`, "layout");
+                revalidateTag(`task-subtasks-all`, "layout");
                 break;
         }
 
