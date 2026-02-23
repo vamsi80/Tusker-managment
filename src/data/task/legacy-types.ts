@@ -46,7 +46,7 @@ export type WorkspaceTaskType = {
         id: string;
         name: string;
         slug: string;
-        color: string | null;
+        color: string;
         workspaceId: string;
         projectMembers: {
             workspaceMember: {

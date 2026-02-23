@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { workSpaceSchema, WorkSpaceSchemaType } from '@/lib/zodSchemas'
 import { Loader2, PlusIcon, SparkleIcon } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useTransition } from 'react'
+import { Suspense, useEffect, useTransition } from 'react'
 import { toast } from 'sonner'
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, Resolver } from 'react-hook-form';
@@ -17,7 +17,7 @@ import { Textarea } from '@/components/ui/textarea'
 import slugify from "slugify";
 import { createWorkSpace } from '@/actions/workspace/create-workspace'
 
-const CreateWorkspace = () => {
+function CreateWorkspaceContent() {
 
     const [Pending, startTransition] = useTransition();
     const router = useRouter();
@@ -161,4 +161,11 @@ const CreateWorkspace = () => {
     )
 }
 
-export default CreateWorkspace;
+export default function CreateWorkspace() {
+    return (
+        <Suspense fallback={null}>
+            <CreateWorkspaceContent />
+        </Suspense>
+    );
+}
+

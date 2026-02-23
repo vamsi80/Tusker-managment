@@ -1,0 +1,69 @@
+﻿
+> tusker-management@0.1.0 build C:\VamsiKrishna\Github\Tusker-managment
+> next build --turbopack
+
+Γû▓ Next.js 16.1.6 (Turbopack)
+- Environments: .env
+
+  Creating an optimized production build ...
+Γ£ô Compiled successfully in 9.2s
+  Running TypeScript ...
+node.exe : Failed to compile.
+At C:\Program Files\nodejs\pnpm.ps1:16 char:5
++     & "$basedir/node$exe"  
+"$basedir/node_modules/corepack/dist/pnpm. ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Fa 
+   iled to compile.:String) [], RemoteExceptio  
+  n
+    + FullyQualifiedErrorId : NativeCommandErro 
+   r
+ 
+
+.next/dev/types/validator.ts:25:44
+Type error: Type 'Route' does not satisfy the 
+constraint 'LayoutRoutes'.
+  Type 'import("C:/VamsiKrishna/Github/Tusker-ma
+nagment/.next/dev/types/routes").LayoutRoutes' 
+is not assignable to type 'import("C:/VamsiKrish
+na/Github/Tusker-managment/.next/types/routes").
+LayoutRoutes'.
+    Type '"/w/[workspaceId]/inventory"' is not 
+assignable to type 'LayoutRoutes'.
+
+[0m [90m 23 |[39m
+ [90m 24 |[39m type [33mLayoutConfig[39m[33
+m<[39m[33mRoute[39m [36mextends[39m 
+[33mLayoutRoutes[39m [33m=[39m 
+[33mLayoutRoutes[39m[33m>[39m [33m=[39m {
+[31m[1m>[22m[39m[90m 25 |[39m   
+[36mdefault[39m[33m:[39m [33mReact[39m[33
+m.[39m[33mComponentType[39m[33m<[39m[33mLa
+youtProps[39m[33m<[39m[33mRoute[39m[33m>>
+[39m [33m|[39m ((props[33m:[39m [33mLayoutP
+rops[39m[33m<[39m[33mRoute[39m[33m>[39m) 
+[33m=>[39m 
+[33mReact[39m[33m.[39m[33mReactNode[39m 
+[33m|[39m [33mPromise[39m[33m<[39m[33mRea
+ct[39m[33m.[39m[33mReactNode[39m[33m>[39m
+ [33m|[39m never [33m|[39m [36mvoid[39m 
+[33m|[39m [33mPromise[39m[33m<[39m[36mvoi
+d[39m[33m>[39m)
+ [90m    |[39m                                
+            [31m[1m^[22m[39m
+ [90m 26 |[39m   
+generateStaticParams[33m?[39m[33m:[39m 
+(props[33m:[39m { params[33m:[39m 
+[33mParamMap[39m[[33mRoute[39m] }) 
+[33m=>[39m [33mPromise[39m[33m<[39m[33man
+y[39m[][33m>[39m [33m|[39m any[]
+ [90m 27 |[39m   
+generateMetadata[33m?[39m[33m:[39m (
+ [90m 28 |[39m     props[33m:[39m { 
+params[33m:[39m [33mPromise[39m[33m<[39m[
+33mParamMap[39m[[33mRoute[39m][33m>[39m } 
+[33m&[39m any[33m,[39m[0m
+Next.js build worker exited with code: 1 and 
+signal: null
+ΓÇëELIFECYCLEΓÇë Command failed with exit code 1.

@@ -277,8 +277,8 @@ export async function deleteWorkspaceMember(
 
         // 10. Invalidate caches
         const { revalidateTag } = await import("next/cache");
-        revalidateTag(`workspace-members-${workspaceId}`);
-        revalidateTag(`user-workspaces-${userIdToDelete}`);
+        revalidateTag(`workspace-members-${workspaceId}`, "layout");
+        revalidateTag(`user-workspaces-${userIdToDelete}`, "layout");
 
         return {
             status: "success",
