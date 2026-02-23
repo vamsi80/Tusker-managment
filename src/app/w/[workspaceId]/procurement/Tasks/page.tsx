@@ -1,6 +1,5 @@
 import db from "@/lib/db";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
+import { getSession } from "@/lib/auth/require-user";
 import { IconClipboardCheck } from "@tabler/icons-react";
 import { getVendors, getProcurementTasks } from "@/data/procurement";
 import { ProcurementTasksTable } from "./_component/procurement-tasks-table";
@@ -18,9 +17,7 @@ export default async function ProcurementTasksPage({ params }: PageProps) {
     const { workspaceId } = await params;
 
     // Get current user
-    const session = await auth.api.getSession({
-        headers: await headers(),
-    });
+    const session = await getSession();
 
     const [projectsData, procurementTasks, materials, units, vendors, workspaceMember, workspaceMembersResult] = await Promise.all([
         getProcurableProjects(workspaceId),

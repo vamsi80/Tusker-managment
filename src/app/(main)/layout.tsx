@@ -1,14 +1,11 @@
 
 import React from "react"
 import { Navbar } from "./_components/navbar"
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
+import { getSession } from "@/lib/auth/require-user";
 
 export default async function LayoutMain({ children }: { children: React.ReactNode }) {
     // Get session if exists, but don't require it
-    const session = await auth.api.getSession({
-        headers: await headers()
-    });
+    const session = await getSession();
 
     return (
         <div>
