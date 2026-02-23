@@ -20,6 +20,7 @@ import { WorkspaceMemberRow } from "@/data/workspace/get-workspace-members";
 import { getColorFromString } from "@/lib/colors/project-colors";
 import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { cn } from "@/lib/utils";
+import { WorkspaceRole } from "@/generated/prisma/client";
 
 interface ProcurementTasksTableProps {
     workspaceId: string;
@@ -29,7 +30,7 @@ interface ProcurementTasksTableProps {
     materials: { id: string; name: string; defaultUnitId: string; vendors?: { id: string; name: string }[] }[];
     units: { id: string; name: string; abbreviation: string }[];
     vendors: { id: string; name: string }[];
-    userRole?: "OWNER" | "ADMIN" | "MEMBER" | "VIEWER";
+    userRole?: WorkspaceRole;
     workspaceMembers: WorkspaceMemberRow[];
     currentMemberId: string;
 }

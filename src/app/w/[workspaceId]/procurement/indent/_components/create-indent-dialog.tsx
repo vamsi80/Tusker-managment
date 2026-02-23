@@ -15,6 +15,7 @@ import { useState, useTransition, useEffect } from "react";
 import { editIndent } from "@/actions/procurement/edit-indent";
 import { createIndentRequest } from "@/actions/procurement/create-indent";
 import { WorkspaceMemberRow } from "@/data/workspace/get-workspace-members";
+import { WorkspaceRole } from "@/generated/prisma/client";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { indentDialogSchema, type IndentDialogFormData, type MaterialItemType } from "@/lib/zodSchemas";
@@ -30,7 +31,7 @@ export interface CreateIndentDialogProps {
     units?: { id: string; name: string; abbreviation: string | null }[]; // Updated slightly to allow null
     vendors?: { id: string; name: string }[];
     trigger?: React.ReactNode;
-    userRole?: "OWNER" | "ADMIN" | "MEMBER" | "VIEWER";
+    userRole?: WorkspaceRole;
     defaultProjectId?: string;
     defaultTaskId?: string;
     workspaceMembers: WorkspaceMemberRow[];
@@ -50,7 +51,7 @@ export function CreateIndentDialog({
     units = [],
     vendors = [],
     trigger,
-    userRole = "MEMBER",
+    userRole = "MEMBER" as WorkspaceRole,
     defaultProjectId,
     defaultTaskId,
     workspaceMembers,
