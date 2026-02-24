@@ -57,7 +57,7 @@ export function TimelineHeader({ startDate, endDate, granularity }: TimelineHead
                     className="flex border-b border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800"
                 >
                     <div
-                        className="sticky left-0 z-50 w-[200px] min-w-[200px] shrink-0 px-3 py-1 bg-neutral-100 dark:bg-neutral-800 border-r border-neutral-200 dark:border-neutral-700"
+                        className="sticky left-0 z-50 w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] shrink-0 px-3 py-1 bg-neutral-100 dark:bg-neutral-800 border-r border-neutral-200 dark:border-neutral-700"
                     />
                     <div className="flex">
                         {monthLabels.map((month, idx) => (
@@ -76,7 +76,7 @@ export function TimelineHeader({ startDate, endDate, granularity }: TimelineHead
             {/* Day/Week/Month Headers */}
             <div className="flex border-b border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900">
                 <div
-                    className="sticky left-0 z-50 w-[200px] min-w-[200px] shrink-0 px-3 py-2 bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-700"
+                    className="sticky left-0 z-50 w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] shrink-0 px-3 py-2 bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-700"
                 >
                     <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         Tasks
@@ -184,7 +184,7 @@ export function TimelineGrid({ startDate, endDate, granularity, tasks, children 
             {/* Grid Background */}
             <div
                 className="absolute inset-0 flex pointer-events-none"
-                style={{ marginLeft: 200 }}
+                style={{ marginLeft: 'var(--gantt-sidebar-width)' }}
             >
                 {columns.map((col, idx) => (
                     <div
@@ -203,7 +203,7 @@ export function TimelineGrid({ startDate, endDate, granularity, tasks, children 
                 <div
                     className="absolute top-0 bottom-0 w-0.5 bg-red-500 dark:bg-red-400 z-30 pointer-events-none"
                     style={{
-                        left: `calc(200px + ${todayPosition}px)`,
+                        left: `calc(var(--gantt-sidebar-width) + ${todayPosition}px)`,
                     }}
                 >
                     <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-red-500 dark:bg-red-400" />
@@ -214,7 +214,7 @@ export function TimelineGrid({ startDate, endDate, granularity, tasks, children 
             <div
                 className="absolute pointer-events-none z-25"
                 style={{
-                    left: '200px',
+                    left: 'var(--gantt-sidebar-width)',
                     right: 0,
                     top: 0,
                     bottom: 0,
@@ -231,7 +231,7 @@ export function TimelineGrid({ startDate, endDate, granularity, tasks, children 
             <div
                 className="grid"
                 style={{
-                    gridTemplateColumns: `200px ${totalWidth}px`,
+                    gridTemplateColumns: `var(--gantt-sidebar-width) ${totalWidth}px`,
                 }}
             >
                 {children}

@@ -32,6 +32,7 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
         isDragging: isSortableDragging,
     } = useSortable({
         id: subTask.id,
+        disabled: isDragging, // Disable sortable logic when rendered in DragOverlay
     });
 
     const style = {
@@ -67,7 +68,7 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
             ref={setNodeRef}
             style={style}
             className={cn(
-                "h-auto py-0 cursor-grab active:cursor-grabbing transition-all hover:shadow-lg dark:hover:shadow-primary/20",
+                "h-auto py-0 transition-all hover:shadow-lg dark:hover:shadow-primary/20",
                 (isDragging || isSortableDragging) && "opacity-50 shadow-xl",
                 "border-l-4 overflow-hidden",
                 columnColor === "text-slate-700" && "border-l-slate-500 dark:border-l-slate-400",
@@ -77,8 +78,6 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                 columnColor === "text-purple-700" && "border-l-purple-500 dark:border-l-purple-400",
                 columnColor === "text-green-700" && "border-l-green-500 dark:border-l-green-400"
             )}
-            {...attributes}
-            {...listeners}
         >
             <CardContent className="p-3 space-y-3">
                 <div className="flex items-center justify-between text-[10px] text-muted-foreground pb-2 border-b border-border/50">
@@ -122,11 +121,6 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                             </Badge>
                         )}
                     </div>
-                    {/* {subTask.taskSlug && (
-                        <span className="text-[10px] text-muted-foreground font-mono shrink-0 opacity-70">
-                            {subTask.taskSlug}
-                        </span>
-                    )} */}
                 </div>
 
                 <div>
@@ -138,7 +132,14 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                         >
                             {subTask.name}
                         </h5>
-                        <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <div
+                            {...attributes}
+                            {...listeners}
+                            onContextMenu={(e) => e.preventDefault()}
+                            className="cursor-grab active:cursor-grabbing p-3 -m-3 touch-none z-20 flex items-center justify-center min-w-[32px] min-h-[32px]"
+                        >
+                            <GripVertical className="h-5 w-5 text-primary sm:text-muted-foreground flex-shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" />
+                        </div>
                     </div>
                     {subTask.description && (
                         <p className="text-xs text-muted-foreground line-clamp-1 mt-1 leading-relaxed">

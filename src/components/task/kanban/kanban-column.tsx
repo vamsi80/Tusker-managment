@@ -9,6 +9,7 @@ import { KanbanCard } from "./kanban-card";
 import { KanbanCardSkeleton } from "./kanban-skeleton";
 import { useInView } from "react-intersection-observer";
 import { useEffect } from "react";
+import { Plus } from "lucide-react";
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "REVIEW" | "HOLD" | "COMPLETED" | "CANCELLED";
 
@@ -57,11 +58,17 @@ export function KanbanColumn({
     }, [inView, hasMore, isLoadingMore, onLoadMore]);
 
     return (
-        <div className="flex-shrink-0 w-80 flex flex-col h-full">
+        <div
+            ref={setNodeRef}
+            className={cn(
+                "flex-shrink-0 w-[calc(100vw-4rem)] sm:w-80 flex flex-col h-full transition-all duration-200 rounded-lg overflow-hidden border-2",
+                isOver ? "bg-primary/5 ring-2 ring-primary/20 scale-[1.01] border-primary/50" : "bg-transparent border-transparent"
+            )}
+        >
             {/* Column Header */}
             <div
                 className={cn(
-                    "border-2 border-b p-4",
+                    "border-b p-4",
                     column.borderColor,
                     column.bgColor
                 )}
@@ -81,10 +88,9 @@ export function KanbanColumn({
 
             {/* Column Content with individual scroll */}
             <div
-                ref={setNodeRef}
                 className={cn(
-                    "flex-1 p-3 transition-all overflow-y-auto",
-                    isOver ? "border-4" : "border-2 border-t-0",
+                    "flex-1 p-3 overflow-y-auto",
+                    !isOver && "border-t-0",
                     column.borderColor,
                     // Custom ultra-thin scrollbar
                     "[&::-webkit-scrollbar]:w-0.5",
@@ -99,6 +105,25 @@ export function KanbanColumn({
                     strategy={verticalListSortingStrategy}
                 >
                     <div className="space-y-3 min-h-[100px]">
+                        {/* Top Visual Drop Zone */}
+                        <div className={cn(
+                            "group border-2 border-dashed rounded-xl p-2 flex items-center justify-center gap-2 transition-all duration-300",
+                            isOver
+                                ? "border-primary/50 bg-primary/10 scale-95 shadow-inner"
+                                : "border-muted-foreground/5 bg-muted/5 opacity-40"
+                        )}>
+                            <Plus className={cn(
+                                "h-3.5 w-3.5 transition-colors",
+                                isOver ? "text-primary" : "text-muted-foreground/40"
+                            )} />
+                            <span className={cn(
+                                "text-[9px] font-bold uppercase tracking-widest transition-colors",
+                                isOver ? "text-primary" : "text-muted-foreground/40"
+                            )}>
+                                {isOver ? "Release to Move" : "Drop at Top"}
+                            </span>
+                        </div>
+
                         {subTasks.map((subTask) => (
                             <KanbanCard
                                 key={subTask.id}
@@ -122,10 +147,31 @@ export function KanbanColumn({
                         )}
 
                         {subTasks.length === 0 && !isLoadingMore && (
-                            <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
+                            <div className="flex items-center justify-center h-24 text-muted-foreground text-xs uppercase font-medium tracking-wider border-2 border-dashed rounded-lg bg-muted/20">
                                 No subtasks
                             </div>
                         )}
+
+                        {/* Visual Drop Zone at the bottom */}
+                        <div className={cn(
+                            "group border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all duration-300",
+                            isOver
+                                ? "border-primary/50 bg-primary/10 scale-95 shadow-inner"
+                                : "border-muted-foreground/10 bg-muted/5 opacity-40 hover:opacity-100"
+                        )}>
+                            <div className={cn(
+                                "p-2 rounded-full border-2 border-dashed transition-colors",
+                                isOver ? "border-primary text-primary bg-background" : "border-muted-foreground/20 text-muted-foreground"
+                            )}>
+                                <Plus className="h-5 w-5" />
+                            </div>
+                            <span className={cn(
+                                "text-[10px] font-bold uppercase tracking-widest transition-colors",
+                                isOver ? "text-primary" : "text-muted-foreground/60"
+                            )}>
+                                {isOver ? "Release to Move" : "Drop here"}
+                            </span>
+                        </div>
                     </div>
                 </SortableContext>
             </div>

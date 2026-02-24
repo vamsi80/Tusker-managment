@@ -38,11 +38,11 @@ export async function GanttServerWrapper({ workspaceId, projectId }: GanttServer
     const subtasks = subtaskResults.flatMap(r => r.subTasks);
     const allTasks = [...parentTasks, ...subtasks];
 
-    // 3. Create map for subtask data
-    const subtaskDataMap = new Map();
+    // 3. Create record for subtask data (plain object for server→client serialization)
+    const subtaskDataMap: Record<string, any> = {};
     allTasks.forEach(task => {
         if (task.parentTaskId) { // If it's a subtask
-            subtaskDataMap.set(task.id, task);
+            subtaskDataMap[task.id] = task;
         }
     });
 

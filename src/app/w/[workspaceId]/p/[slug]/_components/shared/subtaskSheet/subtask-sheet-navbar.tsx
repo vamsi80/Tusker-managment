@@ -41,7 +41,7 @@ export function SubtaskSheetNavBar({
 
     return (
         <div className="border-b">
-            <div className="flex h-10 items-center gap-4 px-6 overflow-x-auto scrollbar-hide">
+            <div className="flex h-10 items-center gap-2 sm:gap-4 px-4 sm:px-6 overflow-x-auto scrollbar-hide">
                 {tabs.map((tab) => {
                     const isActive = activeTab === tab.value;
                     const Icon = tab.icon;

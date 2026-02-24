@@ -277,7 +277,7 @@ export function GanttChart({
     }
 
     return (
-        <div className={cn("flex flex-col", className)}>
+        <div className={cn("flex flex-col [--gantt-sidebar-width:140px] sm:[--gantt-sidebar-width:200px]", className)}>
             {/* Toolbar */}
             <div className="flex items-center justify-between gap-4 mb-4 px-1">
                 <div className="flex items-center gap-2">
@@ -370,7 +370,7 @@ export function GanttChart({
             <div
                 ref={scrollContainerRef}
                 className={cn(
-                    "max-h-[calc(100vh-280px)] overflow-auto rounded-lg border border-neutral-200 dark:border-neutral-700",
+                    "max-h-[calc(100dvh-280px)] overflow-auto rounded-lg border border-neutral-200 dark:border-neutral-700",
                     "bg-white dark:bg-neutral-900",
                     "shadow-sm",
                     "[&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2",
