@@ -48,10 +48,10 @@ export function SortedTaskRow({ task, columnVisibility, onClick }: SortedTaskRow
             onClick={onClick}
         >
             {/* Empty cell for expand/collapse column */}
-            <TableCell className="w-[50px]" />
+            <TableCell className="w-[40px] md:w-[50px]" />
 
             {/* Task Name with Parent Context */}
-            <TableCell className="w-[250px]">
+            <TableCell className="w-[180px] sm:w-[250px] md:w-[350px]">
                 <div className="space-y-1 max-w-[230px]">
                     <div className="font-medium text-foreground truncate" title={task.name}>
                         {task.name}
@@ -69,7 +69,7 @@ export function SortedTaskRow({ task, columnVisibility, onClick }: SortedTaskRow
 
             {/* Description */}
             {columnVisibility.description && (
-                <TableCell className="w-[200px]">
+                <TableCell className="w-[150px] sm:w-[200px]">
                     <div className="text-sm text-muted-foreground truncate max-w-[180px]">
                         {task.description || "-"}
                     </div>
@@ -78,7 +78,7 @@ export function SortedTaskRow({ task, columnVisibility, onClick }: SortedTaskRow
 
             {/* Assignee */}
             {columnVisibility.assignee && (
-                <TableCell className="w-[100px]">
+                <TableCell className="w-[80px] sm:w-[100px]">
                     {task.assignee ? (
                         <div className="text-sm truncate">
                             {task.assignee.name} {task.assignee.surname || ""}
@@ -91,7 +91,7 @@ export function SortedTaskRow({ task, columnVisibility, onClick }: SortedTaskRow
 
             {/* Reviewer */}
             {columnVisibility.reviewer && (
-                <TableCell className="w-[100px]">
+                <TableCell className="w-[80px] sm:w-[100px]">
                     {task.reviewer ? (
                         <div className="text-sm truncate">
                             {task.reviewer.name} {task.reviewer.surname || ""}
@@ -104,7 +104,7 @@ export function SortedTaskRow({ task, columnVisibility, onClick }: SortedTaskRow
 
             {/* Status */}
             {columnVisibility.status && (
-                <TableCell className="w-[100px]">
+                <TableCell className="w-[90px] sm:w-[120px]">
                     <Badge
                         variant="outline"
                         className={cn(
@@ -121,7 +121,7 @@ export function SortedTaskRow({ task, columnVisibility, onClick }: SortedTaskRow
 
             {/* Start Date */}
             {columnVisibility.startDate && (
-                <TableCell className="w-[100px]">
+                <TableCell className="w-[90px] sm:w-[120px]">
                     <div className="text-sm">
                         {task.startDate ? formatDate(new Date(task.startDate)) : "-"}
                     </div>
@@ -130,7 +130,7 @@ export function SortedTaskRow({ task, columnVisibility, onClick }: SortedTaskRow
 
             {/* Due Date */}
             {columnVisibility.dueDate && (
-                <TableCell className="w-[100px]">
+                <TableCell className="w-[90px] sm:w-[120px]">
                     <div className="text-sm">
                         {task.startDate && task.days
                             ? formatDate(
@@ -145,7 +145,7 @@ export function SortedTaskRow({ task, columnVisibility, onClick }: SortedTaskRow
 
             {/* Progress */}
             {columnVisibility.progress && (
-                <TableCell className="w-[100px]">
+                <TableCell className="w-[100px] sm:w-[150px]">
                     {task.startDate && task.days && remainingDays !== null ? (
                         <Tooltip>
                             <TooltipTrigger asChild>
@@ -181,7 +181,7 @@ export function SortedTaskRow({ task, columnVisibility, onClick }: SortedTaskRow
 
             {/* Tag */}
             {columnVisibility.tag && (
-                <TableCell className="w-[120px]">
+                <TableCell className="w-[100px] sm:w-[120px]">
                     {task.tag ? (
                         <Badge variant="secondary" className="text-xs">
                             {task.tag.name}
@@ -193,7 +193,7 @@ export function SortedTaskRow({ task, columnVisibility, onClick }: SortedTaskRow
             )}
 
             {/* Actions column (empty for now) */}
-            <TableCell className="w-[50px]" />
+            <TableCell className="w-[40px]" />
         </TableRow>
     );
 }

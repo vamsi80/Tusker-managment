@@ -18,7 +18,7 @@ import { getKanbanBoardDataAction } from "@/actions/task/kanban/get-kanban-board
 import { GlobalFilterToolbar, ParentTaskOption } from "../shared/global-filter-toolbar";
 import { KanbanColumnVisibility as KanbanColumnVisibilityType } from "../shared/kanban-column-visibility";
 import { ReviewCommentDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/review-comment-form";
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, pointerWithin, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 import { Loader2 } from "lucide-react";
 
@@ -170,7 +170,7 @@ export function KanbanBoard({
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
-                distance: 8,
+                distance: 3, // Very small distance to trigger drag easily from the handle
             },
         })
     );
@@ -602,10 +602,11 @@ export function KanbanBoard({
 
             <DndContext
                 sensors={sensors}
-                collisionDetection={closestCorners}
+                collisionDetection={pointerWithin}
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
                 onDragCancel={handleDragCancel}
+                autoScroll={true}
             >
                 <div className="relative">
                     {/* Loading Overlay */}
@@ -618,7 +619,7 @@ export function KanbanBoard({
                         </div>
                     )}
                     <div className={cn(
-                        "flex gap-4 h-[calc(100vh-280px)] overflow-x-auto pb-2 mt-0",
+                        "flex gap-4 h-[calc(100dvh-280px)] overflow-x-auto pb-2 mt-0",
                         // Custom horizontal scrollbar
                         "[&::-webkit-scrollbar]:h-2",
                         "[&::-webkit-scrollbar-track]:rounded-full",

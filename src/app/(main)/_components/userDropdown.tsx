@@ -38,7 +38,7 @@ export function UserDropdown({ name, email, image }: iAppProps) {
 
   const router = useRouter()
   const handleSignOut = useSignout()
-  
+
 
   return (
     <DropdownMenu>
@@ -56,7 +56,7 @@ export function UserDropdown({ name, email, image }: iAppProps) {
         </Button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent 
+      <DropdownMenuContent
         className="min-w-48"
         align="end"
       >
@@ -77,19 +77,13 @@ export function UserDropdown({ name, email, image }: iAppProps) {
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link href="/courses">
-              <BookOpen size={16} className="opacity-60" aria-hidden="true" />
-              <span>Courses</span>
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/admin">
+            <Link href="/w">
               <LayoutDashboardIcon size={16} className="opacity-60" aria-hidden="true" />
-              <span>Dashboard</span>
+              <span>Workspace</span>
             </Link>
           </DropdownMenuItem>
         </DropdownMenuGroup>
-        
+
         <DropdownMenuSeparator />
 
         <DropdownMenuItem onClick={handleSignOut}>

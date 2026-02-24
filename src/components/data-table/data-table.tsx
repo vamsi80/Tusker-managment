@@ -101,10 +101,10 @@ export function DataTable<TData, TValue>({
     return (
         <div className="space-y-4">
             {/* Toolbar */}
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
                 {/* Search */}
                 {searchKey && (
-                    <div className="flex items-center flex-1 max-w-sm">
+                    <div className="flex items-center flex-1 max-w-sm w-full">
                         <div className="relative w-full">
                             <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
@@ -113,13 +113,13 @@ export function DataTable<TData, TValue>({
                                 onChange={(event) =>
                                     table.getColumn(searchKey)?.setFilterValue(event.target.value)
                                 }
-                                className="pl-9"
+                                className="pl-9 w-full"
                             />
                         </div>
                     </div>
                 )}
 
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
 
                     {filterDisplay === "menu" ? (
                         <DropdownMenu>
@@ -388,8 +388,8 @@ export function DataTable<TData, TValue>({
             {/* Pagination */}
             {
                 showPagination && (
-                    <div className="flex items-center justify-between">
-                        <div className="text-sm text-muted-foreground">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div className="text-sm text-muted-foreground order-2 sm:order-1">
                             {table.getFilteredSelectedRowModel().rows.length > 0 && (
                                 <span>
                                     {table.getFilteredSelectedRowModel().rows.length} of{" "}
@@ -397,28 +397,30 @@ export function DataTable<TData, TValue>({
                                 </span>
                             )}
                         </div>
-                        <div className="flex items-center gap-2">
-                            <div className="text-sm text-muted-foreground">
+                        <div className="flex items-center gap-4 sm:gap-6 order-1 sm:order-2 w-full sm:w-auto justify-between sm:justify-end">
+                            <div className="text-sm text-muted-foreground whitespace-nowrap">
                                 Page {table.getState().pagination.pageIndex + 1} of{" "}
                                 {table.getPageCount()}
                             </div>
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-2">
                                 <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={() => table.previousPage()}
                                     disabled={!table.getCanPreviousPage()}
+                                    className="h-8"
                                 >
                                     <IconChevronLeft className="h-4 w-4" />
-                                    Previous
+                                    <span className="sr-only sm:not-sr-only sm:ml-2">Previous</span>
                                 </Button>
                                 <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={() => table.nextPage()}
                                     disabled={!table.getCanNextPage()}
+                                    className="h-8"
                                 >
-                                    Next
+                                    <span className="sr-only sm:not-sr-only sm:mr-2">Next</span>
                                     <IconChevronRight className="h-4 w-4" />
                                 </Button>
                             </div>

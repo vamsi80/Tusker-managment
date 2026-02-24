@@ -94,7 +94,7 @@ export function TaskRow({
                 {/* Left Panel - Task Name */}
                 <div
                     className={cn(
-                        "sticky left-0 z-30 w-[200px] min-w-[200px] flex items-center gap-1 px-3 py-2 min-h-[36px]",
+                        "sticky left-0 z-30 w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] flex items-center gap-1 px-3 py-2 min-h-[36px]",
                         "bg-white dark:bg-neutral-900",
                         "border-b border-r border-neutral-200 dark:border-neutral-700",
                         "hover:bg-neutral-50 dark:hover:bg-neutral-800/50",
@@ -205,7 +205,7 @@ export function TaskRow({
                     {hasMoreSubtasks && (
                         <>
                             {/* Left Panel - Auto Load Trigger */}
-                            <div ref={subtaskLoaderRef} className="sticky left-0 z-30 w-[200px] min-w-[200px] shrink-0 bg-neutral-50 dark:bg-neutral-800/30 border-b border-r border-neutral-200 dark:border-neutral-700 flex items-center px-2 py-1.5 pl-8">
+                            <div ref={subtaskLoaderRef} className="sticky left-0 z-30 w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] shrink-0 bg-neutral-50 dark:bg-neutral-800/30 border-b border-r border-neutral-200 dark:border-neutral-700 flex items-center px-2 py-1.5 pl-8">
                                 <span className="text-xs text-muted-foreground ml-6">Loading more subtasks...</span>
                             </div>
 

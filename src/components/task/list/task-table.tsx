@@ -891,7 +891,7 @@ export function TaskTable({
                     </div>
                 )}
                 <div className={cn(
-                    "max-h-[calc(100vh-280px)] overflow-auto",
+                    "max-h-[calc(100dvh-280px)] overflow-auto",
                     "[&::-webkit-scrollbar]:w-0.5",
                     "[&::-webkit-scrollbar]:h-1",
                     "[&::-webkit-scrollbar-track]:bg-transparent",
@@ -907,7 +907,7 @@ export function TaskTable({
                         <table className="w-full caption-bottom text-sm table-fixed">
                             <thead className="[&_tr]:border-b">
                                 <tr className="sticky top-0 z-10 bg-background border-b shadow-sm hover:bg-muted/50">
-                                    <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[50px] bg-background">
+                                    <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[40px] md:w-[50px] bg-background">
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
                                                 <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted">
@@ -931,21 +931,21 @@ export function TaskTable({
                                         label="Task Name"
                                         sorts={sorts}
                                         onSortChange={handleSort}
-                                        className="w-[250px]"
+                                        className="w-[180px] sm:w-[250px] md:w-[350px]"
                                     />
                                     {/* Project column removed (using grouping instead) */}
-                                    {columnVisibility.description && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[200px] bg-background">Description</th>}
+                                    {columnVisibility.description && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[150px] sm:w-[200px] bg-background">Description</th>}
                                     {columnVisibility.assignee && (
                                         <SortableHeader
                                             field="assignee"
                                             label="Assignee"
                                             sorts={sorts}
                                             onSortChange={handleSort}
-                                            className="w-[100px]"
+                                            className="w-[80px] sm:w-[100px]"
                                         />
                                     )}
                                     {columnVisibility.reviewer && (
-                                        <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] bg-background">
+                                        <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[80px] sm:w-[100px] bg-background">
                                             Reviewer
                                         </th>
                                     )}
@@ -955,7 +955,7 @@ export function TaskTable({
                                             label="Status"
                                             sorts={sorts}
                                             onSortChange={handleSort}
-                                            className="w-[100px]"
+                                            className="w-[90px] sm:w-[120px]"
                                         />
                                     )}
                                     {columnVisibility.startDate && (
@@ -964,11 +964,11 @@ export function TaskTable({
                                             label="Start Date"
                                             sorts={sorts}
                                             onSortChange={handleSort}
-                                            className="w-[100px]"
+                                            className="w-[90px] sm:w-[120px]"
                                         />
                                     )}
                                     {columnVisibility.dueDate && (
-                                        <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] bg-background">
+                                        <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[90px] sm:w-[120px] bg-background">
                                             Due Date
                                         </th>
                                     )}
@@ -978,15 +978,15 @@ export function TaskTable({
                                             label="Deadline"
                                             sorts={sorts}
                                             onSortChange={handleSort}
-                                            className="w-[100px]"
+                                            className="w-[100px] sm:w-[150px]"
                                         />
                                     )}
                                     {columnVisibility.tag && (
-                                        <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[120px] bg-background">
+                                        <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] sm:w-[120px] bg-background">
                                             Tag
                                         </th>
                                     )}
-                                    <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[50px] bg-background"></th>
+                                    <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[40px] bg-background"></th>
                                 </tr>
                             </thead>
                             <tbody>

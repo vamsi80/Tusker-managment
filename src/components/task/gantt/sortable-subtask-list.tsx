@@ -41,7 +41,7 @@ function SortableSubtaskRow({ subtask, timelineStart, totalDays, onManageDepende
                 ref={setNodeRef}
                 style={style}
                 className={cn(
-                    "sticky left-0 z-30 w-[200px] min-w-[200px] flex items-center gap-1 px-2 py-1.5 pl-8 min-h-[32px]",
+                    "sticky left-0 z-30 w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] flex items-center gap-1 px-2 py-1.5 pl-8 min-h-[32px]",
                     "bg-neutral-50 dark:bg-neutral-800/30",
                     "border-b border-r border-neutral-200 dark:border-neutral-700",
                     "transition-colors duration-150",

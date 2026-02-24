@@ -93,7 +93,7 @@ export function ProjectRow({
                 {/* Left Panel - Project Name */}
                 <div
                     className={cn(
-                        "sticky left-0 z-30 w-[200px] min-w-[200px] flex items-center gap-1 px-3 py-2 min-h-[32px]",
+                        "sticky left-0 z-30 w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] flex items-center gap-1 px-3 py-2 min-h-[32px]",
                         "bg-neutral-100 dark:bg-neutral-800",
                         "border-b border-r border-neutral-200 dark:border-neutral-700",
                         "hover:bg-neutral-200 dark:hover:bg-neutral-700/50",
@@ -181,7 +181,7 @@ export function ProjectRow({
             {isExpanded && hasMore && (
                 <>
                     {/* Left Panel */}
-                    <div ref={loaderRef} className="sticky left-0 z-30 w-[200px] min-w-[200px] shrink-0 bg-neutral-50 dark:bg-neutral-800/30 border-b border-r border-neutral-200 dark:border-neutral-700 flex items-center px-3 py-1.5 pl-8">
+                    <div ref={loaderRef} className="sticky left-0 z-30 w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] shrink-0 bg-neutral-50 dark:bg-neutral-800/30 border-b border-r border-neutral-200 dark:border-neutral-700 flex items-center px-3 py-1.5 pl-8">
                         <span className="text-xs text-muted-foreground">Loading more...</span>
                     </div>
                     {/* Right Panel */}

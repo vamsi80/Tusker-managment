@@ -49,7 +49,7 @@ export function ReviewTab({ reviewComments, isLoadingReview }: ReviewTabProps) {
 
     return (
         <TabsContent value="review" className="flex-1 flex flex-col m-0 data-[state=inactive]:hidden">
-            <div className="flex-1 overflow-y-auto px-6 py-4 bg-muted/20">
+            <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 bg-muted/20">
                 {isLoadingReview ? (
                     <div className="flex items-center justify-center h-full">
                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
