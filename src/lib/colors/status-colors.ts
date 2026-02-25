@@ -1,6 +1,6 @@
 import { STATUS_LABELS } from "@/lib/zodSchemas";
 
-type TaskStatus = "TO_DO" | "IN_PROGRESS" | "CANCELLED" | "REVIEW" | "HOLD" | "COMPLETED";
+type TaskStatus = "TO_DO" | "IN_PROGRESS" | "CANCELLED" | "REVIEW" | "HOLD" | "COMPLETED" | "BLOCKED";
 
 export interface StatusColors {
     color: string;
@@ -38,6 +38,11 @@ export const STATUS_COLORS: Record<TaskStatus, StatusColors> = {
         color: "text-green-700",
         bgColor: "bg-green-50",
         borderColor: "border-green-200",
+    },
+    BLOCKED: {
+        color: "text-orange-700",
+        bgColor: "bg-orange-50",
+        borderColor: "border-orange-200",
     },
 };
 

@@ -25,17 +25,22 @@ export type BatchSubTasksResult = {
 }[];
 
 /**
- * Internal function to fetch subtasks for multiple parent tasks in a SINGLE query
+ * Internal function to fetch subtasks for multiple parent tasks in a SINGLE query.
  * Uses SQL window function to get top N subtasks per parent efficiently.
+ *
+ * Permission model (no tiers):
+ *   - isAdmin      → no project restriction at all
+ *   - fullAccess   → can see all subtasks in those projects
+ *   - restricted   → can only see assigned subtasks in those projects
  */
 async function _getSubTasksByParentIdsInternal(
     parentTaskIds: string[],
     workspaceId: string,
     projectId: string | undefined,
     userId: string,
-    permissionMode: "admin" | "lead" | "member",
-    authorizedProjectIds: string[],
-    adminScope: boolean,
+    isAdmin: boolean,
+    fullAccessProjectIds: string[],
+    restrictedProjectIds: string[],
     filters: Partial<TaskFilters> = {},
     pageSize: number = 10
 ) {
@@ -43,34 +48,57 @@ async function _getSubTasksByParentIdsInternal(
         return [];
     }
 
-    // 1. Build permissions SQL
+    // ── 1. Build raw SQL permission clause ────────────────────────────────
     let permissionSql = Prisma.empty;
-    if (permissionMode === "member" && !adminScope) {
-        permissionSql = Prisma.sql`AND "assigneeTo" = ${userId}`;
-    } else if (permissionMode === "lead" && !adminScope) {
-        // Leads see all in authorized projects, but we are already filtering by parentTaskId
-        // which belongs to a project. However, for workspace-wide batch, we still need project scope.
-        if (authorizedProjectIds.length > 0) {
-            permissionSql = Prisma.sql`AND "projectId" IN (${Prisma.join(authorizedProjectIds)})`;
+
+    if (!isAdmin) {
+        if (fullAccessProjectIds.length > 0 && restrictedProjectIds.length > 0) {
+            // Mixed: full-access OR (restricted AND assigned)
+            permissionSql = Prisma.sql`AND (
+                "projectId" IN (${Prisma.join(fullAccessProjectIds)})
+                OR ("projectId" IN (${Prisma.join(restrictedProjectIds)}) AND "assigneeTo" = ${userId})
+            )`;
+        } else if (fullAccessProjectIds.length > 0) {
+            permissionSql = Prisma.sql`AND "projectId" IN (${Prisma.join(fullAccessProjectIds)})`;
+        } else if (restrictedProjectIds.length > 0) {
+            // Only restricted projects — must be assigned
+            permissionSql = Prisma.sql`AND "projectId" IN (${Prisma.join(restrictedProjectIds)}) AND "assigneeTo" = ${userId}`;
+        } else {
+            // No access at all — short circuit
+            return parentTaskIds.map(parentTaskId => ({
+                parentTaskId,
+                subTasks: [],
+                totalCount: 0,
+                hasMore: false,
+            }));
         }
     }
 
-    // 2. Build Count Query (Prisma is fine for counts)
+    // ── 2. Build Prisma count WHERE (mirrors the SQL above) ──────────────
     const countWhere: any = {
         parentTaskId: { in: parentTaskIds },
         ...buildSubTaskConditions({ ...filters, workspaceId })
     };
-    if (permissionMode === "member" && !adminScope) {
-        countWhere.assigneeTo = userId;
-    } else if (permissionMode === "lead" && !adminScope && authorizedProjectIds.length > 0) {
-        countWhere.projectId = { in: authorizedProjectIds };
+
+    if (!isAdmin) {
+        if (fullAccessProjectIds.length > 0 && restrictedProjectIds.length > 0) {
+            countWhere.OR = [
+                { projectId: { in: fullAccessProjectIds } },
+                { projectId: { in: restrictedProjectIds }, assigneeTo: userId }
+            ];
+        } else if (fullAccessProjectIds.length > 0) {
+            countWhere.projectId = { in: fullAccessProjectIds };
+        } else if (restrictedProjectIds.length > 0) {
+            countWhere.projectId = { in: restrictedProjectIds };
+            countWhere.assigneeTo = userId;
+        }
     }
 
-    // 3. SQL for window function pagination
+    // ── 3. Window-function pagination ─────────────────────────────────────
     const subTaskIdsRaw = await prisma.$queryRaw<any[]>`
         SELECT id FROM (
-            SELECT 
-                id, 
+            SELECT
+                id,
                 ROW_NUMBER() OVER(PARTITION BY "parentTaskId" ORDER BY "createdAt" DESC) as rn
             FROM "Task"
             WHERE "parentTaskId" IN (${Prisma.join(parentTaskIds)})
@@ -81,7 +109,7 @@ async function _getSubTasksByParentIdsInternal(
 
     const subTaskIds = subTaskIdsRaw.map(r => r.id);
 
-    // 4. Group counts and fetch full objects
+    // ── 4. Group counts + fetch full objects ──────────────────────────────
     const [totalCountByParent, rawSubTasks] = await prisma.$transaction([
         prisma.task.groupBy({
             by: ['parentTaskId'],
@@ -93,7 +121,6 @@ async function _getSubTasksByParentIdsInternal(
             where: { id: { in: subTaskIds } },
             select: {
                 ...TASK_CORE_SELECT,
-                // Ensure we have parentTaskId for grouping
                 parentTaskId: true,
             },
             orderBy: [
@@ -103,7 +130,7 @@ async function _getSubTasksByParentIdsInternal(
         })
     ]);
 
-    // 5. Batch load related entities for hydration
+    // ── 5. Hydrate ────────────────────────────────────────────────────────
     const [userMap, tagMap] = await Promise.all([
         batchLoadUsers([
             ...rawSubTasks.map(t => t.assigneeTo),
@@ -115,11 +142,11 @@ async function _getSubTasksByParentIdsInternal(
 
     const hydratedSubTasks = hydrateTasks(rawSubTasks, userMap, tagMap, new Map());
 
-    // 6. Group by parent
+    // ── 6. Group by parent ────────────────────────────────────────────────
     const groupedResults = new Map<string, any[]>();
     const countMap = new Map<string, number>();
 
-    parentTaskIds.forEach(id => {
+    parentTaskIds.forEach((id: string) => {
         groupedResults.set(id, []);
         countMap.set(id, 0);
     });
@@ -150,7 +177,7 @@ async function _getSubTasksByParentIdsInternal(
 }
 
 /**
- * Generate a hash for filters to use in cache key
+ * Generate a stable hash for filters for use in the cache key.
  */
 function getFilterHash(filters: Partial<TaskFilters>): string {
     return JSON.stringify({
@@ -164,22 +191,27 @@ function getFilterHash(filters: Partial<TaskFilters>): string {
 }
 
 /**
- * Cached version of batch subtask fetch
+ * Cached version of batch subtask fetch.
  */
 const getCachedSubTasksByParentIds = (
     parentTaskIds: string[],
     workspaceId: string,
     projectId: string | undefined,
     userId: string,
-    permissionMode: "admin" | "lead" | "member",
-    authorizedProjectIds: string[],
-    adminScope: boolean,
+    isAdmin: boolean,
+    fullAccessProjectIds: string[],
+    restrictedProjectIds: string[],
     filters: Partial<TaskFilters>,
     pageSize: number
 ) => {
-    // Sort IDs for consistent cache keys
     const sortedIds = [...parentTaskIds].sort().join(',');
     const filterHash = getFilterHash(filters);
+    // Include sorted scopes in the cache key for correctness
+    const scopeHash = JSON.stringify({
+        isAdmin,
+        full: [...fullAccessProjectIds].sort(),
+        restricted: [...restrictedProjectIds].sort(),
+    });
 
     return unstable_cache(
         async () => _getSubTasksByParentIdsInternal(
@@ -187,13 +219,13 @@ const getCachedSubTasksByParentIds = (
             workspaceId,
             projectId,
             userId,
-            permissionMode,
-            authorizedProjectIds,
-            adminScope,
+            isAdmin,
+            fullAccessProjectIds,
+            restrictedProjectIds,
             filters,
             pageSize
         ),
-        [`batch-subtasks-${sortedIds}-${userId}-${permissionMode}-${adminScope}-${filterHash}-${pageSize}-v2`],
+        [`batch-subtasks-v4-${sortedIds}-${userId}-${scopeHash}-${filterHash}-${pageSize}`],
         {
             tags: [
                 ...parentTaskIds.flatMap(id => CacheTags.taskSubTasks(id, userId)),
@@ -205,7 +237,7 @@ const getCachedSubTasksByParentIds = (
 };
 
 /**
- * Get subtasks for multiple parent tasks in a SINGLE database query
+ * Get subtasks for multiple parent tasks in a SINGLE database query.
  */
 export const getSubTasksByParentIds = cache(
     async (
@@ -220,12 +252,11 @@ export const getSubTasksByParentIds = cache(
                 return [];
             }
 
-            // Resolve permissions using unified engine
             const {
-                tier: permissionMode,
                 permissions,
-                authorizedProjectIds,
-                isWorkspaceAdmin: adminScope
+                isWorkspaceAdmin,
+                fullAccessProjectIds,
+                restrictedProjectIds,
             } = await resolveTaskPermissions(workspaceId, projectId);
 
             if (!permissions.workspaceMemberId) {
@@ -237,9 +268,9 @@ export const getSubTasksByParentIds = cache(
                 workspaceId,
                 projectId,
                 permissions.workspaceMember.userId,
-                permissionMode,
-                authorizedProjectIds,
-                adminScope,
+                isWorkspaceAdmin,
+                fullAccessProjectIds,
+                restrictedProjectIds,
                 filters,
                 pageSize
             );

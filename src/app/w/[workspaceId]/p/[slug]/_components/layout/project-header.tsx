@@ -36,6 +36,16 @@ function ProjectHeader({
                     </h1>
                     <p className="text-sm md:text-base text-muted-foreground">Manage your project tasks</p>
                 </div>
+
+                {canPerformBulkOperations && (
+                    <div className="flex items-center gap-2 shrink-0">
+                        <BulkUploadForm projectId={projectId} />
+                        <CreateTaskForm
+                            workspaceId={workspaceId}
+                            projectId={projectId}
+                        />
+                    </div>
+                )}
             </div>
 
             <ProjectNav workspaceId={workspaceId} slug={slug} />

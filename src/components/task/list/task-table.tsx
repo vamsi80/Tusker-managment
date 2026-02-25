@@ -6,7 +6,7 @@ import { SubTaskList } from "./subtask-list";
 import { Button } from "@/components/ui/button";
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Loader2, Plus, ChevronsUpDown, Maximize2, Minimize2 } from "lucide-react";
-import { loadMoreTasksAction, loadMoreTasksFlatAction, loadSubTasksAction, loadSubTasksBatchAction, loadSortedSubTasksAction } from "@/actions/task/list-actions";
+import { loadTasksAction } from "@/actions/task/list-actions";
 import { updateSubtaskPositions } from "@/actions/task/gantt";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
 import { TableCell, TableRow } from "@/components/ui/table";
@@ -281,13 +281,13 @@ export function TaskTable({
                 ...(level === 'project' && projectId ? { projectId } : {})
             };
 
-            loadSortedSubTasksAction(
+            loadTasksAction({
                 workspaceId,
-                { ...sortFilters, workspaceId },
-                sorts,
-                1,
-                100 // Load more items for sorted view
-            ).then(response => {
+                ...sortFilters,
+                hierarchyMode: "children",
+                limit: 100,
+                includeFacets: false,
+            }).then(response => {
                 if (response.success && response.data) {
                     setSortedTasks(response.data.tasksByProject);
                 } else {
@@ -320,19 +320,19 @@ export function TaskTable({
         }));
 
         try {
-            const response = await loadMoreTasksAction(
+            const response = await loadTasksAction({
                 workspaceId,
-                {
-                    ...filters,
-                    projectId: targetProjectId,
-                    startDate: filters.startDate ? new Date(filters.startDate) : undefined,
-                    endDate: filters.endDate ? new Date(filters.endDate) : undefined,
-                    search: searchQuery,
-                    workspaceId
-                },
-                currentPagination.nextCursor,
-                10
-            );
+                projectId: targetProjectId,
+                status: filters.status as any,
+                assigneeId: filters.assigneeId as any,
+                tagId: filters.tagId as any,
+                search: searchQuery,
+                dueAfter: filters.startDate ? new Date(filters.startDate) as any : undefined,
+                dueBefore: filters.endDate ? new Date(filters.endDate) as any : undefined,
+                hierarchyMode: "parents",
+                cursor: currentPagination.nextCursor,
+                limit: 10,
+            });
 
             if (response.success && response.data) {
                 const resultData = response.data as any;
@@ -609,10 +609,20 @@ export function TaskTable({
                 workspaceId
             };
 
-            const response = await loadSubTasksAction(taskId, workspaceId, taskProjectId, activeFilters as any, undefined, 10);
+            const response = await loadTasksAction({
+                workspaceId,
+                projectId: taskProjectId,
+                filterParentTaskId: taskId,
+                status: (activeFilters as any).status,
+                assigneeId: (activeFilters as any).assigneeId,
+                tagId: (activeFilters as any).tagId,
+                search: (activeFilters as any).search,
+                limit: 10,
+            });
 
             if (response.success && response.data) {
                 const result = response.data;
+                console.log(`[CLIENT] Loaded subtasks for parent ${taskId}:`, result.tasks);
                 processedSubTasksRef.current.add(taskId);
 
                 // Dedup
@@ -712,17 +722,21 @@ export function TaskTable({
                 }
             });
 
-            const response = await loadSubTasksAction(
-                taskId,
+            const response = await loadTasksAction({
                 workspaceId,
-                task.projectId || projectId,
-                cleanFilters,
-                task.subTasksNextCursor,
-                10
-            );
+                projectId: task.projectId || projectId,
+                filterParentTaskId: taskId,
+                status: (cleanFilters as any).status,
+                assigneeId: (cleanFilters as any).assigneeId,
+                tagId: (cleanFilters as any).tagId,
+                search: (cleanFilters as any).search,
+                cursor: task.subTasksNextCursor,
+                limit: 10,
+            });
 
             if (response.success && response.data) {
                 const resultData = response.data as any;
+                console.log(`[CLIENT] Loaded more subtasks for parent ${taskId}:`, resultData.tasks);
                 // Deduplicate: combine existing + new subtasks, remove duplicates
                 const existingSubTasks = task.subTasks || [];
                 const existingIds = new Set(existingSubTasks.map(st => st.id));

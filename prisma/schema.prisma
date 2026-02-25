@@ -684,4 +684,5 @@ enum TaskStatus {
   REVIEW
   HOLD
   COMPLETED
+  BLOCKED
 }
