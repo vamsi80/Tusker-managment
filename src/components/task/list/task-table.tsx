@@ -13,7 +13,7 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProjectMembersType } from "@/data/project/get-project-members";
-import { SubTaskType } from "@/data/task/list/get-subtasks";
+import { SubTaskType } from "@/data/task";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { TaskWithSubTasks, SortConfig, TableViewMode, SortField } from "@/components/task/shared/types";
@@ -32,6 +32,7 @@ import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 interface TaskTableProps {
     initialTasks: TaskWithSubTasks[];
     initialHasMore: boolean;
+    initialNextCursor?: any;
     initialTotalCount?: number;
     members: ProjectMembersType;
     assignees?: Array<{ id: string; name: string; surname?: string }>;
@@ -68,6 +69,7 @@ export function TaskTable({
     permissions,
     userId,
     initialHasMore,
+    initialNextCursor,
     initialTotalCount,
     projectCounts,
 }: TaskTableProps) {
@@ -105,7 +107,7 @@ export function TaskTable({
                     ...t,
                     subTasks: cached.subTasks,
                     subTasksHasMore: cached.hasMore,
-                    subTasksPage: cached.page
+                    subTasksNextCursor: cached.nextCursor
                 };
             }
             return t;
@@ -191,27 +193,28 @@ export function TaskTable({
         });
     }, [initialTasks, initialHasMore, initialTotalCount, setProjectTasksCache]);
 
-    const [projectPagination, setProjectPagination] = useState<Record<string, { page: number; hasMore: boolean; isLoading: boolean }>>(() => {
+    const [projectPagination, setProjectPagination] = useState<Record<string, { page: number; nextCursor: any; hasMore: boolean; isLoading: boolean }>>(() => {
         if (level === 'project' && projectId) {
             const cached = useTaskCacheStore.getState().getProjectTasksCache(projectId);
             if (cached) {
                 return {
                     [projectId]: {
-                        // If cache has more than we rendered (100), reset pagination to continue from there
-                        page: cached.tasks.length > 100 ? 2 : cached.page,
-                        hasMore: cached.tasks.length > 100 ? true : cached.hasMore,
+                        page: cached.page,
+                        nextCursor: cached.nextCursor,
+                        hasMore: cached.hasMore,
                         isLoading: false
                     }
                 };
             }
         } else if (level === 'workspace') {
-            const initialState: Record<string, { page: number; hasMore: boolean; isLoading: boolean }> = {};
+            const initialState: Record<string, { page: number; nextCursor: any; hasMore: boolean; isLoading: boolean }> = {};
             projects.forEach(p => {
                 const cached = useTaskCacheStore.getState().getProjectTasksCache(p.id);
                 if (cached) {
                     initialState[p.id] = {
-                        page: cached.tasks.length > 100 ? 2 : cached.page,
-                        hasMore: cached.tasks.length > 100 ? true : cached.hasMore,
+                        page: cached.page,
+                        nextCursor: cached.nextCursor,
+                        hasMore: cached.hasMore,
                         isLoading: false
                     };
                 }
@@ -223,6 +226,7 @@ export function TaskTable({
             return {
                 [projectId]: {
                     page: 1,
+                    nextCursor: initialNextCursor,
                     hasMore: initialHasMore,
                     isLoading: false
                 }
@@ -306,7 +310,7 @@ export function TaskTable({
     const totalCount = tasks.length;
 
     const loadProjectTasks = async (targetProjectId: string) => {
-        const currentPagination = projectPagination[targetProjectId] || { page: 0, hasMore: true, isLoading: false };
+        const currentPagination = projectPagination[targetProjectId] || { page: 0, nextCursor: undefined, hasMore: true, isLoading: false };
 
         if (currentPagination.isLoading || !currentPagination.hasMore) return;
 
@@ -316,7 +320,6 @@ export function TaskTable({
         }));
 
         try {
-            const nextPage = currentPagination.page + 1;
             const response = await loadMoreTasksAction(
                 workspaceId,
                 {
@@ -327,14 +330,15 @@ export function TaskTable({
                     search: searchQuery,
                     workspaceId
                 },
-                nextPage,
+                currentPagination.nextCursor,
                 10
             );
 
             if (response.success && response.data) {
+                const resultData = response.data as any;
                 setTasks(prev => {
                     const existingIds = new Set(prev.map(t => t.id));
-                    const newTasks = (response.data!.tasks as unknown as TaskWithSubTasks[])
+                    const newTasks = (resultData.tasks as unknown as TaskWithSubTasks[])
                         .filter(task => !existingIds.has(task.id));
                     const updatedList = [...prev, ...newTasks];
 
@@ -342,9 +346,10 @@ export function TaskTable({
                     const tasksForCache = updatedList.filter(t => t.projectId === targetProjectId);
                     setProjectTasksCache(targetProjectId, {
                         tasks: tasksForCache,
-                        hasMore: response.data!.hasMore ?? false,
-                        page: nextPage,
-                        totalCount: response.data!.totalCount
+                        hasMore: resultData.hasMore ?? false,
+                        page: currentPagination.page + 1,
+                        nextCursor: resultData.nextCursor,
+                        totalCount: resultData.totalCount ?? undefined
                     });
 
                     if (autoExpandRef.current && newTasks.length > 0) {
@@ -363,8 +368,9 @@ export function TaskTable({
                 setProjectPagination(prev => ({
                     ...prev,
                     [targetProjectId]: {
-                        page: nextPage,
-                        hasMore: response.data!.hasMore ?? false,
+                        page: currentPagination.page + 1,
+                        nextCursor: resultData.nextCursor,
+                        hasMore: resultData.hasMore ?? false,
                         isLoading: false
                     }
                 }));
@@ -580,7 +586,7 @@ export function TaskTable({
                         ...t,
                         subTasks: cached.subTasks,
                         subTasksHasMore: cached.hasMore,
-                        subTasksPage: cached.page
+                        subTasksNextCursor: cached.nextCursor
                     };
                 }
                 return t;
@@ -596,21 +602,28 @@ export function TaskTable({
         const taskProjectId = task.projectId || projectId || "";
 
         try {
-            const response = await loadSubTasksAction(taskId, workspaceId, taskProjectId, { workspaceId }, 1, 10);
+            // Include current filters so expanded subtasks match the filtered dataset
+            const activeFilters = {
+                ...filters,
+                search: searchQuery || filters.search,
+                workspaceId
+            };
+
+            const response = await loadSubTasksAction(taskId, workspaceId, taskProjectId, activeFilters as any, undefined, 10);
 
             if (response.success && response.data) {
                 const result = response.data;
                 processedSubTasksRef.current.add(taskId);
 
                 // Dedup
-                const uniqueSubTasks = result.subTasks.filter((st, index, self) =>
-                    index === self.findIndex((t) => (t.id === st.id))
+                const uniqueSubTasks = result.tasks.filter((st: any, index: number, self: any[]) =>
+                    index === self.findIndex((t: any) => (t.id === st.id))
                 );
 
                 setCachedSubTasks(taskId, {
                     subTasks: uniqueSubTasks,
                     hasMore: result.hasMore,
-                    page: 1
+                    nextCursor: result.nextCursor
                 });
 
                 setTasks(prev => prev.map(t => {
@@ -619,7 +632,7 @@ export function TaskTable({
                             ...t,
                             subTasks: uniqueSubTasks,
                             subTasksHasMore: result.hasMore,
-                            subTasksPage: 1
+                            subTasksNextCursor: result.nextCursor
                         };
                     }
                     return t;
@@ -684,7 +697,6 @@ export function TaskTable({
         setLoadingMoreSubTasks((prev) => ({ ...prev, [taskId]: true }));
 
         try {
-            const nextPage = (task.subTasksPage || 1) + 1;
             const cleanFilters: any = {};
             const rawFilters = {
                 ...filters,
@@ -705,15 +717,16 @@ export function TaskTable({
                 workspaceId,
                 task.projectId || projectId,
                 cleanFilters,
-                nextPage,
+                task.subTasksNextCursor,
                 10
             );
 
             if (response.success && response.data) {
+                const resultData = response.data as any;
                 // Deduplicate: combine existing + new subtasks, remove duplicates
                 const existingSubTasks = task.subTasks || [];
                 const existingIds = new Set(existingSubTasks.map(st => st.id));
-                const newSubTasks = response.data.subTasks.filter(st =>
+                const newSubTasks = (resultData.tasks as any[]).filter((st: any) =>
                     st.id && !existingIds.has(st.id)
                 );
                 const combinedSubTasks = [...existingSubTasks, ...newSubTasks];
@@ -721,8 +734,8 @@ export function TaskTable({
                 // Update cache
                 setCachedSubTasks(taskId, {
                     subTasks: combinedSubTasks,
-                    hasMore: response.data!.hasMore,
-                    page: nextPage,
+                    hasMore: resultData.hasMore,
+                    nextCursor: resultData.nextCursor,
                 });
 
                 setTasks((prevTasks) =>
@@ -731,8 +744,8 @@ export function TaskTable({
                             ? {
                                 ...t,
                                 subTasks: combinedSubTasks,
-                                subTasksHasMore: response.data!.hasMore,
-                                subTasksPage: nextPage,
+                                subTasksHasMore: resultData.hasMore,
+                                subTasksNextCursor: resultData.nextCursor,
                             }
                             : t
                     )
@@ -1294,6 +1307,25 @@ export function TaskTable({
                                             </React.Fragment>
                                         ))
                                     )
+                                )}
+                                {/* Load More Sentinel for Flat List */}
+                                {!groupedTasks && projectPagination[projectId]?.hasMore && (
+                                    <TableRow
+                                        ref={(node) => {
+                                            if (node) getObserver().observe(node);
+                                        }}
+                                        data-project-id={projectId}
+                                    >
+                                        <TableCell colSpan={visibleColumnsCount} className="py-4 h-10">
+                                            <div className="flex items-center gap-4 px-2 opacity-60">
+                                                <Skeleton className="h-4 w-4 rounded" />
+                                                <div className="flex-1">
+                                                    <Skeleton className="h-4 w-[150px]" />
+                                                </div>
+                                                <Skeleton className="h-4 w-[100px]" />
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
                                 )}
                                 {isLoadingFilters && filteredTasks.length === 0 && (
                                     <TableRow>

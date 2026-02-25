@@ -9,7 +9,8 @@ interface TaskEntity {
 interface ListMetadata {
     ids: string[];
     hasMore: boolean;
-    page: number;
+    page: number; // legacy
+    nextCursor?: any;
     totalCount?: number;
     timestamp: number;
 }
@@ -26,14 +27,14 @@ interface TaskCacheState {
     upsertTasks: (tasks: any[]) => void;
 
     // Legacy/Public API Adapters
-    setCachedSubTasks: (taskId: string, data: { subTasks: any[], hasMore: boolean, page: number }) => void;
-    getCachedSubTasks: (taskId: string) => { subTasks: any[], hasMore: boolean, page: number, timestamp: number } | undefined;
+    setCachedSubTasks: (taskId: string, data: { subTasks: any[], hasMore: boolean, page?: number, nextCursor?: any }) => void;
+    getCachedSubTasks: (taskId: string) => { subTasks: any[], hasMore: boolean, page: number, nextCursor?: any, timestamp: number } | undefined;
 
-    setProjectTasksCache: (projectId: string, data: { tasks: any[], hasMore: boolean, page: number, totalCount?: number }) => void;
-    getProjectTasksCache: (projectId: string) => { tasks: any[], hasMore: boolean, page: number, totalCount?: number, timestamp: number } | undefined;
+    setProjectTasksCache: (projectId: string, data: { tasks: any[], hasMore: boolean, page?: number, nextCursor?: any, totalCount?: number }) => void;
+    getProjectTasksCache: (projectId: string) => { tasks: any[], hasMore: boolean, page: number, nextCursor?: any, totalCount?: number, timestamp: number } | undefined;
 
-    setKanbanTasksCache: (key: string, data: { tasks: any[], hasMore: boolean, page: number, totalCount?: number }) => void;
-    getKanbanTasksCache: (key: string) => { tasks: any[], hasMore: boolean, page: number, totalCount?: number, timestamp: number } | undefined;
+    setKanbanTasksCache: (key: string, data: { tasks: any[], hasMore: boolean, page?: number, nextCursor?: any, totalCount?: number }) => void;
+    getKanbanTasksCache: (key: string) => { tasks: any[], hasMore: boolean, page: number, nextCursor?: any, totalCount?: number, timestamp: number } | undefined;
 
     clearCache: () => void;
 }
@@ -62,7 +63,8 @@ export const useTaskCacheStore = create<TaskCacheState>((set, get) => ({
                 [taskId]: {
                     ids: data.subTasks.map(t => t.id),
                     hasMore: data.hasMore,
-                    page: data.page,
+                    page: data.page || 1,
+                    nextCursor: data.nextCursor,
                     timestamp: Date.now()
                 }
             }
@@ -77,6 +79,7 @@ export const useTaskCacheStore = create<TaskCacheState>((set, get) => ({
             subTasks: list.ids.map(id => entities[id]).filter(Boolean),
             hasMore: list.hasMore,
             page: list.page,
+            nextCursor: list.nextCursor,
             timestamp: list.timestamp
         };
     },
@@ -89,7 +92,8 @@ export const useTaskCacheStore = create<TaskCacheState>((set, get) => ({
                 [projectId]: {
                     ids: data.tasks.map(t => t.id),
                     hasMore: data.hasMore,
-                    page: data.page,
+                    page: data.page || 1,
+                    nextCursor: data.nextCursor,
                     totalCount: data.totalCount,
                     timestamp: Date.now()
                 }
@@ -105,6 +109,7 @@ export const useTaskCacheStore = create<TaskCacheState>((set, get) => ({
             tasks: list.ids.map(id => entities[id]).filter(Boolean),
             hasMore: list.hasMore,
             page: list.page,
+            nextCursor: list.nextCursor,
             totalCount: list.totalCount,
             timestamp: list.timestamp
         };
@@ -118,7 +123,8 @@ export const useTaskCacheStore = create<TaskCacheState>((set, get) => ({
                 [key]: {
                     ids: data.tasks.map(t => t.id),
                     hasMore: data.hasMore,
-                    page: data.page,
+                    page: data.page || 1,
+                    nextCursor: data.nextCursor,
                     totalCount: data.totalCount,
                     timestamp: Date.now()
                 }
@@ -134,6 +140,7 @@ export const useTaskCacheStore = create<TaskCacheState>((set, get) => ({
             tasks: list.ids.map(id => entities[id]).filter(Boolean),
             hasMore: list.hasMore,
             page: list.page,
+            nextCursor: list.nextCursor,
             totalCount: list.totalCount,
             timestamp: list.timestamp
         };

@@ -59,11 +59,7 @@ export async function updateSubtaskPositions(
                 where: { id: parentTaskId },
                 select: {
                     createdById: true,
-                    parentTask: {
-                        select: {
-                            projectId: true,
-                        },
-                    },
+                    projectId: true,
                 },
             });
 
@@ -71,7 +67,7 @@ export async function updateSubtaskPositions(
                 return { success: false, message: "Parent task not found" };
             }
 
-            if (parentTask.parentTask?.projectId !== projectId) {
+            if (parentTask.projectId !== projectId) {
                 return { success: false, message: "Task does not belong to this project" };
             }
 
@@ -88,15 +84,16 @@ export async function updateSubtaskPositions(
             return { success: false, message: "No updates provided" };
         }
 
-        // 4. Update positions in a transaction (atomic)
-        await prisma.$transaction(
-            updates.map((update) =>
-                prisma.task.update({
-                    where: { id: update.subtaskId },
-                    data: { position: update.newPosition },
-                })
-            )
-        );
+        // NOTE: 'position' field has been removed from the Task schema.
+        // Subtask ordering is now handled client-side only.
+        // This transaction is intentionally a no-op until position is re-added.
+        // To re-enable: add 'position Int @default(0)' to Task in schema.prisma
+        //   then use: data: { position: update.newPosition }
+        // await prisma.$transaction(
+        //     updates.map((update) =>
+        //         prisma.task.update({ where: { id: update.subtaskId }, data: { position: update.newPosition } })
+        //     )
+        // );
 
         // 5. OPTIMIZED: Use comprehensive cache invalidation
         // Invalidates parent task subtasks + project subtasks for Gantt view

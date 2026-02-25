@@ -1,7 +1,6 @@
 "use client";
 
 import { ProjectNav } from "./project-nav";
-import { ReloadButton } from "../shared/reload-button";
 import { CreateTaskForm } from "../forms/create-task-form";
 import { BulkUploadForm } from "../forms/bulk-upload-form";
 
@@ -15,12 +14,6 @@ interface ProjectHeaderProps {
     canPerformBulkOperations: boolean;
 }
 
-/**
- * Project Header Component
- * 
- * Receives minimal metadata as props from layout
- * Does NOT fetch data itself
- */
 function ProjectHeader({
     workspaceId,
     slug,
@@ -42,19 +35,6 @@ function ProjectHeader({
                         />
                     </h1>
                     <p className="text-sm md:text-base text-muted-foreground">Manage your project tasks</p>
-                </div>
-
-                <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
-                    <ReloadButton projectId={projectId} userId={userId} />
-                    {canPerformBulkOperations && (
-                        <>
-                            <BulkUploadForm projectId={projectId} />
-                            <CreateTaskForm
-                                workspaceId={workspaceId}
-                                projectId={projectId}
-                            />
-                        </>
-                    )}
                 </div>
             </div>
 

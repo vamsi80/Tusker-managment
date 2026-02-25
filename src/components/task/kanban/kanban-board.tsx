@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { SubTasksByStatusResponse, KanbanSubTaskType } from "@/data/task/kanban";
+import { SubTasksByStatusResponse, KanbanSubTaskType } from "@/data/task";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 import { cn } from "@/lib/utils";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
@@ -101,7 +101,7 @@ export function KanbanBoard({
         subTasks: KanbanSubTaskType[];
         totalCount: number;
         hasMore: boolean;
-        currentPage: number;
+        nextCursor: any;
     }>>(() => {
         const map: any = {};
         const contextId = projectId || "";
@@ -125,9 +125,12 @@ export function KanbanBoard({
                 });
 
                 if (projectTasks.length > 0) {
-                    const seen = new Set(tasks.map((t: any) => t.id));
-                    const newUnique = projectTasks.filter((t: any) => !seen.has(t.id));
-                    tasks = [...tasks, ...newUnique];
+                    const taskMap = new Map();
+                    // First add current tasks
+                    tasks.forEach((t: any) => taskMap.set(t.id, t));
+                    // Then add project tasks (will overwrite duplicates, but ensuring uniqueness)
+                    projectTasks.forEach((t: any) => taskMap.set(t.id, t));
+                    tasks = Array.from(taskMap.values());
                 }
             }
 
@@ -135,7 +138,7 @@ export function KanbanBoard({
                 subTasks: tasks,
                 totalCount: totalCount,
                 hasMore: hasMore,
-                currentPage: page
+                nextCursor: cached ? cached.nextCursor : undefined
             };
         });
         return map;
@@ -188,7 +191,7 @@ export function KanbanBoard({
                     subTasks: initialData[col.id].subTasks,
                     totalCount: initialData[col.id].totalCount,
                     hasMore: initialData[col.id].hasMore,
-                    currentPage: 1,
+                    nextCursor: undefined, // Initial from server
                 }])) as Record<TaskStatus, any>);
                 setIsFiltering(false);
                 return;
@@ -209,7 +212,7 @@ export function KanbanBoard({
                         ...filters,
                         startDate: filters.startDate ? new Date(filters.startDate).toISOString() : undefined,
                         endDate: filters.endDate ? new Date(filters.endDate).toISOString() : undefined,
-                        searchQuery
+                        search: searchQuery
                     }
                 );
 
@@ -245,13 +248,13 @@ export function KanbanBoard({
         setLoadingColumns(prev => ({ ...prev, [status]: true }));
 
         try {
-            const nextPage = columnData[status].currentPage + 1;
+            const currentCursor = columnData[status].nextCursor;
             const activeFilters = (searchQuery || Object.keys(filters).length > 0)
                 ? {
                     ...filters,
                     startDate: filters.startDate ? new Date(filters.startDate).toISOString() : undefined,
                     endDate: filters.endDate ? new Date(filters.endDate).toISOString() : undefined,
-                    searchQuery
+                    search: searchQuery
                 }
                 : undefined;
 
@@ -261,7 +264,7 @@ export function KanbanBoard({
                 workspaceId,
                 status,
                 targetProjectId,
-                nextPage,
+                currentCursor,
                 5,
                 activeFilters
             );
@@ -272,13 +275,23 @@ export function KanbanBoard({
             }
 
             setColumnData(prev => {
+                const existingTasks = prev[status].subTasks;
+                const newTasks = response.data.subTasks;
+
+                // Deduplicate using a Map
+                const taskMap = new Map();
+                existingTasks.forEach(t => taskMap.set(t.id, t));
+                newTasks.forEach(t => taskMap.set(t.id, t));
+
+                const deduplicatedTasks = Array.from(taskMap.values());
+
                 const newData = {
                     ...prev,
                     [status]: {
-                        subTasks: [...prev[status].subTasks, ...response.data.subTasks],
+                        subTasks: deduplicatedTasks,
                         totalCount: response.data.totalCount,
                         hasMore: response.data.hasMore,
-                        currentPage: nextPage,
+                        nextCursor: response.data.nextCursor,
                     }
                 };
 
@@ -288,10 +301,10 @@ export function KanbanBoard({
                     const contextId = projectId || "";
                     const cacheKey = `${workspaceId}-${contextId}-${status}`;
                     setKanbanTasksCache(cacheKey, {
-                        tasks: newData[status].subTasks,
+                        tasks: deduplicatedTasks,
                         hasMore: response.data.hasMore,
-                        page: nextPage,
-                        totalCount: response.data.totalCount
+                        nextCursor: response.data.nextCursor,
+                        totalCount: response.data.totalCount ?? undefined
                     });
                 }
 
@@ -376,6 +389,11 @@ export function KanbanBoard({
             if (!task) return prev;
 
             const updatedTask = { ...task, status: toStatus };
+            const toTasks = prev[toStatus].subTasks;
+
+            // Ensure we don't add a duplicate if it already exists in the target column
+            // This can happen with rapid moves or sync issues
+            const alreadyInTarget = toTasks.some(t => t.id === subTaskId);
 
             return {
                 ...prev,
@@ -386,8 +404,8 @@ export function KanbanBoard({
                 },
                 [toStatus]: {
                     ...prev[toStatus],
-                    subTasks: [updatedTask, ...prev[toStatus].subTasks],
-                    totalCount: prev[toStatus].totalCount + 1,
+                    subTasks: alreadyInTarget ? toTasks : [updatedTask, ...toTasks],
+                    totalCount: alreadyInTarget ? prev[toStatus].totalCount : prev[toStatus].totalCount + 1,
                 }
             };
         });
@@ -561,11 +579,18 @@ export function KanbanBoard({
         ).values()
     );
 
-    const memberOptions = projectMembers.map(member => ({
-        id: member.workspaceMember.user.id,
-        name: member.workspaceMember.user.name,
-        surname: member.workspaceMember.user.surname || undefined,
-    }));
+    const memberOptions = Array.from(
+        new Map(
+            projectMembers.map(member => [
+                member.workspaceMember.user.id,
+                {
+                    id: member.workspaceMember.user.id,
+                    name: member.workspaceMember.user.name,
+                    surname: member.workspaceMember.user.surname || undefined,
+                }
+            ])
+        ).values()
+    );
 
     // Bi-directional filtering logic
     const filteredProjects = projects?.filter(p =>

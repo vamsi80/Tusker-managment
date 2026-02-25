@@ -2,15 +2,7 @@
 
 import { getTasks } from "@/data/task/get-tasks";
 
-// Legacy type definition for compatibility with existing calls
-interface KanbanFilters {
-    assigneeId?: string;
-    parentTaskId?: string;
-    searchQuery?: string;
-    startDate?: string;
-    endDate?: string;
-    tag?: string;
-}
+import { type TaskFilters } from "@/components/task/shared/types";
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "CANCELLED" | "REVIEW" | "HOLD" | "COMPLETED";
 
@@ -22,21 +14,22 @@ export async function loadMoreSubtasksAction(
     workspaceId: string,
     status: TaskStatus,
     projectId?: string,
-    page: number = 1,
+    cursor?: any,
     pageSize: number = 5,
-    filters?: KanbanFilters
+    filters?: TaskFilters
 ) {
     try {
         const result = await getTasks({
             workspaceId,
             projectId,
-            view: "kanban",
+            hierarchyMode: "children",
+            groupBy: "status",
             status,
-            page,
+            cursor,
             limit: pageSize,
             assigneeId: filters?.assigneeId,
-            search: filters?.searchQuery,
-            tag: filters?.tag,
+            search: filters?.search,
+            tagId: filters?.tagId,
             startDate: filters?.startDate,
             endDate: filters?.endDate,
             filterParentTaskId: filters?.parentTaskId,
@@ -50,7 +43,7 @@ export async function loadMoreSubtasksAction(
                 subTasks: result.tasks,
                 totalCount: result.totalCount,
                 hasMore: result.hasMore,
-                currentPage: page,
+                nextCursor: result.nextCursor,
             },
         };
     } catch (error) {
@@ -62,7 +55,7 @@ export async function loadMoreSubtasksAction(
                 subTasks: [],
                 totalCount: 0,
                 hasMore: false,
-                currentPage: page,
+                nextCursor: null,
             },
         };
     }

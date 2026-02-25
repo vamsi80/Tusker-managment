@@ -14,8 +14,6 @@ import {
     buildSubtaskExpansionWhere,
     buildWorkspaceFilterWhere,
     WorkspaceFilterOpts,
-    buildOrderBy,
-    SortConfig,
 } from "@/lib/tasks/query-builder";
 import {
     batchLoadUsers,
@@ -58,12 +56,11 @@ export interface GetTasksOptions {
     excludeParents?: boolean;
     onlySubtasks?: boolean;
 
-    // Pagination — cursor preferred
+    // Pagination — cursor preferred; page is a legacy compat alias (ignored internally)
     cursor?: TaskCursor;
+    /** @deprecated use cursor pagination */
+    page?: number;
     limit?: number;
-
-    // Sorting
-    sorts?: any[]; // Replace any with proper SortConfig if needed, but any[] is safer for now to avoid circular deps
 
     // UI flags
     includeFacets?: boolean;
@@ -107,30 +104,24 @@ function buildQuerySignature(
     if (opts.groupBy) f.gb = opts.groupBy;
     if (opts.filterParentTaskId) f.pt = opts.filterParentTaskId;
 
-    // 2. Sorting
-    if (opts.sorts) f.srt = opts.sorts;
-
-    // 3. Build root signature
-    const effectiveProjectId = projectId && projectId !== "" ? projectId : undefined;
-
+    // 2. Build root signature
     const signature = {
         ws: workspaceId,
-        p: effectiveProjectId ?? "all",
+        p: projectId ?? "all",
         tier,
         f,
         c: opts.cursor?.id ?? null,
         l: opts.limit ?? 20,
     };
 
-    // 4. Hash the signature
+    // 3. Hash the signature
     return crypto.createHash("sha256").update(JSON.stringify(signature)).digest("hex");
 }
 
 /**
  * Resolves effective permissions (tier, authorized projects, lead projects)
  */
-export async function resolveTaskPermissions(workspaceId: string, projectIdInput?: string) {
-    const projectId = projectIdInput && projectIdInput !== "" ? projectIdInput : undefined;
+export async function resolveTaskPermissions(workspaceId: string, projectId?: string) {
     let permissions: any;
     let leadProjectIds: string[] = [];
     let isWorkspaceAdmin = false;
@@ -216,7 +207,7 @@ async function _fetchProjectRoot(
         prisma.task.findMany({
             where,
             select: TASK_CORE_SELECT,
-            orderBy: buildOrderBy(opts.sorts),
+            orderBy: ORDER_BY_CREATED_DESC,
             take: limit + 1,
         }),
         opts.cursor
@@ -228,12 +219,7 @@ async function _fetchProjectRoot(
     if (hasMore) rawTasks.pop();
 
     const nextCursor: TaskCursor | null = hasMore
-        ? {
-            id: rawTasks[rawTasks.length - 1].id,
-            createdAt: rawTasks[rawTasks.length - 1].createdAt,
-            // Include sorted field value for stable keyset pagination
-            ...(opts.sorts?.[0] ? { [opts.sorts[0].field]: (rawTasks[rawTasks.length - 1] as any)[opts.sorts[0].field] } : {})
-        }
+        ? { id: rawTasks[rawTasks.length - 1].id, createdAt: rawTasks[rawTasks.length - 1].createdAt }
         : null;
 
     // Batch load related entities
@@ -279,7 +265,7 @@ async function _fetchSubtasks(
     const rawSubtasks = await prisma.task.findMany({
         where,
         select: TASK_CORE_SELECT,
-        orderBy: buildOrderBy(opts.sorts),
+        orderBy: ORDER_BY_CREATED_DESC,
         take: limit + 1,
     });
 
@@ -349,7 +335,7 @@ async function _fetchWorkspaceFilter(
         prisma.task.findMany({
             where,
             select: TASK_CORE_SELECT,
-            orderBy: buildOrderBy(opts.sorts),
+            orderBy: ORDER_BY_CREATED_DESC,
             take: limit + 1,
         }),
         opts.cursor ? Promise.resolve(null) : prisma.task.count({ where }),
@@ -385,10 +371,6 @@ async function _fetchFacets(
     where: Prisma.TaskWhereInput,
     includeProjects: boolean
 ) {
-    // Only run facets if we have a reasonably specific scope (e.g. workspaceId)
-    // to avoid accidental full-table scans if the query builder fails.
-    if (!where.workspaceId && !where.projectId) return { status: {}, assignee: {}, tags: {}, projects: {} };
-
     const [statusCounts, assigneeCounts, tagCounts, projectCounts] = await Promise.all([
         prisma.task.groupBy({ by: ["status"], where, _count: { status: true } }),
         prisma.task.groupBy({ by: ["assigneeTo"], where, _count: { assigneeTo: true } }),
@@ -401,7 +383,7 @@ async function _fetchFacets(
     const fmt = (arr: any[], key: string) =>
         arr.reduce((acc: any, cur: any) => ({
             ...acc,
-            [cur[key] || "unassigned"]: cur._count[key] ?? cur._count?.[key] ?? 0,
+            [cur[key] || "unassigned"]: cur._count[key],
         }), {});
 
     return {
@@ -505,8 +487,7 @@ async function _getTasksInternal(
 //  PUBLIC API  (React cache + Next.js unstable_cache)
 // ============================================================
 export const getTasks = cache(async (opts: GetTasksOptions) => {
-    const { workspaceId } = opts;
-    const projectId = opts.projectId && opts.projectId !== "" ? opts.projectId : undefined;
+    const { workspaceId, projectId } = opts;
 
     // --- Auth + Permission Resolution ---
     const {

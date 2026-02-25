@@ -20,6 +20,7 @@ export function createTeamMemberColumns(
         // createSelectColumn<WorkspaceMemberRow>(),
 
         {
+            id: "memberName",
             accessorKey: "user.name",
             header: "Member",
             cell: ({ row }) => {

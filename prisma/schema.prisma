@@ -247,17 +247,19 @@ model Tag {
 }
 
 model Task {
-  id           String      @id @default(uuid())
-  name         String
-  taskSlug     String      @unique
-  description  String?
-  status       TaskStatus? @default(TO_DO)
-  position     Int?
-  parentTaskId String?
-  startDate    DateTime?
-  dueDate      DateTime?
-  days         Int?
-  tagId        String?
+  id          String      @id @default(uuid())
+  name        String
+  taskSlug    String      @unique
+  description String?
+  status      TaskStatus? @default(TO_DO)
+  startDate   DateTime?
+  dueDate     DateTime?
+  days        Int?
+  tagId       String?
+
+  // Performance Hierarchy Fields
+  isParent Boolean @default(true)
+  path     String? @db.Text
 
   // User-based fields (keeping original field names, now pointing to User)
   createdById String
@@ -265,16 +267,12 @@ model Task {
   reviewerId  String?
 
   // Workspace context
-  workspaceId String
-  projectId   String
+  workspaceId  String
+  projectId    String
+  parentTaskId String?
 
-  // Task metadata
-  purchaseRequired Boolean?  @default(false)
-  isPinned         Boolean   @default(false)
-  pinnedAt         DateTime?
-  pinnedBy         String?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
   createdBy  User    @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Cascade)
@@ -295,18 +293,11 @@ model Task {
   projectMember         ProjectMember?   @relation(fields: [projectMemberId], references: [id])
   projectMemberId       String?
 
-  @@index([parentTaskId])
-  @@index([projectId])
-  @@index([workspaceId])
-  @@index([projectId, parentTaskId])
-  @@index([projectId, status])
-  @@index([status, createdAt])
-  @@index([createdById])
-  @@index([assigneeTo])
-  @@index([reviewerId])
-  @@index([isPinned])
-  @@index([position])
-  @@index([tagId])
+  // Optimized Performance Indexes
+  @@index([projectId, isParent, status, createdAt(sort: Desc)])
+  @@index([parentTaskId, createdAt])
+  @@index([workspaceId, assigneeTo, status, createdAt])
+  @@index([projectId, assigneeTo, status, createdAt])
 }
 
 model ReviewComment {

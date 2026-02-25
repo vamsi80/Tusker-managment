@@ -3,7 +3,7 @@
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Badge } from "@/components/ui/badge";
-import { KanbanSubTaskType } from "@/data/task/kanban";
+import { KanbanSubTaskType } from "@/data/task";
 import { cn } from "@/lib/utils";
 import { KanbanCard } from "./kanban-card";
 import { KanbanCardSkeleton } from "./kanban-skeleton";
@@ -57,6 +57,10 @@ export function KanbanColumn({
         }
     }, [inView, hasMore, isLoadingMore, onLoadMore]);
 
+    const deduplicatedSubTasks = Array.from(
+        new Map(subTasks.map((t) => [t.id, t])).values()
+    );
+
     return (
         <div
             ref={setNodeRef}
@@ -81,7 +85,7 @@ export function KanbanColumn({
                         variant="secondary"
                         className={cn("text-xs", column.color)}
                     >
-                        {subTasks.length} / {totalCount}
+                        {deduplicatedSubTasks.length} / {totalCount}
                     </Badge>
                 </div>
             </div>
@@ -101,7 +105,7 @@ export function KanbanColumn({
                 )}
             >
                 <SortableContext
-                    items={subTasks.map((t) => t.id)}
+                    items={deduplicatedSubTasks.map((t) => t.id)}
                     strategy={verticalListSortingStrategy}
                 >
                     <div className="space-y-3 min-h-[100px]">
@@ -123,54 +127,55 @@ export function KanbanColumn({
                                 {isOver ? "Release to Move" : "Drop at Top"}
                             </span>
                         </div>
+                        <div className="flex flex-col gap-2 min-h-[50px]">
+                            {deduplicatedSubTasks.map((subTask) => (
+                                <KanbanCard
+                                    key={subTask.id}
+                                    subTask={subTask}
+                                    columnColor={column.color}
+                                    onSubTaskClick={onSubTaskClick}
+                                />
+                            ))}
 
-                        {subTasks.map((subTask) => (
-                            <KanbanCard
-                                key={subTask.id}
-                                subTask={subTask}
-                                columnColor={column.color}
-                                onSubTaskClick={onSubTaskClick}
-                            />
-                        ))}
+                            {/* Infinite Scroll Sentinel & Skeleton */}
+                            {(hasMore || isLoadingMore) && (
+                                <div ref={loadMoreRef} className="py-2 w-full">
+                                    {isLoadingMore ? (
+                                        <div className="space-y-3">
+                                            <KanbanCardSkeleton />
+                                        </div>
+                                    ) : (
+                                        <div className="h-4 w-full" /> // Invisible sentinel
+                                    )}
+                                </div>
+                            )}
 
-                        {/* Infinite Scroll Sentinel & Skeleton */}
-                        {(hasMore || isLoadingMore) && (
-                            <div ref={loadMoreRef} className="py-2 w-full">
-                                {isLoadingMore ? (
-                                    <div className="space-y-3">
-                                        <KanbanCardSkeleton />
-                                    </div>
-                                ) : (
-                                    <div className="h-4 w-full" /> // Invisible sentinel
-                                )}
-                            </div>
-                        )}
+                            {deduplicatedSubTasks.length === 0 && !isLoadingMore && (
+                                <div className="flex items-center justify-center h-24 text-muted-foreground text-xs uppercase font-medium tracking-wider border-2 border-dashed rounded-lg bg-muted/20">
+                                    No subtasks
+                                </div>
+                            )}
 
-                        {subTasks.length === 0 && !isLoadingMore && (
-                            <div className="flex items-center justify-center h-24 text-muted-foreground text-xs uppercase font-medium tracking-wider border-2 border-dashed rounded-lg bg-muted/20">
-                                No subtasks
-                            </div>
-                        )}
-
-                        {/* Visual Drop Zone at the bottom */}
-                        <div className={cn(
-                            "group border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all duration-300",
-                            isOver
-                                ? "border-primary/50 bg-primary/10 scale-95 shadow-inner"
-                                : "border-muted-foreground/10 bg-muted/5 opacity-40 hover:opacity-100"
-                        )}>
+                            {/* Visual Drop Zone at the bottom */}
                             <div className={cn(
-                                "p-2 rounded-full border-2 border-dashed transition-colors",
-                                isOver ? "border-primary text-primary bg-background" : "border-muted-foreground/20 text-muted-foreground"
+                                "group border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all duration-300",
+                                isOver
+                                    ? "border-primary/50 bg-primary/10 scale-95 shadow-inner"
+                                    : "border-muted-foreground/10 bg-muted/5 opacity-40 hover:opacity-100"
                             )}>
-                                <Plus className="h-5 w-5" />
+                                <div className={cn(
+                                    "p-2 rounded-full border-2 border-dashed transition-colors",
+                                    isOver ? "border-primary text-primary bg-background" : "border-muted-foreground/20 text-muted-foreground"
+                                )}>
+                                    <Plus className="h-5 w-5" />
+                                </div>
+                                <span className={cn(
+                                    "text-[10px] font-bold uppercase tracking-widest transition-colors",
+                                    isOver ? "text-primary" : "text-muted-foreground/60"
+                                )}>
+                                    {isOver ? "Release to Move" : "Drop here"}
+                                </span>
                             </div>
-                            <span className={cn(
-                                "text-[10px] font-bold uppercase tracking-widest transition-colors",
-                                isOver ? "text-primary" : "text-muted-foreground/60"
-                            )}>
-                                {isOver ? "Release to Move" : "Drop here"}
-                            </span>
                         </div>
                     </div>
                 </SortableContext>

@@ -1,6 +1,7 @@
 "use server";
 
-import { getSubTasksByStatus, KanbanFilters } from "@/data/task/kanban/get-subtasks-by-status";
+import { getTasks } from "@/data/task/get-tasks";
+import { type TaskFilters } from "@/components/task/shared/types";
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "CANCELLED" | "REVIEW" | "HOLD" | "COMPLETED";
 const STATUSES: TaskStatus[] = ["TO_DO", "IN_PROGRESS", "CANCELLED", "REVIEW", "HOLD", "COMPLETED"];
@@ -10,23 +11,32 @@ const STATUSES: TaskStatus[] = ["TO_DO", "IN_PROGRESS", "CANCELLED", "REVIEW", "
  * 
  * Fetches data for all 6 columns in parallel on the server-side.
  * This reduces client-server roundtrips from 6 to 1, significantly improving performance.
+ * Uses unified getTasks function to ensure consistent filtering and permissions.
  */
 export async function getKanbanBoardDataAction(
     workspaceId: string,
     projectId?: string,
-    filters?: KanbanFilters
+    filters?: TaskFilters
 ) {
     try {
         // Execute all queries in parallel on the server
+        // Map TaskFilters to getTasks options
         const promises = STATUSES.map(async (status) => {
-            const result = await getSubTasksByStatus(
+            const result = await getTasks({
                 workspaceId,
+                projectId: filters?.projectId || projectId,
+                hierarchyMode: "children",
+                groupBy: "status",
                 status,
-                projectId,
-                1, // Page 1
-                5, // Page Size
-                filters
-            );
+                page: 1,
+                limit: 5,
+                search: (filters as any)?.searchQuery || filters?.search,
+                assigneeId: filters?.assigneeId,
+                tagId: filters?.tagId,
+                startDate: filters?.startDate,
+                endDate: filters?.endDate,
+                filterParentTaskId: filters?.parentTaskId,
+            });
             return { status, result };
         });
 
@@ -35,7 +45,7 @@ export async function getKanbanBoardDataAction(
         // Transform into a map for easier client consumption
         const data = results.reduce((acc, { status, result }) => {
             acc[status] = {
-                subTasks: result.subTasks,
+                subTasks: result.tasks,
                 totalCount: result.totalCount,
                 hasMore: result.hasMore,
                 currentPage: 1

@@ -101,7 +101,7 @@ export function TeamMembers({ data, isAdmin, workspaceId }: TeamMembersProps) {
             <DataTable
                 columns={columns}
                 data={data}
-                searchKey="user.name"
+                searchKey="memberName"
                 searchPlaceholder="Search members..."
                 onRowClick={handleViewMember}
                 showPagination={true}
