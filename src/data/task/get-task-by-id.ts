@@ -32,7 +32,6 @@ async function _getTaskByIdInternal(
             taskSlug: true,
             description: true,
             status: true,
-            position: true,
             startDate: true,
             days: true,
             tag: {
@@ -92,7 +91,6 @@ async function _getTaskByIdInternal(
                         taskSlug: true,
                         description: true,
                         status: true,
-                        position: true,
                         startDate: true,
                         days: true,
                         tag: {
@@ -114,9 +112,6 @@ async function _getTaskByIdInternal(
                                 reviewComments: true,
                             },
                         },
-                    },
-                    orderBy: {
-                        position: 'asc',
                     },
                 }
                 : {
@@ -126,7 +121,6 @@ async function _getTaskByIdInternal(
                         taskSlug: true,
                         description: true,
                         status: true,
-                        position: true,
                         startDate: true,
                         days: true,
                         tag: {
@@ -148,9 +142,6 @@ async function _getTaskByIdInternal(
                                 reviewComments: true,
                             },
                         },
-                    },
-                    orderBy: {
-                        position: 'asc',
                     },
                 },
             _count: {

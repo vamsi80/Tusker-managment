@@ -1,54 +1,67 @@
+/**
+ * WorkspaceTaskType — The shared task shape returned by the data access layer.
+ * 
+ * MIGRATION NOTES:
+ * - 'position': Removed from schema. Kept as optional here for type compat.
+ * - 'isPinned' / 'pinnedAt': Removed from schema. Optional stubs kept.
+ * - 'parentTask': Now batch-loaded; present after hydration.
+ * - 'assignee' / 'reviewer' / 'tag' / 'createdBy': Batch-loaded — present as resolved objects.
+ */
 export type WorkspaceTaskType = {
     id: string;
     name: string;
-    status: string;
+    status: string | null;
     taskSlug: string;
     description: string | null;
     startDate: Date | null;
     dueDate: Date | null;
     days: number | null;
     projectId: string;
-    isPinned: boolean;
-    pinnedAt: Date | null;
+    workspaceId?: string;
+    parentTaskId?: string | null;
+    isParent?: boolean;
+    // Removed from schema — optional for backwards compat
+    isPinned?: boolean;
+    pinnedAt?: Date | null;
+    position?: number;
     createdAt: Date;
     updatedAt: Date;
-    position: number;
     createdById: string;
     reviewerId: string | null;
-    assignee: {
+    assigneeTo?: string | null;          // raw FK (from TASK_CORE_SELECT)
+    tagId?: string | null;               // raw FK (from TASK_CORE_SELECT)
+
+    // Hydrated relations — present after batch-loading
+    assignee?: {
         id: string;
         name: string | null;
         surname: string | null;
         image: string | null;
     } | null;
-    reviewer: {
+    reviewer?: {
         id: string;
         name: string | null;
         surname: string | null;
         image: string | null;
     } | null;
-    createdBy: {
+    createdBy?: {
         id: string;
         name: string | null;
         surname: string | null;
         image: string | null;
-    };
-    _count: {
-        subTasks: number;
-        reviewComments: number;
-    };
-    parentTask: {
+    } | null;
+    parentTask?: {
         id: string;
         name: string;
         taskSlug: string;
     } | null;
-    project: {
+    project?: {
         id: string;
         name: string;
         slug: string;
         color: string;
         workspaceId: string;
-        projectMembers: {
+        projectMembers?: {
             workspaceMember: {
                 user: {
                     name: string | null;
@@ -57,9 +70,13 @@ export type WorkspaceTaskType = {
                 };
             };
         }[];
-    };
-    tag: {
+    } | null;
+    tag?: {
         id: string;
         name: string;
     } | null;
+    _count: {
+        subTasks: number;
+        reviewComments: number;
+    };
 };
