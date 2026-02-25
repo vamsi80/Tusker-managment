@@ -16,7 +16,7 @@ import { ProjectMembersType } from "@/data/project/get-project-members";
 import { SubTaskType } from "@/data/task";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
-import { TaskWithSubTasks, SortConfig, TableViewMode, SortField } from "@/components/task/shared/types";
+import { TaskWithSubTasks, SortConfig, TableViewMode, SortField, hasActiveFilters } from "@/components/task/shared/types";
 import { TaskRow } from "./task-row";
 import { TaskFilters } from "../shared/types";
 import { GlobalFilterToolbar } from "../shared/global-filter-toolbar";
@@ -115,6 +115,11 @@ export function TaskTable({
     }, []);
 
     const [tasks, setTasks] = useState<TaskWithSubTasks[]>(() => {
+        // Skip cache merge if we have active filters/search
+        if (Object.keys(filters).length > 0 || searchQuery) {
+            return initialTasks;
+        }
+
         // Unified Logic: Identify relevant projects and merge their caches with initial server data
         const relevantProjectIds = level === 'project' && projectId
             ? [projectId]
@@ -266,6 +271,51 @@ export function TaskTable({
         setSortedTasks({});
     }, [filters, searchQuery]);
 
+    useEffect(() => {
+        const fetchFiltered = async () => {
+            setIsLoadingFilters(true);
+
+            try {
+                const response = await loadTasksAction({
+                    workspaceId,
+                    ...(level === "project" && projectId ? { projectId } : {}),
+                    status: filters.status as any,
+                    assigneeId: filters.assigneeId as any,
+                    tagId: filters.tagId as any,
+                    search: searchQuery,
+                    dueAfter: filters.startDate ? new Date(filters.startDate) : undefined,
+                    dueBefore: filters.endDate ? new Date(filters.endDate) : undefined,
+                    hierarchyMode: "parents",
+                    limit: 20,
+                });
+
+                if (response.success && response.data) {
+                    const result = response.data;
+
+                    setTasks(result.tasks);
+                    setProjectPagination({
+                        ...(level === "project" && projectId
+                            ? {
+                                [projectId]: {
+                                    page: 1,
+                                    nextCursor: result.nextCursor,
+                                    hasMore: result.hasMore,
+                                    isLoading: false,
+                                },
+                            }
+                            : {}),
+                    });
+                }
+            } finally {
+                setIsLoadingFilters(false);
+            }
+        };
+
+        if (searchQuery || hasActiveFilters(filters)) {
+            fetchFiltered();
+        }
+    }, [filters, searchQuery, workspaceId, projectId, level]);
+
     // Effect to load sorted tasks when sorting is active
     useEffect(() => {
         if (viewMode === "sorted" && sorts.length > 0) {
@@ -307,7 +357,7 @@ export function TaskTable({
 
     const [activeInlineProjectId, setActiveInlineProjectId] = useState<string | null>(null);
     const [filteredProjects, setFilteredProjects] = useState<{ id: string; name: string; }[]>(projects || []);
-    const totalCount = tasks.length;
+    // const totalCount = tasks.length;
 
     const loadProjectTasks = async (targetProjectId: string) => {
         const currentPagination = projectPagination[targetProjectId] || { page: 0, nextCursor: undefined, hasMore: true, isLoading: false };
@@ -427,7 +477,7 @@ export function TaskTable({
         const options = extractAllFilterOptions(tasks as any, showAdvancedFilters ? 'workspace' : 'project');
 
         const assigneesForFilter = assignees || members
-            .filter(member => member.workspaceMember?.user) // Filter out members without user data
+            .filter(member => member.workspaceMember?.user)
             .map(member => ({
                 id: member.workspaceMember.user!.id,
                 name: member.workspaceMember.user!.name,

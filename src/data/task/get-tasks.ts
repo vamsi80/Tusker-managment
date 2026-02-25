@@ -196,6 +196,7 @@ async function _fetchProjectRoot(
     }
 
     const countWhere = { ...where };
+    console.log(`[PRISMA PROJECT ROOT] where:`, JSON.stringify(where, null, 2));
     const [rawTasks, totalCount] = await Promise.all([
         prisma.task.findMany({
             where,
@@ -269,6 +270,7 @@ async function _fetchSubtasks(
         cursor: opts.cursor,
     });
 
+    console.log(`[PRISMA SUBTASKS] where:`, JSON.stringify(where, null, 2));
     const rawSubtasks = await prisma.task.findMany({
         where,
         select: TASK_CORE_SELECT,
@@ -299,9 +301,127 @@ async function _fetchSubtasks(
 }
 
 // ============================================================
-//  VIEW 3: WORKSPACE FILTER  (Search/My Tasks/Cross-project)
-//  Index: (workspaceId, assigneeTo, status, createdAt)
-//      OR (projectId, assigneeTo, status, createdAt)  — project-scoped
+//  VIEW 3: FILTERED HIERARCHY  (Subtask-First strategy)
+//  Used when filters are present to find matching subtasks
+//  while still returning a parent-based tree.
+// ============================================================
+async function _fetchFilteredHierarchy(
+    workspaceId: string,
+    userId: string,
+    isAdmin: boolean,
+    fullAccessProjectIds: string[],
+    restrictedProjectIds: string[],
+    opts: GetTasksOptions
+) {
+    const limit = opts.limit ?? 20;
+
+    const rawStart = toDate(opts.dueAfter as any);
+    const rawEnd = toDate(opts.dueBefore as any);
+    if (rawStart) rawStart.setHours(0, 0, 0, 0);
+    if (rawEnd) rawEnd.setHours(23, 59, 59, 999);
+
+    const filterOpts: WorkspaceFilterOpts = {
+        workspaceId,
+        projectId: opts.projectId,
+        assigneeId: toArray(opts.assigneeId),
+        status: toArray(opts.status),
+        tagId: toArray(opts.tagId),
+        dueAfter: rawStart,
+        dueBefore: rawEnd,
+        search: opts.search,
+        cursor: opts.cursor,
+        isAdmin,
+        fullAccessProjectIds,
+        restrictedProjectIds,
+        projectIds: (!opts.projectId && opts.expandedProjectIds?.length) ? opts.expandedProjectIds : undefined,
+    };
+
+    // Step 1: Query Matching Subtasks based on filters
+    const subtaskWhere = buildWorkspaceFilterWhere({
+        ...filterOpts,
+        onlyParents: false,
+        onlySubtasks: true,
+    }, userId);
+
+    console.log(`[PRISMA SUBTASK-FIRST] where:`, JSON.stringify(subtaskWhere, null, 2));
+
+    // Step 2: Get unique parent IDs for the matching subtasks
+    const subtaskMatches = await prisma.task.findMany({
+        where: subtaskWhere,
+        select: { parentTaskId: true },
+        distinct: ['parentTaskId'],
+        orderBy: ORDER_BY_CREATED_DESC,
+        take: limit + 1,
+    });
+
+    const parentIds = subtaskMatches
+        .map(m => m.parentTaskId)
+        .filter((id): id is string => id !== null);
+
+    // Step 3: Fetch the Parents
+    const rawParents = await prisma.task.findMany({
+        where: { id: { in: parentIds } },
+        select: TASK_CORE_SELECT,
+        orderBy: ORDER_BY_CREATED_DESC,
+    });
+
+    // Step 4: Fetch ALL matching subtasks for these parents (to populate the subtasks array)
+    const matchingSubtasks = await prisma.task.findMany({
+        where: {
+            ...subtaskWhere,
+            parentTaskId: { in: parentIds }
+        },
+        select: TASK_CORE_SELECT,
+        orderBy: ORDER_BY_CREATED_DESC,
+    });
+
+    // Hydration Logic
+    const allRaw = [...rawParents, ...matchingSubtasks];
+    const [userMap, tagMap, projectMap] = await Promise.all([
+        batchLoadUsers([
+            ...allRaw.map(t => t.assigneeTo),
+            ...allRaw.map(t => t.reviewerId),
+            ...allRaw.map(t => t.createdById),
+        ]),
+        batchLoadTags(allRaw.map(t => t.tagId)),
+        batchLoadProjects(allRaw.map(t => t.projectId)),
+    ]);
+
+    const hydratedParents = hydrateTasks(rawParents, userMap, tagMap, projectMap);
+    const hydratedSubtasks = hydrateTasks(matchingSubtasks, userMap, tagMap, projectMap);
+
+    // Grouping: Attach only matching subtasks to their parents
+    const subtaskGrouped = new Map<string, any[]>();
+    hydratedSubtasks.forEach(st => {
+        if (!st.parentTaskId) return;
+        if (!subtaskGrouped.has(st.parentTaskId)) subtaskGrouped.set(st.parentTaskId, []);
+        subtaskGrouped.get(st.parentTaskId)!.push(st);
+    });
+
+    let tasks = hydratedParents.map(p => ({
+        ...p,
+        subTasks: subtaskGrouped.get(p.id) || []
+    }));
+
+    const hasMore = subtaskMatches.length > limit;
+    if (hasMore) tasks.pop();
+
+    const totalCountResult = await prisma.task.groupBy({
+        by: ['parentTaskId'],
+        where: subtaskWhere,
+        _count: true
+    });
+
+    const nextCursor: TaskCursor | null = hasMore
+        ? { id: tasks[tasks.length - 1].id, createdAt: tasks[tasks.length - 1].createdAt }
+        : null;
+
+    return { tasks, totalCount: totalCountResult.length, hasMore, nextCursor };
+}
+
+// ============================================================
+//  VIEW 4: WORKSPACE FILTER (Flat Layout)
+//  Used for Kanban/Sorted/Global Search results without tree
 // ============================================================
 async function _fetchWorkspaceFilter(
     workspaceId: string,
@@ -337,6 +457,8 @@ async function _fetchWorkspaceFilter(
         onlySubtasks: opts.onlySubtasks,
     };
 
+    // --- STRATEGY: FLAT FILTER ---
+    // Used for Kanban, Sorted lists, or search results that don't require parent grouping
     const where = buildWorkspaceFilterWhere(filterOpts, userId);
 
     const [rawTasks, totalCount] = await Promise.all([
@@ -367,7 +489,6 @@ async function _fetchWorkspaceFilter(
     ]);
 
     const tasks = hydrateTasks(rawTasks, userMap, tagMap, projectMap);
-    console.log(`[DEBUG] WorkspaceFilter loaded ${tasks.length} tasks:`, tasks.map(t => ({ id: t.id, name: t.name, isParent: t.isParent })));
     return { tasks, totalCount, hasMore, nextCursor };
 }
 
@@ -416,9 +537,14 @@ async function _getTasksInternal(
     const { projectId, hierarchyMode, filterParentTaskId, includeFacets } = opts;
 
     const hasExplicitFilters =
-        opts.assigneeId || opts.status || opts.tagId ||
-        opts.search || opts.dueAfter || opts.dueBefore ||
-        (opts.expandedProjectIds && opts.expandedProjectIds.length > 0);
+        !!(
+            (opts.status && toArray(opts.status)?.length) ||
+            (opts.assigneeId && toArray(opts.assigneeId)?.length) ||
+            (opts.tagId && toArray(opts.tagId)?.length) ||
+            (opts.search && opts.search.trim().length > 0) ||
+            opts.dueAfter ||
+            opts.dueBefore
+        );
 
     const emptyFacets = { status: {}, assignee: {}, tags: {}, projects: {} };
 
@@ -456,7 +582,19 @@ async function _getTasksInternal(
     }
 
     /**
-     * STRATEGY C: Filtered / Search / Workspace-wide / Kanban / Subtasks-only
+     * STRATEGY C: Filtered Hierarchy (Subtask-First)
+     * Used in List/Gantt views when active filters are present.
+     */
+    if (hasExplicitFilters && (hierarchyMode === "parents" || !hierarchyMode)) {
+        const result = await _fetchFilteredHierarchy(
+            workspaceId, userId, isAdmin,
+            fullAccessProjectIds, restrictedProjectIds, opts
+        );
+        return { ...result, facets: emptyFacets };
+    }
+
+    /**
+     * STRATEGY D: Flat Workspace Filter / Kanban / Search Mode
      * Cross-hierarchy query using Workspace filter builder
      */
     const filterResult = await _fetchWorkspaceFilter(
@@ -538,6 +676,7 @@ export const getTasks = cache(async (opts: GetTasksOptions) => {
             restrictedProjectIds,
             opts
         ),
+
         [cacheKey],
         { tags, revalidate: 30 }
     )();

@@ -116,6 +116,7 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
                 dueDate: dueDate,
                 days: validation.data.days,
                 reviewerId: reviewerId,
+                isParent: false,
             },
             include: {
                 assignee: {
