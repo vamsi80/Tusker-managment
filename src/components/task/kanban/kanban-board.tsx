@@ -13,8 +13,7 @@ import { useReloadView } from "@/hooks/use-reload-view";
 import { TaskFilters, type ProjectOption, type TagOption } from "../shared/types";
 import { STATUS_COLORS, STATUS_LABELS } from "@/lib/colors/status-colors";
 import { updateSubTaskStatus } from "@/actions/task/kanban/update-subtask-status";
-import { loadMoreSubtasksAction } from "@/actions/task/kanban/load-more-subtasks";
-import { getKanbanBoardDataAction } from "@/actions/task/kanban/get-kanban-board-data";
+import { loadTasksAction } from "@/actions/task/list-actions";
 import { GlobalFilterToolbar, ParentTaskOption } from "../shared/global-filter-toolbar";
 import { KanbanColumnVisibility as KanbanColumnVisibilityType } from "../shared/kanban-column-visibility";
 import { ReviewCommentDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/review-comment-form";
@@ -168,6 +167,7 @@ export function KanbanBoard({
         REVIEW: true,
         HOLD: true,
         COMPLETED: true,
+        BLOCKED: true,
     });
 
     const sensors = useSensors(
@@ -205,19 +205,34 @@ export function KanbanBoard({
                 // optimized for performance (1 roundtrip vs 6)
                 const targetProjectId = filters.projectId || projectId;
 
-                const response = await getKanbanBoardDataAction(
+                const response = await loadTasksAction({
                     workspaceId,
-                    targetProjectId,
-                    {
-                        ...filters,
-                        startDate: filters.startDate ? new Date(filters.startDate).toISOString() : undefined,
-                        endDate: filters.endDate ? new Date(filters.endDate).toISOString() : undefined,
-                        search: searchQuery
-                    }
-                );
+                    projectId: targetProjectId,
+                    hierarchyMode: "children",
+                    includeFacets: false,
+                    limit: 100, // Fetch more for initial filtered view
+                    status: undefined, // Fetch all statuses
+                    startDate: filters.startDate ? new Date(filters.startDate).toISOString() : undefined,
+                    endDate: filters.endDate ? new Date(filters.endDate).toISOString() : undefined,
+                    search: searchQuery,
+                    assigneeId: filters.assigneeId,
+                    tagId: filters.tagId,
+                    filterParentTaskId: filters.parentTaskId,
+                });
 
                 if (response.success && response.data) {
-                    setColumnData(response.data);
+                    // Map the flat tasks back to the column map expected by state
+                    const groupedData: any = {};
+                    COLUMNS.forEach(col => {
+                        const colTasks = response.data.tasksByStatus[col.id] || [];
+                        groupedData[col.id] = {
+                            subTasks: colTasks,
+                            totalCount: colTasks.length, // approximation since we only fetched 100
+                            hasMore: colTasks.length >= 100,
+                            nextCursor: null
+                        };
+                    });
+                    setColumnData(groupedData);
                 } else {
                     toast.error("Failed to apply filters");
                 }
@@ -260,14 +275,15 @@ export function KanbanBoard({
 
             const targetProjectId = filters.projectId || projectId;
 
-            const response = await loadMoreSubtasksAction(
+            const response = await loadTasksAction({
                 workspaceId,
-                status,
-                targetProjectId,
-                currentCursor,
-                5,
-                activeFilters
-            );
+                status: [status],
+                projectId: targetProjectId,
+                cursor: currentCursor,
+                limit: 5,
+                hierarchyMode: "children",
+                ...activeFilters
+            });
 
             if (!response.success) {
                 toast.error(response.error || "Failed to load more subtasks");
@@ -276,7 +292,7 @@ export function KanbanBoard({
 
             setColumnData(prev => {
                 const existingTasks = prev[status].subTasks;
-                const newTasks = response.data.subTasks;
+                const newTasks = response.data.tasks;
 
                 // Deduplicate using a Map
                 const taskMap = new Map();

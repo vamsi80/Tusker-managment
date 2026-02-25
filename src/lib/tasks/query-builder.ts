@@ -155,46 +155,82 @@ export interface WorkspaceFilterOpts {
     dueAfter?: Date;
     search?: string;
     cursor?: TaskCursor;
-    authorizedProjectIds?: string[];  // permission scope
-    adminScope?: boolean;             // if true, skip projectId IN list
-    onlyParents?: boolean;            // restricts to isParent: true
-    excludeParents?: boolean;         // restricts to isParent: false
-    onlySubtasks?: boolean;           // restricts to parentTaskId: { not: null }
+    // Permission scopes — mutually exclusive flags
+    isAdmin?: boolean;             // workspace admin: no project restriction
+    fullAccessProjectIds?: string[];  // projects where user sees everything
+    restrictedProjectIds?: string[];  // projects where user only sees assigned tasks
+    projectIds?: string[];           // strictly narrow to these projects (e.g. expanded ones)
+    // Hierarchy
+    onlyParents?: boolean;
+    excludeParents?: boolean;
+    onlySubtasks?: boolean;
 }
 
 export function buildWorkspaceFilterWhere(
     opts: WorkspaceFilterOpts,
-    permissionMode: "admin" | "lead" | "member",
     userId: string
 ): Prisma.TaskWhereInput {
     const where: Prisma.TaskWhereInput = {};
 
-    // Tier 1: Narrowest scope first (index prefix selection)
+    // ─── Scope: which projects can these results come from? ─────────────
     if (opts.projectId) {
+        // Single-project view — the caller already validated access
         where.projectId = opts.projectId;
-    } else {
+    } else if (opts.isAdmin) {
+        // Workspace admin: only scope to workspace, no project restriction
         where.workspaceId = opts.workspaceId;
-        if (!opts.adminScope && opts.authorizedProjectIds) {
-            where.projectId = { in: opts.authorizedProjectIds };
+        if (opts.projectIds && opts.projectIds.length > 0) {
+            where.projectId = { in: opts.projectIds };
+        }
+    } else {
+        // Non-admin: enforce the access model:
+        where.workspaceId = opts.workspaceId;
+
+        let fullIds = opts.fullAccessProjectIds ?? [];
+        let restrictedIds = opts.restrictedProjectIds ?? [];
+
+        // STRICT RESTRICTION: projectId IN projectIds
+        // If specific projects are requested (e.g. expanded ones), 
+        // we narrow the authorized sets so we NEVER query others.
+        if (opts.projectIds && opts.projectIds.length > 0) {
+            fullIds = fullIds.filter(id => opts.projectIds!.includes(id));
+            restrictedIds = restrictedIds.filter(id => opts.projectIds!.includes(id));
+        }
+
+        if (fullIds.length === 0 && restrictedIds.length === 0) {
+            // No access at all — return nothing
+            where.id = { in: [] };
+        } else if (restrictedIds.length === 0) {
+            // Only full-access projects
+            where.projectId = { in: fullIds };
+        } else if (fullIds.length === 0) {
+            // Only restricted projects — must be assigned
+            where.projectId = { in: restrictedIds };
+            where.assigneeTo = userId;
+        } else {
+            // Mixed: full-access OR (restricted AND assigned)
+            where.AND = [
+                {
+                    OR: [
+                        { projectId: { in: fullIds } },
+                        { projectId: { in: restrictedIds }, assigneeTo: userId }
+                    ]
+                }
+            ];
         }
     }
 
-    // Member permission: always restrict to own tasks in filter mode
+    // ─── User-supplied assignee filter ─────────────────────────────────
     const assigneeFilters = opts.assigneeId
         ? (Array.isArray(opts.assigneeId) ? opts.assigneeId : [opts.assigneeId])
         : null;
 
-    if (permissionMode === "member") {
-        // Intersect: must be assigned to member AND match UI filter
-        where.assigneeTo = assigneeFilters && assigneeFilters.length > 0
-            ? { in: assigneeFilters.filter(a => a === userId) }
-            : userId;
-    } else if (assigneeFilters && assigneeFilters.length > 0) {
+    // Do not overwrite an assigneeTo already set by the restricted scope above
+    if (assigneeFilters && assigneeFilters.length > 0 && !where.assigneeTo) {
         where.assigneeTo = { in: assigneeFilters };
     }
 
-    // In search/filter mode: return ALL levels (parent + subtask)
-    // UNLESS onlyParents is specifically requested.
+    // ─── Hierarchy ─────────────────────────────────────────────────────
     if (opts.onlyParents) {
         where.isParent = true;
         where.parentTaskId = null;
@@ -203,8 +239,8 @@ export function buildWorkspaceFilterWhere(
     } else if (opts.excludeParents) {
         where.isParent = false;
     }
-    // so the query uses (workspaceId, assigneeTo, status, createdAt)
 
+    // ─── Status / Tag ───────────────────────────────────────────────────
     if (opts.status && opts.status.length > 0) {
         where.status = { in: opts.status as any };
     }
@@ -214,6 +250,7 @@ export function buildWorkspaceFilterWhere(
         if (tagIds.length > 0) where.tagId = { in: tagIds };
     }
 
+    // ─── Due date ───────────────────────────────────────────────────────
     if (opts.dueBefore || opts.dueAfter) {
         where.dueDate = {
             ...(opts.dueAfter ? { gte: opts.dueAfter } : {}),
@@ -222,15 +259,27 @@ export function buildWorkspaceFilterWhere(
         };
     }
 
+    // ─── Full-text search ───────────────────────────────────────────────
     if (opts.search && opts.search.trim().length > 0) {
         const q = opts.search.trim();
-        where.OR = [
-            { name: { contains: q, mode: "insensitive" } },
-            { taskSlug: { contains: q, mode: "insensitive" } },
-            { description: { contains: q, mode: "insensitive" } },
+        const searchClause = [
+            { name: { contains: q, mode: "insensitive" as const } },
+            { taskSlug: { contains: q, mode: "insensitive" as const } },
+            { description: { contains: q, mode: "insensitive" as const } },
         ];
+        // Merge with any existing AND to avoid overwriting scope clauses
+        if (where.OR) {
+            // Search conflicts with existing OR — wrap in AND 
+            where.AND = [
+                ...(where.AND ? (Array.isArray(where.AND) ? where.AND : [where.AND]) : []),
+                { OR: searchClause }
+            ];
+        } else {
+            where.OR = searchClause;
+        }
     }
 
+    // ─── Cursor pagination ──────────────────────────────────────────────
     if (opts.cursor) {
         const cursorCondition = {
             OR: [
@@ -238,11 +287,10 @@ export function buildWorkspaceFilterWhere(
                 { createdAt: opts.cursor.createdAt, id: { gt: opts.cursor.id } },
             ]
         };
-        if (where.AND) {
-            (where.AND as any[]).push(cursorCondition);
-        } else {
-            where.AND = [cursorCondition];
-        }
+        where.AND = [
+            ...(where.AND ? (Array.isArray(where.AND) ? where.AND : [where.AND]) : []),
+            cursorCondition
+        ];
     }
 
     return where;

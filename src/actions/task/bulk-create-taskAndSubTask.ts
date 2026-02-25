@@ -188,8 +188,6 @@ export async function bulkUploadTasksAndSubtasks(data: {
         const allSubtaskSlugs = allSubtaskNames.length > 0
             ? await generateUniqueSlugs(allSubtaskNames, 'task', undefined, taskSlugs)
             : [];
-        // Removed subtaskSlugMap as it causes issues with duplicate subtask names
-        // Used sequential index instead (see below)
 
         // Fetch all workspace tags for resolution
         const workspaceTags = await prisma.tag.findMany({
@@ -206,17 +204,44 @@ export async function bulkUploadTasksAndSubtasks(data: {
 
         await prisma.$transaction(async (tx) => {
             for (const [taskName, taskGroup] of taskGroups.entries()) {
-                // Get pre-generated slug
                 const taskSlug = taskSlugMap.get(taskName)!;
+                const firstRow = taskGroup[0];
 
-                // Create parent task - ONLY NAME, no other fields
+                // Resolve parent task fields
+                const parentAssigneeId = firstRow.assigneeEmail
+                    ? emailToMemberId.get(firstRow.assigneeEmail.trim().toLowerCase())
+                    : undefined;
+
+                const parentReviewerId = firstRow.reviewerEmail
+                    ? emailToMemberId.get(firstRow.reviewerEmail.trim().toLowerCase())
+                    : permissions.workspaceMember.userId;
+
+                const parentStartDate = firstRow.startDate
+                    ? new Date(firstRow.startDate)
+                    : undefined;
+
+                let parentTagId: string | undefined = undefined;
+                if (firstRow.tag) {
+                    const tagInfo = tagMap.get(firstRow.tag.toUpperCase());
+                    if (tagInfo) parentTagId = tagInfo.id;
+                }
+
+                // Create parent task
                 const parentTask = await tx.task.create({
                     data: {
                         name: taskName,
                         taskSlug: taskSlug,
+                        description: firstRow.description,
                         projectId: data.projectId,
                         workspaceId: project.workspaceId,
                         createdById: permissions.workspaceMember.userId,
+                        isParent: true,
+                        status: firstRow.status ? (firstRow.status as any) : undefined,
+                        assigneeTo: parentAssigneeId,
+                        reviewerId: parentReviewerId,
+                        startDate: parentStartDate,
+                        days: firstRow.days,
+                        tagId: parentTagId,
                     },
                 });
 
@@ -226,20 +251,13 @@ export async function bulkUploadTasksAndSubtasks(data: {
                 const subtaskRows = taskGroup.filter(t => t.subtaskName);
 
                 if (subtaskRows.length > 0) {
-                    // Validation arrays for subtasks
-                    const validStatus = ['TO_DO', 'IN_PROGRESS', 'REVIEW', 'COMPLETED', 'CANCELLED', 'HOLD'];
-
-                    for (let i = 0; i < subtaskRows.length; i++) {
-                        const subtaskRow = subtaskRows[i];
-
-                        // Get pre-generated slug for this subtask using sequential index
+                    for (const subtaskRow of subtaskRows) {
                         const subtaskSlug = allSubtaskSlugs[globalSubtaskIndex++];
 
                         const subtaskAssigneeId = subtaskRow.assigneeEmail
                             ? emailToMemberId.get(subtaskRow.assigneeEmail.trim().toLowerCase())
                             : undefined;
 
-                        // Default reviewer to creator if not specified
                         const subtaskReviewerId = subtaskRow.reviewerEmail
                             ? emailToMemberId.get(subtaskRow.reviewerEmail.trim().toLowerCase())
                             : permissions.workspaceMember.userId;
@@ -248,11 +266,7 @@ export async function bulkUploadTasksAndSubtasks(data: {
                             ? new Date(subtaskRow.startDate)
                             : undefined;
 
-                        const subtaskStatus = subtaskRow.status && validStatus.includes(subtaskRow.status)
-                            ? subtaskRow.status
-                            : 'TO_DO';
-
-                        // Resolve tag ID and check procurement requirement
+                        // Resolve tag ID
                         let resolvedTagId: string | undefined = undefined;
                         let shouldAddToProcurement = false;
 
@@ -273,11 +287,12 @@ export async function bulkUploadTasksAndSubtasks(data: {
                                 workspaceId: project.workspaceId,
                                 createdById: permissions.workspaceMember.userId,
                                 parentTaskId: parentTask.id,
+                                isParent: false,
                                 assigneeTo: subtaskAssigneeId,
                                 reviewerId: subtaskReviewerId,
                                 startDate: subtaskStartDate,
                                 days: subtaskRow.days,
-                                status: subtaskStatus as any,
+                                status: subtaskRow.status ? (subtaskRow.status as any) : undefined,
                                 tagId: resolvedTagId,
                             },
                         });
@@ -297,7 +312,7 @@ export async function bulkUploadTasksAndSubtasks(data: {
                 }
             }
         }, {
-            timeout: 30000, // 30 seconds timeout for large bulk uploads
+            timeout: 30000,
         });
 
         // Revalidate cache
@@ -324,9 +339,7 @@ export async function bulkUploadTasksAndSubtasks(data: {
     } catch (err: any) {
         console.error("Error bulk uploading tasks:", err);
 
-        // Provide specific error messages for common issues
         if (err.code === 'P2002') {
-            // Unique constraint violation
             const field = err.meta?.target?.[0] || 'field';
             return {
                 status: "error",
@@ -335,7 +348,6 @@ export async function bulkUploadTasksAndSubtasks(data: {
         }
 
         if (err.code === 'P2003') {
-            // Foreign key constraint violation
             return {
                 status: "error",
                 message: "Invalid assignee email or project member not found. Please check that all assignees are members of the project.",
@@ -343,22 +355,19 @@ export async function bulkUploadTasksAndSubtasks(data: {
         }
 
         if (err.code === 'P2025') {
-            // Record not found
             return {
                 status: "error",
                 message: "Project or workspace not found. Please refresh and try again.",
             };
         }
 
-        // Check for PostgreSQL UTF-8 encoding errors (null bytes)
         if (err.message?.includes('22021') || err.message?.includes('invalid byte sequence')) {
             return {
                 status: "error",
-                message: "Your CSV file contains invalid characters. Please re-save your CSV file in UTF-8 encoding without BOM, or try copying the data to a new file.",
+                message: "Your CSV file contains invalid characters. Please re-save your CSV file in UTF-8 encoding without BOM or try copying the data to a new file.",
             };
         }
 
-        // Generic error with more details
         const errorMessage = err.message || "Unknown error occurred";
         return {
             status: "error",

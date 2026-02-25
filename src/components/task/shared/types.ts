@@ -20,7 +20,8 @@ export type TaskStatus =
     | "REVIEW"
     | "HOLD"
     | "COMPLETED"
-    | "CANCELLED";
+    | "CANCELLED"
+    | "BLOCKED";
 
 /**
  * Check if a value is a valid TaskStatus
@@ -32,7 +33,8 @@ export function isTaskStatus(value: unknown): value is TaskStatus {
         "REVIEW",
         "HOLD",
         "COMPLETED",
-        "CANCELLED"
+        "CANCELLED",
+        "BLOCKED"
     ].includes(value);
 }
 

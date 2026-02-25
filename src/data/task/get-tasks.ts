@@ -24,52 +24,37 @@ import {
 
 export type TaskViewType = "list" | "kanban" | "gantt" | "calendar";
 
-// ============================================================
-//  PUBLIC OPTIONS INTERFACE
-// ============================================================
 export interface GetTasksOptions {
     workspaceId: string;
     projectId?: string;
     hierarchyMode?: "parents" | "children" | "all";
     groupBy?: "status";
-    adminScope?: boolean;
 
-    // Filters
     status?: string | string[];
-    permissionStatus?: string | string[]; // legacy alias
+    permissionStatus?: string | string[];
     assigneeId?: string | string[];
     tagId?: string | string[];
-    /** @deprecated use tagId */
     tag?: string | string[];
     search?: string;
     dueAfter?: string | Date;
     dueBefore?: string | Date;
-    /** @deprecated use dueAfter */
     startDate?: string | Date;
-    /** @deprecated use dueBefore */
     endDate?: string | Date;
-    isPinned?: boolean; // field removed from DB — accepted but ignored
+    isPinned?: boolean;
 
-    // Hierarchy
     filterParentTaskId?: string;
     onlyParents?: boolean;
     excludeParents?: boolean;
     onlySubtasks?: boolean;
 
-    // Pagination — cursor preferred; page is a legacy compat alias (ignored internally)
     cursor?: TaskCursor;
-    /** @deprecated use cursor pagination */
+    expandedProjectIds?: string[];
     page?: number;
     limit?: number;
 
-    // UI flags
     includeFacets?: boolean;
     view_mode?: "default" | "search";
 }
-
-// ============================================================
-//  HELPERS
-// ============================================================
 const toArray = <T>(v: T | T[] | undefined): T[] | undefined =>
     v === undefined ? undefined : Array.isArray(v) ? v : [v];
 
@@ -83,7 +68,7 @@ const ORDER_BY_CREATED_DESC = [{ createdAt: "desc" as const }, { id: "asc" as co
 function buildQuerySignature(
     workspaceId: string,
     projectId: string | undefined,
-    tier: string,
+    permissionScope: { fullAccessProjectIds: string[], restrictedProjectIds: string[] } | string,
     opts: GetTasksOptions
 ) {
     // 1. Extract and normalize filters
@@ -99,16 +84,14 @@ function buildQuerySignature(
     if (opts.dueAfter) f.da = new Date(opts.dueAfter).getTime();
     if (opts.dueBefore) f.db = new Date(opts.dueBefore).getTime();
 
-    // Hierarchy flags
     if (opts.hierarchyMode) f.hm = opts.hierarchyMode;
     if (opts.groupBy) f.gb = opts.groupBy;
     if (opts.filterParentTaskId) f.pt = opts.filterParentTaskId;
-
-    // 2. Build root signature
+    if (opts.expandedProjectIds) f.ep = sortArr(opts.expandedProjectIds);
     const signature = {
         ws: workspaceId,
         p: projectId ?? "all",
-        tier,
+        ps: permissionScope,
         f,
         c: opts.cursor?.id ?? null,
         l: opts.limit ?? 20,
@@ -118,27 +101,31 @@ function buildQuerySignature(
     return crypto.createHash("sha256").update(JSON.stringify(signature)).digest("hex");
 }
 
-/**
- * Resolves effective permissions (tier, authorized projects, lead projects)
- */
 export async function resolveTaskPermissions(workspaceId: string, projectId?: string) {
     let permissions: any;
-    let leadProjectIds: string[] = [];
     let isWorkspaceAdmin = false;
     let authorizedProjectIds: string[] = [];
 
     if (projectId) {
         permissions = await getUserPermissions(workspaceId, projectId);
         isWorkspaceAdmin = permissions.isWorkspaceAdmin;
-        authorizedProjectIds = [projectId];
-        if (permissions.isProjectLead || permissions.isProjectManager) {
-            leadProjectIds = [projectId];
-        }
+
+        const hasFullAccess =
+            isWorkspaceAdmin ||
+            permissions.isProjectLead ||
+            permissions.isProjectManager;
+
+        return {
+            permissions,
+            isWorkspaceAdmin,
+            authorizedProjectIds: [projectId],
+            fullAccessProjectIds: hasFullAccess ? [projectId] : [],
+            restrictedProjectIds: hasFullAccess ? [] : [projectId]
+        };
     } else {
         const wsPerms = await getWorkspacePermissions(workspaceId);
         permissions = wsPerms;
         isWorkspaceAdmin = wsPerms.isWorkspaceAdmin;
-        leadProjectIds = [...(wsPerms.leadProjectIds ?? []), ...(wsPerms.managedProjectIds ?? [])];
 
         if (isWorkspaceAdmin) {
             authorizedProjectIds = [];
@@ -149,22 +136,24 @@ export async function resolveTaskPermissions(workspaceId: string, projectId?: st
             });
             authorizedProjectIds = myProjects.map(p => p.projectId);
         }
+
+        const fullAccessProjectIds = [
+            ...(wsPerms.leadProjectIds ?? []),
+            ...(wsPerms.managedProjectIds ?? [])
+        ];
+
+        const restrictedProjectIds = authorizedProjectIds.filter(
+            id => !fullAccessProjectIds.includes(id)
+        );
+
+        return {
+            permissions,
+            isWorkspaceAdmin,
+            authorizedProjectIds,
+            fullAccessProjectIds,
+            restrictedProjectIds
+        };
     }
-
-    const fullAccessIds = isWorkspaceAdmin
-        ? authorizedProjectIds
-        : leadProjectIds.filter(id => authorizedProjectIds.includes(id));
-
-    const tier: "admin" | "lead" | "member" = isWorkspaceAdmin ? "admin" : fullAccessIds.length > 0 ? "lead" : "member";
-
-    return {
-        permissions,
-        isWorkspaceAdmin,
-        leadProjectIds,
-        authorizedProjectIds,
-        fullAccessIds,
-        tier
-    };
 }
 
 // ============================================================
@@ -175,20 +164,24 @@ async function _fetchProjectRoot(
     projectId: string,
     workspaceId: string,
     userId: string,
-    permissionMode: "admin" | "lead" | "member",
+    isAdmin: boolean,
+    fullAccessProjectIds: string[],
+    restrictedProjectIds: string[],
     opts: GetTasksOptions
 ) {
     const limit = opts.limit ?? 20;
     const status = toArray(opts.status);
     const assigneeIds = toArray(opts.assigneeId);
 
-    // For members, always scope to their own tasks
-    const assigneeFilter =
-        permissionMode === "member"
-            ? userId
-            : assigneeIds && assigneeIds.length > 0
-                ? assigneeIds[0] // single-assignee fast path
-                : undefined;
+    // Admins and leads with full access to this project see everything;
+    // restricted members only see assigned tasks.
+    const hasFullAccess = isAdmin || fullAccessProjectIds.includes(projectId);
+
+    const assigneeFilter = !hasFullAccess
+        ? userId  // member: always restrict to their own tasks
+        : assigneeIds && assigneeIds.length > 0
+            ? assigneeIds[0] // single-assignee fast path for admin/lead
+            : undefined;
 
     const where = buildProjectRootWhere(projectId, {
         status,
@@ -196,10 +189,10 @@ async function _fetchProjectRoot(
         cursor: opts.cursor,
     });
 
-    // For multi-assignee filter (admin/lead), override
-    if (permissionMode !== "member" && assigneeIds && assigneeIds.length > 1) {
+    // For multi-assignee filter (admin/lead) override the single fast-path
+    if (hasFullAccess && assigneeIds && assigneeIds.length > 1) {
         where.assigneeTo = { in: assigneeIds };
-        delete where.OR; // clear cursor-OR if needed (reassigned below)
+        delete where.OR;
     }
 
     const countWhere = { ...where };
@@ -222,7 +215,6 @@ async function _fetchProjectRoot(
         ? { id: rawTasks[rawTasks.length - 1].id, createdAt: rawTasks[rawTasks.length - 1].createdAt }
         : null;
 
-    // Batch load related entities
     const [userMap, tagMap, projectMap] = await Promise.all([
         batchLoadUsers([
             ...rawTasks.map(t => t.assigneeTo),
@@ -235,12 +227,7 @@ async function _fetchProjectRoot(
 
     const tasks = hydrateTasks(rawTasks, userMap, tagMap, projectMap);
 
-    return {
-        tasks,
-        totalCount,
-        hasMore,
-        nextCursor,
-    };
+    return { tasks, totalCount, hasMore, nextCursor };
 }
 
 // ============================================================
@@ -250,15 +237,35 @@ async function _fetchProjectRoot(
 async function _fetchSubtasks(
     parentTaskId: string,
     userId: string,
-    permissionMode: "admin" | "lead" | "member",
+    isAdmin: boolean,
+    fullAccessProjectIds: string[],
+    restrictedProjectIds: string[],
     opts: GetTasksOptions
 ) {
     const limit = opts.limit ?? 30;
     const status = toArray(opts.status);
 
+    // Resolve the parent's projectId so we can apply the correct per-project scope.
+    // This is a tiny indexed lookup (PK) so it adds negligible latency.
+    let assigneeId: string | undefined = undefined;
+    if (!isAdmin) {
+        const parent = await prisma.task.findUnique({
+            where: { id: parentTaskId },
+            select: { projectId: true },
+        });
+        const parentProjectId = parent?.projectId;
+        if (parentProjectId) {
+            if (restrictedProjectIds.includes(parentProjectId)) {
+                // Member-only project: restrict to own subtasks
+                assigneeId = userId;
+            }
+            // fullAccessProjectIds → no restriction; assigneeId stays undefined
+        }
+    }
+
     const where = buildSubtaskExpansionWhere(parentTaskId, {
         status,
-        assigneeId: permissionMode === "member" ? userId : undefined,
+        assigneeId,
         cursor: opts.cursor,
     });
 
@@ -285,7 +292,6 @@ async function _fetchSubtasks(
         batchLoadTags(rawSubtasks.map(t => t.tagId)),
     ]);
 
-    // No project batch needed — subtasks inherit parent's project
     const emptyProjectMap = new Map<string, any>();
     const tasks = hydrateTasks(rawSubtasks, userMap, tagMap, emptyProjectMap);
 
@@ -300,12 +306,12 @@ async function _fetchSubtasks(
 async function _fetchWorkspaceFilter(
     workspaceId: string,
     userId: string,
-    permissionMode: "admin" | "lead" | "member",
-    authorizedProjectIds: string[],
+    isAdmin: boolean,
+    fullAccessProjectIds: string[],
+    restrictedProjectIds: string[],
     opts: GetTasksOptions
 ) {
     const limit = opts.limit ?? 20;
-    const now = new Date();
 
     const rawStart = toDate(opts.dueAfter as any);
     const rawEnd = toDate(opts.dueBefore as any);
@@ -322,14 +328,16 @@ async function _fetchWorkspaceFilter(
         dueBefore: rawEnd,
         search: opts.search,
         cursor: opts.cursor,
-        authorizedProjectIds,
-        adminScope: opts.adminScope,
+        isAdmin,
+        fullAccessProjectIds,
+        restrictedProjectIds,
+        projectIds: (!opts.projectId && opts.expandedProjectIds?.length) ? opts.expandedProjectIds : undefined,
         onlyParents: opts.onlyParents,
         excludeParents: opts.excludeParents,
         onlySubtasks: opts.onlySubtasks,
     };
 
-    const where = buildWorkspaceFilterWhere(filterOpts, permissionMode, userId);
+    const where = buildWorkspaceFilterWhere(filterOpts, userId);
 
     const [rawTasks, totalCount] = await Promise.all([
         prisma.task.findMany({
@@ -359,7 +367,7 @@ async function _fetchWorkspaceFilter(
     ]);
 
     const tasks = hydrateTasks(rawTasks, userMap, tagMap, projectMap);
-
+    console.log(`[DEBUG] WorkspaceFilter loaded ${tasks.length} tasks:`, tasks.map(t => ({ id: t.id, name: t.name, isParent: t.isParent })));
     return { tasks, totalCount, hasMore, nextCursor };
 }
 
@@ -399,36 +407,39 @@ async function _fetchFacets(
 // ============================================================
 async function _getTasksInternal(
     workspaceId: string,
-    workspaceMemberId: string,
     userId: string,
     isAdmin: boolean,
-    leadProjectIds: string[],
-    authorizedProjectIds: string[],
+    fullAccessProjectIds: string[],
+    restrictedProjectIds: string[],
     opts: GetTasksOptions
 ) {
     const { projectId, hierarchyMode, filterParentTaskId, includeFacets } = opts;
 
-    // 1. Determine permission tier
-    const fullAccessIds = isAdmin
-        ? authorizedProjectIds
-        : leadProjectIds.filter(id => authorizedProjectIds.includes(id));
-
-    const permissionMode: "admin" | "lead" | "member" =
-        isAdmin ? "admin" :
-            fullAccessIds.length > 0 ? "lead" : "member";
-
-    // 2. Identify strategy based on intent/filters
     const hasExplicitFilters =
         opts.assigneeId || opts.status || opts.tagId ||
-        opts.search || opts.dueAfter || opts.dueBefore;
+        opts.search || opts.dueAfter || opts.dueBefore ||
+        (opts.expandedProjectIds && opts.expandedProjectIds.length > 0);
 
     const emptyFacets = { status: {}, assignee: {}, tags: {}, projects: {} };
 
     /**
-     * STRATEGY A: Explicit Parent Task ID (Infinite scroll / row expansion)
+     * SAFETY GUARD: Prevent accidental global load
+     * Workspace mode without project and without filters should return nothing
      */
+    if (!projectId && !hasExplicitFilters && !opts.expandedProjectIds?.length) {
+        return {
+            tasks: [],
+            totalCount: 0,
+            hasMore: false,
+            nextCursor: null,
+            facets: emptyFacets,
+        };
+    }
     if (filterParentTaskId) {
-        const result = await _fetchSubtasks(filterParentTaskId, userId, permissionMode, opts);
+        const result = await _fetchSubtasks(
+            filterParentTaskId, userId, isAdmin,
+            fullAccessProjectIds, restrictedProjectIds, opts
+        );
         return { ...result, totalCount: null, facets: emptyFacets };
     }
 
@@ -437,7 +448,10 @@ async function _getTasksInternal(
      * Direct index scan on (projectId, isParent, status)
      */
     if (projectId && !hasExplicitFilters && (hierarchyMode === "parents" || !hierarchyMode)) {
-        const result = await _fetchProjectRoot(projectId, workspaceId, userId, permissionMode, opts);
+        const result = await _fetchProjectRoot(
+            projectId, workspaceId, userId, isAdmin,
+            fullAccessProjectIds, restrictedProjectIds, opts
+        );
         return { ...result, facets: emptyFacets };
     }
 
@@ -446,10 +460,8 @@ async function _getTasksInternal(
      * Cross-hierarchy query using Workspace filter builder
      */
     const filterResult = await _fetchWorkspaceFilter(
-        workspaceId,
-        userId,
-        permissionMode,
-        authorizedProjectIds,
+        workspaceId, userId, isAdmin,
+        fullAccessProjectIds, restrictedProjectIds,
         {
             ...opts,
             onlyParents: opts.onlyParents || (hierarchyMode === "parents"),
@@ -471,10 +483,11 @@ async function _getTasksInternal(
                 dueAfter: toDate(opts.dueAfter as any),
                 dueBefore: toDate(opts.dueBefore as any),
                 search: opts.search,
-                authorizedProjectIds,
-                adminScope: opts.adminScope,
+                isAdmin,
+                fullAccessProjectIds,
+                restrictedProjectIds,
+                projectIds: (!opts.projectId && opts.expandedProjectIds?.length) ? opts.expandedProjectIds : undefined,
             },
-            permissionMode,
             userId
         );
         facets = await _fetchFacets(facetWhere, !projectId);
@@ -493,9 +506,9 @@ export const getTasks = cache(async (opts: GetTasksOptions) => {
     const {
         permissions,
         isWorkspaceAdmin,
-        leadProjectIds,
         authorizedProjectIds,
-        tier
+        fullAccessProjectIds,
+        restrictedProjectIds
     } = await resolveTaskPermissions(workspaceId, projectId);
 
     if (!permissions.workspaceMemberId || (!isWorkspaceAdmin && authorizedProjectIds.length === 0)) {
@@ -509,8 +522,8 @@ export const getTasks = cache(async (opts: GetTasksOptions) => {
     }
 
     // --- Cache key construction ---
-    const sig = buildQuerySignature(workspaceId, projectId, tier, opts);
-    const cacheKey = `tasks-v10-${workspaceId}-${tier}-${permissions.workspaceMember.userId}-${sig}`;
+    const sig = buildQuerySignature(workspaceId, projectId, { fullAccessProjectIds, restrictedProjectIds }, opts);
+    const cacheKey = `tasks-v11-${workspaceId}-${isWorkspaceAdmin ? 'admin' : 'user'}-${permissions.workspaceMember.userId}-${sig}`;
 
     const tags = projectId
         ? CacheTags.projectTasks(projectId, permissions.workspaceMember.userId)
@@ -519,12 +532,11 @@ export const getTasks = cache(async (opts: GetTasksOptions) => {
     return await unstable_cache(
         () => _getTasksInternal(
             workspaceId,
-            permissions.workspaceMemberId!,
             permissions.workspaceMember!.userId,
             isWorkspaceAdmin,
-            leadProjectIds,
-            authorizedProjectIds,
-            { ...opts, adminScope: isWorkspaceAdmin }
+            fullAccessProjectIds,
+            restrictedProjectIds,
+            opts
         ),
         [cacheKey],
         { tags, revalidate: 30 }
