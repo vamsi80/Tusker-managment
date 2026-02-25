@@ -6,14 +6,15 @@ import { TaskRow } from "./task-row";
 import { ProjectRow } from "./project-row";
 import { Button } from "@/components/ui/button";
 import { ProjectOption } from "../shared/types";
+import { exportGanttToExcel } from "./export-utils";
 import { GanttTask, TimelineGranularity } from "./types";
 import { updateSubtaskPositions } from "@/actions/task/gantt";
 import { TimelineHeader, TimelineGrid } from "./timeline-grid";
 import { calculateTimelineRange, getDaysBetween } from "./utils";
 import { useState, useMemo, useTransition, useEffect, useRef } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Calendar, ChevronDown, Folder, Download } from "lucide-react";
-import { exportGanttToExcel } from "./export-utils";
+import { Calendar, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Folder, Download } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface GanttChartProps {
     tasks: GanttTask[];
@@ -279,76 +280,67 @@ export function GanttChart({
     return (
         <div className={cn("flex flex-col [--gantt-sidebar-width:140px] sm:[--gantt-sidebar-width:200px]", className)}>
             {/* Toolbar */}
-            <div className="flex items-center justify-between gap-4 mb-4 px-1">
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={expandAll}
-                        className="text-xs"
-                    >
-                        Expand All
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={collapseAll}
-                        className="text-xs"
-                    >
-                        Collapse All
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleExport}
-                        className="h-8 gap-2 text-xs"
-                    >
-                        <Download className="h-3.5 w-3.5" />
-                        Export to Sheets
-                    </Button>
+            <div className="flex items-center justify-between gap-2 mb-4 px-1 min-w-0">
+                <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+                    {/* Expand / Collapse toggle */}
+                    {(() => {
+                        const allExpanded = tasks.length > 0 && tasks.every(t => expandedTasks.has(t.id));
+                        return (
+                            <TooltipProvider delayDuration={200}>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={allExpanded ? collapseAll : expandAll}
+                                            className="h-8 w-8 sm:w-auto px-0 sm:px-3 text-xs"
+                                        >
+                                            {allExpanded
+                                                ? <ChevronsDownUp className="h-4 w-4 sm:mr-1" />
+                                                : <ChevronsUpDown className="h-4 w-4 sm:mr-1" />
+                                            }
+                                            <span className="hidden sm:inline">
+                                                {allExpanded ? 'Collapse All' : 'Expand All'}
+                                            </span>
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="sm:hidden">
+                                        {allExpanded ? 'Collapse All' : 'Expand All'}
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        );
+                    })()}
+
+                    {/* Export — icon only on mobile, full label on sm+ */}
+                    <TooltipProvider delayDuration={200}>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleExport}
+                                    className="h-8 w-8 sm:w-auto px-0 sm:px-3 gap-0 sm:gap-2 text-xs"
+                                >
+                                    <Download className="h-3.5 w-3.5" />
+                                    <span className="hidden sm:inline">Export to Sheets</span>
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" className="sm:hidden">Export to Sheets</TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
                 </div>
 
-                <div className="flex items-center gap-2">
-                    {/* {showProjectFilter && projects && (
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="gap-2">
-                                    <Folder className="h-4 w-4" />
-                                    <span className="max-w-[150px] truncate">
-                                        {selectedProjectId
-                                            ? projects.find(p => p.id === selectedProjectId)?.name || "Unknown Project"
-                                            : "All Projects"}
-                                    </span>
-                                    <ChevronDown className="h-3 w-3" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-[200px] max-h-[300px] overflow-y-auto">
-                                <DropdownMenuItem onClick={() => onProjectChange?.(null)}>
-                                    All Projects
-                                </DropdownMenuItem>
-                                {projects.map(project => (
-                                    <DropdownMenuItem
-                                        key={project.id}
-                                        onClick={() => onProjectChange?.(project.id)}
-                                        className="flex items-center gap-2"
-                                    >
-                                        <div
-                                            className="w-2 h-2 rounded-full"
-                                            style={{ backgroundColor: project.color || '#666' }}
-                                        />
-                                        <span className="truncate">{project.name}</span>
-                                    </DropdownMenuItem>
-                                ))}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    )} */}
-
+                <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+                    {/* Granularity picker — icon+text on sm+, icon only on mobile */}
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className="gap-2">
-                                <Calendar className="h-4 w-4" />
-                                {granularity === 'days' ? 'Days' : granularity === 'weeks' ? 'Weeks' : 'Months'}
-                                <ChevronDown className="h-3 w-3" />
+                            <Button variant="outline" size="sm" className="h-8 gap-1 sm:gap-2 px-2 sm:px-3 text-xs">
+                                <Calendar className="h-4 w-4 shrink-0" />
+                                <span className="hidden sm:inline">
+                                    {granularity === 'days' ? 'Days' : granularity === 'weeks' ? 'Weeks' : 'Months'}
+                                </span>
+                                <ChevronDown className="h-3 w-3 hidden sm:block shrink-0" />
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">

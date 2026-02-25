@@ -4,60 +4,85 @@ import { WorkspaceTasksHeader } from "./_components/workspace-tasks-header";
 import { WorkspaceListView } from "./_components/views/list/workspace-list-view";
 import { WorkspaceGanttView } from "./_components/views/gantt/workspace-gantt-view";
 import { WorkspaceKanbanView } from "./_components/views/kanban/workspace-kanban-view";
-import { TaskTableSkeleton } from "@/components/task/list/list-skeleton";
-import { KanbanBoardSkeleton } from "@/components/task/kanban/kanban-skeleton";
-import { GanttChartSkeleton } from "@/components/task/gantt/gantt-skeleton";
+import { WorkspaceTasksSkeleton } from "@/components/shared/workspace-skeletons";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface WorkspaceTasksPageProps {
-    params: Promise<{
-        workspaceId: string;
-    }>;
-    searchParams: Promise<{
-        view?: string;
-    }>;
+    params: Promise<{ workspaceId: string }>;
+    searchParams: Promise<{ view?: string }>;
 }
 
+// Header skeleton — lightweight placeholder while permissions load
+function HeaderSkeleton() {
+    return (
+        <div className="flex items-center justify-between gap-3">
+            <Skeleton className="h-7 sm:h-9 w-36 sm:w-52" />
+            <div className="flex items-center gap-1.5 sm:gap-2">
+                <Skeleton className="h-8 sm:h-9 w-20 sm:w-28 rounded-md" />
+                <Skeleton className="h-8 sm:h-9 w-20 sm:w-28 rounded-md" />
+            </div>
+        </div>
+    );
+}
+
+// ─── Streaming view wrappers ──────────────────────────────────────────────────
+
+async function ListView({ workspaceId }: { workspaceId: string }) {
+    await requireUser();
+    return <WorkspaceListView workspaceId={workspaceId} />;
+}
+
+async function KanbanView({ workspaceId }: { workspaceId: string }) {
+    await requireUser();
+    return <WorkspaceKanbanView workspaceId={workspaceId} />;
+}
+
+async function GanttView({ workspaceId }: { workspaceId: string }) {
+    await requireUser();
+    return <WorkspaceGanttView workspaceId={workspaceId} />;
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 /**
- * Workspace Tasks Page
- * 
- * Shows all tasks from all projects in the workspace
- * Supports multiple views:
- * - List view (default)
- * - Kanban view
- * - Gantt view
- * 
- * Each view has its own specific skeleton loader
+ * Workspace Tasks Page — fully streaming.
+ * Header and view content each load independently via their own Suspense.
+ * Skeleton appears instantly via loading.tsx, then pieces stream in.
  */
 export default async function WorkspaceTasksPage({
     params,
     searchParams,
 }: WorkspaceTasksPageProps) {
     console.log("🟢 RSC: tasks/page.tsx render");
-    // Ensure user is authenticated
-    await requireUser();
 
     const { workspaceId } = await params;
-    const { view = 'list' } = await searchParams;
+    const { view = "list" } = await searchParams;
+
+    const skeleton = <WorkspaceTasksSkeleton />;
 
     return (
-        <div className="flex flex-col gap-6 pb-3 px-3 h-full">
-            <WorkspaceTasksHeader workspaceId={workspaceId} />
+        <div className="flex flex-col gap-4 sm:gap-6 pb-3 px-0 h-full">
+            {/* Header streams in independently */}
+            <Suspense fallback={<HeaderSkeleton />}>
+                <WorkspaceTasksHeader workspaceId={workspaceId} />
+            </Suspense>
 
-            {view === 'list' && (
-                <Suspense fallback={<TaskTableSkeleton />}>
-                    <WorkspaceListView workspaceId={workspaceId} />
+            {/* View content streams in */}
+            {view === "list" && (
+                <Suspense fallback={skeleton}>
+                    <ListView workspaceId={workspaceId} />
                 </Suspense>
             )}
 
-            {view === 'kanban' && (
-                <Suspense fallback={<KanbanBoardSkeleton />}>
-                    <WorkspaceKanbanView workspaceId={workspaceId} />
+            {view === "kanban" && (
+                <Suspense fallback={skeleton}>
+                    <KanbanView workspaceId={workspaceId} />
                 </Suspense>
             )}
 
-            {view === 'gantt' && (
-                <Suspense fallback={<GanttChartSkeleton />}>
-                    <WorkspaceGanttView workspaceId={workspaceId} />
+            {view === "gantt" && (
+                <Suspense fallback={skeleton}>
+                    <GanttView workspaceId={workspaceId} />
                 </Suspense>
             )}
         </div>

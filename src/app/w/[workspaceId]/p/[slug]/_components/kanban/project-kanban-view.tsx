@@ -17,7 +17,8 @@ export async function ProjectKanbanView({
         const res = await getTasks({
             workspaceId,
             projectId,
-            view: "kanban",
+            hierarchyMode: "children",
+            groupBy: "status",
             status,
             page: 1,
             limit: 5

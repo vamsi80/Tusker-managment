@@ -45,56 +45,6 @@ export const TASK_CORE_SELECT = {
 export interface TaskCursor {
     id: string;
     createdAt: Date;
-    [key: string]: any; // Support secondary fields for sorting
-}
-
-// ============================================================
-//  SORT BUILDER
-// ============================================================
-export interface SortConfig {
-    field: string;
-    direction: "asc" | "desc";
-}
-
-export function buildOrderBy(sorts?: SortConfig[]): Prisma.TaskOrderByWithRelationInput[] {
-    const defaultOrder: Prisma.TaskOrderByWithRelationInput[] = [{ createdAt: "desc" }, { id: "asc" }];
-
-    if (!sorts || sorts.length === 0) {
-        return defaultOrder;
-    }
-
-    const orderBy: Prisma.TaskOrderByWithRelationInput[] = [];
-    const whitelist = ["name", "status", "startDate", "dueDate", "assignee", "tags"];
-
-    sorts.forEach(s => {
-        if (!whitelist.includes(s.field)) return;
-
-        switch (s.field) {
-            case "name":
-                orderBy.push({ name: s.direction });
-                break;
-            case "status":
-                orderBy.push({ status: s.direction });
-                break;
-            case "startDate":
-                orderBy.push({ startDate: s.direction });
-                break;
-            case "dueDate":
-                orderBy.push({ dueDate: s.direction });
-                break;
-            case "assignee":
-                // Sorting by FK for performance at scale
-                orderBy.push({ assigneeTo: s.direction });
-                break;
-            case "tags":
-                orderBy.push({ tagId: s.direction });
-                break;
-        }
-    });
-
-    // Always append ID for stable sorting
-    orderBy.push({ id: "asc" });
-    return orderBy;
 }
 
 // ============================================================
@@ -210,7 +160,6 @@ export interface WorkspaceFilterOpts {
     onlyParents?: boolean;            // restricts to isParent: true
     excludeParents?: boolean;         // restricts to isParent: false
     onlySubtasks?: boolean;           // restricts to parentTaskId: { not: null }
-    sorts?: SortConfig[];             // items to sort by
 }
 
 export function buildWorkspaceFilterWhere(
@@ -283,46 +232,16 @@ export function buildWorkspaceFilterWhere(
     }
 
     if (opts.cursor) {
-        const sorts = opts.sorts || [];
-        const primarySort = sorts[0];
-
-        if (!primarySort) {
-            // Default logic: (createdAt DESC, id ASC)
-            const cursorCondition = {
-                OR: [
-                    { createdAt: { lt: opts.cursor.createdAt } },
-                    { createdAt: opts.cursor.createdAt, id: { gt: opts.cursor.id } },
-                ]
-            };
-            if (where.AND) { (where.AND as any[]).push(cursorCondition); }
-            else { where.AND = [cursorCondition]; }
+        const cursorCondition = {
+            OR: [
+                { createdAt: { lt: opts.cursor.createdAt } },
+                { createdAt: opts.cursor.createdAt, id: { gt: opts.cursor.id } },
+            ]
+        };
+        if (where.AND) {
+            (where.AND as any[]).push(cursorCondition);
         } else {
-            // Complex sorting cursor logic:
-            const field = primarySort.field === "assignee" ? "assigneeTo" : primarySort.field === "tags" ? "tagId" : primarySort.field;
-            const dir = primarySort.direction;
-            const op = dir === "asc" ? "gt" : "lt";
-            const val = opts.cursor[field];
-
-            if (val !== undefined) {
-                const cursorCondition = {
-                    OR: [
-                        { [field]: { [op]: val } },
-                        { [field]: val, id: { gt: opts.cursor.id } },
-                    ]
-                };
-                if (where.AND) { (where.AND as any[]).push(cursorCondition); }
-                else { where.AND = [cursorCondition]; }
-            } else {
-                // Fallback to default if field missing in cursor
-                const cursorCondition = {
-                    OR: [
-                        { createdAt: { lt: opts.cursor.createdAt } },
-                        { createdAt: opts.cursor.createdAt, id: { gt: opts.cursor.id } },
-                    ]
-                };
-                if (where.AND) { (where.AND as any[]).push(cursorCondition); }
-                else { where.AND = [cursorCondition]; }
-            }
+            where.AND = [cursorCondition];
         }
     }
 

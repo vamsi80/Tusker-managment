@@ -4,7 +4,7 @@ import { getWorkspaceTags } from "@/data/tag/get-tags";
 import { getUserProjects } from "@/data/project/get-projects";
 import { WorkspaceGanttClient } from "./workspace-gantt-client";
 import { getWorkspaceMembers } from "@/data/workspace/get-workspace-members";
-import { getSubTasksByParentIds } from "@/data/task/list/get-subtasks-batch";
+import { getSubTasksByParentIds } from "@/data/task/get-subtasks-batch";
 import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
 
 interface WorkspaceGanttViewProps {
@@ -21,7 +21,7 @@ interface WorkspaceGanttViewProps {
  */
 export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProps) {
     const [tasksData, projects, workspaceMembers, projectMemberMatches, tags] = await Promise.all([
-        getWorkspaceTasks({ workspaceId, page: 1, limit: 50, includeFacets: true }), // Get up to 5000 parent tasks
+        getWorkspaceTasks({ workspaceId, hierarchyMode: "parents", page: 1, limit: 50, includeFacets: true }), // Get up to 5000 parent tasks
         getUserProjects(workspaceId),
         getWorkspaceMembers(workspaceId),
         prisma.projectMember.findMany({

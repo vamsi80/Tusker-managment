@@ -17,51 +17,6 @@ import {
     hydrateTasks,
 } from "@/lib/tasks/batch-loader";
 
-/**
- * Translates Prisma filters into Raw SQL fragments for the window query.
- * This ensures the pagination step respects the same filters as the count step.
- */
-function buildSubTaskConditionsSql(filters: Partial<TaskFilters>): Prisma.Sql {
-    const conditions: Prisma.Sql[] = [];
-
-    if (filters.status) {
-        const statuses = Array.isArray(filters.status) ? filters.status : [filters.status];
-        if (statuses.length > 0) {
-            conditions.push(Prisma.sql`"status"::text IN (${Prisma.join(statuses)})`);
-        }
-    }
-
-    if (filters.assigneeId) {
-        const ids = Array.isArray(filters.assigneeId) ? filters.assigneeId : [filters.assigneeId];
-        if (ids.length > 0) {
-            conditions.push(Prisma.sql`"assigneeTo" IN (${Prisma.join(ids)})`);
-        }
-    }
-
-    if (filters.tagId) {
-        const ids = Array.isArray(filters.tagId) ? filters.tagId : [filters.tagId];
-        if (ids.length > 0) {
-            conditions.push(Prisma.sql`"tagId" IN (${Prisma.join(ids)})`);
-        }
-    }
-
-    if (filters.dueAfter) {
-        conditions.push(Prisma.sql`"dueDate" >= ${new Date(filters.dueAfter)}`);
-    }
-
-    if (filters.dueBefore) {
-        conditions.push(Prisma.sql`"dueDate" <= ${new Date(filters.dueBefore)}`);
-    }
-
-    if (filters.search && filters.search.trim()) {
-        const search = `%${filters.search.trim()}%`;
-        conditions.push(Prisma.sql`("name" ILIKE ${search} OR "description" ILIKE ${search} OR "taskSlug" ILIKE ${search})`);
-    }
-
-    if (conditions.length === 0) return Prisma.empty;
-    return Prisma.sql`AND ${Prisma.join(conditions, " AND ")}`;
-}
-
 export type BatchSubTasksResult = {
     parentTaskId: string;
     subTasks: any[];
@@ -111,10 +66,7 @@ async function _getSubTasksByParentIdsInternal(
         countWhere.projectId = { in: authorizedProjectIds };
     }
 
-    // 3. Build Filter SQL for Window Query
-    const filterSql = buildSubTaskConditionsSql(filters);
-
-    // 4. SQL for window function pagination
+    // 3. SQL for window function pagination
     const subTaskIdsRaw = await prisma.$queryRaw<any[]>`
         SELECT id FROM (
             SELECT 
@@ -124,7 +76,6 @@ async function _getSubTasksByParentIdsInternal(
             WHERE "parentTaskId" IN (${Prisma.join(parentTaskIds)})
               AND "workspaceId" = ${workspaceId}
               ${permissionSql}
-              ${filterSql}
         ) sub WHERE rn <= ${pageSize}
     `;
 

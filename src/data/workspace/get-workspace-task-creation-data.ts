@@ -7,7 +7,7 @@ import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { getUserProjects } from "@/data/project/get-projects";
 import { getWorkspaceMembers } from "@/data/workspace/get-workspace-members";
 import { getWorkspaceTags } from "@/data/tag/get-tags";
-import { getParentTasksOnly } from "@/data/task/list/get-parent-tasks-only";
+import { getTasks } from "@/data/task/get-tasks";
 import { CacheTags } from "@/data/cache-tags";
 
 /**
@@ -107,7 +107,12 @@ async function _getWorkspaceTaskCreationDataInternal(
 
     // Fetch parent tasks only from projects user has access to
     const parentTasksPromises = projectsData.map(p =>
-        getParentTasksOnly(p.id, workspaceId, 1, 100) // Get first 100 parent tasks from each project
+        getTasks({
+            workspaceId,
+            projectId: p.id,
+            hierarchyMode: "parents",
+            limit: 100
+        })
     );
     const parentTasksResults = await Promise.all(parentTasksPromises);
 

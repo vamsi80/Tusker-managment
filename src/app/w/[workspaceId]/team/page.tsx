@@ -1,47 +1,15 @@
 import { Suspense } from "react";
-
 import { isAdminServer } from "@/lib/auth/requireAdmin";
 import { TeamMembers } from "./_components/team-members-table";
-import { TeamMembersSkeleton } from "./_components/team-members-skeleton";
-import { Skeleton } from "@/components/ui/skeleton";
+import { TeamPageSkeleton, TeamPageSkeleton as TeamMembersSkeletonFallback } from "@/components/shared/workspace-skeletons";
 import { getWorkspaceMembers } from "@/data/workspace";
 
 interface TeamPageProps {
-    params: Promise<{
-        workspaceId: string;
-    }>;
+    params: Promise<{ workspaceId: string }>;
 }
 
-/**
- * Header skeleton for instant loading
- */
-function TeamHeaderSkeleton() {
-    return (
-        <div className="flex items-center justify-between">
-            <Skeleton className="h-10 w-48" />
-            <Skeleton className="h-10 w-32" />
-        </div>
-    );
-}
+// ─── Streaming components ────────────────────────────────────────────────────
 
-/**
- * Async component for the header with invite button
- * Wrapped in Suspense so page loads instantly
- */
-async function TeamHeader({ workspaceId }: { workspaceId: string }) {
-    return (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <h1 className="text-2xl font-bold leading-tight tracking-tighter md:text-3xl">
-                Team Members
-            </h1>
-        </div>
-    );
-}
-
-/**
- * Async component for team members list
- * Wrapped in Suspense with skeleton fallback
- */
 async function TeamMembersList({ workspaceId }: { workspaceId: string }) {
     const [data, isAdmin] = await Promise.all([
         getWorkspaceMembers(workspaceId),
@@ -56,31 +24,28 @@ async function TeamMembersList({ workspaceId }: { workspaceId: string }) {
     );
 }
 
+// ─── Page ────────────────────────────────────────────────────────────────────
+
 /**
- * Team Page - Uses Progressive Loading Pattern
- * 
- * Navigation Flow:
- * 1. User clicks link → Page INSTANTLY shows with skeletons (~10ms)
- * 2. TeamHeader loads → Shows "Team Members" + Invite button
- * 3. TeamMembersList loads → Shows team members table
- * 
- * Result: Navigation feels INSTANT, data streams in progressively!
+ * Team Page — skeleton shows instantly via loading.tsx.
+ * Data fetches are inside Suspense so they don't block rendering.
  */
 export default async function TeamPage({ params }: TeamPageProps) {
     const { workspaceId } = await params;
 
     return (
-        <div className="flex flex-col gap-5">
-            {/* Header with invite button - loads independently */}
-            <Suspense fallback={<TeamHeaderSkeleton />}>
-                <TeamHeader workspaceId={workspaceId} />
-            </Suspense>
+        <div className="flex flex-col gap-4 sm:gap-5">
+            {/* Static heading — renders immediately, no fetch needed */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <h1 className="text-2xl font-bold leading-tight tracking-tighter md:text-3xl">
+                    Team Members
+                </h1>
+            </div>
 
-            {/* Team members table - loads independently */}
-            <Suspense fallback={<TeamMembersSkeleton />}>
+            {/* Members table streams in */}
+            <Suspense fallback={<TeamPageSkeleton />}>
                 <TeamMembersList workspaceId={workspaceId} />
             </Suspense>
         </div>
     );
 }
-

@@ -27,11 +27,10 @@ export async function ProjectTaskListView({
     userId,
 }: ProjectTaskListViewProps) {
     // Fetch parent tasks (List View mode) using unified function
-    const { tasks, hasMore } = await getTasks({
+    const { tasks, hasMore, nextCursor } = await getTasks({
         workspaceId,
         projectId,
-        view: "list",
-        page: 1,
+        hierarchyMode: "parents",
         limit: 50 // Load reasonable initial batch
     });
 
@@ -55,6 +54,7 @@ export async function ProjectTaskListView({
         <TaskTable
             initialTasks={parentTasks}
             initialHasMore={hasMore}
+            initialNextCursor={nextCursor}
             members={members}
             workspaceId={workspaceId}
             projectId={projectId}

@@ -21,7 +21,8 @@ export async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewPr
     const fetchColumn = async (status: string) => {
         const res = await getTasks({
             workspaceId,
-            view: "kanban",
+            hierarchyMode: "children",
+            groupBy: "status",
             status,
             page: 1,
             limit: 15
@@ -29,9 +30,14 @@ export async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewPr
         });
 
         // Adapt response to match component expectation
+        // Deduplicate tasks by ID just in case
+        const uniqueTasks = Array.from(
+            new Map(res.tasks.map((t) => [t.id, t])).values()
+        );
+
         return {
-            subTasks: res.tasks as any,
-            totalCount: res.totalCount,
+            subTasks: uniqueTasks as any,
+            totalCount: res.totalCount ?? 0,
             hasMore: res.hasMore,
             currentPage: 1
         };
@@ -81,31 +87,38 @@ export async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewPr
 
     // Convert workspace members to project members format
     // The KanbanBoard expects ProjectMembersType, but we can adapt workspace members
-    const adaptedMembers = workspaceMembers.workspaceMembers.map((member) => ({
-        id: member.id,
-        workspaceMemberId: member.id,
-        projectId: workspaceId, // Use workspaceId as placeholder
-        hasAccess: true,
-        role: "MEMBER" as const,
-        projectRole: "MEMBER" as const,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        workspaceMember: {
-            id: member.id,
-            workspaceId: member.workspaceId,
-            userId: member.userId,
-            workspaceRole: member.workspaceRole as "OWNER" | "ADMIN" | "MEMBER" | "VIEWER",
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            user: {
-                id: member.user?.id || "",
-                name: member.user?.name || "",
-                surname: member.user?.surname || null,
-                email: member.user?.email || "",
-                image: member.user?.image || null,
-            },
-        },
-    }));
+    const adaptedMembers = Array.from(
+        new Map(
+            workspaceMembers.workspaceMembers.map((member) => [
+                member.userId,
+                {
+                    id: member.id,
+                    workspaceMemberId: member.id,
+                    projectId: workspaceId,
+                    hasAccess: true,
+                    role: "MEMBER" as const,
+                    projectRole: "MEMBER" as const,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                    workspaceMember: {
+                        id: member.id,
+                        workspaceId: member.workspaceId,
+                        userId: member.userId,
+                        workspaceRole: member.workspaceRole as "OWNER" | "ADMIN" | "MEMBER" | "VIEWER",
+                        createdAt: new Date(),
+                        updatedAt: new Date(),
+                        user: {
+                            id: member.user?.id || "",
+                            name: member.user?.name || "",
+                            surname: member.user?.surname || null,
+                            email: member.user?.email || "",
+                            image: member.user?.image || null,
+                        },
+                    },
+                }
+            ])
+        ).values()
+    );
 
     // Build map of project -> userIds
     const projectUserMap: Record<string, string[]> = {};

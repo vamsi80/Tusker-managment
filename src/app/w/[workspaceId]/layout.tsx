@@ -1,26 +1,33 @@
+import { Suspense } from "react";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "../_components/sidebar/workspace-sidebar";
 import { SiteHeader } from "../_components/sidebar/header/site-header";
 import { getWorkspaces } from "@/data/workspace/get-workspaces";
+import { getWorkspaceMetadata } from "@/data/workspace/get-workspace-metadata";
+import { notFound } from "next/navigation";
 
 interface Props {
     children: React.ReactNode;
     params: Promise<{ workspaceId: string }>;
 }
 
-import { getWorkspaceMetadata } from "@/data/workspace/get-workspace-metadata";
-import { notFound } from "next/navigation";
+/**
+ * Loads sidebar data independently so the shell renders immediately
+ * while the sidebar data streams in.
+ */
+async function SidebarLoader({ workspaceId }: { workspaceId: string }) {
+    const data = await getWorkspaces();
+    return <AppSidebar variant="inset" data={data as any} workspaceId={workspaceId} />;
+}
 
 export default async function WorkSpaceLayout({ children, params }: Props) {
     const { workspaceId } = await params;
 
-    // Fast validation using lightweight metadata
+    // Lightweight access check — only done here, not repeated in child layouts
     const workspace = await getWorkspaceMetadata(workspaceId);
     if (!workspace) {
         return notFound();
     }
-
-    const data = await getWorkspaces();
 
     return (
         <SidebarProvider
@@ -31,7 +38,11 @@ export default async function WorkSpaceLayout({ children, params }: Props) {
                 } as React.CSSProperties
             }
         >
-            <AppSidebar variant="inset" data={data as any} workspaceId={workspaceId} />
+            {/* Sidebar streams in — shell renders instantly */}
+            <Suspense fallback={null}>
+                <SidebarLoader workspaceId={workspaceId} />
+            </Suspense>
+
             <SidebarInset>
                 <SiteHeader />
                 <div className="flex flex-1 flex-col">
@@ -43,5 +54,5 @@ export default async function WorkSpaceLayout({ children, params }: Props) {
                 </div>
             </SidebarInset>
         </SidebarProvider>
-    )
+    );
 }

@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Calendar, Tag, GripVertical, MessageSquare, AlertCircle, Folder, Crown } from "lucide-react";
-import { KanbanSubTaskType } from "@/data/task/kanban";
+import { KanbanSubTaskType } from "@/data/task";
 import { cn } from "@/lib/utils";
 import { getColorFromString } from "@/lib/colors/project-colors";
 
@@ -110,20 +110,16 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                         </TooltipProvider>
                     )}
                 </div>
-                <div className="flex items-center justify-between gap-1.5 min-h-[16px]">
-                    <div className="flex items-center gap-1.5 overflow-hidden">
-                        {subTask.parentTask && (
-                            <Badge
-                                variant="outline"
-                                className="text-[10px] px-1.5 py-0 h-5 max-w-[120px]"
-                            >
-                                <span className="truncate">{subTask.parentTask.name}</span>
-                            </Badge>
-                        )}
-                    </div>
-                </div>
 
                 <div>
+                    {subTask.parentTask && (
+                        <div className="flex items-center gap-1 mb-1 group/parent cursor-default">
+                            <span className="text-[11px] font-medium text-muted-foreground/80 truncate max-w-[180px]" title={`Parent: ${subTask.parentTask.name}`}>
+                                {subTask.parentTask.name}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground/40">/</span>
+                        </div>
+                    )}
                     <div className="flex items-start justify-between gap-2">
                         <h5
                             className="font-semibold text-[13px] leading-snug flex-1 cursor-pointer hover:text-primary transition-colors line-clamp-1"

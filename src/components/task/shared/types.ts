@@ -5,7 +5,7 @@
  * used across task components (List, Kanban, Gantt, and shared components).
  */
 import { WorkspaceTaskType } from "@/data/task";
-import { SubTaskType } from "@/data/task/list/get-subtasks";
+import { SubTaskType } from "@/data/task";
 
 // ============================================================================
 // FILTER TYPES
@@ -358,10 +358,9 @@ export function hasActiveFilters(filters: TaskFilters): boolean {
 export type TaskWithSubTasks = WorkspaceTaskType & {
     subTasks?: SubTaskType[];
     subTasksHasMore?: boolean;
-    subTasksPage?: number;
-    // Add isOptimistic if needed generally, though often casted
+    subTasksNextCursor?: any;
+    nextCursor?: any;
     isOptimistic?: boolean;
-    // Add taskSlug for easier access if it's not on WorkspaceTaskType directly
     taskSlug?: string;
 };
 

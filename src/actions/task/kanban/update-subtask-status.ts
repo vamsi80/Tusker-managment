@@ -77,25 +77,14 @@ export async function updateSubTaskStatus(
             where: { id: subTaskId },
             select: {
                 id: true,
-                projectId: true, // ADDED
-                parentTaskId: true, // ADDED
+                projectId: true,
+                parentTaskId: true,
                 name: true,
                 status: true,
                 description: true,
-                tag: true,
                 startDate: true,
                 days: true,
-                isPinned: true,
-                assignee: {
-                    select: {
-                        id: true,
-                    },
-                },
-                parentTask: {
-                    select: {
-                        projectId: true,
-                    },
-                },
+                assigneeTo: true,      // FK — avoids JOIN
             },
         });
 
@@ -116,7 +105,7 @@ export async function updateSubTaskStatus(
         }
 
         // 7. Check if user is authorized to move this card
-        const isAssignee = subTask.assignee?.id === permissions.workspaceMember.userId;
+        const isAssignee = subTask.assigneeTo === permissions.workspaceMember.userId;
         const isAdminOrLead = permissions.isWorkspaceAdmin || permissions.isProjectLead;
 
         if (!isAssignee && !isAdminOrLead) {

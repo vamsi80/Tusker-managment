@@ -1,9 +1,7 @@
 "use server";
 
-import { getWorkspaceTasks, WorkspaceTaskFilters, getAllTasksFlat } from "@/data/task";
-import { getSubTasks } from "@/data/task/list/get-subtasks";
-import { getSubTasksByParentIds } from "@/data/task/list/get-subtasks-batch";
-import { getSortedSubTasks } from "@/data/task/get-sorted-subtasks";
+import { getWorkspaceTasks, WorkspaceTaskFilters } from "@/data/task";
+import { getSubTasksByParentIds } from "@/data/task/get-subtasks-batch";
 import { TaskFilters } from "@/types/task-filters";
 import { SortConfig } from "@/components/task/shared/types";
 
@@ -13,8 +11,8 @@ import { SortConfig } from "@/components/task/shared/types";
  */
 export async function loadMoreTasksAction(
     workspaceId: string,
-    filters: WorkspaceTaskFilters = {} as any,
-    page: number = 1,
+    filters: any = {},
+    cursor?: any,
     pageSize: number = 10
 ) {
     console.log("🟢 ACTION: loadMoreTasksAction");
@@ -23,10 +21,11 @@ export async function loadMoreTasksAction(
         const result = await getWorkspaceTasks({
             ...filters,
             workspaceId,
-            status: filters.status as any, // Cast to any to avoid string[] vs TaskStatus[] mismatch from legacy types
-            page,
+            status: filters.status as any,
+            cursor,
             limit: pageSize,
-            includeFacets: true
+            includeFacets: true,
+            hierarchyMode: "parents",
         });
         return {
             success: true,
@@ -42,7 +41,7 @@ export async function loadMoreTasksAction(
 }
 
 /**
- * Server Action: Load more parent tasks using getAllTasksFlat (for workspace list view)
+ * Server Action: Load more parent tasks (previously used getAllTasksFlat)
  */
 export async function loadMoreTasksFlatAction(
     workspaceId: string,
@@ -52,22 +51,18 @@ export async function loadMoreTasksFlatAction(
 ) {
     console.log("🟢 ACTION: loadMoreTasksFlatAction");
     try {
-        const result = await getAllTasksFlat(workspaceId, projectId, page, pageSize);
-
-        // Transform to match expected format
-        const tasks = result.tasks.map(task => ({
-            ...task,
-            subTasks: undefined, // Will be loaded on-demand
-            createdBy: { user: { name: '', surname: '', image: '' } },
-            _count: {
-                subTasks: task._count.subTasks,
-            },
-        }));
+        const result = await getWorkspaceTasks({
+            workspaceId,
+            projectId,
+            hierarchyMode: "parents",
+            limit: pageSize,
+            // Note: getTasks uses cursor internally, page is legacy
+        });
 
         return {
             success: true,
             data: {
-                tasks,
+                tasks: result.tasks,
                 hasMore: result.hasMore,
                 totalCount: result.totalCount,
             },
@@ -88,8 +83,8 @@ export async function loadSubTasksAction(
     parentTaskId: string,
     workspaceId: string,
     projectId: string,
-    filters: WorkspaceTaskFilters = {} as any,
-    page: number = 1,
+    filters: any = {},
+    cursor?: any,
     pageSize: number = 10
 ) {
     console.log("🟢 ACTION: loadSubTasksAction", parentTaskId);
@@ -109,10 +104,16 @@ export async function loadSubTasksAction(
             search: filters.search,
             dueAfter: (filters.startDate || filters.dueAfter) as any,
             dueBefore: (filters.endDate || filters.dueBefore) as any,
-            isPinned: filters.isPinned,
+            isPinned: undefined, // removed from schema
         };
 
-        const result = await getSubTasks(parentTaskId, workspaceId, projectId, taskFilters, page, pageSize);
+        const result = await getWorkspaceTasks({
+            ...taskFilters,
+            projectId,
+            filterParentTaskId: parentTaskId,
+            cursor,
+            limit: pageSize,
+        });
         return {
             success: true,
             data: result,
@@ -170,7 +171,6 @@ export async function loadSubTasksBatchAction(
             search: filters.search,
             dueAfter: (filters.startDate || filters.dueAfter) as any,
             dueBefore: (filters.endDate || filters.dueBefore) as any,
-            isPinned: filters.isPinned,
         };
 
         const result = await getSubTasksByParentIds(
@@ -209,34 +209,29 @@ export async function loadSortedSubTasksAction(
 ) {
     console.log("🟢 ACTION: loadSortedSubTasksAction");
     try {
-        const toArray = <T>(val: T | T[] | undefined): T[] | undefined => {
-            if (val === undefined) return undefined;
-            return Array.isArray(val) ? val : [val];
-        };
-
-        // Map WorkspaceTaskFilters to the format expected by getSortedSubTasks
-        const taskFilters = {
-            projectId: filters.projectId,
-            status: toArray(filters.status) as any,
-            assigneeId: toArray(filters.assigneeId),
-            tagId: toArray(filters.tagId || filters.tag),
-            search: filters.search,
-            dueAfter: (filters.startDate || filters.dueAfter) as any,
-            dueBefore: (filters.endDate || filters.dueBefore) as any,
-            isPinned: filters.isPinned,
-        };
-
-        const result = await getSortedSubTasks(
+        const result = await getWorkspaceTasks({
+            ...filters,
             workspaceId,
-            taskFilters,
-            sorts,
-            page,
-            pageSize
-        );
+            hierarchyMode: "children",
+            limit: pageSize,
+            includeFacets: true,
+        });
+
+        // Group by project as expected by the UI for this specific action
+        const tasksByProject: Record<string, any[]> = {};
+        result.tasks.forEach(task => {
+            const pid = task.projectId || 'unknown';
+            if (!tasksByProject[pid]) tasksByProject[pid] = [];
+            tasksByProject[pid].push(task);
+        });
 
         return {
             success: true,
-            data: result,
+            data: {
+                tasksByProject,
+                totalCount: result.totalCount,
+                hasMore: result.hasMore,
+            },
         };
     } catch (error) {
         console.error("Error in loadSortedSubTasksAction:", error);
@@ -246,4 +241,3 @@ export async function loadSortedSubTasksAction(
         };
     }
 }
-

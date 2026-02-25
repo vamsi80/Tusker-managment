@@ -30,6 +30,9 @@ export interface TaskFilters {
     /** Filter by pinned status */
     isPinned?: boolean;
 
+    /** Optional: Filter by specific parent task (use null for root) */
+    parentTaskId?: string | null;
+
     /** Filter by creator */
     createdById?: string;
 }

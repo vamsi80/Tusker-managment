@@ -1,5 +1,5 @@
-import { getTasks } from "@/data/task/get-tasks";
-import { getSubTasksByParentIds } from "@/data/task/list/get-subtasks-batch";
+import { getWorkspaceTasks } from "@/data/task";
+import { getSubTasksByParentIds } from "@/data/task/get-subtasks-batch";
 import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
 import { ProjectGanttClient } from "./project-gantt-client";
 
@@ -14,10 +14,10 @@ interface GanttServerWrapperProps {
  */
 export async function GanttServerWrapper({ workspaceId, projectId }: GanttServerWrapperProps) {
     // 1. Fetch Parent Tasks (Unified Function)
-    const tasksData = await getTasks({
+    const tasksData = await getWorkspaceTasks({
         workspaceId,
         projectId,
-        view: 'gantt', // Fetches parent tasks
+        hierarchyMode: "parents",
         page: 1,
         limit: 5000,
         includeFacets: true
