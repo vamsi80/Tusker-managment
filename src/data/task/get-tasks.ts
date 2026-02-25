@@ -1,410 +1,145 @@
 "use server";
 
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
+import crypto from "crypto";
+import { Prisma } from "@/generated/prisma/client";
 import prisma from "@/lib/db";
 import { getUserPermissions, getWorkspacePermissions } from "@/data/user/get-user-permissions";
-import { unstable_cache } from "next/cache";
-import { TaskStatus } from "@/generated/prisma";
 import { CacheTags } from "@/data/cache-tags";
-import { TaskFilters } from "@/types/task-filters";
-import { buildTaskFilter, buildSubTaskConditions } from "@/lib/tasks/filter-utils";
+import {
+    TASK_CORE_SELECT,
+    TaskCursor,
+    buildProjectRootWhere,
+    buildSubtaskExpansionWhere,
+    buildWorkspaceFilterWhere,
+    WorkspaceFilterOpts,
+    buildOrderBy,
+    SortConfig,
+} from "@/lib/tasks/query-builder";
+import {
+    batchLoadUsers,
+    batchLoadTags,
+    batchLoadProjects,
+    hydrateTasks,
+} from "@/lib/tasks/batch-loader";
 
 export type TaskViewType = "list" | "kanban" | "gantt" | "calendar";
 
-/**
- * Enhanced Filters for tasks (Unified)
- */
+// ============================================================
+//  PUBLIC OPTIONS INTERFACE
+// ============================================================
 export interface GetTasksOptions {
     workspaceId: string;
     projectId?: string;
-    view?: TaskViewType;
+    hierarchyMode?: "parents" | "children" | "all";
+    groupBy?: "status";
+    adminScope?: boolean;
+
+    // Filters
     status?: string | string[];
-    permissionStatus?: string | string[]; // Legacy alias for status
-    page?: number;
-    limit?: number;
-    search?: string;
+    permissionStatus?: string | string[]; // legacy alias
     assigneeId?: string | string[];
-    tag?: string | string[]; // Legacy
     tagId?: string | string[];
-    startDate?: string | Date; // flexible input
-    endDate?: string | Date; // flexible input
-    dueBefore?: string | Date;
+    /** @deprecated use tagId */
+    tag?: string | string[];
+    search?: string;
     dueAfter?: string | Date;
+    dueBefore?: string | Date;
+    /** @deprecated use dueAfter */
+    startDate?: string | Date;
+    /** @deprecated use dueBefore */
+    endDate?: string | Date;
+    isPinned?: boolean; // field removed from DB — accepted but ignored
+
+    // Hierarchy
     filterParentTaskId?: string;
-    isPinned?: boolean;
+    onlyParents?: boolean;
+    excludeParents?: boolean;
+    onlySubtasks?: boolean;
 
-    // PERFORMANCE FLAGS
-    includeFacets?: boolean; // Whether to calculate sidebar counts (expensive)
+    // Pagination — cursor preferred
+    cursor?: TaskCursor;
+    limit?: number;
+
+    // Sorting
+    sorts?: any[]; // Replace any with proper SortConfig if needed, but any[] is safer for now to avoid circular deps
+
+    // UI flags
+    includeFacets?: boolean;
+    view_mode?: "default" | "search";
 }
 
-/**
- * Helper to ensure array for consistent filtering
- */
-const toArray = <T>(val: T | T[] | undefined): T[] | undefined => {
-    if (val === undefined) return undefined;
-    return Array.isArray(val) ? val : [val];
-};
+// ============================================================
+//  HELPERS
+// ============================================================
+const toArray = <T>(v: T | T[] | undefined): T[] | undefined =>
+    v === undefined ? undefined : Array.isArray(v) ? v : [v];
+
+const toDate = (d: string | Date | undefined) => (d ? new Date(d) : undefined);
+
+const ORDER_BY_CREATED_DESC = [{ createdAt: "desc" as const }, { id: "asc" as const }];
 
 /**
- * Unified Task Data Fetching Function
- * 
- * Fetches tasks based on the current view context:
- * - List/Gantt: Fetches Parent Tasks (Hierarchical root)
- * - Kanban: Fetches Subtasks (Work items) with full context (Project, Parent)
- * 
- * Performance:
- * - Uses parallel Promise.all for independent queries
- * - Uses index-driven filtering
- * - Supports optional Facet calculation
+ * Normalizes query options into a stable signature object for better cache hit ratios.
  */
-async function _getTasksInternal(
+function buildQuerySignature(
     workspaceId: string,
-    workspaceMemberId: string,
-    userId: string,
-    isAdmin: boolean,
-    leadProjectIds: string[],
-    options: GetTasksOptions
+    projectId: string | undefined,
+    tier: string,
+    opts: GetTasksOptions
 ) {
-    const {
-        projectId, view, page = 1, limit = 10,
-        includeFacets = false
-    } = options;
+    // 1. Extract and normalize filters
+    const f: Record<string, any> = {};
 
-    const skip = (page - 1) * limit;
+    // Array filters - sort for stability
+    const sortArr = (val: any) => (Array.isArray(val) ? [...val].sort() : val);
 
-    // =================================================================
-    // 1. NORMALIZE FILTERS
-    // =================================================================
-    const status = toArray(options.status || options.permissionStatus);
-    const assigneeIds = toArray(options.assigneeId);
-    const tagIds = toArray(options.tagId || options.tag);
+    if (opts.status) f.st = sortArr(opts.status);
+    if (opts.assigneeId) f.as = sortArr(opts.assigneeId);
+    if (opts.tagId) f.tg = sortArr(opts.tagId);
+    if (opts.search) f.q = opts.search.trim().toLowerCase();
+    if (opts.dueAfter) f.da = new Date(opts.dueAfter).getTime();
+    if (opts.dueBefore) f.db = new Date(opts.dueBefore).getTime();
 
-    // Date normalization
-    const toDate = (d: string | Date | undefined) => d ? new Date(d) : undefined;
-    const startDate = toDate(options.startDate);
-    const endDate = toDate(options.endDate);
-    const dueAfter = toDate(options.dueAfter) || startDate;
-    const dueBefore = toDate(options.dueBefore) || endDate;
+    // Hierarchy flags
+    if (opts.hierarchyMode) f.hm = opts.hierarchyMode;
+    if (opts.groupBy) f.gb = opts.groupBy;
+    if (opts.filterParentTaskId) f.pt = opts.filterParentTaskId;
 
-    // Filter Object for buildTaskFilter utility
-    const filterInput: TaskFilters = {
-        workspaceId,
-        projectId: projectId,
-        status: status as any,
-        assigneeId: assigneeIds,
-        tagId: tagIds,
-        search: options.search,
-        dueAfter: dueAfter,
-        dueBefore: dueBefore,
-        isPinned: options.isPinned,
+    // 2. Sorting
+    if (opts.sorts) f.srt = opts.sorts;
+
+    // 3. Build root signature
+    const effectiveProjectId = projectId && projectId !== "" ? projectId : undefined;
+
+    const signature = {
+        ws: workspaceId,
+        p: effectiveProjectId ?? "all",
+        tier,
+        f,
+        c: opts.cursor?.id ?? null,
+        l: opts.limit ?? 20,
     };
 
-    // =================================================================
-    // 2. AUTHORIZATION & PROJECT SCOPE
-    // =================================================================
-    // We need to know which projects are accessible to build the query
-
-    let authorizedProjectIds: string[] = [];
-
-    if (projectId) {
-        // Single Project Scope
-        authorizedProjectIds = [projectId];
-    } else {
-        // Workspace Scope: Determine all accessible projects
-        if (isAdmin) {
-            // Admin has access to all projects in workspace
-            const allProjects = await prisma.project.findMany({
-                where: { workspaceId },
-                select: { id: true }
-            });
-            authorizedProjectIds = allProjects.map(p => p.id);
-        } else {
-            // Member/Lead has access to projects they are part of
-            const myProjects = await prisma.projectMember.findMany({
-                where: {
-                    workspaceMemberId,
-                    hasAccess: true
-                },
-                select: { projectId: true }
-            });
-            authorizedProjectIds = myProjects.map(p => p.projectId);
-        }
-    }
-
-    if (authorizedProjectIds.length === 0) {
-        return {
-            tasks: [],
-            totalCount: 0,
-            hasMore: false,
-            facets: { status: {}, assignee: {}, tags: {}, projects: {} }
-        };
-    }
-
-    // =================================================================
-    // 3. BUILD WHERE CLAUSE
-    // =================================================================
-
-    const isKanban = view === 'kanban';
-
-    // Helper: Build manual where clause for Kanban (Subtasks)
-    // We cannot use buildTaskFilter because it wraps filters in `subTasks: { some: ... }`
-    // which fails for Subtasks (as they are leaves).
-    const buildKanbanWhere = (baseFilter: TaskFilters, pIds?: string[]) => {
-        const kWhere: any = {
-            workspaceId,
-            parentTaskId: { not: null }, // Kanban = Subtasks
-        };
-
-        if (pIds) kWhere.projectId = { in: pIds };
-        else if (baseFilter.projectId) kWhere.projectId = baseFilter.projectId;
-
-        if (baseFilter.status) kWhere.status = { in: baseFilter.status };
-        if (baseFilter.assigneeId) kWhere.assigneeTo = { in: baseFilter.assigneeId };
-        if (baseFilter.tagId) kWhere.tagId = { in: baseFilter.tagId };
-
-        if (baseFilter.isPinned !== undefined) kWhere.isPinned = baseFilter.isPinned;
-
-        if (baseFilter.search) {
-            kWhere.OR = [
-                { name: { contains: baseFilter.search, mode: 'insensitive' } },
-                { taskSlug: { contains: baseFilter.search, mode: 'insensitive' } }
-            ];
-        }
-        return kWhere;
-    };
-
-    // Calculate Permissions
-    const fullAccessIds = isAdmin
-        ? authorizedProjectIds
-        : leadProjectIds.filter(id => authorizedProjectIds.includes(id));
-
-    const isMemberOnly = !isAdmin && fullAccessIds.length === 0;
-    const isHybrid = !isAdmin && fullAccessIds.length > 0 && fullAccessIds.length < authorizedProjectIds.length;
-
-    let mainWhere: any = {};
-
-    if (isMemberOnly) {
-        // Strict Member
-        filterInput.assigneeId = [userId];
-
-        if (isKanban) {
-            // Kanban: Must be assigned directly
-            mainWhere = buildKanbanWhere(filterInput, authorizedProjectIds);
-        } else {
-            // List: buildTaskFilter OK (checks subtask assignment)
-            mainWhere = buildTaskFilter(filterInput, authorizedProjectIds);
-            mainWhere.parentTaskId = options.filterParentTaskId || null;
-        }
-
-    } else if (isHybrid) {
-        // Hybrid
-        const memberOnlyIds = authorizedProjectIds.filter(id => !fullAccessIds.includes(id));
-
-        if (isKanban) {
-            // Manual Hybrid Construction for Kanban
-            // Content Filter (no project scope yet)
-            const contentFilter = { ...filterInput };
-            if (!options.assigneeId) delete contentFilter.assigneeId;
-            const contentWhere = buildKanbanWhere(contentFilter, undefined);
-
-            const permissionGate = {
-                OR: [
-                    { projectId: { in: fullAccessIds } }, // Full Access
-                    {
-                        projectId: { in: memberOnlyIds },
-                        assigneeTo: userId // Member Projects: Direct Assignment
-                    }
-                ]
-            };
-            mainWhere = { AND: [contentWhere, permissionGate] };
-
-        } else {
-            // List: Use standard logic
-            const contentFilterInput = { ...filterInput };
-            if (!options.assigneeId) delete contentFilterInput.assigneeId;
-
-            const contentWhere = buildTaskFilter(contentFilterInput, undefined);
-            const permissionGate = {
-                OR: [
-                    { projectId: { in: fullAccessIds } },
-                    {
-                        projectId: { in: memberOnlyIds },
-                        subTasks: { some: { assigneeTo: userId } } // List: Child assigned
-                    }
-                ]
-            };
-            mainWhere = { AND: [contentWhere, permissionGate] };
-            mainWhere.AND[0].parentTaskId = options.filterParentTaskId || null;
-        }
-
-    } else {
-        // Admin / Full Lead
-        if (isKanban) {
-            mainWhere = buildKanbanWhere(filterInput, authorizedProjectIds);
-        } else {
-            mainWhere = buildTaskFilter(filterInput, authorizedProjectIds);
-            mainWhere.parentTaskId = options.filterParentTaskId || null;
-        }
-    }
-
-    // =================================================================
-    // 4. FACET QUERIES (Optional)
-    // =================================================================
-    let facetQueries: Promise<any>[] = [];
-
-    if (includeFacets) {
-        const facetBaseWhere: any = {
-            workspaceId,
-            projectId: { in: authorizedProjectIds },
-        };
-
-        if (options.filterParentTaskId) {
-            facetBaseWhere.parentTaskId = options.filterParentTaskId;
-        } else if (isKanban) {
-            facetBaseWhere.parentTaskId = { not: null };
-        } else {
-            facetBaseWhere.parentTaskId = null;
-        }
-
-        if (isMemberOnly) {
-            // @ts-ignore
-            facetBaseWhere.assigneeTo = userId;
-        }
-
-        const buildFacetWhere = (excludeKey: keyof TaskFilters) => {
-            const f = { ...filterInput };
-            delete f[excludeKey];
-            return {
-                ...facetBaseWhere,
-                projectId: filterInput.projectId ? filterInput.projectId : facetBaseWhere.projectId,
-                ...buildSubTaskConditions(f)
-            };
-        };
-
-        facetQueries = [
-            prisma.task.groupBy({ by: ['status'], where: buildFacetWhere('status'), _count: { status: true } }),
-            prisma.task.groupBy({ by: ['assigneeTo'], where: buildFacetWhere('assigneeId'), _count: { assigneeTo: true } }),
-            prisma.task.groupBy({ by: ['tagId'], where: buildFacetWhere('tagId'), _count: { tagId: true } }),
-            prisma.task.groupBy({ by: ['projectId'], where: buildFacetWhere('projectId'), _count: { projectId: true } }),
-        ];
-    }
-
-    // =================================================================
-    // 5. EXECUTE QUERIES PARALLEL
-    // =================================================================
-
-    const [tasks, totalCount, ...facetResults] = await Promise.all([
-        // 1. Data Query
-        prisma.task.findMany({
-            where: mainWhere,
-            select: {
-                id: true,
-                name: true,
-                status: true,
-                taskSlug: true,
-                description: true,
-                startDate: true,
-                dueDate: true,
-                days: true,
-                projectId: true,
-                isPinned: true,
-                pinnedAt: true,
-                createdAt: true,
-                updatedAt: true,
-                position: true,
-                createdById: true,
-                reviewerId: true,
-                assignee: {
-                    select: { id: true, name: true, surname: true, image: true }
-                },
-                reviewer: {
-                    select: { id: true, name: true, surname: true, image: true }
-                },
-                createdBy: {
-                    select: { id: true, name: true, surname: true, image: true }
-                },
-                _count: {
-                    select: { subTasks: true, reviewComments: true }
-                },
-                // Always select Relations
-                parentTask: {
-                    select: { id: true, name: true, taskSlug: true }
-                },
-                project: {
-                    select: {
-                        id: true, name: true, slug: true, color: true, workspaceId: true,
-                        projectMembers: {
-                            where: { projectRole: "PROJECT_MANAGER" },
-                            take: 1,
-                            select: {
-                                workspaceMember: {
-                                    select: { user: { select: { name: true, surname: true, image: true } } }
-                                }
-                            }
-                        }
-                    }
-                },
-                tag: { select: { id: true, name: true } }
-            },
-            orderBy: view === 'kanban'
-                ? [{ isPinned: 'desc' }, { position: 'asc' }]
-                : [{ isPinned: 'desc' }, { position: 'asc' }, { createdAt: 'desc' }],
-            skip,
-            take: limit
-        }),
-
-        // 2. Count Query
-        prisma.task.count({ where: mainWhere }),
-
-        // 3. Facets (if any)
-        ...facetQueries
-    ]);
-
-    // =================================================================
-    // 6. FORMAT RESULTS
-    // =================================================================
-
-    let facets = { status: {}, assignee: {}, tags: {}, projects: {} };
-
-    if (includeFacets) {
-        const [statusCounts, assigneeCounts, tagCounts, projectCounts] = facetResults;
-
-        const formatFacet = (arr: any[], key: string) =>
-            arr.reduce((acc, curr) => ({
-                ...acc,
-                [curr[key] || 'unassigned']: curr._count[key]
-            }), {});
-
-        facets = {
-            status: formatFacet(statusCounts, 'status'),
-            assignee: formatFacet(assigneeCounts, 'assigneeTo'),
-            tags: formatFacet(tagCounts, 'tagId'),
-            projects: formatFacet(projectCounts, 'projectId'),
-        };
-    }
-
-    return {
-        tasks,
-        totalCount,
-        hasMore: skip + tasks.length < totalCount,
-        facets
-    };
+    // 4. Hash the signature
+    return crypto.createHash("sha256").update(JSON.stringify(signature)).digest("hex");
 }
 
 /**
- * Public API for Unified Task Fetching
+ * Resolves effective permissions (tier, authorized projects, lead projects)
  */
-export const getTasks = cache(async (options: GetTasksOptions) => {
-    const { workspaceId, projectId } = options;
-
-    // Auth & Permissions
-    let permissions;
+export async function resolveTaskPermissions(workspaceId: string, projectIdInput?: string) {
+    const projectId = projectIdInput && projectIdInput !== "" ? projectIdInput : undefined;
+    let permissions: any;
     let leadProjectIds: string[] = [];
     let isWorkspaceAdmin = false;
+    let authorizedProjectIds: string[] = [];
 
     if (projectId) {
         permissions = await getUserPermissions(workspaceId, projectId);
         isWorkspaceAdmin = permissions.isWorkspaceAdmin;
+        authorizedProjectIds = [projectId];
         if (permissions.isProjectLead || permissions.isProjectManager) {
             leadProjectIds = [projectId];
         }
@@ -412,28 +147,393 @@ export const getTasks = cache(async (options: GetTasksOptions) => {
         const wsPerms = await getWorkspacePermissions(workspaceId);
         permissions = wsPerms;
         isWorkspaceAdmin = wsPerms.isWorkspaceAdmin;
-        leadProjectIds = [...(wsPerms.leadProjectIds || []), ...(wsPerms.managedProjectIds || [])];
+        leadProjectIds = [...(wsPerms.leadProjectIds ?? []), ...(wsPerms.managedProjectIds ?? [])];
+
+        if (isWorkspaceAdmin) {
+            authorizedProjectIds = [];
+        } else {
+            const myProjects = await prisma.projectMember.findMany({
+                where: { workspaceMemberId: permissions.workspaceMemberId, hasAccess: true },
+                select: { projectId: true },
+            });
+            authorizedProjectIds = myProjects.map(p => p.projectId);
+        }
     }
 
-    if (!permissions.workspaceMemberId) {
+    const fullAccessIds = isWorkspaceAdmin
+        ? authorizedProjectIds
+        : leadProjectIds.filter(id => authorizedProjectIds.includes(id));
+
+    const tier: "admin" | "lead" | "member" = isWorkspaceAdmin ? "admin" : fullAccessIds.length > 0 ? "lead" : "member";
+
+    return {
+        permissions,
+        isWorkspaceAdmin,
+        leadProjectIds,
+        authorizedProjectIds,
+        fullAccessIds,
+        tier
+    };
+}
+
+// ============================================================
+//  VIEW 1: PROJECT ROOT  (Parent Tasks — initial load)
+//  Index:  (projectId, isParent, status, createdAt DESC)
+// ============================================================
+async function _fetchProjectRoot(
+    projectId: string,
+    workspaceId: string,
+    userId: string,
+    permissionMode: "admin" | "lead" | "member",
+    opts: GetTasksOptions
+) {
+    const limit = opts.limit ?? 20;
+    const status = toArray(opts.status);
+    const assigneeIds = toArray(opts.assigneeId);
+
+    // For members, always scope to their own tasks
+    const assigneeFilter =
+        permissionMode === "member"
+            ? userId
+            : assigneeIds && assigneeIds.length > 0
+                ? assigneeIds[0] // single-assignee fast path
+                : undefined;
+
+    const where = buildProjectRootWhere(projectId, {
+        status,
+        assigneeId: assigneeFilter,
+        cursor: opts.cursor,
+    });
+
+    // For multi-assignee filter (admin/lead), override
+    if (permissionMode !== "member" && assigneeIds && assigneeIds.length > 1) {
+        where.assigneeTo = { in: assigneeIds };
+        delete where.OR; // clear cursor-OR if needed (reassigned below)
+    }
+
+    const countWhere = { ...where };
+    const [rawTasks, totalCount] = await Promise.all([
+        prisma.task.findMany({
+            where,
+            select: TASK_CORE_SELECT,
+            orderBy: buildOrderBy(opts.sorts),
+            take: limit + 1,
+        }),
+        opts.cursor
+            ? Promise.resolve(null as number | null)
+            : prisma.task.count({ where: countWhere }),
+    ]);
+
+    const hasMore = rawTasks.length > limit;
+    if (hasMore) rawTasks.pop();
+
+    const nextCursor: TaskCursor | null = hasMore
+        ? {
+            id: rawTasks[rawTasks.length - 1].id,
+            createdAt: rawTasks[rawTasks.length - 1].createdAt,
+            // Include sorted field value for stable keyset pagination
+            ...(opts.sorts?.[0] ? { [opts.sorts[0].field]: (rawTasks[rawTasks.length - 1] as any)[opts.sorts[0].field] } : {})
+        }
+        : null;
+
+    // Batch load related entities
+    const [userMap, tagMap, projectMap] = await Promise.all([
+        batchLoadUsers([
+            ...rawTasks.map(t => t.assigneeTo),
+            ...rawTasks.map(t => t.reviewerId),
+            ...rawTasks.map(t => t.createdById),
+        ]),
+        batchLoadTags(rawTasks.map(t => t.tagId)),
+        batchLoadProjects(rawTasks.map(t => t.projectId)),
+    ]);
+
+    const tasks = hydrateTasks(rawTasks, userMap, tagMap, projectMap);
+
+    return {
+        tasks,
+        totalCount,
+        hasMore,
+        nextCursor,
+    };
+}
+
+// ============================================================
+//  VIEW 2: SUBTASK EXPANSION  (Children of a Parent)
+//  Index: (parentTaskId, createdAt)
+// ============================================================
+async function _fetchSubtasks(
+    parentTaskId: string,
+    userId: string,
+    permissionMode: "admin" | "lead" | "member",
+    opts: GetTasksOptions
+) {
+    const limit = opts.limit ?? 30;
+    const status = toArray(opts.status);
+
+    const where = buildSubtaskExpansionWhere(parentTaskId, {
+        status,
+        assigneeId: permissionMode === "member" ? userId : undefined,
+        cursor: opts.cursor,
+    });
+
+    const rawSubtasks = await prisma.task.findMany({
+        where,
+        select: TASK_CORE_SELECT,
+        orderBy: buildOrderBy(opts.sorts),
+        take: limit + 1,
+    });
+
+    const hasMore = rawSubtasks.length > limit;
+    if (hasMore) rawSubtasks.pop();
+
+    const nextCursor: TaskCursor | null = hasMore
+        ? { id: rawSubtasks[rawSubtasks.length - 1].id, createdAt: rawSubtasks[rawSubtasks.length - 1].createdAt }
+        : null;
+
+    const [userMap, tagMap] = await Promise.all([
+        batchLoadUsers([
+            ...rawSubtasks.map(t => t.assigneeTo),
+            ...rawSubtasks.map(t => t.reviewerId),
+            ...rawSubtasks.map(t => t.createdById),
+        ]),
+        batchLoadTags(rawSubtasks.map(t => t.tagId)),
+    ]);
+
+    // No project batch needed — subtasks inherit parent's project
+    const emptyProjectMap = new Map<string, any>();
+    const tasks = hydrateTasks(rawSubtasks, userMap, tagMap, emptyProjectMap);
+
+    return { tasks, hasMore, nextCursor };
+}
+
+// ============================================================
+//  VIEW 3: WORKSPACE FILTER  (Search/My Tasks/Cross-project)
+//  Index: (workspaceId, assigneeTo, status, createdAt)
+//      OR (projectId, assigneeTo, status, createdAt)  — project-scoped
+// ============================================================
+async function _fetchWorkspaceFilter(
+    workspaceId: string,
+    userId: string,
+    permissionMode: "admin" | "lead" | "member",
+    authorizedProjectIds: string[],
+    opts: GetTasksOptions
+) {
+    const limit = opts.limit ?? 20;
+    const now = new Date();
+
+    const rawStart = toDate(opts.dueAfter as any);
+    const rawEnd = toDate(opts.dueBefore as any);
+    if (rawStart) rawStart.setHours(0, 0, 0, 0);
+    if (rawEnd) rawEnd.setHours(23, 59, 59, 999);
+
+    const filterOpts: WorkspaceFilterOpts = {
+        workspaceId,
+        projectId: opts.projectId,
+        assigneeId: toArray(opts.assigneeId),
+        status: toArray(opts.status),
+        tagId: toArray(opts.tagId),
+        dueAfter: rawStart,
+        dueBefore: rawEnd,
+        search: opts.search,
+        cursor: opts.cursor,
+        authorizedProjectIds,
+        adminScope: opts.adminScope,
+        onlyParents: opts.onlyParents,
+        excludeParents: opts.excludeParents,
+        onlySubtasks: opts.onlySubtasks,
+    };
+
+    const where = buildWorkspaceFilterWhere(filterOpts, permissionMode, userId);
+
+    const [rawTasks, totalCount] = await Promise.all([
+        prisma.task.findMany({
+            where,
+            select: TASK_CORE_SELECT,
+            orderBy: buildOrderBy(opts.sorts),
+            take: limit + 1,
+        }),
+        opts.cursor ? Promise.resolve(null) : prisma.task.count({ where }),
+    ]);
+
+    const hasMore = rawTasks.length > limit;
+    if (hasMore) rawTasks.pop();
+
+    const nextCursor: TaskCursor | null = hasMore
+        ? { id: rawTasks[rawTasks.length - 1].id, createdAt: rawTasks[rawTasks.length - 1].createdAt }
+        : null;
+
+    const [userMap, tagMap, projectMap] = await Promise.all([
+        batchLoadUsers([
+            ...rawTasks.map(t => t.assigneeTo),
+            ...rawTasks.map(t => t.reviewerId),
+            ...rawTasks.map(t => t.createdById),
+        ]),
+        batchLoadTags(rawTasks.map(t => t.tagId)),
+        batchLoadProjects(rawTasks.map(t => t.projectId)),
+    ]);
+
+    const tasks = hydrateTasks(rawTasks, userMap, tagMap, projectMap);
+
+    return { tasks, totalCount, hasMore, nextCursor };
+}
+
+// ============================================================
+//  FACETS  (sidebar filter counts — runs parallel to main query)
+//  Uses same WHERE but skips cursor and groups by field
+// ============================================================
+async function _fetchFacets(
+    where: Prisma.TaskWhereInput,
+    includeProjects: boolean
+) {
+    // Only run facets if we have a reasonably specific scope (e.g. workspaceId)
+    // to avoid accidental full-table scans if the query builder fails.
+    if (!where.workspaceId && !where.projectId) return { status: {}, assignee: {}, tags: {}, projects: {} };
+
+    const [statusCounts, assigneeCounts, tagCounts, projectCounts] = await Promise.all([
+        prisma.task.groupBy({ by: ["status"], where, _count: { status: true } }),
+        prisma.task.groupBy({ by: ["assigneeTo"], where, _count: { assigneeTo: true } }),
+        prisma.task.groupBy({ by: ["tagId"], where, _count: { tagId: true } }),
+        includeProjects
+            ? prisma.task.groupBy({ by: ["projectId"], where, _count: { projectId: true } })
+            : Promise.resolve([]),
+    ]);
+
+    const fmt = (arr: any[], key: string) =>
+        arr.reduce((acc: any, cur: any) => ({
+            ...acc,
+            [cur[key] || "unassigned"]: cur._count[key] ?? cur._count?.[key] ?? 0,
+        }), {});
+
+    return {
+        status: fmt(statusCounts, "status"),
+        assignee: fmt(assigneeCounts, "assigneeTo"),
+        tags: fmt(tagCounts, "tagId"),
+        projects: fmt(projectCounts, "projectId"),
+    };
+}
+
+// ============================================================
+//  ROUTER: Chooses the right fetch strategy
+// ============================================================
+async function _getTasksInternal(
+    workspaceId: string,
+    workspaceMemberId: string,
+    userId: string,
+    isAdmin: boolean,
+    leadProjectIds: string[],
+    authorizedProjectIds: string[],
+    opts: GetTasksOptions
+) {
+    const { projectId, hierarchyMode, filterParentTaskId, includeFacets } = opts;
+
+    // 1. Determine permission tier
+    const fullAccessIds = isAdmin
+        ? authorizedProjectIds
+        : leadProjectIds.filter(id => authorizedProjectIds.includes(id));
+
+    const permissionMode: "admin" | "lead" | "member" =
+        isAdmin ? "admin" :
+            fullAccessIds.length > 0 ? "lead" : "member";
+
+    // 2. Identify strategy based on intent/filters
+    const hasExplicitFilters =
+        opts.assigneeId || opts.status || opts.tagId ||
+        opts.search || opts.dueAfter || opts.dueBefore;
+
+    const emptyFacets = { status: {}, assignee: {}, tags: {}, projects: {} };
+
+    /**
+     * STRATEGY A: Explicit Parent Task ID (Infinite scroll / row expansion)
+     */
+    if (filterParentTaskId) {
+        const result = await _fetchSubtasks(filterParentTaskId, userId, permissionMode, opts);
+        return { ...result, totalCount: null, facets: emptyFacets };
+    }
+
+    /**
+     * STRATEGY B: Project Landing Page (Parents only, no filters)
+     * Direct index scan on (projectId, isParent, status)
+     */
+    if (projectId && !hasExplicitFilters && (hierarchyMode === "parents" || !hierarchyMode)) {
+        const result = await _fetchProjectRoot(projectId, workspaceId, userId, permissionMode, opts);
+        return { ...result, facets: emptyFacets };
+    }
+
+    /**
+     * STRATEGY C: Filtered / Search / Workspace-wide / Kanban / Subtasks-only
+     * Cross-hierarchy query using Workspace filter builder
+     */
+    const filterResult = await _fetchWorkspaceFilter(
+        workspaceId,
+        userId,
+        permissionMode,
+        authorizedProjectIds,
+        {
+            ...opts,
+            onlyParents: opts.onlyParents || (hierarchyMode === "parents"),
+            excludeParents: opts.excludeParents,
+            onlySubtasks: opts.onlySubtasks || (hierarchyMode === "children")
+        }
+    );
+
+    // Optional facets (sidebar counts)
+    let facets = emptyFacets;
+    if (includeFacets && !opts.cursor) {
+        const facetWhere = buildWorkspaceFilterWhere(
+            {
+                workspaceId,
+                projectId,
+                assigneeId: toArray(opts.assigneeId),
+                status: toArray(opts.status),
+                tagId: toArray(opts.tagId),
+                dueAfter: toDate(opts.dueAfter as any),
+                dueBefore: toDate(opts.dueBefore as any),
+                search: opts.search,
+                authorizedProjectIds,
+                adminScope: opts.adminScope,
+            },
+            permissionMode,
+            userId
+        );
+        facets = await _fetchFacets(facetWhere, !projectId);
+    }
+
+    return { ...filterResult, facets };
+}
+
+// ============================================================
+//  PUBLIC API  (React cache + Next.js unstable_cache)
+// ============================================================
+export const getTasks = cache(async (opts: GetTasksOptions) => {
+    const { workspaceId } = opts;
+    const projectId = opts.projectId && opts.projectId !== "" ? opts.projectId : undefined;
+
+    // --- Auth + Permission Resolution ---
+    const {
+        permissions,
+        isWorkspaceAdmin,
+        leadProjectIds,
+        authorizedProjectIds,
+        tier
+    } = await resolveTaskPermissions(workspaceId, projectId);
+
+    if (!permissions.workspaceMemberId || (!isWorkspaceAdmin && authorizedProjectIds.length === 0)) {
         return {
             tasks: [],
             totalCount: 0,
             hasMore: false,
-            facets: { status: {}, assignee: {}, tags: {}, projects: {} }
+            nextCursor: null,
+            facets: { status: {}, assignee: {}, tags: {}, projects: {} },
         };
     }
 
-    // Use Cache
-    // Key uses a hash of all options to handle complex filters
-    const filterHash = JSON.stringify(options);
+    // --- Cache key construction ---
+    const sig = buildQuerySignature(workspaceId, projectId, tier, opts);
+    const cacheKey = `tasks-v10-${workspaceId}-${tier}-${permissions.workspaceMember.userId}-${sig}`;
 
-    const roleKey = isWorkspaceAdmin ? 'admin' :
-        ('isMember' in permissions && permissions.isMember) ? `member-${permissions.workspaceMember.userId}` :
-            `access-${leadProjectIds.sort().join(',')}`;
-
-    const cacheKey = `tasks-unified-${workspaceId}-${roleKey}-${filterHash}-v5`;
-    const tag = projectId ? `project-tasks-${projectId}` : `workspace-tasks-${workspaceId}`;
+    const tags = projectId
+        ? CacheTags.projectTasks(projectId, permissions.workspaceMember.userId)
+        : CacheTags.workspaceTasks(workspaceId, permissions.workspaceMember.userId);
 
     return await unstable_cache(
         () => _getTasksInternal(
@@ -442,14 +542,13 @@ export const getTasks = cache(async (options: GetTasksOptions) => {
             permissions.workspaceMember!.userId,
             isWorkspaceAdmin,
             leadProjectIds,
-            options
+            authorizedProjectIds,
+            { ...opts, adminScope: isWorkspaceAdmin }
         ),
         [cacheKey],
-        {
-            tags: [tag],
-            revalidate: 30
-        }
+        { tags, revalidate: 30 }
     )();
 });
 
 export type GetTasksResponse = Awaited<ReturnType<typeof getTasks>>;
+export type GetTasksTask = NonNullable<GetTasksResponse>["tasks"][number];

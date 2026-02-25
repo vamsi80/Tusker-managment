@@ -25,7 +25,7 @@ export async function WorkspaceListView({
         getUserProjects(workspaceId),
         getTasks({
             workspaceId,
-            view: "list",
+            hierarchyMode: "parents",
             page: 1,
             limit: 50,
             includeFacets: true
@@ -60,7 +60,8 @@ export async function WorkspaceListView({
         <TaskTable
             initialTasks={initialTasks}
             initialHasMore={tasksData.hasMore}
-            initialTotalCount={tasksData.totalCount}
+            initialNextCursor={tasksData.nextCursor}
+            initialTotalCount={tasksData.totalCount ?? undefined}
             members={formattedMembers as any}
             workspaceId={workspaceId}
             projectId="" // Empty for workspace-level view
