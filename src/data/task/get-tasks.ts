@@ -48,13 +48,136 @@ export interface GetTasksOptions {
     onlySubtasks?: boolean;
 
     cursor?: TaskCursor;
+    skip?: number;
     expandedProjectIds?: string[];
     page?: number;
     limit?: number;
 
     includeFacets?: boolean;
     view_mode?: "default" | "search";
+    sorts?: Array<{ field: string; direction: "asc" | "desc" }>;
 }
+
+// ============================================================
+//  SORT CONTRACT — Single Source of Truth
+//  Client field name → DB column + null-handling strategy.
+//
+//  ⚠️  DO NOT add relation fields here (e.g. assignee → assigneeTo).
+//  Sorting by a FK id is semantically meaningless.
+//  Denormalize the display value into the Task table first,
+//  then add it here.
+// ============================================================
+type SortDefinition = {
+    /** Exact Prisma field name on the Task model */
+    dbField: string;
+    /** How to handle NULL rows — omit for non-nullable columns */
+    nulls?: "last" | "first";
+};
+
+const SORT_MAP: Record<string, SortDefinition> = {
+    name: { dbField: "name" },
+    status: { dbField: "status", nulls: "last" },
+    startDate: { dbField: "startDate", nulls: "last" },
+    dueDate: { dbField: "dueDate", nulls: "last" },
+    createdAt: { dbField: "createdAt" },
+    // assignee → REMOVED. Sorting by assigneeTo (FK id) is meaningless.
+    // Re-add once assigneeDisplayName is denormalized onto the Task table.
+};
+
+function buildOrderBy(sorts?: Array<{ field: string; direction: "asc" | "desc" }>) {
+    if (!sorts || sorts.length === 0) {
+        return [
+            { createdAt: "desc" as const },
+            { id: "asc" as const },
+        ];
+    }
+
+    const { field, direction } = sorts[0];
+    const def = SORT_MAP[field];
+
+    if (!def) {
+        throw new Error(`[buildOrderBy] Invalid sort field: "${field}". Add it to SORT_MAP first.`);
+    }
+
+    const primary: any = def.nulls
+        ? { [def.dbField]: { sort: direction, nulls: def.nulls } }
+        : { [def.dbField]: direction };
+
+    // Always append id as the deterministic tiebreaker—same direction as primary.
+    return [primary, { id: direction }];
+}
+
+/**
+ * Builds a WHERE extension that skips all rows already delivered by the previous page.
+ * Uses the exact same field order as buildOrderBy so pagination is stable.
+ *
+ * IMPORTANT: cursor keys are DB column names (e.g. "startDate"), NOT client field names.
+ */
+function buildSeekCondition(
+    where: any,
+    sorts: Array<{ field: string; direction: "asc" | "desc" }>,
+    cursor: any
+): any {
+    try {
+        if (!sorts?.length || !cursor) return where;
+
+        const { field, direction } = sorts[0];
+        const def = SORT_MAP[field];
+        if (!def) return where;
+
+        const dbField = def.dbField;
+        const lastFieldValue = cursor[dbField];   // DB-keyed cursor
+        const lastId = cursor.id;
+
+        // Guard: cursor must have id at minimum to perform seek
+        if (lastId === undefined || lastId === null) return where;
+
+        const op = direction === "asc" ? "gt" : "lt";
+
+        let seekCondition: any;
+
+        if (lastFieldValue === null || lastFieldValue === undefined) {
+            // Last page ended in the NULL block.
+            seekCondition = {
+                AND: [
+                    { [dbField]: null },
+                    { id: { [op]: lastId } },
+                ],
+            };
+        } else {
+            // Last page ended on a non-null value.
+            seekCondition = {
+                OR: [
+                    {
+                        AND: [
+                            { [dbField]: { [op]: lastFieldValue } },
+                            { [dbField]: { not: null } },
+                        ]
+                    },
+                    {
+                        AND: [
+                            { [dbField]: lastFieldValue },
+                            { id: { [op]: lastId } },
+                        ],
+                    },
+                    // Include the tail end (nulls) if sorting by a nullable column
+                    ...(def.nulls === "last" ? [{ [dbField]: null }] : []),
+                ],
+            };
+        }
+
+        const existingAnd = where.AND ? (Array.isArray(where.AND) ? where.AND : [where.AND]) : [];
+
+        return {
+            ...where,
+            AND: [...existingAnd, seekCondition],
+        };
+    } catch (err) {
+        console.error("[buildSeekCondition] Error building skip condition:", err);
+        return where; // Fallback to no seek pagination rather than crashing
+    }
+}
+
 const toArray = <T>(v: T | T[] | undefined): T[] | undefined =>
     v === undefined ? undefined : Array.isArray(v) ? v : [v];
 
@@ -120,7 +243,12 @@ function buildQuerySignature(
         p: projectId ?? "all",
         ps: permissionScope,
         f,
+        // sorts MUST be in the key — without this every sort variant hits the same cached unsorted result
+        so: opts.sorts && opts.sorts.length > 0
+            ? opts.sorts.map(s => `${s.field}:${s.direction}`).join(",")
+            : null,
         c: opts.cursor?.id ?? null,
+        sk: opts.skip ?? 0,
         l: opts.limit ?? 20,
     };
 
@@ -223,12 +351,12 @@ async function _fetchProjectRoot(
     }
 
     const countWhere = { ...where };
-    console.log(`[PRISMA PROJECT ROOT] where:`, JSON.stringify(where, null, 2));
+    // console.log(`[PRISMA PROJECT ROOT] where:`, JSON.stringify(where, null, 2));
     const [rawTasks, totalCount] = await Promise.all([
         prisma.task.findMany({
             where,
             select: TASK_CORE_SELECT,
-            orderBy: ORDER_BY_CREATED_DESC,
+            orderBy: buildOrderBy(opts.sorts),
             take: limit + 1,
         }),
         opts.cursor
@@ -301,7 +429,7 @@ async function _fetchSubtasks(
     const rawSubtasks = await prisma.task.findMany({
         where,
         select: TASK_CORE_SELECT,
-        orderBy: ORDER_BY_CREATED_DESC,
+        orderBy: buildOrderBy(opts.sorts),
         take: limit + 1,
     });
 
@@ -390,7 +518,7 @@ async function _fetchFilteredHierarchy(
     const rawParents = await prisma.task.findMany({
         where: { id: { in: parentIds } },
         select: TASK_CORE_SELECT,
-        orderBy: ORDER_BY_CREATED_DESC,
+        orderBy: buildOrderBy(opts.sorts),
     });
 
     // Step 4: Fetch matching tasks for these parents (can be parents themselves or their children)
@@ -403,7 +531,7 @@ async function _fetchFilteredHierarchy(
             ]
         },
         select: TASK_CORE_SELECT,
-        orderBy: ORDER_BY_CREATED_DESC,
+        orderBy: buildOrderBy(opts.sorts),
     });
 
     // Hydration Logic
@@ -473,7 +601,8 @@ async function _fetchWorkspaceFilter(
         dueAfter: normalizedStart,
         dueBefore: normalizedEnd,
         search: opts.search,
-        cursor: opts.cursor,
+        // Only use default cursor if NO primary sort is active (avoids createdAt logic in builder)
+        cursor: (opts.sorts && opts.sorts.length > 0) ? undefined : opts.cursor,
         isAdmin,
         fullAccessProjectIds,
         restrictedProjectIds,
@@ -485,23 +614,33 @@ async function _fetchWorkspaceFilter(
 
     // --- STRATEGY: FLAT FILTER ---
     // Used for Kanban, Sorted lists, or search results that don't require parent grouping
-    const where = buildWorkspaceFilterWhere(filterOpts, userId);
+    let where = buildWorkspaceFilterWhere(filterOpts, userId);
+
+    const primarySort = opts.sorts?.[0];
 
     const [rawTasks, totalCount] = await Promise.all([
         prisma.task.findMany({
             where,
             select: TASK_CORE_SELECT,
-            orderBy: ORDER_BY_CREATED_DESC,
+            orderBy: buildOrderBy(opts.sorts),
             take: limit + 1,
+            skip: opts.skip || 0,
         }),
-        opts.cursor ? Promise.resolve(null) : prisma.task.count({ where }),
+        (opts.skip || opts.cursor) ? Promise.resolve(null) : prisma.task.count({ where }),
     ]);
 
     const hasMore = rawTasks.length > limit;
     if (hasMore) rawTasks.pop();
 
-    const nextCursor: TaskCursor | null = hasMore
-        ? { id: rawTasks[rawTasks.length - 1].id, createdAt: rawTasks[rawTasks.length - 1].createdAt }
+    const lastTask = rawTasks[rawTasks.length - 1] as any;
+    // Cursor keys are DB column names so buildSeekCondition can read them back directly.
+    const nextCursor: any = hasMore && lastTask
+        ? primarySort && SORT_MAP[primarySort.field]
+            ? {
+                id: lastTask.id,
+                [SORT_MAP[primarySort.field].dbField]: lastTask[SORT_MAP[primarySort.field].dbField],
+            }
+            : { id: lastTask.id, createdAt: lastTask.createdAt }
         : null;
 
     const [userMap, tagMap, projectMap] = await Promise.all([
@@ -569,7 +708,8 @@ async function _getTasksInternal(
             (opts.tagId && toArray(opts.tagId)?.length) ||
             (opts.search && opts.search.trim().length > 0) ||
             opts.dueAfter ||
-            opts.dueBefore
+            opts.dueBefore ||
+            (opts.sorts && opts.sorts.length > 0)
         );
 
     const emptyFacets = { status: {}, assignee: {}, tags: {}, projects: {} };
@@ -611,7 +751,10 @@ async function _getTasksInternal(
      * STRATEGY C: Filtered Hierarchy (Subtask-First)
      * Used in List/Gantt views when active filters are present.
      */
-    if (hasExplicitFilters && (hierarchyMode === "parents" || !hierarchyMode)) {
+
+    const isSorting = opts.sorts && opts.sorts.length > 0;
+
+    if (!isSorting && hasExplicitFilters && (hierarchyMode === "parents" || !hierarchyMode)) {
         const result = await _fetchFilteredHierarchy(
             workspaceId, userId, isAdmin,
             fullAccessProjectIds, restrictedProjectIds, opts
@@ -623,6 +766,7 @@ async function _getTasksInternal(
      * STRATEGY D: Flat Workspace Filter / Kanban / Search Mode
      * Cross-hierarchy query using Workspace filter builder
      */
+    const primarySort = opts.sorts?.[0];
     const filterResult = await _fetchWorkspaceFilter(
         workspaceId, userId, isAdmin,
         fullAccessProjectIds, restrictedProjectIds,
@@ -630,7 +774,7 @@ async function _getTasksInternal(
             ...opts,
             onlyParents: opts.onlyParents || (hierarchyMode === "parents"),
             excludeParents: opts.excludeParents,
-            onlySubtasks: opts.onlySubtasks || (hierarchyMode === "children")
+            onlySubtasks: isSorting || opts.onlySubtasks || (hierarchyMode === "children")
         }
     );
 

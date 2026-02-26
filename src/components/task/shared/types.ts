@@ -20,8 +20,7 @@ export type TaskStatus =
     | "REVIEW"
     | "HOLD"
     | "COMPLETED"
-    | "CANCELLED"
-    | "BLOCKED";
+    | "CANCELLED";
 
 /**
  * Check if a value is a valid TaskStatus
@@ -33,8 +32,7 @@ export function isTaskStatus(value: unknown): value is TaskStatus {
         "REVIEW",
         "HOLD",
         "COMPLETED",
-        "CANCELLED",
-        "BLOCKED"
+        "CANCELLED"
     ].includes(value);
 }
 
@@ -71,17 +69,17 @@ export function isViewType(value: unknown): value is ViewType {
 export type TableViewMode = "hierarchy" | "sorted";
 
 /**
- * Sort field options
+ * Sort field options — must match a key in SORT_MAP in get-tasks.ts.
+ * ⚠️ Only DB columns that exist directly on the Task table are allowed.
+ * Do NOT add relation fields (assignee, reviewer) or computed fields (progress, tags)
+ * until they are denormalized into the Task table.
  */
 export type SortField =
     | "name"
-    | "assignee"
-    | "reviewer"
     | "status"
     | "startDate"
     | "dueDate"
-    | "progress"
-    | "tags";
+    | "createdAt";
 
 /**
  * Sort direction

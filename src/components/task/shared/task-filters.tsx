@@ -32,7 +32,6 @@ const STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
     { value: "REVIEW", label: "Review" },
     { value: "HOLD", label: "On Hold" },
     { value: "COMPLETED", label: "Completed" },
-    { value: "BLOCKED", label: "Blocked" },
 ];
 
 const TAG_OPTIONS: { value: TaskTag; label: string }[] = [

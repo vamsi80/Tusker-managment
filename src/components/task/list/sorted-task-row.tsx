@@ -3,7 +3,7 @@
 import React from "react";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { getStatusColors } from "@/lib/colors/status-colors";
+import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { formatDate } from "@/components/task/gantt/utils";
 import { ColumnVisibility } from "../shared/column-visibility";
 import { cn } from "@/lib/utils";
@@ -114,7 +114,7 @@ export function SortedTaskRow({ task, columnVisibility, onClick }: SortedTaskRow
                             statusColors.borderColor
                         )}
                     >
-                        {task.status.replace(/_/g, " ")}
+                        {getStatusLabel(task.status)}
                     </Badge>
                 </TableCell>
             )}
@@ -167,7 +167,7 @@ export function SortedTaskRow({ task, columnVisibility, onClick }: SortedTaskRow
                                     <div>Start: {task.startDate ? formatDate(new Date(task.startDate)) : "N/A"}</div>
                                     <div>Duration: {task.days || 0} days</div>
                                     <div>Due: {dueDate ? formatDate(dueDate) : "N/A"}</div>
-                                    <div>Status: {task.status.replace(/_/g, " ")}</div>
+                                    <div>Status: {getStatusLabel(task.status)}</div>
                                 </div>
                             </TooltipContent>
                         </Tooltip>

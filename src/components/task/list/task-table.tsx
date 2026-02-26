@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { SubTaskList } from "./subtask-list";
 import { Button } from "@/components/ui/button";
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { Loader2, Plus, ChevronsUpDown, Maximize2, Minimize2 } from "lucide-react";
+import { Loader2, Plus, ChevronsUpDown, Maximize2, Minimize2, ChevronDown } from "lucide-react";
 import { loadTasksAction } from "@/actions/task/list-actions";
 import { updateSubtaskPositions } from "@/actions/task/gantt";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
@@ -77,25 +77,35 @@ export function TaskTable({
     const [searchQuery, setSearchQuery] = useState("");
     const [filters, setFilters] = useState<TaskFilters>({});
     const [isLoadingFilters, setIsLoadingFilters] = useState(false);
+    const filtersActive = hasActiveFilters(filters) || !!searchQuery;
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
     const [loadingSubTasks, setLoadingSubTasks] = useState<Record<string, boolean>>({});
     const [loadingMoreSubTasks, setLoadingMoreSubTasks] = useState<Record<string, boolean>>({});
     const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
     const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({});
     const [sorts, setSorts] = useState<SortConfig[]>([]);
-    const [sortedTasks, setSortedTasks] = useState<Record<string, any[]>>({});
+    const [sortedTasks, setSortedTasks] = useState<any[]>([]);
+    const [sortedHasMore, setSortedHasMore] = useState(false);
+    const [isLoadingMoreSorted, setIsLoadingMoreSorted] = useState(false);
     const [isSortedViewLoading, setIsSortedViewLoading] = useState(false);
     const setCachedSubTasks = useTaskCacheStore(state => state.setCachedSubTasks);
     const getCachedSubTasks = useTaskCacheStore(state => state.getCachedSubTasks);
     const setProjectTasksCache = useTaskCacheStore(state => state.setProjectTasksCache);
     const observerRef = useRef<IntersectionObserver | null>(null);
     const loadProjectTasksRef = useRef<((id: string) => Promise<void>) | null>(null);
+    const loadMoreSortedRef = useRef<(() => Promise<void>) | null>(null);
+    const sortedSentinelRef = useRef<HTMLTableRowElement | null>(null);
     const autoExpandRef = useRef(false);
     const tasksRef = useRef<TaskWithSubTasks[]>([]);
     // Assigned after tasks declaration
-    const viewMode: TableViewMode = useMemo(() => {
+    const mode = useMemo(() => {
         return sorts.length > 0 ? "sorted" : "hierarchy";
     }, [sorts]);
+
+    // Stable string key derived from sorts — used as a useEffect dependency instead of
+    // JSON.stringify(sorts) which creates a new string on every render even when sorts
+    // hasn't actually changed.
+    const sortsKey = sorts.map(s => `${s.field}:${s.direction}`).join(",");
 
     const hydrateTasks = useCallback((taskList: TaskWithSubTasks[]) => {
         const getCache = useTaskCacheStore.getState().getCachedSubTasks;
@@ -116,7 +126,7 @@ export function TaskTable({
 
     const [tasks, setTasks] = useState<TaskWithSubTasks[]>(() => {
         // Skip cache merge if we have active filters/search
-        if (Object.keys(filters).length > 0 || searchQuery) {
+        if (filtersActive) {
             return initialTasks;
         }
 
@@ -250,8 +260,11 @@ export function TaskTable({
                 entries.forEach((entry) => {
                     if (entry.isIntersecting) {
                         const projectId = (entry.target as HTMLElement).dataset.projectId;
-                        if (projectId && loadProjectTasksRef.current) {
-                            loadProjectTasksRef.current(projectId);
+
+                        if (projectId === "sorted") {
+                            loadMoreSortedRef.current?.();
+                        } else if (projectId) {
+                            loadProjectTasksRef.current?.(projectId);
                         }
                     }
                 });
@@ -261,18 +274,26 @@ export function TaskTable({
     };
 
     useEffect(() => {
+        if (mode !== "hierarchy") return;
+
         setExpanded({});
         setProjectPagination({});
-        setSortedTasks({});
-
-        // 🔥 Clear lazy loader guards
         processedSubTasksRef.current.clear();
         fetchingSubTasksRef.current.clear();
 
-        if (Object.keys(filters).length > 0 || searchQuery) {
-            setTasks([]);
+        setTasks(hydrateTasks(initialTasks));
+
+        if (level === "project" && projectId) {
+            setProjectPagination({
+                [projectId]: {
+                    page: 1,
+                    nextCursor: initialNextCursor,
+                    hasMore: initialHasMore,
+                    isLoading: false,
+                },
+            });
         }
-    }, [filters, searchQuery]);
+    }, [mode, initialTasks]);
 
     useEffect(() => {
         const fetchFiltered = async () => {
@@ -308,55 +329,158 @@ export function TaskTable({
                             }
                             : {}),
                     });
+
+                    // Auto-expand all filtered parents
+                    const expandedMap: Record<string, boolean> = {};
+                    result.tasks.forEach(t => {
+                        expandedMap[t.id] = true;
+                    });
+                    setExpanded(expandedMap);
+
+                    // Auto-expand project groups if workspace view
+                    if (level === "workspace") {
+                        const projectExpandMap: Record<string, boolean> = {};
+                        result.tasks.forEach(t => {
+                            if (t.projectId) projectExpandMap[t.projectId] = true;
+                        });
+                        setExpandedProjects(projectExpandMap);
+                    }
                 }
             } finally {
                 setIsLoadingFilters(false);
             }
         };
 
-        if (searchQuery || hasActiveFilters(filters)) {
+        if (mode === "hierarchy" && filtersActive) {
             fetchFiltered();
         }
-    }, [filters, searchQuery, workspaceId, projectId, level]);
+    }, [mode, JSON.stringify(filters), searchQuery, workspaceId, projectId, level]);
 
     // Effect to load sorted tasks when sorting is active
     useEffect(() => {
-        if (viewMode === "sorted" && sorts.length > 0) {
+        if (mode !== "sorted" || sorts.length === 0) {
+            setSortedTasks([]);
+            setSortedHasMore(false);
+            return;
+        }
+
+        let isMounted = true;
+
+        const fetchSorted = async () => {
             setIsSortedViewLoading(true);
 
-            // Build filters with projectId if in project view
-            const sortFilters = {
-                ...filters,
-                startDate: filters.startDate ? new Date(filters.startDate) : undefined,
-                endDate: filters.endDate ? new Date(filters.endDate) : undefined,
-                search: searchQuery,
-                // Add projectId filter if in project view (level === 'project')
-                ...(level === 'project' && projectId ? { projectId } : {})
-            };
-
-            loadTasksAction({
+            const res = await loadTasksAction({
                 workspaceId,
-                ...sortFilters,
-                hierarchyMode: "children",
-                limit: 100,
-                includeFacets: false,
-            }).then(response => {
-                if (response.success && response.data) {
-                    setSortedTasks(response.data.tasksByProject);
-                } else {
-                    toast.error(response.error || "Failed to load sorted tasks");
-                }
-            }).catch(error => {
-                console.error("Error loading sorted tasks:", error);
-                toast.error("Failed to load sorted tasks");
-            }).finally(() => {
-                setIsSortedViewLoading(false);
+                ...(level === "project" && projectId ? { projectId } : {}),
+                status: filters.status,
+                assigneeId: filters.assigneeId,
+                tagId: filters.tagId,
+                search: searchQuery,
+                dueAfter: filters.startDate ? new Date(filters.startDate) : undefined,
+                dueBefore: filters.endDate ? new Date(filters.endDate) : undefined,
+                onlySubtasks: true,
+                sorts,
+                limit: 20,
             });
-        } else {
-            // Clear sorted tasks when switching back to hierarchy view
-            setSortedTasks({});
+
+            if (!isMounted) return;
+
+            if (res.success && res.data) {
+                setSortedTasks(res.data.tasks || []);
+                setSortedHasMore(res.data.hasMore);
+
+                // Debug: print tasks in sorted order with correct field values
+                const sortField = sorts[0]?.field;
+                const getSortValue = (t: any, field: string): string => {
+                    if (field === "startDate" || field === "dueDate") return t[field] ? new Date(t[field]).toISOString().slice(0, 10) : "null";
+                    return String(t[field] ?? "null");
+                };
+                console.group(`[Sorted] ${res.data.tasks.length} tasks — sort: ${sortField} ${sorts[0]?.direction} | hasMore=${res.data.hasMore}`);
+                res.data.tasks.forEach((t: any, i: number) => {
+                    console.log(`#${String(i + 1).padStart(2)}  ${sortField}=${getSortValue(t, sortField)}  name=${t.name}  id=${t.id.slice(0, 8)}`);
+                });
+                console.groupEnd();
+            }
+
+            setIsSortedViewLoading(false);
+        };
+
+        // Reset pagination before fresh fetch — do NOT clear tasks here to avoid flicker
+        setSortedHasMore(false);
+
+        fetchSorted();
+
+        return () => { isMounted = false; };
+
+    }, [sortsKey, workspaceId, projectId, JSON.stringify(filters), searchQuery]);
+
+    const loadMoreSorted = async () => {
+        if (!sortedHasMore || isLoadingMoreSorted) {
+            // console.log("[LoadMoreSorted] Skip:", { sortedHasMore, isLoadingMoreSorted });
+            return;
         }
-    }, [viewMode, sorts, workspaceId, filters, searchQuery, projectId, level]);
+
+        // console.log("[LoadMoreSorted] Start — cursor:", sortedCursor);
+        setIsLoadingMoreSorted(true);
+
+        try {
+            const res = await loadTasksAction({
+                workspaceId,
+                ...(level === "project" && projectId ? { projectId } : {}),
+                status: filters.status,
+                assigneeId: filters.assigneeId,
+                tagId: filters.tagId,
+                search: searchQuery,
+                dueAfter: filters.startDate ? new Date(filters.startDate) : undefined,
+                dueBefore: filters.endDate ? new Date(filters.endDate) : undefined,
+                onlySubtasks: true,
+                sorts,
+                skip: sortedTasks.length,
+                limit: 20,
+            });
+
+            if (res.success && res.data) {
+                const newTasks = res.data.tasks || [];
+                // console.log(`[LoadMoreSorted] Success: ${newTasks.length} tasks, hasMore: ${res.data.hasMore}`);
+
+                setSortedTasks(prev => [...prev, ...newTasks]);
+                setSortedHasMore(res.data.hasMore);
+            } else {
+                console.error("[LoadMoreSorted] Server error:", res.error);
+                toast.error("Failed to load more sorted tasks");
+                setSortedHasMore(false);
+            }
+        } catch (err) {
+            console.error("[LoadMoreSorted] Runtime error:", err);
+            toast.error("An error occurred while loading more tasks");
+        } finally {
+            setIsLoadingMoreSorted(false);
+        }
+    };
+
+    useEffect(() => {
+        loadMoreSortedRef.current = loadMoreSorted;
+    }, [loadMoreSorted]);
+
+    // Dedicated IntersectionObserver for sorted scroll pagination.
+    // Re-creates on every tasks-length change AND whenever hasMore flips,
+    // so the observer fires even when the sentinel stays in the viewport.
+    useEffect(() => {
+        const sentinel = sortedSentinelRef.current;
+        if (!sentinel) return;
+
+        const obs = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting && sortedHasMore) {
+                    loadMoreSortedRef.current?.();
+                }
+            },
+            { rootMargin: "300px", threshold: 0 }
+        );
+
+        obs.observe(sentinel);
+        return () => obs.disconnect();
+    }, [sortedTasks.length, sortedHasMore]);
 
     const [activeInlineProjectId, setActiveInlineProjectId] = useState<string | null>(null);
     const [filteredProjects, setFilteredProjects] = useState<{ id: string; name: string; }[]>(projects || []);
@@ -448,6 +572,8 @@ export function TaskTable({
         loadProjectTasksRef.current = loadProjectTasks;
     }, [loadProjectTasks]);
 
+
+
     const toggleProjectExpand = (targetProjectId: string) => {
         setExpandedProjects(prev => {
             const isExpanding = !prev[targetProjectId];
@@ -458,7 +584,7 @@ export function TaskTable({
         });
         const isCurrentlyExpanded = expandedProjects[targetProjectId];
         if (!isCurrentlyExpanded) {
-            if (!projectPagination[targetProjectId] && !searchQuery && !hasActiveFilters(filters)) {
+            if (!projectPagination[targetProjectId] && !filtersActive) {
                 loadProjectTasks(targetProjectId);
             }
         }
@@ -473,8 +599,7 @@ export function TaskTable({
             level === 'project' &&
             projectId &&
             !projectPagination[projectId] &&
-            !searchQuery &&
-            !hasActiveFilters(filters)
+            !filtersActive
         ) {
             loadProjectTasks(projectId);
         }
@@ -912,37 +1037,24 @@ export function TaskTable({
         })
     );
 
-    // Helper function to check if any filters are active
-    const hasActiveFilters = (filters: TaskFilters): boolean => {
-        return !!(
-            filters.status ||
-            filters.assigneeId ||
-            filters.tagId ||
-            filters.startDate ||
-            filters.endDate ||
-            filters.projectId
-        );
-    };
 
     // Handle sort column click
     const handleSort = (field: SortField) => {
-        setSorts(prevSorts => {
-            const existingSort = prevSorts.find(s => s.field === field);
+        setSorts(prev => {
+            const existing = prev.find(s => s.field === field);
 
-            if (existingSort) {
-                // Toggle direction or remove if already descending
-                if (existingSort.direction === "asc") {
-                    return prevSorts.map(s =>
-                        s.field === field ? { ...s, direction: "desc" as const } : s
-                    );
-                } else {
-                    // Remove this sort
-                    return prevSorts.filter(s => s.field !== field);
-                }
-            } else {
-                // Add new sort
-                return [...prevSorts, { field, direction: "asc" as const }];
+            // If no sort active → start ASC
+            if (!existing) {
+                return [{ field, direction: "asc" as const }];
             }
+
+            // If ASC → switch to DESC
+            if (existing.direction === "asc") {
+                return [{ field, direction: "desc" as const }];
+            }
+
+            // If DESC → remove sort
+            return [];
         });
     };
 
@@ -1026,13 +1138,11 @@ export function TaskTable({
                                     {/* Project column removed (using grouping instead) */}
                                     {columnVisibility.description && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[150px] sm:w-[200px] bg-background">Description</th>}
                                     {columnVisibility.assignee && (
-                                        <SortableHeader
-                                            field="assignee"
-                                            label="Assignee"
-                                            sorts={sorts}
-                                            onSortChange={handleSort}
-                                            className="w-[80px] sm:w-[100px]"
-                                        />
+                                        <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[80px] sm:w-[100px] bg-background">
+                                            {/* ⚠️ Not sortable — sorting by FK id is meaningless.
+                                                Re-enable once assigneeDisplayName is denormalized onto Task. */}
+                                            Assignee
+                                        </th>
                                     )}
                                     {columnVisibility.reviewer && (
                                         <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[80px] sm:w-[100px] bg-background">
@@ -1058,17 +1168,12 @@ export function TaskTable({
                                         />
                                     )}
                                     {columnVisibility.dueDate && (
-                                        <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[90px] sm:w-[120px] bg-background">
-                                            Due Date
-                                        </th>
-                                    )}
-                                    {columnVisibility.progress && (
                                         <SortableHeader
                                             field="dueDate"
-                                            label="Deadline"
+                                            label="Due Date"
                                             sorts={sorts}
                                             onSortChange={handleSort}
-                                            className="w-[100px] sm:w-[150px]"
+                                            className="w-[90px] sm:w-[120px]"
                                         />
                                     )}
                                     {columnVisibility.tag && (
@@ -1081,7 +1186,7 @@ export function TaskTable({
                             </thead>
                             <tbody>
                                 {/* SORTED VIEW: Flat task rows grouped by project */}
-                                {viewMode === "sorted" ? (
+                                {mode === "sorted" ? (
                                     isSortedViewLoading ? (
                                         <TableRow>
                                             <TableCell colSpan={visibleColumnsCount} className="h-12">
@@ -1090,45 +1195,32 @@ export function TaskTable({
                                                 </div>
                                             </TableCell>
                                         </TableRow>
-                                    ) : Object.keys(sortedTasks).length > 0 ? (
-                                        level === 'workspace' ? (
-                                            Object.entries(sortedTasks).map(([projectId, projectSortedTasks]) => {
-                                                const project = projects?.find(p => p.id === projectId);
-                                                if (projectId === 'unknown' && projectSortedTasks.length === 0) return null;
-
-                                                const isProjectExpanded = expandedProjects[projectId] === true;
-
-                                                return (
-                                                    <React.Fragment key={`sorted-${projectId}`}>
-                                                        <ProjectRow
-                                                            project={project || { id: projectId, name: "Unknown Project" }}
-                                                            totalTasksCount={projectSortedTasks.length}
-                                                            isExpanded={isProjectExpanded}
-                                                            onToggle={() => toggleProjectExpand(projectId)}
-                                                            colSpan={visibleColumnsCount}
-                                                        >
-                                                            {isProjectExpanded && projectSortedTasks.map((task: any) => (
-                                                                <SortedTaskRow
-                                                                    key={task.id}
-                                                                    task={task}
-                                                                    columnVisibility={columnVisibility}
-                                                                    onClick={() => handleSubTaskClick(task)}
-                                                                />
-                                                            ))}
-                                                        </ProjectRow>
-                                                    </React.Fragment>
-                                                );
-                                            })
-                                        ) : (
-                                            Object.values(sortedTasks).flat().map((task: any) => (
+                                    ) : sortedTasks.length > 0 ? (
+                                        <>
+                                            {sortedTasks.map((task: any) => (
                                                 <SortedTaskRow
                                                     key={task.id}
                                                     task={task}
                                                     columnVisibility={columnVisibility}
                                                     onClick={() => handleSubTaskClick(task)}
                                                 />
-                                            ))
-                                        )
+                                            ))}
+                                            {/* Sentinel is always mounted so the IntersectionObserver
+                                                ref stays valid across hasMore transitions. */}
+                                            <TableRow
+                                                className="hover:bg-transparent border-0"
+                                                ref={sortedSentinelRef}
+                                            >
+                                                <TableCell colSpan={visibleColumnsCount} className="py-3">
+                                                    {isLoadingMoreSorted && (
+                                                        <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm">
+                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                            <span>Loading more...</span>
+                                                        </div>
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        </>
                                     ) : (
                                         <TableRow>
                                             <TableCell colSpan={visibleColumnsCount} className="h-24 text-center text-muted-foreground">
@@ -1264,14 +1356,14 @@ export function TaskTable({
                                                                 </TableCell>
                                                             </TableRow>
                                                         )}
-                                                        {isProjectExpanded && !projectPagination[projectId]?.isLoading && projectTasks.length === 0 && (!!searchQuery || hasActiveFilters(filters) || !canCreateSubTask) && (
+                                                        {isProjectExpanded && !projectPagination[projectId]?.isLoading && projectTasks.length === 0 && (filtersActive || !canCreateSubTask) && (
                                                             <TableRow>
                                                                 <TableCell colSpan={visibleColumnsCount} className="h-24 text-center text-muted-foreground">
                                                                     No tasks found.
                                                                 </TableCell>
                                                             </TableRow>
                                                         )}
-                                                        {isProjectExpanded && canCreateSubTask && !searchQuery && Object.keys(filters).length === 0 && (
+                                                        {isProjectExpanded && canCreateSubTask && !filtersActive && (
                                                             activeInlineProjectId === projectId ? (
                                                                 <InlineTaskForm
                                                                     workspaceId={workspaceId}
@@ -1415,7 +1507,7 @@ export function TaskTable({
                                     </TableRow>
                                 )}
 
-                                {filteredTasks.length === 0 && !isLoadingFilters && !groupedTasks && (
+                                {mode !== "sorted" && filteredTasks.length === 0 && !isLoadingFilters && !groupedTasks && (
                                     <TableRow>
                                         <TableCell colSpan={visibleColumnsCount} className="h-24 text-center">
                                             No tasks found.
@@ -1424,7 +1516,7 @@ export function TaskTable({
                                 )}
 
 
-                                {canCreateSubTask && !groupedTasks && !hasActiveFilters(filters) && !searchQuery && (
+                                {canCreateSubTask && !groupedTasks && !filtersActive && (
                                     activeInlineProjectId === projectId ? (
                                         <InlineTaskForm
                                             workspaceId={workspaceId}
