@@ -357,19 +357,15 @@ export function DraggableSubtaskBar({
                                 isDragging && "opacity-70 scale-105",
                                 isConnectionTarget && "ring-2 ring-blue-500 ring-offset-2",
                                 // Status-based colors
-                                isBlocked
-                                    ? "bg-amber-400 dark:bg-amber-500 hover:bg-amber-500 dark:hover:bg-amber-600 focus:ring-amber-500"
-                                    : (
-                                        {
-                                            'TO_DO': "bg-slate-400 dark:bg-slate-500 hover:bg-slate-500 dark:hover:bg-slate-600 focus:ring-slate-500",
-                                            'IN_PROGRESS': "bg-blue-400 dark:bg-blue-500 hover:bg-blue-500 dark:hover:bg-blue-600 focus:ring-blue-500",
-                                            'CANCELLED': "bg-red-400 dark:bg-red-500 hover:bg-red-500 dark:hover:bg-red-600 focus:ring-red-500",
-                                            'REVIEW': "bg-amber-400 dark:bg-amber-500 hover:bg-amber-500 dark:hover:bg-amber-600 focus:ring-amber-500",
-                                            'HOLD': "bg-purple-400 dark:bg-purple-500 hover:bg-purple-500 dark:hover:bg-purple-600 focus:ring-purple-500",
-                                            'COMPLETED': "bg-green-400 dark:bg-green-500 hover:bg-green-500 dark:hover:bg-green-600 focus:ring-green-500"
-                                        }[optimisticSubtask.status || 'TO_DO'] || "bg-slate-400 dark:bg-slate-500 hover:bg-slate-500 dark:hover:bg-slate-600 focus:ring-slate-500"
-                                    ),
-                                isBlocked && "bg-gradient-to-r from-amber-400 via-amber-300 to-amber-400 dark:from-amber-500 dark:via-amber-400 dark:to-amber-500 bg-[length:10px_100%]"
+                                ({
+                                    'TO_DO': "bg-slate-400 dark:bg-slate-500 hover:bg-slate-500 dark:hover:bg-slate-600 focus:ring-slate-500",
+                                    'IN_PROGRESS': "bg-blue-400 dark:bg-blue-500 hover:bg-blue-500 dark:hover:bg-blue-600 focus:ring-blue-500",
+                                    'CANCELLED': "bg-red-400 dark:bg-red-500 hover:bg-red-500 dark:hover:bg-red-600 focus:ring-red-500",
+                                    'REVIEW': "bg-amber-400 dark:bg-amber-500 hover:bg-amber-500 dark:hover:bg-amber-600 focus:ring-amber-500",
+                                    'HOLD': "bg-purple-400 dark:bg-purple-500 hover:bg-purple-500 dark:hover:bg-purple-600 focus:ring-purple-500",
+                                    'COMPLETED': "bg-green-400 dark:bg-green-500 hover:bg-green-500 dark:hover:bg-green-600 focus:ring-green-500"
+                                }[optimisticSubtask.status || 'TO_DO'] || "bg-slate-400 dark:bg-slate-500 hover:bg-slate-500 dark:hover:bg-slate-600 focus:ring-slate-500"
+                                )
                             )}
                             style={{
                                 left: `${leftPercent}%`,
@@ -438,11 +434,6 @@ export function DraggableSubtaskBar({
                         <div className="space-y-1.5">
                             <div className="flex items-center gap-2">
                                 <p className="font-medium text-sm">{optimisticSubtask.name}</p>
-                                {isBlocked && (
-                                    <span className="px-1.5 py-0.5 text-xs bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 rounded">
-                                        BLOCKED
-                                    </span>
-                                )}
                                 {isCompleted && (
                                     <span className="px-1.5 py-0.5 text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded">
                                         DONE
@@ -485,6 +476,6 @@ export function DraggableSubtaskBar({
                     </TooltipContent>
                 </Tooltip>
             </TooltipProvider>
-        </div>
+        </div >
     );
 }

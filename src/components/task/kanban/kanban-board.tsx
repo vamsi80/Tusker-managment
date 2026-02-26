@@ -167,7 +167,6 @@ export function KanbanBoard({
         REVIEW: true,
         HOLD: true,
         COMPLETED: true,
-        BLOCKED: true,
     });
 
     const sensors = useSensors(

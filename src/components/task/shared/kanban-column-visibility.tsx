@@ -12,7 +12,7 @@ import {
 import { ListFilter } from "lucide-react";
 import { STATUS_LABELS } from "@/lib/zodSchemas";
 
-type TaskStatus = "TO_DO" | "IN_PROGRESS" | "CANCELLED" | "REVIEW" | "HOLD" | "COMPLETED" | "BLOCKED";
+type TaskStatus = "TO_DO" | "IN_PROGRESS" | "CANCELLED" | "REVIEW" | "HOLD" | "COMPLETED";
 
 export type KanbanColumnVisibility = Record<TaskStatus, boolean>;
 
@@ -45,7 +45,7 @@ export function KanbanColumnVisibility({
             <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2">
                     <ListFilter className="h-4 w-4" />
-                    Columns ({visibleColumnsCount}/7)
+                    Columns ({visibleColumnsCount}/6)
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-[200px]">
