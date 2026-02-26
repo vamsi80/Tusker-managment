@@ -16,7 +16,7 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { ProjectMembersType, getProjectMembers } from "@/data/project/get-project-members";
 import { SubTaskStatus, STATUS_OPTIONS } from "@/lib/zodSchemas";
 import { ColumnVisibility } from "../shared/column-visibility";
-import { SubTaskType } from "@/data/task/list/get-subtasks";
+import { SubTaskType } from "@/data/task";
 import { ApiResponse } from "@/lib/types";
 import { getProjectReviewers, ProjectReviewer } from "@/actions/project/get-project-reviewers";
 import { cn } from "@/lib/utils";

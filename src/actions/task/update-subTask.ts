@@ -90,7 +90,20 @@ export async function editSubTask(
                 description: validation.data.description,
                 assigneeTo: assigneeInfo?.workspaceMember.userId || null,
                 tagId: validation.data.tag || null,
-                startDate: validation.data.startDate ? new Date(validation.data.startDate) : null,
+                startDate: validation.data.startDate
+                    ? (() => {
+                        const d = new Date(validation.data.startDate);
+                        return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+                    })()
+                    : null,
+                dueDate: validation.data.startDate && validation.data.days
+                    ? (() => {
+                        const d = new Date(validation.data.startDate);
+                        const utcStart = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+                        const due = new Date(utcStart.getTime());
+                        due.setUTCDate(due.getUTCDate() + validation.data.days);
+                        return due;
+                    })() : null,
                 days: validation.data.days,
             },
         });

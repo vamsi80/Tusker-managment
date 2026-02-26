@@ -8,6 +8,13 @@ import { generateUniqueSlugs } from "@/lib/slug-generator";
 import { ApiResponse } from "@/lib/types";
 import { revalidatePath } from "next/cache";
 
+function calculateDueDate(startDate: Date | undefined, days: number | undefined): Date | undefined {
+    if (!startDate || days === undefined || days === null) return undefined;
+    const dueDate = new Date(startDate.getTime());
+    dueDate.setUTCDate(dueDate.getUTCDate() + Number(days));
+    return dueDate;
+}
+
 export async function bulkUploadTasksAndSubtasks(data: {
     projectId: string;
     tasks: Array<{
@@ -217,7 +224,10 @@ export async function bulkUploadTasksAndSubtasks(data: {
                     : permissions.workspaceMember.userId;
 
                 const parentStartDate = firstRow.startDate
-                    ? new Date(firstRow.startDate)
+                    ? (() => {
+                        const d = new Date(firstRow.startDate);
+                        return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+                    })()
                     : undefined;
 
                 let parentTagId: string | undefined = undefined;
@@ -263,7 +273,10 @@ export async function bulkUploadTasksAndSubtasks(data: {
                             : permissions.workspaceMember.userId;
 
                         const subtaskStartDate = subtaskRow.startDate
-                            ? new Date(subtaskRow.startDate)
+                            ? (() => {
+                                const d = new Date(subtaskRow.startDate);
+                                return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+                            })()
                             : undefined;
 
                         // Resolve tag ID
@@ -292,6 +305,7 @@ export async function bulkUploadTasksAndSubtasks(data: {
                                 reviewerId: subtaskReviewerId,
                                 startDate: subtaskStartDate,
                                 days: subtaskRow.days,
+                                dueDate: calculateDueDate(subtaskStartDate, subtaskRow.days),
                                 status: subtaskRow.status ? (subtaskRow.status as any) : undefined,
                                 tagId: resolvedTagId,
                             },
