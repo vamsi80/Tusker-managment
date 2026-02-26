@@ -607,8 +607,8 @@ enum ProjectRole {
 enum TaskStatus {
   TO_DO
   IN_PROGRESS
-  CANCELLED
   REVIEW
   HOLD
   COMPLETED
+  CANCELLED
 }

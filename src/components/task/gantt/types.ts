@@ -42,6 +42,8 @@ export interface GanttTask {
     projectId?: string;
     projectName?: string;
     projectColor?: string;
+    start?: string; // Optional: DB provided
+    end?: string;   // Optional: DB provided
     subtasks: GanttSubtask[];
     assignee?: { id: string; name: string; image?: string | null };
 }

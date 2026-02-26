@@ -46,6 +46,17 @@ export function ProjectRow({
         let maxEnd: Date | null = null;
 
         tasks.forEach(task => {
+            // Check Parent Task boundaries
+            if (task.start) {
+                const s = new Date(task.start);
+                if (!minStart || s < minStart) minStart = s;
+            }
+            if (task.end) {
+                const e = new Date(task.end);
+                if (!maxEnd || e > maxEnd) maxEnd = e;
+            }
+
+            // Check Subtask level (extra precision)
             if (task.subtasks) {
                 task.subtasks.forEach(subtask => {
                     if (subtask.start) {
@@ -87,23 +98,29 @@ export function ProjectRow({
     }, [hasMore, onLoadMore]);
 
     return (
-        <>
-            {/* Project Row */}
-            <>
+        <div className="flex flex-col">
+            {/* Project Row Header */}
+            <div
+                className="grid sticky z-[35] bg-white dark:bg-neutral-900"
+                style={{
+                    gridTemplateColumns: 'var(--gantt-sidebar-width) var(--gantt-total-width)',
+                    top: 'var(--gantt-header-height)'
+                }}
+            >
                 {/* Left Panel - Project Name */}
                 <div
                     className={cn(
-                        "sticky left-0 z-30 w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] flex items-center gap-1 px-3 py-2 min-h-[32px]",
-                        "bg-neutral-100 dark:bg-neutral-800",
-                        "border-b border-r border-neutral-200 dark:border-neutral-700",
-                        "hover:bg-neutral-200 dark:hover:bg-neutral-700/50",
+                        "sticky left-0 z-[36] flex items-center gap-1 px-3 py-2 min-h-[32px]",
+                        "bg-white dark:bg-neutral-900",
+                        "border-b border-r border-neutral-200 dark:border-neutral-800",
+                        "hover:bg-neutral-50 dark:hover:bg-neutral-800/50",
                         "transition-colors duration-150"
                     )}
                 >
                     <button
                         onClick={onToggle}
                         className={cn(
-                            "p-0.5 rounded hover:bg-neutral-300 dark:hover:bg-neutral-600",
+                            "p-0.5 rounded hover:bg-neutral-700 dark:hover:bg-neutral-800",
                             "transition-colors duration-150"
                         )}
                         aria-expanded={isExpanded}
@@ -131,8 +148,9 @@ export function ProjectRow({
                 <div
                     className={cn(
                         "relative min-h-[32px] flex items-center w-full",
-                        "bg-neutral-50/50 dark:bg-neutral-900/50", // Slight background diff
-                        "border-b border-neutral-200 dark:border-neutral-700"
+                        "bg-white dark:bg-neutral-900",
+                        "border-b border-neutral-200 dark:border-neutral-800",
+                        "shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
                     )}
                 >
                     {position && (
@@ -172,22 +190,25 @@ export function ProjectRow({
                         </TooltipProvider>
                     )}
                 </div>
-            </>
+            </div>
 
             {/* Task Rows */}
             {isExpanded && children}
 
             {/* Load More Tasks in Project */}
             {isExpanded && hasMore && (
-                <>
+                <div
+                    className="grid"
+                    style={{ gridTemplateColumns: 'var(--gantt-sidebar-width) var(--gantt-total-width)' }}
+                >
                     {/* Left Panel */}
-                    <div ref={loaderRef} className="sticky left-0 z-30 w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] shrink-0 bg-neutral-50 dark:bg-neutral-800/30 border-b border-r border-neutral-200 dark:border-neutral-700 flex items-center px-3 py-1.5 pl-8">
+                    <div ref={loaderRef} className="sticky left-0 z-30 shrink-0 bg-neutral-50 dark:bg-neutral-800/30 border-b border-r border-neutral-200 dark:border-neutral-700 flex items-center px-3 py-1.5 pl-8">
                         <span className="text-xs text-muted-foreground">Loading more...</span>
                     </div>
                     {/* Right Panel */}
                     <div className="relative min-h-[32px] w-full bg-neutral-50/50 dark:bg-neutral-800/10 border-b border-neutral-200 dark:border-neutral-700" />
-                </>
+                </div>
             )}
-        </>
+        </div>
     );
 }

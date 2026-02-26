@@ -48,22 +48,30 @@ export function TimelineHeader({ startDate, endDate, granularity }: TimelineHead
     }, [columns, granularity]);
 
     const columnWidth = granularity === 'days' ? 40 : granularity === 'weeks' ? 80 : 120;
+    const headerHeight = granularity === 'days' ? 72 : 40;
 
     return (
-        <div className="sticky top-0 z-40 bg-white dark:bg-neutral-900 min-w-full w-fit">
+        <div
+            className="sticky top-0 z-40 bg-white dark:bg-neutral-900 min-w-full w-fit"
+            style={{
+                height: headerHeight,
+                // @ts-ignore
+                "--gantt-header-height": `${headerHeight}px`
+            }}
+        >
             {/* Month Row (for days view) */}
             {granularity === 'days' && (
                 <div
-                    className="flex border-b border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800"
+                    className="flex border-b border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 h-8"
                 >
                     <div
-                        className="sticky left-0 z-50 w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] shrink-0 px-3 py-1 bg-neutral-100 dark:bg-neutral-800 border-r border-neutral-200 dark:border-neutral-700"
+                        className="sticky left-0 z-50 w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] shrink-0 px-3 py-1 bg-neutral-50 dark:bg-neutral-800/50 border-r border-neutral-200 dark:border-neutral-700 h-full"
                     />
                     <div className="flex">
                         {monthLabels.map((month, idx) => (
                             <div
                                 key={idx}
-                                className="text-xs font-medium text-muted-foreground text-center border-r border-neutral-200 dark:border-neutral-700"
+                                className="text-[10px] font-medium text-muted-foreground text-center border-r border-neutral-200 dark:border-neutral-700 h-full flex items-center justify-center"
                                 style={{ width: month.span * columnWidth }}
                             >
                                 {month.label}
@@ -74,11 +82,11 @@ export function TimelineHeader({ startDate, endDate, granularity }: TimelineHead
             )}
 
             {/* Day/Week/Month Headers */}
-            <div className="flex border-b border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900">
+            <div className="flex border-b border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 h-10">
                 <div
-                    className="sticky left-0 z-50 w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] shrink-0 px-3 py-2 bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-700"
+                    className="sticky left-0 z-50 w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] shrink-0 px-3 py-2 bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-700 h-full flex items-center"
                 >
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                         Tasks
                     </span>
                 </div>
@@ -87,9 +95,9 @@ export function TimelineHeader({ startDate, endDate, granularity }: TimelineHead
                         <div
                             key={idx}
                             className={cn(
-                                "text-xs text-center py-2 border-r border-neutral-200 dark:border-neutral-700",
+                                "text-[10px] text-center py-2 border-r border-neutral-200 dark:border-neutral-700 h-full flex items-center justify-center flex-col shrink-0",
                                 col.isToday
-                                    ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-semibold"
+                                    ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-bold"
                                     : "text-muted-foreground"
                             )}
                             style={{ width: columnWidth, minWidth: columnWidth }}
@@ -180,7 +188,13 @@ export function TimelineGrid({ startDate, endDate, granularity, tasks, children 
     }, [startDate, endDate, columnWidth, granularity, columns]);
 
     return (
-        <div className="relative min-w-full w-fit">
+        <div
+            className="relative min-w-full w-fit"
+            style={{
+                // @ts-ignore
+                "--gantt-total-width": `${totalWidth}px`
+            }}
+        >
             {/* Grid Background */}
             <div
                 className="absolute inset-0 flex pointer-events-none"
@@ -227,13 +241,8 @@ export function TimelineGrid({ startDate, endDate, granularity, tasks, children 
                 />
             </div>
 
-            {/* Content Grid */}
-            <div
-                className="grid"
-                style={{
-                    gridTemplateColumns: `var(--gantt-sidebar-width) ${totalWidth}px`,
-                }}
-            >
+            {/* Content Container (Vertical List of Rows) */}
+            <div className="flex flex-col">
                 {children}
             </div>
         </div>

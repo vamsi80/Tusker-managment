@@ -14,7 +14,7 @@ interface WorkspaceGanttClientProps {
     workspaceId: string;
     initialTasks: GanttTask[];
     allTasks: any[];
-    subtaskDataMap: Map<string, any>;
+    subtaskDataMap: Record<string, any>;
     projects: ProjectOption[];
     members: MemberOption[];
     tags: TagOption[];
@@ -160,8 +160,8 @@ export function WorkspaceGanttClient({
 
 
     const handleSubtaskClick = (subtaskId: string) => {
-        // Try getting from map first, then entity store
-        let subtaskData = subtaskDataMap.get(subtaskId);
+        // Try getting from map (now object) first, then entity store
+        let subtaskData = subtaskDataMap[subtaskId];
         if (!subtaskData) {
             subtaskData = entities[subtaskId];
         }

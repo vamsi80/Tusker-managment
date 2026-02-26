@@ -50,14 +50,14 @@ const COLUMNS: { id: TaskStatus; title: string; color: string; bgColor: string; 
         ...STATUS_COLORS.REVIEW,
     },
     {
-        id: "COMPLETED",
-        title: STATUS_LABELS.COMPLETED,
-        ...STATUS_COLORS.COMPLETED,
-    },
-    {
         id: "HOLD",
         title: STATUS_LABELS.HOLD,
         ...STATUS_COLORS.HOLD,
+    },
+    {
+        id: "COMPLETED",
+        title: STATUS_LABELS.COMPLETED,
+        ...STATUS_COLORS.COMPLETED,
     },
     {
         id: "CANCELLED",

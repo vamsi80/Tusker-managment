@@ -20,27 +20,27 @@ export function parseDate(dateStr: string): Date | null {
 }
 
 /**
- * Compute task start/end dates from subtasks
- * task.start = min(subtask.start)
- * task.end = max(subtask.end)
+ * Compute task start/end dates from task metadata or its subtasks
+ * 1. Priority: task.start / task.end (Direct DB values)
+ * 2. Fallback: min(subtask.start) / max(subtask.end)
  */
 export function computeTaskDates(task: GanttTask): ComputedTaskDates {
-    if (!task.subtasks || task.subtasks.length === 0) {
-        return { start: null, end: null };
-    }
+    // Attempt to use direct values first
+    let minStart = task.start ? parseDate(task.start) : null;
+    let maxEnd = task.end ? parseDate(task.end) : null;
 
-    let minStart: Date | null = null;
-    let maxEnd: Date | null = null;
+    // If subtasks exist, they can expand the boundary
+    if (task.subtasks && task.subtasks.length > 0) {
+        for (const subtask of task.subtasks) {
+            const start = parseDate(subtask.start);
+            const end = parseDate(subtask.end);
 
-    for (const subtask of task.subtasks) {
-        const start = parseDate(subtask.start);
-        const end = parseDate(subtask.end);
-
-        if (start && (!minStart || start < minStart)) {
-            minStart = start;
-        }
-        if (end && (!maxEnd || end > maxEnd)) {
-            maxEnd = end;
+            if (start && (!minStart || start < minStart)) {
+                minStart = start;
+            }
+            if (end && (!maxEnd || end > maxEnd)) {
+                maxEnd = end;
+            }
         }
     }
 
