@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useDueDate, useRemainingDays } from "@/hooks/use-due-date";
+import { useRemainingDays } from "@/hooks/use-due-date";
 import { useSortable } from "@dnd-kit/sortable";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import { SubTaskType } from "@/data/task";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { cn, formatDateUTC } from "@/lib/utils";
 import { EditSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/edit-subtask-form";
 import { DeleteSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/delete-subtask-form";
 import { InlineSubTaskForm } from "./inline-subtask-form";
@@ -118,9 +118,11 @@ export function SubTaskRow({
     const assignee = subTask.assignee;
 
     // Use custom hooks for date calculations
-    const calculatedDueDate = useDueDate(subTask.startDate, subTask.days);
-    const dueDate = subTask.dueDate ? new Date(subTask.dueDate) : calculatedDueDate;
-    const { remainingDays, isOverdue } = useRemainingDays(subTask.startDate, subTask.days);
+    // Use custom hook for remaining days calculation, passing persisted dueDate if available
+    const { remainingDays, isOverdue, dueDate } = useRemainingDays(subTask.startDate, subTask.days, subTask.dueDate);
+
+    // Debug: Print due date from database
+    console.log(`[SubTask DB] ${subTask.name}: dueDate = ${subTask.dueDate}`);
 
     const getProgressColor = () => {
         if (!subTask.startDate || !subTask.days || remainingDays === null) return "bg-gray-300";
@@ -322,7 +324,7 @@ export function SubTaskRow({
                     {subTask.startDate ? (
                         <div className="flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs text-muted-foreground">
                             <Calendar className="h-3 w-3 flex-shrink-0 hidden xs:block" />
-                            <span className="truncate">{new Date(subTask.startDate).toLocaleDateString('en-GB')}</span>
+                            <span className="truncate">{formatDateUTC(subTask.startDate)}</span>
                         </div>
                     ) : (
                         <span className="text-muted-foreground text-xs text-center block">-</span>
@@ -335,7 +337,7 @@ export function SubTaskRow({
                     {dueDate ? (
                         <div className="flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs font-medium">
                             <Calendar className="h-3 w-3 flex-shrink-0 hidden xs:block" />
-                            <span className="truncate">{dueDate.toLocaleDateString('en-GB')}</span>
+                            <span className="truncate">{formatDateUTC(dueDate)}</span>
                         </div>
                     ) : (
                         <span className="text-muted-foreground text-xs text-center block">-</span>

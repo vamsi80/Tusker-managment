@@ -60,6 +60,33 @@ const toArray = <T>(v: T | T[] | undefined): T[] | undefined =>
 
 const toDate = (d: string | Date | undefined) => (d ? new Date(d) : undefined);
 
+const toUTCDateOnly = (input: string | Date | undefined) => {
+    if (!input) return undefined;
+
+    const d = new Date(input);
+
+    // If it's a Date object (not a string), it likely came from a local UI picker.
+    // We want the calendar day the user sees. Use local components getFullYear/getMonth/getDate.
+    if (typeof input !== 'string') {
+        return new Date(Date.UTC(
+            d.getFullYear(),
+            d.getMonth(),
+            d.getDate()
+        ));
+    }
+
+    // For strings like "2024-10-10", stay in UTC
+    return new Date(Date.UTC(
+        d.getUTCFullYear(),
+        d.getUTCMonth(),
+        d.getUTCDate()
+    ));
+};
+
+const addOneDayUTC = (date: Date) =>
+    new Date(date.getTime() + 24 * 60 * 60 * 1000);
+
+
 const ORDER_BY_CREATED_DESC = [{ createdAt: "desc" as const }, { id: "asc" as const }];
 
 /**
@@ -315,10 +342,11 @@ async function _fetchFilteredHierarchy(
 ) {
     const limit = opts.limit ?? 20;
 
-    const rawStart = toDate(opts.dueAfter as any);
-    const rawEnd = toDate(opts.dueBefore as any);
-    if (rawStart) rawStart.setHours(0, 0, 0, 0);
-    if (rawEnd) rawEnd.setHours(23, 59, 59, 999);
+    const start = toUTCDateOnly(opts.dueAfter);
+    const end = toUTCDateOnly(opts.dueBefore);
+
+    const normalizedStart = start;
+    const normalizedEnd = end ? addOneDayUTC(end) : undefined;
 
     const filterOpts: WorkspaceFilterOpts = {
         workspaceId,
@@ -326,8 +354,8 @@ async function _fetchFilteredHierarchy(
         assigneeId: toArray(opts.assigneeId),
         status: toArray(opts.status),
         tagId: toArray(opts.tagId),
-        dueAfter: rawStart,
-        dueBefore: rawEnd,
+        dueAfter: normalizedStart,
+        dueBefore: normalizedEnd,
         search: opts.search,
         cursor: opts.cursor,
         isAdmin,
@@ -336,27 +364,27 @@ async function _fetchFilteredHierarchy(
         projectIds: (!opts.projectId && opts.expandedProjectIds?.length) ? opts.expandedProjectIds : undefined,
     };
 
-    // Step 1: Query Matching Subtasks based on filters
-    const subtaskWhere = buildWorkspaceFilterWhere({
+    // Unified Strategy: Find ANY task matching the filters at any level.
+    const matchWhere = buildWorkspaceFilterWhere({
         ...filterOpts,
         onlyParents: false,
-        onlySubtasks: true,
+        onlySubtasks: false,
     }, userId);
 
-    console.log(`[PRISMA SUBTASK-FIRST] where:`, JSON.stringify(subtaskWhere, null, 2));
+    console.log(`[PRISMA HIERARCHY-MATCH] where:`, JSON.stringify(matchWhere, null, 2));
 
-    // Step 2: Get unique parent IDs for the matching subtasks
-    const subtaskMatches = await prisma.task.findMany({
-        where: subtaskWhere,
-        select: { parentTaskId: true },
-        distinct: ['parentTaskId'],
-        orderBy: ORDER_BY_CREATED_DESC,
-        take: limit + 1,
+    // Step 2: Get unique parent IDs for all matching tasks.
+    // If a subtask matches, its parentTaskId is the group basis.
+    // If a parent task matches, its id is the group basis.
+    const matches = await prisma.task.findMany({
+        where: matchWhere,
+        select: { id: true, parentTaskId: true },
+        take: 100, // Fetch a reasonable set of matches to find parent groups
     });
 
-    const parentIds = subtaskMatches
-        .map(m => m.parentTaskId)
-        .filter((id): id is string => id !== null);
+    const parentIds = Array.from(new Set(
+        matches.map(m => m.parentTaskId || m.id)
+    )).slice(0, limit);
 
     // Step 3: Fetch the Parents
     const rawParents = await prisma.task.findMany({
@@ -365,18 +393,21 @@ async function _fetchFilteredHierarchy(
         orderBy: ORDER_BY_CREATED_DESC,
     });
 
-    // Step 4: Fetch ALL matching subtasks for these parents (to populate the subtasks array)
-    const matchingSubtasks = await prisma.task.findMany({
+    // Step 4: Fetch matching tasks for these parents (can be parents themselves or their children)
+    const matchingTasks = await prisma.task.findMany({
         where: {
-            ...subtaskWhere,
-            parentTaskId: { in: parentIds }
+            ...matchWhere,
+            OR: [
+                { id: { in: parentIds } },
+                { parentTaskId: { in: parentIds } }
+            ]
         },
         select: TASK_CORE_SELECT,
         orderBy: ORDER_BY_CREATED_DESC,
     });
 
     // Hydration Logic
-    const allRaw = [...rawParents, ...matchingSubtasks];
+    const allRaw = [...rawParents, ...matchingTasks];
     const [userMap, tagMap, projectMap] = await Promise.all([
         batchLoadUsers([
             ...allRaw.map(t => t.assigneeTo),
@@ -388,35 +419,29 @@ async function _fetchFilteredHierarchy(
     ]);
 
     const hydratedParents = hydrateTasks(rawParents, userMap, tagMap, projectMap);
-    const hydratedSubtasks = hydrateTasks(matchingSubtasks, userMap, tagMap, projectMap);
+    const hydratedMatching = hydrateTasks(matchingTasks, userMap, tagMap, projectMap);
 
-    // Grouping: Attach only matching subtasks to their parents
+    // Grouping: Attach matching tasks to their parents
     const subtaskGrouped = new Map<string, any[]>();
-    hydratedSubtasks.forEach(st => {
-        if (!st.parentTaskId) return;
-        if (!subtaskGrouped.has(st.parentTaskId)) subtaskGrouped.set(st.parentTaskId, []);
-        subtaskGrouped.get(st.parentTaskId)!.push(st);
+    hydratedMatching.forEach(task => {
+        if (!task.parentTaskId) return; // Top level matches are already in rawParents
+        if (!subtaskGrouped.has(task.parentTaskId)) subtaskGrouped.set(task.parentTaskId, []);
+        subtaskGrouped.get(task.parentTaskId)!.push(task);
     });
 
-    let tasks = hydratedParents.map(p => ({
+    const tasks = hydratedParents.map(p => ({
         ...p,
         subTasks: subtaskGrouped.get(p.id) || []
     }));
 
-    const hasMore = subtaskMatches.length > limit;
-    if (hasMore) tasks.pop();
+    const hasMore = matches.length > limit;
+    const totalCount = await prisma.task.count({ where: matchWhere });
 
-    const totalCountResult = await prisma.task.groupBy({
-        by: ['parentTaskId'],
-        where: subtaskWhere,
-        _count: true
-    });
-
-    const nextCursor: TaskCursor | null = hasMore
+    const nextCursor: TaskCursor | null = hasMore && tasks.length > 0
         ? { id: tasks[tasks.length - 1].id, createdAt: tasks[tasks.length - 1].createdAt }
         : null;
 
-    return { tasks, totalCount: totalCountResult.length, hasMore, nextCursor };
+    return { tasks, totalCount, hasMore, nextCursor };
 }
 
 // ============================================================
@@ -433,10 +458,11 @@ async function _fetchWorkspaceFilter(
 ) {
     const limit = opts.limit ?? 20;
 
-    const rawStart = toDate(opts.dueAfter as any);
-    const rawEnd = toDate(opts.dueBefore as any);
-    if (rawStart) rawStart.setHours(0, 0, 0, 0);
-    if (rawEnd) rawEnd.setHours(23, 59, 59, 999);
+    const start = toUTCDateOnly(opts.dueAfter);
+    const end = toUTCDateOnly(opts.dueBefore);
+
+    const normalizedStart = start;
+    const normalizedEnd = end ? addOneDayUTC(end) : undefined;
 
     const filterOpts: WorkspaceFilterOpts = {
         workspaceId,
@@ -444,8 +470,8 @@ async function _fetchWorkspaceFilter(
         assigneeId: toArray(opts.assigneeId),
         status: toArray(opts.status),
         tagId: toArray(opts.tagId),
-        dueAfter: rawStart,
-        dueBefore: rawEnd,
+        dueAfter: normalizedStart,
+        dueBefore: normalizedEnd,
         search: opts.search,
         cursor: opts.cursor,
         isAdmin,
@@ -618,8 +644,8 @@ async function _getTasksInternal(
                 assigneeId: toArray(opts.assigneeId),
                 status: toArray(opts.status),
                 tagId: toArray(opts.tagId),
-                dueAfter: toDate(opts.dueAfter as any),
-                dueBefore: toDate(opts.dueBefore as any),
+                dueAfter: toUTCDateOnly(opts.dueAfter),
+                dueBefore: opts.dueBefore ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!) : undefined,
                 search: opts.search,
                 isAdmin,
                 fullAccessProjectIds,

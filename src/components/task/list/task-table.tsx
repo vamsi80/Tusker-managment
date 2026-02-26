@@ -261,14 +261,17 @@ export function TaskTable({
     };
 
     useEffect(() => {
-        // clearCache(); // Don't clear cache on filter change to prevent reloading subtasks
         setExpanded({});
         setProjectPagination({});
+        setSortedTasks({});
+
+        // 🔥 Clear lazy loader guards
+        processedSubTasksRef.current.clear();
+        fetchingSubTasksRef.current.clear();
+
         if (Object.keys(filters).length > 0 || searchQuery) {
             setTasks([]);
         }
-        // Clear sorted tasks when filters or search change
-        setSortedTasks({});
     }, [filters, searchQuery]);
 
     useEffect(() => {
@@ -455,7 +458,7 @@ export function TaskTable({
         });
         const isCurrentlyExpanded = expandedProjects[targetProjectId];
         if (!isCurrentlyExpanded) {
-            if (!projectPagination[targetProjectId]) {
+            if (!projectPagination[targetProjectId] && !searchQuery && !hasActiveFilters(filters)) {
                 loadProjectTasks(targetProjectId);
             }
         }
@@ -466,10 +469,16 @@ export function TaskTable({
     };
 
     useEffect(() => {
-        if (level === 'project' && projectId && !projectPagination[projectId]) {
+        if (
+            level === 'project' &&
+            projectId &&
+            !projectPagination[projectId] &&
+            !searchQuery &&
+            !hasActiveFilters(filters)
+        ) {
             loadProjectTasks(projectId);
         }
-    }, [level, projectId]);
+    }, [level, projectId, filters, searchQuery]);
 
     const { openSubTaskSheet } = useSubTaskSheet();
 
@@ -663,10 +672,12 @@ export function TaskTable({
                 workspaceId,
                 projectId: taskProjectId,
                 filterParentTaskId: taskId,
-                status: (activeFilters as any).status,
-                assigneeId: (activeFilters as any).assigneeId,
-                tagId: (activeFilters as any).tagId,
-                search: (activeFilters as any).search,
+                status: activeFilters.status,
+                assigneeId: activeFilters.assigneeId,
+                tagId: activeFilters.tagId,
+                search: activeFilters.search,
+                dueAfter: filters.startDate ? new Date(filters.startDate) : undefined,
+                dueBefore: filters.endDate ? new Date(filters.endDate) : undefined,
                 limit: 10,
             });
 
@@ -776,10 +787,12 @@ export function TaskTable({
                 workspaceId,
                 projectId: task.projectId || projectId,
                 filterParentTaskId: taskId,
-                status: (cleanFilters as any).status,
-                assigneeId: (cleanFilters as any).assigneeId,
-                tagId: (cleanFilters as any).tagId,
-                search: (cleanFilters as any).search,
+                status: cleanFilters.status,
+                assigneeId: cleanFilters.assigneeId,
+                tagId: cleanFilters.tagId,
+                search: cleanFilters.search,
+                dueAfter: cleanFilters.startDate,
+                dueBefore: cleanFilters.endDate,
                 cursor: task.subTasksNextCursor,
                 limit: 10,
             });

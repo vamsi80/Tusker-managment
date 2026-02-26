@@ -251,11 +251,10 @@ export function buildWorkspaceFilterWhere(
     }
 
     // ─── Due date ───────────────────────────────────────────────────────
-    if (opts.dueBefore || opts.dueAfter) {
+    if (opts.dueAfter || opts.dueBefore) {
         where.dueDate = {
             ...(opts.dueAfter ? { gte: opts.dueAfter } : {}),
-            ...(opts.dueBefore ? { lte: opts.dueBefore } : {}),
-            not: null,
+            ...(opts.dueBefore ? { lt: opts.dueBefore } : {}),
         };
     }
 

@@ -88,12 +88,13 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
         const providedReviewerId = validation.data.reviewerId || null;
         const reviewerId = providedReviewerId ?? permissions.workspaceMember.userId;
 
-        // Calculate dueDate from startDate and days
+        // Calculate dueDate from startDate and days (UTC safe)
         let dueDate: Date | null = null;
         if (validation.data.startDate && validation.data.days) {
-            const startDate = new Date(validation.data.startDate);
-            dueDate = new Date(startDate);
-            dueDate.setDate(dueDate.getDate() + validation.data.days);
+            const d = new Date(validation.data.startDate);
+            const utcStart = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+            dueDate = new Date(utcStart.getTime());
+            dueDate.setUTCDate(dueDate.getUTCDate() + validation.data.days);
         }
 
         // Create unique slug for subtask using helper to prevent collisions
@@ -112,7 +113,12 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
                 createdById: permissions.workspaceMember.userId,
                 assigneeTo: assigneeId,
                 tagId: validation.data.tag || null,
-                startDate: validation.data.startDate ? new Date(validation.data.startDate) : null,
+                startDate: validation.data.startDate
+                    ? (() => {
+                        const d = new Date(validation.data.startDate);
+                        return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+                    })()
+                    : null,
                 dueDate: dueDate,
                 days: validation.data.days,
                 reviewerId: reviewerId,
