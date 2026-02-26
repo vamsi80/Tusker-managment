@@ -55,14 +55,14 @@ async function _getSubTasksByParentIdsInternal(
         if (fullAccessProjectIds.length > 0 && restrictedProjectIds.length > 0) {
             // Mixed: full-access OR (restricted AND assigned)
             permissionSql = Prisma.sql`AND (
-                "projectId" IN (${Prisma.join(fullAccessProjectIds)})
-                OR ("projectId" IN (${Prisma.join(restrictedProjectIds)}) AND "assigneeTo" = ${userId})
+                "projectId" = ANY(${fullAccessProjectIds}::uuid[])
+                OR ("projectId" = ANY(${restrictedProjectIds}::uuid[]) AND "assigneeTo" = ${userId}::uuid)
             )`;
         } else if (fullAccessProjectIds.length > 0) {
-            permissionSql = Prisma.sql`AND "projectId" IN (${Prisma.join(fullAccessProjectIds)})`;
+            permissionSql = Prisma.sql`AND "projectId" = ANY(${fullAccessProjectIds}::uuid[])`;
         } else if (restrictedProjectIds.length > 0) {
             // Only restricted projects — must be assigned
-            permissionSql = Prisma.sql`AND "projectId" IN (${Prisma.join(restrictedProjectIds)}) AND "assigneeTo" = ${userId}`;
+            permissionSql = Prisma.sql`AND "projectId" = ANY(${restrictedProjectIds}::uuid[]) AND "assigneeTo" = ${userId}::uuid`;
         } else {
             // No access at all — short circuit
             return parentTaskIds.map(parentTaskId => ({
@@ -94,43 +94,37 @@ async function _getSubTasksByParentIdsInternal(
         }
     }
 
-    // ── 3. Window-function pagination ─────────────────────────────────────
-    const subTaskIdsRaw = await prisma.$queryRaw<any[]>`
-        SELECT id FROM (
-            SELECT
-                id,
-                ROW_NUMBER() OVER(PARTITION BY "parentTaskId" ORDER BY "createdAt" DESC) as rn
-            FROM "Task"
-            WHERE "parentTaskId" IN (${Prisma.join(parentTaskIds)})
-              AND "workspaceId" = ${workspaceId}
-              ${permissionSql}
-        ) sub WHERE rn <= ${pageSize}
-    `;
+    // ── 3. Optimized Fetch using Prisma findMany ─────────────────────────────────
+    // We fetch ALL matching subtasks for these parents.
+    // Since we only fetch for ~50 parents at a time, this is very efficient.
+    const rawSubTasksAll = await prisma.task.findMany({
+        where: countWhere,
+        select: {
+            ...TASK_CORE_SELECT,
+            parentTaskId: true,
+        },
+        orderBy: { createdAt: 'desc' }
+    });
 
-    const subTaskIds = subTaskIdsRaw.map(r => r.id);
+    // Manual slice per parentTaskId to respect pageSize (mimicking ROW_NUMBER logic)
+    const subTasksMap = new Map<string, any[]>();
+    const totalCountMap = new Map<string, number>();
 
-    // ── 4. Group counts + fetch full objects ──────────────────────────────
-    const [totalCountByParent, rawSubTasks] = await prisma.$transaction([
-        prisma.task.groupBy({
-            by: ['parentTaskId'],
-            where: countWhere,
-            _count: { id: true },
-            orderBy: { parentTaskId: 'asc' }
-        }),
-        prisma.task.findMany({
-            where: { id: { in: subTaskIds } },
-            select: {
-                ...TASK_CORE_SELECT,
-                parentTaskId: true,
-            },
-            orderBy: [
-                { parentTaskId: 'asc' },
-                { createdAt: 'desc' },
-            ]
-        })
-    ]);
+    rawSubTasksAll.forEach(task => {
+        const pId = task.parentTaskId!;
+        const currentCount = totalCountMap.get(pId) || 0;
+        totalCountMap.set(pId, currentCount + 1);
 
-    // ── 5. Hydrate ────────────────────────────────────────────────────────
+        if (currentCount < pageSize) {
+            if (!subTasksMap.has(pId)) subTasksMap.set(pId, []);
+            subTasksMap.get(pId)!.push(task);
+        }
+    });
+
+    const subTaskIds = rawSubTasksAll.map(r => r.id);
+    const rawSubTasks = rawSubTasksAll;
+
+    // ── 4. Hydrate ────────────────────────────────────────────────────────
     const [userMap, tagMap] = await Promise.all([
         batchLoadUsers([
             ...rawSubTasks.map(t => t.assigneeTo),
@@ -142,31 +136,26 @@ async function _getSubTasksByParentIdsInternal(
 
     const hydratedSubTasks = hydrateTasks(rawSubTasks, userMap, tagMap, new Map());
 
-    // ── 6. Group by parent ────────────────────────────────────────────────
-    const groupedResults = new Map<string, any[]>();
-    const countMap = new Map<string, number>();
-
-    parentTaskIds.forEach((id: string) => {
-        groupedResults.set(id, []);
-        countMap.set(id, 0);
-    });
-
-    totalCountByParent.forEach(item => {
-        if (item.parentTaskId) {
-            const count = (item._count as any)?.id ?? 0;
-            countMap.set(item.parentTaskId, count);
-        }
-    });
+    // ── 5. Group by parent & Slice ────────────────────────────────────────
+    const finalGrouped = new Map<string, any[]>();
+    const counts = new Map<string, number>();
 
     hydratedSubTasks.forEach(subTask => {
-        if (subTask.parentTaskId) {
-            groupedResults.get(subTask.parentTaskId)?.push(subTask);
+        if (!subTask.parentTaskId) return;
+
+        // Track total count for "hasMore"
+        counts.set(subTask.parentTaskId, (counts.get(subTask.parentTaskId) || 0) + 1);
+
+        // Slice to pageSize
+        if (!finalGrouped.has(subTask.parentTaskId)) finalGrouped.set(subTask.parentTaskId, []);
+        if (finalGrouped.get(subTask.parentTaskId)!.length < pageSize) {
+            finalGrouped.get(subTask.parentTaskId)!.push(subTask);
         }
     });
 
     return parentTaskIds.map(parentTaskId => {
-        const subTasks = groupedResults.get(parentTaskId) || [];
-        const totalCount = countMap.get(parentTaskId) || 0;
+        const subTasks = finalGrouped.get(parentTaskId) || [];
+        const totalCount = counts.get(parentTaskId) || 0;
         return {
             parentTaskId,
             subTasks,

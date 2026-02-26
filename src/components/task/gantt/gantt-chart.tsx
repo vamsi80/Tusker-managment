@@ -370,6 +370,10 @@ export function GanttChart({
                     "[&::-webkit-scrollbar-thumb]:bg-neutral-300 dark::[&::-webkit-scrollbar-thumb]:bg-neutral-600",
                     "[&::-webkit-scrollbar-thumb]:rounded-full"
                 )}
+                style={{
+                    // @ts-ignore
+                    "--gantt-header-height": granularity === 'days' ? '72px' : '40px'
+                }}
             >
                 {/* Timeline Header */}
                 <TimelineHeader

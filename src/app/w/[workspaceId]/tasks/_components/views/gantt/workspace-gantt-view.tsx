@@ -21,7 +21,7 @@ interface WorkspaceGanttViewProps {
  */
 export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProps) {
     const [tasksData, projects, workspaceMembers, projectMemberMatches, tags] = await Promise.all([
-        getWorkspaceTasks({ workspaceId, hierarchyMode: "parents", page: 1, limit: 50, includeFacets: true }), // Get up to 5000 parent tasks
+        getWorkspaceTasks({ workspaceId, hierarchyMode: "parents", page: 1, limit: 5000, includeFacets: true }), // Get up to 5000 parent tasks
         getUserProjects(workspaceId),
         getWorkspaceMembers(workspaceId),
         prisma.projectMember.findMany({
@@ -49,6 +49,7 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
     );
 
     const subtasks = subtaskResults.flatMap(r => r.subTasks);
+
     const allTasks = [...parentTasksList, ...subtasks];
 
     // Separate parent tasks and subtasks
@@ -77,11 +78,11 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
         return posA - posB;
     });
 
-    // Create a map of subtask ID to full subtask data for the details sheet
-    const subtaskDataMap = new Map();
+    // Create a plain object for subtask data for the details sheet (better for RSC serialization)
+    const subtaskDataObj: Record<string, any> = {};
     allTasks.forEach(task => {
         if (task.parentTaskId) {
-            subtaskDataMap.set(task.id, task);
+            subtaskDataObj[task.id] = task;
         }
     });
 
@@ -121,7 +122,7 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
             workspaceId={workspaceId}
             initialTasks={ganttTasks}
             allTasks={allTasks}
-            subtaskDataMap={subtaskDataMap}
+            subtaskDataMap={subtaskDataObj}
             projects={projectOptions}
             members={memberOptions}
             tags={tagOptions}

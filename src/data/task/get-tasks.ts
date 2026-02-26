@@ -716,9 +716,10 @@ async function _getTasksInternal(
 
     /**
      * SAFETY GUARD: Prevent accidental global load
-     * Workspace mode without project and without filters should return nothing
+     * Workspace mode without project and without filters should return nothing,
+     * UNLESS we are specifically requesting parent tasks for a tree view (Gantt/List).
      */
-    if (!projectId && !hasExplicitFilters && !opts.expandedProjectIds?.length) {
+    if (!projectId && !hasExplicitFilters && !opts.expandedProjectIds?.length && hierarchyMode !== "parents") {
         return {
             tasks: [],
             totalCount: 0,
