@@ -41,7 +41,30 @@ export async function batchLoadProjects(ids: (string | null | undefined)[]) {
 
     const projects = await prisma.project.findMany({
         where: { id: { in: unique } },
-        select: { id: true, name: true, slug: true, color: true, workspaceId: true },
+        select: {
+            id: true,
+            name: true,
+            slug: true,
+            color: true,
+            workspaceId: true,
+            projectMembers: {
+                where: { projectRole: { in: ["PROJECT_MANAGER", "LEAD"] }, hasAccess: true }, // Use correct enum values from schema
+                take: 1,
+                select: {
+                    workspaceMember: {
+                        select: {
+                            user: {
+                                select: {
+                                    name: true,
+                                    surname: true,
+                                    image: true
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
     });
 
     return new Map(projects.map(p => [p.id, p]));

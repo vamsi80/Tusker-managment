@@ -92,12 +92,11 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <div className="flex items-center gap-1 shrink-0 p-0.5 rounded-full bg-amber-50 dark:bg-amber-950/30">
-                                        <Crown className="h-2.5 w-2.5 text-amber-600 dark:text-amber-500" />
-                                        <Avatar className="h-4 w-4 border border-amber-200 dark:border-amber-800">
+                                    <div className="flex items-center shrink-0 rounded-full bg-amber-50/50 dark:bg-amber-950/30 border border-amber-100/50 dark:border-amber-900/50 hover:bg-amber-100 transition-colors cursor-default">
+                                        <Avatar className="h-4 w-4 border border-amber-200 dark:border-amber-800 shadow-sm">
                                             <AvatarImage src={projectManager.image || ""} />
                                             <AvatarFallback className="text-[8px] bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
-                                                {projectManager.surname?.[0] || projectManager.name?.[0]}
+                                                {projectManager.surname?.[0]}
                                             </AvatarFallback>
                                         </Avatar>
                                     </div>

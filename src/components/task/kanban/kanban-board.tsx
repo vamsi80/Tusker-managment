@@ -178,30 +178,56 @@ export function KanbanBoard({
     );
 
     const [isFiltering, setIsFiltering] = useState(false);
+    const [isCurrentlyFiltered, setIsCurrentlyFiltered] = useState(false);
 
     // Server-side filtering effect
     useEffect(() => {
+        let isAborted = false;
+
         const timer = setTimeout(async () => {
-            const hasFilters = searchQuery || Object.keys(filters).length > 0;
+            // Check if there are truly any filters active that should bypass the local cache
+            const activeFilterCount = Object.values(filters).filter(v => v !== undefined && v !== "").length;
+            const isBaseProjectView = !searchQuery && (activeFilterCount === 0 || (activeFilterCount === 1 && filters.projectId === projectId));
+            const hasFilters = !isBaseProjectView;
 
             if (!hasFilters) {
-                // Reset to initial unfiltered data (Page 1 Global)
-                setColumnData(Object.fromEntries(COLUMNS.map(col => [col.id, {
-                    subTasks: initialData[col.id].subTasks,
-                    totalCount: initialData[col.id].totalCount,
-                    hasMore: initialData[col.id].hasMore,
-                    nextCursor: undefined, // Initial from server
-                }])) as Record<TaskStatus, any>);
-                setIsFiltering(false);
+                // Reset to initial unfiltered data ONLY if we were previously filtering
+                if (isCurrentlyFiltered) {
+                    const contextId = projectId || "";
+                    const resetData: any = {};
+
+                    COLUMNS.forEach(col => {
+                        const cacheKey = `${workspaceId}-${contextId}-${col.id}`;
+                        const cached = useTaskCacheStore.getState().getKanbanTasksCache(cacheKey);
+
+                        // Use Cache > InitialData
+                        resetData[col.id] = {
+                            subTasks: cached && cached.tasks.length > 0 ? cached.tasks : initialData[col.id].subTasks,
+                            totalCount: cached ? (cached.totalCount ?? 0) : initialData[col.id].totalCount,
+                            hasMore: cached ? cached.hasMore : initialData[col.id].hasMore,
+                            nextCursor: cached ? cached.nextCursor : undefined,
+                        };
+                    });
+
+                    if (!isAborted) {
+                        setColumnData(resetData);
+                        setIsCurrentlyFiltered(false);
+                        setLoadingColumns(Object.fromEntries(COLUMNS.map(col => [col.id, false])) as any);
+                        setIsFiltering(false);
+                    }
+                } else {
+                    if (!isAborted) setIsFiltering(false);
+                }
                 return;
             }
+
+            if (isAborted) return;
+            setIsCurrentlyFiltered(true);
 
             // Set loading state
             setLoadingColumns(Object.fromEntries(COLUMNS.map(col => [col.id, true])) as Record<TaskStatus, boolean>);
 
             try {
-                // Fetch filtered Page 1 for all columns in a SINGLE request
-                // optimized for performance (1 roundtrip vs 6)
                 const targetProjectId = filters.projectId || projectId;
 
                 const response = await loadTasksAction({
@@ -209,8 +235,8 @@ export function KanbanBoard({
                     projectId: targetProjectId,
                     hierarchyMode: "children",
                     includeFacets: false,
-                    limit: 100, // Fetch more for initial filtered view
-                    status: undefined, // Fetch all statuses
+                    limit: 100,
+                    status: undefined,
                     startDate: filters.startDate ? new Date(filters.startDate).toISOString() : undefined,
                     endDate: filters.endDate ? new Date(filters.endDate).toISOString() : undefined,
                     search: searchQuery,
@@ -219,14 +245,24 @@ export function KanbanBoard({
                     filterParentTaskId: filters.parentTaskId,
                 });
 
+                if (isAborted) return;
+
                 if (response.success && response.data) {
-                    // Map the flat tasks back to the column map expected by state
+                    const activeFilterCount = Object.values(filters).filter(v => v !== undefined && v !== "").length;
                     const groupedData: any = {};
+
                     COLUMNS.forEach(col => {
                         const colTasks = response.data.tasksByStatus[col.id] || [];
+                        const isSearch = !!searchQuery;
+
                         groupedData[col.id] = {
                             subTasks: colTasks,
-                            totalCount: colTasks.length, // approximation since we only fetched 100
+                            // If we only fetched a sub-set via filter, we don't know the REAL total for that status
+                            // unless the server gives it to us. For now, keep the initial total if it's just a light filter
+                            // otherwise use the length as an approximation.
+                            totalCount: isSearch || activeFilterCount > 1
+                                ? colTasks.length
+                                : (columnData[col.id].totalCount || colTasks.length),
                             hasMore: colTasks.length >= 100,
                             nextCursor: null
                         };
@@ -237,15 +273,20 @@ export function KanbanBoard({
                 }
             } catch (err) {
                 console.error("Error filtering subtasks", err);
-                toast.error("Failed to apply filters");
+                if (!isAborted) toast.error("Failed to apply filters");
             } finally {
-                setLoadingColumns(Object.fromEntries(COLUMNS.map(col => [col.id, false])) as Record<TaskStatus, boolean>);
-                setIsFiltering(false);
+                if (!isAborted) {
+                    setLoadingColumns(Object.fromEntries(COLUMNS.map(col => [col.id, false])) as Record<TaskStatus, boolean>);
+                    setIsFiltering(false);
+                }
             }
 
         }, 300); // Debounce
 
-        return () => clearTimeout(timer);
+        return () => {
+            isAborted = true;
+            clearTimeout(timer);
+        };
     }, [filters, searchQuery, workspaceId, projectId, initialData]);
 
     const handleFilterChange = (val: TaskFilters) => {
@@ -279,7 +320,7 @@ export function KanbanBoard({
                 status: [status],
                 projectId: targetProjectId,
                 cursor: currentCursor,
-                limit: 5,
+                limit: 10,
                 hierarchyMode: "children",
                 ...activeFilters
             });
@@ -304,7 +345,7 @@ export function KanbanBoard({
                     ...prev,
                     [status]: {
                         subTasks: deduplicatedTasks,
-                        totalCount: response.data.totalCount,
+                        totalCount: response.data.totalCount ?? prev[status].totalCount,
                         hasMore: response.data.hasMore,
                         nextCursor: response.data.nextCursor,
                     }
@@ -397,33 +438,58 @@ export function KanbanBoard({
         fromStatus: TaskStatus,
         toStatus: TaskStatus
     ) => {
-        setColumnData(prev => {
-            const fromTasks = prev[fromStatus].subTasks;
-            const task = fromTasks.find(t => t.id === subTaskId);
+        const fromTasks = columnData[fromStatus].subTasks;
+        const task = fromTasks.find(t => t.id === subTaskId);
 
-            if (!task) return prev;
+        if (!task) return;
 
-            const updatedTask = { ...task, status: toStatus };
-            const toTasks = prev[toStatus].subTasks;
+        const updatedTask = { ...task, status: toStatus };
+        const toTasks = columnData[toStatus].subTasks;
 
-            // Ensure we don't add a duplicate if it already exists in the target column
-            // This can happen with rapid moves or sync issues
-            const alreadyInTarget = toTasks.some(t => t.id === subTaskId);
+        // Ensure we don't add a duplicate if it already exists in the target column
+        const alreadyInTarget = toTasks.some(t => t.id === subTaskId);
 
-            return {
-                ...prev,
-                [fromStatus]: {
-                    ...prev[fromStatus],
-                    subTasks: fromTasks.filter(t => t.id !== subTaskId),
-                    totalCount: prev[fromStatus].totalCount - 1,
-                },
-                [toStatus]: {
-                    ...prev[toStatus],
-                    subTasks: alreadyInTarget ? toTasks : [updatedTask, ...toTasks],
-                    totalCount: alreadyInTarget ? prev[toStatus].totalCount : prev[toStatus].totalCount + 1,
-                }
-            };
-        });
+        const newFromTasks = fromTasks.filter(t => t.id !== subTaskId);
+        const newToTasks = alreadyInTarget ? toTasks : [updatedTask, ...toTasks];
+
+        const newFromCount = columnData[fromStatus].totalCount - 1;
+        const newToCount = alreadyInTarget ? columnData[toStatus].totalCount : columnData[toStatus].totalCount + 1;
+
+        setColumnData(prev => ({
+            ...prev,
+            [fromStatus]: {
+                ...prev[fromStatus],
+                subTasks: newFromTasks,
+                totalCount: newFromCount,
+            },
+            [toStatus]: {
+                ...prev[toStatus],
+                subTasks: newToTasks,
+                totalCount: newToCount,
+            }
+        }));
+
+        // Update Cache (only if no filters) to maintain consistency across re-renders/syncs
+        const isFiltered = searchQuery || Object.keys(filters).length > 0;
+        if (!isFiltered) {
+            const contextId = projectId || "";
+            const fromCacheKey = `${workspaceId}-${contextId}-${fromStatus}`;
+            const toCacheKey = `${workspaceId}-${contextId}-${toStatus}`;
+
+            setKanbanTasksCache(fromCacheKey, {
+                tasks: newFromTasks,
+                hasMore: columnData[fromStatus].hasMore,
+                nextCursor: columnData[fromStatus].nextCursor,
+                totalCount: newFromCount
+            });
+
+            setKanbanTasksCache(toCacheKey, {
+                tasks: newToTasks,
+                hasMore: columnData[toStatus].hasMore,
+                nextCursor: columnData[toStatus].nextCursor,
+                totalCount: newToCount
+            });
+        }
     };
 
     const getTaskProjectId = (subTaskId: string) => {
