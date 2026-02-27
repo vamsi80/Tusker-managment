@@ -1,6 +1,6 @@
 "use client";
 
-import { useDroppable } from "@dnd-kit/core";
+import { useDroppable, useDndContext } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Badge } from "@/components/ui/badge";
 import { KanbanSubTaskType } from "@/data/task";
@@ -46,6 +46,9 @@ export function KanbanColumn({
         id: column.id,
     });
 
+    const { active } = useDndContext();
+    const isDragging = !!active;
+
     const { ref: loadMoreRef, inView } = useInView({
         threshold: 0,
         rootMargin: '100px', // Trigger before hitting bottom slightly
@@ -78,14 +81,35 @@ export function KanbanColumn({
                 )}
             >
                 <div className="flex items-center justify-between">
-                    <h3 className={cn("font-semibold text-sm", column.color)}>
-                        {column.title}
-                    </h3>
+                    <div className="flex items-center gap-2 min-w-0">
+                        <h3 className={cn("font-semibold text-sm truncate", column.color)}>
+                            {column.title}
+                        </h3>
+                        {isDragging && (
+                            <div className={cn(
+                                "border-2 border-dashed rounded-full px-2 py-0.5 flex items-center gap-1 transition-all duration-300 animate-in fade-in zoom-in-95 shrink-0",
+                                isOver
+                                    ? "border-primary/50 bg-primary/20 scale-105 shadow-sm"
+                                    : "border-muted-foreground/20 bg-muted/10 opacity-70"
+                            )}>
+                                <Plus className={cn(
+                                    "h-2.5 w-2.5 transition-colors",
+                                    isOver ? "text-primary" : "text-muted-foreground/60"
+                                )} />
+                                <span className={cn(
+                                    "text-[8px] font-bold uppercase tracking-tight transition-colors",
+                                    isOver ? "text-primary" : "text-muted-foreground/60"
+                                )}>
+                                    {isOver ? "Release" : "Drop Top"}
+                                </span>
+                            </div>
+                        )}
+                    </div>
                     <Badge
                         variant="secondary"
-                        className={cn("text-xs", column.color)}
+                        className={cn("text-xs shrink-0 ml-2", column.color)}
                     >
-                        {deduplicatedSubTasks.length} / {totalCount}
+                        {deduplicatedSubTasks.length} / {Math.max(totalCount || 0, deduplicatedSubTasks.length)}
                     </Badge>
                 </div>
             </div>
@@ -109,24 +133,6 @@ export function KanbanColumn({
                     strategy={verticalListSortingStrategy}
                 >
                     <div className="space-y-3 min-h-[100px]">
-                        {/* Top Visual Drop Zone */}
-                        <div className={cn(
-                            "group border-2 border-dashed rounded-xl p-2 flex items-center justify-center gap-2 transition-all duration-300",
-                            isOver
-                                ? "border-primary/50 bg-primary/10 scale-95 shadow-inner"
-                                : "border-muted-foreground/5 bg-muted/5 opacity-40"
-                        )}>
-                            <Plus className={cn(
-                                "h-3.5 w-3.5 transition-colors",
-                                isOver ? "text-primary" : "text-muted-foreground/40"
-                            )} />
-                            <span className={cn(
-                                "text-[9px] font-bold uppercase tracking-widest transition-colors",
-                                isOver ? "text-primary" : "text-muted-foreground/40"
-                            )}>
-                                {isOver ? "Release to Move" : "Drop at Top"}
-                            </span>
-                        </div>
                         <div className="flex flex-col gap-2 min-h-[50px]">
                             {deduplicatedSubTasks.map((subTask) => (
                                 <KanbanCard
@@ -157,7 +163,7 @@ export function KanbanColumn({
                             )}
 
                             {/* Visual Drop Zone at the bottom */}
-                            <div className={cn(
+                            {/* <div className={cn(
                                 "group border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all duration-300",
                                 isOver
                                     ? "border-primary/50 bg-primary/10 scale-95 shadow-inner"
@@ -175,7 +181,7 @@ export function KanbanColumn({
                                 )}>
                                     {isOver ? "Release to Move" : "Drop here"}
                                 </span>
-                            </div>
+                            </div> */}
                         </div>
                     </div>
                 </SortableContext>
