@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { ProjectOption } from "../shared/types";
 import { exportGanttToExcel } from "./export-utils";
 import { GanttTask, TimelineGranularity } from "./types";
-import { updateSubtaskPositions } from "@/actions/task/gantt";
 import { TimelineHeader, TimelineGrid } from "./timeline-grid";
 import { calculateTimelineRange, getDaysBetween } from "./utils";
 import { useState, useMemo, useTransition, useEffect, useRef } from "react";
@@ -29,6 +28,12 @@ interface GanttChartProps {
     hasMore?: boolean;
     onLoadMore?: () => void;
     projectCounts?: Record<string, number>;
+    currentUser?: { id: string };
+    permissions?: {
+        isWorkspaceAdmin: boolean;
+        leadProjectIds: string[];
+        managedProjectIds: string[];
+    };
 }
 
 const ITEMS_PER_PAGE = 50;
@@ -43,7 +48,9 @@ export function GanttChart({
     showProjectFilter,
     projects,
     groupByProject = false,
-    projectCounts
+    projectCounts,
+    currentUser,
+    permissions
 }: GanttChartProps & { groupByProject?: boolean }) {
     const [granularity, setGranularity] = useState<TimelineGranularity>('days');
     const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
@@ -226,45 +233,6 @@ export function GanttChart({
         toast.success("Gantt chart exported! Upload this file to spreadsheet to see dynamic chart.");
     };
 
-    const handleSubtaskReorder = (taskId: string, subtaskIds: string[]) => {
-        if (!workspaceId) {
-            toast.error("Cannot save changes - missing workspace information");
-            return;
-        }
-
-        // For project ID, we need to be careful. 
-        // If we are in workspace view, we might need the task's project ID.
-        // However, the action likely expects the subtask's project.
-        // Let's find the task to get its project ID if projectId prop is missing.
-        let targetProjectId = projectId;
-        if (!targetProjectId) {
-            const task = tasks.find(t => t.id === taskId);
-            targetProjectId = task?.projectId;
-        }
-
-        if (!targetProjectId) {
-            toast.error("Cannot save changes - missing project information");
-            return;
-        }
-
-        const toastId = toast.loading("Updating subtask order...");
-
-        startTransition(async () => {
-            const updates = subtaskIds.map((id, index) => ({
-                subtaskId: id,
-                newPosition: index
-            }));
-
-            const result = await updateSubtaskPositions(taskId, targetProjectId!, workspaceId, updates);
-
-            if (result.success) {
-                toast.success("Subtask order updated successfully", { id: toastId });
-            } else {
-                toast.error(result.message || "Failed to update subtask order", { id: toastId });
-            }
-        });
-    };
-
     if (tasks.length === 0) {
         return (
             <div className={cn("flex flex-col items-center justify-center h-96 border-2 border-dashed rounded-lg", className)}>
@@ -418,11 +386,12 @@ export function GanttChart({
                                             totalDays={totalDays}
                                             isExpanded={expandedTasks.has(task.id)}
                                             onToggle={() => toggleTask(task.id)}
-                                            onSubtaskReorder={handleSubtaskReorder}
                                             onSubtaskClick={onSubtaskClick}
                                             allTasks={tasks}
                                             workspaceId={workspaceId}
                                             projectId={projectId || task.projectId}
+                                            currentUser={currentUser}
+                                            permissions={permissions}
                                             isNestedInProject={true}
                                         />
                                     ))}
@@ -437,11 +406,12 @@ export function GanttChart({
                                     totalDays={totalDays}
                                     isExpanded={expandedTasks.has(task.id)}
                                     onToggle={() => toggleTask(task.id)}
-                                    onSubtaskReorder={handleSubtaskReorder}
                                     onSubtaskClick={onSubtaskClick}
                                     allTasks={tasks}
                                     workspaceId={workspaceId}
                                     projectId={projectId || task.projectId}
+                                    currentUser={currentUser}
+                                    permissions={permissions}
                                 />
                             ))}
 
@@ -465,11 +435,12 @@ export function GanttChart({
                                     totalDays={totalDays}
                                     isExpanded={expandedTasks.has(task.id)}
                                     onToggle={() => toggleTask(task.id)}
-                                    onSubtaskReorder={handleSubtaskReorder}
                                     onSubtaskClick={onSubtaskClick}
                                     allTasks={tasks}
                                     workspaceId={workspaceId}
-                                    projectId={projectId}
+                                    projectId={projectId || task.projectId}
+                                    currentUser={currentUser}
+                                    permissions={permissions}
                                 />
                             ))}
 
@@ -513,13 +484,7 @@ export function GanttChart({
                     <div className="w-0.5 h-4 bg-red-500 dark:bg-red-400" />
                     <span>Today</span>
                 </div>
-                <div className="flex items-center gap-2">
-                    <svg width="20" height="10" className="text-blue-500">
-                        <line x1="0" y1="5" x2="14" y2="5" stroke="currentColor" strokeWidth="2" />
-                        <polygon points="14,2 20,5 14,8" fill="currentColor" />
-                    </svg>
-                    <span>Dependency</span>
-                </div>
+
             </div>
         </div>
     );

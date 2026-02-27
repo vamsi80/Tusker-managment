@@ -79,25 +79,9 @@ export function KanbanBoard({
     const invalidateSubTaskCache = useTaskCacheStore(state => state.invalidateSubTaskCache);
     const invalidateProjectCache = useTaskCacheStore(state => state.invalidateProjectCache);
 
-    // Sync initial data to cache on mount to populate the unified entity store
-    useEffect(() => {
-        COLUMNS.forEach(col => {
-            const contextId = projectId || "";
-            const cacheKey = `${workspaceId}-${contextId}-${col.id}`;
-            const cached = useTaskCacheStore.getState().getKanbanTasksCache(cacheKey);
 
-            if (!cached && initialData[col.id]) {
-                setKanbanTasksCache(cacheKey, {
-                    tasks: initialData[col.id].subTasks,
-                    hasMore: initialData[col.id].hasMore,
-                    page: 1,
-                    totalCount: initialData[col.id].totalCount
-                });
-            }
-        });
-    }, [initialData, projectId, workspaceId, setKanbanTasksCache]);
 
-    // State for each column's data
+    // State for each column's data - INITIALIZE WITH PROPS ONLY FOR HYDRATION SAFETY
     const [columnData, setColumnData] = useState<Record<TaskStatus, {
         subTasks: KanbanSubTaskType[];
         totalCount: number;
@@ -105,19 +89,34 @@ export function KanbanBoard({
         nextCursor: any;
     }>>(() => {
         const map: any = {};
+        COLUMNS.forEach(col => {
+            map[col.id] = {
+                subTasks: initialData[col.id].subTasks,
+                totalCount: initialData[col.id].totalCount,
+                hasMore: initialData[col.id].hasMore,
+                nextCursor: undefined
+            };
+        });
+        return map;
+    });
+
+    // Hydrate state from cache after mount
+    useEffect(() => {
         const contextId = projectId || "";
+        const hydratedData: any = { ...columnData };
+        let hasChanges = false;
 
         COLUMNS.forEach(col => {
             const cacheKey = `${workspaceId}-${contextId}-${col.id}`;
             const cached = useTaskCacheStore.getState().getKanbanTasksCache(cacheKey);
 
-            // 1. Base Data: From Cache (if exists) or Server Initial
+            // 1. Base Data: Use cache if exists, otherwise fallback to props
             let tasks = cached && cached.tasks.length > 0 ? cached.tasks : initialData[col.id].subTasks;
             let totalCount = cached ? (cached.totalCount ?? 0) : initialData[col.id].totalCount;
             let hasMore = cached ? cached.hasMore : initialData[col.id].hasMore;
-            let page = cached ? cached.page : 1;
+            let nextCursor = cached ? cached.nextCursor : undefined;
 
-            // 2. Workspace Aggregation: Merge cached tasks from ALL projects
+            // 2. Workspace Aggregation: Merge cached tasks from ALL projects if at workspace level
             if (level === 'workspace' && projects) {
                 const projectTasks = projects.flatMap(p => {
                     const pKey = `${workspaceId}-${p.id}-${col.id}`;
@@ -127,23 +126,39 @@ export function KanbanBoard({
 
                 if (projectTasks.length > 0) {
                     const taskMap = new Map();
-                    // First add current tasks
                     tasks.forEach((t: any) => taskMap.set(t.id, t));
-                    // Then add project tasks (will overwrite duplicates, but ensuring uniqueness)
                     projectTasks.forEach((t: any) => taskMap.set(t.id, t));
                     tasks = Array.from(taskMap.values());
+                    hasChanges = true;
                 }
             }
 
-            map[col.id] = {
-                subTasks: tasks,
-                totalCount: totalCount,
-                hasMore: hasMore,
-                nextCursor: cached ? cached.nextCursor : undefined
-            };
+            // Detect if anything is actually different from the initial prop-based state
+            if (cached || (level === 'workspace' && projects && hasChanges)) {
+                hydratedData[col.id] = {
+                    subTasks: tasks,
+                    totalCount: totalCount || initialData[col.id].totalCount,
+                    hasMore: hasMore,
+                    nextCursor: nextCursor
+                };
+                hasChanges = true;
+            }
+
+            // Populate cache if empty to ensure subsequent navigations are fast
+            if (!cached && initialData[col.id]) {
+                setKanbanTasksCache(cacheKey, {
+                    tasks: initialData[col.id].subTasks,
+                    hasMore: initialData[col.id].hasMore,
+                    page: 1,
+                    totalCount: initialData[col.id].totalCount
+                });
+            }
         });
-        return map;
-    });
+
+        if (hasChanges) {
+            setColumnData(hydratedData);
+        }
+    }, [projectId, workspaceId, initialData, setKanbanTasksCache, level, projects]);
 
     const [loadingColumns, setLoadingColumns] = useState<Record<TaskStatus, boolean>>(
         Object.fromEntries(COLUMNS.map(col => [col.id, false])) as Record<TaskStatus, boolean>

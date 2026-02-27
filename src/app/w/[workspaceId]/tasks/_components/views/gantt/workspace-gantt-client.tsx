@@ -19,6 +19,12 @@ interface WorkspaceGanttClientProps {
     members: MemberOption[];
     tags: TagOption[];
     projectCounts?: Record<string, number>;
+    currentUser: { id: string };
+    permissions?: {
+        isWorkspaceAdmin: boolean;
+        leadProjectIds: string[];
+        managedProjectIds: string[];
+    };
 }
 
 export function WorkspaceGanttClient({
@@ -29,7 +35,9 @@ export function WorkspaceGanttClient({
     projects,
     members,
     tags,
-    projectCounts
+    projectCounts,
+    currentUser,
+    permissions
 }: WorkspaceGanttClientProps) {
     const [filters, setFilters] = useState<TaskFilters>({});
     const [searchQuery, setSearchQuery] = useState("");
@@ -212,6 +220,8 @@ export function WorkspaceGanttClient({
                     groupByProject={true}
                     onSubtaskClick={handleSubtaskClick}
                     projectCounts={projectCounts}
+                    currentUser={currentUser}
+                    permissions={permissions}
                 />
             </div>
         </div>

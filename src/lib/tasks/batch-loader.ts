@@ -48,9 +48,10 @@ export async function batchLoadProjects(ids: (string | null | undefined)[]) {
             color: true,
             workspaceId: true,
             projectMembers: {
-                where: { projectRole: { in: ["PROJECT_MANAGER", "LEAD"] }, hasAccess: true }, // Use correct enum values from schema
-                take: 1,
+                where: { projectRole: { in: ["PROJECT_MANAGER", "LEAD"] }, hasAccess: true },
+                take: 2,
                 select: {
+                    projectRole: true,
                     workspaceMember: {
                         select: {
                             user: {

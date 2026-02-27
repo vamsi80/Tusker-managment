@@ -4,7 +4,7 @@ import { useMemo, useState, useRef, useEffect } from "react";
 import { ChevronDown, ChevronRight, CornerDownRight } from "lucide-react";
 import { computeTaskDates, calculateBarPosition, formatDateRange, getDaysBetween } from "./utils";
 import { SortableSubtaskList } from "./sortable-subtask-list";
-import { DependencyPicker } from "./dependency-picker";
+
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,12 +26,17 @@ interface TaskRowProps {
     totalDays: number;
     isExpanded: boolean;
     onToggle: () => void;
-    onSubtaskReorder?: (taskId: string, subtaskIds: string[]) => void;
     onSubtaskClick?: (subtaskId: string) => void;
     allTasks?: GanttTask[]; // All tasks for dependency picker
     workspaceId?: string;
     projectId?: string;
     isNestedInProject?: boolean;
+    currentUser?: { id: string };
+    permissions?: {
+        isWorkspaceAdmin: boolean;
+        leadProjectIds: string[];
+        managedProjectIds: string[];
+    };
 }
 
 export function TaskRow({
@@ -40,15 +45,15 @@ export function TaskRow({
     totalDays,
     isExpanded,
     onToggle,
-    onSubtaskReorder,
     onSubtaskClick,
     allTasks,
     workspaceId,
     projectId,
-    isNestedInProject = false
+    isNestedInProject = false,
+    currentUser,
+    permissions
 }: TaskRowProps) {
-    const [dependencyPickerOpen, setDependencyPickerOpen] = useState(false);
-    const [selectedSubtask, setSelectedSubtask] = useState<GanttSubtask | null>(null);
+
     const [visibleSubtaskCount, setVisibleSubtaskCount] = useState(SUBTASKS_PER_PAGE);
 
     const { start, end } = useMemo(() => computeTaskDates(task), [task]);
@@ -60,10 +65,7 @@ export function TaskRow({
 
     const hasSubtasks = task.subtasks && task.subtasks.length > 0;
 
-    const handleManageDependencies = (subtask: GanttSubtask) => {
-        setSelectedSubtask(subtask);
-        setDependencyPickerOpen(true);
-    };
+
 
     // Handle load more subtasks
     const handleLoadMoreSubtasks = () => {
@@ -194,15 +196,15 @@ export function TaskRow({
             {isExpanded && hasSubtasks && (
                 <div className="flex flex-col">
                     <SortableSubtaskList
-                        taskId={task.id}
                         subtasks={visibleSubtasks}
                         timelineStart={timelineStart}
                         totalDays={totalDays}
-                        onReorder={onSubtaskReorder || (() => { })}
-                        onManageDependencies={handleManageDependencies}
+
                         onSubtaskClick={onSubtaskClick}
                         workspaceId={workspaceId}
                         projectId={projectId}
+                        currentUser={currentUser}
+                        permissions={permissions}
                     />
 
                     {hasMoreSubtasks && (
@@ -224,17 +226,7 @@ export function TaskRow({
                 </div>
             )}
 
-            {/* Dependency Picker Dialog */}
-            {selectedSubtask && allTasks && workspaceId && projectId && (
-                <DependencyPicker
-                    open={dependencyPickerOpen}
-                    onOpenChange={setDependencyPickerOpen}
-                    subtask={selectedSubtask}
-                    allTasks={allTasks}
-                    workspaceId={workspaceId}
-                    projectId={projectId}
-                />
-            )}
+
         </div>
     );
 }

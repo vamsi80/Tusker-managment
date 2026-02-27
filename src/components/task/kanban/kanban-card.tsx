@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -43,10 +44,15 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
     const assignee = subTask.assignee;
     const reviewCount = (subTask as any)._count?.reviewComments || 0;
 
-    // Get Project Info
-    // @ts-ignore - project is directly available now due to backend change
+    // Get Project Manager specifically
     const project = subTask.project;
-    const projectManager = project?.projectMembers?.[0]?.workspaceMember?.user;
+    const pmMember = project?.projectMembers?.find((m: any) => m.projectRole === "PROJECT_MANAGER");
+    const projectManager = pmMember?.workspaceMember?.user;
+
+    const [isMounted, setIsMounted] = useState(false);
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     const dueDate = subTask.dueDate ? new Date(subTask.dueDate) : (() => {
         if (!subTask.startDate || !subTask.days) return null;
@@ -56,7 +62,7 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
         return due;
     })();
 
-    const isOverdue = dueDate && new Date() > dueDate;
+    const isOverdue = isMounted && dueDate && new Date() > dueDate;
 
     const handleNameClick = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -88,15 +94,15 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                         />
                         <span className="truncate font-medium">{project?.name}</span>
                     </div>
-                    {projectManager && (
+                    {pmMember && projectManager && (
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <div className="flex items-center shrink-0 rounded-full bg-amber-50/50 dark:bg-amber-950/30 border border-amber-100/50 dark:border-amber-900/50 hover:bg-amber-100 transition-colors cursor-default">
+                                    <div className="flex items-center shrink-0 ml-auto rounded-full bg-amber-50/50 dark:bg-amber-950/30 border border-amber-100/50 dark:border-amber-900/50 hover:bg-amber-100 transition-colors cursor-default">
                                         <Avatar className="h-4 w-4 border border-amber-200 dark:border-amber-800 shadow-sm">
                                             <AvatarImage src={projectManager.image || ""} />
                                             <AvatarFallback className="text-[8px] bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
-                                                {projectManager.surname?.[0]}
+                                                {(projectManager.surname?.[0] || projectManager.name?.[0])}
                                             </AvatarFallback>
                                         </Avatar>
                                     </div>
@@ -119,7 +125,7 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                             <span className="text-[10px] text-muted-foreground/40">/</span>
                         </div>
                     )}
-                    <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start justify-between gap-2 z-30">
                         <h5
                             className="font-semibold text-[13px] leading-snug flex-1 cursor-pointer hover:text-primary transition-colors line-clamp-1"
                             onClick={handleNameClick}
@@ -133,7 +139,7 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                             onContextMenu={(e) => e.preventDefault()}
                             className="cursor-grab active:cursor-grabbing p-3 -m-3 touch-none z-20 flex items-center justify-center min-w-[32px] min-h-[32px]"
                         >
-                            <GripVertical className="h-5 w-5 text-primary sm:text-muted-foreground flex-shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" />
+                            <GripVertical className="h-4 w-4 text-muted-foreground/40" />
                         </div>
                     </div>
                     {subTask.description && (

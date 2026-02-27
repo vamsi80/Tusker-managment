@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useTransition } from "react";
+import { useState, useRef, useEffect, useTransition, useMemo } from "react";
 import { AlertCircle, Link, Link2, GripHorizontal } from "lucide-react";
 import { parseDate, formatDate, getDaysBetween } from "./utils";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,12 @@ interface DraggableSubtaskBarProps {
     onDragConnectionStart?: (subtaskId: string) => void;
     onDragConnectionEnd?: (fromSubtaskId: string, toSubtaskId: string) => void;
     isConnectionTarget?: boolean;
+    currentUser?: { id: string };
+    permissions?: {
+        isWorkspaceAdmin: boolean;
+        leadProjectIds: string[];
+        managedProjectIds: string[];
+    };
 }
 
 export function DraggableSubtaskBar({
@@ -31,7 +37,9 @@ export function DraggableSubtaskBar({
     projectId,
     onDragConnectionStart,
     onDragConnectionEnd,
-    isConnectionTarget
+    isConnectionTarget,
+    currentUser,
+    permissions
 }: DraggableSubtaskBarProps) {
     const [isPending, startTransition] = useTransition();
     const [isDragging, setIsDragging] = useState(false);
@@ -87,13 +95,45 @@ export function DraggableSubtaskBar({
     const leftPercent = livePosition ? livePosition.left : (startOffset / totalDays) * 100;
     const widthPercent = livePosition ? livePosition.width : (duration / totalDays) * 100;
 
-    const isBlocked = optimisticSubtask.isBlocked || false;
+    const isBlocked = false;
     const isCompleted = optimisticSubtask.status === 'COMPLETED';
-    const hasDependencies = optimisticSubtask.dependsOnIds && optimisticSubtask.dependsOnIds.length > 0;
+
+
+    const canEdit = useMemo(() => {
+        if (!currentUser || !permissions || !projectId) return false;
+
+        const isWorkspaceAdmin = permissions.isWorkspaceAdmin;
+        const isProjectManager = (permissions.managedProjectIds || []).includes(projectId);
+        const isProjectLead = (permissions.leadProjectIds || []).includes(projectId);
+        const isCreator = optimisticSubtask.createdById === currentUser.id;
+        const isAssignee = optimisticSubtask.assignee?.id === currentUser.id;
+        const assigneeRole = (optimisticSubtask as any).assigneeRole;
+
+        // 1. Hierarchy Rules (Strict)
+        // If task is assigned to a PM, only Workspace Admin can edit/move it
+        if (assigneeRole === "PROJECT_MANAGER") {
+            return isWorkspaceAdmin;
+        }
+        // If task is assigned to a Lead, only Admin or PM can edit/move it
+        if (assigneeRole === "LEAD") {
+            return isWorkspaceAdmin || isProjectManager;
+        }
+
+        // 2. Fallthrough Rules
+        // Workspace Admins and Project Managers can edit any other tasks (Member/Unassigned)
+        if (isWorkspaceAdmin || isProjectManager) return true;
+
+        // Project Leads can edit if they CREATED the task
+        // (Note: Hierarchy rules already blocked Leads from editing their OWN assigned tasks if they were PM-assigned)
+        if (isProjectLead && isCreator) return true;
+
+        // Normal members cannot edit dates in Gantt, even if they created or are assigned to the task
+        return false;
+    }, [currentUser, permissions, projectId, optimisticSubtask.createdById, optimisticSubtask.assignee, (optimisticSubtask as any).assigneeRole]);
 
     // Handle bar drag (move dates)
     const handleBarMouseDown = (e: React.MouseEvent) => {
-        if (!workspaceId || !projectId || isResizing || !startDate) return;
+        if (!canEdit || isResizing || !startDate) return;
 
         e.preventDefault();
         setIsDragging(true);
@@ -102,7 +142,7 @@ export function DraggableSubtaskBar({
 
     // Handle resize drag from right edge (change end date)
     const handleResizeRightMouseDown = (e: React.MouseEvent) => {
-        if (!workspaceId || !projectId || !endDate) return;
+        if (!canEdit || !endDate) return;
 
         e.stopPropagation();
         e.preventDefault();
@@ -113,7 +153,7 @@ export function DraggableSubtaskBar({
 
     // Handle resize drag from left edge (change start date)
     const handleResizeLeftMouseDown = (e: React.MouseEvent) => {
-        if (!workspaceId || !projectId || !startDate) return;
+        if (!canEdit || !startDate) return;
 
         e.stopPropagation();
         e.preventDefault();
@@ -353,7 +393,7 @@ export function DraggableSubtaskBar({
                                 "absolute top-1 h-3 rounded-md transition-all duration-200 ease-out",
                                 "shadow-sm hover:shadow-md",
                                 "focus:outline-none focus:ring-2 focus:ring-offset-1",
-                                workspaceId && projectId && "cursor-grab active:cursor-grabbing",
+                                canEdit && "cursor-grab active:cursor-grabbing",
                                 isDragging && "opacity-70 scale-105",
                                 isConnectionTarget && "ring-2 ring-blue-500 ring-offset-2",
                                 // Status-based colors
@@ -378,7 +418,7 @@ export function DraggableSubtaskBar({
                             aria-label={`${optimisticSubtask.name}: ${startDate ? formatDate(startDate) : 'N/A'} to ${endDate ? formatDate(endDate) : 'N/A'}`}
                         >
                             {/* Resize handles */}
-                            {workspaceId && projectId && (
+                            {canEdit && (
                                 <>
                                     {/* Left resize handle */}
                                     <div
@@ -404,30 +444,10 @@ export function DraggableSubtaskBar({
                             {isBlocked && (
                                 <AlertCircle className="absolute -top-1 -left-1 h-3 w-3 text-amber-700 dark:text-amber-300 bg-white dark:bg-neutral-900 rounded-full" />
                             )}
-                            {hasDependencies && !isBlocked && (
-                                <Link className="absolute -top-1 -left-1 h-3 w-3 text-blue-600 dark:text-blue-300 bg-white dark:bg-neutral-900 rounded-full p-0.5" />
-                            )}
+
 
                             {/* Dependency Management Button */}
-                            {onManageDependencies && (
-                                <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className={cn(
-                                        "absolute -right-8 top-1/2 -translate-y-1/2 h-6 w-6 p-0",
-                                        "opacity-0 group-hover/bar:opacity-100 transition-opacity",
-                                        "bg-white dark:bg-neutral-800 border shadow-sm",
-                                        "hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                                    )}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onManageDependencies();
-                                    }}
-                                    title="Manage dependencies"
-                                >
-                                    <Link2 className="h-3 w-3" />
-                                </Button>
-                            )}
+
                         </div>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="bg-popover text-popover-foreground border shadow-lg max-w-xs">
@@ -446,32 +466,13 @@ export function DraggableSubtaskBar({
                             <p className="text-xs text-muted-foreground">
                                 {duration} days
                             </p>
-                            {workspaceId && projectId && (
+                            {canEdit && (
                                 <p className="text-xs text-blue-600 dark:text-blue-400 pt-1 border-t">
                                     💡 Drag to move • Drag edge to resize
                                 </p>
                             )}
-                            {isBlocked && optimisticSubtask.blockedByNames && optimisticSubtask.blockedByNames.length > 0 && (
-                                <div className="pt-1 border-t border-amber-200 dark:border-amber-800">
-                                    <p className="text-xs text-amber-700 dark:text-amber-300 flex items-center gap-1">
-                                        <AlertCircle className="h-3 w-3" />
-                                        Waiting for:
-                                    </p>
-                                    <ul className="text-xs text-muted-foreground ml-4 mt-0.5">
-                                        {optimisticSubtask.blockedByNames.map((name: string, idx: number) => (
-                                            <li key={idx}>• {name}</li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-                            {hasDependencies && !isBlocked && (
-                                <div className="pt-1 border-t">
-                                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                        <Link className="h-3 w-3" />
-                                        Dependencies: {optimisticSubtask.dependsOnIds.length}
-                                    </p>
-                                </div>
-                            )}
+
+
                         </div>
                     </TooltipContent>
                 </Tooltip>

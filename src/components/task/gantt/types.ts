@@ -26,10 +26,10 @@ export interface GanttSubtask {
     start: string; // YYYY-MM-DD format
     end: string;   // YYYY-MM-DD format
     status: string;
-    dependsOnIds: string[];
-    isBlocked?: boolean;
-    blockedByNames?: string[];
+
+    createdById?: string;
     assignee?: { id: string; name: string; image?: string | null };
+    assigneeRole?: string;
 }
 
 // ============================================================================
@@ -57,13 +57,4 @@ export interface ComputedTaskDates {
     end: Date | null;
 }
 
-// ============================================================================
-// DEPENDENCY TYPES
-// ============================================================================
 
-export interface DependencyLine {
-    fromId: string;
-    toId: string;
-    fromName: string;
-    toName: string;
-}

@@ -2,6 +2,9 @@ import { getWorkspaceTasks } from "@/data/task";
 import { getSubTasksByParentIds } from "@/data/task/get-subtasks-batch";
 import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
 import { ProjectGanttClient } from "./project-gantt-client";
+import { requireUser } from "@/lib/auth/require-user";
+import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import prisma from "@/lib/db";
 
 interface GanttServerWrapperProps {
     workspaceId: string;
@@ -46,10 +49,34 @@ export async function GanttServerWrapper({ workspaceId, projectId }: GanttServer
         }
     });
 
-    // 4. Transform to Gantt Structure
+    const [user, permissions, projectMembers] = await Promise.all([
+        requireUser(),
+        getWorkspacePermissions(workspaceId),
+        prisma.projectMember.findMany({
+            where: { projectId },
+            select: {
+                workspaceMember: { select: { userId: true } },
+                projectRole: true
+            }
+        })
+    ]);
+
+    // 4. Enrich tasks with assignee roles
+    const roleMap: Record<string, string> = {};
+    projectMembers.forEach((pm: { projectRole: string; workspaceMember: { userId: string } }) => {
+        roleMap[pm.workspaceMember.userId] = pm.projectRole;
+    });
+
+    allTasks.forEach(t => {
+        if (t.assigneeTo) {
+            t.projectRole = roleMap[t.assigneeTo];
+        }
+    });
+
+    // 5. Transform to Gantt Structure
     const ganttTasks = transformToGanttTasks(allTasks);
 
-    // 5. Get Project Counts
+    // 6. Get Project Counts
     const projectCounts = tasksData.facets.projects;
 
     return (
@@ -59,6 +86,12 @@ export async function GanttServerWrapper({ workspaceId, projectId }: GanttServer
             initialTasks={ganttTasks}
             subtaskDataMap={subtaskDataMap}
             projectCounts={projectCounts}
+            currentUser={{ id: user.id }}
+            permissions={{
+                isWorkspaceAdmin: permissions.isWorkspaceAdmin,
+                leadProjectIds: permissions.leadProjectIds || [],
+                managedProjectIds: permissions.managedProjectIds || []
+            }}
         />
     );
 }
