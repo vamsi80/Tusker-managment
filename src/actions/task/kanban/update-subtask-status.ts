@@ -84,6 +84,7 @@ export async function updateSubTaskStatus(
                 description: true,
                 startDate: true,
                 days: true,
+                createdById: true,
                 assigneeTo: true,      // FK — avoids JOIN
             },
         });
@@ -96,7 +97,6 @@ export async function updateSubTaskStatus(
         }
 
         // 6. Verify subtask belongs to the project
-        // CHANGED: Use direct projectId from subTask
         if (subTask.projectId !== projectId) {
             return {
                 success: false,
@@ -105,23 +105,77 @@ export async function updateSubTaskStatus(
         }
 
         // 7. Check if user is authorized to move this card
-        const isAssignee = subTask.assigneeTo === permissions.workspaceMember.userId;
-        const isAdminOrLead = permissions.isWorkspaceAdmin || permissions.isProjectLead;
+        // 7. Check if user is authorized to edit this task (move/update)
+        const isWorkspaceAdmin = permissions.isWorkspaceAdmin;
+        const isProjectManager = permissions.isProjectManager;
+        const isProjectLead = permissions.isProjectLead;
+        const isCreator = subTask.createdById === user.id;
+        const isAssignee = subTask.assigneeTo === user.id;
 
-        if (!isAssignee && !isAdminOrLead) {
-            return {
-                success: false,
-                error: "You are not authorized to move this card. Only the assignee, project admin, or project lead can move cards.",
-            };
+        // Basic Authorization check
+        if (!isWorkspaceAdmin && !isProjectManager) {
+            if (isProjectLead) {
+                // Leads can edit tasks they created OR tasks assigned to them
+                if (!isCreator && !isAssignee) {
+                    return {
+                        success: false,
+                        error: "As a Project Lead, you can only update tasks you created or are assigned to. Only the Project Manager can update any task in this project.",
+                    };
+                }
+            } else {
+                // Members/Regular users can only move tasks they created or are assigned to
+                if (!isCreator && !isAssignee) {
+                    return {
+                        success: false,
+                        error: "You can only update tasks that you created or are assigned to.",
+                    };
+                }
+            }
         }
 
-        // 8. Check restricted status transitions
-        const restrictedStatuses: TaskStatus[] = ["COMPLETED", "CANCELLED", "HOLD"];
-        if (restrictedStatuses.includes(newStatus) && !isAdminOrLead) {
-            return {
-                success: false,
-                error: `You are not authorized to move this card to ${newStatus} status. Only admins and leads can move cards to this status.`,
-            };
+        // 8. Role-based Status Transition Restrictions (Hierarchy Rule)
+        // Restrict moving to final/privileged statuses if assigned to a superior
+        const privilegedStatuses = ["COMPLETED", "CANCELLED", "HOLD"];
+        if (privilegedStatuses.includes(newStatus)) {
+            // Get assignee's project role and name for hierarchy enforcement
+            let assigneeRole: string | null = null;
+            if (subTask.assigneeTo) {
+                const assigneeMember = await prisma.projectMember.findFirst({
+                    where: {
+                        projectId: projectId,
+                        workspaceMember: { userId: subTask.assigneeTo }
+                    },
+                    select: {
+                        projectRole: true,
+                        workspaceMember: {
+                            select: {
+                                user: {
+                                    select: { name: true, surname: true }
+                                }
+                            }
+                        }
+                    }
+                });
+                assigneeRole = assigneeMember?.projectRole || "MEMBER";
+            }
+            if (assigneeRole === "PROJECT_MANAGER") {
+                // Task assigned to PM: Only Workspace Admin can move to final status
+                if (!isWorkspaceAdmin) {
+                    return {
+                        success: false,
+                        error: "Only a Workspace Admin can move a task assigned to a Project Manager",
+                    };
+                }
+
+            } else if (assigneeRole === "LEAD") {
+                // Task assigned to Lead: Only Lead, PM or Admin can move to final status
+                if (!isWorkspaceAdmin && !isProjectManager) {
+                    return {
+                        success: false,
+                        error: "Only a Workspace Admin or Project Manager can move a task assigned to a Lead.",
+                    };
+                }
+            }
         }
 
         // 9. Validate review comment for REVIEW status

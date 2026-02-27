@@ -2,18 +2,32 @@
 
 import { GanttTask } from "../../../../../../../components/task/gantt/types";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
-import { FlatTaskType } from "@/data/task";
+import { WorkspaceTaskType } from "@/data/task";
 import { GanttChart } from "@/components/task/gantt/gantt-chart";
 
 interface ProjectGanttClientProps {
     workspaceId: string;
     projectId: string;
     initialTasks: GanttTask[]; // Hierarchical - already transformed server-side
-    subtaskDataMap: Record<string, FlatTaskType>; // Plain object for server→client serialization
+    subtaskDataMap: Record<string, WorkspaceTaskType>; // Plain object for server→client serialization
     projectCounts?: Record<string, number>;
+    currentUser?: { id: string };
+    permissions?: {
+        isWorkspaceAdmin: boolean;
+        leadProjectIds: string[];
+        managedProjectIds: string[];
+    };
 }
 
-export function ProjectGanttClient({ workspaceId, projectId, initialTasks, subtaskDataMap, projectCounts }: ProjectGanttClientProps) {
+export function ProjectGanttClient({
+    workspaceId,
+    projectId,
+    initialTasks,
+    subtaskDataMap,
+    projectCounts,
+    currentUser,
+    permissions
+}: ProjectGanttClientProps) {
     // Use global subtask sheet context
     const { openSubTaskSheet } = useSubTaskSheet();
 
@@ -34,6 +48,8 @@ export function ProjectGanttClient({ workspaceId, projectId, initialTasks, subta
                     projectId={projectId}
                     onSubtaskClick={handleSubtaskClick}
                     projectCounts={projectCounts}
+                    currentUser={currentUser}
+                    permissions={permissions}
                 />
             </div>
         </div>

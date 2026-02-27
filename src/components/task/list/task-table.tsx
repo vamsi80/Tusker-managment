@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Loader2, Plus, ChevronsUpDown, Maximize2, Minimize2, ChevronDown } from "lucide-react";
 import { loadTasksAction } from "@/actions/task/list-actions";
-import { updateSubtaskPositions } from "@/actions/task/gantt";
 import { useSubTaskSheet, useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -1016,72 +1015,65 @@ export function TaskTable({
         }
     };
 
-    const handleDragEnd = async (event: DragEndEvent) => {
-        const { active, over } = event;
+    // const handleDragEnd = async (event: DragEndEvent) => {
+    //     const { active, over } = event;
 
-        if (!over || active.id === over.id) return;
+    //     if (!over || active.id === over.id) return;
 
-        const activeSubTaskId = active.id as string;
-        const overSubTaskId = over.id as string;
+    //     const activeSubTaskId = active.id as string;
+    //     const overSubTaskId = over.id as string;
 
-        const parentTask = tasks.find((task) =>
-            task.subTasks?.some((sub: SubTaskType) => sub.id === activeSubTaskId)
-        );
+    //     const parentTask = tasks.find((task) =>
+    //         task.subTasks?.some((sub: SubTaskType) => sub.id === activeSubTaskId)
+    //     );
 
-        if (!parentTask || !parentTask.subTasks) return;
+    //     if (!parentTask || !parentTask.subTasks) return;
 
-        const isOverInSameParent = parentTask.subTasks.some(
-            (sub: SubTaskType) => sub.id === overSubTaskId
-        );
+    //     const isOverInSameParent = parentTask.subTasks.some(
+    //         (sub: SubTaskType) => sub.id === overSubTaskId
+    //     );
 
-        if (isOverInSameParent) {
-            const oldIndex = parentTask.subTasks.findIndex(
-                (sub: SubTaskType) => sub.id === activeSubTaskId
-            );
-            const newIndex = parentTask.subTasks.findIndex(
-                (sub: SubTaskType) => sub.id === overSubTaskId
-            );
-            const newSubTasks = arrayMove(parentTask.subTasks, oldIndex, newIndex) as SubTaskType[];
-            const updatedSubTasks = newSubTasks.map((subtask: SubTaskType, index: number) => ({
-                ...subtask,
-                position: index
-            }));
-            const newTasks = tasks.map((t) => {
-                if (t.id === parentTask.id) {
-                    return { ...t, subTasks: updatedSubTasks };
-                }
-                return t;
-            });
+    //     if (isOverInSameParent) {
+    //         const oldIndex = parentTask.subTasks.findIndex(
+    //             (sub: SubTaskType) => sub.id === activeSubTaskId
+    //         );
+    //         const newIndex = parentTask.subTasks.findIndex(
+    //             (sub: SubTaskType) => sub.id === overSubTaskId
+    //         );
+    //         const newSubTasks = arrayMove(parentTask.subTasks, oldIndex, newIndex) as SubTaskType[];
+    //         const updatedSubTasks = newSubTasks.map((subtask: SubTaskType, index: number) => ({
+    //             ...subtask,
+    //             position: index
+    //         }));
+    //         const newTasks = tasks.map((t) => {
+    //             if (t.id === parentTask.id) {
+    //                 return { ...t, subTasks: updatedSubTasks };
+    //             }
+    //             return t;
+    //         });
 
-            setTasks(newTasks);
-            const toastId = toast.loading("Updating subtask order...");
+    //         setTasks(newTasks);
+    //         const toastId = toast.loading("Updating subtask order...");
 
-            try {
-                const updates = updatedSubTasks.map((subtask, index) => ({
-                    subtaskId: subtask.id,
-                    newPosition: index
-                }));
+    //         try {
+    //             const updates = updatedSubTasks.map((subtask, index) => ({
+    //                 subtaskId: subtask.id,
+    //                 newPosition: index
+    //             }));
 
-                const result = await updateSubtaskPositions(
-                    parentTask.id,
-                    projectId,
-                    workspaceId,
-                    updates
-                );
-
-                if (result.success) {
-                    toast.success("Subtask order updated successfully", { id: toastId });
-                } else {
-                    setTasks(tasks);
-                    toast.error(result.message || "Failed to update subtask order", { id: toastId });
-                }
-            } catch (error) {
-                console.error("Error updating subtask positions:", error);
-                setTasks(tasks);
-                toast.error("Failed to update subtask order", { id: toastId });
-            }
-        }
-    };
+    //             if (result.success) {
+    //                 toast.success("Subtask order updated successfully", { id: toastId });
+    //             } else {
+    //                 setTasks(tasks);
+    //                 toast.error(result.message || "Failed to update subtask order", { id: toastId });
+    //             }
+    //         } catch (error) {
+    //             console.error("Error updating subtask positions:", error);
+    //             setTasks(tasks);
+    //             toast.error("Failed to update subtask order", { id: toastId });
+    //         }
+    //     }
+    // };
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -1157,7 +1149,7 @@ export function TaskTable({
                     <DndContext
                         sensors={sensors}
                         collisionDetection={closestCenter}
-                        onDragEnd={handleDragEnd}
+                    // onDragEnd={handleDragEnd}
                     >
                         <table className="w-full caption-bottom text-sm table-fixed">
                             <thead className="[&_tr]:border-b">

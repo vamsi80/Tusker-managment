@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { generateTimelineColumns, getDaysBetween, getIndianDate } from "./utils";
-import { DependencyLines } from "./dependency-lines";
+
 import { cn } from "@/lib/utils";
 import { GanttTask, TimelineGranularity } from "./types";
 
@@ -224,22 +224,7 @@ export function TimelineGrid({ startDate, endDate, granularity, tasks, children 
                 </div>
             )}
 
-            {/* Dependency Lines Overlay - Positioned over the timeline area */}
-            <div
-                className="absolute pointer-events-none z-25"
-                style={{
-                    left: 'var(--gantt-sidebar-width)',
-                    right: 0,
-                    top: 0,
-                    bottom: 0,
-                }}
-            >
-                <DependencyLines
-                    subtasks={allSubtasks}
-                    timelineStart={startDate}
-                    totalDays={getDaysBetween(startDate, endDate)}
-                />
-            </div>
+
 
             {/* Content Container (Vertical List of Rows) */}
             <div className="flex flex-col">

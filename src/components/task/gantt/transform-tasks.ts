@@ -1,5 +1,4 @@
 import { GanttSubtask, GanttTask } from "@/components/task/gantt/types";
-import { validateDependencies } from "@/components/task/gantt/utils";
 
 /**
  * Transform flat tasks list into Gantt structure
@@ -60,16 +59,18 @@ export function transformToGanttTasks(allTasks: any[]): GanttTask[] {
                         start: formatLocalDate(start),
                         end: formatLocalDate(end),
                         status: subtask.status || 'TO_DO',
-                        dependsOnIds: (subtask as any).dependsOn?.map((dep: any) => dep.id) || [],
+
                         assignee: subtask.assignee ? {
                             id: subtask.assignee.id,
                             name: subtask.assignee.name,
                             image: subtask.assignee.image
                         } : undefined,
+                        assigneeRole: subtask.projectRole || (subtask.assignee as any)?.projectRole,
+                        createdById: subtask.createdById
                     };
                 });
 
-            const validatedSubtasks = validateDependencies(rawSubtasks);
+
 
             return {
                 id: parentTask.id,
@@ -79,7 +80,7 @@ export function transformToGanttTasks(allTasks: any[]): GanttTask[] {
                 projectColor: parentTask.projectColor || parentTask.project?.color,
                 start: parentTask.startDate ? formatLocalDate(new Date(parentTask.startDate)) : undefined,
                 end: parentTask.dueDate ? formatLocalDate(new Date(parentTask.dueDate)) : undefined,
-                subtasks: validatedSubtasks,
+                subtasks: rawSubtasks,
                 assignee: parentTask.assignee ? {
                     id: parentTask.assignee.id,
                     name: parentTask.assignee.name,

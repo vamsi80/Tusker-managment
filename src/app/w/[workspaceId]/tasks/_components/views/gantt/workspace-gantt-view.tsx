@@ -1,11 +1,13 @@
-import prisma from "@/lib/db";
-import { getWorkspaceTasks } from "@/data/task";
+import { getTasks } from "@/data/task/get-tasks";
 import { getWorkspaceTags } from "@/data/tag/get-tags";
 import { getUserProjects } from "@/data/project/get-projects";
 import { WorkspaceGanttClient } from "./workspace-gantt-client";
 import { getWorkspaceMembers } from "@/data/workspace/get-workspace-members";
 import { getSubTasksByParentIds } from "@/data/task/get-subtasks-batch";
 import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
+import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import { requireUser } from "@/lib/auth/require-user";
+import prisma from "@/lib/db";
 
 interface WorkspaceGanttViewProps {
     workspaceId: string;
@@ -15,13 +17,15 @@ interface WorkspaceGanttViewProps {
  * Workspace Gantt View Server Component
  * 
  * Shows all tasks from all accessible projects in Gantt chart format
- * Uses permission-based filtering:
+ * Uses the same permission-based getTasks as Kanban and List views:
  * - ADMIN/OWNER: See all tasks from all projects
  * - MEMBER: See only tasks from assigned projects and their assigned subtasks
  */
 export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProps) {
-    const [tasksData, projects, workspaceMembers, projectMemberMatches, tags] = await Promise.all([
-        getWorkspaceTasks({ workspaceId, hierarchyMode: "parents", page: 1, limit: 500, includeFacets: true }), // Limit to 500 for performance
+    await requireUser();
+
+    const [tasksData, projects, workspaceMembers, projectMemberMatches, tags, permissions] = await Promise.all([
+        getTasks({ workspaceId, hierarchyMode: "parents", page: 1, limit: 500, includeFacets: true }),
         getUserProjects(workspaceId),
         getWorkspaceMembers(workspaceId),
         prisma.projectMember.findMany({
@@ -30,10 +34,12 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
                 projectId: true,
                 workspaceMember: {
                     select: { userId: true }
-                }
+                },
+                projectRole: true
             }
         }),
-        getWorkspaceTags(workspaceId)
+        getWorkspaceTags(workspaceId),
+        getWorkspacePermissions(workspaceId),
     ]);
 
     // Fetch subtasks for the parent tasks
@@ -52,14 +58,8 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
 
     const allTasks = [...parentTasksList, ...subtasks];
 
-    // Separate parent tasks and subtasks
-    // Note: getWorkspaceTasks returns parents, so we can use parentTasksList directly, 
-    // but for consistency with original structure we filter from allTasks if needed, 
-    // or just rely on parentTaskId property.
-
     const parentTasks = allTasks.filter(task => !task.parentTaskId);
 
-    // Fix: Explicitly type the map to avoid 'never' inference
     const subtasksMap = new Map<string, any[]>();
 
     allTasks.forEach(task => {
@@ -86,11 +86,20 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
         }
     });
 
-    // Build map of project -> userIds
+    // Build map of project -> userIds and project-user role map
     const projectUserMap: Record<string, string[]> = {};
+    const roleMap: Record<string, string> = {};
     projectMemberMatches.forEach(pm => {
         if (!projectUserMap[pm.projectId]) projectUserMap[pm.projectId] = [];
         projectUserMap[pm.projectId].push(pm.workspaceMember.userId);
+        roleMap[`${pm.projectId}-${pm.workspaceMember.userId}`] = pm.projectRole;
+    });
+
+    // Enrich tasks with assignee roles for permission checks
+    allTasks.forEach(t => {
+        if (t.assigneeTo && t.projectId) {
+            t.projectRole = roleMap[`${t.projectId}-${t.assigneeTo}`];
+        }
     });
 
     // Format options
@@ -117,6 +126,8 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
     // Transform data to GanttTask format
     const ganttTasks = transformToGanttTasks(allTasks);
 
+    const user = await requireUser();
+
     return (
         <WorkspaceGanttClient
             workspaceId={workspaceId}
@@ -127,6 +138,12 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
             members={memberOptions}
             tags={tagOptions}
             projectCounts={tasksData.facets.projects}
+            currentUser={{ id: user.id }}
+            permissions={{
+                isWorkspaceAdmin: permissions.isWorkspaceAdmin,
+                leadProjectIds: permissions.leadProjectIds || [],
+                managedProjectIds: permissions.managedProjectIds || []
+            }}
         />
     );
 }

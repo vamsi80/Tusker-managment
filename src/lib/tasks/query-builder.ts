@@ -204,16 +204,36 @@ export function buildWorkspaceFilterWhere(
             // Only full-access projects
             where.projectId = { in: fullIds };
         } else if (fullIds.length === 0) {
-            // Only restricted projects — must be assigned
+            // Only restricted projects
             where.projectId = { in: restrictedIds };
-            where.assigneeTo = userId;
+
+            if (opts.onlyParents) {
+                // For hierarchy/gantt: see parent if assigned OR if any child is assigned
+                where.OR = [
+                    { assigneeTo: userId },
+                    { subTasks: { some: { assigneeTo: userId } } }
+                ];
+            } else {
+                // Flat list: only see directly assigned
+                where.assigneeTo = userId;
+            }
         } else {
             // Mixed: full-access OR (restricted AND assigned)
+            const restrictedCondition: Prisma.TaskWhereInput = opts.onlyParents
+                ? {
+                    projectId: { in: restrictedIds },
+                    OR: [
+                        { assigneeTo: userId },
+                        { subTasks: { some: { assigneeTo: userId } } }
+                    ]
+                }
+                : { projectId: { in: restrictedIds }, assigneeTo: userId };
+
             where.AND = [
                 {
                     OR: [
                         { projectId: { in: fullIds } },
-                        { projectId: { in: restrictedIds }, assigneeTo: userId }
+                        restrictedCondition
                     ]
                 }
             ];
