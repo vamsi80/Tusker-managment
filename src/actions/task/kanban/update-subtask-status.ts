@@ -134,48 +134,38 @@ export async function updateSubTaskStatus(
         }
 
         // 8. Role-based Status Transition Restrictions (Hierarchy Rule)
-        // Restrict moving to final/privileged statuses if assigned to a superior
+        // Restrict ANY move if assigned to a superior (PM tasks Admin-only, Lead tasks PM/Admin-only)
+        let assigneeRole: string | null = null;
+        if (subTask.assigneeTo) {
+            const assigneeMember = await prisma.projectMember.findFirst({
+                where: {
+                    projectId: projectId,
+                    workspaceMember: { userId: subTask.assigneeTo }
+                },
+                select: { projectRole: true }
+            });
+            assigneeRole = assigneeMember?.projectRole || "MEMBER";
+        }
+
+        if (assigneeRole === "PROJECT_MANAGER") {
+            if (!isWorkspaceAdmin) {
+                return {
+                    success: false,
+                    error: "Only a Workspace Admin can move a task assigned to a Project Manager",
+                };
+            }
+        } else if (assigneeRole === "LEAD") {
+            if (!isWorkspaceAdmin && !isProjectManager) {
+                return {
+                    success: false,
+                    error: "Only a Workspace Admin or Project Manager can move a task assigned to a Lead.",
+                };
+            }
+        }
+
         const privilegedStatuses = ["COMPLETED", "CANCELLED", "HOLD"];
         if (privilegedStatuses.includes(newStatus)) {
-            // Get assignee's project role and name for hierarchy enforcement
-            let assigneeRole: string | null = null;
-            if (subTask.assigneeTo) {
-                const assigneeMember = await prisma.projectMember.findFirst({
-                    where: {
-                        projectId: projectId,
-                        workspaceMember: { userId: subTask.assigneeTo }
-                    },
-                    select: {
-                        projectRole: true,
-                        workspaceMember: {
-                            select: {
-                                user: {
-                                    select: { name: true, surname: true }
-                                }
-                            }
-                        }
-                    }
-                });
-                assigneeRole = assigneeMember?.projectRole || "MEMBER";
-            }
-            if (assigneeRole === "PROJECT_MANAGER") {
-                // Task assigned to PM: Only Workspace Admin can move to final status
-                if (!isWorkspaceAdmin) {
-                    return {
-                        success: false,
-                        error: "Only a Workspace Admin can move a task assigned to a Project Manager",
-                    };
-                }
-
-            } else if (assigneeRole === "LEAD") {
-                // Task assigned to Lead: Only Lead, PM or Admin can move to final status
-                if (!isWorkspaceAdmin && !isProjectManager) {
-                    return {
-                        success: false,
-                        error: "Only a Workspace Admin or Project Manager can move a task assigned to a Lead.",
-                    };
-                }
-            }
+            // Additional privileged status logic (if any) could go here
         }
 
         // 9. Validate review comment for REVIEW status
