@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, memo } from "react";
 import { useRemainingDays } from "@/hooks/use-due-date";
 import { useSortable } from "@dnd-kit/sortable";
 import { TableCell, TableRow } from "@/components/ui/table";
@@ -41,7 +41,7 @@ interface SubTaskRowProps {
     projects?: Array<{ id: string; canManageMembers?: boolean }>; // For workspace view
 }
 
-export function SubTaskRow({
+export const SubTaskRow = memo(function SubTaskRow({
     subTask,
     columnVisibility,
     onClick,
@@ -75,7 +75,7 @@ export function SubTaskRow({
         // Workspace view (use alternative data)
         if (isWorkspaceAdmin) return true;
 
-        // For subtasks, we need to check the parent task's project ID if subtask doesn't have one explicitly
+        // For subtasks, we need to check the person task's project ID if subtask doesn't have one explicitly
         // Usually subtasks share the same project as parent
         const projectIdToCheck = (subTask as any).projectId || projectId;
 
@@ -420,4 +420,4 @@ export function SubTaskRow({
             </TableCell>
         </TableRow>
     );
-}
+});

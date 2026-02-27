@@ -26,7 +26,7 @@ interface SortedTaskRowProps {
  * 
  * NO nesting, NO indentation, NO expand/collapse
  */
-export function SortedTaskRow({ task, columnVisibility, onClick }: SortedTaskRowProps) {
+export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVisibility, onClick }: SortedTaskRowProps) {
     const statusColors = getStatusColors(task.status);
     const { remainingDays, isOverdue, dueDate } = useRemainingDays(task.startDate, task.days);
 
@@ -196,4 +196,4 @@ export function SortedTaskRow({ task, columnVisibility, onClick }: SortedTaskRow
             <TableCell className="w-[40px]" />
         </TableRow>
     );
-}
+});

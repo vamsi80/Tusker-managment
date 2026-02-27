@@ -36,6 +36,8 @@ interface TaskCacheState {
     setKanbanTasksCache: (key: string, data: { tasks: any[], hasMore: boolean, page?: number, nextCursor?: any, totalCount?: number }) => void;
     getKanbanTasksCache: (key: string) => { tasks: any[], hasMore: boolean, page: number, nextCursor?: any, totalCount?: number, timestamp: number } | undefined;
 
+    invalidateSubTaskCache: (taskId: string) => void;
+    invalidateProjectCache: (projectId: string) => void;
     clearCache: () => void;
 }
 
@@ -145,6 +147,18 @@ export const useTaskCacheStore = create<TaskCacheState>((set, get) => ({
             timestamp: list.timestamp
         };
     },
+
+    invalidateSubTaskCache: (taskId) => set(state => {
+        const newLists = { ...state.subTaskLists };
+        delete newLists[taskId];
+        return { subTaskLists: newLists };
+    }),
+
+    invalidateProjectCache: (projectId) => set(state => {
+        const newLists = { ...state.projectLists };
+        delete newLists[projectId];
+        return { projectLists: newLists };
+    }),
 
     clearCache: () => set({
         entities: {},

@@ -8,7 +8,7 @@ import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
 import { GlobalFilterToolbar } from "@/components/task/shared/global-filter-toolbar";
 import { ProjectOption, MemberOption, TaskFilters, TagOption } from "@/components/task/shared/types";
 import { useTaskCacheStore } from "@/lib/store/task-cache-store";
-import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
+import { useSubTaskSheet, useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 
 interface WorkspaceGanttClientProps {
     workspaceId: string;
@@ -112,7 +112,7 @@ export function WorkspaceGanttClient({
     };
 
     const { setProjectTasksCache, entities } = useTaskCacheStore();
-    const { openSubTaskSheet } = useSubTaskSheet();
+    const { openSubTaskSheet } = useSubTaskSheetActions();
 
     // Cache Synchronization
     useMemo(() => {

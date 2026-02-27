@@ -82,7 +82,8 @@ export function WorkspaceTasksHeaderClient({
                             <Link
                                 key={tab.href}
                                 href={tab.href}
-                                prefetch={true}
+                                prefetch={false}
+                                scroll={false}
                                 className={cn(
                                     "flex h-full items-center gap-2 border-b-2 px-2 sm:px-3 text-sm font-medium transition-colors hover:text-primary whitespace-nowrap flex-shrink-0",
                                     isActive

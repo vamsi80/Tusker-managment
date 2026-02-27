@@ -8,7 +8,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import { Loader2, Plus, ChevronsUpDown, Maximize2, Minimize2, ChevronDown } from "lucide-react";
 import { loadTasksAction } from "@/actions/task/list-actions";
 import { updateSubtaskPositions } from "@/actions/task/gantt";
-import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
+import { useSubTaskSheet, useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -77,6 +77,7 @@ export function TaskTable({
     const [searchQuery, setSearchQuery] = useState("");
     const [filters, setFilters] = useState<TaskFilters>({});
     const [isLoadingFilters, setIsLoadingFilters] = useState(false);
+    const [isCurrentlyFiltered, setIsCurrentlyFiltered] = useState(false);
     const filtersActive = hasActiveFilters(filters) || !!searchQuery;
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
     const [loadingSubTasks, setLoadingSubTasks] = useState<Record<string, boolean>>({});
@@ -296,12 +297,15 @@ export function TaskTable({
     }, [mode, initialTasks]);
 
     useEffect(() => {
+        let isAborted = false;
+
         const fetchFiltered = async () => {
             setIsLoadingFilters(true);
+            setIsCurrentlyFiltered(true);
 
             try {
                 const response = await loadTasksAction({
-                    workspaceId,
+                    workspaceId: workspaceId,
                     ...(level === "project" && projectId ? { projectId } : {}),
                     status: filters.status as any,
                     assigneeId: filters.assigneeId as any,
@@ -310,25 +314,26 @@ export function TaskTable({
                     dueAfter: filters.startDate ? new Date(filters.startDate) : undefined,
                     dueBefore: filters.endDate ? new Date(filters.endDate) : undefined,
                     hierarchyMode: "parents",
-                    limit: 20,
+                    limit: 50, // Increase limit for filtered views
+                    sorts,
                 });
+
+                if (isAborted) return;
 
                 if (response.success && response.data) {
                     const result = response.data;
+                    setTasks(hydrateTasks(result.tasks));
 
-                    setTasks(result.tasks);
-                    setProjectPagination({
-                        ...(level === "project" && projectId
-                            ? {
-                                [projectId]: {
-                                    page: 1,
-                                    nextCursor: result.nextCursor,
-                                    hasMore: result.hasMore,
-                                    isLoading: false,
-                                },
-                            }
-                            : {}),
-                    });
+                    if (level === "project" && projectId) {
+                        setProjectPagination({
+                            [projectId]: {
+                                page: 1,
+                                nextCursor: result.nextCursor,
+                                hasMore: result.hasMore,
+                                isLoading: false,
+                            },
+                        });
+                    }
 
                     // Auto-expand all filtered parents
                     const expandedMap: Record<string, boolean> = {};
@@ -346,15 +351,60 @@ export function TaskTable({
                         setExpandedProjects(projectExpandMap);
                     }
                 }
+            } catch (err) {
+                console.error("Filter error:", err);
+                if (!isAborted) toast.error("Failed to apply filters");
             } finally {
-                setIsLoadingFilters(false);
+                if (!isAborted) setIsLoadingFilters(false);
             }
         };
 
-        if (mode === "hierarchy" && filtersActive) {
-            fetchFiltered();
+        if (mode === "hierarchy") {
+            if (filtersActive) {
+                fetchFiltered();
+            } else if (isCurrentlyFiltered) {
+                // RESET LOGIC — Restore from cache if possible
+                const relevantProjectIds = level === 'project' && projectId ? [projectId] : projects.map(p => p.id);
+                const getCache = useTaskCacheStore.getState().getProjectTasksCache;
+                const taskMap = new Map<string, TaskWithSubTasks>();
+                const newPagination: Record<string, any> = {};
+
+                relevantProjectIds.forEach(pId => {
+                    const cache = getCache(pId);
+                    if (cache && cache.tasks.length > 0) {
+                        // Filter out subtasks from root list
+                        cache.tasks.filter(t => !t.parentTaskId).forEach(t => taskMap.set(t.id, t));
+                        newPagination[pId] = {
+                            page: cache.page,
+                            nextCursor: cache.nextCursor,
+                            hasMore: cache.hasMore,
+                            isLoading: false
+                        };
+                    } else if (pId === projectId) {
+                        // Fallback to initialData
+                        initialTasks.forEach(t => taskMap.set(t.id, t));
+                        newPagination[pId] = {
+                            page: 1,
+                            nextCursor: initialNextCursor,
+                            hasMore: initialHasMore,
+                            isLoading: false
+                        };
+                    }
+                });
+
+                if (!isAborted) {
+                    const resetList = Array.from(taskMap.values());
+                    setTasks(hydrateTasks(resetList));
+                    setProjectPagination(newPagination);
+                    setExpanded({});
+                    setIsCurrentlyFiltered(false);
+                    setIsLoadingFilters(false);
+                }
+            }
         }
-    }, [mode, JSON.stringify(filters), searchQuery, workspaceId, projectId, level]);
+
+        return () => { isAborted = true; };
+    }, [mode, JSON.stringify(filters), searchQuery, sortsKey, workspaceId, projectId, level, initialTasks]);
 
     // Effect to load sorted tasks when sorting is active
     useEffect(() => {
@@ -509,6 +559,7 @@ export function TaskTable({
                 hierarchyMode: "parents",
                 cursor: currentPagination.nextCursor,
                 limit: 10,
+                sorts,
             });
 
             if (response.success && response.data) {
@@ -605,7 +656,7 @@ export function TaskTable({
         }
     }, [level, projectId, filters, searchQuery]);
 
-    const { openSubTaskSheet } = useSubTaskSheet();
+    const { openSubTaskSheet } = useSubTaskSheetActions();
 
     const filterOptions = React.useMemo(() => {
         const options = extractAllFilterOptions(tasks as any, showAdvancedFilters ? 'workspace' : 'project');
@@ -804,6 +855,7 @@ export function TaskTable({
                 dueAfter: filters.startDate ? new Date(filters.startDate) : undefined,
                 dueBefore: filters.endDate ? new Date(filters.endDate) : undefined,
                 limit: 10,
+                sorts,
             });
 
             if (response.success && response.data) {
@@ -920,6 +972,7 @@ export function TaskTable({
                 dueBefore: cleanFilters.endDate,
                 cursor: task.subTasksNextCursor,
                 limit: 10,
+                sorts,
             });
 
             if (response.success && response.data) {
@@ -1159,13 +1212,9 @@ export function TaskTable({
                                         />
                                     )}
                                     {columnVisibility.startDate && (
-                                        <SortableHeader
-                                            field="startDate"
-                                            label="Start Date"
-                                            sorts={sorts}
-                                            onSortChange={handleSort}
-                                            className="w-[90px] sm:w-[120px]"
-                                        />
+                                        <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[90px] sm:w-[120px] bg-background">
+                                            Start Date
+                                        </th>
                                     )}
                                     {columnVisibility.dueDate && (
                                         <SortableHeader
@@ -1175,6 +1224,11 @@ export function TaskTable({
                                             onSortChange={handleSort}
                                             className="w-[90px] sm:w-[120px]"
                                         />
+                                    )}
+                                    {columnVisibility.progress && (
+                                        <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] sm:w-[150px] bg-background">
+                                            Urgency
+                                        </th>
                                     )}
                                     {columnVisibility.tag && (
                                         <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] sm:w-[120px] bg-background">

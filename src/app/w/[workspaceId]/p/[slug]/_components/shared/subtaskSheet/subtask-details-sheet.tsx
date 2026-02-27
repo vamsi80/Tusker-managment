@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { TaskByIdType } from "@/data/task/get-task-by-id";
 import { useSearchParams, usePathname } from "next/navigation";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Tabs } from "@/components/ui/tabs";
 import { fetchCommentsAction, fetchReviewCommentsAction } from "@/actions/comment";
 
@@ -124,42 +124,47 @@ export function SubTaskDetailsSheet({
     const loadComments = useCallback(async () => {
         if (!subTask) return;
 
-        setIsLoading(true);
-        try {
-            const result = await fetchCommentsAction(subTask.id);
-            if (result.success && result.comments) {
-                setComments(result.comments as Comment[]);
-                if (result.currentUserId) {
-                    setCurrentUserId(result.currentUserId);
+        // Defer load slightly to prioritize animation
+        setTimeout(async () => {
+            setIsLoading(true);
+            try {
+                const result = await fetchCommentsAction(subTask.id);
+                if (result.success && result.comments) {
+                    setComments(result.comments as Comment[]);
+                    if (result.currentUserId) {
+                        setCurrentUserId(result.currentUserId);
+                    }
+                } else {
+                    toast.error(result.error || "Failed to load comments");
                 }
-            } else {
-                toast.error(result.error || "Failed to load comments");
+            } catch (error) {
+                console.error("Error loading comments:", error);
+                toast.error("Failed to load comments");
+            } finally {
+                setIsLoading(false);
             }
-        } catch (error) {
-            console.error("Error loading comments:", error);
-            toast.error("Failed to load comments");
-        } finally {
-            setIsLoading(false);
-        }
+        }, 300);
     }, [subTask]);
 
     const loadReviewComments = useCallback(async () => {
         if (!subTask) return;
 
-        setIsLoadingReview(true);
-        try {
-            const result = await fetchReviewCommentsAction(subTask.id);
-            if (result.success && result.reviewComments) {
-                setReviewComments(result.reviewComments as ReviewComment[]);
-            } else {
-                toast.error(result.error || "Failed to load review comments");
+        setTimeout(async () => {
+            setIsLoadingReview(true);
+            try {
+                const result = await fetchReviewCommentsAction(subTask.id);
+                if (result.success && result.reviewComments) {
+                    setReviewComments(result.reviewComments as ReviewComment[]);
+                } else {
+                    toast.error(result.error || "Failed to load review comments");
+                }
+            } catch (error) {
+                console.error("Error loading review comments:", error);
+                toast.error("Failed to load review comments");
+            } finally {
+                setIsLoadingReview(false);
             }
-        } catch (error) {
-            console.error("Error loading review comments:", error);
-            toast.error("Failed to load review comments");
-        } finally {
-            setIsLoadingReview(false);
-        }
+        }, 100);
     }, [subTask]);
 
     // Fetch comments when subtask changes or sheet opens
@@ -201,6 +206,10 @@ export function SubTaskDetailsSheet({
     return (
         <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <SheetContent className="w-full sm:max-w-2xl p-0 flex flex-col h-full">
+                <SheetTitle className="sr-only">{subTask.name}</SheetTitle>
+                <SheetDescription className="sr-only">
+                    Details and activity for subtask {subTask.name}
+                </SheetDescription>
                 {/* Header Component */}
                 <SubtaskSheetHeader subTask={subTask} />
 
@@ -215,20 +224,23 @@ export function SubTaskDetailsSheet({
                             reviewCount={reviewComments.length}
                         />
 
-                        {/* Messages Tab Component */}
-                        <MessagesTab
-                            taskId={subTask.id}
-                            comments={comments}
-                            setComments={setComments}
-                            currentUserId={currentUserId}
-                            isLoading={isLoading}
-                        />
+                        {/* Tab Content - Only render active tab to save mount time */}
+                        {activeTab === "messages" && (
+                            <MessagesTab
+                                taskId={subTask.id}
+                                comments={comments}
+                                setComments={setComments}
+                                currentUserId={currentUserId}
+                                isLoading={isLoading}
+                            />
+                        )}
 
-                        {/* Review Tab Component */}
-                        <ReviewTab
-                            reviewComments={reviewComments}
-                            isLoadingReview={isLoadingReview}
-                        />
+                        {activeTab === "review" && (
+                            <ReviewTab
+                                reviewComments={reviewComments}
+                                isLoadingReview={isLoadingReview}
+                            />
+                        )}
                     </Tabs>
                 </div>
             </SheetContent>
