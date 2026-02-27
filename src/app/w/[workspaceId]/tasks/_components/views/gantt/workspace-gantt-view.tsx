@@ -21,7 +21,7 @@ interface WorkspaceGanttViewProps {
  */
 export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProps) {
     const [tasksData, projects, workspaceMembers, projectMemberMatches, tags] = await Promise.all([
-        getWorkspaceTasks({ workspaceId, hierarchyMode: "parents", page: 1, limit: 5000, includeFacets: true }), // Get up to 5000 parent tasks
+        getWorkspaceTasks({ workspaceId, hierarchyMode: "parents", page: 1, limit: 500, includeFacets: true }), // Limit to 500 for performance
         getUserProjects(workspaceId),
         getWorkspaceMembers(workspaceId),
         prisma.projectMember.findMany({

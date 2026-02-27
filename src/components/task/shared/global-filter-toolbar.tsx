@@ -238,7 +238,7 @@ export function GlobalFilterToolbar({
     };
 
     const handleApply = () => {
-        setIsOpen(false);
+        // Keep popover open to allow further refinement
     };
 
     return (

@@ -1,29 +1,17 @@
 import { Suspense } from "react";
 import { requireUser } from "@/lib/auth/require-user";
-import { WorkspaceTasksHeader } from "./_components/workspace-tasks-header";
 import { WorkspaceListView } from "./_components/views/list/workspace-list-view";
 import { WorkspaceGanttView } from "./_components/views/gantt/workspace-gantt-view";
 import { WorkspaceKanbanView } from "./_components/views/kanban/workspace-kanban-view";
 import { WorkspaceTasksSkeleton } from "@/components/shared/workspace-skeletons";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ReloadableView } from "@/components/shared/reloadable-view";
 
 interface WorkspaceTasksPageProps {
     params: Promise<{ workspaceId: string }>;
     searchParams: Promise<{ view?: string }>;
 }
 
-// Header skeleton — lightweight placeholder while permissions load
-function HeaderSkeleton() {
-    return (
-        <div className="flex items-center justify-between gap-3">
-            <Skeleton className="h-7 sm:h-9 w-36 sm:w-52" />
-            <div className="flex items-center gap-1.5 sm:gap-2">
-                <Skeleton className="h-8 sm:h-9 w-20 sm:w-28 rounded-md" />
-                <Skeleton className="h-8 sm:h-9 w-20 sm:w-28 rounded-md" />
-            </div>
-        </div>
-    );
-}
+// Header skeleton logic removed as it's now in the layout
 
 // ─── Streaming view wrappers ──────────────────────────────────────────────────
 
@@ -61,13 +49,8 @@ export default async function WorkspaceTasksPage({
     const skeleton = <WorkspaceTasksSkeleton />;
 
     return (
-        <div className="flex flex-col gap-4 sm:gap-6 pb-3 px-0 h-full">
-            {/* Header streams in independently */}
-            <Suspense fallback={<HeaderSkeleton />}>
-                <WorkspaceTasksHeader workspaceId={workspaceId} />
-            </Suspense>
-
-            {/* View content streams in */}
+        <ReloadableView skeleton={skeleton}>
+            {/* View content streams in - now without the outer div as layout handles it */}
             {view === "list" && (
                 <Suspense fallback={skeleton}>
                     <ListView workspaceId={workspaceId} />
@@ -85,6 +68,6 @@ export default async function WorkspaceTasksPage({
                     <GanttView workspaceId={workspaceId} />
                 </Suspense>
             )}
-        </div>
+        </ReloadableView>
     );
 }

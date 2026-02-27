@@ -77,7 +77,6 @@ type SortDefinition = {
 const SORT_MAP: Record<string, SortDefinition> = {
     name: { dbField: "name" },
     status: { dbField: "status", nulls: "last" },
-    startDate: { dbField: "startDate", nulls: "last" },
     dueDate: { dbField: "dueDate", nulls: "last" },
     createdAt: { dbField: "createdAt" },
     // assignee → REMOVED. Sorting by assigneeTo (FK id) is meaningless.
@@ -507,6 +506,7 @@ async function _fetchFilteredHierarchy(
     const matches = await prisma.task.findMany({
         where: matchWhere,
         select: { id: true, parentTaskId: true },
+        orderBy: buildOrderBy(opts.sorts),
         take: 100, // Fetch a reasonable set of matches to find parent groups
     });
 

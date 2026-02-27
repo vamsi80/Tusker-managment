@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { SubTasksByStatusResponse, KanbanSubTaskType } from "@/data/task";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 import { cn } from "@/lib/utils";
-import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
+import { useSubTaskSheet, useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 import { createReviewCommentAction } from "@/actions/comment";
 import { toast } from "sonner";
 import { KanbanCard } from "./kanban-card";
@@ -76,6 +76,8 @@ export function KanbanBoard({
     level = "project"
 }: KanbanBoardProps) {
     const setKanbanTasksCache = useTaskCacheStore(state => state.setKanbanTasksCache);
+    const invalidateSubTaskCache = useTaskCacheStore(state => state.invalidateSubTaskCache);
+    const invalidateProjectCache = useTaskCacheStore(state => state.invalidateProjectCache);
 
     // Sync initial data to cache on mount to populate the unified entity store
     useEffect(() => {
@@ -149,7 +151,7 @@ export function KanbanBoard({
 
     const [activeSubTask, setActiveSubTask] = useState<KanbanSubTaskType | null>(null);
 
-    const { openSubTaskSheet } = useSubTaskSheet();
+    const { openSubTaskSheet } = useSubTaskSheetActions();
     const reloadView = useReloadView();
 
     const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
@@ -489,6 +491,17 @@ export function KanbanBoard({
                 nextCursor: columnData[toStatus].nextCursor,
                 totalCount: newToCount
             });
+        }
+
+        // CRITICAL: Invalidate the subtask list cache for the parent task 
+        // and the project list cache to ensure List view sync
+        if (task.parentTaskId) {
+            invalidateSubTaskCache(task.parentTaskId);
+        }
+        if ('projectId' in task && (task as any).projectId) {
+            invalidateProjectCache((task as any).projectId);
+        } else if (projectId) {
+            invalidateProjectCache(projectId);
         }
     };
 

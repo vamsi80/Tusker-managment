@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, memo } from "react";
 import { cn } from "@/lib/utils";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -10,9 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TaskWithSubTasks } from "@/components/task/shared/types";
 import { EditTaskDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/edit-task-form";
-import { DeleteTaskDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/delete-task-form";
 import { ColumnVisibility } from "../shared/column-visibility";
 import { UserPermissionsType } from "@/data/user/get-user-permissions";
+import { DeleteTaskDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/delete-task-form";
 
 interface TaskRowProps {
     task: TaskWithSubTasks;
@@ -35,7 +35,7 @@ interface TaskRowProps {
     children?: React.ReactNode;
 }
 
-export function TaskRow({
+export const TaskRow = memo(function TaskRow({
     task,
     isExpanded,
     onToggleExpand,
@@ -221,4 +221,4 @@ export function TaskRow({
             {isExpanded && children}
         </>
     );
-}
+});

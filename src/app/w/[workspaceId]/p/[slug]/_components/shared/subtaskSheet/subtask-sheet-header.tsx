@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Calendar, Tag, User, FileCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
+import { memo } from "react";
 
 interface SubtaskSheetHeaderProps {
     subTask: TaskByIdType;
@@ -22,7 +23,7 @@ interface SubtaskSheetHeaderProps {
  * - Tag
  * - Status badge
  */
-export function SubtaskSheetHeader({ subTask }: SubtaskSheetHeaderProps) {
+export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({ subTask }: SubtaskSheetHeaderProps) {
     // Assignee is directly on the task object (user fields) in both SubTaskType and TaskByIdType
     // But we handle potential workspaceMember nesting just in case legacy types are passed
     const assignee = (subTask.assignee as any)?.workspaceMember?.user || subTask.assignee;
@@ -57,7 +58,7 @@ export function SubtaskSheetHeader({ subTask }: SubtaskSheetHeaderProps) {
                                     <AvatarImage src={assignee.image || ""} />
                                     <AvatarFallback>{assignee.name?.[0]}</AvatarFallback>
                                 </Avatar>
-                                <span className="text-xs sm:text-sm truncate">{assignee.name} {assignee.surname || ""}</span>
+                                <span className="text-xs sm:text-sm truncate">{assignee.surname || ""}</span>
                             </div>
                         ) : (
                             <span className="text-xs sm:text-sm text-muted-foreground">Unassigned</span>
@@ -114,4 +115,4 @@ export function SubtaskSheetHeader({ subTask }: SubtaskSheetHeaderProps) {
             </ScrollArea>
         </div>
     );
-}
+});
