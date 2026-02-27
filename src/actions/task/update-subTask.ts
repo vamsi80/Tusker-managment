@@ -66,17 +66,49 @@ export async function editSubTask(
             return { status: "error", message: "You are not a member of this workspace" };
         }
 
-        // Permission logic:
-        // - Workspace ADMIN: Can edit all subtasks
-        // - PROJECT_MANAGER: Can edit all subtasks in their project
-        // - LEAD: Can edit only subtasks they created
-        const canEditAllTasks = permissions.isWorkspaceAdmin || permissions.isProjectManager;
-        const canEditOwnTasks = permissions.isProjectLead && existingSubTask.createdById === user.id;
+        // Get assignee's project role for hierarchy enforcement
+        let assigneeRole: string | null = null;
+        if (existingSubTask.assigneeTo) {
+            const assigneeMember = await prisma.projectMember.findFirst({
+                where: {
+                    projectId: existingSubTask.project.id,
+                    workspaceMember: { userId: existingSubTask.assigneeTo }
+                },
+                select: { projectRole: true }
+            });
+            assigneeRole = assigneeMember?.projectRole || "MEMBER";
+        }
+
+        const isWorkspaceAdmin = permissions.isWorkspaceAdmin;
+        const isProjectManager = permissions.isProjectManager;
+        const isProjectLead = permissions.isProjectLead;
+        const isCreator = existingSubTask.createdById === user.id;
+
+        // 1. Hierarchy Rules (Strict)
+        if (assigneeRole === "PROJECT_MANAGER") {
+            if (!isWorkspaceAdmin) {
+                return {
+                    status: "error",
+                    message: "Only a Workspace Admin can edit tasks assigned to a Project Manager",
+                };
+            }
+        } else if (assigneeRole === "LEAD") {
+            if (!isWorkspaceAdmin && !isProjectManager) {
+                return {
+                    status: "error",
+                    message: "Only a Workspace Admin or Project Manager can edit tasks assigned to a Project Lead",
+                };
+            }
+        }
+
+        // 2. Base Permissions
+        const canEditAllTasks = isWorkspaceAdmin || isProjectManager;
+        const canEditOwnTasks = isProjectLead && isCreator;
 
         if (!canEditAllTasks && !canEditOwnTasks) {
             return {
                 status: "error",
-                message: permissions.isProjectLead
+                message: isProjectLead
                     ? "You can only edit subtasks you created"
                     : "You don't have permission to edit this subtask",
             };
