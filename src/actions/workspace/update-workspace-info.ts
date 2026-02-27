@@ -5,8 +5,7 @@ import { ApiResponse } from "@/lib/types";
 import { updateWorkspaceInfoSchema, UpdateWorkspaceInfoType } from "@/lib/zodSchemas";
 import { requireUser } from "@/lib/auth/require-user";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
-import { revalidateTag } from "next/cache";
-import { CacheTags } from "@/data/cache-tags";
+import { invalidateWorkspace } from "@/lib/cache/invalidation";
 
 export async function updateWorkspaceInfo(values: UpdateWorkspaceInfoType): Promise<ApiResponse> {
     const user = await requireUser();
@@ -37,8 +36,7 @@ export async function updateWorkspaceInfo(values: UpdateWorkspaceInfoType): Prom
         });
 
         // Revalidate cache
-        const tags = CacheTags.workspace(workspaceId);
-        tags.forEach(tag => revalidateTag(tag, "layout"));
+        await invalidateWorkspace(workspaceId);
 
         return {
             status: "success",
