@@ -63,7 +63,9 @@ export function InlineSubTaskForm({
     const [assignee, setAssignee] = useState(subTask?.assignee?.id || "");
     const [reviewer, setReviewer] = useState(subTask?.reviewerId || "");
     const [reviewers, setReviewers] = useState<ProjectReviewer[]>([]);
-    const [status, setStatus] = useState<typeof SubTaskStatus[number]>(subTask?.status || "TO_DO");
+    const [status, setStatus] = useState<typeof SubTaskStatus[number]>(
+        (subTask?.status as typeof SubTaskStatus[number]) || "TO_DO"
+    );
     const [startDate, setStartDate] = useState(
         subTask?.startDate ? new Date(subTask.startDate).toISOString().split('T')[0] : ""
     );
