@@ -20,13 +20,12 @@ interface SortingControlProps {
 
 const SORT_FIELD_LABELS: Record<SortField, string> = {
     name: "Name",
-    assignee: "Assignee",
-    reviewer: "Reviewer",
+    // assignee: "Assignee",
+    // reviewer: "Reviewer",
     status: "Status",
     startDate: "Start Date",
     dueDate: "Due Date",
-    progress: "Progress",
-    tags: "Tags",
+    createdAt: ""
 };
 
 export function SortingControl({ sorts, onSortsChange }: SortingControlProps) {

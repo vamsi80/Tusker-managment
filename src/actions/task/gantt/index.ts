@@ -7,6 +7,3 @@
 export { updateSubtaskDates } from "./update-subtask-dates";
 export type { UpdateSubtaskDatesResult } from "./update-subtask-dates";
 
-// Dependency management
-export { addSubtaskDependency, removeSubtaskDependency } from "./manage-dependencies";
-export type { DependencyResult } from "./manage-dependencies";
