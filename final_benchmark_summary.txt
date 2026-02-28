@@ -1,0 +1,5 @@
+
+Hierarchy Fetch: 1938.10ms
+Raw Fetch: 531.17ms
+Speedup: 3.6x
+    
