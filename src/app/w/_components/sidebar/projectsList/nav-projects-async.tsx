@@ -14,28 +14,13 @@ export async function NavProjectsAsync({ workspaceId }: NavProjectsAsyncProps) {
     let workspaceMembers: Awaited<
         ReturnType<typeof getWorkspaceMembers>
     >["workspaceMembers"] | null = null;
-    let permissions = { isWorkspaceAdmin: false, canCreateProject: false };
+    let permissions: any = { isWorkspaceAdmin: false, canCreateProject: false };
     let userRole: string | undefined;
     let currentUserId: string | undefined;
 
     try {
         const user = await requireUser();
         currentUserId = user.id;
-
-        // Fetch workspace member to get role
-        const workspaceMember = await prisma.workspaceMember.findUnique({
-            where: {
-                userId_workspaceId: {
-                    userId: user.id,
-                    workspaceId,
-                },
-            },
-            select: {
-                workspaceRole: true,
-            },
-        });
-
-        userRole = workspaceMember?.workspaceRole;
 
         const results = await Promise.all([
             getUserProjects(workspaceId),
@@ -46,6 +31,7 @@ export async function NavProjectsAsync({ workspaceId }: NavProjectsAsyncProps) {
         projects = results[0];
         workspaceMembers = results[1].workspaceMembers;
         permissions = results[2];
+        userRole = permissions.workspaceMember?.workspaceRole;
     } catch (error) {
         console.error("Error loading sidebar projects:", error);
         return null;

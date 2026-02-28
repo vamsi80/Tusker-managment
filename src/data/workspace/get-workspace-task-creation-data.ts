@@ -2,6 +2,7 @@
 
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
+import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { getUserProjects } from "@/data/project/get-projects";
@@ -105,25 +106,29 @@ async function _getWorkspaceTaskCreationDataInternal(
         name: tag.name,
     }));
 
-    // Fetch parent tasks only from projects user has access to
-    const parentTasksPromises = projectsData.map(p =>
-        getTasks({
+    // Optimized: Fetch parent tasks from ALL accessible projects in a single query
+    // instead of calling getTasks() multiple times in a loop.
+    const projectIds = projectsData.map(p => p.id);
+    const parentTasksData = await prisma.task.findMany({
+        where: {
             workspaceId,
-            projectId: p.id,
-            hierarchyMode: "parents",
-            limit: 100
-        })
-    );
-    const parentTasksResults = await Promise.all(parentTasksPromises);
+            projectId: { in: projectIds },
+            parentTaskId: null, // Only parents
+        },
+        select: {
+            id: true,
+            name: true,
+            projectId: true,
+        },
+        take: 500, // Reasonable cap for dropdown list
+        orderBy: { createdAt: 'desc' }
+    });
 
-    // Combine and map parent tasks from accessible projects
-    const parentTasks = parentTasksResults
-        .flatMap(result => result.tasks)
-        .map(task => ({
-            id: task.id,
-            name: task.name,
-            projectId: task.projectId,
-        }));
+    const parentTasks = parentTasksData.map(task => ({
+        id: task.id,
+        name: task.name,
+        projectId: task.projectId!,
+    }));
 
     return {
         projects,

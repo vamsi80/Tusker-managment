@@ -18,6 +18,7 @@ export async function WorkspaceListView({
     const user = await requireUser();
 
     // Fetch initial tasks and metadata in parallel
+    const startTime = performance.now();
     const [tagsData, membersData, permissions, projects, tasksData] = await Promise.all([
         getWorkspaceTags(workspaceId),
         getWorkspaceMembers(workspaceId),
@@ -32,6 +33,13 @@ export async function WorkspaceListView({
             includeFacets: true
         })
     ]);
+    const duration = performance.now() - startTime;
+    import("@/lib/logger").then(({ logger }) => {
+        logger.serverPerf("WORKSPACE_VIEW_LOAD", duration, {
+            workspaceId,
+            userId: user.id
+        });
+    });
 
     // Map workspace members to the structure expected by components
     const formattedMembers = membersData.workspaceMembers.map(member => ({
