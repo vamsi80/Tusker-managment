@@ -3,7 +3,6 @@
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import crypto from "crypto";
-import { Prisma } from "@/generated/prisma/client";
 import prisma from "@/lib/db";
 import { getUserPermissions, getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { CacheTags } from "@/data/cache-tags";
@@ -15,6 +14,7 @@ import {
     buildWorkspaceFilterWhere,
     WorkspaceFilterOpts,
 } from "@/lib/tasks/query-builder";
+import { logger } from "@/lib/logger";
 
 export type TaskViewType = "list" | "kanban" | "gantt" | "calendar";
 
@@ -46,8 +46,9 @@ export interface GetTasksOptions {
     expandedProjectIds?: string[];
     page?: number;
     limit?: number;
-
+    includeSubTasks?: boolean;
     includeFacets?: boolean;
+
     view_mode?: "default" | "search";
     sorts?: Array<{ field: string; direction: "asc" | "desc" }>;
 }
@@ -106,70 +107,70 @@ function buildOrderBy(sorts?: Array<{ field: string; direction: "asc" | "desc" }
  *
  * IMPORTANT: cursor keys are DB column names (e.g. "startDate"), NOT client field names.
  */
-function buildSeekCondition(
-    where: any,
-    sorts: Array<{ field: string; direction: "asc" | "desc" }>,
-    cursor: any
-): any {
-    try {
-        if (!sorts?.length || !cursor) return where;
+// function buildSeekCondition(
+//     where: any,
+//     sorts: Array<{ field: string; direction: "asc" | "desc" }>,
+//     cursor: any
+// ): any {
+//     try {
+//         if (!sorts?.length || !cursor) return where;
 
-        const { field, direction } = sorts[0];
-        const def = SORT_MAP[field];
-        if (!def) return where;
+//         const { field, direction } = sorts[0];
+//         const def = SORT_MAP[field];
+//         if (!def) return where;
 
-        const dbField = def.dbField;
-        const lastFieldValue = cursor[dbField];   // DB-keyed cursor
-        const lastId = cursor.id;
+//         const dbField = def.dbField;
+//         const lastFieldValue = cursor[dbField];   // DB-keyed cursor
+//         const lastId = cursor.id;
 
-        // Guard: cursor must have id at minimum to perform seek
-        if (lastId === undefined || lastId === null) return where;
+//         // Guard: cursor must have id at minimum to perform seek
+//         if (lastId === undefined || lastId === null) return where;
 
-        const op = direction === "asc" ? "gt" : "lt";
+//         const op = direction === "asc" ? "gt" : "lt";
 
-        let seekCondition: any;
+//         let seekCondition: any;
 
-        if (lastFieldValue === null || lastFieldValue === undefined) {
-            // Last page ended in the NULL block.
-            seekCondition = {
-                AND: [
-                    { [dbField]: null },
-                    { id: { [op]: lastId } },
-                ],
-            };
-        } else {
-            // Last page ended on a non-null value.
-            seekCondition = {
-                OR: [
-                    {
-                        AND: [
-                            { [dbField]: { [op]: lastFieldValue } },
-                            { [dbField]: { not: null } },
-                        ]
-                    },
-                    {
-                        AND: [
-                            { [dbField]: lastFieldValue },
-                            { id: { [op]: lastId } },
-                        ],
-                    },
-                    // Include the tail end (nulls) if sorting by a nullable column
-                    ...(def.nulls === "last" ? [{ [dbField]: null }] : []),
-                ],
-            };
-        }
+//         if (lastFieldValue === null || lastFieldValue === undefined) {
+//             // Last page ended in the NULL block.
+//             seekCondition = {
+//                 AND: [
+//                     { [dbField]: null },
+//                     { id: { [op]: lastId } },
+//                 ],
+//             };
+//         } else {
+//             // Last page ended on a non-null value.
+//             seekCondition = {
+//                 OR: [
+//                     {
+//                         AND: [
+//                             { [dbField]: { [op]: lastFieldValue } },
+//                             { [dbField]: { not: null } },
+//                         ]
+//                     },
+//                     {
+//                         AND: [
+//                             { [dbField]: lastFieldValue },
+//                             { id: { [op]: lastId } },
+//                         ],
+//                     },
+//                     // Include the tail end (nulls) if sorting by a nullable column
+//                     ...(def.nulls === "last" ? [{ [dbField]: null }] : []),
+//                 ],
+//             };
+//         }
 
-        const existingAnd = where.AND ? (Array.isArray(where.AND) ? where.AND : [where.AND]) : [];
+//         const existingAnd = where.AND ? (Array.isArray(where.AND) ? where.AND : [where.AND]) : [];
 
-        return {
-            ...where,
-            AND: [...existingAnd, seekCondition],
-        };
-    } catch (err) {
-        console.error("[buildSeekCondition] Error building skip condition:", err);
-        return where; // Fallback to no seek pagination rather than crashing
-    }
-}
+//         return {
+//             ...where,
+//             AND: [...existingAnd, seekCondition],
+//         };
+//     } catch (err) {
+//         console.error("[buildSeekCondition] Error building skip condition:", err);
+//         return where; // Fallback to no seek pagination rather than crashing
+//     }
+// }
 
 const toArray = <T>(v: T | T[] | undefined): T[] | undefined =>
     v === undefined ? undefined : Array.isArray(v) ? v : [v];
@@ -203,7 +204,7 @@ const addOneDayUTC = (date: Date) =>
     new Date(date.getTime() + 24 * 60 * 60 * 1000);
 
 
-const ORDER_BY_CREATED_DESC = [{ createdAt: "desc" as const }, { id: "asc" as const }];
+// const ORDER_BY_CREATED_DESC = [{ createdAt: "desc" as const }, { id: "asc" as const }];
 
 /**
  * Normalizes query options into a stable signature object for better cache hit ratios.
@@ -399,8 +400,12 @@ async function _fetchSubtasks(
     }
 
     const where = buildSubtaskExpansionWhere(parentTaskId, {
-        status,
-        assigneeId,
+        status: status,
+        assigneeId: toArray(opts.assigneeId),
+        tagId: toArray(opts.tagId),
+        search: opts.search,
+        dueAfter: toUTCDateOnly(opts.dueAfter),
+        dueBefore: opts.dueBefore ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!) : undefined,
         cursor: opts.cursor,
     });
 
@@ -422,10 +427,6 @@ async function _fetchSubtasks(
     return { tasks: rawSubtasks, hasMore, nextCursor };
 }
 
-// ============================================================
-//  VIEW 3: FILTERED HIERARCHY  (Subtask-First strategy)
-//  Used when filters are present to find matching subtasks
-//  while still returning a parent-based tree.
 // ============================================================
 async function _fetchFilteredHierarchy(
     workspaceId: string,
@@ -451,47 +452,110 @@ async function _fetchFilteredHierarchy(
             fullAccessProjectIds,
             restrictedProjectIds,
             projectIds: (!opts.projectId && opts.expandedProjectIds?.length) ? opts.expandedProjectIds : undefined,
+            // DO NOT set onlyParents: true here; we want to find matching subtasks too
         },
         userId
     );
 
-    // ONE QUERY: Fetch matches directly with their parent context (already in TASK_CORE_SELECT)
-    const rawTasks = await prisma.task.findMany({
+    // 1. Fetch matches directly
+    const rawMatches = await prisma.task.findMany({
         where: matchWhere,
         select: TASK_CORE_SELECT,
         take: limit + 1,
         orderBy: buildOrderBy(opts.sorts),
     });
 
-    const hasMore = rawTasks.length > limit;
-    const matches = rawTasks.slice(0, limit);
+    const hasMore = rawMatches.length > limit;
+    const matches = rawMatches.slice(0, limit);
 
-    // Grouping in JS: If a subtask and its parent are both in this batch, nest them.
-    // Otherwise, treat them as independent rows to avoid missing data.
-    const taskMap = new Map<string, any>(matches.map(t => [t.id, t]));
+    if (matches.length === 0) {
+        return { tasks: [], totalCount: 0, hasMore: false, nextCursor: null };
+    }
+
+    // 2. RECURSIVE CONTEXT EXPANSION (Up to 3 levels deep)
+    const taskMap = new Map<string, any>();
+    matches.forEach(t => taskMap.set(t.id, { ...t, subTasks: [] }));
+
+    let currentGeneration = [...matches];
+    for (let i = 0; i < 3; i++) {
+        const missingParentIds = currentGeneration
+            .filter(t => t.parentTaskId && !taskMap.has(t.parentTaskId))
+            .map(t => t.parentTaskId!);
+
+        const parentIdsToExpand = opts.includeSubTasks
+            ? currentGeneration.filter(t => t.isParent).map(t => t.id)
+            : [];
+
+        if (missingParentIds.length === 0 && parentIdsToExpand.length === 0) break;
+
+        const extraTasks = await prisma.task.findMany({
+            where: {
+                OR: [
+                    { id: { in: missingParentIds } },
+                    {
+                        AND: [
+                            { parentTaskId: { in: parentIdsToExpand } },
+                            matchWhere
+                        ]
+                    }
+                ]
+            },
+            select: TASK_CORE_SELECT
+        });
+
+        if (extraTasks.length === 0) break;
+
+        const newEntries: any[] = [];
+        extraTasks.forEach(t => {
+            if (!taskMap.has(t.id)) {
+                const entry = { ...t, subTasks: [] };
+                taskMap.set(t.id, entry);
+                newEntries.push(entry);
+            }
+        });
+        currentGeneration = newEntries;
+    }
+
+    // 3. RE-NESTING
     const rootTasks: any[] = [];
     const nestedIds = new Set<string>();
+    const allTasks = Array.from(taskMap.values());
 
-    matches.forEach(task => {
+    // First pass: Nest everything we have collected
+    allTasks.forEach(task => {
         if (task.parentTaskId && taskMap.has(task.parentTaskId)) {
             const parent = taskMap.get(task.parentTaskId);
-            if (!parent.subTasks) parent.subTasks = [];
-            parent.subTasks.push(task);
+            if (!parent.subTasks.some((st: any) => st.id === task.id)) {
+                parent.subTasks.push(task);
+            }
             nestedIds.add(task.id);
         }
     });
 
-    matches.forEach(task => {
+    // Second pass: Identify root rows
+    allTasks.forEach(task => {
         if (!nestedIds.has(task.id)) {
             rootTasks.push(task);
         }
+    });
+
+    // 4. SORTING
+    // Prefer original match order for roots, but ensure parents of matches come first
+    const sortedRoots = rootTasks.sort((a, b) => {
+        const aIdx = matches.findIndex(m => m.id === a.id);
+        const bIdx = matches.findIndex(m => m.id === b.id);
+        if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+        if (aIdx !== -1) return -1;
+        if (bIdx !== -1) return 1;
+
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
 
     const nextCursor: TaskCursor | null = hasMore && matches.length > 0
         ? { id: matches[matches.length - 1].id, createdAt: matches[matches.length - 1].createdAt }
         : null;
 
-    return { tasks: rootTasks, totalCount: null, hasMore, nextCursor };
+    return { tasks: sortedRoots, totalCount: null, hasMore, nextCursor };
 }
 
 // ============================================================
@@ -580,151 +644,205 @@ async function _getTasksInternal(
     restrictedProjectIds: string[],
     opts: GetTasksOptions
 ) {
-    const { projectId, hierarchyMode, filterParentTaskId, includeFacets } = opts;
+    const startTime = performance.now();
+    const { projectId, hierarchyMode, filterParentTaskId } = opts;
+    let strategy = "NONE";
 
-    const hasExplicitFilters =
-        !!(
-            (opts.status && toArray(opts.status)?.length) ||
-            (opts.assigneeId && toArray(opts.assigneeId)?.length) ||
-            (opts.tagId && toArray(opts.tagId)?.length) ||
-            (opts.search && opts.search.trim().length > 0) ||
-            opts.dueAfter ||
-            opts.dueBefore ||
-            (opts.sorts && opts.sorts.length > 0)
-        );
+    try {
+        const hasExplicitFilters =
+            !!(
+                (opts.status && toArray(opts.status)?.length) ||
+                (opts.assigneeId && toArray(opts.assigneeId)?.length) ||
+                (opts.tagId && toArray(opts.tagId)?.length) ||
+                (opts.search && opts.search.trim().length > 0) ||
+                opts.dueAfter ||
+                opts.dueBefore ||
+                (opts.sorts && opts.sorts.length > 0)
+            );
 
-    const emptyFacets = { status: {}, assignee: {}, tags: {}, projects: {} };
+        const emptyFacets = { status: {}, assignee: {}, tags: {}, projects: {} };
 
-    /**
-     * SAFETY GUARD: Prevent accidental global load
-     * Workspace mode without project and without filters should return nothing,
-     * UNLESS we are specifically requesting parent tasks for a tree view (Gantt/List).
-     */
-    if (!projectId && !hasExplicitFilters && !opts.expandedProjectIds?.length && hierarchyMode !== "parents") {
-        return {
-            tasks: [],
-            totalCount: 0,
-            hasMore: false,
-            nextCursor: null,
-            facets: emptyFacets,
-        };
-    }
-    if (filterParentTaskId) {
-        const result = await _fetchSubtasks(
-            filterParentTaskId, userId, isAdmin,
-            fullAccessProjectIds, restrictedProjectIds, opts
-        );
-        return { ...result, totalCount: null, facets: emptyFacets };
-    }
+        if (!projectId && !hasExplicitFilters && !opts.expandedProjectIds?.length && hierarchyMode !== "parents") {
+            strategy = "SAFETY_GUARD";
+            return {
+                tasks: [],
+                totalCount: 0,
+                hasMore: false,
+                nextCursor: null,
+                facets: emptyFacets,
+            };
+        }
 
-    /**
-     * STRATEGY B: Project Landing Page (Parents only, no filters)
-     * Direct index scan on (projectId, isParent, status)
-     */
-    if (projectId && !hasExplicitFilters && (hierarchyMode === "parents" || !hierarchyMode)) {
-        const result = await _fetchProjectRoot(
-            projectId, workspaceId, userId, isAdmin,
-            fullAccessProjectIds, restrictedProjectIds, opts
-        );
-        return { ...result, facets: emptyFacets };
-    }
+        if (filterParentTaskId) {
+            strategy = "SUBTASK_EXPANSION";
+            const result = await _fetchSubtasks(
+                filterParentTaskId, userId, isAdmin,
+                fullAccessProjectIds, restrictedProjectIds, opts
+            );
+            return { ...result, totalCount: null, facets: emptyFacets };
+        }
 
-    /**
-     * STRATEGY C: Filtered Hierarchy (Subtask-First)
-     * Used in List/Gantt views when active filters are present.
-     */
+        if (projectId && !hasExplicitFilters && (hierarchyMode === "parents" || !hierarchyMode)) {
+            strategy = opts.includeSubTasks ? "RECURSIVE_HIERARCHY" : "PROJECT_ROOT";
+            const result = await _fetchProjectRoot(
+                projectId, workspaceId, userId, isAdmin,
+                fullAccessProjectIds, restrictedProjectIds, opts
+            );
 
-    const isSorting = opts.sorts && opts.sorts.length > 0;
+            if (opts.includeSubTasks && result.tasks.length > 0) {
+                const parentIds = result.tasks.filter(t => t.isParent).map(t => t.id);
+                if (parentIds.length > 0) {
+                    const subtasks = await prisma.task.findMany({
+                        where: buildSubtaskExpansionWhere(undefined, {
+                            parentIds,
+                            status: toArray(opts.status),
+                            assigneeId: toArray(opts.assigneeId),
+                            tagId: toArray(opts.tagId),
+                            search: opts.search,
+                        }),
+                        select: TASK_CORE_SELECT,
+                        orderBy: buildOrderBy(opts.sorts)
+                    });
 
-    if (!isSorting && hasExplicitFilters && (hierarchyMode === "parents" || !hierarchyMode)) {
-        const result = await _fetchFilteredHierarchy(
-            workspaceId, userId, isAdmin,
-            fullAccessProjectIds, restrictedProjectIds, opts
-        );
-        return { ...result, facets: emptyFacets };
-    }
+                    // Nest subtasks into parents
+                    result.tasks.forEach((parent: any) => {
+                        if (parent.isParent) {
+                            parent.subTasks = subtasks.filter(st => st.parentTaskId === parent.id);
+                        } else {
+                            parent.subTasks = [];
+                        }
+                    });
+                }
+            }
 
-    /**
-     * STRATEGY D: Kanban Mode (Parallel Prisma)
-     * Fetches 50 tasks for each status column in parallel.
-     * Permission model is resolved once; each status query is lean.
-     */
-    if (opts.groupBy === "status") {
-        const statuses = ["TO_DO", "IN_PROGRESS", "REVIEW", "HOLD", "COMPLETED", "CANCELLED"];
+            return { ...result, facets: emptyFacets };
+        }
 
-        // Build base where once
-        const baseWhere = buildWorkspaceFilterWhere({
-            workspaceId,
-            projectId,
-            assigneeId: toArray(opts.assigneeId),
-            tagId: toArray(opts.tagId),
-            search: opts.search,
-            isAdmin,
-            fullAccessProjectIds,
-            restrictedProjectIds,
-            onlyParents: opts.hierarchyMode === "parents",
-            onlySubtasks: opts.hierarchyMode === "children",
-        }, userId);
+        const isSorting = opts.sorts && opts.sorts.length > 0;
 
-        const limit = opts.limit ?? 50;
-        const columnResults = await Promise.all(statuses.map(status =>
-            prisma.task.findMany({
-                where: { ...baseWhere, status: status as any },
+        if (!isSorting && (hasExplicitFilters || (hierarchyMode === "parents" || !hierarchyMode))) {
+            strategy = opts.includeSubTasks ? "FILTERED_RECURSIVE_HIERARCHY" : "FILTERED_HIERARCHY";
+            const result = await _fetchFilteredHierarchy(
+                workspaceId, userId, isAdmin,
+                fullAccessProjectIds, restrictedProjectIds, opts
+            );
+
+            // Note: _fetchFilteredHierarchy now handles context expansion (parents/subtasks)
+            // and search-aware nesting even at the global workspace level.
+            return { ...result, facets: emptyFacets };
+        }
+
+        if (opts.groupBy === "status") {
+            strategy = opts.includeSubTasks ? "KANBAN_RECURSIVE_HIERARCHY" : "KANBAN_SINGLE_QUERY";
+            const baseWhere = buildWorkspaceFilterWhere({
+                workspaceId,
+                projectId,
+                assigneeId: toArray(opts.assigneeId),
+                tagId: toArray(opts.tagId),
+                search: opts.search,
+                dueAfter: toUTCDateOnly(opts.dueAfter),
+                dueBefore: opts.dueBefore ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!) : undefined,
+                isAdmin,
+                fullAccessProjectIds,
+                restrictedProjectIds,
+                cursor: opts.cursor, // FIX: Pass cursor for pagination
+                onlyParents: opts.hierarchyMode === "parents",
+                onlySubtasks: opts.hierarchyMode === "children",
+                excludeParents: opts.excludeParents,
+                includeSubTasks: opts.includeSubTasks,
+            }, userId);
+
+            // Fetch a larger batch for the whole board (300 total)
+            const limit = opts.limit ?? 300;
+            const tasks = await prisma.task.findMany({
+                where: baseWhere,
                 take: limit,
                 select: TASK_CORE_SELECT,
-                orderBy: { createdAt: 'desc' }
-            })
-        ));
+                orderBy: buildOrderBy(opts.sorts)
+            });
 
-        return {
-            tasks: columnResults.flat(),
-            totalCount: null,
-            hasMore: columnResults.some(res => res.length >= limit),
-            nextCursor: null, // Unified cursor doesn't make sense for 6 columns load
-            facets: emptyFacets
-        };
-    }
+            // If recursive hierarchy requested, fetch subtasks for any parents in this set
+            if (opts.includeSubTasks && tasks.length > 0) {
+                const parentIds = tasks.filter(t => t.isParent).map(t => t.id);
+                if (parentIds.length > 0) {
+                    const subtasks = await prisma.task.findMany({
+                        where: buildSubtaskExpansionWhere(undefined, {
+                            parentIds,
+                            status: toArray(opts.status),
+                            assigneeId: toArray(opts.assigneeId),
+                            tagId: toArray(opts.tagId),
+                            search: opts.search,
+                            dueAfter: toUTCDateOnly(opts.dueAfter),
+                            dueBefore: opts.dueBefore ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!) : undefined,
+                        }),
+                        select: TASK_CORE_SELECT,
+                        orderBy: buildOrderBy(opts.sorts)
+                    });
 
-    /**
-     * STRATEGY E: Flat Workspace Filter / Kanban / Search Mode
-     * Cross-hierarchy query using Workspace filter builder
-     */
-    const primarySort = opts.sorts?.[0];
-    const filterResult = await _fetchWorkspaceFilter(
-        workspaceId, userId, isAdmin,
-        fullAccessProjectIds, restrictedProjectIds,
-        {
-            ...opts,
-            onlyParents: opts.onlyParents || (hierarchyMode === "parents"),
-            excludeParents: opts.excludeParents,
-            onlySubtasks: isSorting || opts.onlySubtasks || (hierarchyMode === "children")
+                    // Nest subtasks into parents
+                    tasks.forEach((parent: any) => {
+                        if (parent.isParent) {
+                            parent.subTasks = subtasks.filter(st => st.parentTaskId === parent.id);
+                        } else {
+                            parent.subTasks = [];
+                        }
+                    });
+                }
+            }
+
+            // Fetch counts per status for the whole board to support "Load More" indicator
+            const statusCountsBatch = await prisma.task.groupBy({
+                by: ['status'],
+                where: baseWhere,
+                _count: { _all: true }
+            });
+
+            const statusCounts: Record<string, number> = {};
+            statusCountsBatch.forEach(item => {
+                if (item.status) {
+                    statusCounts[item.status] = item._count._all;
+                }
+            });
+
+            // Determine next cursor for pagination
+            const lastTask = tasks.length > 0 ? tasks[tasks.length - 1] : null;
+            const nextCursor = lastTask ? { id: lastTask.id, createdAt: lastTask.createdAt } : null;
+
+            return {
+                tasks,
+                totalCount: tasks.length,
+                hasMore: tasks.length >= limit,
+                nextCursor,
+                facets: {
+                    ...emptyFacets,
+                    statusCounts
+                }
+            };
         }
-    );
 
-    // Optional facets (sidebar counts) - Removed for performance
-    const facets = emptyFacets;
-    //    if (includeFacets && !opts.cursor) {
-    //        const facetWhere = buildWorkspaceFilterWhere(
-    //            {
-    //                workspaceId,
-    //                projectId,
-    //                assigneeId: toArray(opts.assigneeId),
-    //                status: toArray(opts.status),
-    //                tagId: toArray(opts.tagId),
-    //                dueAfter: toUTCDateOnly(opts.dueAfter),
-    //                dueBefore: opts.dueBefore ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!) : undefined,
-    //                search: opts.search,
-    //                isAdmin,
-    //                fullAccessProjectIds,
-    //                restrictedProjectIds,
-    //                projectIds: (!opts.projectId && opts.expandedProjectIds?.length) ? opts.expandedProjectIds : undefined,
-    //            },
-    //            userId
-    //        );
-    //        facets = await _fetchFacets(facetWhere, !projectId);
-    //    }
+        strategy = "FLAT_WORKSPACE_FILTER";
+        const filterResult = await _fetchWorkspaceFilter(
+            workspaceId, userId, isAdmin,
+            fullAccessProjectIds, restrictedProjectIds,
+            {
+                ...opts,
+                // If filtering, don't restrict to just parents/children; let the matching criteria find either
+                onlyParents: !hasExplicitFilters && (opts.onlyParents || (hierarchyMode === "parents")),
+                excludeParents: opts.excludeParents,
+                onlySubtasks: !hasExplicitFilters && (isSorting || opts.onlySubtasks || (hierarchyMode === "children"))
+            }
+        );
 
-    return { ...filterResult, facets };
+        return { ...filterResult, facets: emptyFacets };
+    } finally {
+        const duration = performance.now() - startTime;
+        // logger.serverPerf("GET_TASKS_INTERNAL", duration, {
+        //     strategy,
+        //     workspaceId,
+        //     projectId: opts.projectId,
+        //     groupBy: opts.groupBy
+        // });
+    }
 }
 
 // ============================================================

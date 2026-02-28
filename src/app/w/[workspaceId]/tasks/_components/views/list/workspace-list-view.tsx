@@ -26,6 +26,7 @@ export async function WorkspaceListView({
         getTasks({
             workspaceId,
             hierarchyMode: "parents",
+            includeSubTasks: true, // Bulk load hierarchy on initial mount
             page: 1,
             limit: 50,
             includeFacets: true
@@ -53,7 +54,7 @@ export async function WorkspaceListView({
 
     const initialTasks = tasksData.tasks.map(t => ({
         ...t,
-        subTasks: undefined
+        subTasks: (t as any).subTasks
     })) as TaskWithSubTasks[];
 
     return (
