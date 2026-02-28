@@ -13,7 +13,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 import { SubTaskType } from "@/data/task";
-import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+// import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { TaskWithSubTasks, SortConfig, TableViewMode, SortField, hasActiveFilters } from "@/components/task/shared/types";
 import { TaskRow } from "./task-row";
@@ -313,6 +313,7 @@ export function TaskTable({
                     dueAfter: filters.startDate ? new Date(filters.startDate) : undefined,
                     dueBefore: filters.endDate ? new Date(filters.endDate) : undefined,
                     hierarchyMode: "parents",
+                    includeSubTasks: true, // Bulk load subtasks in one request
                     limit: 50, // Increase limit for filtered views
                     sorts,
                 });
@@ -556,8 +557,9 @@ export function TaskTable({
                 dueAfter: filters.startDate ? new Date(filters.startDate) as any : undefined,
                 dueBefore: filters.endDate ? new Date(filters.endDate) as any : undefined,
                 hierarchyMode: "parents",
+                includeSubTasks: true, // Bulk load subtasks in one request
                 cursor: currentPagination.nextCursor,
-                limit: 10,
+                limit: 50,
                 sorts,
             });
 
@@ -1075,12 +1077,12 @@ export function TaskTable({
     //     }
     // };
 
-    const sensors = useSensors(
-        useSensor(PointerSensor),
-        useSensor(KeyboardSensor, {
-            coordinateGetter: sortableKeyboardCoordinates,
-        })
-    );
+    // const sensors = useSensors(
+    //     useSensor(PointerSensor),
+    //     useSensor(KeyboardSensor, {
+    //         coordinateGetter: sortableKeyboardCoordinates,
+    //     })
+    // );
 
 
     // Handle sort column click
@@ -1147,7 +1149,7 @@ export function TaskTable({
                     "[&::-webkit-scrollbar-thumb]:hover:bg-slate-400"
                 )}>
                     <DndContext
-                        sensors={sensors}
+                        // sensors={sensors}
                         collisionDetection={closestCenter}
                     // onDragEnd={handleDragEnd}
                     >

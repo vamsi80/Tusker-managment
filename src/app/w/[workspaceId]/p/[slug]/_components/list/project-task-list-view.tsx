@@ -31,13 +31,14 @@ export async function ProjectTaskListView({
         workspaceId,
         projectId,
         hierarchyMode: "parents",
+        includeSubTasks: true, // Bulk load hierarchy on initial mount
         limit: 50 // Load reasonable initial batch
     });
 
     // Transform to TaskWithSubTasks structure
     const parentTasks = tasks.map(task => ({
         ...task,
-        subTasks: undefined,
+        subTasks: (task as any).subTasks,
         // _count is already included in getTasks result
     })) as TaskWithSubTasks[];
 

@@ -143,24 +143,61 @@ export function buildProjectRootWhere(
 //  INDEX USED: (parentTaskId, createdAt)
 // ============================================================
 export function buildSubtaskExpansionWhere(
-    parentTaskId: string,
+    parentTaskId: string | undefined,
     opts: {
-        assigneeId?: string;  // member constraint
+        parentIds?: string[];
+        assigneeId?: string | string[];  // member constraint or filter
         status?: string[];
+        tagId?: string[];
+        search?: string;
+        dueAfter?: Date;
+        dueBefore?: Date;
         cursor?: TaskCursor;
     }
 ): Prisma.TaskWhereInput {
-    const where: Prisma.TaskWhereInput = {
-        parentTaskId,           // ← index prefix col 1
-        isParent: false,
-    };
+    const where: Prisma.TaskWhereInput = {};
 
+    if (parentTaskId) {
+        where.parentTaskId = parentTaskId;
+    } else if (opts.parentIds && opts.parentIds.length > 0) {
+        where.parentTaskId = { in: opts.parentIds };
+    }
+
+    // Status filter
     if (opts.status && opts.status.length > 0) {
         where.status = { in: opts.status as any };
     }
 
+    // Tag filter
+    if (opts.tagId && opts.tagId.length > 0) {
+        where.tagId = { in: opts.tagId };
+    }
+
+    // Assignee filter
     if (opts.assigneeId) {
-        where.assigneeTo = opts.assigneeId;
+        if (Array.isArray(opts.assigneeId)) {
+            if (opts.assigneeId.length > 0) where.assigneeTo = { in: opts.assigneeId };
+        } else {
+            where.assigneeTo = opts.assigneeId;
+        }
+    }
+
+    // Date filters
+    if (opts.dueAfter || opts.dueBefore) {
+        where.dueDate = {
+            ...(opts.dueAfter ? { gte: opts.dueAfter } : {}),
+            ...(opts.dueBefore ? { lt: opts.dueBefore } : {}),
+        };
+    }
+
+    // Search filter
+    if (opts.search && opts.search.trim().length > 0) {
+        const q = opts.search.trim();
+        where.OR = [
+            { name: { contains: q, mode: "insensitive" } },
+            { taskSlug: { contains: q, mode: "insensitive" } },
+            { description: { contains: q, mode: "insensitive" } },
+        ];
     }
 
     if (opts.cursor) {
@@ -170,11 +207,10 @@ export function buildSubtaskExpansionWhere(
                 { createdAt: opts.cursor.createdAt, id: { gt: opts.cursor.id } },
             ]
         };
-        if (where.AND) {
-            (where.AND as any[]).push(cursorCondition);
-        } else {
-            where.AND = [cursorCondition];
-        }
+        where.AND = [
+            ...(where.AND ? (Array.isArray(where.AND) ? where.AND : [where.AND]) : []),
+            cursorCondition
+        ];
     }
 
     return where;
@@ -204,6 +240,7 @@ export interface WorkspaceFilterOpts {
     onlyParents?: boolean;
     excludeParents?: boolean;
     onlySubtasks?: boolean;
+    includeSubTasks?: boolean;
 }
 
 export function buildWorkspaceFilterWhere(
