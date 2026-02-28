@@ -438,6 +438,17 @@ async function _fetchFilteredHierarchy(
 ) {
     const limit = opts.limit ?? 20;
 
+    // Filter Detection: If no explicit filters exist, we limit expansion depth to prevent
+    // massive over-fetching in large workspaces.
+    const hasExplicitFilters = !!(
+        (opts.status && toArray(opts.status)?.length) ||
+        (opts.assigneeId && toArray(opts.assigneeId)?.length) ||
+        (opts.tagId && toArray(opts.tagId)?.length) ||
+        (opts.search && opts.search.trim().length > 0) ||
+        opts.dueAfter ||
+        opts.dueBefore
+    );
+
     const matchWhere = buildWorkspaceFilterWhere(
         {
             workspaceId,
@@ -451,8 +462,9 @@ async function _fetchFilteredHierarchy(
             isAdmin,
             fullAccessProjectIds,
             restrictedProjectIds,
+            // When not filtering, we only look at items that could be roots if hierarchyMode says so
+            onlyParents: !hasExplicitFilters && (opts.hierarchyMode === "parents"),
             projectIds: (!opts.projectId && opts.expandedProjectIds?.length) ? opts.expandedProjectIds : undefined,
-            // DO NOT set onlyParents: true here; we want to find matching subtasks too
         },
         userId
     );
@@ -472,12 +484,15 @@ async function _fetchFilteredHierarchy(
         return { tasks: [], totalCount: 0, hasMore: false, nextCursor: null };
     }
 
-    // 2. RECURSIVE CONTEXT EXPANSION (Up to 3 levels deep)
+    // 2. CONTEXT EXPANSION
     const taskMap = new Map<string, any>();
     matches.forEach(t => taskMap.set(t.id, { ...t, subTasks: [] }));
 
+    // Depth limit based on context: 3 levels for filtered search, 1 level for global browse.
+    const maxDepth = hasExplicitFilters ? 3 : 1;
     let currentGeneration = [...matches];
-    for (let i = 0; i < 3; i++) {
+
+    for (let i = 0; i < maxDepth; i++) {
         const missingParentIds = currentGeneration
             .filter(t => t.parentTaskId && !taskMap.has(t.parentTaskId))
             .map(t => t.parentTaskId!);
@@ -495,12 +510,13 @@ async function _fetchFilteredHierarchy(
                     {
                         AND: [
                             { parentTaskId: { in: parentIdsToExpand } },
-                            matchWhere
+                            hasExplicitFilters ? matchWhere : {} // Respect filters if present
                         ]
                     }
                 ]
             },
-            select: TASK_CORE_SELECT
+            select: TASK_CORE_SELECT,
+            take: 1000 // Batch safety limit
         });
 
         if (extraTasks.length === 0) break;
@@ -514,6 +530,9 @@ async function _fetchFilteredHierarchy(
             }
         });
         currentGeneration = newEntries;
+
+        // Cumulative safety cap to prevent RSC payload bloating
+        if (taskMap.size > 2500) break;
     }
 
     // 3. RE-NESTING
@@ -836,12 +855,15 @@ async function _getTasksInternal(
         return { ...filterResult, facets: emptyFacets };
     } finally {
         const duration = performance.now() - startTime;
-        // logger.serverPerf("GET_TASKS_INTERNAL", duration, {
-        //     strategy,
-        //     workspaceId,
-        //     projectId: opts.projectId,
-        //     groupBy: opts.groupBy
-        // });
+        if (duration > 50) { // Log significant queries
+            logger.serverPerf("GET_TASKS_INTERNAL", duration, {
+                strategy,
+                workspaceId,
+                projectId: opts.projectId,
+                groupBy: opts.groupBy,
+                search: !!opts.search
+            });
+        }
     }
 }
 

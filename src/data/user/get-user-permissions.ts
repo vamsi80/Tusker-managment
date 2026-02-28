@@ -1,22 +1,24 @@
 "use server";
 
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
+import { CacheTags } from "@/data/cache-tags";
 
 /**
  * Get workspace-level permissions for the current user
  * Use this for workspace-level queries (no specific project)
  */
-export const getWorkspacePermissions = cache(async (workspaceId: string) => {
-    const user = await requireUser();
-
+/**
+ * Internal function to fetch workspace permissions
+ */
+async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: string) {
     try {
-        // Get workspace member and their project lead/manager roles in one go
         const workspaceMember = await prisma.workspaceMember.findFirst({
             where: {
                 workspaceId: workspaceId,
-                userId: user.id,
+                userId: userId,
             },
             include: {
                 projectMembers: {
@@ -49,24 +51,12 @@ export const getWorkspacePermissions = cache(async (workspaceId: string) => {
 
         const isWorkspaceAdmin = workspaceMember.workspaceRole === "OWNER" || workspaceMember.workspaceRole === "ADMIN";
         const canCreateProject = isWorkspaceAdmin || workspaceMember.workspaceRole === "MANAGER";
-
-        // Access the included project roles
-        // @ts-ignore - Prisma types sometimes struggle with conditional includes/selects if not fully generated, but this is valid
         const projectRoles = workspaceMember.projectMembers || [];
-
         const isProjectLead = projectRoles.some(p => p.projectRole === "LEAD");
         const isProjectManager = projectRoles.some(p => p.projectRole === "PROJECT_MANAGER");
-
-        // Allow access if admin, or holds any leadership role in a project
         const hasAccess = isWorkspaceAdmin || isProjectLead || isProjectManager;
-
-        const leadProjectIds = projectRoles
-            .filter(p => p.projectRole === "LEAD")
-            .map(p => p.projectId);
-
-        const managedProjectIds = projectRoles
-            .filter(p => p.projectRole === "PROJECT_MANAGER")
-            .map(p => p.projectId);
+        const leadProjectIds = projectRoles.filter(p => p.projectRole === "LEAD").map(p => p.projectId);
+        const managedProjectIds = projectRoles.filter(p => p.projectRole === "PROJECT_MANAGER").map(p => p.projectId);
 
         return {
             isWorkspaceAdmin,
@@ -91,21 +81,40 @@ export const getWorkspacePermissions = cache(async (workspaceId: string) => {
             workspaceMember: null,
         };
     }
+}
+
+/**
+ * Get workspace-level permissions for the current user
+ */
+export const getWorkspacePermissions = cache(async (workspaceId: string) => {
+    const user = await requireUser();
+
+    // Cache permissions for 5 minutes - they don't change frequently
+    const fetchPerms = unstable_cache(
+        async () => _fetchWorkspacePermissionsInternal(workspaceId, user.id),
+        [`workspace-perms-${workspaceId}-${user.id}`],
+        {
+            tags: CacheTags.userPermissions(user.id, workspaceId),
+            revalidate: 300, // 5 minutes
+        }
+    );
+
+    return fetchPerms();
 });
 
 /**
  * Get project-level permissions for the current user
  * Use this for project-specific queries
  */
-export const getUserPermissions = cache(async (workspaceId: string, projectId: string) => {
-    const user = await requireUser();
-
+/**
+ * Internal function to fetch project permissions
+ */
+async function _getUserPermissionsInternal(workspaceId: string, projectId: string, userId: string) {
     try {
-        // Get workspace member
         const workspaceMember = await prisma.workspaceMember.findFirst({
             where: {
                 workspaceId: workspaceId,
-                userId: user.id,
+                userId: userId,
             },
         });
 
@@ -120,7 +129,6 @@ export const getUserPermissions = cache(async (workspaceId: string, projectId: s
             };
         }
 
-        // Get project member
         const projectMember = await prisma.projectMember.findFirst({
             where: {
                 projectId: projectId,
@@ -158,6 +166,25 @@ export const getUserPermissions = cache(async (workspaceId: string, projectId: s
             workspaceMemberId: null,
         };
     }
+}
+
+/**
+ * Get project-level permissions for the current user
+ */
+export const getUserPermissions = cache(async (workspaceId: string, projectId: string) => {
+    const user = await requireUser();
+
+    // Cache for 5 minutes
+    const fetchPerms = unstable_cache(
+        async () => _getUserPermissionsInternal(workspaceId, projectId, user.id),
+        [`project-perms-${projectId}-${user.id}`],
+        {
+            tags: CacheTags.userPermissions(user.id, workspaceId),
+            revalidate: 300, // 5 minutes
+        }
+    );
+
+    return fetchPerms();
 });
 
 export type WorkspacePermissionsType = Awaited<ReturnType<typeof getWorkspacePermissions>>;

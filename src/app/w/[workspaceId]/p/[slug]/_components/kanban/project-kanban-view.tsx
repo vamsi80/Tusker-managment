@@ -19,7 +19,7 @@ export async function ProjectKanbanView({
             groupBy: "status",
             includeSubTasks: true,
             excludeParents: true, // ONLY FETCH CARDS (NOT PARENTS)
-            limit: 300,
+            limit: 100,
             sorts: [{ field: "createdAt", direction: "desc" }]
         }),
         getProjectMembers(projectId),

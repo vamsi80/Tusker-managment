@@ -99,8 +99,11 @@ export function TaskTable({
     const tasksRef = useRef<TaskWithSubTasks[]>([]);
     // Assigned after tasks declaration
     const mode = useMemo(() => {
-        return sorts.length > 0 ? "sorted" : "hierarchy";
-    }, [sorts]);
+        // High-performance shift: Use hierarchy ONLY when no filters/sorts are active.
+        // As soon as the user starts searching or filtering, we switch to a flat list (Supabase style)
+        // because hierarchy calculations on filtered sets are expensive at scale (100k+ tasks).
+        return (sorts.length > 0 || filtersActive) ? "sorted" : "hierarchy";
+    }, [sorts, filtersActive]);
 
     // Stable string key derived from sorts — used as a useEffect dependency instead of
     // JSON.stringify(sorts) which creates a new string on every render even when sorts
@@ -108,6 +111,10 @@ export function TaskTable({
     const sortsKey = sorts.map(s => `${s.field}:${s.direction}`).join(",");
 
     const hydrateTasks = useCallback((taskList: TaskWithSubTasks[]) => {
+        // Skip persistent cache hydration when filters are active to prevent 
+        // "Unfiltered" subtasks from leaking into a filtered view.
+        if (filtersActive) return taskList;
+
         const getCache = useTaskCacheStore.getState().getCachedSubTasks;
         return taskList.map(t => {
             if (t.subTasks !== undefined) return t; // Already has data (or empty array)
@@ -122,7 +129,7 @@ export function TaskTable({
             }
             return t;
         });
-    }, []);
+    }, [filtersActive]);
 
     const [tasks, setTasks] = useState<TaskWithSubTasks[]>(() => {
         // Skip cache merge if we have active filters/search
@@ -406,9 +413,9 @@ export function TaskTable({
         return () => { isAborted = true; };
     }, [mode, JSON.stringify(filters), searchQuery, sortsKey, workspaceId, projectId, level, initialTasks]);
 
-    // Effect to load sorted tasks when sorting is active
+    // Effect to load sorted/filtered tasks when flat mode is active
     useEffect(() => {
-        if (mode !== "sorted" || sorts.length === 0) {
+        if (mode !== "sorted") {
             setSortedTasks([]);
             setSortedHasMore(false);
             return;
@@ -430,7 +437,7 @@ export function TaskTable({
                 dueBefore: filters.endDate ? new Date(filters.endDate) : undefined,
                 onlySubtasks: true,
                 sorts,
-                limit: 20,
+                limit: 50, // Increased limit for faster "Load More" feel
             });
 
             if (!isMounted) return;
@@ -486,7 +493,7 @@ export function TaskTable({
                 onlySubtasks: true,
                 sorts,
                 skip: sortedTasks.length,
-                limit: 20,
+                limit: 50,
             });
 
             if (res.success && res.data) {
@@ -855,7 +862,7 @@ export function TaskTable({
                 search: activeFilters.search,
                 dueAfter: filters.startDate ? new Date(filters.startDate) : undefined,
                 dueBefore: filters.endDate ? new Date(filters.endDate) : undefined,
-                limit: 10,
+                limit: 30, // Increased from 10 to 30 for better "Else" loading
                 sorts,
             });
 
@@ -869,11 +876,13 @@ export function TaskTable({
                     index === self.findIndex((t: any) => (t.id === st.id))
                 );
 
-                setCachedSubTasks(taskId, {
-                    subTasks: uniqueSubTasks,
-                    hasMore: result.hasMore,
-                    nextCursor: result.nextCursor
-                });
+                if (!filtersActive) {
+                    setCachedSubTasks(taskId, {
+                        subTasks: uniqueSubTasks,
+                        hasMore: result.hasMore,
+                        nextCursor: result.nextCursor
+                    });
+                }
 
                 setTasks(prev => prev.map(t => {
                     if (t.id === taskId) {
@@ -987,12 +996,13 @@ export function TaskTable({
                 );
                 const combinedSubTasks = [...existingSubTasks, ...newSubTasks];
 
-                // Update cache
-                setCachedSubTasks(taskId, {
-                    subTasks: combinedSubTasks,
-                    hasMore: resultData.hasMore,
-                    nextCursor: resultData.nextCursor,
-                });
+                if (!filtersActive) {
+                    setCachedSubTasks(taskId, {
+                        subTasks: combinedSubTasks,
+                        hasMore: resultData.hasMore,
+                        nextCursor: resultData.nextCursor,
+                    });
+                }
 
                 setTasks((prevTasks) =>
                     prevTasks.map((t) =>

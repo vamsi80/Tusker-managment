@@ -106,6 +106,14 @@ export function KanbanBoard({
     // Hydrate state from cache after mount
     useEffect(() => {
         const startTime = performance.now();
+        const upsertTasks = useTaskCacheStore.getState().upsertTasks;
+
+        // 0. IMMEDIATE SYNC: Upsert all initial server data into global entities
+        // ensure we have the freshest versions available for relations and metadata
+        const allInitialTasks = Object.values(initialData).flatMap(d => d.subTasks);
+        if (allInitialTasks.length > 0) {
+            upsertTasks(allInitialTasks);
+        }
 
         const contextId = projectId || "";
         const hydratedData: any = { ...columnData };
@@ -115,37 +123,37 @@ export function KanbanBoard({
             const cacheKey = `${workspaceId}-${contextId}-${col.id}`;
             const cached = useTaskCacheStore.getState().getKanbanTasksCache(cacheKey);
 
-            // 1. Base Data: Use cache if exists, otherwise fallback to props
-            let tasks = cached && cached.tasks.length > 0 ? cached.tasks : initialData[col.id].subTasks;
-            let totalCount = cached ? (cached.totalCount ?? 0) : initialData[col.id].totalCount;
-            let hasMore = cached ? cached.hasMore : initialData[col.id].hasMore;
+            // 1. Base Data Strategy:
+            // ALWAYS prefer the list structure from the server (initialData) if it just arrived.
+            // Use cache only for "nextCursor" or if we are navigating back without new props.
+            let tasks = initialData[col.id].subTasks;
+
+            // If the server didn't give us tasks for this column, check if we have them cached
+            if (tasks.length === 0 && cached && cached.tasks.length > 0) {
+                tasks = cached.tasks;
+            }
+
+            let totalCount = initialData[col.id].totalCount;
+            let hasMore = initialData[col.id].hasMore;
             let nextCursor = cached ? cached.nextCursor : undefined;
 
-            // 2. Workspace Aggregation: Merge cached tasks from ALL projects if at workspace level
+            // 2. Workspace Aggregation: Merge cached tasks from OTHER projects
             if (level === 'workspace' && projects) {
                 const projectTasks = projects.flatMap(p => {
                     const pKey = `${workspaceId}-${p.id}-${col.id}`;
                     const pCached = useTaskCacheStore.getState().getKanbanTasksCache(pKey);
-                    return pCached && pCached.tasks ? pCached.tasks : [];
+                    // Filter by status to prevent ghosting
+                    return pCached && pCached.tasks ? pCached.tasks.filter((t: any) => t.status === col.id) : [];
                 });
 
                 if (projectTasks.length > 0) {
                     const taskMap = new Map();
-                    // First seed with whatever we already had
+                    // Seed with current tasks (server matches)
                     tasks.forEach((t: any) => taskMap.set(t.id, t));
 
-                    // Then merge project tasks, but PRESERVE relations
+                    // Merge project-specific tasks not already in the list
                     projectTasks.forEach((t: any) => {
-                        const existing = taskMap.get(t.id);
-                        if (existing) {
-                            // Merge keeping critical relations found in either
-                            const merged = { ...existing, ...t };
-                            if (existing.project && !t.project) merged.project = existing.project;
-                            if (t.project && !existing.project) merged.project = t.project;
-                            if (existing.assignee && !t.assignee) merged.assignee = existing.assignee;
-                            if (t.assignee && !existing.assignee) merged.assignee = t.assignee;
-                            taskMap.set(t.id, merged);
-                        } else {
+                        if (!taskMap.has(t.id)) {
                             taskMap.set(t.id, t);
                         }
                     });
@@ -155,35 +163,27 @@ export function KanbanBoard({
                 }
             }
 
-            // Detect if anything is actually different from the initial prop-based state
-            if (cached || (level === 'workspace' && projects && hasChanges)) {
-                hydratedData[col.id] = {
-                    subTasks: tasks,
-                    totalCount: totalCount || initialData[col.id].totalCount,
-                    hasMore: hasMore,
-                    nextCursor: nextCursor
-                };
-                hasChanges = true;
-            }
+            hydratedData[col.id] = {
+                subTasks: tasks,
+                totalCount: totalCount || (cached ? cached.totalCount : 0),
+                hasMore: hasMore,
+                nextCursor: nextCursor
+            };
 
-            // Populate cache if empty to ensure subsequent navigations are fast
-            if (!cached && initialData[col.id]) {
-                setKanbanTasksCache(cacheKey, {
-                    tasks: initialData[col.id].subTasks,
-                    hasMore: initialData[col.id].hasMore,
-                    page: 1,
-                    totalCount: initialData[col.id].totalCount
-                });
-            }
+            // Re-sync this column's cache to match the server/merged reality
+            setKanbanTasksCache(cacheKey, {
+                tasks: tasks,
+                hasMore,
+                page: 1,
+                totalCount: hydratedData[col.id].totalCount
+            });
         });
 
-        if (hasChanges) {
-            setColumnData(hydratedData);
-        }
+        setColumnData(hydratedData);
 
         const duration = performance.now() - startTime;
         logger.perf("KANBAN_HYDRATION", duration, { workspaceId, projectId, level });
-    }, [projectId, workspaceId, initialData, setKanbanTasksCache, level, projects]);
+    }, [projectId, workspaceId, level, projects, initialData]); // initialData as dependency ensures we respond to fresh props
 
     const [loadingColumns, setLoadingColumns] = useState<Record<TaskStatus, boolean>>(
         Object.fromEntries(COLUMNS.map(col => [col.id, false])) as Record<TaskStatus, boolean>
@@ -303,6 +303,11 @@ export function KanbanBoard({
                         const allColTasks = response.data.tasksByStatus[col.id] || [];
                         // Don't display parent as a card
                         const colTasks = allColTasks.filter((t: any) => !t.isParent);
+
+                        // Sync entities to global store for updated review counts/metadata
+                        if (colTasks.length > 0) {
+                            useTaskCacheStore.getState().upsertTasks(colTasks);
+                        }
 
                         const totalForCol = counts[col.id] || colTasks.length;
                         const hasMore = totalForCol > colTasks.length;
@@ -550,6 +555,34 @@ export function KanbanBoard({
                 nextCursor: columnData[toStatus].nextCursor,
                 totalCount: newToCount
             });
+
+            // CROSS-CONTEXT SYNC: If we are in Workspace view, we MUST also update the project-specific cache
+            // to prevent "ghost tasks" from appearing in the old project column
+            const taskProjectId = (task as any).projectId || getTaskProjectId(subTaskId);
+            if (!contextId && taskProjectId) {
+                const pFromKey = `${workspaceId}-${taskProjectId}-${fromStatus}`;
+                const pToKey = `${workspaceId}-${taskProjectId}-${toStatus}`;
+
+                // Update Project "From" Column
+                const pFromCached = useTaskCacheStore.getState().getKanbanTasksCache(pFromKey);
+                if (pFromCached) {
+                    setKanbanTasksCache(pFromKey, {
+                        ...pFromCached,
+                        tasks: pFromCached.tasks.filter(t => t.id !== subTaskId),
+                        totalCount: Math.max(0, (pFromCached.totalCount || 1) - 1)
+                    });
+                }
+
+                // Update Project "To" Column
+                const pToCached = useTaskCacheStore.getState().getKanbanTasksCache(pToKey);
+                if (pToCached) {
+                    setKanbanTasksCache(pToKey, {
+                        ...pToCached,
+                        tasks: [updatedTask, ...pToCached.tasks.filter(t => t.id !== subTaskId)],
+                        totalCount: (pToCached.totalCount || 0) + 1
+                    });
+                }
+            }
         }
 
         // CRITICAL: Invalidate the subtask list cache for the parent task 
