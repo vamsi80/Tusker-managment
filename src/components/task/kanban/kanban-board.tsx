@@ -250,7 +250,8 @@ export function KanbanBoard({
                 const response = await loadTasksAction({
                     workspaceId,
                     projectId: targetProjectId,
-                    hierarchyMode: "children",
+                    hierarchyMode: "all", // Kanban boards show both parents and children logically
+                    groupBy: "status",   // Use the Window Function optimization for filters too
                     includeFacets: false,
                     limit: 100,
                     status: undefined,
@@ -272,16 +273,14 @@ export function KanbanBoard({
                         const colTasks = response.data.tasksByStatus[col.id] || [];
                         const isSearch = !!searchQuery;
 
+                        const hasMore = colTasks.length >= 100;
                         groupedData[col.id] = {
                             subTasks: colTasks,
-                            // If we only fetched a sub-set via filter, we don't know the REAL total for that status
-                            // unless the server gives it to us. For now, keep the initial total if it's just a light filter
-                            // otherwise use the length as an approximation.
                             totalCount: isSearch || activeFilterCount > 1
                                 ? colTasks.length
                                 : (columnData[col.id].totalCount || colTasks.length),
-                            hasMore: colTasks.length >= 100,
-                            nextCursor: null
+                            hasMore,
+                            nextCursor: hasMore ? { id: colTasks[colTasks.length - 1].id, createdAt: colTasks[colTasks.length - 1].createdAt } : null
                         };
                     });
                     setColumnData(groupedData);
@@ -338,7 +337,7 @@ export function KanbanBoard({
                 projectId: targetProjectId,
                 cursor: currentCursor,
                 limit: 10,
-                hierarchyMode: "children",
+                hierarchyMode: "all",
                 ...activeFilters
             });
 

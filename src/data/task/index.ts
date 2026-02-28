@@ -11,5 +11,5 @@ export type SubTasksByStatusResponse = {
     totalCount: number;
     hasMore: boolean;
     currentPage?: number;
-    nextCursor?: string;
+    nextCursor?: any;
 };

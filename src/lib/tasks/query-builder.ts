@@ -21,9 +21,49 @@ export const TASK_CORE_SELECT = {
     createdAt: true,
     updatedAt: true,
     createdById: true,
-    assigneeTo: true,    // FK — batch load User separately
-    reviewerId: true,    // FK — batch load User separately
-    tagId: true,         // FK — batch load Tag separately
+    assigneeTo: true,
+    reviewerId: true,
+    tagId: true,
+    // --- One-shot relations for performance ---
+    assignee: {
+        select: { id: true, name: true, surname: true, image: true, email: true }
+    },
+    reviewer: {
+        select: { id: true, name: true, surname: true, image: true, email: true }
+    },
+    createdBy: {
+        select: { id: true, name: true, surname: true, image: true, email: true }
+    },
+    tag: {
+        select: { id: true, name: true }
+    },
+    project: {
+        select: {
+            id: true,
+            name: true,
+            slug: true,
+            color: true,
+            workspaceId: true,
+            projectMembers: {
+                where: { projectRole: { in: ["PROJECT_MANAGER", "LEAD"] }, hasAccess: true },
+                take: 2,
+                select: {
+                    projectRole: true,
+                    workspaceMember: {
+                        select: {
+                            user: {
+                                select: {
+                                    name: true,
+                                    surname: true,
+                                    image: true
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
     parentTask: {
         select: {
             id: true,

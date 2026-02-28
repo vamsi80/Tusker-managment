@@ -16,51 +16,21 @@ interface WorkspaceKanbanViewProps {
  * Uses unified getTasks function for consistent data access
  */
 export async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewProps) {
-    // Fetch first page (5 cards) for each status column in parallel
-    // Using unified getTasks function
-    const fetchColumn = async (status: string) => {
-        const res = await getTasks({
-            workspaceId,
-            hierarchyMode: "children",
-            groupBy: "status",
-            status,
-            page: 1,
-            limit: 15
-            // projectId intentionally undefined for workspace level
-        });
-
-        // Adapt response to match component expectation
-        // Deduplicate tasks by ID just in case
-        const uniqueTasks = Array.from(
-            new Map(res.tasks.map((t) => [t.id, t])).values()
-        );
-
-        return {
-            subTasks: uniqueTasks as any,
-            totalCount: res.totalCount ?? 0,
-            hasMore: res.hasMore,
-            currentPage: 1
-        };
-    };
-
+    // ONE QUERY: Fetch all relevant tasks for all statuses in one go
     const [
-        todoData,
-        inProgressData,
-        cancelledData,
-        reviewData,
-        holdData,
-        completedData,
+        tasksResponse,
         workspaceMembers,
         projects,
         projectMemberMatches,
         tags
     ] = await Promise.all([
-        fetchColumn("TO_DO"),
-        fetchColumn("IN_PROGRESS"),
-        fetchColumn("CANCELLED"),
-        fetchColumn("REVIEW"),
-        fetchColumn("HOLD"),
-        fetchColumn("COMPLETED"),
+        getTasks({
+            workspaceId,
+            hierarchyMode: "all",
+            groupBy: "status",
+            limit: 200, // Fetch a larger batch per status (Strategy D Window Function)
+            sorts: [{ field: "createdAt", direction: "desc" }]
+        }),
         getWorkspaceMembers(workspaceId),
         getUserProjects(workspaceId),
         prisma.projectMember.findMany({
@@ -75,14 +45,66 @@ export async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewPr
         getWorkspaceTags(workspaceId)
     ]);
 
-    // Combine all initial data
+    // Group tasks by status in JS
+    const statusGroups: Record<string, any[]> = {
+        TO_DO: [],
+        IN_PROGRESS: [],
+        CANCELLED: [],
+        REVIEW: [],
+        HOLD: [],
+        COMPLETED: [],
+    };
+
+    tasksResponse.tasks.forEach((task: any) => {
+        if (statusGroups[task.status]) {
+            statusGroups[task.status].push(task);
+        }
+    });
+
+    const limit = 50; // Strategy D default
     const initialData = {
-        TO_DO: todoData,
-        IN_PROGRESS: inProgressData,
-        CANCELLED: cancelledData,
-        REVIEW: reviewData,
-        HOLD: holdData,
-        COMPLETED: completedData,
+        TO_DO: {
+            subTasks: statusGroups.TO_DO,
+            totalCount: statusGroups.TO_DO.length,
+            hasMore: statusGroups.TO_DO.length >= limit,
+            nextCursor: statusGroups.TO_DO.length > 0 ? { id: statusGroups.TO_DO[statusGroups.TO_DO.length - 1].id, createdAt: statusGroups.TO_DO[statusGroups.TO_DO.length - 1].createdAt } : undefined,
+            currentPage: 1
+        },
+        IN_PROGRESS: {
+            subTasks: statusGroups.IN_PROGRESS,
+            totalCount: statusGroups.IN_PROGRESS.length,
+            hasMore: statusGroups.IN_PROGRESS.length >= limit,
+            nextCursor: statusGroups.IN_PROGRESS.length > 0 ? { id: statusGroups.IN_PROGRESS[statusGroups.IN_PROGRESS.length - 1].id, createdAt: statusGroups.IN_PROGRESS[statusGroups.IN_PROGRESS.length - 1].createdAt } : undefined,
+            currentPage: 1
+        },
+        CANCELLED: {
+            subTasks: statusGroups.CANCELLED,
+            totalCount: statusGroups.CANCELLED.length,
+            hasMore: statusGroups.CANCELLED.length >= limit,
+            nextCursor: statusGroups.CANCELLED.length > 0 ? { id: statusGroups.CANCELLED[statusGroups.CANCELLED.length - 1].id, createdAt: statusGroups.CANCELLED[statusGroups.CANCELLED.length - 1].createdAt } : undefined,
+            currentPage: 1
+        },
+        REVIEW: {
+            subTasks: statusGroups.REVIEW,
+            totalCount: statusGroups.REVIEW.length,
+            hasMore: statusGroups.REVIEW.length >= limit,
+            nextCursor: statusGroups.REVIEW.length > 0 ? { id: statusGroups.REVIEW[statusGroups.REVIEW.length - 1].id, createdAt: statusGroups.REVIEW[statusGroups.REVIEW.length - 1].createdAt } : undefined,
+            currentPage: 1
+        },
+        HOLD: {
+            subTasks: statusGroups.HOLD,
+            totalCount: statusGroups.HOLD.length,
+            hasMore: statusGroups.HOLD.length >= limit,
+            nextCursor: statusGroups.HOLD.length > 0 ? { id: statusGroups.HOLD[statusGroups.HOLD.length - 1].id, createdAt: statusGroups.HOLD[statusGroups.HOLD.length - 1].createdAt } : undefined,
+            currentPage: 1
+        },
+        COMPLETED: {
+            subTasks: statusGroups.COMPLETED,
+            totalCount: statusGroups.COMPLETED.length,
+            hasMore: statusGroups.COMPLETED.length >= limit,
+            nextCursor: statusGroups.COMPLETED.length > 0 ? { id: statusGroups.COMPLETED[statusGroups.COMPLETED.length - 1].id, createdAt: statusGroups.COMPLETED[statusGroups.COMPLETED.length - 1].createdAt } : undefined,
+            currentPage: 1
+        },
     };
 
     // Convert workspace members to project members format
