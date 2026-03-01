@@ -13,23 +13,6 @@ interface WorkspaceTasksPageProps {
 
 // Header skeleton logic removed as it's now in the layout
 
-// ─── Streaming view wrappers ──────────────────────────────────────────────────
-
-async function ListView({ workspaceId }: { workspaceId: string }) {
-    await requireUser();
-    return <WorkspaceListView workspaceId={workspaceId} />;
-}
-
-async function KanbanView({ workspaceId }: { workspaceId: string }) {
-    await requireUser();
-    return <WorkspaceKanbanView workspaceId={workspaceId} />;
-}
-
-async function GanttView({ workspaceId }: { workspaceId: string }) {
-    await requireUser();
-    return <WorkspaceGanttView workspaceId={workspaceId} />;
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -53,19 +36,19 @@ export default async function WorkspaceTasksPage({
             {/* View content streams in - now without the outer div as layout handles it */}
             {view === "list" && (
                 <Suspense fallback={skeleton}>
-                    <ListView workspaceId={workspaceId} />
+                    <WorkspaceListView workspaceId={workspaceId} />
                 </Suspense>
             )}
 
             {view === "kanban" && (
                 <Suspense fallback={skeleton}>
-                    <KanbanView workspaceId={workspaceId} />
+                    <WorkspaceKanbanView workspaceId={workspaceId} />
                 </Suspense>
             )}
 
             {view === "gantt" && (
                 <Suspense fallback={skeleton}>
-                    <GanttView workspaceId={workspaceId} />
+                    <WorkspaceGanttView workspaceId={workspaceId} />
                 </Suspense>
             )}
         </ReloadableView>
