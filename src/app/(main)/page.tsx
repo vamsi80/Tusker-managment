@@ -21,7 +21,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row gap-4 mt-6">
             <Link
               className={buttonVariants({ size: "lg" })}
-              href="/workspace"
+              href="/w"
             >
               Explore workspace
             </Link>
