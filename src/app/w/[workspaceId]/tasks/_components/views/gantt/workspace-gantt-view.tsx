@@ -22,8 +22,6 @@ interface WorkspaceGanttViewProps {
  * - MEMBER: See only tasks from assigned projects and their assigned subtasks
  */
 export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProps) {
-    await requireUser();
-
     const [tasksData, projects, workspaceMembers, projectMemberMatches, tags, permissions] = await Promise.all([
         getTasks({ workspaceId, hierarchyMode: "parents", page: 1, limit: 500, includeFacets: true }),
         getUserProjects(workspaceId),
