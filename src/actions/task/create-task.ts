@@ -62,8 +62,8 @@ export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
             counter++;
         }
 
-        // Default reviewer is the creator
-        const reviewerId = validation.data.reviewerId ?? permissions.workspaceMember.userId;
+        // For parent tasks, the default reviewer should be null if not provided
+        const reviewerId = validation.data.reviewerId ?? null;
 
         // 3. Create the task
         const newTask = await prisma.task.create({

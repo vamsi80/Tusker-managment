@@ -223,8 +223,9 @@ export const SubTaskRow = memo(function SubTaskRow({
                 (subTask as any).isOptimistic && "opacity-60 grayscale-[0.5]"
             )}
         >
-            <TableCell className="pl-2 sm:pl-4 w-[40px] md:w-[50px]">
-                <div className="flex justify-center">
+            <TableCell className="pl-4 sm:pl-4 w-[60px] md:w-[80px]">
+                <div className="flex items-center">
+                    <div className="w-3 shrink-0" />
                     <Button
                         variant="ghost"
                         size="icon"

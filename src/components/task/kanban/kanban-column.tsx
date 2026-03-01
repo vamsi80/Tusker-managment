@@ -2,7 +2,7 @@
 
 import { useDroppable, useDndContext } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { Badge } from "@/components/ui/badge";
+
 import { KanbanSubTaskType } from "@/data/task";
 import { cn } from "@/lib/utils";
 import { KanbanCard } from "./kanban-card";
@@ -105,12 +105,7 @@ export function KanbanColumn({
                             </div>
                         )}
                     </div>
-                    <Badge
-                        variant="secondary"
-                        className={cn("text-xs shrink-0 ml-2", column.color)}
-                    >
-                        {deduplicatedSubTasks.length} / {Math.max(totalCount || 0, deduplicatedSubTasks.length)}
-                    </Badge>
+
                 </div>
             </div>
 

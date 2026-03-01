@@ -10,9 +10,11 @@ import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { FaGithub, FaGoogle } from 'react-icons/fa'
 import { toast } from 'sonner'
+import { useTaskCacheStore } from '@/lib/store/task-cache-store'
 
 export const SignUpForm = () => {
   const router = useRouter()
+  const ensureUser = useTaskCacheStore(state => state.ensureUser)
 
   const [githubPending, startGithubTransition] = useTransition()
   const [googlePending, startGoogleTransition] = useTransition()
@@ -29,7 +31,8 @@ export const SignUpForm = () => {
         provider: 'github',
         callbackURL: "/",
         fetchOptions: {
-          onSuccess: () => {
+          onSuccess: (ctx) => {
+            ensureUser(ctx.data.user.id);
             toast.success('Signed in with Github, you will be redirected...')
           },
           onError: (error) => {
@@ -46,7 +49,8 @@ export const SignUpForm = () => {
         provider: 'google',
         callbackURL: "/",
         fetchOptions: {
-          onSuccess: () => {
+          onSuccess: (ctx) => {
+            ensureUser(ctx.data.user.id);
             toast.success('Signed in with google, you will be redirected...')
           },
           onError: (error) => {

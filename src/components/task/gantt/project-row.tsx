@@ -139,9 +139,7 @@ export function ProjectRow({
                     <span className="font-semibold text-sm text-foreground truncate" title={name}>
                         {name}
                     </span>
-                    <span className="text-xs text-muted-foreground ml-auto">
-                        {totalTasksCount ?? tasks.length}
-                    </span>
+
                 </div>
 
                 {/* Right Panel - Project Bar */}
@@ -181,9 +179,7 @@ export function ProjectRow({
                                         <p className="text-xs text-muted-foreground">
                                             {formatDateRange(start, end)}
                                         </p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {totalTasksCount ?? tasks.length} tasks
-                                        </p>
+
                                     </div>
                                 </TooltipContent>
                             </Tooltip>

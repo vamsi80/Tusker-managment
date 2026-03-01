@@ -4,7 +4,7 @@ import { useRef, useEffect, memo } from "react";
 import { cn } from "@/lib/utils";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, MoreHorizontal, CornerDownRight } from "lucide-react";
+import { ChevronDown, ChevronRight, MoreHorizontal } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -162,9 +162,7 @@ export const TaskRow = memo(function TaskRow({
                     <div className="flex items-center gap-2 ml-2">
                         <div className="flex items-center">
                             <div className="flex items-center gap-0">
-                                <div className="w-6 flex justify-center shrink-0">
-                                    <CornerDownRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                                </div>
+                                <div className="w-2 shrink-0" />
                                 <Button
                                     variant="ghost"
                                     size="icon"

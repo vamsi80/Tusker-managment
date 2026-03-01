@@ -17,7 +17,7 @@ interface Props {
  */
 async function SidebarLoader({ workspaceId }: { workspaceId: string }) {
     const data = await getWorkspaces();
-    return <AppSidebar variant="inset" data={data as any} workspaceId={workspaceId} />;
+    return <AppSidebar data={data as any} workspaceId={workspaceId} />;
 }
 
 export default async function WorkSpaceLayout({ children, params }: Props) {
@@ -43,11 +43,11 @@ export default async function WorkSpaceLayout({ children, params }: Props) {
                 <SidebarLoader workspaceId={workspaceId} />
             </Suspense>
 
-            <SidebarInset>
+            <SidebarInset className="m-0 rounded-none overflow-x-hidden bg-background">
                 <SiteHeader />
                 <div className="flex flex-1 flex-col">
                     <div className="@container/main flex flex-1 flex-col gap-2">
-                        <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6 px-4 sm:px-6 lg:px-8">
+                        <div className="flex flex-col gap-4 py-2 md:gap-6 md:py-2 px-4 sm:px-6 lg:px-8">
                             {children}
                         </div>
                     </div>

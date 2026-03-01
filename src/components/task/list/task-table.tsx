@@ -307,6 +307,9 @@ export function TaskTable({
             setIsCurrentlyFiltered(true);
 
             try {
+                const startTime = performance.now();
+                console.time("Filter Hierarchy Load");
+
                 const response = await loadTasksAction({
                     workspaceId: workspaceId,
                     ...(level === "project" && projectId ? { projectId } : {}),
@@ -321,6 +324,10 @@ export function TaskTable({
                     limit: 50, // Increase limit for filtered views
                     sorts,
                 });
+
+                console.timeEnd("Filter Hierarchy Load");
+                const endTime = performance.now();
+                console.log(`⏱️ Filter Load took: ${(endTime - startTime).toFixed(2)} ms`);
 
                 if (isAborted) return;
 
@@ -423,6 +430,9 @@ export function TaskTable({
         const fetchSorted = async () => {
             setIsSortedViewLoading(true);
 
+            const startTime = performance.now();
+            console.time("Filter Flat List Load");
+
             const res = await loadTasksAction({
                 workspaceId,
                 ...(level === "project" && projectId ? { projectId } : {}),
@@ -436,6 +446,10 @@ export function TaskTable({
                 sorts,
                 limit: 50, // Increased limit for faster "Load More" feel
             });
+
+            console.timeEnd("Filter Flat List Load");
+            const endTime = performance.now();
+            console.log(`⏱️ Sorted Load took: ${(endTime - startTime).toFixed(2)} ms`);
 
             if (!isMounted) return;
 
