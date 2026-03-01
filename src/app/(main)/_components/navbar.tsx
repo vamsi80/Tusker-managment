@@ -70,7 +70,7 @@ export function Navbar({ session: serverSession }: iAppProps) {
             {isPending ? null : session ? (
               <UserDropdown
                 email={session.user.email}
-                image={session?.user.image ?? `https://avatar.vercel.sh/rauchg/${session?.user.email}`}
+                image={session?.user.image || ""}
                 name={
                   session?.user.name && session?.user.name.length > 0
                     ? session?.user.name
@@ -96,7 +96,7 @@ export function Navbar({ session: serverSession }: iAppProps) {
           {isPending ? null : session ? (
             <UserDropdown
               email={session.user.email}
-              image={session?.user.image ?? `https://avatar.vercel.sh/rauchg/${session?.user.email}`}
+              image={session?.user.image || ""}
               name={
                 session?.user.name && session?.user.name.length > 0
                   ? session?.user.name

@@ -3,52 +3,35 @@ import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { NavProjects } from "./nav-projects";
 import { getWorkspaceMembers } from "@/data/workspace/get-workspace-members";
 import { requireUser } from "@/lib/auth/require-user";
-import prisma from "@/lib/db";
 
 interface NavProjectsAsyncProps {
     workspaceId: string;
 }
 
 export async function NavProjectsAsync({ workspaceId }: NavProjectsAsyncProps) {
-    let projects: Awaited<ReturnType<typeof getUserProjects>> | null = null;
-    let workspaceMembers: Awaited<
-        ReturnType<typeof getWorkspaceMembers>
-    >["workspaceMembers"] | null = null;
-    let permissions: any = { isWorkspaceAdmin: false, canCreateProject: false };
-    let userRole: string | undefined;
-    let currentUserId: string | undefined;
+    // 1. Await User Validation (Fast, 5-10ms)
+    const user = await requireUser();
 
-    try {
-        const user = await requireUser();
-        currentUserId = user.id;
+    // 2. Fetch parallel data directly (Suspense handles resolving UI)
+    const [projectsData, membersData, permissionsData] = await Promise.all([
+        getUserProjects(workspaceId),
+        getWorkspaceMembers(workspaceId),
+        getWorkspacePermissions(workspaceId),
+    ]);
 
-        const results = await Promise.all([
-            getUserProjects(workspaceId),
-            getWorkspaceMembers(workspaceId),
-            getWorkspacePermissions(workspaceId),
-        ]);
-
-        projects = results[0];
-        workspaceMembers = results[1].workspaceMembers;
-        permissions = results[2];
-        userRole = permissions.workspaceMember?.workspaceRole;
-    } catch (error) {
-        console.error("Error loading sidebar projects:", error);
+    if (!projectsData || !membersData?.workspaceMembers) {
         return null;
     }
 
-    // ✅ JSX is OUTSIDE try/catch
-    if (!projects || !workspaceMembers) return null;
-
     return (
         <NavProjects
-            projects={projects}
+            projects={projectsData}
             workspaceId={workspaceId}
-            members={workspaceMembers}
-            isAdmin={permissions.isWorkspaceAdmin}
-            canCreateProject={permissions.canCreateProject}
-            userRole={userRole}
-            currentUserId={currentUserId}
+            members={membersData.workspaceMembers}
+            isAdmin={permissionsData.isWorkspaceAdmin}
+            canCreateProject={permissionsData.canCreateProject}
+            userRole={permissionsData.workspaceMember?.workspaceRole}
+            currentUserId={user.id}
         />
     );
 }

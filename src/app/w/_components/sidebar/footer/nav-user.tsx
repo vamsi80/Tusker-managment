@@ -29,8 +29,8 @@ export function NavUser() {
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarImage src={session?.user?.image ?? 'https://avatar.vercel.sh/${session?.user?.email}'} alt={session?.user?.name} />
-                <AvatarFallback className="rounded-lg">
+                <AvatarImage src={session?.user?.image || ""} alt={session?.user?.name} />
+                <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
                   {session?.user.name && session.user.name.length > 0
                     ? session.user.name.charAt(0).toLocaleUpperCase()
                     : session?.user.email.charAt(0).toLocaleUpperCase()}
@@ -58,8 +58,8 @@ export function NavUser() {
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarImage src={session?.user?.image ?? 'https://avatar.vercel.sh/${session?.user?.email}'} alt={session?.user?.name} />
-                  <AvatarFallback className="rounded-lg">
+                  <AvatarImage src={session?.user?.image || ""} alt={session?.user?.name} />
+                  <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
                     {session?.user.name && session.user.name.length > 0
                       ? session.user.name.charAt(0).toLocaleUpperCase()
                       : session?.user.email.charAt(0).toLocaleUpperCase()}

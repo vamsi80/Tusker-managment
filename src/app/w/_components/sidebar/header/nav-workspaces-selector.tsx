@@ -55,8 +55,8 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarImage src={`https://avatar.vercel.sh/${selected?.id ?? "W"}`} alt={selected?.name ?? ""} />
-                <AvatarFallback className="rounded-lg">
+                {/* No external avatar, fallback to initials using Tailwind CSS */}
+                <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
                   {(selected?.name ?? selected?.id ?? "W").charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
@@ -83,8 +83,8 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
                 <DropdownMenuItem key={ws.id} onClick={() => onWorkspaceSelect(routeKey)}>
                   <div className="flex flex-row items-center gap-2">
                     <Avatar className="h-8 w-8 rounded-lg">
-                      <AvatarImage src={`https://avatar.vercel.sh/${ws.id}`} alt={ws.name ?? ""} />
-                      <AvatarFallback className="rounded-lg">
+                      {/* No external avatar, fallback to initials using Tailwind CSS */}
+                      <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
                         {(ws.name ?? ws.id ?? "W").charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
