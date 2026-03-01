@@ -8,9 +8,11 @@ import { Loader2 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
+import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 
 export default function VerifyRequestClient() {
   const router = useRouter();
+  const ensureUser = useTaskCacheStore(state => state.ensureUser);
   const [otp, setOtp] = useState("");
   const [emailPending, startTransition] = useTransition();
   const params = useSearchParams();
@@ -23,9 +25,10 @@ export default function VerifyRequestClient() {
         email,
         otp,
         fetchOptions: {
-          onSuccess: () => {
+          onSuccess: (ctx) => {
+            ensureUser(ctx.data.user.id);
             toast.success('Email Verified')
-            router.push("/")
+            window.location.href = "/"
           },
           onError: (error) => {
             toast.error("Error verifying email/OTP")
@@ -46,10 +49,10 @@ export default function VerifyRequestClient() {
 
       <CardContent className="space-y-6">
         <div className="flex flex-col items-center space-y-2">
-          <InputOTP 
-            maxLength={6} 
-            className="gap-2" 
-            value={otp} 
+          <InputOTP
+            maxLength={6}
+            className="gap-2"
+            value={otp}
             onChange={(value) => setOtp(value)}
           >
             <InputOTPGroup>
@@ -72,7 +75,7 @@ export default function VerifyRequestClient() {
               <Loader2 className="size-4 animate-spin" />
               <span>Loading...</span>
             </>
-          ): "Verify Account"}
+          ) : "Verify Account"}
         </Button>
       </CardContent>
     </Card>

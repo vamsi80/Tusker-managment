@@ -272,8 +272,12 @@ export function InlineSubTaskForm({
             mode === "edit" ? "bg-primary/5 hover:bg-primary/10" : "bg-muted/20 hover:bg-muted/30",
             "h-8 [&_td]:p-0"
         )}>
-            {/* Drag Handle - Empty */}
-            <TableCell className="w-[50px]"></TableCell>
+            {/* Drag Handle - Empty with hierarchy gap */}
+            <TableCell className="w-[60px] md:w-[80px]">
+                <div className="flex items-center">
+                    <div className="w-8 shrink-0" />
+                </div>
+            </TableCell>
 
             {/* SubTask Name Input */}
             <TableCell className="w-[250px] pl-0">

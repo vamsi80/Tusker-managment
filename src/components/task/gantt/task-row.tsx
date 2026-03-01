@@ -177,7 +177,7 @@ export function TaskRow({
                                         </p>
                                         {start && end && (
                                             <p className="text-xs text-muted-foreground">
-                                                {getDaysBetween(start, end) + 1} days • {task.subtasks.length} subtasks
+                                                {getDaysBetween(start, end) + 1} days
                                             </p>
                                         )}
                                     </div>

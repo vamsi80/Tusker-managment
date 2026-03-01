@@ -264,6 +264,7 @@ export const resolveTaskPermissions = cache(async (workspaceId: string, projectI
             permissions.isProjectLead ||
             permissions.isProjectManager;
 
+        // Even if they are an admin, they are "authorized" to view this project.
         return {
             permissions,
             isWorkspaceAdmin,

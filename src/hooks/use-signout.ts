@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 export function useSignout() {
 
     const router = useRouter();
+
     const handleSignOut = async function signOut() {
         await authClient.signOut({
             fetchOptions: {
                 onSuccess: () => {
-                    router.push("/");
+                    window.location.href = "/";
                     toast.success("Signed out successfully");
                 },
                 onError: () => {

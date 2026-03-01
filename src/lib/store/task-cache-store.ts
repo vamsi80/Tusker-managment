@@ -18,6 +18,7 @@ interface ListMetadata {
 }
 
 interface TaskCacheState {
+    userId: string | null;
     entities: Record<string, TaskEntity>;
 
     // Internal Metadata Maps
@@ -42,11 +43,14 @@ interface TaskCacheState {
     invalidateSubTaskCache: (taskId: string) => void;
     invalidateProjectCache: (projectId: string) => void;
     invalidateWorkspaceCache: (workspaceId: string) => void;
+    clearCache: () => void;
+    ensureUser: (userId: string) => void;
 }
 
 export const useTaskCacheStore = create<TaskCacheState>()(
     persist(
         (set, get) => ({
+            userId: null,
             entities: {},
             subTaskLists: {},
             projectLists: {},
@@ -221,11 +225,35 @@ export const useTaskCacheStore = create<TaskCacheState>()(
                     entities: {} // Deep reset
                 };
             }),
+            clearCache: () => set({
+                entities: {},
+                subTaskLists: {},
+                projectLists: {},
+                kanbanLists: {},
+                userId: null
+            }),
+            ensureUser: (userId) => {
+                const currentUserId = get().userId;
+                if (currentUserId && currentUserId !== userId) {
+                    // Different user: wipe everything
+                    set({
+                        entities: {},
+                        subTaskLists: {},
+                        projectLists: {},
+                        kanbanLists: {},
+                        userId: userId
+                    });
+                } else {
+                    // Same user or first login: just set/update userId
+                    set({ userId });
+                }
+            },
         }),
         {
             name: 'tusker-task-cache',
             storage: createJSONStorage(() => localStorage),
             partialize: (state) => ({
+                userId: state.userId,
                 entities: state.entities,
                 kanbanLists: state.kanbanLists,
                 projectLists: state.projectLists

@@ -10,9 +10,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition, useEffect } from "react";
 import { FaGithub, FaGoogle } from "react-icons/fa";
 import { toast } from "sonner";
+import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 
 export const LoginForm = () => {
   const router = useRouter();
+  const ensureUser = useTaskCacheStore(state => state.ensureUser);
   const searchParams = useSearchParams();
 
   const [githubPending, startGithubTransition] = useTransition();
@@ -43,7 +45,8 @@ export const LoginForm = () => {
         provider: "github",
         callbackURL,
         fetchOptions: {
-          onSuccess: () => {
+          onSuccess: (ctx) => {
+            ensureUser(ctx.data.user.id);
             toast.success("Signed in with Github, you will be redirected...");
           },
           onError: (error) => {
@@ -64,7 +67,8 @@ export const LoginForm = () => {
         provider: "google",
         callbackURL,
         fetchOptions: {
-          onSuccess: () => {
+          onSuccess: (ctx) => {
+            ensureUser(ctx.data.user.id);
             toast.success("Signed in with google, you will be redirected...");
           },
           onError: (error) => {
@@ -87,9 +91,10 @@ export const LoginForm = () => {
           password,
           callbackURL,
           fetchOptions: {
-            onSuccess: () => {
+            onSuccess: (ctx) => {
+              ensureUser(ctx.data.user.id);
               toast.success("Signed in successfully!");
-              router.push(callbackURL);
+              window.location.href = callbackURL;
             },
             onError: (ctx) => {
               toast.error(ctx.error.message || "Failed to sign in");

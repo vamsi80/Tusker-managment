@@ -1,7 +1,7 @@
 import React from "react";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, Folder, CornerDownRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Folder } from "lucide-react";
 
 interface ProjectRowProps {
     project: { id: string; name: string; color?: string };
@@ -51,11 +51,7 @@ export function ProjectRow({
 
                         <span className="text-sm font-semibold text-foreground">{project.name}</span>
 
-                        {totalTasksCount !== undefined && totalTasksCount > 0 && (
-                            <span className="text-xs text-muted-foreground ml-2">
-                                ({totalTasksCount} tasks)
-                            </span>
-                        )}
+
                     </div>
                 </TableCell>
             </TableRow>
