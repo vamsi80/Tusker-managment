@@ -99,11 +99,8 @@ export function TaskTable({
     const tasksRef = useRef<TaskWithSubTasks[]>([]);
     // Assigned after tasks declaration
     const mode = useMemo(() => {
-        // High-performance shift: Use hierarchy ONLY when no filters/sorts are active.
-        // As soon as the user starts searching or filtering, we switch to a flat list (Supabase style)
-        // because hierarchy calculations on filtered sets are expensive at scale (100k+ tasks).
-        return (sorts.length > 0 || filtersActive) ? "sorted" : "hierarchy";
-    }, [sorts, filtersActive]);
+        return sorts.length > 0 ? "sorted" : "hierarchy";
+    }, [sorts]);
 
     // Stable string key derived from sorts — used as a useEffect dependency instead of
     // JSON.stringify(sorts) which creates a new string on every render even when sorts

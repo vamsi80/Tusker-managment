@@ -13,75 +13,6 @@ interface iAppProps {
   searchParams: Promise<{ view?: string }>;
 }
 
-// ─── Streaming view components ────────────────────────────────────────────────
-// Each fetches only what it needs, wrapped in Suspense by the caller.
-
-async function DashboardView() {
-  return <ProjectDashboard />;
-}
-
-async function ListView({
-  workspaceId,
-  slug,
-}: {
-  workspaceId: string;
-  slug: string;
-}) {
-  const [project, user] = await Promise.all([
-    getProjectBySlug(workspaceId, slug),
-    requireUser(),
-  ]);
-  if (!project) return null;
-
-  const [projectMembers, permissions] = await Promise.all([
-    getProjectMembers(project.id),
-    getUserPermissions(workspaceId, project.id),
-  ]);
-
-  return (
-    <ProjectTaskListView
-      workspaceId={workspaceId}
-      projectId={project.id}
-      members={projectMembers}
-      canCreateSubTask={permissions.canCreateSubTask}
-      permissions={permissions}
-      userId={user.id}
-    />
-  );
-}
-
-async function KanbanView({
-  workspaceId,
-  slug,
-}: {
-  workspaceId: string;
-  slug: string;
-}) {
-  const project = await getProjectBySlug(workspaceId, slug);
-  if (!project) return null;
-
-  const { ProjectKanbanView } = await import(
-    "./_components/kanban/project-kanban-view"
-  );
-  return <ProjectKanbanView workspaceId={workspaceId} projectId={project.id} />;
-}
-
-async function GanttView({
-  workspaceId,
-  slug,
-}: {
-  workspaceId: string;
-  slug: string;
-}) {
-  const project = await getProjectBySlug(workspaceId, slug);
-  if (!project) return null;
-
-  const { GanttServerWrapper } = await import(
-    "./_components/gantt/project-gantt-view"
-  );
-  return <GanttServerWrapper workspaceId={workspaceId} projectId={project.id} />;
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -106,7 +37,7 @@ export default async function ProjectPage({ params, searchParams }: iAppProps) {
       {currentView === "dashboard" && (
         <ReloadableView skeleton={skeleton}>
           <Suspense fallback={skeleton}>
-            <DashboardView />
+            <ProjectDashboard />
           </Suspense>
         </ReloadableView>
       )}
@@ -114,7 +45,7 @@ export default async function ProjectPage({ params, searchParams }: iAppProps) {
       {currentView === "list" && (
         <ReloadableView skeleton={skeleton}>
           <Suspense fallback={skeleton}>
-            <ListView workspaceId={workspaceId} slug={slug} />
+            <ProjectTaskListViewServer workspaceId={workspaceId} slug={slug} />
           </Suspense>
         </ReloadableView>
       )}
@@ -122,7 +53,7 @@ export default async function ProjectPage({ params, searchParams }: iAppProps) {
       {currentView === "kanban" && (
         <ReloadableView skeleton={skeleton}>
           <Suspense fallback={skeleton}>
-            <KanbanView workspaceId={workspaceId} slug={slug} />
+            <ProjectKanbanViewServer workspaceId={workspaceId} slug={slug} />
           </Suspense>
         </ReloadableView>
       )}
@@ -130,10 +61,32 @@ export default async function ProjectPage({ params, searchParams }: iAppProps) {
       {currentView === "gantt" && (
         <ReloadableView skeleton={skeleton}>
           <Suspense fallback={skeleton}>
-            <GanttView workspaceId={workspaceId} slug={slug} />
+            <ProjectGanttViewServer workspaceId={workspaceId} slug={slug} />
           </Suspense>
         </ReloadableView>
       )}
     </>
   );
+}
+
+// Inline Data Loaders for Streaming Boundaries
+async function ProjectTaskListViewServer({ workspaceId, slug }: { workspaceId: string, slug: string }) {
+  const [project, user] = await Promise.all([getProjectBySlug(workspaceId, slug), requireUser()]);
+  if (!project) return null;
+  const [projectMembers, permissions] = await Promise.all([getProjectMembers(project.id), getUserPermissions(workspaceId, project.id)]);
+  return <ProjectTaskListView workspaceId={workspaceId} projectId={project.id} members={projectMembers} canCreateSubTask={permissions.canCreateSubTask} permissions={permissions} userId={user.id} />;
+}
+
+async function ProjectKanbanViewServer({ workspaceId, slug }: { workspaceId: string, slug: string }) {
+  const project = await getProjectBySlug(workspaceId, slug);
+  if (!project) return null;
+  const { ProjectKanbanView } = await import("./_components/kanban/project-kanban-view");
+  return <ProjectKanbanView workspaceId={workspaceId} projectId={project.id} />;
+}
+
+async function ProjectGanttViewServer({ workspaceId, slug }: { workspaceId: string, slug: string }) {
+  const project = await getProjectBySlug(workspaceId, slug);
+  if (!project) return null;
+  const { GanttServerWrapper } = await import("./_components/gantt/project-gantt-view");
+  return <GanttServerWrapper workspaceId={workspaceId} projectId={project.id} />;
 }

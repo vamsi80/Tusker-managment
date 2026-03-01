@@ -493,10 +493,12 @@ async function _fetchFilteredHierarchy(
     let currentGeneration = [...matches];
 
     for (let i = 0; i < maxDepth; i++) {
+        // Find parents that we matched as subtasks but don't have the parent object for
         const missingParentIds = currentGeneration
             .filter(t => t.parentTaskId && !taskMap.has(t.parentTaskId))
             .map(t => t.parentTaskId!);
 
+        // Find subtasks for parents we matched
         const parentIdsToExpand = opts.includeSubTasks
             ? currentGeneration.filter(t => t.isParent).map(t => t.id)
             : [];
@@ -739,7 +741,8 @@ async function _getTasksInternal(
 
         const isSorting = opts.sorts && opts.sorts.length > 0;
 
-        if (!isSorting && (hasExplicitFilters || (hierarchyMode === "parents" || !hierarchyMode))) {
+        // If sorting is OFF, and we are not forcing subtasks, execute Hierarchy search.
+        if (!isSorting && !opts.onlySubtasks && !opts.excludeParents && (hasExplicitFilters || (hierarchyMode === "parents" || !hierarchyMode))) {
             strategy = opts.includeSubTasks ? "FILTERED_RECURSIVE_HIERARCHY" : "FILTERED_HIERARCHY";
             const result = await _fetchFilteredHierarchy(
                 workspaceId, userId, isAdmin,

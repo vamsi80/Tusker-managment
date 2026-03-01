@@ -17,7 +17,6 @@ export async function ProjectKanbanView({
             workspaceId,
             projectId,
             groupBy: "status",
-            includeSubTasks: true,
             excludeParents: true, // ONLY FETCH CARDS (NOT PARENTS)
             limit: 100,
             sorts: [{ field: "createdAt", direction: "desc" }]
