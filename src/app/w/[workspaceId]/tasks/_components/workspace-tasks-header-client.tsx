@@ -53,10 +53,10 @@ export function WorkspaceTasksHeaderClient({
             <div className="space-y-2 md:space-y-4">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight md:text-3xl">All Tasks</h1>
-                        <p className="text-sm text-muted-foreground">
+                        {/* <h1 className="text-2xl font-bold tracking-tight md:text-3xl">All Tasks</h1> */}
+                        {/* <p className="text-sm text-muted-foreground">
                             View and manage tasks across all projects
-                        </p>
+                        </p> */}
                     </div>
                 </div>
             </div>
@@ -67,10 +67,10 @@ export function WorkspaceTasksHeaderClient({
         <div className="space-y-2 md:space-y-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight md:text-3xl">All Tasks</h1>
+                    {/* <h1 className="text-2xl font-bold tracking-tight md:text-3xl">All Tasks</h1>
                     <p className="text-sm text-muted-foreground">
                         View and manage tasks across all projects
-                    </p>
+                    </p> */}
                 </div>
             </div>
             <div className="border-b">
@@ -91,8 +91,8 @@ export function WorkspaceTasksHeaderClient({
                                         : "border-transparent text-muted-foreground"
                                 )}
                             >
-                                <Icon className="h-4 w-4" />
-                                <span className="text-xs sm:text-sm">{tab.name}</span>
+                                <Icon className="h-3 w-3" />
+                                <span className="text-xs sm:text-xs">{tab.name}</span>
                             </Link>
                         );
                     })}

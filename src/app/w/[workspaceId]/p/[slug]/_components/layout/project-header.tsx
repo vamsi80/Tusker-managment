@@ -27,14 +27,14 @@ function ProjectHeader({
         <>
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold leading-tight tracking-tighter md:text-4xl flex items-center gap-2 sm:gap-3">
+                    <h1 className="text-2xl font-normal leading-tight tracking-tighter md:text-2xl flex items-center gap-2 sm:gap-3">
                         {projectName}
                         <div
                             className="h-3 w-3 md:h-5 md:w-5 rounded-full border shadow-sm transition-colors shrink-0"
                             style={{ backgroundColor: projectColor || '#888' }}
                         />
                     </h1>
-                    <p className="text-sm md:text-base text-muted-foreground">Manage your project tasks</p>
+                    {/* <p className="text-sm md:text-base text-muted-foreground">Manage your project tasks</p> */}
                 </div>
 
                 {canPerformBulkOperations && (

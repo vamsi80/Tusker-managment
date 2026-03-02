@@ -43,7 +43,7 @@ export default async function WorkSpaceLayout({ children, params }: Props) {
                 <SidebarLoader workspaceId={workspaceId} />
             </Suspense>
 
-            <SidebarInset className="m-0 rounded-none overflow-x-hidden bg-background">
+            <SidebarInset className="m-0 rounded-none bg-background">
                 <SiteHeader />
                 <div className="flex flex-1 flex-col">
                     <div className="@container/main flex flex-1 flex-col gap-2">
