@@ -1,10 +1,5 @@
 import { Prisma } from "@/generated/prisma";
 
-// ============================================================
-//  SHARED TASK SELECT — used by all views for type consistency
-// ============================================================
-//  NOTE: We intentionally exclude heavy relations (project.projectMembers)
-//  from the core select. Batch-load those separately if needed.
 export const TASK_CORE_SELECT = {
     id: true,
     name: true,
@@ -24,7 +19,7 @@ export const TASK_CORE_SELECT = {
     assigneeTo: true,
     reviewerId: true,
     tagId: true,
-    // --- One-shot relations for performance ---
+
     assignee: {
         select: { id: true, name: true, surname: true, image: true, email: true }
     },

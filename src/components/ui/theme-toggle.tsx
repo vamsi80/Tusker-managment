@@ -33,7 +33,7 @@ export default function ThemeToggle() {
           <SunIcon
             size={16}
             aria-hidden="true"
-            className={`transition-transform transition-opacity duration-200 ease-out
+            className={`transition-transform duration-200 ease-out
             ${isDark ? 'opacity-0 scale-75' : 'opacity-100 scale-100'}
             `}
           />
@@ -42,7 +42,7 @@ export default function ThemeToggle() {
           <MoonIcon
             size={16}
             aria-hidden="true"
-            className={`absolute transition-transform transition-opacity duration-200 ease-out
+            className={`absolute transition-transform duration-200 ease-out
             ${isDark ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}
             `}
           />

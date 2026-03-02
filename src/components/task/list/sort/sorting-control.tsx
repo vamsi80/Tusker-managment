@@ -10,7 +10,7 @@ import {
     DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { ArrowUpDown, ArrowUp, ArrowDown, X } from "lucide-react";
-import { SortConfig, SortField } from "../shared/types";
+import { SortConfig, SortField } from "../../shared/types";
 import { Badge } from "@/components/ui/badge";
 
 interface SortingControlProps {

@@ -237,7 +237,6 @@ export function TimelineGrid({ startDate, endDate, granularity, tasks, children 
                 col.date.toDateString() === today.toDateString()
             );
         } else if (granularity === 'weeks') {
-            // For weeks, find which week column today falls into
             columnIndex = columns.findIndex((col, idx) => {
                 const weekStart = new Date(col.date);
                 const weekEnd = new Date(col.date);
@@ -245,7 +244,6 @@ export function TimelineGrid({ startDate, endDate, granularity, tasks, children 
                 return today >= weekStart && today <= weekEnd;
             });
         } else {
-            // For months, find which month column today falls into
             columnIndex = columns.findIndex(col =>
                 col.date.getMonth() === today.getMonth() &&
                 col.date.getFullYear() === today.getFullYear()

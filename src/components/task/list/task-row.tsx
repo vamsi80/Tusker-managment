@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, memo } from "react";
+import { useRef, useEffect, useState, memo, ReactElement, cloneElement } from "react";
 import { cn } from "@/lib/utils";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -36,7 +36,7 @@ interface TaskRowProps {
 }
 
 export const TaskRow = memo(function TaskRow({
-    task,
+    task: initialTask,
     isExpanded,
     onToggleExpand,
     columnVisibility,
@@ -54,6 +54,14 @@ export const TaskRow = memo(function TaskRow({
     isCached = false,
     children
 }: TaskRowProps) {
+    // MAINTAIN OPTIMISTIC LOCAL STATE FOR SMOOTHEST DRAG & DROP / EDITS
+    const [task, setTask] = useState(initialTask);
+
+    // Sync with upstream database overrides seamlessly
+    useEffect(() => {
+        setTask(initialTask);
+    }, [initialTask]);
+
     const subtaskCount = task._count?.subTasks || 0;
     const rowRef = useRef<HTMLTableRowElement>(null);
 
@@ -98,9 +106,50 @@ export const TaskRow = memo(function TaskRow({
 
     const handleTaskUpdated = (updatedTask: { name: string; taskSlug: string }) => {
         // Update the task in parent state immediately (Optimistic Level 1)
+        setTask(prev => ({ ...prev, name: updatedTask.name, taskSlug: updatedTask.taskSlug }));
         if (onTaskUpdated) {
             onTaskUpdated(updatedTask);
         }
+    };
+
+    const handleOptimisticSubTaskUpdated = (subTaskId: string, updatedData: any) => {
+        setTask(prev => ({
+            ...prev,
+            subTasks: prev.subTasks?.map((st: any) => st.id === subTaskId ? { ...st, ...updatedData } : st)
+        }));
+    };
+
+    const handleOptimisticSubTaskDeleted = (subTaskId: string) => {
+        setTask(prev => ({
+            ...prev,
+            subTasks: prev.subTasks?.filter((st: any) => st.id !== subTaskId),
+            _count: {
+                ...prev._count,
+                subTasks: Math.max(0, (prev._count?.subTasks || 0) - 1)
+            }
+        }));
+    };
+
+    const handleOptimisticSubTaskCreated = (newSubTask: any, tempId?: string) => {
+        setTask(prev => {
+            const currentSubTasks = prev.subTasks || [];
+            if (tempId) {
+                return {
+                    ...prev,
+                    subTasks: currentSubTasks.map((st: any) => st.id === tempId ? newSubTask : st)
+                };
+            }
+            if (currentSubTasks.some((st: any) => st.id === newSubTask.id)) return prev;
+
+            return {
+                ...prev,
+                subTasks: [...currentSubTasks, newSubTask],
+                _count: {
+                    ...prev._count,
+                    subTasks: (prev.subTasks?.length || 0) + 1
+                }
+            };
+        });
     };
 
     // Determine if user can edit/delete this task
@@ -216,7 +265,21 @@ export const TaskRow = memo(function TaskRow({
                     )}
                 </TableCell>
             </TableRow>
-            {isExpanded && children}
+            {isExpanded && children && cloneElement(children as any, {
+                task,
+                onSubTaskUpdated: (subTaskId: string, updatedData: any) => {
+                    handleOptimisticSubTaskUpdated(subTaskId, updatedData);
+                    (children as any).props.onSubTaskUpdated?.(subTaskId, updatedData);
+                },
+                onSubTaskDeleted: (subTaskId: string) => {
+                    handleOptimisticSubTaskDeleted(subTaskId);
+                    (children as any).props.onSubTaskDeleted?.(subTaskId);
+                },
+                onSubTaskCreated: (newSubTask: any, tempId?: string) => {
+                    handleOptimisticSubTaskCreated(newSubTask, tempId);
+                    (children as any).props.onSubTaskCreated?.(newSubTask, tempId);
+                }
+            })}
         </>
     );
 });

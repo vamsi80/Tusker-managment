@@ -2,7 +2,7 @@
 
 import React from "react";
 import { ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
-import { SortConfig, SortField, SortDirection } from "../shared/types";
+import { SortConfig, SortField, SortDirection } from "../../shared/types";
 import { cn } from "@/lib/utils";
 
 interface SortableHeaderProps {

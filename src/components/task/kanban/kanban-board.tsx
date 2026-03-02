@@ -9,7 +9,6 @@ import { createReviewCommentAction } from "@/actions/comment";
 import { toast } from "sonner";
 import { KanbanCard } from "./kanban-card";
 import { KanbanColumn } from "./kanban-column";
-// import { useReloadView } from "@/hooks/use-reload-view";
 import { TaskFilters, type ProjectOption, type TagOption } from "../shared/types";
 import { STATUS_COLORS, STATUS_LABELS } from "@/lib/colors/status-colors";
 import { updateSubTaskStatus } from "@/actions/task/kanban/update-subtask-status";
@@ -128,9 +127,21 @@ export function KanbanBoard({
             // Use cache only for "nextCursor" or if we are navigating back without new props.
             let tasks = initialData[col.id].subTasks;
 
-            // If the server didn't give us tasks for this column, check if we have them cached
-            if (tasks.length === 0 && cached && cached.tasks.length > 0) {
-                tasks = cached.tasks;
+            if (cached && cached.tasks.length > 0) {
+                if (initialData[col.id].totalCount === 0) {
+                    // Server explicitly says there are 0 tasks. DO NOT fallback to stale cache.
+                    tasks = [];
+                } else if (tasks.length > 0 && cached.tasks.length > tasks.length) {
+                    // Cache has MORE items than the server provided page 1.
+                    // Verify if it's the SAME data set by checking if the base IDs match.
+                    const baseIdsMatch = tasks.every((t, i) => cached.tasks[i]?.id === t.id);
+                    if (baseIdsMatch) {
+                        tasks = cached.tasks;
+                    }
+                } else if (tasks.length === 0 && initialData[col.id].totalCount > 0) {
+                    // Edge case: SSR provided 0 tasks but totalCount > 0? Trust the cache.
+                    tasks = cached.tasks;
+                }
             }
 
             let totalCount = initialData[col.id].totalCount;
@@ -556,10 +567,11 @@ export function KanbanBoard({
                 totalCount: newToCount
             });
 
-            // CROSS-CONTEXT SYNC: If we are in Workspace view, we MUST also update the project-specific cache
-            // to prevent "ghost tasks" from appearing in the old project column
+            // CROSS-CONTEXT SYNC: Bidirectional sync between workspace and project caches
             const taskProjectId = (task as any).projectId || getTaskProjectId(subTaskId);
+
             if (!contextId && taskProjectId) {
+                // We are in Workspace view -> Update Project caches
                 const pFromKey = `${workspaceId}-${taskProjectId}-${fromStatus}`;
                 const pToKey = `${workspaceId}-${taskProjectId}-${toStatus}`;
 
@@ -580,6 +592,30 @@ export function KanbanBoard({
                         ...pToCached,
                         tasks: [updatedTask, ...pToCached.tasks.filter(t => t.id !== subTaskId)],
                         totalCount: (pToCached.totalCount || 0) + 1
+                    });
+                }
+            } else if (contextId) {
+                // We are in Project view -> Update Workspace caches
+                const wFromKey = `${workspaceId}--${fromStatus}`;
+                const wToKey = `${workspaceId}--${toStatus}`;
+
+                // Update Workspace "From" Column
+                const wFromCached = useTaskCacheStore.getState().getKanbanTasksCache(wFromKey);
+                if (wFromCached) {
+                    setKanbanTasksCache(wFromKey, {
+                        ...wFromCached,
+                        tasks: wFromCached.tasks.filter(t => t.id !== subTaskId),
+                        totalCount: Math.max(0, (wFromCached.totalCount || 1) - 1)
+                    });
+                }
+
+                // Update Workspace "To" Column
+                const wToCached = useTaskCacheStore.getState().getKanbanTasksCache(wToKey);
+                if (wToCached) {
+                    setKanbanTasksCache(wToKey, {
+                        ...wToCached,
+                        tasks: [updatedTask, ...wToCached.tasks.filter(t => t.id !== subTaskId)],
+                        totalCount: (wToCached.totalCount || 0) + 1
                     });
                 }
             }

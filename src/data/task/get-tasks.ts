@@ -402,7 +402,7 @@ async function _fetchSubtasks(
 
     const where = buildSubtaskExpansionWhere(parentTaskId, {
         status: status,
-        assigneeId: toArray(opts.assigneeId),
+        assigneeId: assigneeId ? [assigneeId] : toArray(opts.assigneeId),
         tagId: toArray(opts.tagId),
         search: opts.search,
         dueAfter: toUTCDateOnly(opts.dueAfter),
@@ -513,7 +513,14 @@ async function _fetchFilteredHierarchy(
                     {
                         AND: [
                             { parentTaskId: { in: parentIdsToExpand } },
-                            hasExplicitFilters ? matchWhere : {} // Respect filters if present
+                            hasExplicitFilters ? matchWhere : buildWorkspaceFilterWhere({
+                                workspaceId,
+                                projectId: opts.projectId,
+                                isAdmin,
+                                fullAccessProjectIds,
+                                restrictedProjectIds,
+                                projectIds: (!opts.projectId && opts.expandedProjectIds?.length) ? opts.expandedProjectIds : undefined,
+                            }, userId)
                         ]
                     }
                 ]
@@ -714,11 +721,14 @@ async function _getTasksInternal(
             if (opts.includeSubTasks && result.tasks.length > 0) {
                 const parentIds = result.tasks.filter(t => t.isParent).map(t => t.id);
                 if (parentIds.length > 0) {
+                    const hasFullAccess = isAdmin || (projectId ? fullAccessProjectIds.includes(projectId) : false);
+                    const assigneeFilter = !hasFullAccess ? [userId] : toArray(opts.assigneeId);
+
                     const subtasks = await prisma.task.findMany({
                         where: buildSubtaskExpansionWhere(undefined, {
                             parentIds,
                             status: toArray(opts.status),
-                            assigneeId: toArray(opts.assigneeId),
+                            assigneeId: assigneeFilter,
                             tagId: toArray(opts.tagId),
                             search: opts.search,
                         }),
@@ -814,18 +824,9 @@ async function _getTasksInternal(
             }
 
             // Fetch counts per status for the whole board to support "Load More" indicator
-            const statusCountsBatch = await prisma.task.groupBy({
-                by: ['status'],
-                where: baseWhere,
-                _count: { _all: true }
-            });
-
+            // *Optimization: Removed groupBy as it causes massive DB pipeline stalls on large views.
+            // Using precise in-memory column lengths on the client instead.
             const statusCounts: Record<string, number> = {};
-            statusCountsBatch.forEach(item => {
-                if (item.status) {
-                    statusCounts[item.status] = item._count._all;
-                }
-            });
 
             // Determine next cursor for pagination
             const lastTask = tasks.length > 0 ? tasks[tasks.length - 1] : null;

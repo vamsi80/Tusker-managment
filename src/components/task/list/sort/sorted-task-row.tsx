@@ -5,7 +5,7 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { formatDate } from "@/components/task/gantt/utils";
-import { ColumnVisibility } from "../shared/column-visibility";
+import { ColumnVisibility } from "../../shared/column-visibility";
 import { cn } from "@/lib/utils";
 import { useRemainingDays } from "@/hooks/use-due-date";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
