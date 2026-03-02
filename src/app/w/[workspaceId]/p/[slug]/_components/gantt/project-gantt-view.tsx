@@ -4,6 +4,7 @@ import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
 import { ProjectGanttClient } from "./project-gantt-client";
 import { requireUser } from "@/lib/auth/require-user";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import { getWorkspaceTags } from "@/data/tag/get-tags";
 import prisma from "@/lib/db";
 
 interface GanttServerWrapperProps {
@@ -49,22 +50,29 @@ export async function GanttServerWrapper({ workspaceId, projectId }: GanttServer
         }
     });
 
-    const [user, permissions, projectMembers] = await Promise.all([
+    const [user, permissions, projectMembers, tags] = await Promise.all([
         requireUser(),
         getWorkspacePermissions(workspaceId),
         prisma.projectMember.findMany({
             where: { projectId },
             select: {
-                workspaceMember: { select: { userId: true } },
+                workspaceMember: { select: { userId: true, user: true } },
                 projectRole: true
             }
-        })
+        }),
+        getWorkspaceTags(workspaceId)
     ]);
 
-    // 4. Enrich tasks with assignee roles
+    // 4. Enrich tasks with assignee roles & build member options
     const roleMap: Record<string, string> = {};
-    projectMembers.forEach((pm: { projectRole: string; workspaceMember: { userId: string } }) => {
+    const memberOptions = projectMembers.map((pm: any) => {
         roleMap[pm.workspaceMember.userId] = pm.projectRole;
+        return {
+            id: pm.workspaceMember.userId,
+            name: pm.workspaceMember.user?.name || '',
+            surname: pm.workspaceMember.user?.surname || undefined,
+            email: pm.workspaceMember.user?.email || undefined
+        };
     });
 
     allTasks.forEach(t => {
@@ -79,12 +87,17 @@ export async function GanttServerWrapper({ workspaceId, projectId }: GanttServer
     // 6. Get Project Counts
     const projectCounts = tasksData.facets.projects;
 
+    const tagOptions = tags.map(t => ({ id: t.id, name: t.name }));
+
     return (
         <ProjectGanttClient
             workspaceId={workspaceId}
             projectId={projectId}
             initialTasks={ganttTasks}
+            allTasks={allTasks}
             subtaskDataMap={subtaskDataMap}
+            members={memberOptions}
+            tags={tagOptions}
             projectCounts={projectCounts}
             currentUser={{ id: user.id }}
             permissions={{

@@ -74,7 +74,7 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
             ref={setNodeRef}
             style={style}
             className={cn(
-                "h-auto py-0 transition-all hover:shadow-lg dark:hover:shadow-primary/20",
+                "h-auto py-0 transition-shadow duration-200 hover:shadow-lg dark:hover:shadow-primary/20",
                 (isDragging || isSortableDragging) && "opacity-50 shadow-xl",
                 "border-l-4 overflow-hidden",
                 columnColor === "text-slate-700" && "border-l-slate-500 dark:border-l-slate-400",
@@ -86,7 +86,11 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
             )}
         >
             <CardContent className="p-3 space-y-3">
-                <div className="flex items-center justify-between text-[10px] text-muted-foreground pb-2 border-b border-border/50">
+                <div
+                    {...attributes}
+                    {...listeners}
+                    className="cursor-grab active:cursor-grabbing touch-none flex items-center justify-between text-[10px] text-muted-foreground pb-2 border-b border-border/50"
+                >
                     <div className="flex items-center gap-1.5 truncate max-w-[70%]" title={project?.name}>
                         <div
                             className="h-2 w-2 rounded-full border shadow-sm shrink-0"
@@ -133,14 +137,6 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                         >
                             {subTask.name}
                         </h5>
-                        <div
-                            {...attributes}
-                            {...listeners}
-                            onContextMenu={(e) => e.preventDefault()}
-                            className="cursor-grab active:cursor-grabbing p-3 -m-3 touch-none z-20 flex items-center justify-center min-w-[32px] min-h-[32px]"
-                        >
-                            <GripVertical className="h-4 w-4 text-muted-foreground/40" />
-                        </div>
                     </div>
                     {/* {subTask.description && (
                         <p className="text-xs text-muted-foreground line-clamp-1 mt-1 leading-relaxed">
@@ -151,7 +147,7 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
 
 
 
-                <div className="flex items-center justify-between gap-2">
+                {/* <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1">
                         {subTask.startDate && (
                             <>
@@ -178,7 +174,7 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                             </span>
                         </div>
                     )}
-                </div>
+                </div> */}
 
                 <div className="flex items-center justify-between pt-1 border-t mt-auto">
                     <div className="flex items-center gap-3">
@@ -204,6 +200,19 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                                     })}
                                 </span>
                                 {isOverdue && <AlertCircle className="h-3 w-3" />}
+                            </div>
+                        )}
+
+                        {subTask.tag && (
+                            <div className="flex items-center gap-1">
+                                <Tag className="h-2.5 w-2.5 text-muted-foreground" />
+                                <span
+                                    className={cn(
+                                        "text-[10px] font-medium text-muted-foreground"
+                                    )}
+                                >
+                                    {subTask.tag.name}
+                                </span>
                             </div>
                         )}
                     </div>

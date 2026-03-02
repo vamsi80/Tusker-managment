@@ -78,8 +78,8 @@ export function ProjectNav({ workspaceId, slug }: ProjectNavProps) {
                                     : "border-transparent text-muted-foreground"
                             )}
                         >
-                            <Icon className="h-4 w-4" />
-                            <span className="text-xs sm:text-sm">{tab.name}</span>
+                            <Icon className="h-3 w-3" />
+                            <span className="text-xs sm:text-xs">{tab.name}</span>
                         </Link>
                     );
                 })}

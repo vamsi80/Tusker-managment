@@ -1,9 +1,0 @@
-Limit  (cost=21.97..22.00 rows=11 width=483) (actual time=0.748..0.750 rows=7 loops=1)
-  ->  Sort  (cost=21.97..22.00 rows=11 width=483) (actual time=0.747..0.748 rows=7 loops=1)
-        Sort Key: "createdAt" DESC
-        Sort Method: quicksort  Memory: 28kB
-        ->  Seq Scan on "Task"  (cost=0.00..21.78 rows=11 width=483) (actual time=0.105..0.736 rows=7 loops=1)
-              Filter: (("workspaceId" = '52dd2e07-c2a0-46ce-960a-65299f72eebc'::text) AND ((name ~~* '%test%'::text) OR (description ~~* '%test%'::text)))
-              Rows Removed by Filter: 251
-Planning Time: 0.549 ms
-Execution Time: 0.778 ms

@@ -6,13 +6,38 @@ import { generateTimelineColumns, getDaysBetween, getIndianDate } from "./utils"
 import { cn } from "@/lib/utils";
 import { GanttTask, TimelineGranularity } from "./types";
 
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ChevronsDownUp, ChevronsUpDown, Download, Calendar, ChevronDown } from "lucide-react";
+
 interface TimelineHeaderProps {
     startDate: Date;
     endDate: Date;
     granularity: TimelineGranularity;
+    tasks: GanttTask[];
+    expandedTasks: Set<string>;
+    expandedProjects: Set<string>;
+    groupByProject: boolean;
+    onExpandAll: () => void;
+    onCollapseAll: () => void;
+    onExport: () => void;
+    onGranularityChange: (g: TimelineGranularity) => void;
 }
 
-export function TimelineHeader({ startDate, endDate, granularity }: TimelineHeaderProps) {
+export function TimelineHeader({
+    startDate,
+    endDate,
+    granularity,
+    tasks,
+    expandedTasks,
+    expandedProjects,
+    groupByProject,
+    onExpandAll,
+    onCollapseAll,
+    onExport,
+    onGranularityChange
+}: TimelineHeaderProps) {
     const columns = useMemo(
         () => generateTimelineColumns(startDate, endDate, granularity),
         [startDate, endDate, granularity]
@@ -50,6 +75,8 @@ export function TimelineHeader({ startDate, endDate, granularity }: TimelineHead
     const columnWidth = granularity === 'days' ? 40 : granularity === 'weeks' ? 80 : 120;
     const headerHeight = granularity === 'days' ? 72 : 40;
 
+    const allExpanded = tasks.length > 0 && tasks.every(t => expandedTasks.has(t.id));
+
     return (
         <div
             className="sticky top-0 z-40 bg-white dark:bg-neutral-900 min-w-full w-fit"
@@ -84,11 +111,74 @@ export function TimelineHeader({ startDate, endDate, granularity }: TimelineHead
             {/* Day/Week/Month Headers */}
             <div className="flex border-b border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 h-10">
                 <div
-                    className="sticky left-0 z-50 w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] shrink-0 px-3 py-2 bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-700 h-full flex items-center"
+                    className="sticky left-0 z-50 w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] shrink-0 px-3 py-2 bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-700 h-[100%] flex flex-col justify-between"
                 >
-                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                        Tasks
-                    </span>
+                    <div className="flex items-center justify-between w-full h-full">
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                            Tasks
+                        </span>
+
+                        <div className="flex items-center gap-1">
+                            {/* Expand / Collapse toggle */}
+                            <TooltipProvider delayDuration={200}>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={allExpanded ? onCollapseAll : onExpandAll}
+                                            className="h-6 w-6 p-0"
+                                        >
+                                            {allExpanded
+                                                ? <ChevronsDownUp className="h-3.5 w-3.5" />
+                                                : <ChevronsUpDown className="h-3.5 w-3.5" />
+                                            }
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom">
+                                        {allExpanded ? 'Collapse All' : 'Expand All'}
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+
+                            {/* Export */}
+                            <TooltipProvider delayDuration={200}>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={onExport}
+                                            className="h-6 w-6 p-0"
+                                        >
+                                            <Download className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom">Export to Sheets</TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+
+                            {/* Granularity picker */}
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                                        <Calendar className="h-3.5 w-3.5" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => onGranularityChange('days')}>
+                                        Days
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => onGranularityChange('weeks')}>
+                                        Weeks
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => onGranularityChange('months')}>
+                                        Months
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
+                    </div>
                 </div>
                 <div className="flex">
                     {columns.map((col, idx) => (
@@ -223,8 +313,6 @@ export function TimelineGrid({ startDate, endDate, granularity, tasks, children 
                     <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-red-500 dark:bg-red-400" />
                 </div>
             )}
-
-
 
             {/* Content Container (Vertical List of Rows) */}
             <div className="flex flex-col">

@@ -70,14 +70,14 @@ export function ReviewTab({ reviewComments, isLoadingReview }: ReviewTabProps) {
                                     {/* Author Info */}
                                     <div className="flex items-center gap-3 mb-3">
                                         <Avatar className="h-8 w-8">
-                                            <AvatarImage src={author.image || ""} />
+                                            <AvatarImage src={author?.image || ""} />
                                             <AvatarFallback className="text-xs">
-                                                {author.name[0]}
+                                                {author?.name?.[0] || "?"}
                                             </AvatarFallback>
                                         </Avatar>
                                         <div className="flex-1">
                                             <p className="text-sm font-semibold">
-                                                {author.name} {author.surname || ""}
+                                                {author?.name || "Unknown User"} {author?.surname || ""}
                                             </p>
                                             <p className="text-xs text-muted-foreground">
                                                 {new Date(review.createdAt).toLocaleString('en-US', {

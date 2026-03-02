@@ -1,5 +1,0 @@
-Aggregate  (cost=21.10..21.11 rows=1 width=8) (actual time=0.121..0.121 rows=1 loops=1)
-  ->  Seq Scan on "Task"  (cost=0.00..20.41 rows=273 width=0) (actual time=0.014..0.102 rows=258 loops=1)
-        Filter: ("workspaceId" = '52dd2e07-c2a0-46ce-960a-65299f72eebc'::text)
-Planning Time: 0.102 ms
-Execution Time: 0.146 ms
