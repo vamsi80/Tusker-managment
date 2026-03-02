@@ -32,6 +32,7 @@ interface TaskRowProps {
     isSubtask?: boolean;
     onRequestSubtasks?: (taskId: string) => void;
     isCached?: boolean;
+    onTaskClick?: (task: TaskWithSubTasks) => void;
     children?: React.ReactNode;
 }
 
@@ -52,6 +53,7 @@ export const TaskRow = memo(function TaskRow({
     projects,
     onRequestSubtasks,
     isCached = false,
+    onTaskClick,
     children
 }: TaskRowProps) {
     // MAINTAIN OPTIMISTIC LOCAL STATE FOR SMOOTHEST DRAG & DROP / EDITS
@@ -99,17 +101,14 @@ export const TaskRow = memo(function TaskRow({
     if (columnVisibility.assignee) colSpan++;
     if (columnVisibility.startDate) colSpan++;
     if (columnVisibility.dueDate) colSpan++;
-    if (columnVisibility.status) colSpan++;
     if (columnVisibility.progress) colSpan++;
+    if (columnVisibility.status) colSpan++;
     if (columnVisibility.tag) colSpan++;
-    if (columnVisibility.reviewer) colSpan++; // Added reviewer
 
     const handleTaskUpdated = (updatedTask: { name: string; taskSlug: string }) => {
-        // Update the task in parent state immediately (Optimistic Level 1)
+        onTaskUpdated?.(updatedTask);
+        // Optimistically update local name immediately for responsiveness
         setTask(prev => ({ ...prev, name: updatedTask.name, taskSlug: updatedTask.taskSlug }));
-        if (onTaskUpdated) {
-            onTaskUpdated(updatedTask);
-        }
     };
 
     const handleOptimisticSubTaskUpdated = (subTaskId: string, updatedData: any) => {
@@ -229,7 +228,28 @@ export const TaskRow = memo(function TaskRow({
                                 </Button>
                             </div>
                         </div>
-                        <span className="truncate">{task.name}</span>
+                        <span
+                            className="truncate cursor-pointer hover:underline"
+                            onMouseEnter={(e) => {
+                                // INTENT DELAY: Protect the database from mouse-sweeping
+                                const timeout = setTimeout(() => {
+                                    import("@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/subtask-details-sheet").then(m => {
+                                        m.prefetchSubTask(task.id);
+                                    });
+                                }, 150); // 150ms of hover indicates real interest
+                                (e.currentTarget as any)._prefetchTimeout = timeout;
+                            }}
+                            onMouseLeave={(e) => {
+                                // Clear timeout if user mouse leaves before 150ms
+                                const timeout = (e.currentTarget as any)._prefetchTimeout;
+                                if (timeout) clearTimeout(timeout);
+                            }}
+                            onClick={() => {
+                                onTaskClick?.(task);
+                            }}
+                        >
+                            {task.name}
+                        </span>
                         {subtaskCount > 0 && (
                             <span className="text-xs text-muted-foreground">
                                 {subtaskCount}

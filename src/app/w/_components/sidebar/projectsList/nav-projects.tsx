@@ -136,6 +136,7 @@ export function NavProjects({ projects, members, workspaceId, isAdmin, canCreate
                 <SidebarMenuButton asChild>
                   <Link
                     href={href}
+                    onMouseEnter={() => router.prefetch(href)}
                     className={
                       isActive
                         ? "bg-foreground/10 dark:bg-foreground/20 border-foreground/50 hover:bg-foreground/20 dark:hover:bg-foreground/30 text-foreground hover:text-primary"
