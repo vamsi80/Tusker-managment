@@ -250,7 +250,9 @@ export function GanttChart({
             <div
                 ref={scrollContainerRef}
                 className={cn(
-                    "max-h-[calc(100dvh-280px)] overflow-auto rounded-lg border border-neutral-200 dark:border-neutral-700",
+                    "overflow-auto rounded-lg border border-neutral-200 dark:border-neutral-700",
+                    workspaceId && !projectId ? "max-h-[70vh]" : "max-h-[65vh]",
+                    "mt-0",
                     "bg-white dark:bg-neutral-900",
                     "shadow-sm",
                     "[&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2",

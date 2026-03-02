@@ -32,11 +32,13 @@ async function ProjectHeaderLoader({
 
     if (!project) {
         return (
-            <div className="p-6">
-                <h1 className="text-2xl font-semibold">Access Denied</h1>
-                <p className="text-muted-foreground">
-                    You don&apos;t have permission to access this project or it doesn&apos;t exist.
-                </p>
+            <div className="space-y-4">
+                <div className="p-6">
+                    <h1 className="text-2xl font-semibold">Access Denied</h1>
+                    <p className="text-muted-foreground">
+                        You don&apos;t have permission to access this project or it doesn&apos;t exist.
+                    </p>
+                </div>
             </div>
         );
     }
@@ -68,7 +70,7 @@ export default async function ProjectLayout({
 
     return (
         <TaskPageWrapper>
-            <div className="flex flex-col gap-6 pb-3 px-3 h-full">
+            <div className="flex flex-col gap-4 pb-3 px-0 h-full">
                 {/* Header streams in without blocking page content */}
                 <Suspense fallback={<ProjectHeaderSkeleton />}>
                     <ProjectHeaderLoader workspaceId={workspaceId} slug={slug} />

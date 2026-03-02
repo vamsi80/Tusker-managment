@@ -64,7 +64,7 @@ export function WorkspaceTasksHeaderClient({
     }
 
     return (
-        <div className="space-y-2 md:space-y-4">
+        <div className="space-y-0 pt-0 px-0">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
                     {/* <h1 className="text-2xl font-bold tracking-tight md:text-3xl">All Tasks</h1>

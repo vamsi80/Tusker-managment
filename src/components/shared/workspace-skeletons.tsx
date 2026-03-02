@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
  */
 export function WorkspaceTasksSkeleton() {
     return (
-        <div className="flex flex-col gap-4 sm:gap-6 pb-3 px-2 sm:px-3 h-full w-full overflow-hidden">
+        <div className="flex flex-col gap-0 pb-3 px-0 h-full w-full overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between gap-3">
                 <Skeleton className="h-7 sm:h-9 w-36 sm:w-52" />

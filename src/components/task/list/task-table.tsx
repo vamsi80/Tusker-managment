@@ -990,7 +990,7 @@ export function TaskTable({
 
     return (
         <div className="space-y-4 mt-0">
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2">
                 <GlobalFilterToolbar
                     className="flex-1"
                     level={showAdvancedFilters ? "workspace" : "project"}
@@ -1023,7 +1023,9 @@ export function TaskTable({
                     </div>
                 )}
                 <div className={cn(
-                    "max-h-[calc(100dvh-280px)] overflow-auto",
+                    "overflow-auto",
+                    level === "workspace" ? "max-h-[70vh]" : "max-h-[65vh]",
+                    "mt-0",
                     "[&::-webkit-scrollbar]:w-0.5",
                     "[&::-webkit-scrollbar]:h-1",
                     "[&::-webkit-scrollbar-track]:bg-transparent",

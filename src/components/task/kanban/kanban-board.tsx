@@ -4,7 +4,7 @@ import { useRef, useState, useEffect } from "react";
 import { SubTasksByStatusResponse, KanbanSubTaskType } from "@/data/task";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 import { cn } from "@/lib/utils";
-import { useSubTaskSheet, useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
+import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 import { createReviewCommentAction } from "@/actions/comment";
 import { toast } from "sonner";
 import { KanbanCard } from "./kanban-card";
@@ -826,7 +826,7 @@ export function KanbanBoard({
     });
 
     return (
-        <>
+        <div className="space-y-4">
             <GlobalFilterToolbar
                 level={level}
                 view="kanban"
@@ -866,7 +866,8 @@ export function KanbanBoard({
                         </div>
                     )}
                     <div className={cn(
-                        "flex gap-4 h-[calc(100dvh-280px)] overflow-x-auto pb-2 mt-0",
+                        "flex gap-4 overflow-x-auto pb-2",
+                        level === "workspace" ? "h-[70vh] mt-0" : "h-[65vh]",
                         // Custom horizontal scrollbar
                         "[&::-webkit-scrollbar]:h-2",
                         "[&::-webkit-scrollbar-track]:rounded-full",
@@ -907,13 +908,13 @@ export function KanbanBoard({
                 isOpen={isReviewDialogOpen}
                 onClose={handleReviewCommentCancel}
                 onSubmit={handleReviewCommentSubmit}
-                subTaskName={
-                    pendingReviewMove
-                        ? COLUMNS.flatMap(col => columnData[col.id].subTasks)
-                            .find((st) => st.id === pendingReviewMove.subTaskId)?.name || "Subtask"
-                        : "Subtask"
-                }
+                subTaskName={(() => {
+                    const move = pendingReviewMove;
+                    if (!move) return "Subtask";
+                    return COLUMNS.flatMap(col => columnData[col.id].subTasks)
+                        .find((st) => st.id === move.subTaskId)?.name || "Subtask";
+                })()}
             />
-        </>
+        </div>
     );
 }

@@ -12,10 +12,6 @@ import { KanbanSubTaskType } from "@/data/task";
 import { cn } from "@/lib/utils";
 import { getColorFromString } from "@/lib/colors/project-colors";
 
-/**
- * KanbanCard Component
- * ...
- */
 interface KanbanCardProps {
     subTask: KanbanSubTaskType;
     columnColor: string;
@@ -91,12 +87,26 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                     {...listeners}
                     className="cursor-grab active:cursor-grabbing touch-none flex items-center justify-between text-[10px] text-muted-foreground pb-2 border-b border-border/50"
                 >
-                    <div className="flex items-center gap-1.5 truncate max-w-[70%]" title={project?.name}>
-                        <div
-                            className="h-2 w-2 rounded-full border shadow-sm shrink-0"
-                            style={{ backgroundColor: project?.color || getColorFromString(project?.name || "") }}
-                        />
-                        <span className="truncate font-medium">{project?.name}</span>
+                    <div className="flex flex-1 items-center gap-1 min-w-0 mr-2">
+                        <div className="flex items-center gap-1.5 shrink-0 max-w-[45%]" title={`Project: ${project?.name}`}>
+                            <div
+                                className="h-2 w-2 rounded-full border shadow-sm shrink-0"
+                                style={{ backgroundColor: project?.color || getColorFromString(project?.name || "") }}
+                            />
+                            <span className="truncate font-medium">{project?.name}</span>
+                        </div>
+
+                        {subTask.parentTask && (
+                            <div className="flex items-center gap-1 min-w-0">
+                                <span className="text-muted-foreground/40 shrink-0">/</span>
+                                <span
+                                    className="truncate text-[10px] font-medium text-muted-foreground/80"
+                                    title={`Parent: ${subTask.parentTask.name}`}
+                                >
+                                    {subTask.parentTask.name}
+                                </span>
+                            </div>
+                        )}
                     </div>
                     {pmMember && projectManager && (
                         <TooltipProvider>
@@ -111,24 +121,28 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                                         </Avatar>
                                     </div>
                                 </TooltipTrigger>
-                                <TooltipContent side="left" className="text-xs">
-                                    <p className="font-semibold">Project Manager</p>
-                                    <p>{projectManager.surname || projectManager.name}</p>
+                                <TooltipContent side="left" className="text-xs p-2 space-y-0.5">
+                                    <div className="pb-1.5 border-b">
+                                        <p className="font-semibold text-[10px] uppercase tracking-wider">Project</p>
+                                        <p className="font-medium text-[11px] text-primary">{project?.name}</p>
+                                    </div>
+                                    {subTask.parentTask && (
+                                        <div className="pb-1.5 border-b">
+                                            <p className="font-semibold text-[10px] uppercase tracking-wider">Parent Task</p>
+                                            <p className="font-medium text-[11px] text-primary">{subTask.parentTask.name}</p>
+                                        </div>
+                                    )}
+                                    <div>
+                                        <p className="font-semibold text-[10px] uppercase tracking-wider">Project Manager</p>
+                                        <p className="font-medium text-[11px] text-primary">{projectManager.surname || projectManager.name}</p>
+                                    </div>
                                 </TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
                     )}
                 </div>
 
-                <div>
-                    {subTask.parentTask && (
-                        <div className="flex items-center gap-1 mb-1 group/parent cursor-default">
-                            <span className="text-[11px] font-medium text-muted-foreground/80 truncate max-w-[180px]" title={`Parent: ${subTask.parentTask.name}`}>
-                                {subTask.parentTask.name}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground/40">/</span>
-                        </div>
-                    )}
+                <div className="space-y-0">
                     <div className="flex items-start justify-between gap-2 z-30">
                         <h5
                             className="font-semibold text-[13px] leading-snug flex-1 cursor-pointer hover:text-primary transition-colors line-clamp-1"
@@ -138,43 +152,7 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                             {subTask.name}
                         </h5>
                     </div>
-                    {/* {subTask.description && (
-                        <p className="text-xs text-muted-foreground line-clamp-1 mt-1 leading-relaxed">
-                            {subTask.description}
-                        </p>
-                    )} */}
                 </div>
-
-
-
-                {/* <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1">
-                        {subTask.startDate && (
-                            <>
-                                <Calendar className="h-3 w-3 text-muted-foreground" />
-                                <span className="text-[10px] font-medium text-muted-foreground">
-                                    {new Date(subTask.startDate).toLocaleDateString("en-GB", {
-                                        day: '2-digit',
-                                        month: 'short'
-                                    })}
-                                </span>
-                            </>
-                        )}
-                    </div>
-
-                    {subTask.tag && (
-                        <div className="flex items-center gap-1">
-                            <Tag className="h-2.5 w-2.5 text-muted-foreground" />
-                            <span
-                                className={cn(
-                                    "text-[10px] font-medium text-muted-foreground"
-                                )}
-                            >
-                                {subTask.tag.name}
-                            </span>
-                        </div>
-                    )}
-                </div> */}
 
                 <div className="flex items-center justify-between pt-1 border-t mt-auto">
                     <div className="flex items-center gap-3">
@@ -184,23 +162,32 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                         </div>
 
                         {dueDate && (
-                            <div
-                                className={cn(
-                                    "flex items-center gap-1 text-[10px] font-medium",
-                                    isOverdue
-                                        ? "text-destructive dark:text-red-400"
-                                        : "text-muted-foreground"
-                                )}
-                            >
-                                <Calendar className="h-3 w-3" />
-                                <span>
-                                    {new Date(dueDate).toLocaleDateString("en-GB", {
-                                        day: '2-digit',
-                                        month: 'short'
-                                    })}
-                                </span>
-                                {isOverdue && <AlertCircle className="h-3 w-3" />}
-                            </div>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <div
+                                            className={cn(
+                                                "flex items-center gap-1 text-[10px] font-medium cursor-help",
+                                                isOverdue
+                                                    ? "text-destructive dark:text-red-400"
+                                                    : "text-muted-foreground"
+                                            )}
+                                        >
+                                            <Calendar className="h-3 w-3" />
+                                            <span>
+                                                {new Date(dueDate).toLocaleDateString("en-GB", {
+                                                    day: '2-digit',
+                                                    month: 'short'
+                                                })}
+                                            </span>
+                                            {isOverdue && <AlertCircle className="h-3 w-3" />}
+                                        </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top">
+                                        <p className="text-xs font-medium">Due Date</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
                         )}
 
                         {subTask.tag && (
