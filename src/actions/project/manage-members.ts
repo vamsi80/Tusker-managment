@@ -147,6 +147,7 @@ export async function addProjectMembers(
 
         // Revalidate the current path to refresh the UI
         revalidatePath(`/w/${project.workspaceId}/p/${project.slug}`);
+        revalidatePath(`/w/${project.workspaceId}/tasks`);
 
         return {
             status: "success",
@@ -281,6 +282,7 @@ export async function removeProjectMembers(
 
         // Revalidate the current path to refresh the UI
         revalidatePath(`/w/${project.workspaceId}/p/${project.slug}`);
+        revalidatePath(`/w/${project.workspaceId}/tasks`);
 
         return {
             status: "success",
@@ -416,6 +418,7 @@ export async function updateProjectMemberRole(
 
         // Revalidate the current path to refresh the UI
         revalidatePath(`/w/${project.workspaceId}/p/${project.slug}`);
+        revalidatePath(`/w/${project.workspaceId}/tasks`);
 
         const memberName = targetMember.workspaceMember.user?.surname || "Member";
         return {
@@ -531,6 +534,7 @@ export async function toggleProjectMemberAccess(
 
         // Revalidate the current path to refresh the UI
         revalidatePath(`/w/${project.workspaceId}/p/${project.slug}`);
+        revalidatePath(`/w/${project.workspaceId}/tasks`);
 
         return {
             status: "success",

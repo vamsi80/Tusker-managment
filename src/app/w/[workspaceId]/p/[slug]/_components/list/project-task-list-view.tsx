@@ -31,7 +31,7 @@ export async function ProjectTaskListView({
         workspaceId,
         projectId,
         hierarchyMode: "parents",
-        includeSubTasks: true, // Bulk load hierarchy on initial mount
+        // includeSubTasks: true,
         limit: 50 // Load reasonable initial batch
     });
 
