@@ -13,6 +13,7 @@ export { createReviewCommentAction } from "./create-review-comment";
 export { createTaskCommentAction } from "./create-task-comment";
 export { fetchCommentsAction } from "./fetch-comments";
 export { fetchReviewCommentsAction } from "./fetch-review-comments";
+export { getNotificationsAction, markTaskCommentsReadAction } from "./get-notifications";
 
 // Re-export types
 export type { CreateCommentResult } from "./create-comment";

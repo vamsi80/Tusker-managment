@@ -66,16 +66,12 @@ interface ReviewComment {
     createdAt: Date;
 }
 
+// Client-side cache for instant re-opening
+const commentCache = new Map<string, any[]>();
+const reviewCommentCache = new Map<string, any[]>();
+
 /**
  * Subtask Details Sheet Component (Refactored)
- * 
- * Modular architecture with separate components:
- * - SubtaskSheetHeader: Task details and info
- * - SubtaskSheetNavBar: Tab navigation
- * - MessagesTab: Comments section
- * - ReviewTab: Review comments section
- * 
- * Can be used with server wrapper (SubTaskDetailsServer) for pre-fetched data
  */
 export function SubTaskDetailsSheet({
     subTask,
@@ -87,8 +83,8 @@ export function SubTaskDetailsSheet({
     currentUserId: initialCurrentUserId = null,
 }: SubTaskDetailsSheetProps) {
     const [activeTab, setActiveTab] = useState<"messages" | "review">("messages");
-    const [comments, setComments] = useState<Comment[]>(initialComments as Comment[]);
-    const [reviewComments, setReviewComments] = useState<ReviewComment[]>(initialReviewComments as ReviewComment[]);
+    const [comments, setComments] = useState<Comment[]>([]);
+    const [reviewComments, setReviewComments] = useState<ReviewComment[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isLoadingReview, setIsLoadingReview] = useState(false);
     const [currentUserId, setCurrentUserId] = useState<string | null>(initialCurrentUserId);
@@ -99,150 +95,162 @@ export function SubTaskDetailsSheet({
     const loadedSubTaskIdRef = useRef<string>("");
     const reviewCommentsLoadedRef = useRef<boolean>(false);
 
-    // URL synchronization
+    // Initial cache sync
     useEffect(() => {
-        if (disableUrlSync) return;
+        if (subTask) {
+            if (commentCache.has(subTask.id)) {
+                setComments(commentCache.get(subTask.id)!);
+            } else {
+                setComments(initialComments as Comment[]);
+            }
 
-        if (isOpen && subTask) {
-            const params = new URLSearchParams(searchParams.toString());
-            const subtaskIdentifier = subTask.taskSlug || subTask.id;
-            params.set('subtask', subtaskIdentifier);
-            const newUrl = `${pathname}?${params.toString()}`;
-            window.history.pushState(null, '', newUrl);
-        } else if (!isOpen) {
-            const params = new URLSearchParams(searchParams.toString());
-            if (params.has('subtask')) {
-                params.delete('subtask');
-                const newUrl = params.toString()
-                    ? `${pathname}?${params.toString()}`
-                    : pathname;
-                window.history.pushState(null, '', newUrl);
+            if (reviewCommentCache.has(subTask.id)) {
+                setReviewComments(reviewCommentCache.get(subTask.id)!);
+            } else {
+                setReviewComments(initialReviewComments as ReviewComment[]);
             }
         }
-    }, [isOpen, subTask, pathname, searchParams, disableUrlSync]);
+    }, [subTask?.id]);
+
+    // Performance tracking
+    const mountTimeRef = useRef<number>(0);
+
+    useEffect(() => {
+        if (isOpen) {
+            mountTimeRef.current = performance.now();
+            if (typeof window !== 'undefined' && (window as any).lastSheetOpenClick) {
+                const totalDelay = mountTimeRef.current - (window as any).lastSheetOpenClick;
+                console.log(`⏱️ Subtask Sheet visible in: ${totalDelay.toFixed(2)}ms`);
+            }
+        }
+    }, [isOpen]);
+
+    // URL synchronization is now handled globally via context hooks
+    // to ensure consistency across all opening/closing methods.
 
     const loadComments = useCallback(async () => {
         if (!subTask) return;
 
-        // Defer load slightly to prioritize animation
-        setTimeout(async () => {
-            setIsLoading(true);
-            try {
-                const result = await fetchCommentsAction(subTask.id);
-                if (result.success && result.comments) {
-                    setComments(result.comments as Comment[]);
-                    if (result.currentUserId) {
-                        setCurrentUserId(result.currentUserId);
-                    }
-                } else {
-                    toast.error(result.error || "Failed to load comments");
+        setIsLoading(true);
+        const startTime = performance.now();
+        try {
+            const result = await fetchCommentsAction(subTask.id);
+            if (result.success && result.comments) {
+                const fetchedComments = result.comments as Comment[];
+                setComments(fetchedComments);
+                commentCache.set(subTask.id, fetchedComments); // Update cache
+                if (result.currentUserId) {
+                    setCurrentUserId(result.currentUserId);
                 }
-            } catch (error) {
-                console.error("Error loading comments:", error);
-                toast.error("Failed to load comments");
-            } finally {
-                setIsLoading(false);
+                const duration = performance.now() - startTime;
+                console.log(`⏱️ Comments fetched in: ${duration.toFixed(2)}ms`);
+            } else {
+                toast.error(result.error || "Failed to load comments");
             }
-        }, 300);
-    }, [subTask]);
+        } catch (error) {
+            console.error("Error loading comments:", error);
+            toast.error("Failed to load comments");
+        } finally {
+            setIsLoading(false);
+        }
+    }, [subTask?.id]);
 
     const loadReviewComments = useCallback(async () => {
         if (!subTask) return;
 
-        setTimeout(async () => {
-            setIsLoadingReview(true);
-            try {
-                const result = await fetchReviewCommentsAction(subTask.id);
-                if (result.success && result.reviewComments) {
-                    setReviewComments(result.reviewComments as ReviewComment[]);
-                } else {
-                    toast.error(result.error || "Failed to load review comments");
-                }
-            } catch (error) {
-                console.error("Error loading review comments:", error);
-                toast.error("Failed to load review comments");
-            } finally {
-                setIsLoadingReview(false);
+        setIsLoadingReview(true);
+        try {
+            const result = await fetchReviewCommentsAction(subTask.id);
+            if (result.success && result.reviewComments) {
+                const fetchedReviewComments = result.reviewComments as ReviewComment[];
+                setReviewComments(fetchedReviewComments);
+                reviewCommentCache.set(subTask.id, fetchedReviewComments); // Update cache
+            } else {
+                toast.error(result.error || "Failed to load review comments");
             }
-        }, 100);
-    }, [subTask]);
+        } catch (error) {
+            console.error("Error loading review comments:", error);
+            toast.error("Failed to load review comments");
+        } finally {
+            setIsLoadingReview(false);
+        }
+    }, [subTask?.id]);
 
     // Fetch comments when subtask changes or sheet opens
     useEffect(() => {
         if (subTask && isOpen && loadedSubTaskIdRef.current !== subTask.id) {
             loadedSubTaskIdRef.current = subTask.id;
-            // Only load if no initial data provided
-            if (initialComments.length === 0) {
-                loadComments();
-            }
+            loadComments();
         }
 
         // Reset when sheet closes
         if (!isOpen) {
             loadedSubTaskIdRef.current = "";
         }
-    }, [subTask?.id, isOpen, loadComments, initialComments.length]);
+    }, [subTask?.id, isOpen, loadComments]);
 
     // Load review comments when switching to review tab
     useEffect(() => {
         if (activeTab === "review" && subTask && !reviewCommentsLoadedRef.current && !isLoadingReview) {
-            // Only load if no initial data provided
-            if (initialReviewComments.length === 0) {
-                reviewCommentsLoadedRef.current = true;
-                loadReviewComments();
-            } else {
-                reviewCommentsLoadedRef.current = true;
-            }
+            reviewCommentsLoadedRef.current = true;
+            loadReviewComments();
         }
 
         // Reset when subtask changes
         if (subTask?.id !== loadedSubTaskIdRef.current) {
             reviewCommentsLoadedRef.current = false;
         }
-    }, [activeTab, subTask?.id, isLoadingReview, initialReviewComments.length, loadReviewComments]);
-
-    if (!subTask) return null;
+    }, [activeTab, subTask?.id, isLoadingReview, loadReviewComments]);
 
     return (
         <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <SheetContent className="w-full sm:max-w-2xl p-0 flex flex-col h-full">
-                <SheetTitle className="sr-only">{subTask.name}</SheetTitle>
-                <SheetDescription className="sr-only">
-                    Details and activity for subtask {subTask.name}
-                </SheetDescription>
-                {/* Header Component */}
-                <SubtaskSheetHeader subTask={subTask} />
+            <SheetContent className="w-full sm:max-w-2xl p-0 flex flex-col h-full bg-background border-l">
+                {subTask ? (
+                    <>
+                        <SheetTitle className="sr-only">{subTask.name}</SheetTitle>
+                        <SheetDescription className="sr-only">
+                            Details and activity for subtask {subTask.name}
+                        </SheetDescription>
+                        {/* Header Component */}
+                        <SubtaskSheetHeader subTask={subTask} />
 
-                {/* Tabbed Section - Takes Remaining Space */}
-                <div className="border-t flex-1 flex flex-col min-h-0">
-                    <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "messages" | "review")} className="flex flex-col h-full">
-                        {/* Navigation Bar Component */}
-                        <SubtaskSheetNavBar
-                            activeTab={activeTab}
-                            onTabChange={setActiveTab}
-                            messagesCount={comments.length}
-                            reviewCount={reviewComments.length}
-                        />
+                        {/* Tabbed Section - Takes Remaining Space */}
+                        <div className="border-t flex-1 flex flex-col min-h-0">
+                            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "messages" | "review")} className="flex flex-col h-full">
+                                {/* Navigation Bar Component */}
+                                <SubtaskSheetNavBar
+                                    activeTab={activeTab}
+                                    onTabChange={setActiveTab}
+                                    messagesCount={comments.length}
+                                    reviewCount={reviewComments.length}
+                                />
 
-                        {/* Tab Content - Only render active tab to save mount time */}
-                        {activeTab === "messages" && (
-                            <MessagesTab
-                                taskId={subTask.id}
-                                comments={comments}
-                                setComments={setComments}
-                                currentUserId={currentUserId}
-                                isLoading={isLoading}
-                            />
-                        )}
+                                {/* Tab Content */}
+                                {activeTab === "messages" && (
+                                    <MessagesTab
+                                        taskId={subTask.id}
+                                        comments={comments}
+                                        setComments={setComments}
+                                        currentUserId={currentUserId}
+                                        isLoading={isLoading}
+                                    />
+                                )}
 
-                        {activeTab === "review" && (
-                            <ReviewTab
-                                reviewComments={reviewComments}
-                                isLoadingReview={isLoadingReview}
-                            />
-                        )}
-                    </Tabs>
-                </div>
+                                {activeTab === "review" && (
+                                    <ReviewTab
+                                        reviewComments={reviewComments}
+                                        isLoadingReview={isLoadingReview}
+                                    />
+                                )}
+                            </Tabs>
+                        </div>
+                    </>
+                ) : (
+                    <div className="flex flex-col h-full items-center justify-center p-8 space-y-4">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+                        <span className="text-sm text-muted-foreground">Preparing subtask...</span>
+                    </div>
+                )}
             </SheetContent>
         </Sheet>
     );

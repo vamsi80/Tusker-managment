@@ -3,6 +3,7 @@
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
 import { invalidateTaskComments } from "@/lib/cache/invalidation";
+import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 
 export interface CreateTaskCommentResult {
     success: boolean;
@@ -54,20 +55,43 @@ export async function createTaskCommentAction(
             };
         }
 
-        // 3. Verify task exists
+        // 3. Verify task exists and check permissions
         const task = await prisma.task.findUnique({
             where: { id: taskId },
-            select: {
-                id: true,
-                projectId: true,
-            },
+            include: {
+                project: {
+                    select: {
+                        workspaceId: true
+                    }
+                }
+            }
         });
 
         if (!task) {
-            return {
-                success: false,
-                error: "Task not found",
-            };
+            return { success: false, error: "Task not found" };
+        }
+
+        const workspaceId = task.project.workspaceId;
+        const perms = await getWorkspacePermissions(workspaceId);
+
+        if (!perms.workspaceMemberId) {
+            return { success: false, error: "Access denied" };
+        }
+
+        // Authorization check:
+        // - Admin/Owner: Full access
+        // - Project Lead/PM of this project: Can comment
+        // - Task participants (Assignee, Creator, Reviewer): Can comment
+        const isProjectAuthority = perms.isWorkspaceAdmin ||
+            (perms.leadProjectIds || []).includes(task.projectId) ||
+            (perms.managedProjectIds || []).includes(task.projectId);
+
+        const isTaskParticipant = task.assigneeTo === user.id ||
+            task.createdById === user.id ||
+            task.reviewerId === user.id;
+
+        if (!isProjectAuthority && !isTaskParticipant) {
+            return { success: false, error: "You don't have permission to message in this project" };
         }
 
         // 4. If it's a reply, verify parent comment exists

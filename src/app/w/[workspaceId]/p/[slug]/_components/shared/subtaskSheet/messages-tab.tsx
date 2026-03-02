@@ -100,7 +100,7 @@ export function MessagesTab({
         <TabsContent value="messages" className="flex-1 flex flex-col m-0 data-[state=inactive]:hidden overflow-hidden">
             {/* Chat Messages - Scrollable Area */}
             <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 bg-muted/20 min-h-0">
-                {isLoading ? (
+                {isLoading && comments.length === 0 ? (
                     <div className="flex items-center justify-center h-full">
                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                     </div>

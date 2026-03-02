@@ -11,20 +11,18 @@ export async function ProjectKanbanView({
     workspaceId,
     projectId
 }: ProjectKanbanViewProps) {
-    // ONE QUERY: Fetch all tasks for this project across all statuses
     const [tasksResponse, projectMembers] = await Promise.all([
         getTasks({
             workspaceId,
             projectId,
             groupBy: "status",
-            excludeParents: true, // ONLY FETCH CARDS (NOT PARENTS)
+            excludeParents: true,
             limit: 100,
             sorts: [{ field: "createdAt", direction: "desc" }]
         }),
         getProjectMembers(projectId),
     ]);
 
-    // Group tasks by status in JS with strict deduplication
     const statusGroups: Record<string, any[]> = {
         TO_DO: [],
         IN_PROGRESS: [],
@@ -36,11 +34,9 @@ export async function ProjectKanbanView({
 
     const idSet = new Set();
     tasksResponse.tasks.forEach((task: any) => {
-        // Guard 1: Deduplicate
         if (idSet.has(task.id)) return;
         idSet.add(task.id);
 
-        // Guard 2: Strict Status Grouping
         if (task.status && statusGroups[task.status]) {
             statusGroups[task.status].push(task);
         }

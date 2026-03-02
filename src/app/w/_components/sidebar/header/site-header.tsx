@@ -1,5 +1,6 @@
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
+import { NotificationCenter } from "./notification-center"
 import ThemeToggle from "../../../../../components/ui/theme-toggle"
 
 export function SiteHeader() {
@@ -11,8 +12,9 @@ export function SiteHeader() {
           orientation="vertical"
           className="mx-2 data-[orientation=vertical]:h-4"
         />
-        <h1 className="text-base font-medium">White Tusker</h1>
-        <div className="ml-auto flex items-center gap-2">
+        <h1 className="text-base font-medium text-foreground">White Tusker</h1>
+        <div className="ml-auto flex items-center gap-3">
+          <NotificationCenter />
           <ThemeToggle />
         </div>
       </div>

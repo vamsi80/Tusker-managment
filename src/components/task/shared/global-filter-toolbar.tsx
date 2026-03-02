@@ -242,7 +242,7 @@ export function GlobalFilterToolbar({
     };
 
     return (
-        <div className={cn("space-y-3", className)}>
+        <div className={cn("space-y-0", className)}>
             <style>{DATE_RANGE_THEME_OVERRIDE}</style>
             {/* Top Bar with Search and Filter Button */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">

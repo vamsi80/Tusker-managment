@@ -127,8 +127,6 @@ const getCachedReviewComments = (subTaskId: string) =>
  * @returns Array of review comments with author information
  */
 export const getReviewComments = cache(async (subTaskId: string) => {
-    const user = await requireUser();
-
     try {
         return await getCachedReviewComments(subTaskId);
     } catch (error) {

@@ -31,13 +31,20 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({ subTask }: 
     return (
         <div className="px-4 sm:px-6 pt-6 pb-4 border-b flex-shrink-0">
             <div className="flex items-start justify-between">
-                <div className="flex-1">
-                    <h2 className="text-xl sm:text-2xl font-semibold break-words">
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground/60 uppercase tracking-widest mb-1.5 truncate">
+                        <span className="truncate">{subTask.project?.name}</span>
+                        {subTask.parentTask && (
+                            <>
+                                <span className="text-muted-foreground/30">/</span>
+                                <span className="truncate">{subTask.parentTask.name}</span>
+                            </>
+                        )}
+                        <span className="text-muted-foreground/30">/</span>
+                    </div>
+                    <h2 className="text-xl sm:text-2xl font-bold break-words leading-tight text-foreground">
                         {subTask.name}
                     </h2>
-                    <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
-                        Subtask Details & Activity
-                    </p>
                 </div>
             </div>
 

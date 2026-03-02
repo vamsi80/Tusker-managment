@@ -25,7 +25,7 @@ export default async function WorkspaceTasksLayout({ children, params }: Props) 
 
     return (
         <TaskPageWrapper>
-            <div className="flex flex-col gap-4 sm:gap-6 pb-3 px-0 h-full">
+            <div className="flex flex-col gap-4 pt-0 pb-3 px-0 h-full">
                 <Suspense fallback={<HeaderSkeleton />}>
                     <WorkspaceTasksHeader workspaceId={workspaceId} />
                 </Suspense>
