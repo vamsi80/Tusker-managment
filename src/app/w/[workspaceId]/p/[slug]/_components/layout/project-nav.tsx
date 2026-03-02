@@ -70,6 +70,7 @@ export function ProjectNav({ workspaceId, slug }: ProjectNavProps) {
                             key={tab.href}
                             href={tab.href}
                             prefetch={true}
+                            onMouseEnter={() => router.prefetch(tab.href)}
                             onClick={(e) => handleViewChange(tab.href, e)}
                             className={cn(
                                 "flex h-full items-center gap-2 border-b-2 px-2 sm:px-3 text-sm font-medium transition-colors hover:text-primary whitespace-nowrap flex-shrink-0",

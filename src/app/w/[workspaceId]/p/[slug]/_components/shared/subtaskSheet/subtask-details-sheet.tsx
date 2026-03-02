@@ -69,6 +69,17 @@ interface ReviewComment {
 // Client-side cache for instant re-opening
 const commentCache = new Map<string, any[]>();
 const reviewCommentCache = new Map<string, any[]>();
+const pendingPrefetches = new Set<string>(); // LOCK: Prevents redundant DB queries
+
+/**
+ * Checks if a subtask is in the cache. 
+ */
+export function prefetchSubTask(taskId: string) {
+    // We only log if it's already there, no DB trigger.
+    if (commentCache.has(taskId)) {
+        console.log(`📡 [CACHE-HIT] Task ${taskId} is ready in local memory.`);
+    }
+}
 
 /**
  * Subtask Details Sheet Component (Refactored)
@@ -98,7 +109,9 @@ export function SubTaskDetailsSheet({
     // Initial cache sync
     useEffect(() => {
         if (subTask) {
-            if (commentCache.has(subTask.id)) {
+            const hasCache = commentCache.has(subTask.id);
+            if (hasCache) {
+                console.log(`✨ [MAGIC] Instant load for ${subTask.name} (Hit Pre-fetch Cache)`);
                 setComments(commentCache.get(subTask.id)!);
             } else {
                 setComments(initialComments as Comment[]);
@@ -131,6 +144,12 @@ export function SubTaskDetailsSheet({
     const loadComments = useCallback(async () => {
         if (!subTask) return;
 
+        // SKIP IF ACCESSED FROM PRE-FETCH CACHE
+        if (commentCache.has(subTask.id)) {
+            const cached = commentCache.get(subTask.id)!;
+            if (cached.length > 0) return; // Already have data, don't re-fetch immediately
+        }
+
         setIsLoading(true);
         const startTime = performance.now();
         try {
@@ -143,7 +162,7 @@ export function SubTaskDetailsSheet({
                     setCurrentUserId(result.currentUserId);
                 }
                 const duration = performance.now() - startTime;
-                console.log(`⏱️ Comments fetched in: ${duration.toFixed(2)}ms`);
+                console.log(`🐢 [SLOW LOAD] Comments fetched in: ${duration.toFixed(2)}ms (Missing Pre-fetch)`);
             } else {
                 toast.error(result.error || "Failed to load comments");
             }

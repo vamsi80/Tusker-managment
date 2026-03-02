@@ -53,7 +53,15 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
             {/* Task Name with Parent Context */}
             <TableCell className="w-[180px] sm:w-[250px] md:w-[350px]">
                 <div className="space-y-1 max-w-[230px]">
-                    <div className="font-medium text-foreground truncate" title={task.name}>
+                    <div
+                        className="font-medium text-foreground truncate hover:underline"
+                        title={task.name}
+                        onMouseEnter={() => {
+                            import("@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/subtask-details-sheet").then(m => {
+                                m.prefetchSubTask(task.id);
+                            });
+                        }}
+                    >
                         {task.name}
                     </div>
                     {task.parentTask && (

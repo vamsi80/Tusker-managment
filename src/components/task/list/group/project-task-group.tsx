@@ -161,6 +161,7 @@ export function ProjectTaskGroup({
                         projects={projects}
                         onRequestSubtasks={onRequestSubtasks}
                         isCached={!!getCachedSubTasks(task.id)}
+                        onTaskClick={handleSubTaskClick}
                     >
                         <SubTaskList
                             task={task}
