@@ -496,3 +496,17 @@ export type CreatePOItemInput = z.infer<typeof createPOItemSchema>;
 // export type CreatePOFormData = z.infer<typeof createPOFormSchema>;
 export type CreatePOInput = z.infer<typeof createPOSchema>;
 export type UpdateWorkspaceInfoType = z.infer<typeof updateWorkspaceInfoSchema>;
+
+export const dailyReportEntrySchema = z.object({
+    id: z.string().optional(),
+    taskId: z.string().nullable().optional(), // 'other' explicitly maps to null
+    description: z.string().min(15, "Description must be at least 15 characters long."),
+});
+
+export const dailyReportSchema = z.object({
+    workspaceId: z.string().uuid(),
+    entries: z.array(dailyReportEntrySchema).min(1, "At least one report entry is required."),
+});
+
+export type DailyReportEntryType = z.infer<typeof dailyReportEntrySchema>;
+export type DailyReportFormType = z.infer<typeof dailyReportSchema>;
