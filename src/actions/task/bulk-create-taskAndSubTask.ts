@@ -1,13 +1,11 @@
 "use server"
 
 import { getUserPermissions } from "@/data/user/get-user-permissions";
-import { invalidateProjectTasks } from "@/lib/cache/invalidation";
+import { invalidateTaskMutation } from "@/lib/cache/invalidation";
 import { requireUser } from "@/lib/auth/require-user";
 import prisma from "@/lib/db";
 import { generateUniqueSlugs } from "@/lib/slug-generator";
 import { ApiResponse } from "@/lib/types";
-import { revalidatePath } from "next/cache";
-
 function calculateDueDate(startDate: Date | undefined, days: number | undefined): Date | undefined {
     if (!startDate || days === undefined || days === null) return undefined;
     const dueDate = new Date(startDate.getTime());
@@ -329,9 +327,12 @@ export async function bulkUploadTasksAndSubtasks(data: {
             timeout: 30000,
         });
 
-        // Revalidate cache
-        revalidatePath(`/w/${project.workspaceId}/p/${project.slug}/task`);
-        await invalidateProjectTasks(data.projectId);
+        // Revalidate caches globally
+        await invalidateTaskMutation({
+            projectId: data.projectId,
+            workspaceId: project.workspaceId,
+            userId: user.id
+        });
 
         const taskCount = createdItems.filter(i => i.type === 'task').length;
         const subtaskCount = createdItems.filter(i => i.type === 'subtask').length;

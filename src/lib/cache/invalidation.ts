@@ -287,5 +287,8 @@ export async function invalidateTaskMutation(params: {
         invalidations.push(invalidateWorkspaceTaskCreationData(workspaceId, userId));
     }
 
+    // Invalidate workspace tags (since task counts might have changed)
+    invalidations.push(invalidateWorkspaceTags(workspaceId));
+
     await Promise.all(invalidations);
 }

@@ -15,31 +15,47 @@ import { getUserPermissions } from "@/data/user/get-user-permissions";
  * - Does NOT fetch mutable business data (tasks, members lists, etc.)
  */
 export const getProjectMetadata = cache(async (workspaceId: string, slug: string) => {
-    const user = await requireUser();
+    try {
+        const user = await requireUser();
 
-    // Get basic project info (already cached)
-    const project = await getProjectBySlug(workspaceId, slug);
+        // Get basic project info (already cached)
+        const project = await getProjectBySlug(workspaceId, slug);
 
-    if (!project) {
+        if (!project) {
+            return null;
+        }
+
+        // Get user permissions using the project's actual workspaceId to avoid slug/id mismatches
+        const permissions = await getUserPermissions(project.workspaceId, project.id);
+
+        // Security check:
+        // 1. User must be a member of the workspace (workspaceMemberId must exist)
+        // 2. User must have access:
+        //    - Either they are a Workspace Admin/Owner
+        //    - Or they are explicitly added to the project (projectMember exists)
+        if (!permissions.workspaceMemberId) {
+            return null;
+        }
+
+        const hasAccess = permissions.isWorkspaceAdmin || !!permissions.projectMember;
+
+        if (!hasAccess) {
+            return null;
+        }
+
+        return {
+            id: project.id,
+            name: project.name,
+            slug: project.slug,
+            color: project.color,
+            workspaceId: project.workspaceId,
+            userId: user.id,
+            canPerformBulkOperations: permissions.canPerformBulkOperations,
+        };
+    } catch (error) {
+        console.error("Error in getProjectMetadata:", error);
         return null;
     }
-
-    // Get user permissions (already cached)
-    const permissions = await getUserPermissions(workspaceId, project.id);
-
-    if (!permissions.workspaceMemberId) {
-        return null;
-    }
-
-    return {
-        id: project.id,
-        name: project.name,
-        slug: project.slug,
-        color: project.color,
-        workspaceId: project.workspaceId,
-        userId: user.id,
-        canPerformBulkOperations: permissions.canPerformBulkOperations,
-    };
 });
 
 export type ProjectMetadata = Awaited<ReturnType<typeof getProjectMetadata>>;

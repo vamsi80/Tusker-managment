@@ -1,53 +1,74 @@
+import { cache } from "react";
+import { unstable_cache } from "next/cache";
+import { CacheTags } from "@/data/cache-tags";
 import prisma from "@/lib/db";
 
 /**
  * Get all tags for a workspace
  */
-export async function getWorkspaceTags(workspaceId: string) {
-    try {
-        const tags = await prisma.tag.findMany({
-            where: {
-                workspaceId,
-            },
-            orderBy: {
-                name: "asc",
-            },
-        });
+export const getWorkspaceTags = cache(async (workspaceId: string) => {
+    return unstable_cache(
+        async () => {
+            try {
+                const tags = await prisma.tag.findMany({
+                    where: {
+                        workspaceId,
+                    },
+                    orderBy: {
+                        name: "asc",
+                    },
+                });
 
-        return tags;
-    } catch (error) {
-        console.error("Error fetching workspace tags:", error);
-        throw new Error("Failed to fetch workspace tags");
-    }
-}
+                return tags;
+            } catch (error) {
+                console.error("Error fetching workspace tags:", error);
+                throw new Error("Failed to fetch workspace tags");
+            }
+        },
+        [`workspace-tags-${workspaceId}`],
+        {
+            tags: CacheTags.workspaceTags(workspaceId),
+            revalidate: 60 * 60 * 24, // 24 hours
+        }
+    )();
+});
 
 /**
  * Get all tags for a workspace with task counts
  */
-export async function getWorkspaceTagsWithCount(workspaceId: string) {
-    try {
-        const tags = await prisma.tag.findMany({
-            where: {
-                workspaceId,
-            },
-            include: {
-                _count: {
-                    select: {
-                        tasks: true,
+export const getWorkspaceTagsWithCount = cache(async (workspaceId: string) => {
+    return unstable_cache(
+        async () => {
+            try {
+                const tags = await prisma.tag.findMany({
+                    where: {
+                        workspaceId,
                     },
-                },
-            },
-            orderBy: {
-                name: "asc",
-            },
-        });
+                    include: {
+                        _count: {
+                            select: {
+                                tasks: true,
+                            },
+                        },
+                    },
+                    orderBy: {
+                        name: "asc",
+                    },
+                });
 
-        return tags;
-    } catch (error) {
-        console.error("Error fetching workspace tags with count:", error);
-        throw new Error("Failed to fetch workspace tags with count");
-    }
-}
+                return tags;
+            } catch (error) {
+                console.error("Error fetching workspace tags with count:", error);
+                throw new Error("Failed to fetch workspace tags with count");
+            }
+        },
+        [`workspace-tags-count-${workspaceId}`],
+        {
+            tags: CacheTags.workspaceTags(workspaceId),
+            revalidate: 60 * 60 * 24, // 24 hours
+        }
+    )();
+});
 
 /**
  * Get a single tag by ID
