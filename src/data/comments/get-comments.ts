@@ -101,7 +101,7 @@ async function _getReviewCommentsInternal(subTaskId: string) {
             },
         },
         orderBy: {
-            createdAt: 'asc',
+            createdAt: 'desc',
         },
     });
 }

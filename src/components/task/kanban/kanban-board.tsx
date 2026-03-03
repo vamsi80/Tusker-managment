@@ -209,6 +209,7 @@ export function KanbanBoard({
     const [pendingReviewMove, setPendingReviewMove] = useState<{
         subTaskId: string;
         previousStatus: TaskStatus;
+        targetStatus: TaskStatus;
     } | null>(null);
 
     const [filters, setFilters] = useState<TaskFilters>({});
@@ -292,7 +293,7 @@ export function KanbanBoard({
                     groupBy: "status",
                     includeSubTasks: true,
                     excludeParents: true, // ONLY CARDS
-                    limit: 300,
+                    limit: 100,
                     sorts: [{ field: "createdAt", direction: "desc" }],
                     includeFacets: true,
                     status: undefined,
@@ -496,12 +497,13 @@ export function KanbanBoard({
 
         const previousStatus = currentStatus;
 
-        if (newStatus === "REVIEW") {
+        if (newStatus === "REVIEW" || (previousStatus === "REVIEW" && newStatus !== "COMPLETED")) {
             moveSubTaskBetweenColumns(subTaskId, previousStatus, newStatus);
 
             setPendingReviewMove({
                 subTaskId,
                 previousStatus,
+                targetStatus: newStatus,
             });
             setIsReviewDialogOpen(true);
             return;
@@ -734,14 +736,16 @@ export function KanbanBoard({
                 comment,
                 workspaceId,
                 targetProjectId,
-                attachmentData
+                attachmentData,
+                pendingReviewMove.previousStatus,
+                pendingReviewMove.targetStatus
             );
 
             if (!reviewResult.success) {
                 // Rollback
                 moveSubTaskBetweenColumns(
                     pendingReviewMove.subTaskId,
-                    "REVIEW",
+                    pendingReviewMove.targetStatus,
                     pendingReviewMove.previousStatus
                 );
                 toast.error(reviewResult.error || "Failed to create review comment");
@@ -751,7 +755,7 @@ export function KanbanBoard({
 
             await performStatusUpdate(
                 pendingReviewMove.subTaskId,
-                "REVIEW",
+                pendingReviewMove.targetStatus,
                 pendingReviewMove.previousStatus,
                 reviewResult.reviewCommentId
             );
@@ -762,7 +766,7 @@ export function KanbanBoard({
             if (pendingReviewMove) {
                 moveSubTaskBetweenColumns(
                     pendingReviewMove.subTaskId,
-                    "REVIEW",
+                    pendingReviewMove.targetStatus,
                     pendingReviewMove.previousStatus
                 );
             }
@@ -775,7 +779,7 @@ export function KanbanBoard({
         if (pendingReviewMove) {
             moveSubTaskBetweenColumns(
                 pendingReviewMove.subTaskId,
-                "REVIEW",
+                pendingReviewMove.targetStatus,
                 pendingReviewMove.previousStatus
             );
             setPendingReviewMove(null);

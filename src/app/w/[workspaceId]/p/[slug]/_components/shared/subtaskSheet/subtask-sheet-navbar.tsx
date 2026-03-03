@@ -10,14 +10,6 @@ interface SubtaskSheetNavBarProps {
     reviewCount: number;
 }
 
-/**
- * Subtask Sheet Navigation Bar
- * 
- * Styled like ProjectNav with bottom border indicators
- * Tab navigation for switching between:
- * - Messages (comments)
- * - Review (review comments)
- */
 export function SubtaskSheetNavBar({
     activeTab,
     onTabChange,
@@ -50,16 +42,16 @@ export function SubtaskSheetNavBar({
                             key={tab.value}
                             onClick={() => onTabChange(tab.value)}
                             className={cn(
-                                "flex h-full items-center gap-2 border-b-2 px-3 text-sm font-medium transition-colors hover:text-primary whitespace-nowrap flex-shrink-0",
+                                "flex h-full items-center gap-2 border-b-2 px-1 text-xs font-medium transition-colors hover:text-primary whitespace-nowrap flex-shrink-0",
                                 isActive
                                     ? "border-primary text-primary"
                                     : "border-transparent text-muted-foreground"
                             )}
                         >
-                            <Icon className="h-4 w-4" />
+                            <Icon className="h-3 w-3" />
                             <span>{tab.name}</span>
                             <span className={cn(
-                                "ml-1 rounded-full px-2 py-0.5 text-xs font-semibold",
+                                "ml-1 rounded-full px-2 py-0.5 text-xs font-medium",
                                 isActive
                                     ? "bg-primary/10 text-primary"
                                     : "bg-muted text-muted-foreground"
