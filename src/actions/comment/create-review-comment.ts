@@ -30,7 +30,9 @@ export async function createReviewCommentAction(
         fileType: string;
         fileSize: number;
         base64Data: string;
-    }
+    },
+    previousStatus?: string,
+    targetStatus?: string
 ): Promise<CreateReviewCommentResult> {
     try {
         // 1. Authenticate user
@@ -86,15 +88,18 @@ export async function createReviewCommentAction(
             };
         }
 
-        // 5. Prepare attachment JSON if provided
         let attachmentJson: any = null;
-        if (attachmentData) {
+        if (attachmentData || previousStatus || targetStatus) {
             attachmentJson = {
-                fileName: attachmentData.fileName,
-                fileType: attachmentData.fileType,
-                fileSize: attachmentData.fileSize,
-                data: attachmentData.base64Data,
-                uploadedAt: new Date().toISOString(),
+                ...(attachmentData ? {
+                    fileName: attachmentData.fileName,
+                    fileType: attachmentData.fileType,
+                    fileSize: attachmentData.fileSize,
+                    data: attachmentData.base64Data,
+                    uploadedAt: new Date().toISOString(),
+                } : {}),
+                ...(previousStatus ? { previousStatus } : {}),
+                ...(targetStatus ? { targetStatus } : {}),
             };
         }
 

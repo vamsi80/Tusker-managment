@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { TabsContent } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ArrowUp, Loader2 } from "lucide-react";
-import { createTaskCommentAction } from "@/actions/comment";
+import { createTaskCommentAction, markTaskCommentsReadAction } from "@/actions/comment";
 
 interface Comment {
     id: string;
@@ -66,6 +66,13 @@ export function MessagesTab({
     useEffect(() => {
         scrollToBottom();
     }, [comments]);
+
+    // Mark comments as read when tab is opened
+    useEffect(() => {
+        if (taskId) {
+            markTaskCommentsReadAction(taskId).catch(console.error);
+        }
+    }, [taskId]);
 
     const handleSendMessage = async () => {
         if (!message.trim()) return;
@@ -134,14 +141,14 @@ export function MessagesTab({
                                     )}>
                                         <div
                                             className={cn(
-                                                "rounded-2xl px-4 py-2.5 shadow-sm",
+                                                "rounded-lg px-2 py-1 shadow-sm",
                                                 isCurrentUser
-                                                    ? "bg-primary text-primary-foreground rounded-br-sm"
-                                                    : "bg-background text-foreground rounded-bl-sm border"
+                                                    ? "bg-primary text-primary-foreground rounded-br-xs"
+                                                    : "bg-background text-foreground rounded-bl-xs border"
                                             )}
                                         >
                                             {!isCurrentUser && (
-                                                <p className="text-xs font-semibold mb-1 text-primary">
+                                                <p className="text-xs font-normal text-primary">
                                                     {comment.user.name} {comment.user.surname || ""}
                                                 </p>
                                             )}
@@ -149,7 +156,7 @@ export function MessagesTab({
                                                 {comment.content}
                                             </p>
                                             <span className={cn(
-                                                "text-xs mt-1 block",
+                                                "text-[10px] mt-0 block",
                                                 isCurrentUser ? "text-primary-foreground/70" : "text-muted-foreground"
                                             )}>
                                                 {new Date(comment.createdAt).toLocaleTimeString('en-US', {

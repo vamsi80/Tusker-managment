@@ -50,18 +50,18 @@ interface ReviewComment {
     id: string;
     text: string;
     attachment: {
-        fileName: string;
-        fileType: string;
-        fileSize: number;
-        url: string;
+        fileName?: string;
+        fileType?: string;
+        fileSize?: number;
+        url?: string;
+        previousStatus?: string;
+        targetStatus?: string;
     } | null;
     author: {
         id: string;
-        user: {
-            name: string;
-            surname: string;
-            image: string;
-        };
+        name: string;
+        surname: string;
+        image: string;
     };
     createdAt: Date;
 }
