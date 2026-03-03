@@ -5,6 +5,7 @@ import { SiteHeader } from "../_components/sidebar/header/site-header";
 import { getWorkspaces } from "@/data/workspace/get-workspaces";
 import { getWorkspaceMetadata } from "@/data/workspace/get-workspace-metadata";
 import { notFound } from "next/navigation";
+import { DailyReportFAB } from "@/components/daily-report/DailyReportFAB";
 
 interface Props {
     children: React.ReactNode;
@@ -53,6 +54,9 @@ export default async function WorkSpaceLayout({ children, params }: Props) {
                     </div>
                 </div>
             </SidebarInset>
+            <Suspense fallback={null}>
+                <DailyReportFAB workspaceId={workspaceId} />
+            </Suspense>
         </SidebarProvider>
     );
 }

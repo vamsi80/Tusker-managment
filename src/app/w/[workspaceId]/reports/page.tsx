@@ -1,0 +1,137 @@
+import { notFound } from "next/navigation";
+import { ReportsTable } from "./_components/report-table";
+import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import { getWorkspaceMembers } from "@/data/workspace/get-workspace-members";
+import prisma from "@/lib/db";
+
+export default async function ReportsPage({
+    params,
+    searchParams
+}: {
+    params: Promise<{ workspaceId: string }>;
+    searchParams: Promise<{ date?: string; userId?: string }>;
+}) {
+    const { workspaceId } = await params;
+    const { isWorkspaceAdmin, workspaceMember } = await getWorkspacePermissions(workspaceId);
+
+    if (!workspaceMember) {
+        return notFound();
+    }
+
+    const { workspaceMembers } = await getWorkspaceMembers(workspaceId);
+    const search = await searchParams;
+
+    // Optional date filter
+    const dateQuery = search.date ? new Date(search.date) : undefined;
+    if (dateQuery) dateQuery.setHours(0, 0, 0, 0);
+
+    // If not admin, only show own reports
+    const effectiveUserId = isWorkspaceAdmin ? search.userId : workspaceMember.userId;
+
+    const reports = await prisma.dailyReport.findMany({
+        where: {
+            workspaceId,
+            ...(dateQuery ? { date: dateQuery } : {}),
+            ...(effectiveUserId ? { userId: effectiveUserId } : {})
+        },
+        include: {
+            user: {
+                select: {
+                    name: true,
+                    surname: true,
+                    image: true,
+                    email: true
+                }
+            },
+            entries: {
+                include: {
+                    task: {
+                        select: {
+                            id: true,
+                            name: true,
+                            taskSlug: true,
+                            project: {
+                                select: {
+                                    name: true,
+                                    color: true
+                                }
+                            }
+                        }
+                    }
+                },
+                orderBy: {
+                    type: "asc"
+                }
+            }
+        },
+        orderBy: [
+            { date: "desc" },
+            { submittedAt: "desc" }
+        ],
+        take: 30
+    });
+
+    const rows: any[] = [];
+
+    for (const report of reports) {
+        if (report.status === "ABSENT" || report.status === "NOT_SUBMITTED") {
+            rows.push({
+                id: `${report.status.toLowerCase()}-${report.id}`,
+                reportId: report.id,
+                user: report.user,
+                status: report.status,
+                submittedAt: null,
+                type: "NONE",
+                task: null,
+                description: report.status === "ABSENT" ? "No report submitted (Absent)." : "Not yet submitted.",
+                date: report.date,
+            });
+        } else if (report.entries.length === 0) {
+            rows.push({
+                id: `empty-${report.id}`,
+                reportId: report.id,
+                user: report.user,
+                status: report.status,
+                submittedAt: report.submittedAt,
+                type: "NONE",
+                task: null,
+                description: "Submitted an empty report.",
+                date: report.date,
+            });
+        } else {
+            for (const entry of report.entries) {
+                rows.push({
+                    id: entry.id,
+                    reportId: report.id,
+                    user: report.user,
+                    status: report.status,
+                    submittedAt: report.submittedAt,
+                    type: entry.type,
+                    task: entry.task,
+                    description: entry.description,
+                    date: report.date,
+                });
+            }
+        }
+    }
+
+    return (
+        <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-2">
+                <h1 className="text-3xl font-bold tracking-tight">Daily Work Reports</h1>
+                <p className="text-muted-foreground text-sm">
+                    View work reports logs from your workspace members.
+                </p>
+            </div>
+
+            <ReportsTable
+                initialData={rows}
+                workspaceId={workspaceId}
+                members={workspaceMembers}
+                initialDate={search.date}
+                initialUserId={search.userId}
+                isAdmin={isWorkspaceAdmin}
+            />
+        </div>
+    );
+}

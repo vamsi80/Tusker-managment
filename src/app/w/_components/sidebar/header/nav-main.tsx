@@ -5,6 +5,7 @@ import {
   IconUsersPlus,
   IconCheckupList,
   IconSettings,
+  IconReport
 } from "@tabler/icons-react";
 import { SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuButton, SidebarMenuItem, } from "@/components/ui/sidebar"
 import Link from "next/link";
@@ -18,6 +19,7 @@ const iconMap = {
   IconUsersPlus,
   IconCheckupList,
   IconSettings,
+  IconReport
 } as const;
 
 type IconName = keyof typeof iconMap;

@@ -39,6 +39,7 @@ interface DataTableProps<TData, TValue> {
     filterDisplay?: "default" | "menu";
     enableRowSelection?: (row: any) => boolean;
     getRowClassName?: (row: any) => string;
+    extraToolbarContent?: React.ReactNode;
 }
 
 export function DataTable<TData, TValue>({
@@ -60,6 +61,7 @@ export function DataTable<TData, TValue>({
     getRowId,
     enableRowSelection,
     getRowClassName,
+    extraToolbarContent,
 }: DataTableProps<TData, TValue> & { getRowId?: (row: TData) => string }) {
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -218,6 +220,7 @@ export function DataTable<TData, TValue>({
                         </>
                     )}
 
+                    {extraToolbarContent}
 
                     {/* Column Toggle */}
                     {showColumnToggle && (

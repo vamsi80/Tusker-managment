@@ -3,7 +3,6 @@ import { NavUser } from "./footer/nav-user";
 import { NavMain } from "./header/nav-main";
 import { NavProjectsAsync } from "./projectsList/nav-projects-async";
 import { NavWorkspacesSelector } from "./header/nav-workspaces-selector";
-import { IconCheckupList, IconDashboard, IconSettings, IconUsersPlus } from "@tabler/icons-react";
 import { NavFooter } from "./footer/nav-footer";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuItem } from "@/components/ui/sidebar";
 import { NavProjectsSkeleton } from "./projectsList/projects-skeleton";
@@ -36,8 +35,9 @@ export async function AppSidebar({ data, workspaceId, ...props }: React.Componen
   const footerNavItems: Array<{
     title: string;
     url: string;
-    icon: "IconSettings";
+    icon: "IconSettings" | "IconReport";
   }> = [
+      { title: "Reports", url: `/w/${workspaceId}/reports`, icon: "IconReport" },
       { title: "Settings", url: `/w/${workspaceId}/settings`, icon: "IconSettings" },
     ];
 
@@ -67,7 +67,7 @@ export async function AppSidebar({ data, workspaceId, ...props }: React.Componen
         </React.Suspense>
       </SidebarContent>
 
-      <SidebarFooter className="p-2 gap-2">
+      <SidebarFooter className="px-3">
         <NavFooter items={footerNavItems} />
         <NavUser />
       </SidebarFooter>

@@ -1,6 +1,6 @@
 "use client";
 
-import { IconSettings } from "@tabler/icons-react";
+import { IconSettings, IconReport } from "@tabler/icons-react";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -8,6 +8,7 @@ import { usePathname } from "next/navigation";
 // Icon mapping for footer
 const iconMap = {
     IconSettings,
+    IconReport,
 } as const;
 
 type IconName = keyof typeof iconMap;
@@ -38,10 +39,9 @@ export function NavFooter({
                         <SidebarMenuButton
                             tooltip={item.title}
                             asChild
-                            isActive={isActive}
-                            className="transition-all duration-200 hover:bg-accent hover:text-accent-foreground mb-4"
+                            className="transition-all duration-200 hover:bg-accent hover:text-accent-foreground"
                         >
-                            <Link href={item.url} className="flex items-center gap-2">
+                            <Link href={item.url} className="flex items-center gap-0">
                                 <div className="flex-shrink-0">
                                     <IconComponent size={19} stroke={1.5} />
                                 </div>
