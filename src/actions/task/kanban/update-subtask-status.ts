@@ -168,9 +168,38 @@ export async function updateSubTaskStatus(
             // Additional privileged status logic (if any) could go here
         }
 
-        // 9. Validate review comment for REVIEW status
+        // 9. Status Transition Validation
+        // PREVENT REVIEW TO REVIEW
+        if (subTask.status === "REVIEW" && newStatus === "REVIEW") {
+            return {
+                success: false,
+                error: "This task is already in review. You cannot move a task from Review back to Review.",
+            };
+        }
+
+        // FROM REVIEW -> ANYWHERE EXCEPT COMPLETED
+        if (subTask.status === "REVIEW" && newStatus !== "COMPLETED") {
+            // Require a comment for rejecting/sending back from review
+            if (!reviewCommentId) {
+                return {
+                    success: false,
+                    error: "A comment is required when rejecting or moving a task out of Review status (unless it is being Completed).",
+                };
+            }
+
+            // Verify the review comment exists and belongs to this subtask
+            const reviewComment = await prisma.reviewComment.findUnique({
+                where: { id: reviewCommentId },
+                select: { id: true, subTaskId: true },
+            });
+
+            if (!reviewComment || reviewComment.subTaskId !== subTaskId) {
+                return { success: false, error: "Invalid review comment" };
+            }
+        }
+
+        // MOVING TO REVIEW (Requires Comment)
         if (newStatus === "REVIEW") {
-            // Check if a review comment was provided
             if (!reviewCommentId) {
                 return {
                     success: false,
@@ -181,28 +210,15 @@ export async function updateSubTaskStatus(
             // Verify the review comment exists and belongs to this subtask
             const reviewComment = await prisma.reviewComment.findUnique({
                 where: { id: reviewCommentId },
-                select: {
-                    id: true,
-                    subTaskId: true,
-                },
+                select: { id: true, subTaskId: true },
             });
 
-            if (!reviewComment) {
-                return {
-                    success: false,
-                    error: "Invalid review comment",
-                };
-            }
-
-            if (reviewComment.subTaskId !== subTaskId) {
-                return {
-                    success: false,
-                    error: "Review comment does not belong to this subtask",
-                };
+            if (!reviewComment || reviewComment.subTaskId !== subTaskId) {
+                return { success: false, error: "Invalid review comment" };
             }
         }
 
-        // 10. Don't update if status hasn't changed
+        // 10. Don't update if status hasn't changed (generic check for non-REVIEW statuses)
         if (subTask.status === newStatus) {
             return {
                 success: true,

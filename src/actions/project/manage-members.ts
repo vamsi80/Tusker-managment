@@ -5,8 +5,7 @@ import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
 import { ProjectRole } from "@/generated/prisma/client";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
-import { invalidateWorkspaceProjects, invalidateProjectMembers } from "@/lib/cache/invalidation";
-import { revalidatePath } from "next/cache";
+import { invalidateWorkspaceProjects, invalidateProjectMembers, invalidateUserPermissions } from "@/lib/cache/invalidation";
 
 /**
  * Add members to an existing project
@@ -141,13 +140,14 @@ export async function addProjectMembers(
             data: newMembers,
         });
 
-        // Invalidate caches
-        await invalidateWorkspaceProjects(project.workspaceId);
-        await invalidateProjectMembers(projectId);
-
-        // Revalidate the current path to refresh the UI
-        revalidatePath(`/w/${project.workspaceId}/p/${project.slug}`);
-        revalidatePath(`/w/${project.workspaceId}/tasks`);
+        // Invalidate caches in parallel (don't await array map to improve latency return)
+        Promise.all([
+            invalidateWorkspaceProjects(project.workspaceId),
+            invalidateProjectMembers(projectId),
+            ...newMemberUserIds.map((userId) =>
+                invalidateUserPermissions(userId, project.workspaceId, projectId)
+            )
+        ]).catch(console.error);
 
         return {
             status: "success",
@@ -276,13 +276,18 @@ export async function removeProjectMembers(
             },
         });
 
-        // Invalidate caches
-        await invalidateWorkspaceProjects(project.workspaceId);
-        await invalidateProjectMembers(projectId);
-
-        // Revalidate the current path to refresh the UI
-        revalidatePath(`/w/${project.workspaceId}/p/${project.slug}`);
-        revalidatePath(`/w/${project.workspaceId}/tasks`);
+        // Invalidate caches in parallel (fire and forget for latency optimization, handle internal errors safely)
+        Promise.all([
+            invalidateWorkspaceProjects(project.workspaceId),
+            invalidateProjectMembers(projectId),
+            ...workspaceMemberIdsToRemove.map((wmId) => {
+                const userId = project.projectMembers.find(pm => pm.workspaceMemberId === wmId)?.workspaceMember.userId;
+                if (userId) {
+                    return invalidateUserPermissions(userId, project.workspaceId, projectId);
+                }
+                return Promise.resolve();
+            })
+        ]).catch(console.error);
 
         return {
             status: "success",
@@ -412,13 +417,12 @@ export async function updateProjectMemberRole(
             },
         });
 
-        // Invalidate caches
-        await invalidateWorkspaceProjects(project.workspaceId);
-        await invalidateProjectMembers(projectId);
-
-        // Revalidate the current path to refresh the UI
-        revalidatePath(`/w/${project.workspaceId}/p/${project.slug}`);
-        revalidatePath(`/w/${project.workspaceId}/tasks`);
+        // Invalidate caches in parallel block
+        Promise.all([
+            invalidateWorkspaceProjects(project.workspaceId),
+            invalidateProjectMembers(projectId),
+            invalidateUserPermissions(memberUserId, project.workspaceId, projectId)
+        ]).catch(console.error);
 
         const memberName = targetMember.workspaceMember.user?.surname || "Member";
         return {
@@ -528,13 +532,12 @@ export async function toggleProjectMemberAccess(
             },
         });
 
-        // Invalidate caches
-        await invalidateWorkspaceProjects(project.workspaceId);
-        await invalidateProjectMembers(projectId);
-
-        // Revalidate the current path to refresh the UI
-        revalidatePath(`/w/${project.workspaceId}/p/${project.slug}`);
-        revalidatePath(`/w/${project.workspaceId}/tasks`);
+        // Invalidate caches in parallel (fire and forget cache dump)
+        Promise.all([
+            invalidateWorkspaceProjects(project.workspaceId),
+            invalidateProjectMembers(projectId),
+            invalidateUserPermissions(memberUserId, project.workspaceId, projectId)
+        ]).catch(console.error);
 
         return {
             status: "success",

@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/db";
-import { revalidatePath } from "next/cache";
+import { invalidateWorkspaceTags } from "@/lib/cache/invalidation";
 import { z } from "zod";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { tagNameExists } from "@/data/tag/get-tags";
@@ -42,8 +42,7 @@ export async function createTag(data: z.infer<typeof createTagSchema>) {
             },
         });
 
-        revalidatePath(`/w/${validatedData.workspaceId}/settings`);
-        revalidatePath(`/w/${validatedData.workspaceId}`);
+        await invalidateWorkspaceTags(validatedData.workspaceId);
 
         return {
             success: true,

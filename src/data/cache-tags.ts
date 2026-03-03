@@ -65,7 +65,7 @@ export const CacheTags = {
      */
     projectBySlug: (slug: string, workspaceId: string) => [
         `project-${slug}`,
-        `workspace-${workspaceId}-projects`
+        `workspace-projects-${workspaceId}`
     ],
 
     /**
