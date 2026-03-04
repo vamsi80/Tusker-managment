@@ -9,6 +9,7 @@ interface SubTaskSheetState {
 
 interface SubTaskSheetActions {
     openSubTaskSheet: (subTask: any) => void;
+    openSubTaskSheetLoading: () => void;
     closeSubTaskSheet: () => void;
 }
 
@@ -27,6 +28,14 @@ export function SubTaskSheetProvider({ children }: { children: ReactNode }) {
         setIsOpen(true);
     }, []);
 
+    const openSubTaskSheetLoading = useCallback(() => {
+        if (typeof window !== 'undefined') {
+            (window as any).lastSheetOpenClick = performance.now();
+        }
+        setSubTask(null);
+        setIsOpen(true);
+    }, []);
+
     const closeSubTaskSheet = useCallback(() => {
         setIsOpen(false);
         setTimeout(() => {
@@ -35,7 +44,7 @@ export function SubTaskSheetProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const state = useMemo(() => ({ subTask, isOpen }), [subTask, isOpen]);
-    const actions = useMemo(() => ({ openSubTaskSheet, closeSubTaskSheet }), [openSubTaskSheet, closeSubTaskSheet]);
+    const actions = useMemo(() => ({ openSubTaskSheet, openSubTaskSheetLoading, closeSubTaskSheet }), [openSubTaskSheet, openSubTaskSheetLoading, closeSubTaskSheet]);
 
     return (
         <SubTaskSheetStateContext.Provider value={state}>
@@ -74,19 +83,23 @@ export function useSubTaskSheetActions() {
         throw new Error("useSubTaskSheetActions must be used within SubTaskSheetProvider");
     }
 
-    const { openSubTaskSheet: originalOpen, closeSubTaskSheet: originalClose } = context;
+    const { openSubTaskSheet: originalOpen, openSubTaskSheetLoading: originalOpenLoading, closeSubTaskSheet: originalClose } = context;
 
     const openSubTaskSheet = useCallback((task: any) => {
-        const slug = task.taskSlug || task.id;
+        const slug = task?.taskSlug || task?.id;
         const params = new URLSearchParams(searchParams.toString());
 
-        if (params.get("subtask") !== slug) {
+        if (slug && params.get("subtask") !== slug) {
             params.set("subtask", slug);
             window.history.replaceState(null, "", `${pathname}?${params.toString()}`);
         }
 
         originalOpen(task);
     }, [originalOpen, pathname, searchParams]);
+
+    const openSubTaskSheetLoading = useCallback(() => {
+        originalOpenLoading();
+    }, [originalOpenLoading]);
 
     const closeSubTaskSheet = useCallback(() => {
         const params = new URLSearchParams(searchParams.toString());
@@ -98,5 +111,5 @@ export function useSubTaskSheetActions() {
         originalClose();
     }, [originalClose, pathname, searchParams]);
 
-    return { ...context, openSubTaskSheet, closeSubTaskSheet };
+    return { ...context, openSubTaskSheet, openSubTaskSheetLoading, closeSubTaskSheet };
 }

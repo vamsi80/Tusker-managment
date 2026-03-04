@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { useState, useEffect } from "react";
 import { usePathname, useSearchParams, useParams } from "next/navigation";
 import { Bell, User, MessageSquare } from "lucide-react";
@@ -23,15 +24,13 @@ import {
     TabsTrigger
 } from "@/components/ui/tabs";
 
-export function NotificationCenter() {
-    const params = useParams();
+export function NotificationCenter({ workspaceId, initialUnread = [], initialRead = [], initialPeopleCount = 0 }: { workspaceId: string, initialUnread?: any[], initialRead?: any[], initialPeopleCount?: number }) {
     const pathname = usePathname();
     const currentSearchParams = useSearchParams();
-    const workspaceId = params.workspaceId as string;
 
-    const [unreadNotifications, setUnreadNotifications] = useState<any[]>([]);
-    const [readNotifications, setReadNotifications] = useState<any[]>([]);
-    const [peopleCount, setPeopleCount] = useState(0);
+    const [unreadNotifications, setUnreadNotifications] = useState<any[]>(initialUnread);
+    const [readNotifications, setReadNotifications] = useState<any[]>(initialRead);
+    const [peopleCount, setPeopleCount] = useState(initialPeopleCount);
     const [loading, setLoading] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
@@ -97,7 +96,12 @@ export function NotificationCenter() {
         setIsOpen(false);
     };
 
+    const hasMounted = React.useRef(false);
     useEffect(() => {
+        if (!hasMounted.current) {
+            hasMounted.current = true;
+            return;
+        }
         if (workspaceId) {
             loadNotifications();
         }

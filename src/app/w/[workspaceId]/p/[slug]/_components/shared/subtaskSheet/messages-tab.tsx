@@ -67,9 +67,11 @@ export function MessagesTab({
         scrollToBottom();
     }, [comments]);
 
+    const markReadRef = useRef<string>("");
     // Mark comments as read when tab is opened
     useEffect(() => {
-        if (taskId) {
+        if (taskId && markReadRef.current !== taskId) {
+            markReadRef.current = taskId;
             markTaskCommentsReadAction(taskId).catch(console.error);
         }
     }, [taskId]);

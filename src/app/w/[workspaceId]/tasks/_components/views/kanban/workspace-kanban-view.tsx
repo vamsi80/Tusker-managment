@@ -22,7 +22,8 @@ export async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewPr
         workspaceMembers,
         projects,
         projectMemberMatches,
-        tags
+        tags,
+        projectManagers
     ] = await Promise.all([
         getTasks({
             workspaceId,
@@ -42,7 +43,20 @@ export async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewPr
                 }
             }
         }),
-        getWorkspaceTags(workspaceId)
+        getWorkspaceTags(workspaceId),
+        prisma.projectMember.findMany({
+            where: { project: { workspaceId }, projectRole: "PROJECT_MANAGER", hasAccess: true },
+            select: {
+                projectId: true,
+                workspaceMember: {
+                    select: {
+                        user: {
+                            select: { id: true, name: true, surname: true, image: true }
+                        }
+                    }
+                }
+            }
+        })
     ]);
 
     // Group tasks by status in JS with strict deduplication
@@ -156,6 +170,12 @@ export async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewPr
         projectUserMap[pm.projectId].push(pm.workspaceMember.userId);
     });
 
+    // Build map of project -> Project Manager user object
+    const pmMap: Record<string, any> = {};
+    projectManagers.forEach(pm => {
+        pmMap[pm.projectId] = pm.workspaceMember.user;
+    });
+
     // Convert projects to ProjectOption format for filters
     const projectOptions = projects.map(project => ({
         id: project.id,
@@ -174,6 +194,7 @@ export async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewPr
             projects={projectOptions}
             level="workspace"
             tags={tags.map(tag => ({ id: tag.id, name: tag.name }))}
+            projectManagers={pmMap}
         />
     );
 }

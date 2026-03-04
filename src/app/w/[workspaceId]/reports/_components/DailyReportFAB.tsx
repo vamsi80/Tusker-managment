@@ -6,11 +6,14 @@ import { ClipboardList, CheckCircle2 } from "lucide-react";
 import { DailyReportModal } from "./DailyReportModal";
 import { getDailyReportFormData } from "@/actions/daily-report-actions";
 
-export function DailyReportFAB({ workspaceId }: { workspaceId: string }) {
+export function DailyReportFAB({ workspaceId, initialStatus = "LOADING" }: { workspaceId: string, initialStatus?: "SUBMITTED" | "ABSENT" | "NOT_SUBMITTED" | "LOADING" }) {
     const [isOpen, setIsOpen] = useState(false);
-    const [status, setStatus] = useState<"SUBMITTED" | "ABSENT" | "NOT_SUBMITTED" | "LOADING">("LOADING");
+    const [status, setStatus] = useState<"SUBMITTED" | "ABSENT" | "NOT_SUBMITTED" | "LOADING">(initialStatus);
 
     useEffect(() => {
+        // Only fetch if initialStatus is LOADING, otherwise trust the server
+        if (initialStatus !== "LOADING") return;
+
         let mounted = true;
         const fetchStatus = async () => {
             try {

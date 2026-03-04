@@ -31,6 +31,7 @@ interface KanbanBoardProps {
     projects?: ProjectOption[]; // Optional for workspace-level
     tags?: TagOption[];
     level?: "project" | "workspace"; // Optional, defaults to "project"
+    projectManagers?: Record<string, any>;
 }
 
 const COLUMNS: { id: TaskStatus; title: string; color: string; bgColor: string; borderColor: string }[] = [
@@ -73,7 +74,8 @@ export function KanbanBoard({
     projectId,
     projects,
     tags,
-    level = "project"
+    level = "project",
+    projectManagers
 }: KanbanBoardProps) {
     const setKanbanTasksCache = useTaskCacheStore(state => state.setKanbanTasksCache);
     const invalidateSubTaskCache = useTaskCacheStore(state => state.invalidateSubTaskCache);
@@ -891,6 +893,7 @@ export function KanbanBoard({
                                     isLoadingMore={loadingColumns[column.id]}
                                     onSubTaskClick={handleSubTaskClick}
                                     onLoadMore={() => handleLoadMore(column.id)}
+                                    projectManagers={projectManagers}
                                 />
                             );
                         })}

@@ -8,7 +8,7 @@ import { fetchSubTaskBySlugAction } from "@/actions/task/fetch-subtask-by-slug";
 import { toast } from "sonner";
 
 export function GlobalSubTaskSheet() {
-    const { isOpen, subTask, openSubTaskSheet, closeSubTaskSheet } = useSubTaskSheet();
+    const { isOpen, subTask, openSubTaskSheet, openSubTaskSheetLoading, closeSubTaskSheet } = useSubTaskSheet();
     const searchParams = useSearchParams();
     const params = useParams();
     const workspaceId = params.workspaceId as string;
@@ -23,6 +23,9 @@ export function GlobalSubTaskSheet() {
 
             if (currentSlug !== subTaskSlug && lastFetchedSlug.current !== subTaskSlug) {
                 lastFetchedSlug.current = subTaskSlug;
+
+                // Instantly open the sheet to show a generic loading fallback
+                openSubTaskSheetLoading();
 
                 const loadTask = async () => {
                     const result = await fetchSubTaskBySlugAction(workspaceId, subTaskSlug);
@@ -42,7 +45,7 @@ export function GlobalSubTaskSheet() {
             closeSubTaskSheet();
             lastFetchedSlug.current = null;
         }
-    }, [subTaskSlug, subTask, workspaceId, isOpen, openSubTaskSheet, closeSubTaskSheet]);
+    }, [subTaskSlug, subTask, workspaceId, isOpen, openSubTaskSheet, openSubTaskSheetLoading, closeSubTaskSheet]);
 
     return (
         <SubTaskDetailsSheet

@@ -39,24 +39,6 @@ export const TASK_CORE_SELECT = {
             slug: true,
             color: true,
             workspaceId: true,
-            projectMembers: {
-                where: { projectRole: { in: ["PROJECT_MANAGER", "LEAD"] }, hasAccess: true },
-                take: 2,
-                select: {
-                    projectRole: true,
-                    workspaceMember: {
-                        select: {
-                            user: {
-                                select: {
-                                    name: true,
-                                    surname: true,
-                                    image: true
-                                }
-                            }
-                        }
-                    }
-                }
-            }
         }
     },
     parentTask: {

@@ -24,10 +24,8 @@ interface Props {
 export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) => {
   const router = useRouter();
   const workspaces = data?.workspaces ?? []; // array of workspace items
-  const [selected, setSelected] = useState<typeof workspaces[number] | undefined>(undefined);
-
   // find current workspace item from workspaceId or default to first item
-  const current = useMemo(() => {
+  const selected = useMemo(() => {
     if (!workspaces || workspaces.length === 0) return undefined;
     return (
       workspaces.find((w) => w.id === workspaceId) ??
@@ -35,13 +33,7 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
     );
   }, [workspaces, workspaceId]);
 
-  useEffect(() => {
-    setSelected(current);
-  }, [current]);
-
   const onWorkspaceSelect = (workspaceId: string) => {
-    const found = workspaces.find((w) => w.id === workspaceId);
-    setSelected(found);
     router.push(`/w/${workspaceId}`);
   };
 
