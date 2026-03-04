@@ -3,7 +3,22 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 import { NotificationCenter } from "./notification-center"
 import ThemeToggle from "../../../../../components/ui/theme-toggle"
 
-export function SiteHeader() {
+import { Suspense } from "react"
+import { getNotificationsAction } from "@/actions/comment"
+
+async function NotificationCenterLoader({ workspaceId }: { workspaceId: string }) {
+  const result = await getNotificationsAction(workspaceId, 15, 0)
+  return (
+    <NotificationCenter
+      workspaceId={workspaceId}
+      initialUnread={result.unreadNotifications || []}
+      initialRead={result.readNotifications || []}
+      initialPeopleCount={result.peopleCount || 0}
+    />
+  )
+}
+
+export function SiteHeader({ workspaceId }: { workspaceId: string }) {
   return (
     <header className="sticky top-0 z-[40] w-full flex h-(--header-height) shrink-0 items-center gap-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
       <div className="flex w-full items-center gap-1 px-4 lg:gap-2 lg:px-6">
@@ -14,7 +29,9 @@ export function SiteHeader() {
         />
         <h1 className="text-base font-medium text-foreground">White Tusker</h1>
         <div className="ml-auto flex items-center gap-3">
-          <NotificationCenter />
+          <Suspense fallback={<NotificationCenter workspaceId={workspaceId} />}>
+            <NotificationCenterLoader workspaceId={workspaceId} />
+          </Suspense>
           <ThemeToggle />
         </div>
       </div>

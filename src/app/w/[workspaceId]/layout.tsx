@@ -6,6 +6,7 @@ import { getWorkspaces } from "@/data/workspace/get-workspaces";
 import { getWorkspaceMetadata } from "@/data/workspace/get-workspace-metadata";
 import { notFound } from "next/navigation";
 import { DailyReportFAB } from "./reports/_components/DailyReportFAB";
+import { getDailyReportFormData } from "@/actions/daily-report-actions";
 
 interface Props {
     children: React.ReactNode;
@@ -19,6 +20,18 @@ interface Props {
 async function SidebarLoader({ workspaceId }: { workspaceId: string }) {
     const data = await getWorkspaces();
     return <AppSidebar data={data as any} workspaceId={workspaceId} />;
+}
+
+async function DailyReportFABLoader({ workspaceId }: { workspaceId: string }) {
+    let initialStatus: "SUBMITTED" | "ABSENT" | "NOT_SUBMITTED" | "LOADING" = "NOT_SUBMITTED";
+    try {
+        const data = await getDailyReportFormData(workspaceId);
+        initialStatus = data.report?.status || "NOT_SUBMITTED";
+    } catch (error) {
+        // Fallback to NOT_SUBMITTED on error
+    }
+
+    return <DailyReportFAB workspaceId={workspaceId} initialStatus={initialStatus} />;
 }
 
 export default async function WorkSpaceLayout({ children, params }: Props) {
@@ -45,7 +58,7 @@ export default async function WorkSpaceLayout({ children, params }: Props) {
             </Suspense>
 
             <SidebarInset className="m-0 rounded-none bg-background">
-                <SiteHeader />
+                <SiteHeader workspaceId={workspaceId} />
                 <div className="flex flex-1 flex-col">
                     <div className="@container/main flex flex-1 flex-col gap-2">
                         <div className="flex flex-col gap-4 py-2 px-4 sm:px-6 lg:px-8">
@@ -55,7 +68,7 @@ export default async function WorkSpaceLayout({ children, params }: Props) {
                 </div>
             </SidebarInset>
             <Suspense fallback={null}>
-                <DailyReportFAB workspaceId={workspaceId} />
+                <DailyReportFABLoader workspaceId={workspaceId} />
             </Suspense>
         </SidebarProvider>
     );

@@ -27,6 +27,7 @@ interface KanbanColumnProps {
     isLoadingMore: boolean;
     onSubTaskClick: (subTask: KanbanSubTaskType) => void;
     onLoadMore: () => void;
+    projectManagers?: Record<string, any>;
 }
 
 /**
@@ -41,6 +42,7 @@ export function KanbanColumn({
     isLoadingMore,
     onSubTaskClick,
     onLoadMore,
+    projectManagers
 }: KanbanColumnProps) {
     const { setNodeRef, isOver } = useDroppable({
         id: column.id,
@@ -135,6 +137,7 @@ export function KanbanColumn({
                                     subTask={subTask}
                                     columnColor={column.color}
                                     onSubTaskClick={onSubTaskClick}
+                                    projectManagers={projectManagers}
                                 />
                             ))}
 

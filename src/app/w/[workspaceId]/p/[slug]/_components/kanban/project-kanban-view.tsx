@@ -23,6 +23,10 @@ export async function ProjectKanbanView({
         getProjectMembers(projectId),
     ]);
 
+    // Effective way: Identify the PM once at the view level
+    const projectManager = projectMembers.find((m: any) => m.projectRole === "PROJECT_MANAGER")?.workspaceMember?.user;
+    const projectManagersMap = projectManager ? { [projectId]: projectManager } : {};
+
     const statusGroups: Record<string, any[]> = {
         TO_DO: [],
         IN_PROGRESS: [],
@@ -95,6 +99,7 @@ export async function ProjectKanbanView({
             projectMembers={projectMembers}
             workspaceId={workspaceId}
             projectId={projectId}
+            projectManagers={projectManagersMap}
         />
     );
 }

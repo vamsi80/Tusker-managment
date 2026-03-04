@@ -230,19 +230,22 @@ export const TaskRow = memo(function TaskRow({
                         </div>
                         <span
                             className="truncate cursor-pointer hover:underline"
-                            onMouseEnter={(e) => {
-                                // INTENT DELAY: Protect the database from mouse-sweeping
-                                const timeout = setTimeout(() => {
+                            onMouseEnter={() => {
+                                // 🚀 Speculative prefetch for List parent tasks
+                                if (task.id) {
                                     import("@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/subtask-details-sheet").then(m => {
-                                        m.prefetchSubTask(task.id);
+                                        const taskId = task.id;
+                                        if (!m.commentCache.has(taskId) && !m.pendingPrefetches.has(`comments-${taskId}`)) {
+                                            m.pendingPrefetches.add(`comments-${taskId}`);
+                                            import("@/actions/comment").then(actions => {
+                                                actions.fetchCommentsAction(taskId).then(res => {
+                                                    if (res.success && res.comments) m.commentCache.set(taskId, res.comments as any);
+                                                    m.pendingPrefetches.delete(`comments-${taskId}`);
+                                                }).catch(() => m.pendingPrefetches.delete(`comments-${taskId}`));
+                                            });
+                                        }
                                     });
-                                }, 150); // 150ms of hover indicates real interest
-                                (e.currentTarget as any)._prefetchTimeout = timeout;
-                            }}
-                            onMouseLeave={(e) => {
-                                // Clear timeout if user mouse leaves before 150ms
-                                const timeout = (e.currentTarget as any)._prefetchTimeout;
-                                if (timeout) clearTimeout(timeout);
+                                }
                             }}
                             onClick={() => {
                                 onTaskClick?.(task);

@@ -242,6 +242,23 @@ export const SubTaskRow = memo(function SubTaskRow({
             <TableCell className="w-[180px] sm:w-[250px] md:w-[350px]">
                 <span
                     className="truncate text-muted-foreground text-sm block cursor-pointer hover:text-foreground transition-colors"
+                    onMouseEnter={() => {
+                        // 🚀 Speculative prefetch for List subtasks
+                        if (subTask.id) {
+                            import("@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/subtask-details-sheet").then(m => {
+                                const taskId = subTask.id;
+                                if (!m.commentCache.has(taskId) && !m.pendingPrefetches.has(`comments-${taskId}`)) {
+                                    m.pendingPrefetches.add(`comments-${taskId}`);
+                                    import("@/actions/comment").then(actions => {
+                                        actions.fetchCommentsAction(taskId).then(res => {
+                                            if (res.success && res.comments) m.commentCache.set(taskId, res.comments as any);
+                                            m.pendingPrefetches.delete(`comments-${taskId}`);
+                                        }).catch(() => m.pendingPrefetches.delete(`comments-${taskId}`));
+                                    });
+                                }
+                            });
+                        }
+                    }}
                     onClick={(e) => {
                         e.stopPropagation();
                         if (onClick) onClick(subTask);

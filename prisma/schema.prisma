@@ -141,7 +141,6 @@ model WorkspaceMember {
 
   @@unique([userId, workspaceId])
   @@index([workspaceId, workspaceRole])
-  @@index([workspaceId])
   @@index([userId])
   @@index([workspaceId, userId])
   @@index([workspaceRole])
@@ -185,7 +184,6 @@ model ProjectMember {
 
   @@unique([workspaceMemberId, projectId])
   @@index([projectId, projectRole])
-  @@index([projectId])
   @@index([workspaceMemberId])
   @@index([projectId, workspaceMemberId])
 }
@@ -226,7 +224,6 @@ model Tag {
   tasks           Task[]
 
   @@unique([workspaceId, name])
-  @@index([workspaceId])
 }
 
 model Task {
@@ -266,12 +263,13 @@ model Task {
   Task_TaskDependency_B Task[]             @relation("TaskDependency")
   dailyReportEntries    DailyReportEntry[]
 
-  @@index([projectId, isParent, status, createdAt(sort: Desc)])
+  @@index([projectId, status, isParent, createdAt(sort: Desc)])
+  @@index([workspaceId, tagId, status, isParent])
+  @@index([workspaceId, projectId, status, isParent, dueDate, createdAt(sort: Desc)])
   @@index([parentTaskId, createdAt])
   @@index([workspaceId, assigneeTo, status, createdAt])
   @@index([projectId, assigneeTo, status, createdAt])
   @@index([name, id])
-  @@index([status, id])
   @@index([startDate, id])
   @@index([dueDate, id])
   @@index([createdAt(sort: Desc), id])
@@ -660,7 +658,6 @@ model DailyReport {
 
   @@unique([workspaceId, userId, date])
   @@index([workspaceId, date])
-  @@index([workspaceId, userId, date])
   @@map("daily_reports")
 }
 

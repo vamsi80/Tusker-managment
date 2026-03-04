@@ -67,9 +67,9 @@ interface ReviewComment {
 }
 
 // Client-side cache for instant re-opening
-const commentCache = new Map<string, any[]>();
-const reviewCommentCache = new Map<string, any[]>();
-const pendingPrefetches = new Set<string>(); // LOCK: Prevents redundant DB queries
+export const commentCache = new Map<string, any[]>();
+export const reviewCommentCache = new Map<string, any[]>();
+export const pendingPrefetches = new Set<string>(); // LOCK: Prevents redundant DB queries
 
 /**
  * Checks if a subtask is in the cache. 
@@ -144,12 +144,14 @@ export function SubTaskDetailsSheet({
     const loadComments = useCallback(async () => {
         if (!subTask) return;
 
+        if (pendingPrefetches.has(`comments-${subTask.id}`)) return;
+
         // SKIP IF ACCESSED FROM PRE-FETCH CACHE
         if (commentCache.has(subTask.id)) {
-            const cached = commentCache.get(subTask.id)!;
-            if (cached.length > 0) return; // Already have data, don't re-fetch immediately
+            return; // Already have data, don't re-fetch immediately (even if empty)
         }
 
+        pendingPrefetches.add(`comments-${subTask.id}`);
         setIsLoading(true);
         const startTime = performance.now();
         try {
@@ -171,12 +173,15 @@ export function SubTaskDetailsSheet({
             toast.error("Failed to load comments");
         } finally {
             setIsLoading(false);
+            pendingPrefetches.delete(`comments-${subTask.id}`);
         }
     }, [subTask?.id]);
 
     const loadReviewComments = useCallback(async () => {
         if (!subTask) return;
 
+        if (pendingPrefetches.has(`reviews-${subTask.id}`)) return;
+        pendingPrefetches.add(`reviews-${subTask.id}`);
         setIsLoadingReview(true);
         try {
             const result = await fetchReviewCommentsAction(subTask.id);
@@ -192,6 +197,7 @@ export function SubTaskDetailsSheet({
             toast.error("Failed to load review comments");
         } finally {
             setIsLoadingReview(false);
+            pendingPrefetches.delete(`reviews-${subTask.id}`);
         }
     }, [subTask?.id]);
 

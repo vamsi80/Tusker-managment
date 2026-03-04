@@ -11,15 +11,18 @@ import { Calendar, Tag, GripVertical, MessageSquare, AlertCircle, Folder, Crown 
 import { KanbanSubTaskType } from "@/data/task";
 import { cn } from "@/lib/utils";
 import { getColorFromString } from "@/lib/colors/project-colors";
+import { fetchCommentsAction, fetchReviewCommentsAction } from "@/actions/comment";
+import { commentCache, reviewCommentCache, pendingPrefetches } from "@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/subtask-details-sheet";
 
 interface KanbanCardProps {
     subTask: KanbanSubTaskType;
     columnColor: string;
     isDragging?: boolean;
     onSubTaskClick?: (subTask: KanbanSubTaskType) => void;
+    projectManagers?: Record<string, any>;
 }
 
-export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTaskClick }: KanbanCardProps) {
+export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTaskClick, projectManagers }: KanbanCardProps) {
     const {
         attributes,
         listeners,
@@ -39,16 +42,44 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
 
     const assignee = subTask.assignee;
     const reviewCount = (subTask as any)._count?.reviewComments || 0;
-
-    // Get Project Manager specifically
     const project = subTask.project;
-    const pmMember = project?.projectMembers?.find((m: any) => m.projectRole === "PROJECT_MANAGER");
-    const projectManager = pmMember?.workspaceMember?.user;
+
+    // Get Project Manager from the hoisted map (effective way)
+    const projectManager = projectManagers && subTask.projectId ? projectManagers[subTask.projectId] : null;
 
     const [isMounted, setIsMounted] = useState(false);
     useEffect(() => {
         setIsMounted(true);
     }, []);
+
+    // 🚀 Speculative Pre-fetching for "Instant" feel
+    const handlePrefetch = async () => {
+        if (!subTask?.id) return;
+
+        const taskId = subTask.id;
+
+        // 1. Prefetch Comments if not in cache
+        if (!commentCache.has(taskId) && !pendingPrefetches.has(`comments-${taskId}`)) {
+            pendingPrefetches.add(`comments-${taskId}`);
+            fetchCommentsAction(taskId).then(result => {
+                if (result.success && result.comments) {
+                    commentCache.set(taskId, result.comments as any);
+                }
+                pendingPrefetches.delete(`comments-${taskId}`);
+            }).catch(() => pendingPrefetches.delete(`comments-${taskId}`));
+        }
+
+        // 2. Prefetch Review Comments if not in cache
+        if (!reviewCommentCache.has(taskId) && !pendingPrefetches.has(`reviews-${taskId}`)) {
+            pendingPrefetches.add(`reviews-${taskId}`);
+            fetchReviewCommentsAction(taskId).then(result => {
+                if (result.success && result.reviewComments) {
+                    reviewCommentCache.set(taskId, result.reviewComments as any);
+                }
+                pendingPrefetches.delete(`reviews-${taskId}`);
+            }).catch(() => pendingPrefetches.delete(`reviews-${taskId}`));
+        }
+    };
 
     const dueDate = subTask.dueDate ? new Date(subTask.dueDate) : (() => {
         if (!subTask.startDate || !subTask.days) return null;
@@ -80,6 +111,11 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                 columnColor === "text-purple-700" && "border-l-purple-500 dark:border-l-purple-400",
                 columnColor === "text-green-700" && "border-l-green-500 dark:border-l-green-400"
             )}
+            onMouseEnter={handlePrefetch}
+            onClick={(e) => {
+                e.stopPropagation();
+                onSubTaskClick?.(subTask);
+            }}
         >
             <CardContent className="p-3 space-y-3">
                 <div
@@ -108,7 +144,7 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                             </div>
                         )}
                     </div>
-                    {pmMember && projectManager && (
+                    {projectManager && (
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
