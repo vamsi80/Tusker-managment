@@ -55,12 +55,17 @@ export default async function ReportsPage({
                                     name: true,
                                     color: true
                                 }
+                            },
+                            parentTask: {
+                                select: {
+                                    name: true
+                                }
                             }
                         }
                     }
                 },
                 orderBy: {
-                    type: "asc"
+                    createdAt: "asc"
                 }
             }
         },
@@ -99,26 +104,24 @@ export default async function ReportsPage({
                 date: report.date,
             });
         } else {
-            for (const entry of report.entries) {
-                rows.push({
-                    id: entry.id,
-                    reportId: report.id,
-                    user: report.user,
-                    status: report.status,
-                    submittedAt: report.submittedAt,
-                    type: entry.type,
-                    task: entry.task,
-                    description: entry.description,
-                    date: report.date,
-                });
-            }
+            rows.push({
+                id: report.id,
+                reportId: report.id,
+                user: report.user,
+                status: report.status,
+                submittedAt: report.submittedAt,
+                date: report.date,
+                entries: report.entries,
+                task: report.entries[0]?.task,
+                description: report.entries[0]?.description,
+            });
         }
     }
 
     return (
         <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-2">
-                <h1 className="text-3xl font-bold tracking-tight">Daily Work Reports</h1>
+                <h1 className="text-2xl font-bold tracking-tight">Daily Work Reports</h1>
                 <p className="text-muted-foreground text-sm">
                     View work reports logs from your workspace members.
                 </p>

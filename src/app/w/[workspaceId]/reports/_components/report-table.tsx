@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { loadMoreReportsAction } from "@/actions/daily-report/load-reports";
 import { WorkspaceMemberRow } from "@/data/workspace/get-workspace-members";
-import { Loader2, CalendarIcon, UserIcon, X, Download } from "lucide-react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -16,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { utils, writeFile } from "xlsx";
+import { ReportDetailModal } from "./report-detail-sheet";
+import { Loader2, CalendarIcon, UserIcon, X, Download } from "lucide-react";
 
 interface Props {
     initialData: any[];
@@ -35,6 +36,8 @@ export function ReportsTable({ initialData, workspaceId, members, initialDate, i
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(initialData.length >= 30);
     const [skip, setSkip] = useState(30);
+    const [selectedReport, setSelectedReport] = useState<any>(null);
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
 
     // Sync with initialData change (when server-side searchParams change)
     useEffect(() => {
@@ -101,25 +104,44 @@ export function ReportsTable({ initialData, workspaceId, members, initialDate, i
         return () => observer.disconnect();
     }, [loadMore, hasMore, isLoadingMore]);
 
-    const exportToExcel = useCallback(() => {
-        const exportData = data.map(row => ({
-            User: `${row.user?.name} ${row.user?.surname || ""}`,
-            Email: row.user?.email || "-",
-            Status: row.status,
-            Date: row.date ? format(new Date(row.date), "MMM d, yyyy") : "-",
-            Time: row.submittedAt ? format(new Date(row.submittedAt), "h:mm a") : "-",
-            Task: row.task?.name || "Other Work",
-            TaskID: row.task?.taskSlug || "-",
-            Description: row.description
-        }));
+    // const exportToExcel = useCallback(() => {
+    //     const flattenedData: any[] = [];
 
-        const ws = utils.json_to_sheet(exportData);
-        const wb = utils.book_new();
-        utils.book_append_sheet(wb, ws, "Reports");
+    //     data.forEach(row => {
+    //         if (row.entries && row.entries.length > 0) {
+    //             row.entries.forEach((entry: any) => {
+    //                 flattenedData.push({
+    //                     User: `${row.user?.name} ${row.user?.surname || ""}`,
+    //                     Email: row.user?.email || "-",
+    //                     Status: row.status,
+    //                     Date: row.date ? format(new Date(row.date), "MMM d, yyyy") : "-",
+    //                     Time: row.submittedAt ? format(new Date(row.submittedAt), "h:mm a") : "-",
+    //                     Task: entry.task?.name || "Other Work",
+    //                     TaskID: entry.task?.taskSlug || "-",
+    //                     Description: entry.description
+    //                 });
+    //             });
+    //         } else {
+    //             flattenedData.push({
+    //                 User: `${row.user?.name} ${row.user?.surname || ""}`,
+    //                 Email: row.user?.email || "-",
+    //                 Status: row.status,
+    //                 Date: row.date ? format(new Date(row.date), "MMM d, yyyy") : "-",
+    //                 Time: row.submittedAt ? format(new Date(row.submittedAt), "h:mm a") : "-",
+    //                 Task: row.status === "ABSENT" ? "Absent" : "No Task",
+    //                 TaskID: "-",
+    //                 Description: row.description
+    //             });
+    //         }
+    //     });
 
-        const fileName = `Reports_${initialDate || format(new Date(), "yyyy-MM-dd")}.xlsx`;
-        writeFile(wb, fileName);
-    }, [data, initialDate]);
+    //     const ws = utils.json_to_sheet(flattenedData);
+    //     const wb = utils.book_new();
+    //     utils.book_append_sheet(wb, ws, "Reports");
+
+    //     const fileName = `Reports_${initialDate || format(new Date(), "yyyy-MM-dd")}.xlsx`;
+    //     writeFile(wb, fileName);
+    // }, [data, initialDate]);
 
     const columns = useMemo<ColumnDef<any>[]>(() => [
         {
@@ -155,24 +177,44 @@ export function ReportsTable({ initialData, workspaceId, members, initialDate, i
             accessorKey: "task",
             header: "Task Reference",
             cell: ({ row }) => {
-                const task = row.original.task;
-                if (!task) return <span className="text-muted-foreground font-medium italic">Other Work</span>;
+                const entries = row.original.entries || [];
+                const hasMore = entries.length > 1;
+
+                if (entries.length === 0) {
+                    if (row.original.status === "ABSENT") return <span className="text-muted-foreground font-medium italic">Absent</span>;
+                    return <span className="text-muted-foreground font-medium italic">Other Work</span>;
+                }
+
+                const firstEntry = entries[0];
+                const task = firstEntry.task;
 
                 return (
                     <div className="flex flex-col gap-0.5 max-w-[200px]">
-                        <div className="flex items-center gap-1.5">
-                            {task.project?.color && (
+                        <div className="flex items-center gap-1.5 overflow-hidden">
+                            {task?.project?.color ? (
                                 <div
-                                    className="w-1.5 h-1.5 rounded-full shrink-0"
+                                    className="w-1.5 h-1.5 rounded-full shrink-0 shadow-sm"
                                     style={{ backgroundColor: task.project.color }}
                                 />
+                            ) : (
+                                <div className="w-1.5 h-1.5 rounded-full shrink-0 bg-muted-foreground/30 shadow-none border border-black/5" />
                             )}
-                            <span className="font-medium text-xs truncate leading-tight">
-                                {task.name}
+                            <span className={cn(
+                                "font-medium text-xs truncate leading-tight",
+                                !task && "text-muted-foreground italic"
+                            )}>
+                                {task?.name || "Other Work"}
                             </span>
+                            {hasMore && (
+                                <Badge variant="secondary" className="h-4 px-1 text-[9px] font-bold shrink-0 bg-secondary/80">
+                                    +{entries.length - 1} Other
+                                </Badge>
+                            )}
                         </div>
                         <div className="flex items-center gap-1">
-                            <span className="text-[10px] text-muted-foreground font-mono bg-muted px-1 rounded-sm">{task.taskSlug}</span>
+                            <span className="text-[10px] text-muted-foreground font-mono bg-muted/60 px-1 rounded-sm border border-black/5">
+                                {task?.taskSlug || "OTHER"}
+                            </span>
                         </div>
                     </div>
                 );
@@ -183,17 +225,23 @@ export function ReportsTable({ initialData, workspaceId, members, initialDate, i
             header: "Description / Log",
             cell: ({ row }) => {
                 const desc = row.getValue("description") as string;
+                const count = row.original.entries?.length || 0;
                 return (
                     <div className="max-w-[200px]">
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <p className="text-sm truncate cursor-help text-card-foreground/90">
-                                        {desc}
+                                        {desc} {count > 1 && <span className="text-[10px] text-primary font-bold">(+{count - 1} more)</span>}
                                     </p>
                                 </TooltipTrigger>
                                 <TooltipContent side="top" className="max-w-[200px] p-3 text-xs leading-relaxed">
                                     <p className="whitespace-pre-wrap">{desc}</p>
+                                    {count > 1 && (
+                                        <p className="mt-2 text-[10px] font-bold border-t pt-1 border-white/20">
+                                            Click to view all {count} logs
+                                        </p>
+                                    )}
                                 </TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
@@ -273,6 +321,10 @@ export function ReportsTable({ initialData, workspaceId, members, initialDate, i
                 showPagination={false}
                 filterDisplay="default"
                 showColumnToggle={true}
+                onRowClick={(row) => {
+                    setSelectedReport(row);
+                    setIsDialogOpen(true);
+                }}
                 extraToolbarContent={
                     <>
                         {/* Member Picker - Admins Only */}
@@ -354,7 +406,7 @@ export function ReportsTable({ initialData, workspaceId, members, initialDate, i
                             </Button>
                         )}
 
-                        <Button
+                        {/* <Button
                             variant="outline"
                             size="sm"
                             onClick={exportToExcel}
@@ -362,7 +414,7 @@ export function ReportsTable({ initialData, workspaceId, members, initialDate, i
                         >
                             <Download className="mr-2 h-4 w-4" />
                             Export Excel
-                        </Button>
+                        </Button> */}
                     </>
                 }
             />
@@ -372,6 +424,12 @@ export function ReportsTable({ initialData, workspaceId, members, initialDate, i
                     {isLoadingMore && <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />}
                 </div>
             )}
+
+            <ReportDetailModal
+                isOpen={isDialogOpen}
+                onOpenChange={setIsDialogOpen}
+                report={selectedReport}
+            />
         </div>
     );
 }
