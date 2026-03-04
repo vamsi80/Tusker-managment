@@ -53,12 +53,17 @@ export async function loadMoreReportsAction({
                                     name: true,
                                     color: true
                                 }
+                            },
+                            parentTask: {
+                                select: {
+                                    name: true
+                                }
                             }
                         }
                     }
                 },
                 orderBy: {
-                    type: "asc"
+                    createdAt: "asc"
                 }
             }
         },
@@ -98,19 +103,18 @@ export async function loadMoreReportsAction({
                 date: report.date,
             });
         } else {
-            for (const entry of report.entries) {
-                rows.push({
-                    id: entry.id,
-                    reportId: report.id,
-                    user: report.user,
-                    status: report.status,
-                    submittedAt: report.submittedAt,
-                    type: entry.type,
-                    task: entry.task,
-                    description: entry.description,
-                    date: report.date,
-                });
-            }
+            rows.push({
+                id: report.id,
+                reportId: report.id,
+                user: report.user,
+                status: report.status,
+                submittedAt: report.submittedAt,
+                date: report.date,
+                entries: report.entries,
+                // Easy access for the first entry's data
+                task: report.entries[0]?.task,
+                description: report.entries[0]?.description,
+            });
         }
     }
 
