@@ -6,6 +6,11 @@ import { revalidateTag } from "next/cache";
 
 import { dailyReportSchema, DailyReportFormType } from "@/lib/zodSchemas";
 import { getDailyReportFormData as getFormData } from "@/data/daily-report/get-daily-report-form-data";
+import { getDailyReportStatus as getStatus } from "@/data/daily-report/get-daily-report-status";
+
+export async function getDailyReportStatus(workspaceId: string) {
+    return getStatus(workspaceId);
+}
 
 export async function getDailyReportFormData(workspaceId: string) {
     return getFormData(workspaceId);

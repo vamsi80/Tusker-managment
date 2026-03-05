@@ -18,7 +18,8 @@ export async function ProjectKanbanView({
             groupBy: "status",
             excludeParents: true,
             limit: 100,
-            sorts: [{ field: "createdAt", direction: "desc" }]
+            sorts: [{ field: "createdAt", direction: "desc" }],
+            view_mode: "kanban"
         }),
         getProjectMembers(projectId),
     ]);

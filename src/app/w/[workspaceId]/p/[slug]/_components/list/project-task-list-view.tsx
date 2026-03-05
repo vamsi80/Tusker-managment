@@ -31,8 +31,8 @@ export async function ProjectTaskListView({
         workspaceId,
         projectId,
         hierarchyMode: "parents",
-        // includeSubTasks: true,
-        limit: 50 // Load reasonable initial batch
+        limit: 50,
+        view_mode: "list"
     });
 
     // Transform to TaskWithSubTasks structure

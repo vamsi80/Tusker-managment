@@ -2,11 +2,12 @@ import { Suspense } from "react";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "../_components/sidebar/workspace-sidebar";
 import { SiteHeader } from "../_components/sidebar/header/site-header";
+import { WorkspaceSidebarSkeleton } from "../_components/workspace-skeleton";
 import { getWorkspaces } from "@/data/workspace/get-workspaces";
 import { getWorkspaceMetadata } from "@/data/workspace/get-workspace-metadata";
 import { notFound } from "next/navigation";
 import { DailyReportFAB } from "./reports/_components/DailyReportFAB";
-import { getDailyReportFormData } from "@/actions/daily-report-actions";
+import { getDailyReportStatus } from "@/actions/daily-report-actions";
 
 interface Props {
     children: React.ReactNode;
@@ -25,8 +26,8 @@ async function SidebarLoader({ workspaceId }: { workspaceId: string }) {
 async function DailyReportFABLoader({ workspaceId }: { workspaceId: string }) {
     let initialStatus: "SUBMITTED" | "ABSENT" | "NOT_SUBMITTED" | "LOADING" = "NOT_SUBMITTED";
     try {
-        const data = await getDailyReportFormData(workspaceId);
-        initialStatus = data.report?.status || "NOT_SUBMITTED";
+        const data = await getDailyReportStatus(workspaceId);
+        initialStatus = data.status || "NOT_SUBMITTED";
     } catch (error) {
         // Fallback to NOT_SUBMITTED on error
     }
@@ -53,7 +54,7 @@ export default async function WorkSpaceLayout({ children, params }: Props) {
             }
         >
             {/* Sidebar streams in — shell renders instantly */}
-            <Suspense fallback={null}>
+            <Suspense fallback={<WorkspaceSidebarSkeleton />}>
                 <SidebarLoader workspaceId={workspaceId} />
             </Suspense>
 
