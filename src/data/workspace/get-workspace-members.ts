@@ -43,7 +43,6 @@ async function _fetchWorkspaceMembersInternal(workspaceId: string): Promise<Work
           surname: true,
           contactNumber: true,
           email: true,
-          image: true,
         },
       },
       projectMembers: {

@@ -305,6 +305,7 @@ export function KanbanBoard({
                     assigneeId: filters.assigneeId,
                     tagId: filters.tagId,
                     filterParentTaskId: filters.parentTaskId,
+                    view_mode: "kanban",
                 });
 
                 if (isAborted) return;
@@ -394,6 +395,7 @@ export function KanbanBoard({
                 limit: 200,
                 sorts: [{ field: "createdAt", direction: "desc" }],
                 cursor: currentCursor,
+                view_mode: "kanban",
                 ...activeFilters
             });
 
@@ -813,7 +815,7 @@ export function KanbanBoard({
                 member.workspaceMember.user.id,
                 {
                     id: member.workspaceMember.user.id,
-                    name: member.workspaceMember.user.name,
+                    // name: member.workspaceMember.user.name,
                     surname: member.workspaceMember.user.surname || undefined,
                 }
             ])

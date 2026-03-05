@@ -35,9 +35,9 @@ export async function loadMoreReportsAction({
         include: {
             user: {
                 select: {
-                    name: true,
+                    // name: true,
                     surname: true,
-                    image: true,
+                    // image: true,
                     email: true
                 }
             },

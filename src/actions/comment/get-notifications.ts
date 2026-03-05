@@ -66,7 +66,6 @@ export async function getNotificationsAction(workspaceId: string, limit: number 
                 user: {
                     select: {
                         name: true,
-                        image: true,
                         surname: true
                     }
                 },

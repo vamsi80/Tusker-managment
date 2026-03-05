@@ -16,10 +16,7 @@ export interface CreateTaskCommentResult {
         taskId: string;
         user: {
             id: string;
-            name: string;
             surname: string | null;
-            image: string | null;
-            email: string;
         };
         isEdited: boolean;
         editedAt: Date | null;
@@ -148,10 +145,9 @@ export async function createTaskCommentAction(
                 user: {
                     select: {
                         id: true,
-                        name: true,
+                        // name: true,
                         surname: true,
-                        image: true,
-                        email: true,
+                        // email: true,
                     },
                 },
             },
@@ -200,6 +196,5 @@ async function getCommentDepth(commentId: string): Promise<number> {
         // Safety limit to prevent infinite loops
         if (depth > 100) break;
     }
-
     return depth;
 }

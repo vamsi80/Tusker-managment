@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Loader2, ChevronsUpDown, Maximize2, Minimize2, ChevronDown } from "lucide-react";
 import { loadTasksAction } from "@/actions/task/list-actions";
+import { getSubTasksAction } from "@/actions/task/get-subtasks";
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 import { SubTaskType } from "@/data/task";
@@ -168,6 +169,10 @@ export function TaskTable({
         return hydrateTasks(mergedList);
     });
 
+    useEffect(() => {
+        tasksRef.current = tasks;
+    }, [tasks]);
+
     tasksRef.current = tasks;
 
     // SYNC INITIAL TASKS TO CACHE
@@ -323,6 +328,7 @@ export function TaskTable({
                     includeSubTasks: true, // Bulk load subtasks in one request
                     limit: 50, // Increase limit for filtered views
                     sorts,
+                    view_mode: "list",
                 });
 
                 console.timeEnd("Filter Hierarchy Load");
@@ -445,6 +451,7 @@ export function TaskTable({
                 onlySubtasks: true,
                 sorts,
                 limit: 50, // Increased limit for faster "Load More" feel
+                view_mode: "list",
             });
 
             console.timeEnd("Filter Flat List Load");
@@ -505,6 +512,7 @@ export function TaskTable({
                 sorts,
                 skip: sortedTasks.length,
                 limit: 50,
+                view_mode: "list",
             });
 
             if (res.success && res.data) {
@@ -579,6 +587,7 @@ export function TaskTable({
                 cursor: currentPagination.nextCursor,
                 limit: 50,
                 sorts,
+                view_mode: "list",
             });
 
             if (response.success && response.data) {
@@ -684,12 +693,12 @@ export function TaskTable({
             .filter(member => member.workspaceMember?.user)
             .map(member => ({
                 id: member.workspaceMember.user!.id,
-                name: member.workspaceMember.user!.name,
+                // name: member.workspaceMember.user!.name,
                 surname: member.workspaceMember.user!.surname || undefined,
             }))
             .sort((a, b) => {
-                const nameA = `${a.name} ${a.surname || ''}`.trim();
-                const nameB = `${b.name} ${b.surname || ''}`.trim();
+                const nameA = `${a.surname || ''}`.trim();
+                const nameB = `${b.surname || ''}`.trim();
                 return nameA.localeCompare(nameB);
             });
 
@@ -795,35 +804,37 @@ export function TaskTable({
                 workspaceId
             };
 
-            const response = await loadTasksAction({
+            const response = await getSubTasksAction(
+                taskId,
                 workspaceId,
-                projectId: taskProjectId,
-                filterParentTaskId: taskId,
-                status: activeFilters.status,
-                assigneeId: activeFilters.assigneeId,
-                tagId: activeFilters.tagId,
-                search: activeFilters.search,
-                dueAfter: filters.startDate ? new Date(filters.startDate) : undefined,
-                dueBefore: filters.endDate ? new Date(filters.endDate) : undefined,
-                limit: 30, // Increased from 10 to 30 for better "Else" loading
-                sorts,
-            });
+                taskProjectId,
+                {
+                    status: activeFilters.status,
+                    assigneeId: activeFilters.assigneeId,
+                    tagId: activeFilters.tagId,
+                    search: activeFilters.search,
+                    dueAfter: filters.startDate ? new Date(filters.startDate) : undefined,
+                    dueBefore: filters.endDate ? new Date(filters.endDate) : undefined,
+                },
+                30, // pageSize
+                "list"
+            );
 
-            if (response.success && response.data) {
-                const result = response.data;
-                console.log(`[CLIENT] Loaded subtasks for parent ${taskId}:`, result.tasks);
+            if (response.success && response.subTasks) {
+                const subTasks = response.subTasks;
+                console.log(`[CLIENT] Loaded subtasks for parent ${taskId}:`, subTasks);
                 processedSubTasksRef.current.add(taskId);
 
                 // Dedup
-                const uniqueSubTasks = result.tasks.filter((st: any, index: number, self: any[]) =>
+                const uniqueSubTasks = subTasks.filter((st: any, index: number, self: any[]) =>
                     index === self.findIndex((t: any) => (t.id === st.id))
                 );
 
                 if (!filtersActive) {
                     setCachedSubTasks(taskId, {
                         subTasks: uniqueSubTasks,
-                        hasMore: result.hasMore,
-                        nextCursor: result.nextCursor
+                        hasMore: response.hasMore,
+                        nextCursor: null // getSubTasksAction doesn't return cursor yet, but we have hasMore
                     });
                 }
 
@@ -832,8 +843,8 @@ export function TaskTable({
                         return {
                             ...t,
                             subTasks: uniqueSubTasks,
-                            subTasksHasMore: result.hasMore,
-                            subTasksNextCursor: result.nextCursor
+                            subTasksHasMore: response.hasMore,
+                            subTasksNextCursor: null
                         };
                     }
                     return t;
@@ -849,7 +860,7 @@ export function TaskTable({
                 return next;
             });
         }
-    }, [projectId, workspaceId, getCachedSubTasks, setCachedSubTasks]);
+    }, [projectId, workspaceId, filters, searchQuery, getCachedSubTasks, setCachedSubTasks]);
 
 
     // 3. UI-ONLY Toggle

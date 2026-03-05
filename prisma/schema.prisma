@@ -141,7 +141,7 @@ model WorkspaceMember {
 
   @@unique([userId, workspaceId])
   @@index([workspaceId, workspaceRole])
-  @@index([userId])
+  @@index([userId, createdAt(sort: Desc)])
   @@index([workspaceId, userId])
   @@index([workspaceRole])
 }
@@ -211,6 +211,8 @@ model ClintMembers {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   clints        Clints?  @relation(fields: [clintId], references: [id], onDelete: Cascade)
+
+  @@index([clintId])
 }
 
 model Tag {
@@ -288,7 +290,7 @@ model ReviewComment {
   author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
   subTask     Task     @relation(fields: [subTaskId], references: [id], onDelete: Cascade)
 
-  @@index([subTaskId, createdAt])
+  @@index([subTaskId, createdAt(sort: Desc)])
   @@index([authorId])
   @@index([workspaceId])
 }
@@ -311,7 +313,7 @@ model Comment {
   user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   readBy          CommentRead[]
 
-  @@index([taskId])
+  @@index([taskId, createdAt(sort: Desc)])
   @@index([userId])
   @@index([parentCommentId])
   @@index([createdAt])
@@ -431,6 +433,7 @@ model Unit {
   creator            User?               @relation(fields: [createdBy], references: [id])
   workspace          Workspace?          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
+  @@unique([workspaceId, abbreviation])
   @@index([isActive])
   @@index([isDefault])
   @@index([createdBy])

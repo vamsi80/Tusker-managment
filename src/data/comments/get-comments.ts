@@ -19,10 +19,10 @@ async function _getTaskCommentsInternal(taskId: string) {
             user: {
                 select: {
                     id: true,
-                    name: true,
+                    // name: true,
                     surname: true,
-                    email: true,
-                    image: true,
+                    // email: true,
+                    // image: true,
                 },
             },
             replies: {
@@ -33,10 +33,10 @@ async function _getTaskCommentsInternal(taskId: string) {
                     user: {
                         select: {
                             id: true,
-                            name: true,
+                            // name: true,
                             surname: true,
-                            email: true,
-                            image: true,
+                            // email: true,
+                            // image: true,
                         },
                     },
                 },
@@ -94,9 +94,9 @@ async function _getReviewCommentsInternal(subTaskId: string) {
             author: {
                 select: {
                     id: true,
-                    name: true,
+                    // name: true,
                     surname: true,
-                    image: true,
+                    // image: true,
                 },
             },
         },

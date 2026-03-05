@@ -30,7 +30,8 @@ export async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewPr
             groupBy: "status",
             excludeParents: true, // ONLY FETCH CARDS (NOT PARENTS)
             limit: 300,
-            sorts: [{ field: "createdAt", direction: "desc" }]
+            sorts: [{ field: "createdAt", direction: "desc" }],
+            view_mode: "kanban"
         }),
         getWorkspaceMembers(workspaceId),
         getUserProjects(workspaceId),
@@ -51,7 +52,7 @@ export async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewPr
                 workspaceMember: {
                     select: {
                         user: {
-                            select: { id: true, name: true, surname: true, image: true }
+                            select: { id: true, surname: true }
                         }
                     }
                 }
@@ -152,10 +153,7 @@ export async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewPr
                         updatedAt: new Date("2024-01-01T00:00:00Z"),
                         user: {
                             id: member.user?.id || "",
-                            name: member.user?.name || "",
                             surname: member.user?.surname || null,
-                            email: member.user?.email || "",
-                            image: member.user?.image || null,
                         },
                     },
                 }

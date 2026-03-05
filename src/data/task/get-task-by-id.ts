@@ -47,19 +47,19 @@ async function _getTaskByIdInternal(
             createdBy: {
                 select: {
                     id: true,
-                    name: true,
+                    // name: true,
                     surname: true,
-                    image: true,
-                    email: true,
+                    // image: true,
+                    // email: true,
                 },
             },
             assignee: {
                 select: {
                     id: true,
-                    name: true,
+                    // name: true,
                     surname: true,
-                    image: true,
-                    email: true,
+                    // image: true,
+                    // email: true,
                 },
             },
             project: {
@@ -102,9 +102,9 @@ async function _getTaskByIdInternal(
                         assignee: {
                             select: {
                                 id: true,
-                                name: true,
+                                // name: true,
                                 surname: true,
-                                image: true,
+                                // image: true,
                             },
                         },
                         _count: {
@@ -132,9 +132,9 @@ async function _getTaskByIdInternal(
                         assignee: {
                             select: {
                                 id: true,
-                                name: true,
+                                // name: true,
                                 surname: true,
-                                image: true,
+                                // image: true,
                             },
                         },
                         _count: {

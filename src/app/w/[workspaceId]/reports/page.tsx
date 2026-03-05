@@ -37,9 +37,7 @@ export default async function ReportsPage({
         include: {
             user: {
                 select: {
-                    name: true,
                     surname: true,
-                    image: true,
                     email: true
                 }
             },

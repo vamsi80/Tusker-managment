@@ -56,9 +56,9 @@ export async function batchLoadProjects(ids: (string | null | undefined)[]) {
                         select: {
                             user: {
                                 select: {
-                                    name: true,
+                                    // name: true,
                                     surname: true,
-                                    image: true
+                                    // image: true
                                 }
                             }
                         }

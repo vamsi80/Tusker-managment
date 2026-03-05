@@ -95,7 +95,6 @@ async function _fetchWorkspaceByIdInternal(workspaceId: string): Promise<Workspa
                             name: true,
                             surname: true,
                             email: true,
-                            image: true,
                         },
                     },
                 },

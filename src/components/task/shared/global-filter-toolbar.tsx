@@ -153,7 +153,7 @@ export function GlobalFilterToolbar({
             const assignee = members.find(m => m.id === filter.value);
             if (assignee) {
                 // User requested "surname instead of name"
-                const displayName = assignee.surname ? assignee.surname : assignee.name;
+                const displayName = assignee.surname ? assignee.surname : "";
                 return {
                     ...filter,
                     value: displayName
@@ -517,7 +517,7 @@ export function GlobalFilterToolbar({
                                                     <SelectItem value="__all__">All Assignees</SelectItem>
                                                     {members.map((member) => (
                                                         <SelectItem key={member.id} value={member.id}>
-                                                            {member.surname ? member.surname : member.name}
+                                                            {member.surname ? member.surname : ""}
                                                         </SelectItem>
                                                     ))}
                                                 </SelectContent>
