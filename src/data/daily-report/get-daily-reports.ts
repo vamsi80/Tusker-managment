@@ -25,10 +25,10 @@ export async function getAdminDailyReports(workspaceId: string, date?: Date, use
             date: true,
             user: {
                 select: {
-                    name: true,
+                    // name: true,
                     surname: true,
-                    image: true,
-                    email: true
+                    // image: true,
+                    // email: true
                 }
             }
         },
@@ -63,10 +63,10 @@ export async function getAdminAllReportEntries(workspaceId: string, date?: Date,
                 include: {
                     user: {
                         select: {
-                            name: true,
+                            // name: true,
                             surname: true,
                             email: true,
-                            image: true
+                            // image: true
                         }
                     }
                 }

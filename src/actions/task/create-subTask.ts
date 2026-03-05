@@ -128,9 +128,9 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
                 assignee: {
                     select: {
                         id: true,
-                        name: true,
+                        // name: true,
                         surname: true,
-                        image: true,
+                        // image: true,
                     }
                 },
                 tag: {
@@ -142,9 +142,9 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
                 reviewer: {
                     select: {
                         id: true,
-                        name: true,
+                        // name: true,
                         surname: true,
-                        image: true,
+                        // image: true,
                     }
                 }
             }

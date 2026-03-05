@@ -27,10 +27,11 @@ export async function WorkspaceListView({
         getTasks({
             workspaceId,
             hierarchyMode: "parents",
-            includeSubTasks: true,
+            includeSubTasks: false, // 🚀 Optimization: Fetch children on-demand
             page: 1,
             limit: 50,
-            includeFacets: true
+            includeFacets: true,
+            view_mode: "list"
         })
     ]);
     const duration = performance.now() - startTime;
@@ -48,9 +49,7 @@ export async function WorkspaceListView({
             workspaceRole: member.workspaceRole as any,
             user: {
                 id: member.user?.id || '',
-                name: member.user?.name || '',
                 surname: member.user?.surname || '',
-                image: member.user?.image || '',
             }
         }
     }));

@@ -54,6 +54,13 @@ export type WorkspaceTaskType = {
         id: string;
         name: string;
         taskSlug: string;
+        reviewerId?: string | null;
+        reviewer?: {
+            id: string;
+            surname: string | null;
+            name: string | null;
+            image: string | null;
+        } | null;
     } | null;
     project?: {
         id: string;

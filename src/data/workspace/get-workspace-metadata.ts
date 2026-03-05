@@ -3,9 +3,7 @@
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { requireUser } from "@/lib/auth/require-user";
-import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import prisma from "@/lib/db";
-import { notFound } from "next/navigation";
 
 /**
  * Lightweight workspace metadata for layouts

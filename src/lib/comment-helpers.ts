@@ -88,10 +88,10 @@ export async function getTaskComments(taskId: string, includeDeleted = false) {
             user: {
                 select: {
                     id: true,
-                    name: true,
+                    // name: true,
                     surname: true,
-                    image: true,
-                    email: true,
+                    // image: true,
+                    // email: true,
                 }
             },
             replies: {
@@ -100,10 +100,10 @@ export async function getTaskComments(taskId: string, includeDeleted = false) {
                     user: {
                         select: {
                             id: true,
-                            name: true,
+                            // name: true,
                             surname: true,
-                            image: true,
-                            email: true,
+                            // image: true,
+                            // email: true,
                         }
                     },
                     // Include one level of nested replies
@@ -113,10 +113,10 @@ export async function getTaskComments(taskId: string, includeDeleted = false) {
                             user: {
                                 select: {
                                     id: true,
-                                    name: true,
+                                    // name: true,
                                     surname: true,
-                                    image: true,
-                                    email: true,
+                                    // image: true,
+                                    // email: true,
                                 }
                             }
                         },
@@ -149,10 +149,10 @@ export async function getTaskCommentsPaginated(
                 user: {
                     select: {
                         id: true,
-                        name: true,
+                        // name: true,
                         surname: true,
-                        image: true,
-                        email: true,
+                        // image: true,
+                        // email: true,
                     }
                 },
                 _count: {
@@ -216,10 +216,10 @@ export async function createComment(data: {
             user: {
                 select: {
                     id: true,
-                    name: true,
+                    // name: true,
                     surname: true,
-                    image: true,
-                    email: true,
+                    // image: true,
+                    // email: true,
                 }
             }
         }
@@ -263,10 +263,10 @@ export async function editComment(
             user: {
                 select: {
                     id: true,
-                    name: true,
+                    // name: true,
                     surname: true,
-                    image: true,
-                    email: true,
+                    // image: true,
+                    // email: true,
                 }
             }
         }

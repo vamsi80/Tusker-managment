@@ -1,9 +1,8 @@
 "use server";
 
 import { cache } from "react";
+import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
-import { getProjectBySlug } from "@/data/project/get-project-by-slug";
-import { getUserPermissions } from "@/data/user/get-user-permissions";
 
 /**
  * Lightweight project metadata for layouts
@@ -18,28 +17,49 @@ export const getProjectMetadata = cache(async (workspaceId: string, slug: string
     try {
         const user = await requireUser();
 
-        // Get basic project info (already cached)
-        const project = await getProjectBySlug(workspaceId, slug);
+        // SINGLE QUERY for both project data and user access
+        // This is significantly faster than chaining multiple functions
+        const project = await prisma.project.findFirst({
+            where: {
+                workspaceId,
+                OR: [{ slug }, { id: slug }]
+            },
+            select: {
+                id: true,
+                name: true,
+                slug: true,
+                color: true,
+                workspaceId: true,
+                workspace: {
+                    select: {
+                        members: {
+                            where: { userId: user.id },
+                            select: {
+                                id: true,
+                                workspaceRole: true,
+                                projectMembers: {
+                                    where: { project: { OR: [{ slug }, { id: slug }] } },
+                                    select: {
+                                        projectRole: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
 
-        if (!project) {
+        if (!project || project.workspace.members.length === 0) {
             return null;
         }
 
-        // Get user permissions using the project's actual workspaceId to avoid slug/id mismatches
-        const permissions = await getUserPermissions(project.workspaceId, project.id);
+        const workspaceMember = project.workspace.members[0];
+        const isWorkspaceAdmin = workspaceMember.workspaceRole === "OWNER" || workspaceMember.workspaceRole === "ADMIN";
+        const projectMember = workspaceMember.projectMembers[0];
 
-        // Security check:
-        // 1. User must be a member of the workspace (workspaceMemberId must exist)
-        // 2. User must have access:
-        //    - Either they are a Workspace Admin/Owner
-        //    - Or they are explicitly added to the project (projectMember exists)
-        if (!permissions.workspaceMemberId) {
-            return null;
-        }
-
-        const hasAccess = permissions.isWorkspaceAdmin || !!permissions.projectMember;
-
-        if (!hasAccess) {
+        // Security check: Must be workspace admin or direct project member
+        if (!isWorkspaceAdmin && !projectMember) {
             return null;
         }
 
@@ -50,7 +70,7 @@ export const getProjectMetadata = cache(async (workspaceId: string, slug: string
             color: project.color,
             workspaceId: project.workspaceId,
             userId: user.id,
-            canPerformBulkOperations: permissions.canPerformBulkOperations,
+            canPerformBulkOperations: isWorkspaceAdmin || (projectMember?.projectRole === "LEAD" || projectMember?.projectRole === "PROJECT_MANAGER"),
         };
     } catch (error) {
         console.error("Error in getProjectMetadata:", error);

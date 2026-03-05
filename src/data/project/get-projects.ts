@@ -47,73 +47,45 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
         workspaceMember.workspaceRole === "ADMIN";
     const isManager = workspaceMember.workspaceRole === "MANAGER";
 
-    // OWNER/ADMIN: See all projects
-    if (isOwnerOrAdmin) {
-        const allProjects = await prisma.project.findMany({
-            where: { workspaceId },
+    // Common selection for projects
+    const projectSelect = {
+        id: true,
+        name: true,
+        slug: true,
+        color: true,
+        description: true,
+        createdBy: true,
+        _count: {
             select: {
-                id: true,
-                name: true,
-                slug: true,
-                color: true,
-                description: true,
-                createdBy: true,
-                projectMembers: {
-                    select: {
-                        id: true,
-                        projectRole: true,
-                        workspaceMember: {
-                            select: {
-                                userId: true,
-                            },
-                        },
-                    },
-                },
-
+                projectMembers: true
+            }
+        },
+        projectMembers: {
+            where: {
+                workspaceMember: {
+                    userId: userId
+                }
             },
-            orderBy: {
-                createdAt: "desc",
-            },
+            select: {
+                projectRole: true
+            }
+        }
+    } as const;
+
+    let projects;
+
+    if (isOwnerOrAdmin) {
+        projects = await prisma.project.findMany({
+            where: { workspaceId },
+            select: projectSelect,
+            orderBy: { createdAt: "desc" },
         });
-
-        // Add canManageMembers flag and statistics for each project
-        return allProjects.map(project => {
-            const userProjectMember = project.projectMembers.find(
-                pm => pm.workspaceMember.userId === userId
-            );
-            const isProjectManager = userProjectMember?.projectRole === "PROJECT_MANAGER";
-            const isCreator = project.createdBy === userId;
-
-            // Calculate project statistics
-            const managers = project.projectMembers
-                .filter(pm => pm.projectRole === "PROJECT_MANAGER")
-                .map(pm => pm.workspaceMember.userId);
-
-            const leads = project.projectMembers
-                .filter(pm => pm.projectRole === "LEAD")
-                .map(pm => pm.workspaceMember.userId);
-
-            const memberCount = project.projectMembers.length;
-
-            return {
-                ...project,
-                canManageMembers: isOwnerOrAdmin || isProjectManager || isCreator,
-                memberCount,
-                managers,
-                leads,
-            };
-        });
-    }
-
-    // MANAGER: See projects they created OR are member of
-    if (isManager) {
-        const managerProjects = await prisma.project.findMany({
+    } else if (isManager) {
+        projects = await prisma.project.findMany({
             where: {
                 workspaceId,
                 OR: [
-                    // Projects created by this manager
                     { createdBy: userId },
-                    // Projects where they are explicitly added as member
                     {
                         projectMembers: {
                             some: {
@@ -124,121 +96,42 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
                     },
                 ],
             },
-            select: {
-                id: true,
-                name: true,
-                slug: true,
-                color: true,
-                description: true,
-                createdBy: true,
+            select: projectSelect,
+            orderBy: { createdAt: "desc" },
+        });
+    } else {
+        projects = await prisma.project.findMany({
+            where: {
+                workspaceId,
                 projectMembers: {
-                    select: {
-                        id: true,
-                        projectRole: true,
-                        workspaceMember: {
-                            select: {
-                                userId: true,
-                            },
-                        },
+                    some: {
+                        workspaceMemberId: workspaceMember.id,
+                        hasAccess: true,
                     },
                 },
-
             },
-            orderBy: {
-                createdAt: "desc",
-            },
-        });
-
-        // Add canManageMembers flag and statistics for each project
-        return managerProjects.map(project => {
-            const userProjectMember = project.projectMembers.find(
-                pm => pm.workspaceMember.userId === userId
-            );
-            const isProjectManager = userProjectMember?.projectRole === "PROJECT_MANAGER";
-            const isCreator = project.createdBy === userId;
-
-            // Calculate project statistics
-            const managers = project.projectMembers
-                .filter(pm => pm.projectRole === "PROJECT_MANAGER")
-                .map(pm => pm.workspaceMember.userId);
-
-            const leads = project.projectMembers
-                .filter(pm => pm.projectRole === "LEAD")
-                .map(pm => pm.workspaceMember.userId);
-
-            const memberCount = project.projectMembers.length;
-
-            return {
-                ...project,
-                canManageMembers: isProjectManager || isCreator,
-                memberCount,
-                managers,
-                leads,
-            };
+            select: projectSelect,
+            orderBy: { createdAt: "desc" },
         });
     }
 
-    // MEMBER/VIEWER: Only projects they are member of
-    const memberProjects = await prisma.project.findMany({
-        where: {
-            workspaceId,
-            projectMembers: {
-                some: {
-                    workspaceMemberId: workspaceMember.id,
-                    hasAccess: true,
-                },
-            },
-        },
-        select: {
-            id: true,
-            name: true,
-            slug: true,
-            color: true,
-            description: true,
-            createdBy: true,
-            projectMembers: {
-                select: {
-                    id: true,
-                    projectRole: true,
-                    workspaceMember: {
-                        select: {
-                            userId: true,
-                        },
-                    },
-                },
-            },
-
-        },
-        orderBy: {
-            createdAt: "desc",
-        },
-    });
-
-    // Add canManageMembers flag and statistics for each project
-    return memberProjects.map(project => {
-        const userProjectMember = project.projectMembers.find(
-            pm => pm.workspaceMember.userId === userId
-        );
+    return projects.map(project => {
+        const userProjectMember = project.projectMembers[0];
         const isProjectManager = userProjectMember?.projectRole === "PROJECT_MANAGER";
+        const isProjectLead = userProjectMember?.projectRole === "LEAD";
         const isCreator = project.createdBy === userId;
 
-        // Calculate project statistics
-        const managers = project.projectMembers
-            .filter(pm => pm.projectRole === "PROJECT_MANAGER")
-            .map(pm => pm.workspaceMember.userId);
-
-        const leads = project.projectMembers
-            .filter(pm => pm.projectRole === "LEAD")
-            .map(pm => pm.workspaceMember.userId);
-
-        const memberCount = project.projectMembers.length;
-
         return {
-            ...project,
-            canManageMembers: isProjectManager || isCreator,
-            memberCount,
-            managers,
-            leads,
+            id: project.id,
+            name: project.name,
+            slug: project.slug,
+            color: project.color,
+            description: project.description,
+            createdBy: project.createdBy,
+            canManageMembers: isOwnerOrAdmin || isProjectManager || isCreator,
+            memberCount: project._count.projectMembers,
+            // We only need basic status for the list, detail views fetch more
+            isLead: isProjectLead,
         };
     });
 }

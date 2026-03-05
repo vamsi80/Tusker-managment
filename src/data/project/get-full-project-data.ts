@@ -38,6 +38,7 @@ export interface FullProjectData {
  * Internal function to fetch complete project data
  */
 async function _getFullProjectDataInternal(projectId: string, userId: string): Promise<FullProjectData> {
+    // 1. Fetch only the core project data and the current user's membership
     const project = await prisma.project.findUnique({
         where: { id: projectId },
         include: {
@@ -45,21 +46,26 @@ async function _getFullProjectDataInternal(projectId: string, userId: string): P
                 include: {
                     workspaceMember: {
                         include: {
-                            user: true,
-                        },
-                    },
-                },
-            },
-            workspace: {
-                include: {
-                    members: true,
-                },
+                            user: {
+                                select: {
+                                    id: true,
+                                    // name: true,
+                                    surname: true,
+                                    // image: true,
+                                }
+                            }
+                        }
+                    }
+                }
             },
             clint: {
+                take: 1, // Only need the primary client
                 include: {
-                    clintMembers: true,
-                },
-            },
+                    clintMembers: {
+                        take: 1 // Only need the primary contact
+                    }
+                }
+            }
         },
     });
 
@@ -67,26 +73,24 @@ async function _getFullProjectDataInternal(projectId: string, userId: string): P
         notFound();
     }
 
-    // Check user has access to this project
-    const workspaceMember = project.workspace.members.find(
-        (m) => m.userId === userId
+    // 2. Efficient access check - look for current user in the project's member list
+    const currentUserMember = project.projectMembers.find(
+        (pm) => pm.workspaceMember.userId === userId
     );
 
-    if (!workspaceMember) {
-        notFound();
+    // 3. Admin fallback check (if not directly in project, check workspace role)
+    if (!currentUserMember) {
+        const workspaceMember = await prisma.workspaceMember.findFirst({
+            where: {
+                workspaceId: project.workspaceId,
+                userId: userId,
+                workspaceRole: { in: ["ADMIN", "OWNER"] }
+            }
+        });
+        if (!workspaceMember) notFound();
     }
 
-    // Find project lead (member with LEAD role)
-    const projectLead = project.projectMembers.find(
-        (pm) => pm.projectRole === "LEAD"
-    );
-
-    // Get all member userIds
-    const memberAccess = project.projectMembers
-        .filter((pm) => pm.projectRole !== "LEAD")
-        .map((pm) => pm.workspaceMember.userId);
-
-    // Map project members with full details
+    // Map project members with minimal data
     const projectMembersData = project.projectMembers.map((pm) => ({
         id: pm.id,
         userId: pm.workspaceMember.userId,
@@ -95,18 +99,17 @@ async function _getFullProjectDataInternal(projectId: string, userId: string): P
         hasAccess: pm.hasAccess,
     }));
 
+    const projectLead = project.projectMembers.find(pm => pm.projectRole === "LEAD");
+
     return {
         id: project.id,
         name: project.name,
         description: project.description,
         slug: project.slug,
         workspaceId: project.workspaceId,
-        // Team data
         projectLead: projectLead?.workspaceMember.userId || null,
-        memberAccess: memberAccess,
-        // Project members
+        memberAccess: project.projectMembers.map(pm => pm.workspaceMember.userId),
         projectMembers: projectMembersData,
-        // Client data (first client if exists)
         companyName: project.clint[0]?.name || null,
         registeredCompanyName: project.clint[0]?.registeredCompanyName || null,
         directorName: project.clint[0]?.directorName || null,

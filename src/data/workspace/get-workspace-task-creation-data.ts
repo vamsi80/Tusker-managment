@@ -8,7 +8,6 @@ import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { getUserProjects } from "@/data/project/get-projects";
 import { getWorkspaceMembers } from "@/data/workspace/get-workspace-members";
 import { getWorkspaceTags } from "@/data/tag/get-tags";
-import { getTasks } from "@/data/task/get-tasks";
 import { CacheTags } from "@/data/cache-tags";
 
 /**
@@ -25,9 +24,7 @@ export interface WorkspaceTaskCreationData {
             id: string;
             user: {
                 id: string;
-                name: string | null;
                 surname: string | null;
-                image: string | null;
             };
         };
     }>;
@@ -93,9 +90,7 @@ async function _getWorkspaceTaskCreationDataInternal(
             id: m.id,
             user: {
                 id: m.user?.id || "",
-                name: m.user?.name || null,
                 surname: m.user?.surname || null,
-                image: m.user?.image || null,
             },
         },
     }));
@@ -153,7 +148,7 @@ const getCachedWorkspaceTaskCreationData = (workspaceId: string, userId: string)
         [`workspace-task-creation-data-${workspaceId}-${userId}`],
         {
             tags: CacheTags.workspaceTaskCreationData(workspaceId, userId),
-            revalidate: 300, // 5 minutes
+            revalidate: 60, // 1 minute
         }
     )();
 
