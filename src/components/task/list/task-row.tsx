@@ -1,20 +1,18 @@
 "use client";
 
-import { useRef, useEffect, useState, memo, ReactElement, cloneElement } from "react";
 import { cn } from "@/lib/utils";
-import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, MoreHorizontal, Settings2 } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { toast } from "sonner";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TaskWithSubTasks } from "@/components/task/shared/types";
-import { EditTaskDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/edit-task-form";
+import { TableCell, TableRow } from "@/components/ui/table";
 import { ColumnVisibility } from "../shared/column-visibility";
+import { TaskWithSubTasks } from "@/components/task/shared/types";
 import { UserPermissionsType } from "@/data/user/get-user-permissions";
+import { useRef, useEffect, useState, memo, cloneElement } from "react";
+import { ChevronDown, ChevronRight, MoreHorizontal } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { EditTaskDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/edit-task-form";
 import { DeleteTaskDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/delete-task-form";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 interface TaskRowProps {
     task: TaskWithSubTasks;
@@ -34,7 +32,6 @@ interface TaskRowProps {
     isSubtask?: boolean;
     onRequestSubtasks?: (taskId: string) => void;
     isCached?: boolean;
-    onTaskClick?: (task: TaskWithSubTasks) => void;
     children?: React.ReactNode;
 }
 
@@ -55,7 +52,6 @@ export const TaskRow = memo(function TaskRow({
     projects,
     onRequestSubtasks,
     isCached = false,
-    onTaskClick,
     children
 }: TaskRowProps) {
     // MAINTAIN OPTIMISTIC LOCAL STATE FOR SMOOTHEST DRAG & DROP / EDITS
@@ -231,7 +227,7 @@ export const TaskRow = memo(function TaskRow({
                             </div>
                         </div>
                         <span
-                            className="truncate cursor-pointer hover:underline"
+                            className="truncate"
                             onMouseEnter={() => {
                                 // 🚀 Cache check (No DB hit for prefetching)
                                 if (task.id) {
@@ -241,9 +237,6 @@ export const TaskRow = memo(function TaskRow({
                                         }
                                     });
                                 }
-                            }}
-                            onClick={() => {
-                                onTaskClick?.(task);
                             }}
                         >
                             {task.name}
@@ -258,7 +251,7 @@ export const TaskRow = memo(function TaskRow({
                                 <Avatar className="h-4 w-4 border border-blue-200 dark:border-blue-800 shadow-sm opacity-80">
                                     <AvatarImage src={task.reviewer.image || ""} />
                                     <AvatarFallback className="text-[8px] bg-blue-50 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-                                        {(task.reviewer.surname?.[0] || task.reviewer.name?.[0])}
+                                        {(task.reviewer.surname?.[0])}
                                     </AvatarFallback>
                                 </Avatar>
                             </div>

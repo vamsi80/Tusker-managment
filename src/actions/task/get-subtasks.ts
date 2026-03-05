@@ -2,6 +2,7 @@
 
 import { getSubTasksByParentIds } from "@/data/task";
 import { TaskFilters } from "@/types/task-filters";
+import { requireUser } from "@/lib/auth/require-user";
 
 export async function getSubTasksAction(
     parentTaskId: string,
@@ -11,6 +12,10 @@ export async function getSubTasksAction(
     pageSize: number = 20,
     viewMode: string = "list"
 ) {
+    const startTime = performance.now();
+    const user = await requireUser();
+    console.log(`[ACTION] Expanding Parent: ${parentTaskId} in Workspace: ${workspaceId}. Project: ${projectId || "All"}`);
+
     try {
         const results = await getSubTasksByParentIds(
             [parentTaskId],
@@ -18,15 +23,20 @@ export async function getSubTasksAction(
             projectId,
             filters,
             pageSize,
-            viewMode
+            viewMode,
+            user.id // 🚀 Sub-millisecond permission optimization
         );
+
+        const duration = performance.now() - startTime;
+        console.log(`[ACTION-SUCCESS] Subtasks for ${parentTaskId}: ${duration.toFixed(2)}ms`);
 
         if (results && results.length > 0) {
             return {
                 success: true,
                 subTasks: results[0].subTasks,
                 totalCount: results[0].totalCount,
-                hasMore: results[0].hasMore
+                hasMore: results[0].hasMore,
+                nextCursor: results[0].nextCursor
             };
         }
 
@@ -34,7 +44,8 @@ export async function getSubTasksAction(
             success: true,
             subTasks: [],
             totalCount: 0,
-            hasMore: false
+            hasMore: false,
+            nextCursor: null
         };
     } catch (error) {
         console.error("Error in getSubTasksAction:", error);

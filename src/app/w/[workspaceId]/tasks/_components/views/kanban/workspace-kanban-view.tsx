@@ -3,6 +3,8 @@ import { getWorkspaceTags } from "@/data/tag/get-tags";
 import { getWorkspaceMembers } from "@/data/workspace";
 import { getUserProjects } from "@/data/project/get-projects";
 import { KanbanBoard } from "@/components/task/kanban/kanban-board";
+import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import { requireUser } from "@/lib/auth/require-user";
 import prisma from "@/lib/db";
 
 interface WorkspaceKanbanViewProps {
@@ -15,7 +17,9 @@ interface WorkspaceKanbanViewProps {
  * Shows all subtasks from all projects in Kanban format
  * Uses unified getTasks function for consistent data access
  */
-export async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewProps) {
+export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewProps) {
+    const user = await requireUser();
+
     // ONE QUERY: Fetch all relevant tasks for all statuses in one go
     const [
         tasksResponse,
@@ -23,7 +27,7 @@ export async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewPr
         projects,
         projectMemberMatches,
         tags,
-        projectManagers
+        projectManagers,
     ] = await Promise.all([
         getTasks({
             workspaceId,
@@ -32,7 +36,7 @@ export async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewPr
             limit: 300,
             sorts: [{ field: "createdAt", direction: "desc" }],
             view_mode: "kanban"
-        }),
+        }, user.id),
         getWorkspaceMembers(workspaceId),
         getUserProjects(workspaceId),
         prisma.projectMember.findMany({
@@ -57,7 +61,8 @@ export async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewPr
                     }
                 }
             }
-        })
+        }),
+        getWorkspacePermissions(workspaceId, user.id)
     ]);
 
     // Group tasks by status in JS with strict deduplication

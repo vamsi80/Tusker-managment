@@ -253,13 +253,16 @@ function buildQuerySignature(
     return crypto.createHash("sha256").update(JSON.stringify(signature)).digest("hex");
 }
 
-export const resolveTaskPermissions = cache(async (workspaceId: string, projectId?: string) => {
+export const resolveTaskPermissions = cache(async (workspaceId: string, projectId?: string, userId?: string) => {
+    const start = performance.now();
     let permissions: any;
     let isWorkspaceAdmin = false;
     let authorizedProjectIds: string[] = [];
 
     if (projectId) {
-        permissions = await getUserPermissions(workspaceId, projectId);
+        const pStart = performance.now();
+        permissions = await getUserPermissions(workspaceId, projectId, userId);
+        console.log(`[PERF:PERMS] project fetch: ${(performance.now() - pStart).toFixed(2)}ms`);
         isWorkspaceAdmin = permissions.isWorkspaceAdmin;
 
         const hasFullAccess =
@@ -267,16 +270,19 @@ export const resolveTaskPermissions = cache(async (workspaceId: string, projectI
             permissions.isProjectLead ||
             permissions.isProjectManager;
 
-        // Even if they are an admin, they are "authorized" to view this project.
-        return {
+        const result = {
             permissions,
             isWorkspaceAdmin,
             authorizedProjectIds: [projectId],
             fullAccessProjectIds: hasFullAccess ? [projectId] : [],
             restrictedProjectIds: hasFullAccess ? [] : [projectId]
         };
+        console.log(`[PERF:PERMS] resolve total: ${(performance.now() - start).toFixed(2)}ms`);
+        return result;
     } else {
-        const wsPerms = await getWorkspacePermissions(workspaceId);
+        const wsStart = performance.now();
+        const wsPerms = await getWorkspacePermissions(workspaceId, userId);
+        console.log(`[PERF:PERMS] workspace fetch: ${(performance.now() - wsStart).toFixed(2)}ms`);
         permissions = wsPerms;
         isWorkspaceAdmin = wsPerms.isWorkspaceAdmin;
 
@@ -299,13 +305,15 @@ export const resolveTaskPermissions = cache(async (workspaceId: string, projectI
             id => !fullAccessProjectIds.includes(id)
         );
 
-        return {
+        const result = {
             permissions,
             isWorkspaceAdmin,
             authorizedProjectIds,
             fullAccessProjectIds,
             restrictedProjectIds
         };
+        console.log(`[PERF:PERMS] resolve total: ${(performance.now() - start).toFixed(2)}ms`);
+        return result;
     }
 });
 
@@ -490,8 +498,8 @@ async function _fetchFilteredHierarchy(
 
     // 2. CONTEXT EXPANSION
     const taskMap = new Map<string, any>();
-    const initialSubTasks = (opts.includeSubTasks || hasExplicitFilters) ? [] : undefined;
-    matches.forEach(t => taskMap.set(t.id, { ...t, subTasks: initialSubTasks }));
+    const shouldHaveSubTasks = opts.includeSubTasks || hasExplicitFilters;
+    matches.forEach(t => taskMap.set(t.id, { ...t, subTasks: shouldHaveSubTasks ? [] : undefined }));
 
     // Depth limit based on context: 3 levels for filtered search, 1 level for global browse.
     const maxDepth = hasExplicitFilters ? 3 : 1;
@@ -503,8 +511,9 @@ async function _fetchFilteredHierarchy(
             .filter(t => t.parentTaskId && !taskMap.has(t.parentTaskId))
             .map(t => t.parentTaskId!);
 
-        // Find subtasks for parents we matched
-        const parentIdsToExpand = opts.includeSubTasks
+        // Find subtasks for parents we matched (ONLY for global browse, NOT filtered context)
+        // If filters are active, we only climb UPWARDS to preserve the tree path. Downward children are already in 'matches' via pagination.
+        const parentIdsToExpand = (opts.includeSubTasks && !hasExplicitFilters)
             ? currentGeneration.filter(t => t.isParent).map(t => t.id)
             : [];
 
@@ -538,7 +547,7 @@ async function _fetchFilteredHierarchy(
         const newEntries: any[] = [];
         extraTasks.forEach(t => {
             if (!taskMap.has(t.id)) {
-                const entry = { ...t, subTasks: initialSubTasks };
+                const entry = { ...t, subTasks: shouldHaveSubTasks ? [] : undefined };
                 taskMap.set(t.id, entry);
                 newEntries.push(entry);
             }
@@ -885,7 +894,7 @@ async function _getTasksInternal(
 // ============================================================
 //  PUBLIC API  (React cache + Next.js unstable_cache)
 // ============================================================
-export const getTasks = cache(async (opts: GetTasksOptions) => {
+export const getTasks = cache(async (opts: GetTasksOptions, providedUserId?: string) => {
     const { workspaceId, projectId } = opts;
 
     // --- Auth + Permission Resolution ---
@@ -895,7 +904,7 @@ export const getTasks = cache(async (opts: GetTasksOptions) => {
         authorizedProjectIds,
         fullAccessProjectIds,
         restrictedProjectIds
-    } = await resolveTaskPermissions(workspaceId, projectId);
+    } = await resolveTaskPermissions(workspaceId, projectId, providedUserId);
 
     if (!permissions.workspaceMemberId || (!isWorkspaceAdmin && authorizedProjectIds.length === 0)) {
         return {

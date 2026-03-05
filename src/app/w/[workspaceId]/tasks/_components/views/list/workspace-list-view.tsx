@@ -22,7 +22,7 @@ export async function WorkspaceListView({
     const [tagsData, membersData, permissions, projects, tasksData] = await Promise.all([
         getWorkspaceTags(workspaceId),
         getWorkspaceMembers(workspaceId),
-        getWorkspacePermissions(workspaceId),
+        getWorkspacePermissions(workspaceId, user.id),
         getUserProjects(workspaceId),
         getTasks({
             workspaceId,
@@ -32,7 +32,7 @@ export async function WorkspaceListView({
             limit: 50,
             includeFacets: true,
             view_mode: "list"
-        })
+        }, user.id)
     ]);
     const duration = performance.now() - startTime;
     import("@/lib/logger").then(({ logger }) => {

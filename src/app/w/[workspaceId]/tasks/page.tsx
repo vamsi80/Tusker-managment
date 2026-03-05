@@ -2,9 +2,9 @@ import { Suspense } from "react";
 import { requireUser } from "@/lib/auth/require-user";
 import { WorkspaceListView } from "./_components/views/list/workspace-list-view";
 import { WorkspaceGanttView } from "./_components/views/gantt/workspace-gantt-view";
-import { WorkspaceKanbanView } from "./_components/views/kanban/workspace-kanban-view";
 import { WorkspaceTasksSkeleton } from "@/components/shared/workspace-skeletons";
 import { ReloadableView } from "@/components/shared/reloadable-view";
+import WorkspaceKanbanView from "./_components/views/kanban/workspace-kanban-view";
 
 interface WorkspaceTasksPageProps {
     params: Promise<{ workspaceId: string }>;
