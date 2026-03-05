@@ -24,7 +24,8 @@ export async function GanttServerWrapper({ workspaceId, projectId }: GanttServer
         hierarchyMode: "parents",
         page: 1,
         limit: 5000,
-        includeFacets: true
+        includeFacets: true,
+        view_mode: "gantt"
     });
 
     const parentTasks = tasksData.tasks;
@@ -36,7 +37,8 @@ export async function GanttServerWrapper({ workspaceId, projectId }: GanttServer
         workspaceId,
         projectId, // Project scope
         {},
-        100 // Limit subtasks per parent
+        100, // Limit subtasks per parent
+        "gantt"
     );
 
     const subtasks = subtaskResults.flatMap(r => r.subTasks);

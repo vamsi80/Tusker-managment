@@ -223,22 +223,20 @@ export async function removeSubtaskDependency(
  */
 async function checkCircularDependency(subtaskId: string, dependsOnId: string): Promise<boolean> {
     const visited = new Set<string>();
-    const queue = [dependsOnId];
+    let currentLevel = [dependsOnId];
 
-    while (queue.length > 0) {
-        const currentId = queue.shift()!;
-
-        if (visited.has(currentId)) continue;
-        visited.add(currentId);
-
+    while (currentLevel.length > 0) {
         // If we find the original subtask in the dependency chain, it's circular
-        if (currentId === subtaskId) {
+        if (currentLevel.includes(subtaskId)) {
             return true;
         }
 
-        // Get dependencies of current task
-        const task = await prisma.task.findUnique({
-            where: { id: currentId },
+        // Add current level to visited
+        currentLevel.forEach(id => visited.add(id));
+
+        // Get dependencies for ALL tasks in the current level in ONE query
+        const tasks = await prisma.task.findMany({
+            where: { id: { in: currentLevel } },
             select: {
                 Task_TaskDependency_A: {
                     select: { id: true },
@@ -246,9 +244,22 @@ async function checkCircularDependency(subtaskId: string, dependsOnId: string): 
             },
         });
 
-        if (task?.Task_TaskDependency_A) {
-            queue.push(...task.Task_TaskDependency_A.map((t: { id: string }) => t.id));
-        }
+        // Collect next level IDs
+        const nextLevel: string[] = [];
+        tasks.forEach(task => {
+            if (task.Task_TaskDependency_A) {
+                task.Task_TaskDependency_A.forEach((dep: { id: string }) => {
+                    if (!visited.has(dep.id)) {
+                        nextLevel.push(dep.id);
+                    }
+                });
+            }
+        });
+
+        currentLevel = Array.from(new Set(nextLevel));
+
+        // Safety break for extremely deep/corrupt chains
+        if (visited.size > 1000) break;
     }
 
     return false;

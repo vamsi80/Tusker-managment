@@ -3,8 +3,12 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ClipboardList, CheckCircle2 } from "lucide-react";
-import { DailyReportModal } from "./DailyReportModal";
-import { getDailyReportFormData } from "@/actions/daily-report-actions";
+import { getDailyReportStatus, getDailyReportFormData } from "@/actions/daily-report-actions";
+import dynamic from "next/dynamic";
+
+const DailyReportModal = dynamic(() => import("./DailyReportModal").then(mod => mod.DailyReportModal), {
+    ssr: false,
+});
 
 export function DailyReportFAB({ workspaceId, initialStatus = "LOADING" }: { workspaceId: string, initialStatus?: "SUBMITTED" | "ABSENT" | "NOT_SUBMITTED" | "LOADING" }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -17,9 +21,9 @@ export function DailyReportFAB({ workspaceId, initialStatus = "LOADING" }: { wor
         let mounted = true;
         const fetchStatus = async () => {
             try {
-                const data = await getDailyReportFormData(workspaceId);
+                const data = await getDailyReportStatus(workspaceId);
                 if (mounted) {
-                    setStatus(data.report?.status || "NOT_SUBMITTED");
+                    setStatus(data.status || "NOT_SUBMITTED");
                 }
             } catch (error) {
                 if (mounted) setStatus("NOT_SUBMITTED");
