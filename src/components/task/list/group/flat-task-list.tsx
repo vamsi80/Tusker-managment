@@ -138,7 +138,6 @@ export function FlatTaskList({
                     projects={projects}
                     onRequestSubtasks={onRequestSubtasks}
                     isCached={!!getCachedSubTasks(task.id)}
-                    onTaskClick={handleSubTaskClick}
                 >
                     <SubTaskList
                         task={task}

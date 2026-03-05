@@ -156,7 +156,7 @@ export function ReportsTable({ initialData, workspaceId, members, initialDate, i
                                 <img src={user.image} alt={user.name} className="w-full h-full object-cover" />
                             ) : (
                                 <span className="text-xs font-medium text-secondary-foreground text-opacity-70">
-                                    {user?.name?.charAt(0) || "U"}
+                                    {user?.surname?.charAt(0) || "U"}
                                 </span>
                             )}
                         </div>

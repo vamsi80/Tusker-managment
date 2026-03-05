@@ -22,8 +22,11 @@ interface WorkspaceGanttViewProps {
  * - MEMBER: See only tasks from assigned projects and their assigned subtasks
  */
 export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProps) {
+    const user = await requireUser();
+
+    // Fetch initial data in parallel
     const [tasksData, projects, workspaceMembers, projectMemberMatches, tags, permissions] = await Promise.all([
-        getTasks({ workspaceId, hierarchyMode: "parents", page: 1, limit: 500, includeFacets: true, view_mode: "gantt" }),
+        getTasks({ workspaceId, hierarchyMode: "parents", page: 1, limit: 500, includeFacets: true, view_mode: "gantt" }, user.id),
         getUserProjects(workspaceId),
         getWorkspaceMembers(workspaceId),
         prisma.projectMember.findMany({
@@ -37,7 +40,7 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
             }
         }),
         getWorkspaceTags(workspaceId),
-        getWorkspacePermissions(workspaceId),
+        getWorkspacePermissions(workspaceId, user.id),
     ]);
 
     // Fetch subtasks for the parent tasks
@@ -50,7 +53,8 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
         undefined, // No project filter
         {}, // No specific filters
         100, // up to 100 subtasks per parent
-        "gantt"
+        "gantt",
+        user.id
     );
 
     const subtasks = subtaskResults.flatMap(r => r.subTasks);
@@ -125,7 +129,6 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
     // Transform data to GanttTask format
     const ganttTasks = transformToGanttTasks(allTasks);
 
-    const user = await requireUser();
 
     return (
         <WorkspaceGanttClient

@@ -269,6 +269,7 @@ model Task {
   @@index([workspaceId, tagId, status, isParent])
   @@index([workspaceId, projectId, status, isParent, dueDate, createdAt(sort: Desc)])
   @@index([parentTaskId, createdAt])
+  @@index([workspaceId, parentTaskId, status, isParent, createdAt(sort: Desc)])
   @@index([workspaceId, assigneeTo, status, createdAt])
   @@index([projectId, assigneeTo, status, createdAt])
   @@index([name, id])

@@ -834,7 +834,7 @@ export function TaskTable({
                     setCachedSubTasks(taskId, {
                         subTasks: uniqueSubTasks,
                         hasMore: response.hasMore,
-                        nextCursor: null // getSubTasksAction doesn't return cursor yet, but we have hasMore
+                        nextCursor: response.nextCursor
                     });
                 }
 
@@ -844,7 +844,7 @@ export function TaskTable({
                             ...t,
                             subTasks: uniqueSubTasks,
                             subTasksHasMore: response.hasMore,
-                            subTasksNextCursor: null
+                            subTasksNextCursor: response.nextCursor
                         };
                     }
                     return t;

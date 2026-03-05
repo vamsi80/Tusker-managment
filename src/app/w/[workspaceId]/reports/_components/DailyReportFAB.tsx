@@ -23,7 +23,7 @@ export function DailyReportFAB({ workspaceId, initialStatus = "LOADING" }: { wor
             try {
                 const data = await getDailyReportStatus(workspaceId);
                 if (mounted) {
-                    setStatus(data.status || "NOT_SUBMITTED");
+                    setStatus((data.status as "SUBMITTED" | "ABSENT" | "NOT_SUBMITTED") || "NOT_SUBMITTED");
                 }
             } catch (error) {
                 if (mounted) setStatus("NOT_SUBMITTED");

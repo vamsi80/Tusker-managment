@@ -60,7 +60,7 @@ export function ReportDetailModal({ isOpen, onOpenChange, report }: ReportDetail
                         <Avatar className="h-10 w-10 border-2 border-primary/10">
                             <AvatarImage src={report.user?.image} />
                             <AvatarFallback className="bg-primary/5 text-primary text-base font-bold">
-                                {report.user?.name?.charAt(0) || "U"}
+                                {report.user?.surname?.charAt(0) || "U"}
                             </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">

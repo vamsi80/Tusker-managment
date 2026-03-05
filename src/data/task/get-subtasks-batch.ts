@@ -7,9 +7,7 @@ import { CacheTags } from "@/data/cache-tags";
 import { TaskFilters } from "@/types/task-filters";
 import { buildSubTaskConditions } from "@/lib/tasks/filter-utils";
 import { resolveTaskPermissions } from "./get-tasks";
-import {
-    getTaskSelect,
-} from "@/lib/tasks/query-builder";
+import { getTaskSelect } from "@/lib/tasks/query-builder";
 
 /**
  * Result structure for batch subtask fetching.
@@ -19,6 +17,7 @@ export type BatchSubTasksResult = {
     subTasks: any[];
     totalCount: number;
     hasMore: boolean;
+    nextCursor?: any;
 }[];
 
 /**
@@ -74,6 +73,7 @@ async function _getSubTasksByParentIdsInternal(
     const countWhere: any = {
         workspaceId,
         parentTaskId: { in: parentTaskIds },
+        // isParent: false removed to allow nested folders/subtasks to show
         ...buildSubTaskConditions({
             ...filters,
             workspaceId,
@@ -95,6 +95,7 @@ async function _getSubTasksByParentIdsInternal(
             countWhere.assigneeTo = userId;
         } else {
             // Short-circuit: no access to any requested project
+            console.log(`[PERF:QUERY] Expanding subtasks failed: User ${userId} has no access to any relevant projects.`);
             return parentTaskIds.map(parentTaskId => ({
                 parentTaskId,
                 subTasks: [],
@@ -109,33 +110,48 @@ async function _getSubTasksByParentIdsInternal(
     if (parentTaskIds.length === 1) {
         const parentId = parentTaskIds[0];
 
-        // Parallel fetch for top N tasks + total count
-        const [rawTasks, totalCount] = await Promise.all([
+        // 🚀 Optimization: Fetch parent data once and subtasks separately
+        const baseSelect = getTaskSelect(viewMode);
+        const subtaskSelect = { ...baseSelect };
+        const parentRelationSelect = baseSelect.parentTask as any;
+        delete subtaskSelect.parentTask;
+
+        // Fetch subtasks and parent metadata in parallel
+        const [rawTasks, parentData] = await Promise.all([
             prisma.task.findMany({
                 where: countWhere,
                 select: {
-                    ...getTaskSelect(viewMode),
+                    ...subtaskSelect,
                     parentTaskId: true,
                 },
                 take: pageSize + 1,
                 orderBy: { createdAt: 'desc' }
             }),
-            prisma.task.count({ where: countWhere })
+            parentRelationSelect?.select ? prisma.task.findUnique({
+                where: { id: parentId },
+                select: parentRelationSelect.select
+            }) : Promise.resolve(null)
         ]);
 
         const hasMore = rawTasks.length > pageSize;
-        const finalTasks = hasMore ? rawTasks.slice(0, pageSize) : rawTasks;
+        const finalTasks = (hasMore ? rawTasks.slice(0, pageSize) : rawTasks).map(t => ({
+            ...t,
+            parentTask: parentData
+        }));
 
         const duration = performance.now() - startTime;
-        if (duration > 50) {
-            console.log(`[PERF] Subtask Expansion (${parentId}): ${duration.toFixed(2)}ms for ${finalTasks.length} items`);
-        }
+        console.log(`[PERF:QUERY] Subtask Expand (${parentId}): ${duration.toFixed(2)}ms for ${finalTasks.length} items. ParentData: ${parentData ? "FOUND" : "MISSING"}`);
+
+        const nextCursor = hasMore && finalTasks.length > 0
+            ? { id: finalTasks[finalTasks.length - 1].id, createdAt: finalTasks[finalTasks.length - 1].createdAt }
+            : undefined;
 
         return [{
             parentTaskId: parentId,
             subTasks: finalTasks,
-            totalCount,
-            hasMore
+            totalCount: finalTasks.length,
+            hasMore,
+            nextCursor
         }];
     }
 
@@ -189,7 +205,7 @@ async function _getSubTasksByParentIdsInternal(
  * Cached version of batch subtask fetch.
  * Uses Next.js unstable_cache for cross-request consistency.
  */
-const getCachedSubTasksByParentIds = (
+const getCachedSubTasksByParentIds = async (
     parentTaskIds: string[],
     workspaceId: string,
     projectId: string | undefined,
@@ -209,7 +225,8 @@ const getCachedSubTasksByParentIds = (
         restricted: [...restrictedProjectIds].sort(),
     });
 
-    return unstable_cache(
+    const startTime = performance.now();
+    const results = await unstable_cache(
         async () => _getSubTasksByParentIdsInternal(
             parentTaskIds,
             workspaceId,
@@ -224,13 +241,17 @@ const getCachedSubTasksByParentIds = (
         ),
         [`batch-subtasks-v8-${sortedIds}-${userId}-${scopeHash}-${filterHash}-${pageSize}-${viewMode}`],
         {
-            tags: [
-                ...parentTaskIds.flatMap(id => CacheTags.taskSubTasks(id, userId)),
-                `workspace-tasks-${workspaceId}`,
-            ],
-            revalidate: 60,
+            tags: parentTaskIds.flatMap(id => CacheTags.taskSubTasks(id, userId)),
+            revalidate: 300, // 5 minutes - reliable because we invalidate specifically on mutation
         }
     )();
+
+    const duration = performance.now() - startTime;
+    if (duration > 10) {
+        console.log(`[PERF:CACHE-MISS] Subtasks fetch: ${duration.toFixed(2)}ms for ${parentTaskIds.length} parents`);
+    }
+
+    return results;
 };
 
 /**
@@ -243,8 +264,9 @@ export const getSubTasksByParentIds = cache(
         workspaceId: string,
         projectId?: string,
         filters: Partial<TaskFilters> = {},
-        pageSize: number = 10,
-        viewMode: string = "list"
+        pageSize: number = 20,
+        viewMode: string = "list",
+        userId?: string
     ): Promise<BatchSubTasksResult> => {
         try {
             if (parentTaskIds.length === 0) {
@@ -256,7 +278,7 @@ export const getSubTasksByParentIds = cache(
                 isWorkspaceAdmin,
                 fullAccessProjectIds,
                 restrictedProjectIds,
-            } = await resolveTaskPermissions(workspaceId, projectId);
+            } = await resolveTaskPermissions(workspaceId, projectId, userId);
 
             if (!permissions?.workspaceMember) {
                 throw new Error("User does not have access to this workspace");
