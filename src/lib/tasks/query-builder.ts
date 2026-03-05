@@ -1,60 +1,100 @@
 import { Prisma } from "@/generated/prisma";
 
-export const TASK_CORE_SELECT = {
-    id: true,
-    name: true,
-    taskSlug: true,
-    description: true,
-    status: true,
-    startDate: true,
-    dueDate: true,
-    days: true,
-    projectId: true,
-    workspaceId: true,
-    parentTaskId: true,
-    isParent: true,
-    createdAt: true,
-    updatedAt: true,
-    createdById: true,
-    assigneeTo: true,
-    reviewerId: true,
-    tagId: true,
+/**
+ * Dynamic Task Selection
+ * Fetches only what is needed for the specific view to save bandwidth.
+ */
+export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
+    const isList = viewMode === "list" || viewMode === "default" || !viewMode;
+    const isKanban = viewMode === "kanban";
+    const isGantt = viewMode === "gantt";
+    const isCalendar = viewMode === "calendar";
+    const isSearch = viewMode === "search";
 
-    assignee: {
-        select: { id: true, name: true, surname: true, image: true, email: true }
-    },
-    reviewer: {
-        select: { id: true, name: true, surname: true, image: true, email: true }
-    },
-    createdBy: {
-        select: { id: true, name: true, surname: true, image: true, email: true }
-    },
-    tag: {
-        select: { id: true, name: true }
-    },
-    project: {
-        select: {
-            id: true,
-            name: true,
-            slug: true,
-            color: true,
-            workspaceId: true,
+    // Core fields needed for every view
+    const select: Prisma.TaskSelect = {
+        id: true,
+        name: true,
+        taskSlug: true,
+        status: true,
+        dueDate: true,
+        days: true,
+        projectId: true,
+        workspaceId: true,
+        parentTaskId: true,
+        isParent: true,
+        createdAt: true,
+        updatedAt: true,
+        assigneeTo: true,
+        reviewerId: true,
+        tagId: true,
+
+        // Relations with minimal user data (Surname + Image for Avatars)
+        assignee: {
+            select: { id: true, surname: true, image: true }
+        },
+        reviewer: {
+            select: { id: true, surname: true, image: true }
+        },
+        tag: {
+            select: { id: true, name: true }
+        },
+        _count: {
+            select: {
+                subTasks: true,
+                reviewComments: true,
+            }
         }
-    },
-    parentTask: {
-        select: {
-            id: true,
-            name: true,
-            taskSlug: true,
-        }
-    },
-    _count: {
-        select: {
-            subTasks: true,
-            reviewComments: true,
-        }
+    };
+
+    // 1. Description: Specifically for List view per user request
+    if (isList) {
+        select.description = true;
     }
-} satisfies Prisma.TaskSelect;
+
+    // 2. Start Date: For List, Gantt, and Calendar
+    if (isList || isGantt || isCalendar) {
+        select.startDate = true;
+    }
+
+    // 3. Project Metadata: Specifically for Kanban, Search, List, and Gantt
+    if (isKanban || isSearch || isList || isGantt) {
+        select.project = {
+            select: {
+                id: true,
+                name: true,
+                slug: true,
+                color: true,
+            }
+        };
+    }
+
+    // 4. Parent Task Metadata: Specifically for Kanban and List views
+    if (isKanban || isList) {
+        select.parentTask = {
+            select: {
+                id: true,
+                name: true,
+                taskSlug: true,
+                reviewerId: true,
+                reviewer: {
+                    select: { id: true, surname: true }
+                }
+            }
+        };
+    }
+
+    if (isSearch) {
+        select.createdBy = {
+            select: { id: true, surname: true }
+        };
+    }
+
+    return select;
+}
+
+// Keep a default for simple migrations
+export const TASK_CORE_SELECT = getTaskSelect("list");
 
 // ============================================================
 //  TYPE: Cursor for pagination

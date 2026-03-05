@@ -23,6 +23,8 @@ interface TimelineHeaderProps {
     onCollapseAll: () => void;
     onExport: () => void;
     onGranularityChange: (g: TimelineGranularity) => void;
+    scrollX: number;
+    viewportWidth: number;
 }
 
 export function TimelineHeader({
@@ -36,12 +38,26 @@ export function TimelineHeader({
     onExpandAll,
     onCollapseAll,
     onExport,
-    onGranularityChange
+    onGranularityChange,
+    scrollX,
+    viewportWidth
 }: TimelineHeaderProps) {
     const columns = useMemo(
         () => generateTimelineColumns(startDate, endDate, granularity),
         [startDate, endDate, granularity]
     );
+
+    const columnWidth = granularity === 'days' ? 40 : granularity === 'weeks' ? 80 : 120;
+    const headerHeight = granularity === 'days' ? 72 : 40;
+
+    // 🚀 Horizontal Virtualization: Determine visible indices
+    const sidebarWidth = 200; // Match sidebar width
+    const visibleStartIndex = Math.max(0, Math.floor((scrollX - sidebarWidth) / columnWidth));
+    const visibleEndIndex = Math.min(columns.length, Math.ceil((scrollX + viewportWidth) / columnWidth));
+
+    const visibleColumns = useMemo(() => {
+        return columns.slice(visibleStartIndex, visibleEndIndex);
+    }, [columns, visibleStartIndex, visibleEndIndex]);
 
     const monthLabels = useMemo(() => {
         if (granularity !== 'days') return [];
@@ -69,11 +85,9 @@ export function TimelineHeader({
             months.push({ label: currentMonth, span: currentSpan, startIdx });
         }
 
-        return months;
-    }, [columns, granularity]);
-
-    const columnWidth = granularity === 'days' ? 40 : granularity === 'weeks' ? 80 : 120;
-    const headerHeight = granularity === 'days' ? 72 : 40;
+        // Clip month labels to what's visible
+        return months.filter(m => (m.startIdx + m.span) >= visibleStartIndex && m.startIdx <= visibleEndIndex);
+    }, [columns, granularity, visibleStartIndex, visibleEndIndex]);
 
     const allExpanded = tasks.length > 0 && tasks.every(t => expandedTasks.has(t.id));
 
@@ -94,12 +108,17 @@ export function TimelineHeader({
                     <div
                         className="sticky left-0 z-50 w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] shrink-0 px-3 py-1 bg-neutral-50 dark:bg-neutral-800/50 border-r border-neutral-200 dark:border-neutral-700 h-full"
                     />
-                    <div className="flex">
+                    <div className="flex relative items-stretch">
+                        {/* Leading Spacer to nudge columns to correct absolute position */}
+                        <div style={{ width: visibleStartIndex * columnWidth }} />
                         {monthLabels.map((month, idx) => (
                             <div
                                 key={idx}
-                                className="text-[10px] font-medium text-muted-foreground text-center border-r border-neutral-200 dark:border-neutral-700 h-full flex items-center justify-center"
-                                style={{ width: month.span * columnWidth }}
+                                className="text-[10px] font-medium text-muted-foreground text-center border-r border-neutral-200 dark:border-neutral-700 h-full flex items-center justify-center truncate px-1"
+                                style={{
+                                    // Adjust width for clipped months at start/end
+                                    width: (Math.min(month.startIdx + month.span, visibleEndIndex) - Math.max(month.startIdx, visibleStartIndex)) * columnWidth
+                                }}
                             >
                                 {month.label}
                             </div>
@@ -111,7 +130,7 @@ export function TimelineHeader({
             {/* Day/Week/Month Headers */}
             <div className="flex border-b border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 h-10">
                 <div
-                    className="sticky left-0 z-50 w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] shrink-0 px-3 py-2 bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-700 h-[100%] flex flex-col justify-between"
+                    className="sticky left-0 z-50 w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] shrink-0 px-3 py-2 bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-700 h-[100%] flex flex-col justify-between shadow-sm"
                 >
                     <div className="flex items-center justify-between w-full h-full">
                         <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
@@ -180,8 +199,10 @@ export function TimelineHeader({
                         </div>
                     </div>
                 </div>
-                <div className="flex">
-                    {columns.map((col, idx) => (
+                <div className="flex relative">
+                    {/* Leading Spacer */}
+                    <div style={{ width: visibleStartIndex * columnWidth }} />
+                    {visibleColumns.map((col, idx) => (
                         <div
                             key={idx}
                             className={cn(
@@ -195,6 +216,8 @@ export function TimelineHeader({
                             {col.label}
                         </div>
                     ))}
+                    {/* Trailing Spacer to keep total width correct for horizontal scrollbar */}
+                    <div style={{ width: (columns.length - visibleEndIndex) * columnWidth }} />
                 </div>
             </div>
         </div>
@@ -207,21 +230,27 @@ interface TimelineGridProps {
     granularity: TimelineGranularity;
     tasks: GanttTask[];
     children: React.ReactNode;
+    scrollX: number;
+    viewportWidth: number;
 }
 
-export function TimelineGrid({ startDate, endDate, granularity, tasks, children }: TimelineGridProps) {
+export function TimelineGrid({ startDate, endDate, granularity, tasks, children, scrollX, viewportWidth }: TimelineGridProps) {
     const columns = useMemo(
         () => generateTimelineColumns(startDate, endDate, granularity),
         [startDate, endDate, granularity]
     );
 
-    // Collect all subtasks from all tasks for dependency rendering
-    const allSubtasks = useMemo(() => {
-        return tasks.flatMap(task => task.subtasks || []);
-    }, [tasks]);
-
     const columnWidth = granularity === 'days' ? 40 : granularity === 'weeks' ? 80 : 120;
     const totalWidth = columns.length * columnWidth;
+
+    // 🚀 Horizontal Virtualization
+    const sidebarWidth = 200;
+    const visibleStartIndex = Math.max(0, Math.floor((scrollX - sidebarWidth) / columnWidth));
+    const visibleEndIndex = Math.min(columns.length, Math.ceil((scrollX + viewportWidth) / columnWidth));
+
+    const visibleColumns = useMemo(() => {
+        return columns.slice(visibleStartIndex, visibleEndIndex);
+    }, [columns, visibleStartIndex, visibleEndIndex]);
 
     const todayPosition = useMemo(() => {
         const today = getIndianDate(); // Use IST for today indicator
@@ -232,7 +261,6 @@ export function TimelineGrid({ startDate, endDate, granularity, tasks, children 
         let columnIndex = -1;
 
         if (granularity === 'days') {
-            // For days, find the exact day column
             columnIndex = columns.findIndex(col =>
                 col.date.toDateString() === today.toDateString()
             );
@@ -252,26 +280,19 @@ export function TimelineGrid({ startDate, endDate, granularity, tasks, children 
 
         if (columnIndex === -1) return null;
 
-        // Calculate exact position within the column for more precision
-        let positionWithinColumn = 0.5; // Default to middle of column
+        let positionWithinColumn = 0.5;
 
-        if (granularity === 'days') {
-            // For days, center in the column
-            positionWithinColumn = 0.5;
-        } else if (granularity === 'weeks') {
-            // For weeks, calculate position within the week
+        if (granularity === 'weeks') {
             const weekStart = new Date(columns[columnIndex].date);
             const daysIntoWeek = getDaysBetween(weekStart, today);
-            positionWithinColumn = (daysIntoWeek + 0.5) / 7; // +0.5 to center within the day
-        } else {
-            // For months, calculate position within the month
+            positionWithinColumn = (daysIntoWeek + 0.5) / 7;
+        } else if (granularity === 'months') {
             const monthStart = new Date(columns[columnIndex].date);
             const daysIntoMonth = today.getDate() - monthStart.getDate();
             const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
             positionWithinColumn = (daysIntoMonth + 0.5) / daysInMonth;
         }
 
-        // Return pixel position
         return columnIndex * columnWidth + (positionWithinColumn * columnWidth);
     }, [startDate, endDate, columnWidth, granularity, columns]);
 
@@ -285,35 +306,41 @@ export function TimelineGrid({ startDate, endDate, granularity, tasks, children 
         >
             {/* Grid Background */}
             <div
-                className="absolute inset-0 flex pointer-events-none"
+                className="absolute inset-x-0 inset-y-0 flex pointer-events-none"
                 style={{ marginLeft: 'var(--gantt-sidebar-width)' }}
             >
-                {columns.map((col, idx) => (
+                {/* Horizontal virtual spacer */}
+                <div style={{ width: visibleStartIndex * columnWidth }} className="shrink-0" />
+
+                {visibleColumns.map((col, idx) => (
                     <div
                         key={idx}
                         className={cn(
-                            "border-r border-neutral-100 dark:border-neutral-800",
-                            col.isToday && "bg-blue-50/50 dark:bg-blue-900/10"
+                            "border-r border-neutral-100 dark:border-neutral-800 shrink-0",
+                            col.isToday && "bg-blue-50/30 dark:bg-blue-900/10"
                         )}
                         style={{ width: columnWidth, minWidth: columnWidth }}
                     />
                 ))}
+
+                {/* Trailing virtual spacer */}
+                <div style={{ width: (columns.length - visibleEndIndex) * columnWidth }} className="shrink-0" />
             </div>
 
             {/* Today Indicator Line */}
             {todayPosition !== null && (
                 <div
-                    className="absolute top-0 bottom-0 w-0.5 bg-red-500 dark:bg-red-400 z-30 pointer-events-none"
+                    className="absolute top-0 bottom-0 w-0.5 bg-red-500/80 dark:bg-red-400/80 z-30 pointer-events-none"
                     style={{
                         left: `calc(var(--gantt-sidebar-width) + ${todayPosition}px)`,
                     }}
                 >
-                    <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-red-500 dark:bg-red-400" />
+                    <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-red-500 shadow-sm" />
                 </div>
             )}
 
             {/* Content Container (Vertical List of Rows) */}
-            <div className="flex flex-col">
+            <div className="flex flex-col relative z-20">
                 {children}
             </div>
         </div>
