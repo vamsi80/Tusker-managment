@@ -11,7 +11,6 @@ import { Calendar, Tag, GripVertical, MessageSquare, AlertCircle, Folder, Crown 
 import { KanbanSubTaskType } from "@/data/task";
 import { cn } from "@/lib/utils";
 import { getColorFromString } from "@/lib/colors/project-colors";
-import { fetchCommentsAction, fetchReviewCommentsAction } from "@/actions/comment";
 import { commentCache, reviewCommentCache, pendingPrefetches } from "@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/subtask-details-sheet";
 
 interface KanbanCardProps {
@@ -53,31 +52,12 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
     }, []);
 
     // 🚀 Speculative Pre-fetching for "Instant" feel
-    const handlePrefetch = async () => {
+    const handlePrefetch = () => {
         if (!subTask?.id) return;
-
         const taskId = subTask.id;
 
-        // 1. Prefetch Comments if not in cache
-        if (!commentCache.has(taskId) && !pendingPrefetches.has(`comments-${taskId}`)) {
-            pendingPrefetches.add(`comments-${taskId}`);
-            fetchCommentsAction(taskId).then(result => {
-                if (result.success && result.comments) {
-                    commentCache.set(taskId, result.comments as any);
-                }
-                pendingPrefetches.delete(`comments-${taskId}`);
-            }).catch(() => pendingPrefetches.delete(`comments-${taskId}`));
-        }
-
-        // 2. Prefetch Review Comments if not in cache
-        if (!reviewCommentCache.has(taskId) && !pendingPrefetches.has(`reviews-${taskId}`)) {
-            pendingPrefetches.add(`reviews-${taskId}`);
-            fetchReviewCommentsAction(taskId).then(result => {
-                if (result.success && result.reviewComments) {
-                    reviewCommentCache.set(taskId, result.reviewComments as any);
-                }
-                pendingPrefetches.delete(`reviews-${taskId}`);
-            }).catch(() => pendingPrefetches.delete(`reviews-${taskId}`));
+        if (commentCache.has(taskId)) {
+            console.log(`✨ [CACHE-HIT] Task ${taskId} is ready.`);
         }
     };
 
@@ -144,37 +124,65 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                             </div>
                         )}
                     </div>
-                    {projectManager && (
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <div className="flex items-center shrink-0 ml-auto rounded-full bg-amber-50/50 dark:bg-amber-950/30 border border-amber-100/50 dark:border-amber-900/50 hover:bg-amber-100 transition-colors cursor-default">
-                                        <Avatar className="h-4 w-4 border border-amber-200 dark:border-amber-800 shadow-sm">
-                                            <AvatarImage src={projectManager.image || ""} />
-                                            <AvatarFallback className="text-[8px] bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
-                                                {(projectManager.surname?.[0] || projectManager.name?.[0])}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                    </div>
-                                </TooltipTrigger>
-                                <TooltipContent side="left" className="text-xs p-2 space-y-0.5">
-                                    <div className="pb-1.5 border-b">
-                                        <p className="font-semibold text-[10px] uppercase tracking-wider">Project</p>
-                                        <p className="font-medium text-[11px] text-primary">{project?.name}</p>
-                                    </div>
-                                    {subTask.parentTask && (
-                                        <div className="pb-1.5 border-b">
-                                            <p className="font-semibold text-[10px] uppercase tracking-wider">Parent Task</p>
-                                            <p className="font-medium text-[11px] text-primary">{subTask.parentTask.name}</p>
-                                        </div>
-                                    )}
-                                    <div>
-                                        <p className="font-semibold text-[10px] uppercase tracking-wider">Project Manager</p>
-                                        <p className="font-medium text-[11px] text-primary">{projectManager.surname || projectManager.name}</p>
-                                    </div>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
+
+                    {(projectManager || subTask.parentTask?.reviewer) && (
+                        <div className="flex items-center gap-1.5 ml-auto">
+                            {subTask.parentTask?.reviewer && (
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <div className="flex items-center rounded-full bg-blue-50/50 dark:bg-blue-950/30 border border-blue-100/50 dark:border-blue-900/50 hover:bg-blue-100 transition-colors cursor-default">
+                                                <Avatar className="h-4 w-4 border border-blue-200 dark:border-blue-800 shadow-sm">
+                                                    <AvatarImage src={subTask.parentTask.reviewer.image || ""} />
+                                                    <AvatarFallback className="text-[8px] bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                                                        {(subTask.parentTask.reviewer.surname?.[0] || subTask.parentTask.reviewer.name?.[0])}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                            </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="left" className="text-xs p-2 space-y-0.5">
+                                            <div>
+                                                <p className="font-semibold text-[10px] uppercase tracking-wider">Parent Reviewer</p>
+                                                <p className="font-medium text-[11px] text-primary">{subTask.parentTask.reviewer.surname || subTask.parentTask.reviewer.name}</p>
+                                            </div>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            )}
+
+                            {projectManager && (
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <div className="flex items-center rounded-full bg-amber-50/50 dark:bg-amber-950/30 border border-amber-100/50 dark:border-amber-900/50 hover:bg-amber-100 transition-colors cursor-default">
+                                                <Avatar className="h-4 w-4 border border-amber-200 dark:border-amber-800 shadow-sm">
+                                                    <AvatarImage src={projectManager.image || ""} />
+                                                    <AvatarFallback className="text-[8px] bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+                                                        {(projectManager.surname?.[0] || projectManager.name?.[0])}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                            </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="left" className="text-xs p-2 space-y-0.5">
+                                            <div className="pb-1.5 border-b">
+                                                <p className="font-semibold text-[10px] uppercase tracking-wider">Project</p>
+                                                <p className="font-medium text-[11px] text-primary">{project?.name}</p>
+                                            </div>
+                                            {subTask.parentTask && (
+                                                <div className="pb-1.5 border-b">
+                                                    <p className="font-semibold text-[10px] uppercase tracking-wider">Parent Task</p>
+                                                    <p className="font-medium text-[11px] text-primary">{subTask.parentTask.name}</p>
+                                                </div>
+                                            )}
+                                            <div>
+                                                <p className="font-semibold text-[10px] uppercase tracking-wider">Project Manager</p>
+                                                <p className="font-medium text-[11px] text-primary">{projectManager.surname || projectManager.name}</p>
+                                            </div>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            )}
+                        </div>
                     )}
                 </div>
 
@@ -262,6 +270,6 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                     )}
                 </div>
             </CardContent>
-        </Card>
+        </Card >
     );
 }

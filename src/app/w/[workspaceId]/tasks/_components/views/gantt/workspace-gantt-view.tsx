@@ -23,7 +23,7 @@ interface WorkspaceGanttViewProps {
  */
 export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProps) {
     const [tasksData, projects, workspaceMembers, projectMemberMatches, tags, permissions] = await Promise.all([
-        getTasks({ workspaceId, hierarchyMode: "parents", page: 1, limit: 500, includeFacets: true }),
+        getTasks({ workspaceId, hierarchyMode: "parents", page: 1, limit: 500, includeFacets: true, view_mode: "gantt" }),
         getUserProjects(workspaceId),
         getWorkspaceMembers(workspaceId),
         prisma.projectMember.findMany({
@@ -49,7 +49,8 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
         workspaceId,
         undefined, // No project filter
         {}, // No specific filters
-        100 // up to 100 subtasks per parent
+        100, // up to 100 subtasks per parent
+        "gantt"
     );
 
     const subtasks = subtaskResults.flatMap(r => r.subTasks);

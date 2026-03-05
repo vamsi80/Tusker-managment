@@ -4,7 +4,9 @@ import { useRef, useEffect, useState, memo, ReactElement, cloneElement } from "r
 import { cn } from "@/lib/utils";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, MoreHorizontal } from "lucide-react";
+import { ChevronDown, ChevronRight, MoreHorizontal, Settings2 } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { toast } from "sonner";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -231,18 +233,11 @@ export const TaskRow = memo(function TaskRow({
                         <span
                             className="truncate cursor-pointer hover:underline"
                             onMouseEnter={() => {
-                                // 🚀 Speculative prefetch for List parent tasks
+                                // 🚀 Cache check (No DB hit for prefetching)
                                 if (task.id) {
                                     import("@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/subtask-details-sheet").then(m => {
-                                        const taskId = task.id;
-                                        if (!m.commentCache.has(taskId) && !m.pendingPrefetches.has(`comments-${taskId}`)) {
-                                            m.pendingPrefetches.add(`comments-${taskId}`);
-                                            import("@/actions/comment").then(actions => {
-                                                actions.fetchCommentsAction(taskId).then(res => {
-                                                    if (res.success && res.comments) m.commentCache.set(taskId, res.comments as any);
-                                                    m.pendingPrefetches.delete(`comments-${taskId}`);
-                                                }).catch(() => m.pendingPrefetches.delete(`comments-${taskId}`));
-                                            });
+                                        if (m.commentCache.has(task.id)) {
+                                            console.log(`✨ [CACHE-HIT] Task ${task.id} ready.`);
                                         }
                                     });
                                 }
@@ -254,9 +249,19 @@ export const TaskRow = memo(function TaskRow({
                             {task.name}
                         </span>
                         {subtaskCount > 0 && (
-                            <span className="text-xs text-muted-foreground">
-                                {subtaskCount}
+                            <span className="text-xs text-muted-foreground mr-1">
+                                ({subtaskCount})
                             </span>
+                        )}
+                        {task.reviewer && (
+                            <div className="flex items-center" title={`Reviewer: ${task.reviewer.surname || task.reviewer.name}`}>
+                                <Avatar className="h-4 w-4 border border-blue-200 dark:border-blue-800 shadow-sm opacity-80">
+                                    <AvatarImage src={task.reviewer.image || ""} />
+                                    <AvatarFallback className="text-[8px] bg-blue-50 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                                        {(task.reviewer.surname?.[0] || task.reviewer.name?.[0])}
+                                    </AvatarFallback>
+                                </Avatar>
+                            </div>
                         )}
                     </div>
                 </TableCell>

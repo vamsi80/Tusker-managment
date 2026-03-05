@@ -1,7 +1,6 @@
 import { getUserProjects } from "@/data/project/get-projects";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { NavProjects } from "./nav-projects";
-import { getWorkspaceMembers } from "@/data/workspace/get-workspace-members";
 import { requireUser } from "@/lib/auth/require-user";
 
 interface NavProjectsAsyncProps {
@@ -13,13 +12,12 @@ export async function NavProjectsAsync({ workspaceId }: NavProjectsAsyncProps) {
     const user = await requireUser();
 
     // 2. Fetch parallel data directly (Suspense handles resolving UI)
-    const [projectsData, membersData, permissionsData] = await Promise.all([
+    const [projectsData, permissionsData] = await Promise.all([
         getUserProjects(workspaceId),
-        getWorkspaceMembers(workspaceId),
         getWorkspacePermissions(workspaceId),
     ]);
 
-    if (!projectsData || !membersData?.workspaceMembers) {
+    if (!projectsData) {
         return null;
     }
 
@@ -27,7 +25,6 @@ export async function NavProjectsAsync({ workspaceId }: NavProjectsAsyncProps) {
         <NavProjects
             projects={projectsData}
             workspaceId={workspaceId}
-            members={membersData.workspaceMembers}
             isAdmin={permissionsData.isWorkspaceAdmin}
             canCreateProject={permissionsData.canCreateProject}
             userRole={permissionsData.workspaceMember?.workspaceRole}

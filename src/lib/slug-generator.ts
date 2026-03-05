@@ -136,22 +136,70 @@ export async function generateUniqueSlugs(
     prefix?: string,
     existingSlugs: string[] = []
 ): Promise<string[]> {
-    // Start with existing slugs to check against
-    const allSlugs: string[] = [...existingSlugs];
-    const newSlugs: string[] = [];
+    if (names.length === 0) return [];
 
-    for (const name of names) {
-        const slug = await generateUniqueSlug(
-            name,
-            tableName,
-            prefix,
-            allSlugs // Check against accumulated slugs
-        );
-        allSlugs.push(slug);
-        newSlugs.push(slug);
+    // 1. Generate all base slugs
+    const nameData = names.map(name => {
+        const baseSlug = slugify(name, { lower: true, strict: true });
+        const fullBaseSlug = prefix ? `${prefix}-${baseSlug}` : baseSlug;
+        return { name, fullBaseSlug };
+    });
+
+    // 2. Fetch all conflicting slugs from DB in ONE query
+    const baseSlugs = Array.from(new Set(nameData.map(d => d.fullBaseSlug)));
+    let dbSlugs: string[] = [];
+
+    const whereClause = {
+        OR: baseSlugs.map(bs => ({
+            [tableName === 'task' ? 'taskSlug' : 'slug']: { startsWith: bs }
+        }))
+    };
+
+    switch (tableName) {
+        case 'task':
+            const tasks = await prisma.task.findMany({
+                where: whereClause as any,
+                select: { taskSlug: true }
+            });
+            dbSlugs = tasks.map(t => t.taskSlug);
+            break;
+        case 'project':
+            const projects = await prisma.project.findMany({
+                where: whereClause as any,
+                select: { slug: true }
+            });
+            dbSlugs = projects.map(p => p.slug);
+            break;
+        case 'workspace':
+            const workspaces = await prisma.workspace.findMany({
+                where: whereClause as any,
+                select: { slug: true }
+            });
+            dbSlugs = workspaces.map(w => w.slug);
+            break;
     }
 
-    return newSlugs;
+    // 3. Resolve conflicts in-memory
+    const allExistingSlugs = new Set([...dbSlugs, ...existingSlugs]);
+    const results: string[] = [];
+
+    for (const data of nameData) {
+        let uniqueSlug = data.fullBaseSlug;
+
+        if (allExistingSlugs.has(uniqueSlug)) {
+            let counter = 1;
+            uniqueSlug = `${data.fullBaseSlug}-${counter}`;
+            while (allExistingSlugs.has(uniqueSlug)) {
+                counter++;
+                uniqueSlug = `${data.fullBaseSlug}-${counter}`;
+            }
+        }
+
+        results.push(uniqueSlug);
+        allExistingSlugs.add(uniqueSlug); // Add to set so subsequent items in this batch don't collide
+    }
+
+    return results;
 }
 
 /**

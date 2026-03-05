@@ -7,7 +7,7 @@ import prisma from "@/lib/db";
 import { getUserPermissions, getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { CacheTags } from "@/data/cache-tags";
 import {
-    TASK_CORE_SELECT,
+    getTaskSelect,
     TaskCursor,
     buildProjectRootWhere,
     buildSubtaskExpansionWhere,
@@ -49,7 +49,7 @@ export interface GetTasksOptions {
     includeSubTasks?: boolean;
     includeFacets?: boolean;
 
-    view_mode?: "default" | "search";
+    view_mode?: "default" | "search" | "list" | "kanban" | "gantt" | "calendar";
     sorts?: Array<{ field: string; direction: "asc" | "desc" }>;
 }
 
@@ -73,6 +73,7 @@ const SORT_MAP: Record<string, SortDefinition> = {
     name: { dbField: "name" },
     status: { dbField: "status", nulls: "last" },
     dueDate: { dbField: "dueDate", nulls: "last" },
+    startDate: { dbField: "startDate", nulls: "last" },
     createdAt: { dbField: "createdAt" },
     // assignee → REMOVED. Sorting by assigneeTo (FK id) is meaningless.
     // Re-add once assigneeDisplayName is denormalized onto the Task table.
@@ -225,8 +226,10 @@ function buildQuerySignature(
     if (opts.assigneeId) f.as = sortArr(opts.assigneeId);
     if (opts.tagId) f.tg = sortArr(opts.tagId);
     if (opts.search) f.q = opts.search.trim().toLowerCase();
-    if (opts.dueAfter) f.da = new Date(opts.dueAfter).getTime();
-    if (opts.dueBefore) f.db = new Date(opts.dueBefore).getTime();
+    const dueAfter = opts.dueAfter || opts.startDate;
+    const dueBefore = opts.dueBefore || opts.endDate;
+    if (dueAfter) f.da = new Date(dueAfter).getTime();
+    if (dueBefore) f.db = new Date(dueBefore).getTime();
 
     if (opts.hierarchyMode) f.hm = opts.hierarchyMode;
     if (opts.groupBy) f.gb = opts.groupBy;
@@ -350,7 +353,7 @@ async function _fetchProjectRoot(
     const [rawTasks, totalCount] = await Promise.all([
         prisma.task.findMany({
             where,
-            select: TASK_CORE_SELECT,
+            select: getTaskSelect(opts.view_mode),
             orderBy: buildOrderBy(opts.sorts),
             take: limit + 1,
         }),
@@ -413,7 +416,7 @@ async function _fetchSubtasks(
     console.log(`[PRISMA SUBTASKS] where:`, JSON.stringify(where, null, 2));
     const rawSubtasks = await prisma.task.findMany({
         where,
-        select: TASK_CORE_SELECT,
+        select: getTaskSelect(opts.view_mode),
         orderBy: buildOrderBy(opts.sorts),
         take: limit + 1,
     });
@@ -473,7 +476,7 @@ async function _fetchFilteredHierarchy(
     // 1. Fetch matches directly
     const rawMatches = await prisma.task.findMany({
         where: matchWhere,
-        select: TASK_CORE_SELECT,
+        select: getTaskSelect(opts.view_mode),
         take: limit + 1,
         orderBy: buildOrderBy(opts.sorts),
     });
@@ -487,7 +490,8 @@ async function _fetchFilteredHierarchy(
 
     // 2. CONTEXT EXPANSION
     const taskMap = new Map<string, any>();
-    matches.forEach(t => taskMap.set(t.id, { ...t, subTasks: [] }));
+    const initialSubTasks = (opts.includeSubTasks || hasExplicitFilters) ? [] : undefined;
+    matches.forEach(t => taskMap.set(t.id, { ...t, subTasks: initialSubTasks }));
 
     // Depth limit based on context: 3 levels for filtered search, 1 level for global browse.
     const maxDepth = hasExplicitFilters ? 3 : 1;
@@ -525,7 +529,7 @@ async function _fetchFilteredHierarchy(
                     }
                 ]
             },
-            select: TASK_CORE_SELECT,
+            select: getTaskSelect(opts.view_mode),
             take: 1000 // Batch safety limit
         });
 
@@ -534,7 +538,7 @@ async function _fetchFilteredHierarchy(
         const newEntries: any[] = [];
         extraTasks.forEach(t => {
             if (!taskMap.has(t.id)) {
-                const entry = { ...t, subTasks: [] };
+                const entry = { ...t, subTasks: initialSubTasks };
                 taskMap.set(t.id, entry);
                 newEntries.push(entry);
             }
@@ -554,6 +558,7 @@ async function _fetchFilteredHierarchy(
     allTasks.forEach(task => {
         if (task.parentTaskId && taskMap.has(task.parentTaskId)) {
             const parent = taskMap.get(task.parentTaskId);
+            if (!parent.subTasks) parent.subTasks = [];
             if (!parent.subTasks.some((st: any) => st.id === task.id)) {
                 parent.subTasks.push(task);
             }
@@ -636,7 +641,7 @@ async function _fetchWorkspaceFilter(
     const [rawTasks, totalCount] = await Promise.all([
         prisma.task.findMany({
             where,
-            select: TASK_CORE_SELECT,
+            select: getTaskSelect(opts.view_mode),
             orderBy: buildOrderBy(opts.sorts),
             take: limit + 1,
             skip: opts.skip || 0,
@@ -673,6 +678,10 @@ async function _getTasksInternal(
     restrictedProjectIds: string[],
     opts: GetTasksOptions
 ) {
+    // 0. Normalize aliases
+    if (opts.startDate && !opts.dueAfter) opts.dueAfter = opts.startDate;
+    if (opts.endDate && !opts.dueBefore) opts.dueBefore = opts.endDate;
+
     const startTime = performance.now();
     const { projectId, hierarchyMode, filterParentTaskId } = opts;
     let strategy = "NONE";
@@ -686,6 +695,8 @@ async function _getTasksInternal(
                 (opts.search && opts.search.trim().length > 0) ||
                 opts.dueAfter ||
                 opts.dueBefore ||
+                opts.startDate ||
+                opts.endDate ||
                 (opts.sorts && opts.sorts.length > 0)
             );
 
@@ -732,7 +743,7 @@ async function _getTasksInternal(
                             tagId: toArray(opts.tagId),
                             search: opts.search,
                         }),
-                        select: TASK_CORE_SELECT,
+                        select: getTaskSelect(opts.view_mode),
                         orderBy: buildOrderBy(opts.sorts)
                     });
 
@@ -764,12 +775,11 @@ async function _getTasksInternal(
             // and search-aware nesting even at the global workspace level.
             return { ...result, facets: emptyFacets };
         }
-
         if (opts.groupBy === "status") {
             strategy = opts.includeSubTasks ? "KANBAN_RECURSIVE_HIERARCHY" : "KANBAN_SINGLE_QUERY";
             const baseWhere = buildWorkspaceFilterWhere({
                 workspaceId,
-                projectId,
+                projectId: opts.projectId,
                 assigneeId: toArray(opts.assigneeId),
                 tagId: toArray(opts.tagId),
                 search: opts.search,
@@ -790,7 +800,7 @@ async function _getTasksInternal(
             const tasks = await prisma.task.findMany({
                 where: baseWhere,
                 take: limit,
-                select: TASK_CORE_SELECT,
+                select: getTaskSelect(opts.view_mode),
                 orderBy: buildOrderBy(opts.sorts)
             });
 
@@ -808,7 +818,7 @@ async function _getTasksInternal(
                             dueAfter: toUTCDateOnly(opts.dueAfter),
                             dueBefore: opts.dueBefore ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!) : undefined,
                         }),
-                        select: TASK_CORE_SELECT,
+                        select: getTaskSelect(opts.view_mode),
                         orderBy: buildOrderBy(opts.sorts)
                     });
 

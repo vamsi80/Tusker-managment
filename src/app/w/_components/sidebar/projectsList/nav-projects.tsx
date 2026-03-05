@@ -7,18 +7,19 @@ import { EditProjectForm } from "./options/edit-project-form";
 import { ManageProjectMembersDialog } from "./options/manage-members-dialog";
 import { usePathname, useRouter } from "next/navigation";
 import { deleteProject } from "@/actions/project/delete-project";
-import { UserProjectsType } from "@/data/project/get-projects";
-import { WorkspaceMembersType } from "@/data/workspace/get-workspace-members";
-import { CreateProjectForm } from "../../../[workspaceId]/p/_components/create-project-form";
+import type { UserProjectsType } from "@/data/project/get-projects";
+import type { WorkspaceMembersResult } from "@/data/workspace/get-workspace-members";
+import type { FullProjectData } from "@/data/project/get-full-project-data";
+import { getWorkspaceMembersAction } from "@/actions/workspace/get-members";
 import { Building2Icon, MoreHorizontal, Eye, Pencil, Trash2, Loader2, Users } from "lucide-react";
-import { getFullProjectData, FullProjectData } from "@/data/project/get-full-project-data";
+import { getFullProjectDataAction } from "@/actions/project/get-full-data";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuAction, useSidebar } from "@/components/ui/sidebar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, } from "@/components/ui/alert-dialog";
+import { CreateProjectForm } from "@/app/w/[workspaceId]/p/_components/create-project-form";
 
 interface iAppProps {
   projects: UserProjectsType;
-  members: WorkspaceMembersType;
   workspaceId: string;
   isAdmin: boolean;
   canCreateProject?: boolean;
@@ -26,7 +27,7 @@ interface iAppProps {
   currentUserId?: string;
 }
 
-export function NavProjects({ projects, members, workspaceId, isAdmin, canCreateProject, userRole, currentUserId }: iAppProps) {
+export function NavProjects({ projects, workspaceId, isAdmin, canCreateProject, userRole, currentUserId }: iAppProps) {
   const { isMobile } = useSidebar();
   const pathname = usePathname();
   const router = useRouter();
@@ -45,6 +46,28 @@ export function NavProjects({ projects, members, workspaceId, isAdmin, canCreate
   const [manageMembersDialogOpen, setManageMembersDialogOpen] = useState(false);
   const [projectToManageMembers, setProjectToManageMembers] = useState<FullProjectData | null>(null);
 
+  // Members list (loaded on demand)
+  const [members, setMembers] = useState<WorkspaceMembersResult["workspaceMembers"]>([]);
+  const [isLoadingMembers, setIsLoadingMembers] = useState(false);
+
+  const loadMembers = async () => {
+    if (members.length > 0) return;
+    setIsLoadingMembers(true);
+    try {
+      const result = await getWorkspaceMembersAction(workspaceId);
+      if (result.success && result.data?.workspaceMembers) {
+        setMembers(result.data.workspaceMembers);
+      } else {
+        toast.error("Failed to load workspace members");
+      }
+    } catch (error) {
+      console.error("Error loading members:", error);
+      toast.error("An error occurred while loading members");
+    } finally {
+      setIsLoadingMembers(false);
+    }
+  };
+
   const handleDeleteClick = (project: { id: string; name: string }) => {
     setProjectToDelete(project);
     setDeleteDialogOpen(true);
@@ -53,12 +76,16 @@ export function NavProjects({ projects, members, workspaceId, isAdmin, canCreate
   const handleEditClick = async (projectId: string) => {
     setIsLoadingProject(true);
     try {
-      const fullProjectData = await getFullProjectData(projectId);
-      if (fullProjectData) {
-        setProjectToEdit(fullProjectData);
+      const [fullDataResult, membersResult] = await Promise.all([
+        getFullProjectDataAction(projectId),
+        loadMembers()
+      ]);
+
+      if (fullDataResult.success && fullDataResult.data) {
+        setProjectToEdit(fullDataResult.data);
         setEditDialogOpen(true);
       } else {
-        toast.error("Failed to load project data");
+        toast.error(fullDataResult.error || "Failed to load project data");
       }
     } catch (error) {
       console.error("Error loading project:", error);
@@ -71,12 +98,16 @@ export function NavProjects({ projects, members, workspaceId, isAdmin, canCreate
   const handleManageMembersClick = async (projectId: string) => {
     setIsLoadingProject(true);
     try {
-      const fullProjectData = await getFullProjectData(projectId);
-      if (fullProjectData) {
-        setProjectToManageMembers(fullProjectData);
+      const [fullDataResult, membersResult] = await Promise.all([
+        getFullProjectDataAction(projectId),
+        loadMembers()
+      ]);
+
+      if (fullDataResult.success && fullDataResult.data) {
+        setProjectToManageMembers(fullDataResult.data);
         setManageMembersDialogOpen(true);
       } else {
-        toast.error("Failed to load project data");
+        toast.error(fullDataResult.error || "Failed to load project data");
       }
     } catch (error) {
       console.error("Error loading project:", error);
@@ -97,7 +128,6 @@ export function NavProjects({ projects, members, workspaceId, isAdmin, canCreate
         toast.success(result.message);
         setDeleteDialogOpen(false);
         setProjectToDelete(null);
-        // Redirect to workspace page after deletion
         router.push(`/w/${workspaceId}`);
         router.refresh();
       } else {
@@ -110,11 +140,15 @@ export function NavProjects({ projects, members, workspaceId, isAdmin, canCreate
     }
   };
 
+  const onOpenCreateProject = async () => {
+    await loadMembers();
+  };
+
   return (
     <>
       <SidebarGroup className="group-data-[collapsible=icon]:hidden">
         <SidebarGroupLabel>
-          <div className="flex text-sm items-center justify-between w-full cursor-pointer mb-4">
+          <div className="flex text-sm items-center justify-between w-full cursor-pointer mb-4" onClick={onOpenCreateProject}>
             <span>Projects</span>
             <CreateProjectForm
               members={members}
@@ -127,7 +161,7 @@ export function NavProjects({ projects, members, workspaceId, isAdmin, canCreate
           </div>
         </SidebarGroupLabel>
         <SidebarMenu>
-          {projects?.map((proj) => {
+          {projects?.map((proj: UserProjectsType[number]) => {
             const href = `/w/${workspaceId}/p/${proj.slug}`;
             const isActive = pathname === href || pathname.startsWith(`${href}/`);
 

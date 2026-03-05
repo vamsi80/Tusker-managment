@@ -97,12 +97,23 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
                 </TableCell>
             )}
 
-            {/* Reviewer */}
+            {/* Reviewer with Parent Context */}
             {columnVisibility.reviewer && (
                 <TableCell className="w-[80px] sm:w-[100px]">
-                    {task.reviewer ? (
+                    {task.parentTask?.reviewer ? (
+                        <div className="flex flex-col gap-0.5" title="Parent Reviewer ID">
+                            <div className="text-xs font-medium text-blue-700 dark:text-blue-400 truncate">
+                                {task.parentTask.reviewer.surname || task.parentTask.reviewer.name}
+                            </div>
+                            {task.reviewer && task.reviewer.id !== task.parentTask.reviewer.id && (
+                                <div className="text-[10px] text-muted-foreground truncate opacity-70" title="Subtask Reviewer">
+                                    {task.reviewer.surname || task.reviewer.name}
+                                </div>
+                            )}
+                        </div>
+                    ) : task.reviewer ? (
                         <div className="text-sm truncate">
-                            {task.reviewer.name} {task.reviewer.surname || ""}
+                            {task.reviewer.surname || task.reviewer.name}
                         </div>
                     ) : (
                         <span className="text-muted-foreground text-sm">-</span>

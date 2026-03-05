@@ -243,18 +243,11 @@ export const SubTaskRow = memo(function SubTaskRow({
                 <span
                     className="truncate text-muted-foreground text-sm block cursor-pointer hover:text-foreground transition-colors"
                     onMouseEnter={() => {
-                        // 🚀 Speculative prefetch for List subtasks
+                        // 🚀 Cache check (No DB hit for prefetching)
                         if (subTask.id) {
                             import("@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/subtask-details-sheet").then(m => {
-                                const taskId = subTask.id;
-                                if (!m.commentCache.has(taskId) && !m.pendingPrefetches.has(`comments-${taskId}`)) {
-                                    m.pendingPrefetches.add(`comments-${taskId}`);
-                                    import("@/actions/comment").then(actions => {
-                                        actions.fetchCommentsAction(taskId).then(res => {
-                                            if (res.success && res.comments) m.commentCache.set(taskId, res.comments as any);
-                                            m.pendingPrefetches.delete(`comments-${taskId}`);
-                                        }).catch(() => m.pendingPrefetches.delete(`comments-${taskId}`));
-                                    });
+                                if (m.commentCache.has(subTask.id)) {
+                                    console.log(`✨ [CACHE-HIT] Subtask ${subTask.id} ready.`);
                                 }
                             });
                         }
@@ -301,7 +294,30 @@ export const SubTaskRow = memo(function SubTaskRow({
 
             {columnVisibility.reviewer && (
                 <TableCell className="w-[80px] sm:w-[100px]">
-                    {subTask.reviewer ? (
+                    {subTask.parentTask?.reviewer ? (
+                        <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-2 min-w-0" title="Parent Reviewer">
+                                <Avatar className="h-5 w-5 flex-shrink-0 border-blue-500/30 border">
+                                    <AvatarImage src={subTask.parentTask.reviewer.image || ""} />
+                                    <AvatarFallback className="text-[10px] bg-blue-50 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                                        {subTask.parentTask.reviewer.surname?.[0] || subTask.parentTask.reviewer.name?.[0]}
+                                    </AvatarFallback>
+                                </Avatar>
+                                <span className="text-xs text-blue-700 dark:text-blue-400 font-medium truncate">
+                                    {subTask.parentTask.reviewer.surname || subTask.parentTask.reviewer.name}
+                                </span>
+                            </div>
+                            {subTask.reviewer && subTask.reviewer.id !== subTask.parentTask.reviewer.id && (
+                                <div className="flex items-center gap-2 min-w-0 opacity-60 ml-2" title="Task Reviewer">
+                                    <Avatar className="h-3.5 w-3.5 flex-shrink-0">
+                                        <AvatarImage src={subTask.reviewer.image || ""} />
+                                        <AvatarFallback className="text-[8px]">{subTask.reviewer.surname?.[0]}</AvatarFallback>
+                                    </Avatar>
+                                    <span className="text-[9px] truncate">{subTask.reviewer.surname || subTask.reviewer.name}</span>
+                                </div>
+                            )}
+                        </div>
+                    ) : subTask.reviewer ? (
                         <div className="flex items-center gap-2 min-w-0">
                             <Avatar className="h-5 w-5 flex-shrink-0">
                                 <AvatarImage src={subTask.reviewer.image || ""} />
@@ -312,7 +328,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                             </span>
                         </div>
                     ) : (
-                        <span className="text-xs text-muted-foreground">No Reviewer</span>
+                        <span className="text-xs text-muted-foreground text-center block">-</span>
                     )}
                 </TableCell>
             )}
