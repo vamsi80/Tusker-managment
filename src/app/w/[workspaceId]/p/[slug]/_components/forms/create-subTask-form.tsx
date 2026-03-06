@@ -436,7 +436,7 @@ export const CreateSubTaskForm = ({
                                                         {field.value
                                                             ? (() => {
                                                                 const m = members?.find((m) => m.workspaceMember.user.id === field.value);
-                                                                return `${m?.workspaceMember.user.surname || m?.workspaceMember.user.name}`;
+                                                                return `${m?.workspaceMember.user.surname}`;
                                                             })()
                                                             : "Select assignee"}
                                                     </Button>
@@ -453,7 +453,7 @@ export const CreateSubTaskForm = ({
                                                                     return role !== "VIEWER" && role !== "ADMIN";
                                                                 }).map((member) => {
                                                                     const user = member.workspaceMember.user;
-                                                                    const userName = `${user.name} ${user.surname || ''}`;
+                                                                    const userName = `${user.surname || ''}`;
                                                                     const userId = user.id;
                                                                     const isSelected = field.value === userId;
 

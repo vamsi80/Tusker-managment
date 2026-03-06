@@ -27,7 +27,7 @@ async function DailyReportFABLoader({ workspaceId }: { workspaceId: string }) {
     let initialStatus: "SUBMITTED" | "ABSENT" | "NOT_SUBMITTED" | "LOADING" = "NOT_SUBMITTED";
     try {
         const data = await getDailyReportStatus(workspaceId);
-        initialStatus = data.status || "NOT_SUBMITTED";
+        initialStatus = (data.status as "SUBMITTED" | "ABSENT" | "NOT_SUBMITTED") || "NOT_SUBMITTED";
     } catch (error) {
         // Fallback to NOT_SUBMITTED on error
     }
