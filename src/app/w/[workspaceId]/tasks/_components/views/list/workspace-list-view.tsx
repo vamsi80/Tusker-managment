@@ -29,7 +29,7 @@ export async function WorkspaceListView({
             hierarchyMode: "parents",
             includeSubTasks: false, // 🚀 Optimization: Fetch children on-demand
             page: 1,
-            limit: 50,
+            limit: 20, // Reduced from 50 for faster initial mount
             includeFacets: true,
             view_mode: "list"
         }, user.id)

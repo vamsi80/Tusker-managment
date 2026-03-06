@@ -13,7 +13,7 @@ import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 export async function getNotificationsAction(workspaceId: string, limit: number = 25, offset: number = 0) {
     try {
         const user = await requireUser();
-        const perms = await getWorkspacePermissions(workspaceId);
+        const perms = await getWorkspacePermissions(workspaceId, user.id);
 
         if (!perms.workspaceMemberId) {
             return { success: false, error: "Access denied" };

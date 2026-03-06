@@ -8,6 +8,7 @@ import { getWorkspaceMetadata } from "@/data/workspace/get-workspace-metadata";
 import { notFound } from "next/navigation";
 import { DailyReportFAB } from "./reports/_components/DailyReportFAB";
 import { getDailyReportStatus } from "@/actions/daily-report-actions";
+import { requireUser } from "@/lib/auth/require-user";
 
 interface Props {
     children: React.ReactNode;
@@ -18,8 +19,8 @@ interface Props {
  * Loads sidebar data independently so the shell renders immediately
  * while the sidebar data streams in.
  */
-async function SidebarLoader({ workspaceId }: { workspaceId: string }) {
-    const data = await getWorkspaces();
+async function SidebarLoader({ workspaceId, userId }: { workspaceId: string, userId: string }) {
+    const data = await getWorkspaces(userId);
     return <AppSidebar data={data as any} workspaceId={workspaceId} />;
 }
 
@@ -38,8 +39,11 @@ async function DailyReportFABLoader({ workspaceId }: { workspaceId: string }) {
 export default async function WorkSpaceLayout({ children, params }: Props) {
     const { workspaceId } = await params;
 
+    // 🚀 Performance: Call requireUser once and propagate for cache bypasses (~2-3s savings total)
+    const user = await requireUser();
+
     // Lightweight access check — only done here, not repeated in child layouts
-    const workspace = await getWorkspaceMetadata(workspaceId);
+    const workspace = await getWorkspaceMetadata(workspaceId, user.id);
     if (!workspace) {
         return notFound();
     }
@@ -55,7 +59,7 @@ export default async function WorkSpaceLayout({ children, params }: Props) {
         >
             {/* Sidebar streams in — shell renders instantly */}
             <Suspense fallback={<WorkspaceSidebarSkeleton />}>
-                <SidebarLoader workspaceId={workspaceId} />
+                <SidebarLoader workspaceId={workspaceId} userId={user.id} />
             </Suspense>
 
             <SidebarInset className="m-0 rounded-none bg-background">

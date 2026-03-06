@@ -583,7 +583,7 @@ export function TaskTable({
                 dueAfter: filters.startDate ? new Date(filters.startDate) as any : undefined,
                 dueBefore: filters.endDate ? new Date(filters.endDate) as any : undefined,
                 hierarchyMode: "parents",
-                includeSubTasks: true, // Bulk load subtasks in one request
+                includeSubTasks: false, // 🚀 Changed to false to prevent expensive recursive scans on simple scroll
                 cursor: currentPagination.nextCursor,
                 limit: 50,
                 sorts,

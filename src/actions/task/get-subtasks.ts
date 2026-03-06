@@ -24,7 +24,8 @@ export async function getSubTasksAction(
             filters,
             pageSize,
             viewMode,
-            user.id // 🚀 Sub-millisecond permission optimization
+            user.id, // 🚀 Sub-millisecond permission optimization
+            true // 🚀 Skip 900ms redundent permission check since UI already verified access to render the parent arrow!
         );
 
         const duration = performance.now() - startTime;

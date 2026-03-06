@@ -1,7 +1,12 @@
 import { getTasks } from "@/data/task/get-tasks";
 import { getWorkspaceTags } from "@/data/tag/get-tags";
 import { getUserProjects } from "@/data/project/get-projects";
-import { WorkspaceGanttClient } from "./workspace-gantt-client";
+import dynamic from "next/dynamic";
+
+const WorkspaceGanttClient = dynamic(
+    () => import("./workspace-gantt-client").then(mod => mod.WorkspaceGanttClient),
+    { loading: () => <div className="h-[60vh] w-full flex items-center justify-center text-muted-foreground animate-pulse">Loading Gantt Chart...</div> }
+);
 import { getWorkspaceMembers } from "@/data/workspace/get-workspace-members";
 import { getSubTasksByParentIds } from "@/data/task/get-subtasks-batch";
 import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
@@ -22,45 +27,40 @@ interface WorkspaceGanttViewProps {
  * - MEMBER: See only tasks from assigned projects and their assigned subtasks
  */
 export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProps) {
-    const user = await requireUser();
+    // 1. Kick off all independent queries immediately!
+    const userPromise = requireUser();
+    const projectsPromise = getUserProjects(workspaceId);
+    const membersPromise = getWorkspaceMembers(workspaceId);
+    const tagsPromise = getWorkspaceTags(workspaceId);
+    const pmMatchesPromise = prisma.projectMember.findMany({
+        where: { project: { workspaceId } },
+        select: {
+            projectId: true,
+            workspaceMember: { select: { userId: true } },
+            projectRole: true
+        }
+    });
 
-    // Fetch initial data in parallel
+    // 2. Wait for user safely
+    const user = await userPromise;
+
+    // 3. Launch the final large queries
     const [tasksData, projects, workspaceMembers, projectMemberMatches, tags, permissions] = await Promise.all([
-        getTasks({ workspaceId, hierarchyMode: "parents", page: 1, limit: 500, includeFacets: true, view_mode: "gantt" }, user.id),
-        getUserProjects(workspaceId),
-        getWorkspaceMembers(workspaceId),
-        prisma.projectMember.findMany({
-            where: { project: { workspaceId } },
-            select: {
-                projectId: true,
-                workspaceMember: {
-                    select: { userId: true }
-                },
-                projectRole: true
-            }
-        }),
-        getWorkspaceTags(workspaceId),
+        getTasks({
+            workspaceId,
+            sorts: [{ field: "createdAt", direction: "desc" }],
+            limit: 1000,
+            includeFacets: true,
+            view_mode: "gantt"
+        }, user.id),
+        projectsPromise,
+        membersPromise,
+        pmMatchesPromise,
+        tagsPromise,
         getWorkspacePermissions(workspaceId, user.id),
     ]);
 
-    // Fetch subtasks for the parent tasks
-    const parentTasksList = tasksData.tasks;
-    const parentIds = parentTasksList.map(t => t.id);
-
-    const subtaskResults = await getSubTasksByParentIds(
-        parentIds,
-        workspaceId,
-        undefined, // No project filter
-        {}, // No specific filters
-        100, // up to 100 subtasks per parent
-        "gantt",
-        user.id
-    );
-
-    const subtasks = subtaskResults.flatMap(r => r.subTasks);
-
-    const allTasks = [...parentTasksList, ...subtasks];
-
+    const allTasks = tasksData.tasks;
     const parentTasks = allTasks.filter(task => !task.parentTaskId);
 
     const subtasksMap = new Map<string, any[]>();

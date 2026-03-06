@@ -96,16 +96,13 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
         setIsOpen(false);
     };
 
-    const hasMounted = React.useRef(false);
+    // Sync server-provided data if it changes (e.g., after a revalidatePath)
+    // We stringify to prevent unnecessary updates if the array reference changes but the content is the same
     useEffect(() => {
-        if (!hasMounted.current) {
-            hasMounted.current = true;
-            return;
-        }
-        if (workspaceId) {
-            loadNotifications();
-        }
-    }, [workspaceId]);
+        setUnreadNotifications(initialUnread);
+        setReadNotifications(initialRead);
+        setPeopleCount(initialPeopleCount);
+    }, [JSON.stringify(initialUnread), JSON.stringify(initialRead), initialPeopleCount]);
 
     const getNotificationHref = (slug: string) => {
         const newParams = new URLSearchParams(currentSearchParams.toString());

@@ -41,11 +41,15 @@ export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
         },
         _count: {
             select: {
-                subTasks: true,
                 reviewComments: true,
             }
         }
     };
+
+    // Include subTasks count ONLY if it's a parent task or list view that needs expansion
+    if (isList || isGantt) {
+        (select._count as any).select.subTasks = true;
+    }
 
     // 1. Description: Specifically for List view per user request
     if (isList) {

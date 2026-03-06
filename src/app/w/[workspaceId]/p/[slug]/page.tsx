@@ -73,7 +73,7 @@ export default async function ProjectPage({ params, searchParams }: iAppProps) {
 async function ProjectTaskListViewServer({ workspaceId, slug }: { workspaceId: string, slug: string }) {
   const [project, user] = await Promise.all([getProjectBySlug(workspaceId, slug), requireUser()]);
   if (!project) return null;
-  const [projectMembers, permissions] = await Promise.all([getProjectMembers(project.id), getUserPermissions(workspaceId, project.id)]);
+  const [projectMembers, permissions] = await Promise.all([getProjectMembers(project.id), getUserPermissions(workspaceId, project.id, user.id)]);
   return <ProjectTaskListView workspaceId={workspaceId} projectId={project.id} members={projectMembers} canCreateSubTask={permissions.canCreateSubTask} permissions={permissions} userId={user.id} />;
 }
 

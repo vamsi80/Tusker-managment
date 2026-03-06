@@ -924,6 +924,18 @@ export const getTasks = cache(async (opts: GetTasksOptions, providedUserId?: str
         ? CacheTags.projectTasks(projectId, permissions.workspaceMember.userId)
         : CacheTags.workspaceTasks(workspaceId, permissions.workspaceMember.userId);
 
+    // 🚀 BYPASS For Server Actions or single user loads 
+    if (providedUserId) {
+        return await _getTasksInternal(
+            workspaceId,
+            permissions.workspaceMember!.userId,
+            isWorkspaceAdmin,
+            fullAccessProjectIds,
+            restrictedProjectIds,
+            opts
+        );
+    }
+
     return await unstable_cache(
         () => _getTasksInternal(
             workspaceId,

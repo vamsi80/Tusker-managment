@@ -1,6 +1,12 @@
 import { getTasks } from "@/data/task/get-tasks";
+import { requireUser } from "@/lib/auth/require-user";
 import { getProjectMembers } from "@/data/project/get-project-members";
-import { KanbanBoard } from "@/components/task/kanban/kanban-board";
+import dynamic from "next/dynamic";
+
+const KanbanBoard = dynamic(
+    () => import("@/components/task/kanban/kanban-board").then(mod => mod.KanbanBoard),
+    { loading: () => <div className="h-[60vh] w-full flex items-center justify-center text-muted-foreground animate-pulse">Loading Kanban...</div> }
+);
 
 interface ProjectKanbanViewProps {
     workspaceId: string;
@@ -11,6 +17,11 @@ export async function ProjectKanbanView({
     workspaceId,
     projectId
 }: ProjectKanbanViewProps) {
+    const userPromise = requireUser();
+    const membersPromise = getProjectMembers(projectId);
+
+    const user = await userPromise;
+
     const [tasksResponse, projectMembers] = await Promise.all([
         getTasks({
             workspaceId,
@@ -20,8 +31,8 @@ export async function ProjectKanbanView({
             limit: 100,
             sorts: [{ field: "createdAt", direction: "desc" }],
             view_mode: "kanban"
-        }),
-        getProjectMembers(projectId),
+        }, user.id),
+        membersPromise,
     ]);
 
     // Effective way: Identify the PM once at the view level
