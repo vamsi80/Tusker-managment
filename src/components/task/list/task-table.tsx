@@ -87,6 +87,7 @@ export function TaskTable({
     const [sorts, setSorts] = useState<SortConfig[]>([]);
     const [sortedTasks, setSortedTasks] = useState<any[]>([]);
     const [sortedHasMore, setSortedHasMore] = useState(false);
+    const [sortedNextCursor, setSortedNextCursor] = useState<any>(null);
     const [isLoadingMoreSorted, setIsLoadingMoreSorted] = useState(false);
     const [isSortedViewLoading, setIsSortedViewLoading] = useState(false);
     const setCachedSubTasks = useTaskCacheStore(state => state.setCachedSubTasks);
@@ -463,6 +464,7 @@ export function TaskTable({
             if (res.success && res.data) {
                 setSortedTasks(res.data.tasks || []);
                 setSortedHasMore(res.data.hasMore);
+                setSortedNextCursor(res.data.nextCursor);
 
                 // Debug: print tasks in sorted order with correct field values
                 const sortField = sorts[0]?.field;
@@ -482,6 +484,7 @@ export function TaskTable({
 
         // Reset pagination before fresh fetch — do NOT clear tasks here to avoid flicker
         setSortedHasMore(false);
+        setSortedNextCursor(null);
 
         fetchSorted();
 
@@ -510,7 +513,7 @@ export function TaskTable({
                 dueBefore: filters.endDate ? new Date(filters.endDate) : undefined,
                 onlySubtasks: true,
                 sorts,
-                skip: sortedTasks.length,
+                cursor: sortedNextCursor,
                 limit: 50,
                 view_mode: "list",
             });
@@ -521,6 +524,7 @@ export function TaskTable({
 
                 setSortedTasks(prev => [...prev, ...newTasks]);
                 setSortedHasMore(res.data.hasMore);
+                setSortedNextCursor(res.data.nextCursor);
             } else {
                 console.error("[LoadMoreSorted] Server error:", res.error);
                 toast.error("Failed to load more sorted tasks");
@@ -935,7 +939,7 @@ export function TaskTable({
                 dueAfter: cleanFilters.startDate,
                 dueBefore: cleanFilters.endDate,
                 cursor: task.subTasksNextCursor,
-                limit: 10,
+                limit: 30,
                 sorts,
             });
 

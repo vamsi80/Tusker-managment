@@ -28,7 +28,7 @@ export async function ProjectKanbanView({
             projectId,
             groupBy: "status",
             excludeParents: true,
-            limit: 100,
+            limit: 300,
             sorts: [{ field: "createdAt", direction: "desc" }],
             view_mode: "kanban"
         }, user.id),

@@ -31,7 +31,7 @@ export async function ProjectTaskListView({
         workspaceId,
         projectId,
         hierarchyMode: "parents",
-        limit: 20, // Reduced from 50 for faster initial mount
+        limit: 50,
         view_mode: "list"
     }, userId);
 

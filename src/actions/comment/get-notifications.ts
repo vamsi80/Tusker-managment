@@ -3,13 +3,6 @@
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
-
-/**
- * Fetches recent notification/message data for the user in a workspace.
- * Calculation is based on roles:
- * - ADMIN/OWNER: See all comments in the workspace.
- * - MEMBER: See comments in tasks they are assigned to, or created, or are reviewer of.
- */
 export async function getNotificationsAction(workspaceId: string, limit: number = 25, offset: number = 0) {
     try {
         const user = await requireUser();
@@ -25,7 +18,6 @@ export async function getNotificationsAction(workspaceId: string, limit: number 
             return { success: false, error: "Access denied" };
         }
 
-        // Define filter based on role ONLY (we handle read/unread in-memory for grouping)
         const where: any = {
             task: {
                 workspaceId: workspaceId
@@ -33,9 +25,6 @@ export async function getNotificationsAction(workspaceId: string, limit: number 
         };
 
         if (!perms.isWorkspaceAdmin) {
-            // Non-admins see tasks where:
-            // 1. They are involved (assignee, creator, reviewer)
-            // 2. OR they are the Project Lead or Project Manager for that project
             const privilegedProjectIds = [
                 ...(perms.leadProjectIds || []),
                 ...(perms.managedProjectIds || [])
@@ -54,12 +43,9 @@ export async function getNotificationsAction(workspaceId: string, limit: number 
             };
         }
 
-        // Don't count user's own comments
         where.userId = {
             not: user.id
         };
-
-        // Fetch recent comments with their read receipt for THIS user
         const comments = await prisma.comment.findMany({
             where,
             include: {
@@ -81,7 +67,8 @@ export async function getNotificationsAction(workspaceId: string, limit: number 
                         taskSlug: true,
                         project: {
                             select: {
-                                name: true
+                                name: true,
+                                color: true,
                             }
                         },
                         parentTask: {

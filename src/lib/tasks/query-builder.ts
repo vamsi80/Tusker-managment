@@ -20,11 +20,10 @@ export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
         dueDate: true,
         days: true,
         projectId: true,
-        workspaceId: true,
         parentTaskId: true,
         isParent: true,
         createdAt: true,
-        updatedAt: true,
+        createdById: true,
         assigneeTo: true,
         reviewerId: true,
         tagId: true,
@@ -67,7 +66,6 @@ export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
             select: {
                 id: true,
                 name: true,
-                slug: true,
                 color: true,
             }
         };
@@ -79,11 +77,6 @@ export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
             select: {
                 id: true,
                 name: true,
-                taskSlug: true,
-                reviewerId: true,
-                reviewer: {
-                    select: { id: true, surname: true }
-                }
             }
         };
     }

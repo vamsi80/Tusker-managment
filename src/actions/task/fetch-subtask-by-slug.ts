@@ -7,7 +7,6 @@ export async function fetchSubTaskBySlugAction(workspaceId: string, slugOrId: st
     try {
         const user = await requireUser();
 
-        // Check if user is a member of the workspace
         const member = await prisma.workspaceMember.findFirst({
             where: {
                 workspaceId,
@@ -19,7 +18,6 @@ export async function fetchSubTaskBySlugAction(workspaceId: string, slugOrId: st
             return { success: false, error: "Access denied" };
         }
 
-        // Fetch task by ID or Slug
         const task = await prisma.task.findFirst({
             where: {
                 workspaceId,
@@ -32,9 +30,7 @@ export async function fetchSubTaskBySlugAction(workspaceId: string, slugOrId: st
                 assignee: {
                     select: {
                         id: true,
-                        // name: true,
                         surname: true,
-                        // image: true
                     }
                 },
                 tag: {
@@ -47,15 +43,13 @@ export async function fetchSubTaskBySlugAction(workspaceId: string, slugOrId: st
                     select: {
                         id: true,
                         name: true,
-                        slug: true,
-                        workspaceId: true
+                        color: true,
                     }
                 },
                 parentTask: {
                     select: {
                         id: true,
                         name: true,
-                        taskSlug: true
                     }
                 },
                 _count: {

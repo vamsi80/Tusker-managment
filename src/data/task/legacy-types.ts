@@ -25,7 +25,7 @@ export type WorkspaceTaskType = {
     pinnedAt?: Date | null;
     position?: number;
     createdAt: Date;
-    updatedAt: Date;
+    updatedAt?: Date;
     createdById: string;
     reviewerId: string | null;
     assigneeTo?: string | null;          // raw FK (from TASK_CORE_SELECT)

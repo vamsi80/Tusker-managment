@@ -49,9 +49,7 @@ async function _getFullProjectDataInternal(projectId: string, userId: string): P
                             user: {
                                 select: {
                                     id: true,
-                                    // name: true,
                                     surname: true,
-                                    // image: true,
                                 }
                             }
                         }
@@ -59,10 +57,10 @@ async function _getFullProjectDataInternal(projectId: string, userId: string): P
                 }
             },
             clint: {
-                take: 1, // Only need the primary client
+                take: 1,
                 include: {
                     clintMembers: {
-                        take: 1 // Only need the primary contact
+                        take: 1
                     }
                 }
             }
