@@ -6,14 +6,7 @@ import crypto from "crypto";
 import prisma from "@/lib/db";
 import { getUserPermissions, getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { CacheTags } from "@/data/cache-tags";
-import {
-    getTaskSelect,
-    TaskCursor,
-    buildProjectRootWhere,
-    buildSubtaskExpansionWhere,
-    buildWorkspaceFilterWhere,
-    WorkspaceFilterOpts,
-} from "@/lib/tasks/query-builder";
+import { getTaskSelect, TaskCursor, buildProjectRootWhere, buildSubtaskExpansionWhere, buildWorkspaceFilterWhere, WorkspaceFilterOpts, } from "@/lib/tasks/query-builder";
 import { logger } from "@/lib/logger";
 
 export type TaskViewType = "list" | "kanban" | "gantt" | "calendar";
@@ -108,75 +101,66 @@ function buildOrderBy(sorts?: Array<{ field: string; direction: "asc" | "desc" }
  *
  * IMPORTANT: cursor keys are DB column names (e.g. "startDate"), NOT client field names.
  */
-// function buildSeekCondition(
-//     where: any,
-//     sorts: Array<{ field: string; direction: "asc" | "desc" }>,
-//     cursor: any
-// ): any {
-//     try {
-//         if (!sorts?.length || !cursor) return where;
+/**
+ * Builds a WHERE extension that skips all rows already delivered by the previous page.
+ * Uses the exact same field order as buildOrderBy so pagination is stable.
+ */
+function buildSeekCondition(
+    sorts: Array<{ field: string; direction: "asc" | "desc" }>,
+    cursor: any
+): any {
+    try {
+        if (!sorts?.length || !cursor) return {};
 
-//         const { field, direction } = sorts[0];
-//         const def = SORT_MAP[field];
-//         if (!def) return where;
+        const { field, direction } = sorts[0];
+        const def = SORT_MAP[field];
+        if (!def) return {};
 
-//         const dbField = def.dbField;
-//         const lastFieldValue = cursor[dbField];   // DB-keyed cursor
-//         const lastId = cursor.id;
+        const dbField = def.dbField;
+        const lastFieldValue = cursor[dbField];
+        const lastId = cursor.id;
 
-//         // Guard: cursor must have id at minimum to perform seek
-//         if (lastId === undefined || lastId === null) return where;
+        if (lastId === undefined || lastId === null) return {};
 
-//         const op = direction === "asc" ? "gt" : "lt";
+        const op = direction === "asc" ? "gt" : "lt";
 
-//         let seekCondition: any;
+        if (lastFieldValue === null || lastFieldValue === undefined) {
+            // We are in the NULL block at the end (nulls: 'last')
+            return {
+                AND: [
+                    { [dbField]: null },
+                    { id: { [op]: lastId } },
+                ],
+            };
+        }
 
-//         if (lastFieldValue === null || lastFieldValue === undefined) {
-//             // Last page ended in the NULL block.
-//             seekCondition = {
-//                 AND: [
-//                     { [dbField]: null },
-//                     { id: { [op]: lastId } },
-//                 ],
-//             };
-//         } else {
-//             // Last page ended on a non-null value.
-//             seekCondition = {
-//                 OR: [
-//                     {
-//                         AND: [
-//                             { [dbField]: { [op]: lastFieldValue } },
-//                             { [dbField]: { not: null } },
-//                         ]
-//                     },
-//                     {
-//                         AND: [
-//                             { [dbField]: lastFieldValue },
-//                             { id: { [op]: lastId } },
-//                         ],
-//                     },
-//                     // Include the tail end (nulls) if sorting by a nullable column
-//                     ...(def.nulls === "last" ? [{ [dbField]: null }] : []),
-//                 ],
-//             };
-//         }
+        // We are in the non-null block
+        const conditions: any[] = [
+            // 1. All rows strictly after this value
+            { [dbField]: { [op]: lastFieldValue } },
+            // 2. Rows with SAME value but strictly after this ID
+            {
+                AND: [
+                    { [dbField]: lastFieldValue },
+                    { id: { [op]: lastId } },
+                ],
+            },
+        ];
 
-//         const existingAnd = where.AND ? (Array.isArray(where.AND) ? where.AND : [where.AND]) : [];
+        // 3. If we haven't hit the NULL block yet, include it
+        if (def.nulls === "last") {
+            conditions.push({ [dbField]: null });
+        }
 
-//         return {
-//             ...where,
-//             AND: [...existingAnd, seekCondition],
-//         };
-//     } catch (err) {
-//         console.error("[buildSeekCondition] Error building skip condition:", err);
-//         return where; // Fallback to no seek pagination rather than crashing
-//     }
-// }
+        return { OR: conditions };
+    } catch (err) {
+        console.error("[buildSeekCondition] Error building skip condition:", err);
+        return {};
+    }
+}
 
 const toArray = <T>(v: T | T[] | undefined): T[] | undefined =>
     v === undefined ? undefined : Array.isArray(v) ? v : [v];
-
-const toDate = (d: string | Date | undefined) => (d ? new Date(d) : undefined);
 
 const toUTCDateOnly = (input: string | Date | undefined) => {
     if (!input) return undefined;
@@ -330,7 +314,7 @@ async function _fetchProjectRoot(
     restrictedProjectIds: string[],
     opts: GetTasksOptions
 ) {
-    const limit = opts.limit ?? 20;
+    const limit = opts.limit ?? 50;
     const status = toArray(opts.status);
     const assigneeIds = toArray(opts.assigneeId);
 
@@ -448,7 +432,7 @@ async function _fetchFilteredHierarchy(
     restrictedProjectIds: string[],
     opts: GetTasksOptions
 ) {
-    const limit = opts.limit ?? 20;
+    const limit = opts.limit ?? 50;
 
     // Filter Detection: If no explicit filters exist, we limit expansion depth to prevent
     // massive over-fetching in large workspaces.
@@ -613,13 +597,15 @@ async function _fetchWorkspaceFilter(
     restrictedProjectIds: string[],
     opts: GetTasksOptions
 ) {
-    const limit = opts.limit ?? 20;
+    const limit = opts.limit ?? 50;
 
     const start = toUTCDateOnly(opts.dueAfter);
     const end = toUTCDateOnly(opts.dueBefore);
 
     const normalizedStart = start;
     const normalizedEnd = end ? addOneDayUTC(end) : undefined;
+
+    const isSorting = opts.sorts && opts.sorts.length > 0;
 
     const filterOpts: WorkspaceFilterOpts = {
         workspaceId,
@@ -631,19 +617,30 @@ async function _fetchWorkspaceFilter(
         dueBefore: normalizedEnd,
         search: opts.search,
         // Only use default cursor if NO primary sort is active (avoids createdAt logic in builder)
-        cursor: (opts.sorts && opts.sorts.length > 0) ? undefined : opts.cursor,
+        cursor: isSorting ? undefined : opts.cursor,
         isAdmin,
         fullAccessProjectIds,
         restrictedProjectIds,
         projectIds: (!opts.projectId && opts.expandedProjectIds?.length) ? opts.expandedProjectIds : undefined,
-        onlyParents: opts.onlyParents,
+        onlyParents: isSorting ? false : opts.onlyParents,
         excludeParents: opts.excludeParents,
-        onlySubtasks: opts.onlySubtasks,
+        onlySubtasks: isSorting ? true : opts.onlySubtasks,
     };
 
     // --- STRATEGY: FLAT FILTER ---
     // Used for Kanban, Sorted lists, or search results that don't require parent grouping
     let where = buildWorkspaceFilterWhere(filterOpts, userId);
+
+    // Apply seek pagination if sorting
+    if (isSorting && opts.cursor) {
+        const seek = buildSeekCondition(opts.sorts!, opts.cursor);
+        if (seek) {
+            where.AND = [
+                ...(where.AND ? (Array.isArray(where.AND) ? where.AND : [where.AND]) : []),
+                seek
+            ];
+        }
+    }
 
     const primarySort = opts.sorts?.[0];
 
@@ -662,7 +659,6 @@ async function _fetchWorkspaceFilter(
     if (hasMore) rawTasks.pop();
 
     const lastTask = rawTasks[rawTasks.length - 1] as any;
-    // Cursor keys are DB column names so buildSeekCondition can read them back directly.
     const nextCursor: any = hasMore && lastTask
         ? primarySort && SORT_MAP[primarySort.field]
             ? {
@@ -675,7 +671,6 @@ async function _fetchWorkspaceFilter(
     return { tasks: rawTasks, totalCount, hasMore, nextCursor };
 }
 
-
 // ============================================================
 //  ROUTER: Chooses the right fetch strategy
 // ============================================================
@@ -687,7 +682,6 @@ async function _getTasksInternal(
     restrictedProjectIds: string[],
     opts: GetTasksOptions
 ) {
-    // 0. Normalize aliases
     if (opts.startDate && !opts.dueAfter) opts.dueAfter = opts.startDate;
     if (opts.endDate && !opts.dueBefore) opts.dueBefore = opts.endDate;
 

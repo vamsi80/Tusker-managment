@@ -9,7 +9,7 @@ export async function getSubTasksAction(
     workspaceId: string,
     projectId?: string,
     filters: Partial<TaskFilters> = {},
-    pageSize: number = 20,
+    pageSize: number = 30,
     viewMode: string = "list"
 ) {
     const startTime = performance.now();

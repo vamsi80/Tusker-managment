@@ -54,7 +54,6 @@ export async function getDailyReportFormData(workspaceId: string) {
             parentTask: {
                 select: {
                     name: true,
-                    taskSlug: true,
                 }
             },
             project: {

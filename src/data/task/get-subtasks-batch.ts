@@ -55,7 +55,7 @@ async function _getSubTasksByParentIdsInternal(
     fullAccessProjectIds: string[],
     restrictedProjectIds: string[],
     filters: Partial<TaskFilters> = {},
-    pageSize: number = 10,
+    pageSize: number = 30,
     viewMode: string = "list"
 ): Promise<BatchSubTasksResult> {
     if (parentTaskIds.length === 0) {
@@ -279,7 +279,7 @@ export const getSubTasksByParentIds = cache(
         workspaceId: string,
         projectId?: string,
         filters: Partial<TaskFilters> = {},
-        pageSize: number = 20,
+        pageSize: number = 30,
         viewMode: string = "list",
         userId?: string,
         skipPermissionsCheck: boolean = false

@@ -66,16 +66,13 @@ async function _getTaskByIdInternal(
                 select: {
                     id: true,
                     name: true,
-                    slug: true,
-                    workspaceId: true,
+                    color: true,
                 },
             },
             parentTask: {
                 select: {
                     id: true,
                     name: true,
-                    taskSlug: true,
-                    status: true,
                 },
             },
             subTasks: isMember
