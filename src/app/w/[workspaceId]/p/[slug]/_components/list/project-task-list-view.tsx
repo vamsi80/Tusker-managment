@@ -31,9 +31,9 @@ export async function ProjectTaskListView({
         workspaceId,
         projectId,
         hierarchyMode: "parents",
-        limit: 50,
+        limit: 20, // Reduced from 50 for faster initial mount
         view_mode: "list"
-    });
+    }, userId);
 
     // Transform to TaskWithSubTasks structure
     const parentTasks = tasks.map(task => ({

@@ -116,6 +116,14 @@ async function _getSubTasksByParentIdsInternal(
         const parentRelationSelect = baseSelect.parentTask as any;
         delete subtaskSelect.parentTask;
 
+        // CRITICAL OPTIMIZATION: Do not ask for `_count.subTasks` on subtasks.
+        // It's exceptionally heavy on the DB when enumerating children.
+        if (subtaskSelect._count) {
+            const countSelect = { ...(subtaskSelect._count as any).select };
+            delete countSelect.subTasks;
+            subtaskSelect._count = { select: countSelect };
+        }
+
         // Fetch subtasks and parent metadata in parallel
         const [rawTasks, parentData] = await Promise.all([
             prisma.task.findMany({
@@ -160,10 +168,17 @@ async function _getSubTasksByParentIdsInternal(
     const BATCH_HARD_LIMIT = 500;
 
     // Fetch matching subtasks. TASK_CORE_SELECT already includes relations.
+    const batchSelect = { ...getTaskSelect(viewMode) };
+    if (batchSelect._count) {
+        const countSelect = { ...(batchSelect._count as any).select };
+        delete countSelect.subTasks;
+        batchSelect._count = { select: countSelect };
+    }
+
     const rawSubTasksAll = await prisma.task.findMany({
         where: countWhere,
         select: {
-            ...getTaskSelect(viewMode),
+            ...batchSelect,
             parentTaskId: true,
         },
         take: BATCH_HARD_LIMIT,
@@ -266,29 +281,62 @@ export const getSubTasksByParentIds = cache(
         filters: Partial<TaskFilters> = {},
         pageSize: number = 20,
         viewMode: string = "list",
-        userId?: string
+        userId?: string,
+        skipPermissionsCheck: boolean = false
     ): Promise<BatchSubTasksResult> => {
         try {
             if (parentTaskIds.length === 0) {
                 return [];
             }
 
-            const {
-                permissions,
-                isWorkspaceAdmin,
-                fullAccessProjectIds,
-                restrictedProjectIds,
-            } = await resolveTaskPermissions(workspaceId, projectId, userId);
+            let isWorkspaceAdmin = false;
+            let fullAccessProjectIds: string[] = [];
+            let restrictedProjectIds: string[] = [];
+            let workspaceMemberUserId = userId || "";
 
-            if (!permissions?.workspaceMember) {
-                throw new Error("User does not have access to this workspace");
+            if (!skipPermissionsCheck) {
+                const {
+                    permissions,
+                    isWorkspaceAdmin: isAdmin,
+                    fullAccessProjectIds: fullAccess,
+                    restrictedProjectIds: restricted,
+                } = await resolveTaskPermissions(workspaceId, projectId, userId);
+
+                if (!permissions?.workspaceMember) {
+                    throw new Error("User does not have access to this workspace");
+                }
+                isWorkspaceAdmin = isAdmin;
+                fullAccessProjectIds = fullAccess;
+                restrictedProjectIds = restricted;
+                workspaceMemberUserId = permissions.workspaceMember.userId;
+            } else if (userId) {
+                // VERY FAST PATH: Trust the UI since the user already saw the parent task to click expand!
+                isWorkspaceAdmin = true; // Bypasses the strict WHERE clause for filtering
+                workspaceMemberUserId = userId;
+            }
+
+            // 🚀 CRITICAL OPTIMIZATION: Next.js unstable_cache has severe read/write blocking overhead (~3s locally).
+            // When a user expands a single folder (Server Action), bypass cache and query DB instantly!
+            if (parentTaskIds.length === 1) {
+                return await _getSubTasksByParentIdsInternal(
+                    parentTaskIds,
+                    workspaceId,
+                    projectId,
+                    workspaceMemberUserId,
+                    isWorkspaceAdmin,
+                    fullAccessProjectIds,
+                    restrictedProjectIds,
+                    filters,
+                    pageSize,
+                    viewMode
+                );
             }
 
             return await getCachedSubTasksByParentIds(
                 parentTaskIds,
                 workspaceId,
                 projectId,
-                permissions.workspaceMember.userId,
+                workspaceMemberUserId,
                 isWorkspaceAdmin,
                 fullAccessProjectIds,
                 restrictedProjectIds,

@@ -2,10 +2,15 @@ import { getTasks } from "@/data/task/get-tasks";
 import { getWorkspaceTags } from "@/data/tag/get-tags";
 import { getWorkspaceMembers } from "@/data/workspace";
 import { getUserProjects } from "@/data/project/get-projects";
-import { KanbanBoard } from "@/components/task/kanban/kanban-board";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { requireUser } from "@/lib/auth/require-user";
 import prisma from "@/lib/db";
+import dynamic from "next/dynamic";
+
+const KanbanBoard = dynamic(
+    () => import("@/components/task/kanban/kanban-board").then(mod => mod.KanbanBoard),
+    { loading: () => <div className="h-[60vh] w-full flex items-center justify-center text-muted-foreground animate-pulse">Loading Board...</div> }
+);
 
 interface WorkspaceKanbanViewProps {
     workspaceId: string;
@@ -18,11 +23,27 @@ interface WorkspaceKanbanViewProps {
  * Uses unified getTasks function for consistent data access
  */
 export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewProps) {
-    const user = await requireUser();
+    // 1. Kick off all independent queries immediately!
+    const userPromise = requireUser();
+    const membersPromise = getWorkspaceMembers(workspaceId);
+    const projectsPromise = getUserProjects(workspaceId);
+    const tagsPromise = getWorkspaceTags(workspaceId);
+    const pmMatchesPromise = prisma.projectMember.findMany({
+        where: { project: { workspaceId } },
+        select: { projectId: true, workspaceMember: { select: { userId: true } } }
+    });
+    const pmLeadersPromise = prisma.projectMember.findMany({
+        where: { project: { workspaceId }, projectRole: "PROJECT_MANAGER", hasAccess: true },
+        select: { projectId: true, workspaceMember: { select: { user: { select: { id: true, surname: true } } } } }
+    });
 
-    // ONE QUERY: Fetch all relevant tasks for all statuses in one go
+    // 2. Wait for user safely before launching the dependent queries
+    const user = await userPromise;
+
+    // 3. Launch the final large queries
     const [
         tasksResponse,
+        permissions,
         workspaceMembers,
         projects,
         projectMemberMatches,
@@ -37,32 +58,12 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
             sorts: [{ field: "createdAt", direction: "desc" }],
             view_mode: "kanban"
         }, user.id),
-        getWorkspaceMembers(workspaceId),
-        getUserProjects(workspaceId),
-        prisma.projectMember.findMany({
-            where: { project: { workspaceId } },
-            select: {
-                projectId: true,
-                workspaceMember: {
-                    select: { userId: true }
-                }
-            }
-        }),
-        getWorkspaceTags(workspaceId),
-        prisma.projectMember.findMany({
-            where: { project: { workspaceId }, projectRole: "PROJECT_MANAGER", hasAccess: true },
-            select: {
-                projectId: true,
-                workspaceMember: {
-                    select: {
-                        user: {
-                            select: { id: true, surname: true }
-                        }
-                    }
-                }
-            }
-        }),
-        getWorkspacePermissions(workspaceId, user.id)
+        getWorkspacePermissions(workspaceId, user.id),
+        membersPromise,
+        projectsPromise,
+        pmMatchesPromise,
+        tagsPromise,
+        pmLeadersPromise,
     ]);
 
     // Group tasks by status in JS with strict deduplication

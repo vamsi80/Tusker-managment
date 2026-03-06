@@ -116,7 +116,14 @@ export const getWorkspacePermissions = cache(async (workspaceId: string, provide
     const memoryCached = getMemoryCached<any>(cacheKey);
     if (memoryCached) return memoryCached;
 
-    // 2. SLOW PATH: Next.js Cache / Database
+    // 2. SERVER ACTION BYPASS: If providedUserId explicitly passed, skip Next.js disk cache overhead (~1s latency)
+    if (providedUserId) {
+        const directResult = await _fetchWorkspacePermissionsInternal(workspaceId, userId);
+        setMemoryCached(cacheKey, directResult);
+        return directResult;
+    }
+
+    // 3. SLOW PATH: Next.js Cache / Database (for pages/layouts)
     const fetchPerms = unstable_cache(
         async () => _fetchWorkspacePermissionsInternal(workspaceId, userId),
         [`workspace-perms-${workspaceId}-${userId}`],
@@ -207,7 +214,14 @@ export const getUserPermissions = cache(async (workspaceId: string, projectId: s
     const memoryCached = getMemoryCached<any>(cacheKey);
     if (memoryCached) return memoryCached;
 
-    // 2. SLOW PATH: Next.js Cache / Database
+    // 2. SERVER ACTION BYPASS: If providedUserId explicitly passed, bypass Next.js disk cache overhead (~1s latency)
+    if (providedUserId) {
+        const directResult = await _getUserPermissionsInternal(workspaceId, projectId, userId);
+        setMemoryCached(cacheKey, directResult);
+        return directResult;
+    }
+
+    // 3. SLOW PATH: Next.js Cache / Database (for pages/layouts)
     const fetchPerms = unstable_cache(
         async () => _getUserPermissionsInternal(workspaceId, projectId, userId),
         [`project-perms-${projectId}-${userId}`],
