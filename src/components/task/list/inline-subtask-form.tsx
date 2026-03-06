@@ -170,9 +170,7 @@ export function InlineSubTaskForm({
                 // Include full objects for UI
                 assignee: selectedMember ? {
                     id: selectedMember.workspaceMember.userId,
-                    name: selectedMember.workspaceMember.user.name,
                     surname: selectedMember.workspaceMember.user.surname,
-                    image: selectedMember.workspaceMember.user.image,
                 } : null,
                 tag: selectedTag ? { id: selectedTag.id, name: selectedTag.name } : null
             };
@@ -229,9 +227,7 @@ export function InlineSubTaskForm({
                 // Include full objects for UI
                 assignee: selectedMember ? {
                     id: selectedMember.workspaceMember.userId,
-                    name: selectedMember.workspaceMember.user.name,
                     surname: selectedMember.workspaceMember.user.surname,
-                    image: selectedMember.workspaceMember.user.image,
                 } as any : null,
                 tag: selectedTag ? { id: selectedTag.id, name: selectedTag.name } as any : null
             };
@@ -346,7 +342,7 @@ export function InlineSubTaskForm({
                             {availableMembers.map((member) => (
                                 <SelectItem key={member.workspaceMember.userId} value={member.workspaceMember.userId}>
                                     <span className="truncate block">
-                                        {member.workspaceMember.user.name} {member.workspaceMember.user.surname}
+                                        {member.workspaceMember.user.surname}
                                     </span>
                                 </SelectItem>
                             ))}
@@ -366,7 +362,7 @@ export function InlineSubTaskForm({
                             {reviewers.map((rev) => (
                                 <SelectItem key={rev.id} value={rev.id}>
                                     <span className="truncate block">
-                                        {rev.name} ({getRoleShortcut(rev.role)})
+                                        {rev.surname} ({getRoleShortcut(rev.role)})
                                     </span>
                                 </SelectItem>
                             ))}
