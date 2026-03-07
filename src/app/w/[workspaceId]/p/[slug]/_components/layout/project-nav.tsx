@@ -70,16 +70,17 @@ export function ProjectNav({ workspaceId, slug }: ProjectNavProps) {
                             key={tab.href}
                             href={tab.href}
                             prefetch={true}
+                            onMouseEnter={() => router.prefetch(tab.href)}
                             onClick={(e) => handleViewChange(tab.href, e)}
                             className={cn(
-                                "flex h-full items-center gap-2 border-b-2 px-3 text-sm font-medium transition-colors hover:text-primary whitespace-nowrap flex-shrink-0",
+                                "flex h-full items-center gap-2 border-b-2 px-2 sm:px-3 text-sm font-medium transition-colors hover:text-primary whitespace-nowrap flex-shrink-0",
                                 isActive
                                     ? "border-primary text-primary"
                                     : "border-transparent text-muted-foreground"
                             )}
                         >
-                            <Icon className="h-4 w-4" />
-                            <span className="hidden sm:inline">{tab.name}</span>
+                            <Icon className="h-3 w-3" />
+                            <span className="text-xs sm:text-xs">{tab.name}</span>
                         </Link>
                     );
                 })}

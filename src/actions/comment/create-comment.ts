@@ -16,7 +16,6 @@ export interface CreateCommentResult {
             id: string;
             name: string | null;
             surname: string | null;
-            image: string | null;
             email: string;
         };
     };
@@ -139,7 +138,6 @@ export async function createCommentAction(
                         id: true,
                         name: true,
                         surname: true,
-                        image: true,
                         email: true,
                     },
                 },

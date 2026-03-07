@@ -1,28 +1,27 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Calendar, Tag, GripVertical, MessageSquare, AlertCircle, Folder, Crown } from "lucide-react";
-import { KanbanSubTaskType } from "@/data/task/kanban";
+import { KanbanSubTaskType } from "@/data/task";
 import { cn } from "@/lib/utils";
 import { getColorFromString } from "@/lib/colors/project-colors";
+import { commentCache, reviewCommentCache, pendingPrefetches } from "@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/subtask-details-sheet";
 
-/**
- * KanbanCard Component
- * ...
- */
 interface KanbanCardProps {
     subTask: KanbanSubTaskType;
     columnColor: string;
     isDragging?: boolean;
     onSubTaskClick?: (subTask: KanbanSubTaskType) => void;
+    projectManagers?: Record<string, any>;
 }
 
-export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTaskClick }: KanbanCardProps) {
+export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTaskClick, projectManagers }: KanbanCardProps) {
     const {
         attributes,
         listeners,
@@ -32,6 +31,7 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
         isDragging: isSortableDragging,
     } = useSortable({
         id: subTask.id,
+        disabled: isDragging, // Disable sortable logic when rendered in DragOverlay
     });
 
     const style = {
@@ -41,11 +41,25 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
 
     const assignee = subTask.assignee;
     const reviewCount = (subTask as any)._count?.reviewComments || 0;
-
-    // Get Project Info
-    // @ts-ignore - project is directly available now due to backend change
     const project = subTask.project;
-    const projectManager = project?.projectMembers?.[0]?.workspaceMember?.user;
+
+    // Get Project Manager from the hoisted map (effective way)
+    const projectManager = projectManagers && subTask.projectId ? projectManagers[subTask.projectId] : null;
+
+    const [isMounted, setIsMounted] = useState(false);
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
+    // 🚀 Speculative Pre-fetching for "Instant" feel
+    const handlePrefetch = () => {
+        if (!subTask?.id) return;
+        const taskId = subTask.id;
+
+        if (commentCache.has(taskId)) {
+            console.log(`✨ [CACHE-HIT] Task ${taskId} is ready.`);
+        }
+    };
 
     const dueDate = subTask.dueDate ? new Date(subTask.dueDate) : (() => {
         if (!subTask.startDate || !subTask.days) return null;
@@ -55,7 +69,7 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
         return due;
     })();
 
-    const isOverdue = dueDate && new Date() > dueDate;
+    const isOverdue = isMounted && dueDate && new Date() > dueDate;
 
     const handleNameClick = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -67,7 +81,7 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
             ref={setNodeRef}
             style={style}
             className={cn(
-                "h-auto py-0 cursor-grab active:cursor-grabbing transition-all hover:shadow-lg dark:hover:shadow-primary/20",
+                "h-auto py-0 transition-shadow duration-200 hover:shadow-lg dark:hover:shadow-primary/20",
                 (isDragging || isSortableDragging) && "opacity-50 shadow-xl",
                 "border-l-4 overflow-hidden",
                 columnColor === "text-slate-700" && "border-l-slate-500 dark:border-l-slate-400",
@@ -77,108 +91,119 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                 columnColor === "text-purple-700" && "border-l-purple-500 dark:border-l-purple-400",
                 columnColor === "text-green-700" && "border-l-green-500 dark:border-l-green-400"
             )}
-            {...attributes}
-            {...listeners}
+            onMouseEnter={handlePrefetch}
+            onClick={(e) => {
+                e.stopPropagation();
+                onSubTaskClick?.(subTask);
+            }}
         >
             <CardContent className="p-3 space-y-3">
-                <div className="flex items-center justify-between text-[10px] text-muted-foreground pb-2 border-b border-border/50">
-                    <div className="flex items-center gap-1.5 truncate max-w-[70%]" title={project?.name}>
-                        <div
-                            className="h-2 w-2 rounded-full border shadow-sm shrink-0"
-                            style={{ backgroundColor: project?.color || getColorFromString(project?.name || "") }}
-                        />
-                        <span className="truncate font-medium">{project?.name}</span>
-                    </div>
-                    {projectManager && (
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <div className="flex items-center gap-1 shrink-0 p-0.5 rounded-full bg-amber-50 dark:bg-amber-950/30">
-                                        <Crown className="h-2.5 w-2.5 text-amber-600 dark:text-amber-500" />
-                                        <Avatar className="h-4 w-4 border border-amber-200 dark:border-amber-800">
-                                            <AvatarImage src={projectManager.image || ""} />
-                                            <AvatarFallback className="text-[8px] bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
-                                                {projectManager.surname?.[0] || projectManager.name?.[0]}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                    </div>
-                                </TooltipTrigger>
-                                <TooltipContent side="left" className="text-xs">
-                                    <p className="font-semibold">Project Manager</p>
-                                    <p>{projectManager.surname || projectManager.name}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                    )}
-                </div>
-                <div className="flex items-center justify-between gap-1.5 min-h-[16px]">
-                    <div className="flex items-center gap-1.5 overflow-hidden">
+                <div
+                    {...attributes}
+                    {...listeners}
+                    className="cursor-grab active:cursor-grabbing touch-none flex items-center justify-between text-[10px] text-muted-foreground pb-2 border-b border-border/50"
+                >
+                    <div className="flex flex-1 items-center gap-1 min-w-0 mr-2">
+                        <div className="flex items-center gap-1.5 shrink-0 max-w-[45%]" title={`Project: ${project?.name}`}>
+                            <div
+                                className="h-2 w-2 rounded-full border shadow-sm shrink-0"
+                                style={{ backgroundColor: project?.color || getColorFromString(project?.name || "") }}
+                            />
+                            <span className="truncate font-medium">{project?.name}</span>
+                        </div>
+
                         {subTask.parentTask && (
-                            <Badge
-                                variant="outline"
-                                className="text-[10px] px-1.5 py-0 h-5 max-w-[120px]"
-                            >
-                                <span className="truncate">{subTask.parentTask.name}</span>
-                            </Badge>
-                        )}
-                    </div>
-                    {/* {subTask.taskSlug && (
-                        <span className="text-[10px] text-muted-foreground font-mono shrink-0 opacity-70">
-                            {subTask.taskSlug}
-                        </span>
-                    )} */}
-                </div>
-
-                <div>
-                    <div className="flex items-start justify-between gap-2">
-                        <h5
-                            className="font-semibold text-[13px] leading-snug flex-1 cursor-pointer hover:text-primary transition-colors line-clamp-1"
-                            onClick={handleNameClick}
-                            title={subTask.name}
-                        >
-                            {subTask.name}
-                        </h5>
-                        <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                    {subTask.description && (
-                        <p className="text-xs text-muted-foreground line-clamp-1 mt-1 leading-relaxed">
-                            {subTask.description}
-                        </p>
-                    )}
-                </div>
-
-
-
-                <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1">
-                        {subTask.startDate && (
-                            <>
-                                <Calendar className="h-3 w-3 text-muted-foreground" />
-                                <span className="text-[10px] font-medium text-muted-foreground">
-                                    {new Date(subTask.startDate).toLocaleDateString("en-GB", {
-                                        day: '2-digit',
-                                        month: 'short'
-                                    })}
+                            <div className="flex items-center gap-1 min-w-0">
+                                <span className="text-muted-foreground/40 shrink-0">/</span>
+                                <span
+                                    className="truncate text-[10px] font-medium text-muted-foreground/80"
+                                    title={`Parent: ${subTask.parentTask.name}`}
+                                >
+                                    {subTask.parentTask.name}
                                 </span>
-                            </>
+                            </div>
                         )}
                     </div>
 
-                    {subTask.tag && (
-                        <div className="flex items-center gap-1">
-                            <Tag className="h-2.5 w-2.5 text-muted-foreground" />
-                            <span
-                                className={cn(
-                                    "text-[10px] font-medium text-muted-foreground"
-                                )}
-                            >
-                                {subTask.tag.name}
-                            </span>
+                    {(projectManager || subTask.parentTask?.reviewer) && (
+                        <div className="flex items-center gap-1.5 ml-auto">
+                            {subTask.parentTask?.reviewer && (
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <div className="flex items-center rounded-full bg-blue-50/50 dark:bg-blue-950/30 border border-blue-100/50 dark:border-blue-900/50 hover:bg-blue-100 transition-colors cursor-default">
+                                                <Avatar className="h-4 w-4 border border-blue-200 dark:border-blue-800 shadow-sm">
+                                                    <AvatarImage src={subTask.parentTask.reviewer.image || ""} />
+                                                    <AvatarFallback className="text-[8px] bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                                                        {(subTask.parentTask.reviewer.surname?.[0] || subTask.parentTask.reviewer.name?.[0])}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                            </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="left" className="text-xs p-2 space-y-0.5">
+                                            <div>
+                                                <p className="font-semibold text-[10px] uppercase tracking-wider">Parent Reviewer</p>
+                                                <p className="font-medium text-[11px] text-primary">{subTask.parentTask.reviewer.surname || subTask.parentTask.reviewer.name}</p>
+                                            </div>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            )}
+
+                            {projectManager && (
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <div className="flex items-center rounded-full bg-amber-50/50 dark:bg-amber-950/30 border border-amber-100/50 dark:border-amber-900/50 hover:bg-amber-100 transition-colors cursor-default">
+                                                <Avatar className="h-4 w-4 border border-amber-200 dark:border-amber-800 shadow-sm">
+                                                    <AvatarImage src={projectManager.image || ""} />
+                                                    <AvatarFallback className="text-[8px] bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+                                                        {(projectManager.surname?.[0] || projectManager.name?.[0])}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                            </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="left" className="text-xs p-2 space-y-0.5">
+                                            <div className="pb-1.5 border-b">
+                                                <p className="font-semibold text-[10px] uppercase tracking-wider">Project</p>
+                                                <p className="font-medium text-[11px] text-primary">{project?.name}</p>
+                                            </div>
+                                            {subTask.parentTask && (
+                                                <div className="pb-1.5 border-b">
+                                                    <p className="font-semibold text-[10px] uppercase tracking-wider">Parent Task</p>
+                                                    <p className="font-medium text-[11px] text-primary">{subTask.parentTask.name}</p>
+                                                </div>
+                                            )}
+                                            <div>
+                                                <p className="font-semibold text-[10px] uppercase tracking-wider">Project Manager</p>
+                                                <p className="font-medium text-[11px] text-primary">{projectManager.surname || projectManager.name}</p>
+                                            </div>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            )}
                         </div>
                     )}
                 </div>
 
-                <div className="flex items-center justify-between pt-2 border-t mt-auto">
+                <div className="space-y-0">
+                    <div className="flex items-start justify-between gap-2 z-30">
+                        <h5
+                            className="font-semibold text-[13px] leading-snug flex-1 cursor-pointer hover:text-primary transition-colors line-clamp-1"
+                            onClick={handleNameClick}
+                            onMouseEnter={() => {
+                                import("@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/subtask-details-sheet").then(m => {
+                                    m.prefetchSubTask(subTask.id);
+                                });
+                            }}
+                            title={subTask.name}
+                        >
+                            {subTask.name}
+                        </h5>
+                    </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-1 border-t mt-auto">
                     <div className="flex items-center gap-3">
                         <div className="flex items-center gap-1.5 text-muted-foreground" title="Reviews">
                             <MessageSquare className="h-3.5 w-3.5" />
@@ -186,22 +211,44 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                         </div>
 
                         {dueDate && (
-                            <div
-                                className={cn(
-                                    "flex items-center gap-1 text-[10px] font-medium",
-                                    isOverdue
-                                        ? "text-destructive dark:text-red-400"
-                                        : "text-muted-foreground"
-                                )}
-                            >
-                                <Calendar className="h-3 w-3" />
-                                <span>
-                                    {new Date(dueDate).toLocaleDateString("en-GB", {
-                                        day: '2-digit',
-                                        month: 'short'
-                                    })}
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <div
+                                            className={cn(
+                                                "flex items-center gap-1 text-[10px] font-medium cursor-help",
+                                                isOverdue
+                                                    ? "text-destructive dark:text-red-400"
+                                                    : "text-muted-foreground"
+                                            )}
+                                        >
+                                            <Calendar className="h-3 w-3" />
+                                            <span>
+                                                {new Date(dueDate).toLocaleDateString("en-GB", {
+                                                    day: '2-digit',
+                                                    month: 'short'
+                                                })}
+                                            </span>
+                                            {isOverdue && <AlertCircle className="h-3 w-3" />}
+                                        </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top">
+                                        <p className="text-xs font-medium">Due Date</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        )}
+
+                        {subTask.tag && (
+                            <div className="flex items-center gap-1">
+                                <Tag className="h-2.5 w-2.5 text-muted-foreground" />
+                                <span
+                                    className={cn(
+                                        "text-[10px] font-medium text-muted-foreground"
+                                    )}
+                                >
+                                    {subTask.tag.name}
                                 </span>
-                                {isOverdue && <AlertCircle className="h-3 w-3" />}
                             </div>
                         )}
                     </div>
@@ -223,6 +270,6 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                     )}
                 </div>
             </CardContent>
-        </Card>
+        </Card >
     );
 }

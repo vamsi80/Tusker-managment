@@ -16,7 +16,7 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { ProjectMembersType, getProjectMembers } from "@/data/project/get-project-members";
 import { SubTaskStatus, STATUS_OPTIONS } from "@/lib/zodSchemas";
 import { ColumnVisibility } from "../shared/column-visibility";
-import { SubTaskType } from "@/data/task/list/get-subtasks";
+import { SubTaskType } from "@/data/task";
 import { ApiResponse } from "@/lib/types";
 import { getProjectReviewers, ProjectReviewer } from "@/actions/project/get-project-reviewers";
 import { cn } from "@/lib/utils";
@@ -63,7 +63,9 @@ export function InlineSubTaskForm({
     const [assignee, setAssignee] = useState(subTask?.assignee?.id || "");
     const [reviewer, setReviewer] = useState(subTask?.reviewerId || "");
     const [reviewers, setReviewers] = useState<ProjectReviewer[]>([]);
-    const [status, setStatus] = useState<typeof SubTaskStatus[number]>(subTask?.status || "TO_DO");
+    const [status, setStatus] = useState<typeof SubTaskStatus[number]>(
+        (subTask?.status as typeof SubTaskStatus[number]) || "TO_DO"
+    );
     const [startDate, setStartDate] = useState(
         subTask?.startDate ? new Date(subTask.startDate).toISOString().split('T')[0] : ""
     );
@@ -168,9 +170,7 @@ export function InlineSubTaskForm({
                 // Include full objects for UI
                 assignee: selectedMember ? {
                     id: selectedMember.workspaceMember.userId,
-                    name: selectedMember.workspaceMember.user.name,
                     surname: selectedMember.workspaceMember.user.surname,
-                    image: selectedMember.workspaceMember.user.image,
                 } : null,
                 tag: selectedTag ? { id: selectedTag.id, name: selectedTag.name } : null
             };
@@ -227,9 +227,7 @@ export function InlineSubTaskForm({
                 // Include full objects for UI
                 assignee: selectedMember ? {
                     id: selectedMember.workspaceMember.userId,
-                    name: selectedMember.workspaceMember.user.name,
                     surname: selectedMember.workspaceMember.user.surname,
-                    image: selectedMember.workspaceMember.user.image,
                 } as any : null,
                 tag: selectedTag ? { id: selectedTag.id, name: selectedTag.name } as any : null
             };
@@ -270,8 +268,12 @@ export function InlineSubTaskForm({
             mode === "edit" ? "bg-primary/5 hover:bg-primary/10" : "bg-muted/20 hover:bg-muted/30",
             "h-8 [&_td]:p-0"
         )}>
-            {/* Drag Handle - Empty */}
-            <TableCell className="w-[50px]"></TableCell>
+            {/* Drag Handle - Empty with hierarchy gap */}
+            <TableCell className="w-[60px] md:w-[80px]">
+                <div className="flex items-center">
+                    <div className="w-8 shrink-0" />
+                </div>
+            </TableCell>
 
             {/* SubTask Name Input */}
             <TableCell className="w-[250px] pl-0">
@@ -340,7 +342,7 @@ export function InlineSubTaskForm({
                             {availableMembers.map((member) => (
                                 <SelectItem key={member.workspaceMember.userId} value={member.workspaceMember.userId}>
                                     <span className="truncate block">
-                                        {member.workspaceMember.user.name} {member.workspaceMember.user.surname}
+                                        {member.workspaceMember.user.surname}
                                     </span>
                                 </SelectItem>
                             ))}
@@ -360,7 +362,7 @@ export function InlineSubTaskForm({
                             {reviewers.map((rev) => (
                                 <SelectItem key={rev.id} value={rev.id}>
                                     <span className="truncate block">
-                                        {rev.name} ({getRoleShortcut(rev.role)})
+                                        {rev.surname} ({getRoleShortcut(rev.role)})
                                     </span>
                                 </SelectItem>
                             ))}

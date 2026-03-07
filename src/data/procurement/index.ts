@@ -23,9 +23,7 @@ export const getIndentRequests = cache(async (workspaceId: string) => {
 
     const indentRequests = await db.indentDetails.findMany({
         where: {
-            project: {
-                workspaceId,
-            },
+            workspaceId,
         },
         select: {
             id: true,
@@ -56,16 +54,16 @@ export const getIndentRequests = cache(async (workspaceId: string) => {
             assignee: {
                 select: {
                     id: true,
-                    name: true,
+                    // name: true,
                     surname: true,
-                    image: true,
+                    // image: true,
                 },
             },
             requestor: {
                 select: {
-                    name: true,
+                    // name: true,
                     surname: true,
-                    image: true,
+                    // image: true,
                 },
             },
             items: {
@@ -186,9 +184,7 @@ export const getApprovedIndentItems = cache(async (workspaceId: string) => {
         where: {
             status: "APPROVED",
             indentDetails: {
-                project: {
-                    workspaceId,
-                },
+                workspaceId,
             },
         },
         select: {
@@ -256,7 +252,7 @@ export const getProcurementTasks = cache(async (workspaceId: string) => {
                     assignee: {
                         select: {
                             name: true,
-                            image: true,
+                            // image: true,
                         },
                     },
                 },

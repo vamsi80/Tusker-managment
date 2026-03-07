@@ -1,143 +1,160 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useState, useMemo, useTransition } from "react";
+import { Loader2 } from "lucide-react";
 import { GanttTask } from "../../../../../../../components/task/gantt/types";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
-import { FlatTaskType } from "@/data/task";
+import { WorkspaceTaskType } from "@/data/task";
 import { GanttChart } from "@/components/task/gantt/gantt-chart";
-import { useTaskCacheStore } from "@/lib/store/task-cache-store";
+import { GlobalFilterToolbar } from "@/components/task/shared/global-filter-toolbar";
+import { MemberOption, TagOption, TaskFilters } from "@/components/task/shared/types";
 import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
 
 interface ProjectGanttClientProps {
     workspaceId: string;
     projectId: string;
-    initialTasks: GanttTask[]; // Hierarchical
-    subtaskDataMap: Map<string, FlatTaskType>;
+    initialTasks: GanttTask[]; // Hierarchical - already transformed server-side
+    allTasks: any[]; // Flat tasks for filtering
+    subtaskDataMap: Record<string, WorkspaceTaskType>; // Plain object for server→client serialization
+    members: MemberOption[];
+    tags: TagOption[];
     projectCounts?: Record<string, number>;
+    currentUser?: { id: string };
+    permissions?: {
+        isWorkspaceAdmin: boolean;
+        leadProjectIds: string[];
+        managedProjectIds: string[];
+    };
 }
 
-const TASKS_PER_PAGE = 50;
-
-function flattenGanttTasks(tasks: GanttTask[]): any[] {
-    let result: any[] = [];
-    tasks.forEach(task => {
-        const { subtasks, ...rest } = task;
-        result.push(rest);
-        if (subtasks && subtasks.length > 0) {
-            // Subtasks are leaf nodes in current Gantt model, so just add them
-            result = result.concat(subtasks);
-        }
-    });
-    return result;
-}
-
-export function ProjectGanttClient({ workspaceId, projectId, initialTasks, subtaskDataMap, projectCounts }: ProjectGanttClientProps) {
-    const [visibleTaskCount, setVisibleTaskCount] = useState(TASKS_PER_PAGE);
-    const observerTarget = useRef<HTMLDivElement>(null);
-
-    const {
-        entities,
-        projectLists,
-        setProjectTasksCache,
-        upsertTasks
-    } = useTaskCacheStore();
-
-    // Sync initialTasks to Cache on mount
-    useEffect(() => {
-        if (initialTasks && initialTasks.length > 0) {
-            const flatTasks = flattenGanttTasks(initialTasks);
-
-            // We store ALL task IDs (parents + subtasks) in the project list for the cache to work with transformToGanttTasks
-            // Or typically project list = only top level? 
-            // transformToGanttTasks takes a flat list and builds tree. It needs ALL nodes.
-            // So we cache ALL IDs.
-
-            setProjectTasksCache(projectId, {
-                tasks: flatTasks,
-                hasMore: false, // We assume initial load covers for now, logic to be enhanced
-                page: 1,
-                totalCount: flatTasks.length
-            });
-        }
-    }, [initialTasks, projectId, setProjectTasksCache]);
-
-    // Read from Cache
-    const cachedGanttTasks = useMemo(() => {
-        const listMetadata = projectLists[projectId];
-        if (!listMetadata || !listMetadata.ids) return initialTasks; // Fallback
-
-        const tasksFromCache = listMetadata.ids
-            .map(id => entities[id])
-            .filter(Boolean);
-
-        if (tasksFromCache.length === 0) return initialTasks;
-
-        return transformToGanttTasks(tasksFromCache);
-    }, [projectLists, projectId, entities, initialTasks]);
+export function ProjectGanttClient({
+    workspaceId,
+    projectId,
+    initialTasks,
+    allTasks,
+    subtaskDataMap,
+    members,
+    tags,
+    projectCounts,
+    currentUser,
+    permissions
+}: ProjectGanttClientProps) {
+    const [filters, setFilters] = useState<TaskFilters>({});
+    const [searchQuery, setSearchQuery] = useState("");
+    const [isPending, startTransition] = useTransition();
 
     // Use global subtask sheet context
     const { openSubTaskSheet } = useSubTaskSheet();
 
     // Handle subtask click
     const handleSubtaskClick = (subtaskId: string) => {
-        // Try getting from map first, then entity store
-        let subtaskData = subtaskDataMap.get(subtaskId);
-        if (!subtaskData) {
-            subtaskData = entities[subtaskId] as FlatTaskType;
-        }
-
+        const subtaskData = subtaskDataMap[subtaskId];
         if (subtaskData) {
             openSubTaskSheet(subtaskData);
         }
     };
 
-    // Load more tasks (Locally paginating the cached/initial list)
-    const handleLoadMoreTasks = () => {
-        setVisibleTaskCount(prev => Math.min(prev + TASKS_PER_PAGE, cachedGanttTasks.length));
+    const handleFilterChange = (newFilters: TaskFilters) => {
+        startTransition(() => {
+            setFilters(newFilters);
+        });
     };
 
-    // Auto-scroll observer
-    useEffect(() => {
-        const observer = new IntersectionObserver(
-            (entries) => {
-                if (entries[0].isIntersecting && visibleTaskCount < cachedGanttTasks.length) {
-                    handleLoadMoreTasks();
-                }
-            },
-            { threshold: 0.1, rootMargin: '100px' }
+    const handleSearchChange = (query: string) => {
+        startTransition(() => {
+            setSearchQuery(query);
+        });
+    };
+
+    const ganttTasks = useMemo(() => {
+        const hasFilters = searchQuery || Object.keys(filters).length > 0;
+        if (!hasFilters) return initialTasks;
+
+        // 1. Identify direct matches
+        const directMatches = allTasks.filter(task => {
+            // Search
+            if (searchQuery) {
+                const q = searchQuery.toLowerCase();
+                const matchesSearch = task.name.toLowerCase().includes(q) ||
+                    task.taskSlug.toLowerCase().includes(q) ||
+                    task.assignee?.name.toLowerCase().includes(q) ||
+                    task.assignee?.surname?.toLowerCase().includes(q);
+                if (!matchesSearch) return false;
+            }
+
+            // Filters
+            if (filters.status && task.status !== filters.status) return false;
+            if (filters.assigneeId && task.assignee?.id !== filters.assigneeId) return false;
+
+            // Tag filtering
+            if (filters.tagId) {
+                const tag = task.tag as any;
+                if (!tag || tag.id !== filters.tagId) return false;
+            }
+
+            if (filters.startDate && (!task.startDate || new Date(task.startDate) < new Date(filters.startDate))) return false;
+            if (filters.endDate) {
+                const end = task.startDate ? new Date(new Date(task.startDate).getTime() + ((task.days || 1) - 1) * 86400000) : null;
+                if (!end || end > new Date(filters.endDate)) return false;
+            }
+
+            return true;
+        });
+
+        // 2. Identify parents needed
+        const parentsNeeded = new Set<string>();
+        directMatches.forEach(t => {
+            if (t.parentTaskId) parentsNeeded.add(t.parentTaskId);
+            else parentsNeeded.add(t.id); // It is a parent
+        });
+
+        // 3. Collect final set
+        const finalTasks = allTasks.filter(t =>
+            directMatches.includes(t) || parentsNeeded.has(t.id)
         );
 
-        if (observerTarget.current) {
-            observer.observe(observerTarget.current);
-        }
+        return transformToGanttTasks(finalTasks);
 
-        return () => observer.disconnect();
-    }, [visibleTaskCount, cachedGanttTasks.length]);
-
-    // Get visible tasks
-    const visibleTasks = cachedGanttTasks.slice(0, visibleTaskCount);
-    const hasMoreTasks = visibleTaskCount < cachedGanttTasks.length;
+    }, [allTasks, initialTasks, filters, searchQuery]);
 
     return (
-        <>
-            <div className="h-[calc(100vh-280px)] flex flex-col">
-                <div className="flex-1 overflow-hidden">
-                    <GanttChart
-                        tasks={visibleTasks}
-                        workspaceId={workspaceId}
-                        projectId={projectId}
-                        onSubtaskClick={handleSubtaskClick}
-                        projectCounts={projectCounts}
-                    />
-                </div>
-
-                {/* Auto-Load Trigger */}
-                {hasMoreTasks && (
-                    <div ref={observerTarget} className="h-20 w-full flex items-center justify-center">
-                        <span className="text-xs text-muted-foreground">Loading more tasks...</span>
+        <div className="space-y-4">
+            <GlobalFilterToolbar
+                level="project"
+                view="gantt"
+                filters={filters}
+                searchQuery={searchQuery}
+                members={members}
+                tags={tags}
+                onFilterChange={handleFilterChange}
+                onSearchChange={handleSearchChange}
+                onClearAll={() => {
+                    startTransition(() => {
+                        setFilters({});
+                        setSearchQuery("");
+                    });
+                }}
+            />
+            <div className="relative min-h-[400px]">
+                {isPending && (
+                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/50 backdrop-blur-sm transition-all duration-300">
+                        <div className="flex flex-col items-center gap-2">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            <span className="text-sm font-medium text-muted-foreground">Filtering...</span>
+                        </div>
                     </div>
                 )}
+                <GanttChart
+                    key={JSON.stringify(filters) + searchQuery}
+                    tasks={ganttTasks}
+                    workspaceId={workspaceId}
+                    projectId={projectId}
+                    onSubtaskClick={handleSubtaskClick}
+                    projectCounts={projectCounts}
+                    currentUser={currentUser}
+                    permissions={permissions}
+                />
             </div>
-        </>
+        </div>
     );
 }

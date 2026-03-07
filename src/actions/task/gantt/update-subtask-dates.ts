@@ -68,6 +68,7 @@ export async function updateSubtaskDates(
             select: {
                 id: true,
                 parentTaskId: true,
+                createdById: true,
                 assignee: {
                     select: {
                         id: true,
@@ -101,15 +102,58 @@ export async function updateSubtaskDates(
             return { success: false, message: "Subtask does not belong to this project" };
         }
 
-        // 6. Check permissions
-        const isAssignee = subtask.assignee?.id === user.id;
-        const isAdminOrLead = permissions.isWorkspaceAdmin || permissions.isProjectLead;
+        // 6. Check permissions based on global hierarchy
+        const isWorkspaceAdmin = permissions.isWorkspaceAdmin;
+        const isProjectManager = permissions.isProjectManager;
+        const isProjectLead = permissions.isProjectLead;
+        const isCreator = subtask.createdById === user.id;
 
-        if (!isAssignee && !isAdminOrLead) {
-            return {
-                success: false,
-                message: "You are not authorized to update this subtask. Only the assignee, project admin, or project lead can update dates.",
-            };
+        if (!isWorkspaceAdmin && !isProjectManager) {
+            if (isProjectLead) {
+                if (!isCreator) {
+                    return {
+                        success: false,
+                        message: "As a Project Lead, you can only update tasks you created. Only a Project Manager can update any task.",
+                    };
+                }
+            } else {
+                // It is a normal member
+                return {
+                    success: false,
+                    message: "Normal members cannot update timeline dates in the Gantt chart. Only Project Leads and Managers can manage the timeline.",
+                };
+            }
+        }
+
+        // 7. Role-based Restrictions (Hierarchy Rule)
+        // Get assignee's project role
+        let assigneeRole: string | null = null;
+        if (subtask.assignee?.id) {
+            const assigneeMember = await prisma.projectMember.findFirst({
+                where: {
+                    projectId: projectId,
+                    workspaceMember: { userId: subtask.assignee.id }
+                },
+                select: { projectRole: true }
+            });
+            assigneeRole = assigneeMember?.projectRole || 'MEMBER';
+        }
+
+        if (assigneeRole === "PROJECT_MANAGER") {
+            if (!isWorkspaceAdmin) {
+                return {
+                    success: false,
+                    message: "Only a Workspace Admin can update tasks assigned to a Project Manager.",
+                };
+            }
+        } else if (assigneeRole === "LEAD") {
+            // Task assigned to Lead: Only Workspace Admin or Project Manager can edit
+            if (!isWorkspaceAdmin && !isProjectManager) {
+                return {
+                    success: false,
+                    message: "Only a Workspace Admin or Project Manager can update tasks assigned to a Project Lead.",
+                };
+            }
         }
 
         // 7. Calculate days

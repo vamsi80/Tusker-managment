@@ -1,8 +1,15 @@
 // Unified Task Fetcher
 export { getTasks as getWorkspaceTasks, type GetTasksResponse as WorkspaceTasksResponse, type GetTasksOptions as WorkspaceTaskFilters } from "./get-tasks";
-export type { WorkspaceTaskType } from "./legacy-types"; // We will create this shim to avoid breaking changes if specific types were relied on
-export { getAllTasksFlat, type AllTasksFlatResponse, type FlatTaskType } from "./gantt/get-all-tasks-flat";
-export { getParentTasksOnly, type ParentTasksOnlyResponse, type ParentTaskType } from "./list/get-parent-tasks-only";
-export { getSubTasks, type SubTasksResponse, type SubTaskType as PaginatedSubTaskType } from "./list/get-subtasks";
+export type { WorkspaceTaskType, WorkspaceTaskType as SubTaskType } from "./legacy-types"; // We will create this shim to avoid breaking changes if specific types were relied on
+export { getSubTasksByParentIds, type BatchSubTasksResponse, type BatchSubTaskItem } from "./get-subtasks-batch";
 export { getTaskById, type TaskByIdType } from "./get-task-by-id";
-export { getTaskPageData, type TaskPageDataType } from "./get-task-page-data";
+
+// Kanban Specific Type Aliases
+export type { WorkspaceTaskType as KanbanSubTaskType } from "./legacy-types";
+export type SubTasksByStatusResponse = {
+    subTasks: import("./legacy-types").WorkspaceTaskType[];
+    totalCount: number;
+    hasMore: boolean;
+    currentPage?: number;
+    nextCursor?: any;
+};

@@ -25,14 +25,14 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-// Verify transporter configuration on startup
-transporter.verify(function (error, success) {
-  if (error) {
-    console.error('SMTP Connection Error:', error);
-  } else {
-    // console.log('SMTP Server is ready to send emails');
-  }
-});
+// Verify transporter configuration on startup (Skip during build to avoid noise)
+if (process.env.NEXT_PHASE !== 'phase-production-build') {
+  transporter.verify(function (error, success) {
+    if (error) {
+      console.error('SMTP Connection Error:', error);
+    }
+  });
+}
 
 /**
  * Send an email using the configured SMTP server

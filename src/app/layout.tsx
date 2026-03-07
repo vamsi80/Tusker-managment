@@ -4,6 +4,7 @@ import { ThemeProvider } from "next-themes";
 import { Toaster } from "sonner";
 import { SubTaskSheetProvider } from "@/contexts/subtask-sheet-context";
 import { GlobalSubTaskSheet } from "@/components/global-subtask-sheet";
+import { Suspense } from "react";
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -23,7 +24,9 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <SubTaskSheetProvider>
             {children}
-            <GlobalSubTaskSheet />
+            <Suspense fallback={null}>
+              <GlobalSubTaskSheet />
+            </Suspense>
             <Toaster closeButton position="top-right" />
           </SubTaskSheetProvider>
         </ThemeProvider>
@@ -31,3 +34,4 @@ export default function RootLayout({
     </html>
   );
 }
+

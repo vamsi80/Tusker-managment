@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { X, Filter, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type TaskFilters, type ViewLevel, type ViewType, type ProjectOption, type MemberOption, type TagOption, getFilterConfig, getActiveFilters } from "./types";
-import { format } from "date-fns";
+import { formatIST } from "@/lib/utils";
 import { DateRange, RangeKeyDict } from "react-date-range";
 import "react-date-range/dist/styles.css"; // main style file
 import "react-date-range/dist/theme/default.css"; // theme css file
@@ -153,7 +153,7 @@ export function GlobalFilterToolbar({
             const assignee = members.find(m => m.id === filter.value);
             if (assignee) {
                 // User requested "surname instead of name"
-                const displayName = assignee.surname ? assignee.surname : assignee.name;
+                const displayName = assignee.surname ? assignee.surname : "";
                 return {
                     ...filter,
                     value: displayName
@@ -210,7 +210,7 @@ export function GlobalFilterToolbar({
             try {
                 return {
                     ...filter,
-                    value: format(new Date(filter.value), "yyyy-MM-dd")
+                    value: formatIST(filter.value, "yyyy-MM-dd")
                 };
             } catch (e) {
                 return filter;
@@ -238,14 +238,14 @@ export function GlobalFilterToolbar({
     };
 
     const handleApply = () => {
-        setIsOpen(false);
+        // Keep popover open to allow further refinement
     };
 
     return (
-        <div className={cn("space-y-3", className)}>
+        <div className={cn("space-y-0", className)}>
             <style>{DATE_RANGE_THEME_OVERRIDE}</style>
             {/* Top Bar with Search and Filter Button */}
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
                 {/* Search */}
                 {showSearch && config.showSearch && (
                     <div className="flex-1">
@@ -258,383 +258,385 @@ export function GlobalFilterToolbar({
                     </div>
                 )}
 
-                {/* Filter Popover */}
-                <Popover open={isOpen} onOpenChange={setIsOpen}>
-                    <PopoverTrigger asChild>
-                        <Button
-                            variant="outline"
-                            className="gap-2 relative"
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                    {/* Filter Popover */}
+                    <Popover open={isOpen} onOpenChange={setIsOpen}>
+                        <PopoverTrigger asChild>
+                            <Button
+                                variant="outline"
+                                className="flex-1 sm:flex-none gap-2 relative"
+                            >
+                                <Filter className="h-4 w-4" />
+                                Filter
+                                {activeFilters.length > 0 && (
+                                    <Badge
+                                        variant="destructive"
+                                        className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+                                    >
+                                        {activeFilters.length}
+                                    </Badge>
+                                )}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                            className="w-[calc(100vw-2rem)] sm:w-[500px] p-0 overflow-hidden"
+                            align="end"
+                            side="bottom"
                         >
-                            <Filter className="h-4 w-4" />
-                            Filter
-                            {activeFilters.length > 0 && (
-                                <Badge
-                                    variant="destructive"
-                                    className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+                            {/* Header */}
+                            <div className="flex items-center justify-between border-b px-4 py-3">
+                                <h3 className="text-lg font-semibold">Filter</h3>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setIsOpen(false)}
+                                    className="h-6 w-6 p-0"
                                 >
-                                    {activeFilters.length}
-                                </Badge>
-                            )}
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                        className="w-[400px] p-0 overflow-hidden"
-                        align="end"
-                        side="bottom"
-                    >
-                        {/* Header */}
-                        <div className="flex items-center justify-between border-b px-4 py-3">
-                            <h3 className="text-lg font-semibold">Filter</h3>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setIsOpen(false)}
-                                className="h-6 w-6 p-0"
-                            >
-                                <X className="h-4 w-4" />
-                            </Button>
-                        </div>
-
-                        {/* Content - Scrollable */}
-                        <div className="max-h-[60vh] overflow-y-auto overflow-x-hidden p-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:hover:bg-slate-400">
-                            {/* Filters Grid - Horizontal Layout */}
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                {/* Date Range Section */}
-                                {config.showDateRangeFilter && (
-                                    <div className="space-y-3">
-                                        <div className="flex items-center justify-between">
-                                            <h4 className="text-xs font-medium text-muted-foreground">Date Range</h4>
-                                            {(filters.startDate || filters.endDate) && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => {
-                                                        handleFilterChange("startDate", undefined);
-                                                        handleFilterChange("endDate", undefined);
-                                                    }}
-                                                    className="h-auto p-0 text-xs text-blue-600 hover:text-blue-700 hover:bg-transparent"
-                                                >
-                                                    Clear
-                                                </Button>
-                                            )}
-                                        </div>
-
-                                        {/* Calendar Popover */}
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <Button
-                                                    variant="outline"
-                                                    className={cn(
-                                                        "w-full justify-start text-left font-normal h-9 text-xs overflow-hidden px-2",
-                                                        !filters.startDate && !filters.endDate && "text-muted-foreground"
-                                                    )}
-                                                >
-                                                    <Calendar className="mr-1.5 h-3.5 w-3.5 flex-shrink-0" />
-                                                    <span className="truncate">
-                                                        {filters.startDate && filters.endDate ? (
-                                                            <>
-                                                                {format(new Date(filters.startDate), "dd MMM")} - {format(new Date(filters.endDate), "dd MMM")}
-                                                            </>
-                                                        ) : filters.startDate ? (
-                                                            <>From: {format(new Date(filters.startDate), "dd MMM")}</>
-                                                        ) : filters.endDate ? (
-                                                            <>To: {format(new Date(filters.endDate), "dd MMM")}</>
-                                                        ) : (
-                                                            "Pick dates"
-                                                        )}
-                                                    </span>
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0 border-none shadow-2xl overflow-hidden rounded-xl" align="start">
-                                                <div className="bg-background p-2">
-                                                    <DateRange
-                                                        editableDateInputs={true}
-                                                        onChange={(item: RangeKeyDict) => {
-                                                            const { selection } = item;
-                                                            // Batch updates to filters
-                                                            onFilterChange({
-                                                                ...filters,
-                                                                startDate: selection.startDate ? selection.startDate.toISOString() : undefined,
-                                                                endDate: selection.endDate ? selection.endDate.toISOString() : undefined,
-                                                            });
-                                                        }}
-                                                        moveRangeOnFirstSelection={false}
-                                                        months={1}
-                                                        showMonthAndYearPickers={true}
-                                                        ranges={[{
-                                                            startDate: filters.startDate ? new Date(filters.startDate) : new Date(),
-                                                            endDate: filters.endDate ? new Date(filters.endDate) : new Date(),
-                                                            key: 'selection',
-                                                        }]}
-                                                        rangeColors={["#ad3f35"]} // A hex color that matches your theme's primary (oklch(0.6171 0.1375 39.0427))
-                                                        direction="horizontal"
-                                                        className="text-xs"
-                                                    />
-                                                </div>
-                                            </PopoverContent>
-                                        </Popover>
-                                    </div>
-                                )}
-
-
-
-                                {/* Project Filter */}
-                                {config.showProjectFilter && level === "workspace" && projects && (
-                                    <div className="space-y-2">
-                                        <div className="flex items-center justify-between">
-                                            <h4 className="text-sm font-medium text-muted-foreground">Project</h4>
-                                            {filters.projectId && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => handleFilterChange("projectId", undefined)}
-                                                    className="h-auto p-0 text-xs text-blue-600 hover:text-blue-700 hover:bg-transparent"
-                                                >
-                                                    Clear
-                                                </Button>
-                                            )}
-                                        </div>
-                                        <Select
-                                            value={filters.projectId || "__all__"}
-                                            onValueChange={(value) => handleFilterChange("projectId", value)}
-                                        >
-                                            <SelectTrigger className="w-full h-9">
-                                                <SelectValue placeholder="Select project" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="__all__">All Projects</SelectItem>
-                                                {projects.map((project) => (
-                                                    <SelectItem key={project.id} value={project.id}>
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="h-2 w-2 rounded-full border shadow-sm" style={{ backgroundColor: project.color || getColorFromString(project.name) }} />
-                                                            {project.name}
-                                                        </div>
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                )}
-
-                                {/* Parent Task Filter (Kanban only) */}
-                                {config.showParentTaskFilter && parentTasks && (
-                                    <div className="space-y-2">
-                                        <div className="flex items-center justify-between">
-                                            <h4 className="text-sm font-medium text-muted-foreground">Parent Task</h4>
-                                            {filters.parentTaskId && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => handleFilterChange("parentTaskId", undefined)}
-                                                    className="h-auto p-0 text-xs text-blue-600 hover:text-blue-700 hover:bg-transparent"
-                                                >
-                                                    Clear
-                                                </Button>
-                                            )}
-                                        </div>
-                                        <Select
-                                            value={filters.parentTaskId || "__all__"}
-                                            onValueChange={(value) => handleFilterChange("parentTaskId", value)}
-                                        >
-                                            <SelectTrigger className="w-full h-9">
-                                                <SelectValue placeholder="All Tasks" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="__all__">All Tasks</SelectItem>
-                                                {parentTasks.map((task) => (
-                                                    <SelectItem key={task.id} value={task.id}>
-                                                        {task.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                )}
-
-                                {/* Status Filter */}
-                                {config.showStatusFilter && (
-                                    <div className="space-y-2">
-                                        <div className="flex items-center justify-between">
-                                            <h4 className="text-sm font-medium text-muted-foreground">Status</h4>
-                                            {filters.status && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => handleFilterChange("status", undefined)}
-                                                    className="h-auto p-0 text-xs text-blue-600 hover:text-blue-700 hover:bg-transparent"
-                                                >
-                                                    Clear
-                                                </Button>
-                                            )}
-                                        </div>
-                                        <Select
-                                            value={filters.status || "__all__"}
-                                            onValueChange={(value) => handleFilterChange("status", value)}
-                                        >
-                                            <SelectTrigger className="w-full h-9">
-                                                <SelectValue placeholder="Select status" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="__all__">All Statuses</SelectItem>
-                                                {STATUS_OPTIONS.map((option) => (
-                                                    <SelectItem key={option.value} value={option.value}>
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="h-2 w-2 rounded-full bg-green-500" />
-                                                            {option.label}
-                                                        </div>
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                )}
-
-                                {/* Assignee Filter */}
-                                {config.showAssigneeFilter && members && (
-                                    <div className="space-y-2">
-                                        <div className="flex items-center justify-between">
-                                            <h4 className="text-sm font-medium text-muted-foreground">Assignee</h4>
-                                            {filters.assigneeId && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => handleFilterChange("assigneeId", undefined)}
-                                                    className="h-auto p-0 text-xs text-blue-600 hover:text-blue-700 hover:bg-transparent"
-                                                >
-                                                    Clear
-                                                </Button>
-                                            )}
-                                        </div>
-                                        <Select
-                                            value={filters.assigneeId || "__all__"}
-                                            onValueChange={(value) => handleFilterChange("assigneeId", value)}
-                                        >
-                                            <SelectTrigger className="w-full h-9">
-                                                <SelectValue placeholder="Select assignee" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="__all__">All Assignees</SelectItem>
-                                                {members.map((member) => (
-                                                    <SelectItem key={member.id} value={member.id}>
-                                                        {member.surname ? member.surname : member.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                )}
-
-                                {/* Tag Filter */}
-                                {config.showTagFilter && tags && (
-                                    <div className="space-y-2">
-                                        <div className="flex items-center justify-between">
-                                            <h4 className="text-sm font-medium text-muted-foreground">Tag</h4>
-                                            {filters.tagId && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => handleFilterChange("tagId", undefined)}
-                                                    className="h-auto p-0 text-xs text-blue-600 hover:text-blue-700 hover:bg-transparent"
-                                                >
-                                                    Clear
-                                                </Button>
-                                            )}
-                                        </div>
-                                        <Select
-                                            value={filters.tagId || "__all__"}
-                                            onValueChange={(value) => handleFilterChange("tagId", value)}
-                                        >
-                                            <SelectTrigger className="w-full h-9">
-                                                <SelectValue placeholder="Select tag" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="__all__">All Tags</SelectItem>
-                                                {tags.map((tag) => (
-                                                    <SelectItem key={tag.id} value={tag.id}>
-                                                        {tag.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                )}
+                                    <X className="h-4 w-4" />
+                                </Button>
                             </div>
-                        </div>
 
-                        {/* Footer Actions */}
-                        <div className="border-t p-3 space-y-2">
-                            <Button
-                                variant="ghost"
-                                onClick={handleClearAll}
-                                className="w-full h-9"
-                            >
-                                Reset
-                            </Button>
-                            <Button
-                                onClick={handleApply}
-                                className="w-full h-9 bg-primary hover:bg-primary/80"
-                            >
-                                Apply Now
-                            </Button>
-                        </div>
-                    </PopoverContent>
-                </Popover>
+                            {/* Content - Scrollable */}
+                            <div className="max-h-[60vh] overflow-y-auto overflow-x-hidden p-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:hover:bg-slate-400">
+                                {/* Filters Grid - Horizontal Layout */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                                    {/* Date Range Section */}
+                                    {config.showDateRangeFilter && (
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <h4 className="text-xs font-medium text-muted-foreground">Date Range</h4>
+                                                {(filters.startDate || filters.endDate) && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            handleFilterChange("startDate", undefined);
+                                                            handleFilterChange("endDate", undefined);
+                                                        }}
+                                                        className="h-auto p-0 text-xs text-blue-600 hover:text-blue-700 hover:bg-transparent"
+                                                    >
+                                                        Clear
+                                                    </Button>
+                                                )}
+                                            </div>
 
-                {/* Column Visibility - Only for List View */}
-                {view === 'list' && columnVisibility && setColumnVisibility && (
-                    <ColumnVisibility
-                        columnVisibility={columnVisibility}
-                        setColumnVisibility={setColumnVisibility}
-                    />
-                )}
+                                            {/* Calendar Popover */}
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                    <Button
+                                                        variant="outline"
+                                                        className={cn(
+                                                            "w-full justify-start text-left font-normal h-9 text-xs overflow-hidden px-2",
+                                                            !filters.startDate && !filters.endDate && "text-muted-foreground"
+                                                        )}
+                                                    >
+                                                        <Calendar className="mr-1.5 h-3.5 w-3.5 flex-shrink-0" />
+                                                        <span className="truncate">
+                                                            {filters.startDate && filters.endDate ? (
+                                                                <>
+                                                                    {formatIST(filters.startDate, "dd MMM")} - {formatIST(filters.endDate, "dd MMM")}
+                                                                </>
+                                                            ) : filters.startDate ? (
+                                                                <>From: {formatIST(filters.startDate, "dd MMM")}</>
+                                                            ) : filters.endDate ? (
+                                                                <>To: {formatIST(filters.endDate, "dd MMM")}</>
+                                                            ) : (
+                                                                "Pick dates"
+                                                            )}
+                                                        </span>
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0 border-none shadow-2xl overflow-hidden rounded-xl" align="start">
+                                                    <div className="bg-background p-2">
+                                                        <DateRange
+                                                            editableDateInputs={true}
+                                                            onChange={(item: RangeKeyDict) => {
+                                                                const { selection } = item;
+                                                                // Batch updates to filters
+                                                                onFilterChange({
+                                                                    ...filters,
+                                                                    startDate: selection.startDate ? selection.startDate.toISOString() : undefined,
+                                                                    endDate: selection.endDate ? selection.endDate.toISOString() : undefined,
+                                                                });
+                                                            }}
+                                                            moveRangeOnFirstSelection={false}
+                                                            months={1}
+                                                            showMonthAndYearPickers={true}
+                                                            ranges={[{
+                                                                startDate: filters.startDate ? new Date(filters.startDate) : new Date(),
+                                                                endDate: filters.endDate ? new Date(filters.endDate) : new Date(),
+                                                                key: 'selection',
+                                                            }]}
+                                                            rangeColors={["#ad3f35"]} // A hex color that matches your theme's primary (oklch(0.6171 0.1375 39.0427))
+                                                            direction="horizontal"
+                                                            className="text-xs"
+                                                        />
+                                                    </div>
+                                                </PopoverContent>
+                                            </Popover>
+                                        </div>
+                                    )}
 
-                {/* Column Visibility - Only for Kanban View */}
-                {view === 'kanban' && kanbanColumnVisibility && setKanbanColumnVisibility && (
-                    <KanbanColumnVisibility
-                        visibleColumns={kanbanColumnVisibility}
-                        setVisibleColumns={setKanbanColumnVisibility}
-                    />
-                )}
-            </div>
 
-            {/* Active Filters Badges */}
-            {activeFilters.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs text-muted-foreground">Active:</span>
-                    {activeFilters.map((filter) => (
-                        <Badge
-                            key={filter.key}
-                            variant="secondary"
-                            className="gap-1.5 pl-2 pr-1"
-                        >
-                            <span className="text-xs">
-                                {filter.label}: {filter.value}
-                            </span>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-4 w-4 p-0 hover:bg-transparent"
-                                onClick={() => removeFilter(filter.key)}
-                            >
-                                <X className="h-3 w-3" />
-                            </Button>
-                        </Badge>
-                    ))}
-                    {searchQuery && (
-                        <Badge variant="secondary" className="gap-1.5 pl-2 pr-1">
-                            <span className="text-xs">Search: {searchQuery}</span>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-4 w-4 p-0 hover:bg-transparent"
-                                onClick={() => onSearchChange("")}
-                            >
-                                <X className="h-3 w-3" />
-                            </Button>
-                        </Badge>
+
+                                    {/* Project Filter */}
+                                    {config.showProjectFilter && level === "workspace" && projects && (
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <h4 className="text-sm font-medium text-muted-foreground">Project</h4>
+                                                {filters.projectId && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => handleFilterChange("projectId", undefined)}
+                                                        className="h-auto p-0 text-xs text-blue-600 hover:text-blue-700 hover:bg-transparent"
+                                                    >
+                                                        Clear
+                                                    </Button>
+                                                )}
+                                            </div>
+                                            <Select
+                                                value={filters.projectId || "__all__"}
+                                                onValueChange={(value) => handleFilterChange("projectId", value)}
+                                            >
+                                                <SelectTrigger className="w-full h-9">
+                                                    <SelectValue placeholder="Select project" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="__all__">All Projects</SelectItem>
+                                                    {projects.map((project) => (
+                                                        <SelectItem key={project.id} value={project.id}>
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="h-2 w-2 rounded-full border shadow-sm" style={{ backgroundColor: project.color || getColorFromString(project.name) }} />
+                                                                {project.name}
+                                                            </div>
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
+
+                                    {/* Parent Task Filter (Kanban only) */}
+                                    {config.showParentTaskFilter && parentTasks && (
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <h4 className="text-sm font-medium text-muted-foreground">Parent Task</h4>
+                                                {filters.parentTaskId && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => handleFilterChange("parentTaskId", undefined)}
+                                                        className="h-auto p-0 text-xs text-blue-600 hover:text-blue-700 hover:bg-transparent"
+                                                    >
+                                                        Clear
+                                                    </Button>
+                                                )}
+                                            </div>
+                                            <Select
+                                                value={filters.parentTaskId || "__all__"}
+                                                onValueChange={(value) => handleFilterChange("parentTaskId", value)}
+                                            >
+                                                <SelectTrigger className="w-full h-9">
+                                                    <SelectValue placeholder="All Tasks" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="__all__">All Tasks</SelectItem>
+                                                    {parentTasks.map((task) => (
+                                                        <SelectItem key={task.id} value={task.id}>
+                                                            {task.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
+
+                                    {/* Status Filter */}
+                                    {config.showStatusFilter && (
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <h4 className="text-sm font-medium text-muted-foreground">Status</h4>
+                                                {filters.status && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => handleFilterChange("status", undefined)}
+                                                        className="h-auto p-0 text-xs text-blue-600 hover:text-blue-700 hover:bg-transparent"
+                                                    >
+                                                        Clear
+                                                    </Button>
+                                                )}
+                                            </div>
+                                            <Select
+                                                value={filters.status || "__all__"}
+                                                onValueChange={(value) => handleFilterChange("status", value)}
+                                            >
+                                                <SelectTrigger className="w-full h-9">
+                                                    <SelectValue placeholder="Select status" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="__all__">All Statuses</SelectItem>
+                                                    {STATUS_OPTIONS.map((option) => (
+                                                        <SelectItem key={option.value} value={option.value}>
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="h-2 w-2 rounded-full bg-green-500" />
+                                                                {option.label}
+                                                            </div>
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
+
+                                    {/* Assignee Filter */}
+                                    {config.showAssigneeFilter && members && (
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <h4 className="text-sm font-medium text-muted-foreground">Assignee</h4>
+                                                {filters.assigneeId && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => handleFilterChange("assigneeId", undefined)}
+                                                        className="h-auto p-0 text-xs text-blue-600 hover:text-blue-700 hover:bg-transparent"
+                                                    >
+                                                        Clear
+                                                    </Button>
+                                                )}
+                                            </div>
+                                            <Select
+                                                value={filters.assigneeId || "__all__"}
+                                                onValueChange={(value) => handleFilterChange("assigneeId", value)}
+                                            >
+                                                <SelectTrigger className="w-full h-9">
+                                                    <SelectValue placeholder="Select assignee" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="__all__">All Assignees</SelectItem>
+                                                    {members.map((member) => (
+                                                        <SelectItem key={member.id} value={member.id}>
+                                                            {member.surname ? member.surname : ""}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
+
+                                    {/* Tag Filter */}
+                                    {config.showTagFilter && tags && (
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <h4 className="text-sm font-medium text-muted-foreground">Tag</h4>
+                                                {filters.tagId && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => handleFilterChange("tagId", undefined)}
+                                                        className="h-auto p-0 text-xs text-blue-600 hover:text-blue-700 hover:bg-transparent"
+                                                    >
+                                                        Clear
+                                                    </Button>
+                                                )}
+                                            </div>
+                                            <Select
+                                                value={filters.tagId || "__all__"}
+                                                onValueChange={(value) => handleFilterChange("tagId", value)}
+                                            >
+                                                <SelectTrigger className="w-full h-9">
+                                                    <SelectValue placeholder="Select tag" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="__all__">All Tags</SelectItem>
+                                                    {tags.map((tag) => (
+                                                        <SelectItem key={tag.id} value={tag.id}>
+                                                            {tag.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Footer Actions */}
+                            <div className="border-t p-3 space-y-2">
+                                <Button
+                                    variant="ghost"
+                                    onClick={handleClearAll}
+                                    className="w-full h-9"
+                                >
+                                    Reset
+                                </Button>
+                                <Button
+                                    onClick={handleApply}
+                                    className="w-full h-9 bg-primary hover:bg-primary/80"
+                                >
+                                    Apply Now
+                                </Button>
+                            </div>
+                        </PopoverContent>
+                    </Popover>
+
+                    {/* Column Visibility - Only for List View */}
+                    {view === 'list' && columnVisibility && setColumnVisibility && (
+                        <ColumnVisibility
+                            columnVisibility={columnVisibility}
+                            setColumnVisibility={setColumnVisibility}
+                        />
+                    )}
+
+                    {/* Column Visibility - Only for Kanban View */}
+                    {view === 'kanban' && kanbanColumnVisibility && setKanbanColumnVisibility && (
+                        <KanbanColumnVisibility
+                            visibleColumns={kanbanColumnVisibility}
+                            setVisibleColumns={setKanbanColumnVisibility}
+                        />
                     )}
                 </div>
-            )}
+
+                {/* Active Filters Badges */}
+                {activeFilters.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Active:</span>
+                        {activeFilters.map((filter) => (
+                            <Badge
+                                key={filter.key}
+                                variant="secondary"
+                                className="gap-1.5 pl-2 pr-1"
+                            >
+                                <span className="text-xs">
+                                    {filter.label}: {filter.value}
+                                </span>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-4 w-4 p-0 hover:bg-transparent"
+                                    onClick={() => removeFilter(filter.key)}
+                                >
+                                    <X className="h-3 w-3" />
+                                </Button>
+                            </Badge>
+                        ))}
+                        {searchQuery && (
+                            <Badge variant="secondary" className="gap-1.5 pl-2 pr-1">
+                                <span className="text-xs">Search: {searchQuery}</span>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-4 w-4 p-0 hover:bg-transparent"
+                                    onClick={() => onSearchChange("")}
+                                >
+                                    <X className="h-3 w-3" />
+                                </Button>
+                            </Badge>
+                        )}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

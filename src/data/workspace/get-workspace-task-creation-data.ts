@@ -2,12 +2,12 @@
 
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
+import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { getUserProjects } from "@/data/project/get-projects";
 import { getWorkspaceMembers } from "@/data/workspace/get-workspace-members";
 import { getWorkspaceTags } from "@/data/tag/get-tags";
-import { getParentTasksOnly } from "@/data/task/list/get-parent-tasks-only";
 import { CacheTags } from "@/data/cache-tags";
 
 /**
@@ -24,9 +24,7 @@ export interface WorkspaceTaskCreationData {
             id: string;
             user: {
                 id: string;
-                name: string | null;
                 surname: string | null;
-                image: string | null;
             };
         };
     }>;
@@ -92,9 +90,7 @@ async function _getWorkspaceTaskCreationDataInternal(
             id: m.id,
             user: {
                 id: m.user?.id || "",
-                name: m.user?.name || null,
                 surname: m.user?.surname || null,
-                image: m.user?.image || null,
             },
         },
     }));
@@ -105,20 +101,29 @@ async function _getWorkspaceTaskCreationDataInternal(
         name: tag.name,
     }));
 
-    // Fetch parent tasks only from projects user has access to
-    const parentTasksPromises = projectsData.map(p =>
-        getParentTasksOnly(p.id, workspaceId, 1, 100) // Get first 100 parent tasks from each project
-    );
-    const parentTasksResults = await Promise.all(parentTasksPromises);
+    // Optimized: Fetch parent tasks from ALL accessible projects in a single query
+    // instead of calling getTasks() multiple times in a loop.
+    const projectIds = projectsData.map(p => p.id);
+    const parentTasksData = await prisma.task.findMany({
+        where: {
+            workspaceId,
+            projectId: { in: projectIds },
+            parentTaskId: null, // Only parents
+        },
+        select: {
+            id: true,
+            name: true,
+            projectId: true,
+        },
+        take: 500, // Reasonable cap for dropdown list
+        orderBy: { createdAt: 'desc' }
+    });
 
-    // Combine and map parent tasks from accessible projects
-    const parentTasks = parentTasksResults
-        .flatMap(result => result.tasks)
-        .map(task => ({
-            id: task.id,
-            name: task.name,
-            projectId: task.projectId,
-        }));
+    const parentTasks = parentTasksData.map(task => ({
+        id: task.id,
+        name: task.name,
+        projectId: task.projectId!,
+    }));
 
     return {
         projects,
@@ -143,7 +148,7 @@ const getCachedWorkspaceTaskCreationData = (workspaceId: string, userId: string)
         [`workspace-task-creation-data-${workspaceId}-${userId}`],
         {
             tags: CacheTags.workspaceTaskCreationData(workspaceId, userId),
-            revalidate: 300, // 5 minutes
+            revalidate: 60, // 1 minute
         }
     )();
 

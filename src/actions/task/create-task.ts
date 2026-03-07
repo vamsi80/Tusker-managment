@@ -1,6 +1,5 @@
 "use server";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
-import slugify from "slugify";
 import { invalidateTaskMutation } from "@/lib/cache/invalidation";
 import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
@@ -48,22 +47,14 @@ export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
             };
         }
 
-        // Generate unique slug
-        let baseSlug = validation.data.taskSlug;
-        if (!baseSlug || baseSlug.trim() === "") {
-            baseSlug = slugify(validation.data.name, { lower: true, strict: true });
-        }
+        // Generate unique slug using optimized generator
+        const slug = await (import("@/lib/slug-generator").then(m => m.generateUniqueSlug(
+            validation.data.name,
+            "task"
+        )));
 
-        let slug = baseSlug;
-        let counter = 1;
-
-        while (await prisma.task.findUnique({ where: { taskSlug: slug } })) {
-            slug = `${baseSlug}-${counter}`;
-            counter++;
-        }
-
-        // Default reviewer is the creator
-        const reviewerId = validation.data.reviewerId ?? permissions.workspaceMember.userId;
+        // For parent tasks, the default reviewer should be null if not provided
+        const reviewerId = validation.data.reviewerId ?? null;
 
         // 3. Create the task
         const newTask = await prisma.task.create({
@@ -82,9 +73,9 @@ export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
                 reviewer: {
                     select: {
                         id: true,
-                        name: true,
+                        // name: true,
                         surname: true,
-                        image: true,
+                        // image: true,
                     }
                 }
             }

@@ -18,19 +18,29 @@ export async function WorkspaceListView({
     const user = await requireUser();
 
     // Fetch initial tasks and metadata in parallel
+    const startTime = performance.now();
     const [tagsData, membersData, permissions, projects, tasksData] = await Promise.all([
         getWorkspaceTags(workspaceId),
         getWorkspaceMembers(workspaceId),
-        getWorkspacePermissions(workspaceId),
+        getWorkspacePermissions(workspaceId, user.id),
         getUserProjects(workspaceId),
         getTasks({
             workspaceId,
-            view: "list",
+            hierarchyMode: "parents",
+            includeSubTasks: false, // 🚀 Optimization: Fetch children on-demand
             page: 1,
             limit: 50,
-            includeFacets: true
-        })
+            includeFacets: true,
+            view_mode: "list"
+        }, user.id)
     ]);
+    const duration = performance.now() - startTime;
+    import("@/lib/logger").then(({ logger }) => {
+        logger.serverPerf("WORKSPACE_VIEW_LOAD", duration, {
+            workspaceId,
+            userId: user.id
+        });
+    });
 
     // Map workspace members to the structure expected by components
     const formattedMembers = membersData.workspaceMembers.map(member => ({
@@ -39,9 +49,7 @@ export async function WorkspaceListView({
             workspaceRole: member.workspaceRole as any,
             user: {
                 id: member.user?.id || '',
-                name: member.user?.name || '',
                 surname: member.user?.surname || '',
-                image: member.user?.image || '',
             }
         }
     }));
@@ -53,14 +61,15 @@ export async function WorkspaceListView({
 
     const initialTasks = tasksData.tasks.map(t => ({
         ...t,
-        subTasks: undefined
+        subTasks: (t as any).subTasks
     })) as TaskWithSubTasks[];
 
     return (
         <TaskTable
             initialTasks={initialTasks}
             initialHasMore={tasksData.hasMore}
-            initialTotalCount={tasksData.totalCount}
+            initialNextCursor={tasksData.nextCursor}
+            initialTotalCount={tasksData.totalCount ?? undefined}
             members={formattedMembers as any}
             workspaceId={workspaceId}
             projectId="" // Empty for workspace-level view

@@ -1,249 +1,70 @@
 "use server";
 
-import { getWorkspaceTasks, WorkspaceTaskFilters, getAllTasksFlat } from "@/data/task";
-import { getSubTasks } from "@/data/task/list/get-subtasks";
-import { getSubTasksByParentIds } from "@/data/task/list/get-subtasks-batch";
-import { getSortedSubTasks } from "@/data/task/get-sorted-subtasks";
-import { TaskFilters } from "@/types/task-filters";
-import { SortConfig } from "@/components/task/shared/types";
+import { getTasks, GetTasksOptions } from "@/data/task/get-tasks";
+import { revalidateTag } from "next/cache";
+import { CacheTags } from "@/data/cache-tags";
 
-
-/**
- * Server Action: Load more parent tasks for the list view
- */
-export async function loadMoreTasksAction(
-    workspaceId: string,
-    filters: WorkspaceTaskFilters = {} as any,
-    page: number = 1,
-    pageSize: number = 10
-) {
-    console.log("🟢 ACTION: loadMoreTasksAction");
+export async function loadTasksAction(opts: GetTasksOptions) {
     try {
+        const result = await getTasks(opts);
 
-        const result = await getWorkspaceTasks({
-            ...filters,
-            workspaceId,
-            status: filters.status as any, // Cast to any to avoid string[] vs TaskStatus[] mismatch from legacy types
-            page,
-            limit: pageSize,
-            includeFacets: true
+        const tasksByProject: Record<string, any[]> = {};
+        const tasksByStatus: Record<string, any[]> = {};
+
+        // Use a Map for strict deduplication by ID
+        const taskMap = new Map<string, typeof result.tasks[0]>();
+
+        result.tasks.forEach(task => {
+            if (!taskMap.has(task.id)) {
+                taskMap.set(task.id, task);
+            }
         });
-        return {
-            success: true,
-            data: result,
-        };
-    } catch (error) {
-        console.error("Error in loadMoreTasksAction:", error);
-        return {
-            success: false,
-            error: "Failed to load more tasks",
-        };
-    }
-}
 
-/**
- * Server Action: Load more parent tasks using getAllTasksFlat (for workspace list view)
- */
-export async function loadMoreTasksFlatAction(
-    workspaceId: string,
-    projectId: string | undefined,
-    page: number = 1,
-    pageSize: number = 10
-) {
-    console.log("🟢 ACTION: loadMoreTasksFlatAction");
-    try {
-        const result = await getAllTasksFlat(workspaceId, projectId, page, pageSize);
+        const uniqueTasks = Array.from(taskMap.values());
 
-        // Transform to match expected format
-        const tasks = result.tasks.map(task => ({
-            ...task,
-            subTasks: undefined, // Will be loaded on-demand
-            createdBy: { user: { name: '', surname: '', image: '' } },
-            _count: {
-                subTasks: task._count.subTasks,
-            },
-        }));
+        uniqueTasks.forEach(task => {
+            const pid = task.projectId || "unknown";
+            if (!tasksByProject[pid]) tasksByProject[pid] = [];
+            tasksByProject[pid].push(task);
+
+            const status = task.status || "UNKNOWN";
+            if (!tasksByStatus[status]) tasksByStatus[status] = [];
+            tasksByStatus[status].push(task);
+        });
 
         return {
-            success: true,
+            success: true as const,
             data: {
-                tasks,
-                hasMore: result.hasMore,
-                totalCount: result.totalCount,
+                ...result,
+                tasks: uniqueTasks,
+                tasksByProject,
+                tasksByStatus,
             },
         };
     } catch (error) {
-        console.error("Error in loadMoreTasksFlatAction:", error);
+        console.error("Error in loadTasksAction:", error);
         return {
-            success: false,
-            error: "Failed to load more tasks",
+            success: false as const,
+            error: "Failed to load tasks",
         };
     }
 }
 
 /**
- * Server Action: Load subtasks for a parent task for the list view
+ * Force a revalidation of task data for a project or workspace
  */
-export async function loadSubTasksAction(
-    parentTaskId: string,
-    workspaceId: string,
-    projectId: string,
-    filters: WorkspaceTaskFilters = {} as any,
-    page: number = 1,
-    pageSize: number = 10
-) {
-    console.log("🟢 ACTION: loadSubTasksAction", parentTaskId);
+export async function revalidateTasksAction(workspaceId: string, projectId?: string, userId?: string) {
     try {
-        const toArray = <T>(val: T | T[] | undefined): T[] | undefined => {
-            if (val === undefined) return undefined;
-            return Array.isArray(val) ? val : [val];
-        };
-
-        // Map WorkspaceTaskFilters to TaskFilters
-        const taskFilters: TaskFilters = {
-            workspaceId,
-            projectId: filters.projectId,
-            status: toArray(filters.status) as any,
-            assigneeId: toArray(filters.assigneeId),
-            tagId: toArray(filters.tagId || filters.tag),
-            search: filters.search,
-            dueAfter: (filters.startDate || filters.dueAfter) as any,
-            dueBefore: (filters.endDate || filters.dueBefore) as any,
-            isPinned: filters.isPinned,
-        };
-
-        const result = await getSubTasks(parentTaskId, workspaceId, projectId, taskFilters, page, pageSize);
-        return {
-            success: true,
-            data: result,
-        };
-    } catch (error) {
-        console.error("Error in loadSubTasksAction:", error);
-        return {
-            success: false,
-            error: "Failed to load subtasks",
-        };
-    }
-}
-
-/**
- * Server Action: Load subtasks for MULTIPLE parent tasks in a SINGLE query
- * 
- * This is the KEY optimization for expand/collapse performance:
- * - Reduces N database queries to 1 query
- * - Minimizes cold-start impact on Supabase Free tier
- * - Results are cached per batch for subsequent requests
- * 
- * Use this when:
- * - User clicks "Expand All"
- * - Prefetching subtasks for visible parent tasks
- * - Any scenario where multiple parent tasks need subtasks
- */
-export async function loadSubTasksBatchAction(
-    parentTaskIds: string[],
-    workspaceId: string,
-    projectId?: string,
-    filters: WorkspaceTaskFilters = {} as any,
-    pageSize: number = 10
-) {
-    console.log("🟢 ACTION: loadSubTasksBatchAction", parentTaskIds.length);
-    try {
-        if (parentTaskIds.length === 0) {
-            return {
-                success: true,
-                data: [],
-            };
+        if (projectId) {
+            CacheTags.projectTasks(projectId, userId).forEach(tag => (revalidateTag as any)(tag, "layout"));
+        } else {
+            CacheTags.workspaceTasks(workspaceId, userId).forEach(tag => (revalidateTag as any)(tag, "layout"));
         }
-
-        const toArray = <T>(val: T | T[] | undefined): T[] | undefined => {
-            if (val === undefined) return undefined;
-            return Array.isArray(val) ? val : [val];
-        };
-
-        // Map WorkspaceTaskFilters to TaskFilters
-        const taskFilters: TaskFilters = {
-            workspaceId,
-            projectId: filters.projectId,
-            status: toArray(filters.status) as any,
-            assigneeId: toArray(filters.assigneeId),
-            tagId: toArray(filters.tagId || filters.tag),
-            search: filters.search,
-            dueAfter: (filters.startDate || filters.dueAfter) as any,
-            dueBefore: (filters.endDate || filters.dueBefore) as any,
-            isPinned: filters.isPinned,
-        };
-
-        const result = await getSubTasksByParentIds(
-            parentTaskIds,
-            workspaceId,
-            projectId,
-            taskFilters,
-            pageSize
-        );
-
-        return {
-            success: true,
-            data: result,
-        };
+        return { success: true as const };
     } catch (error) {
-        console.error("Error in loadSubTasksBatchAction:", error);
-        return {
-            success: false,
-            error: "Failed to load batch subtasks",
-        };
+        console.error("Error revalidating tasks:", error);
+        return { success: false as const };
     }
 }
 
-/**
- * Server Action: Load sorted subtasks for the sorted view
- * 
- * This is used when sorting is active in the task table.
- * It fetches all subtasks (at any depth) and sorts them within each project.
- */
-export async function loadSortedSubTasksAction(
-    workspaceId: string,
-    filters: WorkspaceTaskFilters = {} as any,
-    sorts: SortConfig[] = [],
-    page: number = 1,
-    pageSize: number = 50
-) {
-    console.log("🟢 ACTION: loadSortedSubTasksAction");
-    try {
-        const toArray = <T>(val: T | T[] | undefined): T[] | undefined => {
-            if (val === undefined) return undefined;
-            return Array.isArray(val) ? val : [val];
-        };
-
-        // Map WorkspaceTaskFilters to the format expected by getSortedSubTasks
-        const taskFilters = {
-            projectId: filters.projectId,
-            status: toArray(filters.status) as any,
-            assigneeId: toArray(filters.assigneeId),
-            tagId: toArray(filters.tagId || filters.tag),
-            search: filters.search,
-            dueAfter: (filters.startDate || filters.dueAfter) as any,
-            dueBefore: (filters.endDate || filters.dueBefore) as any,
-            isPinned: filters.isPinned,
-        };
-
-        const result = await getSortedSubTasks(
-            workspaceId,
-            taskFilters,
-            sorts,
-            page,
-            pageSize
-        );
-
-        return {
-            success: true,
-            data: result,
-        };
-    } catch (error) {
-        console.error("Error in loadSortedSubTasksAction:", error);
-        return {
-            success: false,
-            error: "Failed to load sorted subtasks",
-        };
-    }
-}
-
+export type LoadTasksResponse = Awaited<ReturnType<typeof loadTasksAction>>;

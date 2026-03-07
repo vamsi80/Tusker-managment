@@ -4,11 +4,8 @@ import {
   IconDashboard,
   IconUsersPlus,
   IconCheckupList,
-  IconTruck,
-  IconBucket,
   IconSettings,
-  IconCube,
-  IconBook
+  IconReport
 } from "@tabler/icons-react";
 import { SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuButton, SidebarMenuItem, } from "@/components/ui/sidebar"
 import Link from "next/link";
@@ -16,14 +13,13 @@ import { usePathname } from "next/navigation";
 
 
 // Icon mapping to resolve string names to actual components
+// Note: Procurement icons (IconTruck, IconCube, IconBook) removed for release-core-v1
 const iconMap = {
   IconDashboard,
   IconUsersPlus,
   IconCheckupList,
-  IconTruck,
-  IconCube,
-  IconBook,
   IconSettings,
+  IconReport
 } as const;
 
 type IconName = keyof typeof iconMap;

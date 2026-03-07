@@ -1,13 +1,11 @@
-
-import { FlatTaskType } from "@/data/task/gantt/get-all-tasks-flat";
 import { GanttSubtask, GanttTask } from "@/components/task/gantt/types";
-import { validateDependencies } from "@/components/task/gantt/utils";
 
 /**
  * Transform flat tasks list into Gantt structure
+ * Handles Project -> Task -> Subtask hierarchy and date normalization
  */
 export function transformToGanttTasks(allTasks: any[]): GanttTask[] {
-    // Separate parent tasks and subtasks
+    // 1. Separate parent tasks and subtasks
     const parentTasks = allTasks.filter(task => !task.parentTaskId);
     const subtasksMap = new Map<string, any[]>();
 
@@ -20,74 +18,74 @@ export function transformToGanttTasks(allTasks: any[]): GanttTask[] {
         }
     });
 
-    // Sort parent tasks by position
-    const sortedParentTasks = [...parentTasks].sort((a, b) => {
-        const posA = a.position ?? Number.MAX_SAFE_INTEGER;
-        const posB = b.position ?? Number.MAX_SAFE_INTEGER;
-        return posA - posB;
-    });
 
-    // Transform data to GanttTask format
-    const ganttTasks: GanttTask[] = sortedParentTasks.map((parentTask) => {
-        // Get subtasks for this parent task
-        const taskSubtasks = subtasksMap.get(parentTask.id) || [];
 
-        // Sort subtasks by position
-        const sortedSubTasks = taskSubtasks.sort((a, b) => {
-            const posA = a.position ?? Number.MAX_SAFE_INTEGER;
-            const posB = b.position ?? Number.MAX_SAFE_INTEGER;
-            return posA - posB;
-        });
+    // 2. Helper to format dates consistently (YYYY-MM-DD local)
+    const formatLocalDate = (date: Date | null): string => {
+        if (!date) return '';
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
 
-        // Transform subtasks first
-        const rawSubtasks: GanttSubtask[] = sortedSubTasks.map((subtask) => {
-            const startDate = subtask.startDate ? new Date(subtask.startDate) : null;
-            const endDate = startDate && subtask.days
-                ? new Date(startDate.getTime() + (subtask.days - 1) * 24 * 60 * 60 * 1000)
-                : startDate;
+    // 3. Transform data to GanttTask format
+    return parentTasks
+        .sort((a, b) => (a.position ?? 1000) - (b.position ?? 1000))
+        .map((parentTask) => {
+            const taskSubtasks = subtasksMap.get(parentTask.id) || [];
 
-            // Format dates as YYYY-MM-DD using local time (not UTC)
-            const formatLocalDate = (date: Date | null): string => {
-                if (!date) return '';
-                const year = date.getFullYear();
-                const month = String(date.getMonth() + 1).padStart(2, '0');
-                const day = String(date.getDate()).padStart(2, '0');
-                return `${year}-${month}-${day}`;
-            };
+            // Transform subtasks with date fallback logic
+            const rawSubtasks: GanttSubtask[] = taskSubtasks
+                .sort((a, b) => (a.position ?? 1000) - (b.position ?? 1000))
+                .map((subtask) => {
+                    // Date Strategy: Use startDate + days, or just dueDate, or fallback to today
+                    let start: Date | null = subtask.startDate ? new Date(subtask.startDate) : null;
+                    let end: Date | null = subtask.dueDate ? new Date(subtask.dueDate) : null;
+
+                    // Fallback: If no end but has start + days
+                    if (!end && start && subtask.days) {
+                        end = new Date(start.getTime() + (subtask.days - 1) * 24 * 60 * 60 * 1000);
+                    }
+
+                    // Fallback: If no start but has end
+                    if (!start && end) {
+                        start = new Date(end); // 1-day milestone
+                    }
+
+                    return {
+                        id: subtask.id,
+                        name: subtask.name,
+                        start: formatLocalDate(start),
+                        end: formatLocalDate(end),
+                        status: subtask.status || 'TO_DO',
+
+                        assignee: subtask.assignee ? {
+                            id: subtask.assignee.id,
+                            name: subtask.assignee.name,
+                            image: subtask.assignee.image
+                        } : undefined,
+                        assigneeRole: subtask.projectRole || (subtask.assignee as any)?.projectRole,
+                        createdById: subtask.createdById
+                    };
+                });
+
+
 
             return {
-                id: subtask.id,
-                name: subtask.name,
-                start: formatLocalDate(startDate),
-                end: formatLocalDate(endDate),
-                status: subtask.status || 'TO_DO',
-                // Extract dependency IDs from dependsOn relation
-                dependsOnIds: (subtask as any).dependsOn?.map((dep: any) => dep.id) || [],
-                assignee: subtask.assignee ? {
-                    id: subtask.assignee.id,
-                    name: subtask.assignee.name,
-                    image: subtask.assignee.image
+                id: parentTask.id,
+                name: parentTask.name,
+                projectId: parentTask.projectId || parentTask.project?.id,
+                projectName: parentTask.projectName || parentTask.project?.name,
+                projectColor: parentTask.projectColor || parentTask.project?.color,
+                start: parentTask.startDate ? formatLocalDate(new Date(parentTask.startDate)) : undefined,
+                end: parentTask.dueDate ? formatLocalDate(new Date(parentTask.dueDate)) : undefined,
+                subtasks: rawSubtasks,
+                assignee: parentTask.assignee ? {
+                    id: parentTask.assignee.id,
+                    name: parentTask.assignee.name,
+                    image: parentTask.assignee.image
                 } : undefined,
             };
         });
-
-        // Validate dependencies to compute blocked status
-        const validatedSubtasks = validateDependencies(rawSubtasks);
-
-        return {
-            id: parentTask.id,
-            name: parentTask.name,
-            projectId: parentTask.project?.id,
-            projectName: parentTask.project?.name,
-            projectColor: parentTask.project?.color,
-            subtasks: validatedSubtasks,
-            assignee: parentTask.assignee ? {
-                id: parentTask.assignee.id,
-                name: parentTask.assignee.name,
-                image: parentTask.assignee.image
-            } : undefined,
-        };
-    });
-
-    return ganttTasks;
 }

@@ -50,13 +50,13 @@ export function WorkspaceTasksHeaderClient({
     // Safety check for permissions
     if (!permissions) {
         return (
-            <div className="space-y-4">
-                <div className="flex items-center justify-between">
+            <div className="space-y-2 md:space-y-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold tracking-tight">All Tasks</h1>
-                        <p className="text-muted-foreground">
+                        {/* <h1 className="text-2xl font-bold tracking-tight md:text-3xl">All Tasks</h1> */}
+                        {/* <p className="text-sm text-muted-foreground">
                             View and manage tasks across all projects
-                        </p>
+                        </p> */}
                     </div>
                 </div>
             </div>
@@ -64,8 +64,15 @@ export function WorkspaceTasksHeaderClient({
     }
 
     return (
-        <div className="space-y-4">
-            {/* View Tabs */}
+        <div className="space-y-0 pt-0 px-0">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                    {/* <h1 className="text-2xl font-bold tracking-tight md:text-3xl">All Tasks</h1>
+                    <p className="text-sm text-muted-foreground">
+                        View and manage tasks across all projects
+                    </p> */}
+                </div>
+            </div>
             <div className="border-b">
                 <div className="flex h-10 items-center gap-4 overflow-x-auto scrollbar-hide">
                     {viewTabs.map((tab) => {
@@ -75,16 +82,17 @@ export function WorkspaceTasksHeaderClient({
                             <Link
                                 key={tab.href}
                                 href={tab.href}
-                                prefetch={true}
+                                prefetch={false}
+                                scroll={false}
                                 className={cn(
-                                    "flex h-full items-center gap-2 border-b-2 px-3 text-sm font-medium transition-colors hover:text-primary whitespace-nowrap flex-shrink-0",
+                                    "flex h-full items-center gap-2 border-b-2 px-2 sm:px-3 text-sm font-medium transition-colors hover:text-primary whitespace-nowrap flex-shrink-0",
                                     isActive
                                         ? "border-primary text-primary"
                                         : "border-transparent text-muted-foreground"
                                 )}
                             >
-                                <Icon className="h-4 w-4" />
-                                <span className="hidden sm:inline">{tab.name}</span>
+                                <Icon className="h-3 w-3" />
+                                <span className="text-xs sm:text-xs">{tab.name}</span>
                             </Link>
                         );
                     })}

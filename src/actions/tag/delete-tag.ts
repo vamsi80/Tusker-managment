@@ -1,9 +1,10 @@
 "use server";
 
 import prisma from "@/lib/db";
-import { revalidatePath } from "next/cache";
+
 import { z } from "zod";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import { invalidateWorkspaceTags } from "@/lib/cache/invalidation";
 
 const deleteTagSchema = z.object({
     tagId: z.string(),
@@ -29,8 +30,7 @@ export async function deleteTag(data: z.infer<typeof deleteTagSchema>) {
             },
         });
 
-        revalidatePath(`/w/${validatedData.workspaceId}/settings`);
-        revalidatePath(`/w/${validatedData.workspaceId}`);
+        await invalidateWorkspaceTags(validatedData.workspaceId);
 
         return {
             success: true,

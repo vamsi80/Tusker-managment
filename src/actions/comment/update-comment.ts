@@ -14,10 +14,10 @@ export interface UpdateCommentResult {
         editedAt: Date | null;
         user: {
             id: string;
-            name: string | null;
+            // name: string | null;
             surname: string | null;
-            image: string | null;
-            email: string;
+            // image: string | null;
+            // email: string;
         };
     };
 }
@@ -88,10 +88,10 @@ export async function updateCommentAction(
                 user: {
                     select: {
                         id: true,
-                        name: true,
+                        // name: true,
                         surname: true,
-                        image: true,
-                        email: true,
+                        // image: true,
+                        // email: true,
                     },
                 },
             },

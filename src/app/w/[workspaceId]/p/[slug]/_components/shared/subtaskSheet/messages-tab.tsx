@@ -2,13 +2,13 @@
 
 import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, formatIST } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { TabsContent } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ArrowUp, Loader2 } from "lucide-react";
-import { createTaskCommentAction } from "@/actions/comment";
+import { createTaskCommentAction, markTaskCommentsReadAction } from "@/actions/comment";
 
 interface Comment {
     id: string;
@@ -67,6 +67,15 @@ export function MessagesTab({
         scrollToBottom();
     }, [comments]);
 
+    const markReadRef = useRef<string>("");
+    // Mark comments as read when tab is opened
+    useEffect(() => {
+        if (taskId && markReadRef.current !== taskId) {
+            markReadRef.current = taskId;
+            markTaskCommentsReadAction(taskId).catch(console.error);
+        }
+    }, [taskId]);
+
     const handleSendMessage = async () => {
         if (!message.trim()) return;
 
@@ -99,8 +108,8 @@ export function MessagesTab({
     return (
         <TabsContent value="messages" className="flex-1 flex flex-col m-0 data-[state=inactive]:hidden overflow-hidden">
             {/* Chat Messages - Scrollable Area */}
-            <div className="flex-1 overflow-y-auto px-6 py-4 bg-muted/20 min-h-0">
-                {isLoading ? (
+            <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 bg-muted/20 min-h-0">
+                {isLoading && comments.length === 0 ? (
                     <div className="flex items-center justify-center h-full">
                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                     </div>
@@ -134,14 +143,14 @@ export function MessagesTab({
                                     )}>
                                         <div
                                             className={cn(
-                                                "rounded-2xl px-4 py-2.5 shadow-sm",
+                                                "rounded-lg px-2 py-1 shadow-sm",
                                                 isCurrentUser
-                                                    ? "bg-primary text-primary-foreground rounded-br-sm"
-                                                    : "bg-background text-foreground rounded-bl-sm border"
+                                                    ? "bg-primary text-primary-foreground rounded-br-xs"
+                                                    : "bg-background text-foreground rounded-bl-xs border"
                                             )}
                                         >
                                             {!isCurrentUser && (
-                                                <p className="text-xs font-semibold mb-1 text-primary">
+                                                <p className="text-xs font-normal text-primary">
                                                     {comment.user.name} {comment.user.surname || ""}
                                                 </p>
                                             )}
@@ -149,13 +158,10 @@ export function MessagesTab({
                                                 {comment.content}
                                             </p>
                                             <span className={cn(
-                                                "text-xs mt-1 block",
+                                                "text-[10px] mt-0 block",
                                                 isCurrentUser ? "text-primary-foreground/70" : "text-muted-foreground"
                                             )}>
-                                                {new Date(comment.createdAt).toLocaleTimeString('en-US', {
-                                                    hour: '2-digit',
-                                                    minute: '2-digit'
-                                                })}
+                                                {formatIST(comment.createdAt, "h:mm a")}
                                                 {comment.isEdited && " • edited"}
                                             </span>
                                         </div>
@@ -169,7 +175,7 @@ export function MessagesTab({
             </div>
 
             {/* Message Input - Sticky at Bottom */}
-            <div className="flex-shrink-0 px-6 py-4 border-t bg-background">
+            <div className="flex-shrink-0 px-4 sm:px-6 py-4 border-t bg-background">
                 <div className="flex items-center gap-3">
                     <Input
                         placeholder="Type your message..."

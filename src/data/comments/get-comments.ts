@@ -19,10 +19,10 @@ async function _getTaskCommentsInternal(taskId: string) {
             user: {
                 select: {
                     id: true,
-                    name: true,
+                    // name: true,
                     surname: true,
-                    email: true,
-                    image: true,
+                    // email: true,
+                    // image: true,
                 },
             },
             replies: {
@@ -33,10 +33,10 @@ async function _getTaskCommentsInternal(taskId: string) {
                     user: {
                         select: {
                             id: true,
-                            name: true,
+                            // name: true,
                             surname: true,
-                            email: true,
-                            image: true,
+                            // email: true,
+                            // image: true,
                         },
                     },
                 },
@@ -94,14 +94,14 @@ async function _getReviewCommentsInternal(subTaskId: string) {
             author: {
                 select: {
                     id: true,
-                    name: true,
+                    // name: true,
                     surname: true,
-                    image: true,
+                    // image: true,
                 },
             },
         },
         orderBy: {
-            createdAt: 'asc',
+            createdAt: 'desc',
         },
     });
 }
@@ -127,8 +127,6 @@ const getCachedReviewComments = (subTaskId: string) =>
  * @returns Array of review comments with author information
  */
 export const getReviewComments = cache(async (subTaskId: string) => {
-    const user = await requireUser();
-
     try {
         return await getCachedReviewComments(subTaskId);
     } catch (error) {

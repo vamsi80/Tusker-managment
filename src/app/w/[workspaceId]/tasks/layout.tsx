@@ -1,43 +1,36 @@
+import { Suspense } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { WorkspaceTasksHeader } from "./_components/workspace-tasks-header";
 import { TaskPageWrapper } from "../_components/shared/task-page-wrapper";
-import { getWorkspaceMetadata } from "@/data/workspace/get-workspace-metadata";
 
 interface Props {
     children: React.ReactNode;
     params: Promise<{ workspaceId: string }>;
 }
 
-/**
- * Workspace Tasks Layout
- * 
- * IMPORTANT: This layout ONLY provides structure.
- * It does NOT fetch business data (tasks, projects, members, etc.)
- * 
- * Data fetching happens in:
- * - page.tsx for initial page data
- * - Individual view components for their specific data
- * - Server Actions for mutations and lazy loading
- */
-export default async function WorkspaceTasksLayout({ children, params }: Props) {
-    console.log("🟢 RSC: tasks/layout.tsx render");
-    const { workspaceId } = await params;
-
-    // Only fetch minimal metadata for access control
-    const workspace = await getWorkspaceMetadata(workspaceId);
-
-    if (!workspace) {
-        return (
-            <div className="p-6">
-                <h1 className="text-2xl font-semibold">Access Denied</h1>
-                <p className="text-muted-foreground">
-                    You don't have permission to access this workspace or it doesn't exist.
-                </p>
+function HeaderSkeleton() {
+    return (
+        <div className="flex items-center justify-between gap-3 mb-4">
+            <Skeleton className="h-7 sm:h-9 w-36 sm:w-52" />
+            <div className="flex items-center gap-1.5 sm:gap-2">
+                <Skeleton className="h-8 sm:h-9 w-20 sm:w-28 rounded-md" />
+                <Skeleton className="h-8 sm:h-9 w-20 sm:w-28 rounded-md" />
             </div>
-        );
-    }
+        </div>
+    );
+}
+
+export default async function WorkspaceTasksLayout({ children, params }: Props) {
+    const { workspaceId } = await params;
 
     return (
         <TaskPageWrapper>
-            {children}
+            <div className="flex flex-col gap-4 pt-0 pb-3 px-0 h-full">
+                <Suspense fallback={<HeaderSkeleton />}>
+                    <WorkspaceTasksHeader workspaceId={workspaceId} />
+                </Suspense>
+                {children}
+            </div>
         </TaskPageWrapper>
     );
 }

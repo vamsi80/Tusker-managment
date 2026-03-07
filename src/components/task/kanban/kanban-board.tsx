@@ -1,26 +1,25 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { SubTasksByStatusResponse, KanbanSubTaskType } from "@/data/task/kanban";
+import { useRef, useState, useEffect } from "react";
+import { SubTasksByStatusResponse, KanbanSubTaskType } from "@/data/task";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 import { cn } from "@/lib/utils";
-import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
+import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 import { createReviewCommentAction } from "@/actions/comment";
 import { toast } from "sonner";
 import { KanbanCard } from "./kanban-card";
 import { KanbanColumn } from "./kanban-column";
-import { useReloadView } from "@/hooks/use-reload-view";
 import { TaskFilters, type ProjectOption, type TagOption } from "../shared/types";
 import { STATUS_COLORS, STATUS_LABELS } from "@/lib/colors/status-colors";
 import { updateSubTaskStatus } from "@/actions/task/kanban/update-subtask-status";
-import { loadMoreSubtasksAction } from "@/actions/task/kanban/load-more-subtasks";
-import { getKanbanBoardDataAction } from "@/actions/task/kanban/get-kanban-board-data";
+import { loadTasksAction } from "@/actions/task/list-actions";
 import { GlobalFilterToolbar, ParentTaskOption } from "../shared/global-filter-toolbar";
 import { KanbanColumnVisibility as KanbanColumnVisibilityType } from "../shared/kanban-column-visibility";
 import { ReviewCommentDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/review-comment-form";
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, pointerWithin, PointerSensor, MouseSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 import { Loader2 } from "lucide-react";
+import { logger } from "@/lib/logger";
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "CANCELLED" | "REVIEW" | "HOLD" | "COMPLETED";
 
@@ -32,6 +31,7 @@ interface KanbanBoardProps {
     projects?: ProjectOption[]; // Optional for workspace-level
     tags?: TagOption[];
     level?: "project" | "workspace"; // Optional, defaults to "project"
+    projectManagers?: Record<string, any>;
 }
 
 const COLUMNS: { id: TaskStatus; title: string; color: string; bgColor: string; borderColor: string }[] = [
@@ -51,14 +51,14 @@ const COLUMNS: { id: TaskStatus; title: string; color: string; bgColor: string; 
         ...STATUS_COLORS.REVIEW,
     },
     {
-        id: "COMPLETED",
-        title: STATUS_LABELS.COMPLETED,
-        ...STATUS_COLORS.COMPLETED,
-    },
-    {
         id: "HOLD",
         title: STATUS_LABELS.HOLD,
         ...STATUS_COLORS.HOLD,
+    },
+    {
+        id: "COMPLETED",
+        title: STATUS_LABELS.COMPLETED,
+        ...STATUS_COLORS.COMPLETED,
     },
     {
         id: "CANCELLED",
@@ -74,72 +74,129 @@ export function KanbanBoard({
     projectId,
     projects,
     tags,
-    level = "project"
+    level = "project",
+    projectManagers
 }: KanbanBoardProps) {
     const setKanbanTasksCache = useTaskCacheStore(state => state.setKanbanTasksCache);
+    const invalidateSubTaskCache = useTaskCacheStore(state => state.invalidateSubTaskCache);
+    const invalidateProjectCache = useTaskCacheStore(state => state.invalidateProjectCache);
 
-    // Sync initial data to cache on mount to populate the unified entity store
-    useEffect(() => {
-        COLUMNS.forEach(col => {
-            const contextId = projectId || "";
-            const cacheKey = `${workspaceId}-${contextId}-${col.id}`;
-            const cached = useTaskCacheStore.getState().getKanbanTasksCache(cacheKey);
+    const renderCount = useRef(0);
+    renderCount.current++;
+    logger.perf("KANBAN_RENDER", 0, { count: renderCount.current });
 
-            if (!cached && initialData[col.id]) {
-                setKanbanTasksCache(cacheKey, {
-                    tasks: initialData[col.id].subTasks,
-                    hasMore: initialData[col.id].hasMore,
-                    page: 1,
-                    totalCount: initialData[col.id].totalCount
-                });
-            }
-        });
-    }, [initialData, projectId, workspaceId, setKanbanTasksCache]);
-
-    // State for each column's data
+    // State for each column's data - INITIALIZE WITH PROPS ONLY FOR HYDRATION SAFETY
     const [columnData, setColumnData] = useState<Record<TaskStatus, {
         subTasks: KanbanSubTaskType[];
         totalCount: number;
         hasMore: boolean;
-        currentPage: number;
+        nextCursor: any;
     }>>(() => {
         const map: any = {};
+        COLUMNS.forEach(col => {
+            map[col.id] = {
+                subTasks: initialData[col.id].subTasks,
+                totalCount: initialData[col.id].totalCount,
+                hasMore: initialData[col.id].hasMore,
+                nextCursor: undefined
+            };
+        });
+        return map;
+    });
+
+    // Hydrate state from cache after mount
+    useEffect(() => {
+        const startTime = performance.now();
+        const upsertTasks = useTaskCacheStore.getState().upsertTasks;
+
+        // 0. IMMEDIATE SYNC: Upsert all initial server data into global entities
+        // ensure we have the freshest versions available for relations and metadata
+        const allInitialTasks = Object.values(initialData).flatMap(d => d.subTasks);
+        if (allInitialTasks.length > 0) {
+            upsertTasks(allInitialTasks);
+        }
+
         const contextId = projectId || "";
+        const hydratedData: any = { ...columnData };
+        let hasChanges = false;
 
         COLUMNS.forEach(col => {
             const cacheKey = `${workspaceId}-${contextId}-${col.id}`;
             const cached = useTaskCacheStore.getState().getKanbanTasksCache(cacheKey);
 
-            // 1. Base Data: From Cache (if exists) or Server Initial
-            let tasks = cached && cached.tasks.length > 0 ? cached.tasks : initialData[col.id].subTasks;
-            let totalCount = cached ? (cached.totalCount ?? 0) : initialData[col.id].totalCount;
-            let hasMore = cached ? cached.hasMore : initialData[col.id].hasMore;
-            let page = cached ? cached.page : 1;
+            // 1. Base Data Strategy:
+            // ALWAYS prefer the list structure from the server (initialData) if it just arrived.
+            // Use cache only for "nextCursor" or if we are navigating back without new props.
+            let tasks = initialData[col.id].subTasks;
 
-            // 2. Workspace Aggregation: Merge cached tasks from ALL projects
+            if (cached && cached.tasks.length > 0) {
+                if (initialData[col.id].totalCount === 0) {
+                    // Server explicitly says there are 0 tasks. DO NOT fallback to stale cache.
+                    tasks = [];
+                } else if (tasks.length > 0 && cached.tasks.length > tasks.length) {
+                    // Cache has MORE items than the server provided page 1.
+                    // Verify if it's the SAME data set by checking if the base IDs match.
+                    const baseIdsMatch = tasks.every((t, i) => cached.tasks[i]?.id === t.id);
+                    if (baseIdsMatch) {
+                        tasks = cached.tasks;
+                    }
+                } else if (tasks.length === 0 && initialData[col.id].totalCount > 0) {
+                    // Edge case: SSR provided 0 tasks but totalCount > 0? Trust the cache.
+                    tasks = cached.tasks;
+                }
+            }
+
+            let totalCount = initialData[col.id].totalCount;
+            let hasMore = initialData[col.id].hasMore;
+            let nextCursor = cached ? cached.nextCursor : undefined;
+
+            // 2. Workspace Aggregation: Merge cached tasks from OTHER projects
             if (level === 'workspace' && projects) {
                 const projectTasks = projects.flatMap(p => {
                     const pKey = `${workspaceId}-${p.id}-${col.id}`;
                     const pCached = useTaskCacheStore.getState().getKanbanTasksCache(pKey);
-                    return pCached && pCached.tasks ? pCached.tasks : [];
+                    // Filter by status to prevent ghosting
+                    return pCached && pCached.tasks ? pCached.tasks.filter((t: any) => t.status === col.id) : [];
                 });
 
                 if (projectTasks.length > 0) {
-                    const seen = new Set(tasks.map((t: any) => t.id));
-                    const newUnique = projectTasks.filter((t: any) => !seen.has(t.id));
-                    tasks = [...tasks, ...newUnique];
+                    const taskMap = new Map();
+                    // Seed with current tasks (server matches)
+                    tasks.forEach((t: any) => taskMap.set(t.id, t));
+
+                    // Merge project-specific tasks not already in the list
+                    projectTasks.forEach((t: any) => {
+                        if (!taskMap.has(t.id)) {
+                            taskMap.set(t.id, t);
+                        }
+                    });
+
+                    tasks = Array.from(taskMap.values());
+                    hasChanges = true;
                 }
             }
 
-            map[col.id] = {
+            hydratedData[col.id] = {
                 subTasks: tasks,
-                totalCount: totalCount,
+                totalCount: totalCount || (cached ? cached.totalCount : 0),
                 hasMore: hasMore,
-                currentPage: page
+                nextCursor: nextCursor
             };
+
+            // Re-sync this column's cache to match the server/merged reality
+            setKanbanTasksCache(cacheKey, {
+                tasks: tasks,
+                hasMore,
+                page: 1,
+                totalCount: hydratedData[col.id].totalCount
+            });
         });
-        return map;
-    });
+
+        setColumnData(hydratedData);
+
+        const duration = performance.now() - startTime;
+        logger.perf("KANBAN_HYDRATION", duration, { workspaceId, projectId, level });
+    }, [projectId, workspaceId, level, projects, initialData]); // initialData as dependency ensures we respond to fresh props
 
     const [loadingColumns, setLoadingColumns] = useState<Record<TaskStatus, boolean>>(
         Object.fromEntries(COLUMNS.map(col => [col.id, false])) as Record<TaskStatus, boolean>
@@ -147,13 +204,14 @@ export function KanbanBoard({
 
     const [activeSubTask, setActiveSubTask] = useState<KanbanSubTaskType | null>(null);
 
-    const { openSubTaskSheet } = useSubTaskSheet();
-    const reloadView = useReloadView();
+    const { openSubTaskSheet } = useSubTaskSheetActions();
+    // const reloadView = useReloadView();
 
     const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
     const [pendingReviewMove, setPendingReviewMove] = useState<{
         subTaskId: string;
         previousStatus: TaskStatus;
+        targetStatus: TaskStatus;
     } | null>(null);
 
     const [filters, setFilters] = useState<TaskFilters>({});
@@ -170,65 +228,135 @@ export function KanbanBoard({
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
-                distance: 8,
+                distance: 3, // Very small distance to trigger drag easily from the handle
             },
         })
     );
 
     const [isFiltering, setIsFiltering] = useState(false);
+    const [isCurrentlyFiltered, setIsCurrentlyFiltered] = useState(false);
 
     // Server-side filtering effect
     useEffect(() => {
+        let isAborted = false;
+
         const timer = setTimeout(async () => {
-            const hasFilters = searchQuery || Object.keys(filters).length > 0;
+            // Check if there are truly any filters active that should bypass the local cache
+            const activeFilterCount = Object.values(filters).filter(v => v !== undefined && v !== "").length;
+            const isBaseProjectView = !searchQuery && (activeFilterCount === 0 || (activeFilterCount === 1 && filters.projectId === projectId));
+            const hasFilters = !isBaseProjectView;
 
             if (!hasFilters) {
-                // Reset to initial unfiltered data (Page 1 Global)
-                setColumnData(Object.fromEntries(COLUMNS.map(col => [col.id, {
-                    subTasks: initialData[col.id].subTasks,
-                    totalCount: initialData[col.id].totalCount,
-                    hasMore: initialData[col.id].hasMore,
-                    currentPage: 1,
-                }])) as Record<TaskStatus, any>);
-                setIsFiltering(false);
+                // Reset to initial unfiltered data ONLY if we were previously filtering
+                if (isCurrentlyFiltered) {
+                    const contextId = projectId || "";
+                    const resetData: any = {};
+
+                    COLUMNS.forEach(col => {
+                        const cacheKey = `${workspaceId}-${contextId}-${col.id}`;
+                        const cached = useTaskCacheStore.getState().getKanbanTasksCache(cacheKey);
+
+                        // Use Cache > InitialData
+                        resetData[col.id] = {
+                            subTasks: cached && cached.tasks.length > 0 ? cached.tasks : initialData[col.id].subTasks,
+                            totalCount: cached ? (cached.totalCount ?? 0) : initialData[col.id].totalCount,
+                            hasMore: cached ? cached.hasMore : initialData[col.id].hasMore,
+                            nextCursor: cached ? cached.nextCursor : undefined,
+                        };
+                    });
+
+                    if (!isAborted) {
+                        setColumnData(resetData);
+                        setIsCurrentlyFiltered(false);
+                        setLoadingColumns(Object.fromEntries(COLUMNS.map(col => [col.id, false])) as any);
+                        setIsFiltering(false);
+                    }
+                } else {
+                    if (!isAborted) setIsFiltering(false);
+                }
                 return;
             }
+
+            if (isAborted) return;
+            setIsCurrentlyFiltered(true);
+
+            // Performance Tracking for Filtering
+            const startTime = performance.now();
 
             // Set loading state
             setLoadingColumns(Object.fromEntries(COLUMNS.map(col => [col.id, true])) as Record<TaskStatus, boolean>);
 
             try {
-                // Fetch filtered Page 1 for all columns in a SINGLE request
-                // optimized for performance (1 roundtrip vs 6)
                 const targetProjectId = filters.projectId || projectId;
 
-                const response = await getKanbanBoardDataAction(
+                const response = await loadTasksAction({
                     workspaceId,
-                    targetProjectId,
-                    {
-                        ...filters,
-                        startDate: filters.startDate ? new Date(filters.startDate).toISOString() : undefined,
-                        endDate: filters.endDate ? new Date(filters.endDate).toISOString() : undefined,
-                        searchQuery
-                    }
-                );
+                    projectId: targetProjectId,
+                    groupBy: "status",
+                    includeSubTasks: true,
+                    excludeParents: true, // ONLY CARDS
+                    limit: 100,
+                    sorts: [{ field: "createdAt", direction: "desc" }],
+                    includeFacets: true,
+                    status: undefined,
+                    startDate: filters.startDate ? new Date(filters.startDate).toISOString() : undefined,
+                    endDate: filters.endDate ? new Date(filters.endDate).toISOString() : undefined,
+                    search: searchQuery,
+                    assigneeId: filters.assigneeId,
+                    tagId: filters.tagId,
+                    filterParentTaskId: filters.parentTaskId,
+                    view_mode: "kanban",
+                });
+
+                if (isAborted) return;
 
                 if (response.success && response.data) {
-                    setColumnData(response.data);
+                    const counts = (response.data.facets as any)?.statusCounts || {};
+                    const groupedData: any = {};
+
+                    COLUMNS.forEach(col => {
+                        const allColTasks = response.data.tasksByStatus[col.id] || [];
+                        // Don't display parent as a card
+                        const colTasks = allColTasks.filter((t: any) => !t.isParent);
+
+                        // Sync entities to global store for updated review counts/metadata
+                        if (colTasks.length > 0) {
+                            useTaskCacheStore.getState().upsertTasks(colTasks);
+                        }
+
+                        const totalForCol = counts[col.id] || colTasks.length;
+                        const hasMore = totalForCol > colTasks.length;
+
+                        groupedData[col.id] = {
+                            subTasks: colTasks,
+                            totalCount: totalForCol,
+                            hasMore,
+                            nextCursor: hasMore ? { id: colTasks[colTasks.length - 1].id, createdAt: colTasks[colTasks.length - 1].createdAt } : null
+                        };
+                    });
+                    setColumnData(groupedData);
+
+                    const duration = performance.now() - startTime;
+                    logger.perf("KANBAN_FILTER_APPLIED", duration, { workspaceId, projectId, search: searchQuery });
                 } else {
                     toast.error("Failed to apply filters");
                 }
             } catch (err) {
                 console.error("Error filtering subtasks", err);
-                toast.error("Failed to apply filters");
+                if (!isAborted) toast.error("Failed to apply filters");
             } finally {
-                setLoadingColumns(Object.fromEntries(COLUMNS.map(col => [col.id, false])) as Record<TaskStatus, boolean>);
-                setIsFiltering(false);
+                if (!isAborted) {
+                    setLoadingColumns(Object.fromEntries(COLUMNS.map(col => [col.id, false])) as Record<TaskStatus, boolean>);
+                    setIsFiltering(false);
+                }
             }
 
         }, 300); // Debounce
 
-        return () => clearTimeout(timer);
+        return () => {
+            isAborted = true;
+            clearTimeout(timer);
+        };
     }, [filters, searchQuery, workspaceId, projectId, initialData]);
 
     const handleFilterChange = (val: TaskFilters) => {
@@ -245,26 +373,31 @@ export function KanbanBoard({
         setLoadingColumns(prev => ({ ...prev, [status]: true }));
 
         try {
-            const nextPage = columnData[status].currentPage + 1;
+            const currentCursor = columnData[status].nextCursor;
             const activeFilters = (searchQuery || Object.keys(filters).length > 0)
                 ? {
                     ...filters,
                     startDate: filters.startDate ? new Date(filters.startDate).toISOString() : undefined,
                     endDate: filters.endDate ? new Date(filters.endDate).toISOString() : undefined,
-                    searchQuery
+                    search: searchQuery
                 }
                 : undefined;
 
             const targetProjectId = filters.projectId || projectId;
 
-            const response = await loadMoreSubtasksAction(
+            const response = await loadTasksAction({
                 workspaceId,
-                status,
-                targetProjectId,
-                nextPage,
-                5,
-                activeFilters
-            );
+                status: [status],
+                projectId: targetProjectId,
+                groupBy: "status",
+                includeSubTasks: true,
+                excludeParents: true, // ONLY CARDS
+                limit: 200,
+                sorts: [{ field: "createdAt", direction: "desc" }],
+                cursor: currentCursor,
+                view_mode: "kanban",
+                ...activeFilters
+            });
 
             if (!response.success) {
                 toast.error(response.error || "Failed to load more subtasks");
@@ -272,13 +405,31 @@ export function KanbanBoard({
             }
 
             setColumnData(prev => {
+                const counts = (response.data.facets as any)?.statusCounts || {};
+                const existingTasks = prev[status].subTasks;
+                const allNewTasks = response.data.tasks || [];
+
+                // STRICT: Only tasks whose status matches AND are not parents
+                const newTasks = allNewTasks.filter((t: any) =>
+                    !t.isParent && t.status === status
+                );
+
+                // Deduplicate using a Map
+                const taskMap = new Map();
+                existingTasks.forEach(t => taskMap.set(t.id, t));
+                newTasks.forEach(t => taskMap.set(t.id, t));
+
+                const deduplicatedTasks = Array.from(taskMap.values());
+                const totalForCol = counts[status] || (prev[status].totalCount ?? 0);
+                const hasMore = totalForCol > deduplicatedTasks.length;
+
                 const newData = {
                     ...prev,
                     [status]: {
-                        subTasks: [...prev[status].subTasks, ...response.data.subTasks],
-                        totalCount: response.data.totalCount,
-                        hasMore: response.data.hasMore,
-                        currentPage: nextPage,
+                        subTasks: deduplicatedTasks,
+                        totalCount: totalForCol,
+                        hasMore,
+                        nextCursor: hasMore ? { id: deduplicatedTasks[deduplicatedTasks.length - 1].id, createdAt: deduplicatedTasks[deduplicatedTasks.length - 1].createdAt } : null,
                     }
                 };
 
@@ -288,10 +439,10 @@ export function KanbanBoard({
                     const contextId = projectId || "";
                     const cacheKey = `${workspaceId}-${contextId}-${status}`;
                     setKanbanTasksCache(cacheKey, {
-                        tasks: newData[status].subTasks,
+                        tasks: deduplicatedTasks,
                         hasMore: response.data.hasMore,
-                        page: nextPage,
-                        totalCount: response.data.totalCount
+                        nextCursor: response.data.nextCursor,
+                        totalCount: response.data.totalCount ?? undefined
                     });
                 }
 
@@ -350,12 +501,13 @@ export function KanbanBoard({
 
         const previousStatus = currentStatus;
 
-        if (newStatus === "REVIEW") {
+        if (newStatus === "REVIEW" || (previousStatus === "REVIEW" && newStatus !== "COMPLETED")) {
             moveSubTaskBetweenColumns(subTaskId, previousStatus, newStatus);
 
             setPendingReviewMove({
                 subTaskId,
                 previousStatus,
+                targetStatus: newStatus,
             });
             setIsReviewDialogOpen(true);
             return;
@@ -369,28 +521,122 @@ export function KanbanBoard({
         fromStatus: TaskStatus,
         toStatus: TaskStatus
     ) => {
-        setColumnData(prev => {
-            const fromTasks = prev[fromStatus].subTasks;
-            const task = fromTasks.find(t => t.id === subTaskId);
+        const fromTasks = columnData[fromStatus].subTasks;
+        const task = fromTasks.find(t => t.id === subTaskId);
 
-            if (!task) return prev;
+        if (!task) return;
 
-            const updatedTask = { ...task, status: toStatus };
+        const updatedTask = { ...task, status: toStatus };
+        const toTasks = columnData[toStatus].subTasks;
 
-            return {
-                ...prev,
-                [fromStatus]: {
-                    ...prev[fromStatus],
-                    subTasks: fromTasks.filter(t => t.id !== subTaskId),
-                    totalCount: prev[fromStatus].totalCount - 1,
-                },
-                [toStatus]: {
-                    ...prev[toStatus],
-                    subTasks: [updatedTask, ...prev[toStatus].subTasks],
-                    totalCount: prev[toStatus].totalCount + 1,
+        // Ensure we don't add a duplicate if it already exists in the target column
+        const alreadyInTarget = toTasks.some(t => t.id === subTaskId);
+
+        const newFromTasks = fromTasks.filter(t => t.id !== subTaskId);
+        const newToTasks = alreadyInTarget ? toTasks : [updatedTask, ...toTasks];
+
+        const newFromCount = columnData[fromStatus].totalCount - 1;
+        const newToCount = alreadyInTarget ? columnData[toStatus].totalCount : columnData[toStatus].totalCount + 1;
+
+        setColumnData(prev => ({
+            ...prev,
+            [fromStatus]: {
+                ...prev[fromStatus],
+                subTasks: newFromTasks,
+                totalCount: newFromCount,
+            },
+            [toStatus]: {
+                ...prev[toStatus],
+                subTasks: newToTasks,
+                totalCount: newToCount,
+            }
+        }));
+
+        // Update Cache (only if no filters) to maintain consistency across re-renders/syncs
+        const isFiltered = searchQuery || Object.keys(filters).length > 0;
+        if (!isFiltered) {
+            const contextId = projectId || "";
+            const fromCacheKey = `${workspaceId}-${contextId}-${fromStatus}`;
+            const toCacheKey = `${workspaceId}-${contextId}-${toStatus}`;
+
+            setKanbanTasksCache(fromCacheKey, {
+                tasks: newFromTasks,
+                hasMore: columnData[fromStatus].hasMore,
+                nextCursor: columnData[fromStatus].nextCursor,
+                totalCount: newFromCount
+            });
+
+            setKanbanTasksCache(toCacheKey, {
+                tasks: newToTasks,
+                hasMore: columnData[toStatus].hasMore,
+                nextCursor: columnData[toStatus].nextCursor,
+                totalCount: newToCount
+            });
+
+            // CROSS-CONTEXT SYNC: Bidirectional sync between workspace and project caches
+            const taskProjectId = (task as any).projectId || getTaskProjectId(subTaskId);
+
+            if (!contextId && taskProjectId) {
+                // We are in Workspace view -> Update Project caches
+                const pFromKey = `${workspaceId}-${taskProjectId}-${fromStatus}`;
+                const pToKey = `${workspaceId}-${taskProjectId}-${toStatus}`;
+
+                // Update Project "From" Column
+                const pFromCached = useTaskCacheStore.getState().getKanbanTasksCache(pFromKey);
+                if (pFromCached) {
+                    setKanbanTasksCache(pFromKey, {
+                        ...pFromCached,
+                        tasks: pFromCached.tasks.filter(t => t.id !== subTaskId),
+                        totalCount: Math.max(0, (pFromCached.totalCount || 1) - 1)
+                    });
                 }
-            };
-        });
+
+                // Update Project "To" Column
+                const pToCached = useTaskCacheStore.getState().getKanbanTasksCache(pToKey);
+                if (pToCached) {
+                    setKanbanTasksCache(pToKey, {
+                        ...pToCached,
+                        tasks: [updatedTask, ...pToCached.tasks.filter(t => t.id !== subTaskId)],
+                        totalCount: (pToCached.totalCount || 0) + 1
+                    });
+                }
+            } else if (contextId) {
+                // We are in Project view -> Update Workspace caches
+                const wFromKey = `${workspaceId}--${fromStatus}`;
+                const wToKey = `${workspaceId}--${toStatus}`;
+
+                // Update Workspace "From" Column
+                const wFromCached = useTaskCacheStore.getState().getKanbanTasksCache(wFromKey);
+                if (wFromCached) {
+                    setKanbanTasksCache(wFromKey, {
+                        ...wFromCached,
+                        tasks: wFromCached.tasks.filter(t => t.id !== subTaskId),
+                        totalCount: Math.max(0, (wFromCached.totalCount || 1) - 1)
+                    });
+                }
+
+                // Update Workspace "To" Column
+                const wToCached = useTaskCacheStore.getState().getKanbanTasksCache(wToKey);
+                if (wToCached) {
+                    setKanbanTasksCache(wToKey, {
+                        ...wToCached,
+                        tasks: [updatedTask, ...wToCached.tasks.filter(t => t.id !== subTaskId)],
+                        totalCount: (wToCached.totalCount || 0) + 1
+                    });
+                }
+            }
+        }
+
+        // CRITICAL: Invalidate the subtask list cache for the parent task 
+        // and the project list cache to ensure List view sync
+        if (task.parentTaskId) {
+            invalidateSubTaskCache(task.parentTaskId);
+        }
+        if ('projectId' in task && (task as any).projectId) {
+            invalidateProjectCache((task as any).projectId);
+        } else if (projectId) {
+            invalidateProjectCache(projectId);
+        }
     };
 
     const getTaskProjectId = (subTaskId: string) => {
@@ -430,7 +676,7 @@ export function KanbanBoard({
                     id: toastId,
                 });
 
-                reloadView();
+                // reloadView();
             } else {
                 moveSubTaskBetweenColumns(subTaskId, newStatus, previousStatus);
 
@@ -494,14 +740,16 @@ export function KanbanBoard({
                 comment,
                 workspaceId,
                 targetProjectId,
-                attachmentData
+                attachmentData,
+                pendingReviewMove.previousStatus,
+                pendingReviewMove.targetStatus
             );
 
             if (!reviewResult.success) {
                 // Rollback
                 moveSubTaskBetweenColumns(
                     pendingReviewMove.subTaskId,
-                    "REVIEW",
+                    pendingReviewMove.targetStatus,
                     pendingReviewMove.previousStatus
                 );
                 toast.error(reviewResult.error || "Failed to create review comment");
@@ -511,7 +759,7 @@ export function KanbanBoard({
 
             await performStatusUpdate(
                 pendingReviewMove.subTaskId,
-                "REVIEW",
+                pendingReviewMove.targetStatus,
                 pendingReviewMove.previousStatus,
                 reviewResult.reviewCommentId
             );
@@ -522,7 +770,7 @@ export function KanbanBoard({
             if (pendingReviewMove) {
                 moveSubTaskBetweenColumns(
                     pendingReviewMove.subTaskId,
-                    "REVIEW",
+                    pendingReviewMove.targetStatus,
                     pendingReviewMove.previousStatus
                 );
             }
@@ -535,7 +783,7 @@ export function KanbanBoard({
         if (pendingReviewMove) {
             moveSubTaskBetweenColumns(
                 pendingReviewMove.subTaskId,
-                "REVIEW",
+                pendingReviewMove.targetStatus,
                 pendingReviewMove.previousStatus
             );
             setPendingReviewMove(null);
@@ -561,11 +809,18 @@ export function KanbanBoard({
         ).values()
     );
 
-    const memberOptions = projectMembers.map(member => ({
-        id: member.workspaceMember.user.id,
-        name: member.workspaceMember.user.name,
-        surname: member.workspaceMember.user.surname || undefined,
-    }));
+    const memberOptions = Array.from(
+        new Map(
+            projectMembers.map(member => [
+                member.workspaceMember.user.id,
+                {
+                    id: member.workspaceMember.user.id,
+                    // name: member.workspaceMember.user.name,
+                    surname: member.workspaceMember.user.surname || undefined,
+                }
+            ])
+        ).values()
+    );
 
     // Bi-directional filtering logic
     const filteredProjects = projects?.filter(p =>
@@ -579,7 +834,7 @@ export function KanbanBoard({
     });
 
     return (
-        <>
+        <div className="space-y-4">
             <GlobalFilterToolbar
                 level={level}
                 view="kanban"
@@ -602,10 +857,11 @@ export function KanbanBoard({
 
             <DndContext
                 sensors={sensors}
-                collisionDetection={closestCorners}
+                collisionDetection={pointerWithin}
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
                 onDragCancel={handleDragCancel}
+                autoScroll={true}
             >
                 <div className="relative">
                     {/* Loading Overlay */}
@@ -618,7 +874,8 @@ export function KanbanBoard({
                         </div>
                     )}
                     <div className={cn(
-                        "flex gap-4 h-[calc(100vh-280px)] overflow-x-auto pb-2 mt-0",
+                        "flex gap-4 overflow-x-auto pb-2",
+                        level === "workspace" ? "h-[70vh] mt-0" : "h-[65vh]",
                         // Custom horizontal scrollbar
                         "[&::-webkit-scrollbar]:h-2",
                         "[&::-webkit-scrollbar-track]:rounded-full",
@@ -638,6 +895,7 @@ export function KanbanBoard({
                                     isLoadingMore={loadingColumns[column.id]}
                                     onSubTaskClick={handleSubTaskClick}
                                     onLoadMore={() => handleLoadMore(column.id)}
+                                    projectManagers={projectManagers}
                                 />
                             );
                         })}
@@ -659,13 +917,13 @@ export function KanbanBoard({
                 isOpen={isReviewDialogOpen}
                 onClose={handleReviewCommentCancel}
                 onSubmit={handleReviewCommentSubmit}
-                subTaskName={
-                    pendingReviewMove
-                        ? COLUMNS.flatMap(col => columnData[col.id].subTasks)
-                            .find((st) => st.id === pendingReviewMove.subTaskId)?.name || "Subtask"
-                        : "Subtask"
-                }
+                subTaskName={(() => {
+                    const move = pendingReviewMove;
+                    if (!move) return "Subtask";
+                    return COLUMNS.flatMap(col => columnData[col.id].subTasks)
+                        .find((st) => st.id === move.subTaskId)?.name || "Subtask";
+                })()}
             />
-        </>
+        </div>
     );
 }

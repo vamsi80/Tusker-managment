@@ -1,19 +1,15 @@
 "use server";
 
 import prisma from "@/lib/db";
-import { requireUser } from "@/lib/auth/require-user";
 
 export type ProjectReviewer = {
-    id: string; // userId
-    name: string;
-    image: string | null;
-    role: string; // "Owner", "Admin", "Project Manager", "Lead"
+    id: string;
+    surname: string;
+    role: string;
 };
 
 export async function getProjectReviewers(projectId: string): Promise<ProjectReviewer[]> {
-    const user = await requireUser();
 
-    // 1. Get project with workspaceId to check workspace roles
     const project = await prisma.project.findUnique({
         where: { id: projectId },
         select: { workspaceId: true }
@@ -21,14 +17,6 @@ export async function getProjectReviewers(projectId: string): Promise<ProjectRev
 
     if (!project) return [];
 
-    // 2. Fetch all members of the workspace who have access to this project
-    // We want to include:
-    // - Workspace OWNER/ADMIN (implicit access)
-    // - Project PROJECT_MANAGER/LEAD
-
-    // We can fetch from WorkspaceMember joined with ProjectMember
-
-    // Fetch Workspace Members who are Owner/Admin
     const admins = await prisma.workspaceMember.findMany({
         where: {
             workspaceId: project.workspaceId,
@@ -37,7 +25,6 @@ export async function getProjectReviewers(projectId: string): Promise<ProjectRev
         include: { user: true }
     });
 
-    // Fetch Project Members who are PM/Lead
     const projectLeaders = await prisma.projectMember.findMany({
         where: {
             projectId: projectId,
@@ -50,35 +37,27 @@ export async function getProjectReviewers(projectId: string): Promise<ProjectRev
         }
     });
 
-    // Combine and deduplicate
     const reviewerMap = new Map<string, ProjectReviewer>();
 
-    // Add Admins
     admins.forEach(m => {
         reviewerMap.set(m.userId, {
             id: m.userId,
-            name: m.user.name,
-            image: m.user.image,
-            role: m.workspaceRole // OWNER or ADMIN
+            surname: m.user.surname || "",
+            role: m.workspaceRole
         });
     });
 
-    // Add Project Leaders (override role with project role if they are not admin, or keep admin?)
-    // Actually Admin role is higher.
     projectLeaders.forEach(pm => {
         const userId = pm.workspaceMember.userId;
         const current = reviewerMap.get(userId);
 
-        // If not already added (as Admin), add as PM/Lead
         if (!current) {
             reviewerMap.set(userId, {
                 id: userId,
-                name: pm.workspaceMember.user.name,
-                image: pm.workspaceMember.user.image,
-                role: pm.projectRole // PROJECT_MANAGER or LEAD
+                surname: pm.workspaceMember.user.surname || "",
+                role: pm.projectRole
             });
         }
     });
-
     return Array.from(reviewerMap.values());
 }

@@ -26,9 +26,19 @@ export type WorkspacesResult = {
     totalCount: number;
 };
 
-/**
- * Internal function that fetches all workspaces for a user
- */
+const WORKSPACES_MEMORY_CACHE = new Map<string, { data: any, timestamp: number }>();
+const MEMORY_TTL = 30000; // 30 seconds
+
+function getMemoryWorkspaces(key: string) {
+    const cached = WORKSPACES_MEMORY_CACHE.get(key);
+    if (cached && Date.now() - cached.timestamp < MEMORY_TTL) return cached.data;
+    return null;
+}
+
+function setMemoryWorkspaces(key: string, data: any) {
+    WORKSPACES_MEMORY_CACHE.set(key, { data, timestamp: Date.now() });
+    if (WORKSPACES_MEMORY_CACHE.size > 100) WORKSPACES_MEMORY_CACHE.clear();
+}
 async function _fetchWorkspacesInternal(userId: string): Promise<WorkspacesResult> {
     // Fetch user's workspace memberships
     const workspaceMemberships = await prisma.workspaceMember.findMany({
@@ -78,15 +88,34 @@ async function _fetchWorkspacesInternal(userId: string): Promise<WorkspacesResul
 /**
  * Cached version with Next.js unstable_cache
  */
-const getCachedWorkspaces = (userId: string) =>
-    unstable_cache(
+const getCachedWorkspaces = (userId: string, bypass: boolean) => {
+    const cacheKey = `user-workspaces-${userId}`;
+
+    // 1. Memory
+    const memory = getMemoryWorkspaces(cacheKey);
+    if (memory) return Promise.resolve(memory);
+
+    // 2. Bypass
+    if (bypass) {
+        return _fetchWorkspacesInternal(userId).then(res => {
+            setMemoryWorkspaces(cacheKey, res);
+            return res;
+        });
+    }
+
+    // 3. Disk
+    return unstable_cache(
         async () => _fetchWorkspacesInternal(userId),
-        [`user-workspaces-${userId}`],
+        [cacheKey],
         {
             tags: CacheTags.userWorkspaces(userId),
             revalidate: 60, // 1 minute
         }
-    )();
+    )().then(res => {
+        setMemoryWorkspaces(cacheKey, res);
+        return res;
+    });
+};
 
 /**
  * Public function — returns all workspaces for the current authenticated user
@@ -106,15 +135,15 @@ const getCachedWorkspaces = (userId: string) =>
  *   console.log(`${ws.name} - Role: ${ws.workspaceRole}`);
  * });
  */
-export const getWorkspaces = cache(async (): Promise<WorkspacesResult> => {
+export const getWorkspaces = cache(async (providedUserId?: string): Promise<WorkspacesResult> => {
     // Ensure authenticated user
-    const user = await requireUser();
-    if (!user?.id) {
+    const userId = providedUserId || (await requireUser()).id;
+    if (!userId) {
         return notFound();
     }
 
-    // Fetch workspaces (cached)
-    const result = await getCachedWorkspaces(user.id);
+    // Fetch workspaces (cached with bypass support)
+    const result = await getCachedWorkspaces(userId, !!providedUserId);
 
     return result;
 });

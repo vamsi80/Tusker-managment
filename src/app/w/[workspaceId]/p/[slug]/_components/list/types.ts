@@ -1,5 +1,5 @@
 import { WorkspaceTaskType } from "@/data/task";
-import { SubTaskType } from "@/data/task/list/get-subtasks";
+import { WorkspaceTaskType as SubTaskType } from "@/data/task";
 
 export type TaskWithSubTasks = WorkspaceTaskType & {
     subTasks?: SubTaskType[];

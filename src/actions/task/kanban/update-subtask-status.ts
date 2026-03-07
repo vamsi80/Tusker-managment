@@ -77,25 +77,15 @@ export async function updateSubTaskStatus(
             where: { id: subTaskId },
             select: {
                 id: true,
-                projectId: true, // ADDED
-                parentTaskId: true, // ADDED
+                projectId: true,
+                parentTaskId: true,
                 name: true,
                 status: true,
                 description: true,
-                tag: true,
                 startDate: true,
                 days: true,
-                isPinned: true,
-                assignee: {
-                    select: {
-                        id: true,
-                    },
-                },
-                parentTask: {
-                    select: {
-                        projectId: true,
-                    },
-                },
+                createdById: true,
+                assigneeTo: true,      // FK — avoids JOIN
             },
         });
 
@@ -107,7 +97,6 @@ export async function updateSubTaskStatus(
         }
 
         // 6. Verify subtask belongs to the project
-        // CHANGED: Use direct projectId from subTask
         if (subTask.projectId !== projectId) {
             return {
                 success: false,
@@ -116,28 +105,101 @@ export async function updateSubTaskStatus(
         }
 
         // 7. Check if user is authorized to move this card
-        const isAssignee = subTask.assignee?.id === permissions.workspaceMember.userId;
-        const isAdminOrLead = permissions.isWorkspaceAdmin || permissions.isProjectLead;
+        // 7. Check if user is authorized to edit this task (move/update)
+        const isWorkspaceAdmin = permissions.isWorkspaceAdmin;
+        const isProjectManager = permissions.isProjectManager;
+        const isProjectLead = permissions.isProjectLead;
+        const isCreator = subTask.createdById === user.id;
+        const isAssignee = subTask.assigneeTo === user.id;
 
-        if (!isAssignee && !isAdminOrLead) {
+        // Basic Authorization check
+        if (!isWorkspaceAdmin && !isProjectManager) {
+            if (isProjectLead) {
+                // Leads can edit tasks they created OR tasks assigned to them
+                if (!isCreator && !isAssignee) {
+                    return {
+                        success: false,
+                        error: "As a Project Lead, you can only update tasks you created or are assigned to. Only the Project Manager can update any task in this project.",
+                    };
+                }
+            } else {
+                // Members/Regular users can only move tasks they created or are assigned to
+                if (!isCreator && !isAssignee) {
+                    return {
+                        success: false,
+                        error: "You can only update tasks that you created or are assigned to.",
+                    };
+                }
+            }
+        }
+
+        // 8. Role-based Status Transition Restrictions (Hierarchy Rule)
+        // Restrict ANY move if assigned to a superior (PM tasks Admin-only, Lead tasks PM/Admin-only)
+        let assigneeRole: string | null = null;
+        if (subTask.assigneeTo) {
+            const assigneeMember = await prisma.projectMember.findFirst({
+                where: {
+                    projectId: projectId,
+                    workspaceMember: { userId: subTask.assigneeTo }
+                },
+                select: { projectRole: true }
+            });
+            assigneeRole = assigneeMember?.projectRole || "MEMBER";
+        }
+
+        if (assigneeRole === "PROJECT_MANAGER") {
+            if (!isWorkspaceAdmin) {
+                return {
+                    success: false,
+                    error: "Only a Workspace Admin can move a task assigned to a Project Manager",
+                };
+            }
+        } else if (assigneeRole === "LEAD") {
+            if (!isWorkspaceAdmin && !isProjectManager) {
+                return {
+                    success: false,
+                    error: "Only a Workspace Admin or Project Manager can move a task assigned to a Lead.",
+                };
+            }
+        }
+
+        const privilegedStatuses = ["COMPLETED", "CANCELLED", "HOLD"];
+        if (privilegedStatuses.includes(newStatus)) {
+            // Additional privileged status logic (if any) could go here
+        }
+
+        // 9. Status Transition Validation
+        // PREVENT REVIEW TO REVIEW
+        if (subTask.status === "REVIEW" && newStatus === "REVIEW") {
             return {
                 success: false,
-                error: "You are not authorized to move this card. Only the assignee, project admin, or project lead can move cards.",
+                error: "This task is already in review. You cannot move a task from Review back to Review.",
             };
         }
 
-        // 8. Check restricted status transitions
-        const restrictedStatuses: TaskStatus[] = ["COMPLETED", "CANCELLED", "HOLD"];
-        if (restrictedStatuses.includes(newStatus) && !isAdminOrLead) {
-            return {
-                success: false,
-                error: `You are not authorized to move this card to ${newStatus} status. Only admins and leads can move cards to this status.`,
-            };
+        // FROM REVIEW -> ANYWHERE EXCEPT COMPLETED
+        if (subTask.status === "REVIEW" && newStatus !== "COMPLETED") {
+            // Require a comment for rejecting/sending back from review
+            if (!reviewCommentId) {
+                return {
+                    success: false,
+                    error: "A comment is required when rejecting or moving a task out of Review status (unless it is being Completed).",
+                };
+            }
+
+            // Verify the review comment exists and belongs to this subtask
+            const reviewComment = await prisma.reviewComment.findUnique({
+                where: { id: reviewCommentId },
+                select: { id: true, subTaskId: true },
+            });
+
+            if (!reviewComment || reviewComment.subTaskId !== subTaskId) {
+                return { success: false, error: "Invalid review comment" };
+            }
         }
 
-        // 9. Validate review comment for REVIEW status
+        // MOVING TO REVIEW (Requires Comment)
         if (newStatus === "REVIEW") {
-            // Check if a review comment was provided
             if (!reviewCommentId) {
                 return {
                     success: false,
@@ -148,28 +210,15 @@ export async function updateSubTaskStatus(
             // Verify the review comment exists and belongs to this subtask
             const reviewComment = await prisma.reviewComment.findUnique({
                 where: { id: reviewCommentId },
-                select: {
-                    id: true,
-                    subTaskId: true,
-                },
+                select: { id: true, subTaskId: true },
             });
 
-            if (!reviewComment) {
-                return {
-                    success: false,
-                    error: "Invalid review comment",
-                };
-            }
-
-            if (reviewComment.subTaskId !== subTaskId) {
-                return {
-                    success: false,
-                    error: "Review comment does not belong to this subtask",
-                };
+            if (!reviewComment || reviewComment.subTaskId !== subTaskId) {
+                return { success: false, error: "Invalid review comment" };
             }
         }
 
-        // 10. Don't update if status hasn't changed
+        // 10. Don't update if status hasn't changed (generic check for non-REVIEW statuses)
         if (subTask.status === newStatus) {
             return {
                 success: true,
