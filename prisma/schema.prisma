@@ -164,10 +164,9 @@ model Project {
   procurementTasks ProcurementTask[]
   purchaseOrders   PurchaseOrder[]
 
-  @@index([workspaceId])
+  @@index([workspaceId, slug])
   @@index([workspaceId, createdAt])
   @@index([workspaceId, createdBy])
-  @@index([slug])
 }
 
 model ProjectMember {

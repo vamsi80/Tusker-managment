@@ -21,8 +21,7 @@ export default async function ReportsPage({
     const { workspaceMembers } = await getWorkspaceMembers(workspaceId);
     const search = await searchParams;
     // Check if user is an admin or manager to allow visibility of other reports
-    const isManager = workspaceMember.workspaceRole === "MANAGER";
-    const canManageReports = isWorkspaceAdmin || isManager;
+    const canManageReports = isWorkspaceAdmin;
 
     // Optional date filter - use UTC midnight to be timezone agnostic
     const dateQuery = search.date ? new Date(`${search.date}T00:00:00Z`) : undefined;
@@ -39,8 +38,8 @@ export default async function ReportsPage({
         include: {
             user: {
                 select: {
+                    id: true,
                     surname: true,
-                    email: true,
                 }
             },
             entries: {
@@ -82,7 +81,7 @@ export default async function ReportsPage({
         if (report.status === "ABSENT" || report.status === "NOT_SUBMITTED") {
             rows.push({
                 id: `${report.status.toLowerCase()}-${report.id}`,
-                reportId: report.id,
+                userId: report.userId,
                 user: report.user,
                 status: report.status,
                 submittedAt: null,
@@ -94,7 +93,7 @@ export default async function ReportsPage({
         } else if (report.entries.length === 0) {
             rows.push({
                 id: `empty-${report.id}`,
-                reportId: report.id,
+                userId: report.userId,
                 user: report.user,
                 status: report.status,
                 submittedAt: report.submittedAt,
@@ -106,7 +105,7 @@ export default async function ReportsPage({
         } else {
             rows.push({
                 id: report.id,
-                reportId: report.id,
+                userId: report.userId,
                 user: report.user,
                 status: report.status,
                 submittedAt: report.submittedAt,
@@ -134,6 +133,7 @@ export default async function ReportsPage({
                 initialDate={search.date}
                 initialUserId={search.userId}
                 isAdmin={canManageReports}
+                currentUserId={workspaceMember.userId}
             />
         </div>
     );
