@@ -25,10 +25,11 @@ export async function submitDailyReport(values: DailyReportFormType) {
         throw new Error(validation.error.issues[0].message);
     }
 
-    const { workspaceId, entries } = validation.data;
+    const { workspaceId, entries, date: clientDate } = validation.data;
 
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
+    // Use UTC midnight for the provided client date
+    const startOfDay = clientDate ? new Date(`${clientDate}T00:00:00Z`) : new Date();
+    if (!clientDate) startOfDay.setUTCHours(0, 0, 0, 0);
 
     await prisma.$transaction(async (tx: any) => {
         let report = await tx.dailyReport.findUnique({

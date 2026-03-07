@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { X, Filter, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type TaskFilters, type ViewLevel, type ViewType, type ProjectOption, type MemberOption, type TagOption, getFilterConfig, getActiveFilters } from "./types";
-import { format } from "date-fns";
+import { formatIST } from "@/lib/utils";
 import { DateRange, RangeKeyDict } from "react-date-range";
 import "react-date-range/dist/styles.css"; // main style file
 import "react-date-range/dist/theme/default.css"; // theme css file
@@ -210,7 +210,7 @@ export function GlobalFilterToolbar({
             try {
                 return {
                     ...filter,
-                    value: format(new Date(filter.value), "yyyy-MM-dd")
+                    value: formatIST(filter.value, "yyyy-MM-dd")
                 };
             } catch (e) {
                 return filter;
@@ -334,12 +334,12 @@ export function GlobalFilterToolbar({
                                                         <span className="truncate">
                                                             {filters.startDate && filters.endDate ? (
                                                                 <>
-                                                                    {format(new Date(filters.startDate), "dd MMM")} - {format(new Date(filters.endDate), "dd MMM")}
+                                                                    {formatIST(filters.startDate, "dd MMM")} - {formatIST(filters.endDate, "dd MMM")}
                                                                 </>
                                                             ) : filters.startDate ? (
-                                                                <>From: {format(new Date(filters.startDate), "dd MMM")}</>
+                                                                <>From: {formatIST(filters.startDate, "dd MMM")}</>
                                                             ) : filters.endDate ? (
-                                                                <>To: {format(new Date(filters.endDate), "dd MMM")}</>
+                                                                <>To: {formatIST(filters.endDate, "dd MMM")}</>
                                                             ) : (
                                                                 "Pick dates"
                                                             )}

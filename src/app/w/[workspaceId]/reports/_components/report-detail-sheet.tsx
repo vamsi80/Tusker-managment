@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { format } from "date-fns";
+import { formatIST } from "@/lib/utils";
 import {
     Sheet,
     SheetContent,
@@ -50,7 +50,7 @@ export function ReportDetailModal({ isOpen, onOpenChange, report }: ReportDetail
                         <span>Work Report Details</span>
                     </SheetTitle>
                     <SheetDescription className="text-sm">
-                        For {report.date ? format(new Date(report.date), "MMMM d, yyyy") : "-"}
+                        For {report.date ? formatIST(report.date, "MMMM d, yyyy") : "-"}
                     </SheetDescription>
                 </SheetHeader>
 
@@ -131,7 +131,7 @@ export function ReportDetailModal({ isOpen, onOpenChange, report }: ReportDetail
                                                 <div className="flex items-center gap-2 font-normal text-sm bg-primary/5 w-fit px-4 py-2 rounded-xl border border-primary/10">
                                                     <Clock className="h-4 w-4" />
                                                     <span>
-                                                        {entries[currentEntryIndex].createdAt ? format(new Date(entries[currentEntryIndex].createdAt), "h:mm:ss a") : "Time unknown"}
+                                                        {entries[currentEntryIndex].createdAt ? formatIST(entries[currentEntryIndex].createdAt, "h:mm:ss a") : "Time unknown"}
                                                     </span>
                                                 </div>
                                             </div>
@@ -153,7 +153,7 @@ export function ReportDetailModal({ isOpen, onOpenChange, report }: ReportDetail
                                                 <div className="flex items-center gap-2 font-normal text-sm bg-primary/5 w-fit px-4 py-2 rounded-xl border border-primary/10">
                                                     <Clock className="h-4 w-4" />
                                                     <span>
-                                                        {entries[currentEntryIndex].createdAt ? format(new Date(entries[currentEntryIndex].createdAt), "h:mm:ss a") : "Time unknown"}
+                                                        {entries[currentEntryIndex].createdAt ? formatIST(entries[currentEntryIndex].createdAt, "h:mm:ss a") : "Time unknown"}
                                                     </span>
                                                 </div>
                                             </div>

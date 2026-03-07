@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, formatIST } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { TabsContent } from "@/components/ui/tabs";
@@ -161,10 +161,7 @@ export function MessagesTab({
                                                 "text-[10px] mt-0 block",
                                                 isCurrentUser ? "text-primary-foreground/70" : "text-muted-foreground"
                                             )}>
-                                                {new Date(comment.createdAt).toLocaleTimeString('en-US', {
-                                                    hour: '2-digit',
-                                                    minute: '2-digit'
-                                                })}
+                                                {formatIST(comment.createdAt, "h:mm a")}
                                                 {comment.isEdited && " • edited"}
                                             </span>
                                         </div>
