@@ -6,14 +6,14 @@ import { TaskRow } from "./task-row";
 import { ProjectRow } from "./project-row";
 import { Button } from "@/components/ui/button";
 import { ProjectOption } from "../shared/types";
+import { exportGanttToExcel } from "./export-utils";
 import { GanttTask, TimelineGranularity } from "./types";
-import { updateSubtaskPositions } from "@/actions/task/gantt";
 import { TimelineHeader, TimelineGrid } from "./timeline-grid";
 import { calculateTimelineRange, getDaysBetween } from "./utils";
 import { useState, useMemo, useTransition, useEffect, useRef } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Calendar, ChevronDown, Folder, Download } from "lucide-react";
-import { exportGanttToExcel } from "./export-utils";
+import { Calendar, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Folder, Download } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface GanttChartProps {
     tasks: GanttTask[];
@@ -28,6 +28,12 @@ interface GanttChartProps {
     hasMore?: boolean;
     onLoadMore?: () => void;
     projectCounts?: Record<string, number>;
+    currentUser?: { id: string };
+    permissions?: {
+        isWorkspaceAdmin: boolean;
+        leadProjectIds: string[];
+        managedProjectIds: string[];
+    };
 }
 
 const ITEMS_PER_PAGE = 50;
@@ -42,12 +48,13 @@ export function GanttChart({
     showProjectFilter,
     projects,
     groupByProject = false,
-    projectCounts
+    projectCounts,
+    currentUser,
+    permissions
 }: GanttChartProps & { groupByProject?: boolean }) {
     const [granularity, setGranularity] = useState<TimelineGranularity>('days');
     const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
     const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
-    const [isPending, startTransition] = useTransition();
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     // Pagination State
@@ -71,6 +78,23 @@ export function GanttChart({
         }
     }, [groupByProject]); // Reduced dependency to just grouping mode
 
+    // 🚀 Performance: Virtualization & Windowing
+    const [scrollX, setScrollX] = useState(0);
+    const [viewportWidth, setViewportWidth] = useState(1200);
+
+    const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+        setScrollX(e.currentTarget.scrollLeft);
+    };
+
+    // Track viewport size for horizontal clipping
+    useEffect(() => {
+        if (!scrollContainerRef.current) return;
+        const updateWidth = () => setViewportWidth(scrollContainerRef.current?.clientWidth || 1200);
+        updateWidth();
+        window.addEventListener('resize', updateWidth);
+        return () => window.removeEventListener('resize', updateWidth);
+    }, []);
+
     const timelineRange = useMemo(() => calculateTimelineRange(tasks), [tasks]);
     const totalDays = useMemo(
         () => getDaysBetween(timelineRange.start, timelineRange.end),
@@ -86,7 +110,6 @@ export function GanttChart({
         tasks.forEach(task => {
             if (task.projectId) {
                 if (!groups.has(task.projectId)) {
-                    // Try to find project info from props or task
                     const projectFromProps = projects?.find(p => p.id === task.projectId);
                     groups.set(task.projectId, {
                         name: projectFromProps?.name || task.projectName || "Unknown Project",
@@ -101,6 +124,8 @@ export function GanttChart({
         });
 
         const allGroups = Array.from(groups.entries());
+        // 🚀 Optimization: Keep only first 100 projects initially to prevent DOM explosion
+        // User can still scroll to Load More.
         const paginatedGroups = allGroups.slice(0, visibleProjectCount).map(([pid, group]) => {
             const limit = visibleTasksPerProject.get(pid) || ITEMS_PER_PAGE;
             return {
@@ -169,7 +194,7 @@ export function GanttChart({
     useEffect(() => {
         if (!scrollContainerRef.current) return;
 
-        // Auto-scroll logic
+        // Auto-scroll logic — only runs on mount or granularity change
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
@@ -180,7 +205,8 @@ export function GanttChart({
         const scrollPosition = Math.max(0, todayPosition - containerWidth / 2 + 200);
 
         scrollContainerRef.current.scrollLeft = scrollPosition;
-    }, [timelineRange, granularity]);
+        setScrollX(scrollPosition); // Sync initial scroll state
+    }, [granularity]); // Only on granularity
 
     const toggleTask = (taskId: string) => {
         setExpandedTasks((prev) => {
@@ -225,45 +251,6 @@ export function GanttChart({
         toast.success("Gantt chart exported! Upload this file to spreadsheet to see dynamic chart.");
     };
 
-    const handleSubtaskReorder = (taskId: string, subtaskIds: string[]) => {
-        if (!workspaceId) {
-            toast.error("Cannot save changes - missing workspace information");
-            return;
-        }
-
-        // For project ID, we need to be careful. 
-        // If we are in workspace view, we might need the task's project ID.
-        // However, the action likely expects the subtask's project.
-        // Let's find the task to get its project ID if projectId prop is missing.
-        let targetProjectId = projectId;
-        if (!targetProjectId) {
-            const task = tasks.find(t => t.id === taskId);
-            targetProjectId = task?.projectId;
-        }
-
-        if (!targetProjectId) {
-            toast.error("Cannot save changes - missing project information");
-            return;
-        }
-
-        const toastId = toast.loading("Updating subtask order...");
-
-        startTransition(async () => {
-            const updates = subtaskIds.map((id, index) => ({
-                subtaskId: id,
-                newPosition: index
-            }));
-
-            const result = await updateSubtaskPositions(taskId, targetProjectId!, workspaceId, updates);
-
-            if (result.success) {
-                toast.success("Subtask order updated successfully", { id: toastId });
-            } else {
-                toast.error(result.message || "Failed to update subtask order", { id: toastId });
-            }
-        });
-    };
-
     if (tasks.length === 0) {
         return (
             <div className={cn("flex flex-col items-center justify-center h-96 border-2 border-dashed rounded-lg", className)}>
@@ -277,113 +264,42 @@ export function GanttChart({
     }
 
     return (
-        <div className={cn("flex flex-col", className)}>
-            {/* Toolbar */}
-            <div className="flex items-center justify-between gap-4 mb-4 px-1">
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={expandAll}
-                        className="text-xs"
-                    >
-                        Expand All
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={collapseAll}
-                        className="text-xs"
-                    >
-                        Collapse All
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleExport}
-                        className="h-8 gap-2 text-xs"
-                    >
-                        <Download className="h-3.5 w-3.5" />
-                        Export to Sheets
-                    </Button>
-                </div>
-
-                <div className="flex items-center gap-2">
-                    {/* {showProjectFilter && projects && (
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="gap-2">
-                                    <Folder className="h-4 w-4" />
-                                    <span className="max-w-[150px] truncate">
-                                        {selectedProjectId
-                                            ? projects.find(p => p.id === selectedProjectId)?.name || "Unknown Project"
-                                            : "All Projects"}
-                                    </span>
-                                    <ChevronDown className="h-3 w-3" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-[200px] max-h-[300px] overflow-y-auto">
-                                <DropdownMenuItem onClick={() => onProjectChange?.(null)}>
-                                    All Projects
-                                </DropdownMenuItem>
-                                {projects.map(project => (
-                                    <DropdownMenuItem
-                                        key={project.id}
-                                        onClick={() => onProjectChange?.(project.id)}
-                                        className="flex items-center gap-2"
-                                    >
-                                        <div
-                                            className="w-2 h-2 rounded-full"
-                                            style={{ backgroundColor: project.color || '#666' }}
-                                        />
-                                        <span className="truncate">{project.name}</span>
-                                    </DropdownMenuItem>
-                                ))}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    )} */}
-
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className="gap-2">
-                                <Calendar className="h-4 w-4" />
-                                {granularity === 'days' ? 'Days' : granularity === 'weeks' ? 'Weeks' : 'Months'}
-                                <ChevronDown className="h-3 w-3" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setGranularity('days')}>
-                                Days
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setGranularity('weeks')}>
-                                Weeks
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setGranularity('months')}>
-                                Months
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
-            </div>
-
+        <div className={cn("flex flex-col [--gantt-sidebar-width:140px] sm:[--gantt-sidebar-width:200px]", className)}>
             {/* Gantt Container */}
             <div
                 ref={scrollContainerRef}
+                onScroll={handleScroll}
                 className={cn(
-                    "max-h-[calc(100vh-280px)] overflow-auto rounded-lg border border-neutral-200 dark:border-neutral-700",
+                    "overflow-auto rounded-lg border border-neutral-200 dark:border-neutral-700",
+                    workspaceId && !projectId ? "max-h-[70vh]" : "max-h-[65vh]",
+                    "mt-0",
                     "bg-white dark:bg-neutral-900",
                     "shadow-sm",
-                    "[&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2",
+                    "[&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar]:w-1.5",
                     "[&::-webkit-scrollbar-track]:bg-transparent",
                     "[&::-webkit-scrollbar-thumb]:bg-neutral-300 dark::[&::-webkit-scrollbar-thumb]:bg-neutral-600",
                     "[&::-webkit-scrollbar-thumb]:rounded-full"
                 )}
+                style={{
+                    // @ts-ignore
+                    "--gantt-header-height": granularity === 'days' ? '72px' : '40px'
+                }}
             >
                 {/* Timeline Header */}
                 <TimelineHeader
                     startDate={timelineRange.start}
                     endDate={timelineRange.end}
                     granularity={granularity}
+                    tasks={tasks}
+                    expandedTasks={expandedTasks}
+                    expandedProjects={expandedProjects}
+                    groupByProject={groupByProject}
+                    onExpandAll={expandAll}
+                    onCollapseAll={collapseAll}
+                    onExport={handleExport}
+                    onGranularityChange={setGranularity}
+                    scrollX={scrollX}
+                    viewportWidth={viewportWidth}
                 />
 
                 {/* Timeline Grid with Tasks */}
@@ -391,6 +307,8 @@ export function GanttChart({
                     startDate={timelineRange.start}
                     endDate={timelineRange.end}
                     granularity={granularity}
+                    scrollX={scrollX}
+                    viewportWidth={viewportWidth}
                     tasks={groupByProject && groupedTasks
                         ? groupedTasks.groups.flatMap(g => g.allTasks).concat(groupedTasks.noProjectTasks)
                         : tasks
@@ -422,11 +340,12 @@ export function GanttChart({
                                             totalDays={totalDays}
                                             isExpanded={expandedTasks.has(task.id)}
                                             onToggle={() => toggleTask(task.id)}
-                                            onSubtaskReorder={handleSubtaskReorder}
                                             onSubtaskClick={onSubtaskClick}
                                             allTasks={tasks}
                                             workspaceId={workspaceId}
                                             projectId={projectId || task.projectId}
+                                            currentUser={currentUser}
+                                            permissions={permissions}
                                             isNestedInProject={true}
                                         />
                                     ))}
@@ -441,11 +360,12 @@ export function GanttChart({
                                     totalDays={totalDays}
                                     isExpanded={expandedTasks.has(task.id)}
                                     onToggle={() => toggleTask(task.id)}
-                                    onSubtaskReorder={handleSubtaskReorder}
                                     onSubtaskClick={onSubtaskClick}
                                     allTasks={tasks}
                                     workspaceId={workspaceId}
                                     projectId={projectId || task.projectId}
+                                    currentUser={currentUser}
+                                    permissions={permissions}
                                 />
                             ))}
 
@@ -469,11 +389,12 @@ export function GanttChart({
                                     totalDays={totalDays}
                                     isExpanded={expandedTasks.has(task.id)}
                                     onToggle={() => toggleTask(task.id)}
-                                    onSubtaskReorder={handleSubtaskReorder}
                                     onSubtaskClick={onSubtaskClick}
                                     allTasks={tasks}
                                     workspaceId={workspaceId}
-                                    projectId={projectId}
+                                    projectId={projectId || task.projectId}
+                                    currentUser={currentUser}
+                                    permissions={permissions}
                                 />
                             ))}
 
@@ -517,13 +438,7 @@ export function GanttChart({
                     <div className="w-0.5 h-4 bg-red-500 dark:bg-red-400" />
                     <span>Today</span>
                 </div>
-                <div className="flex items-center gap-2">
-                    <svg width="20" height="10" className="text-blue-500">
-                        <line x1="0" y1="5" x2="14" y2="5" stroke="currentColor" strokeWidth="2" />
-                        <polygon points="14,2 20,5 14,8" fill="currentColor" />
-                    </svg>
-                    <span>Dependency</span>
-                </div>
+
             </div>
         </div>
     );

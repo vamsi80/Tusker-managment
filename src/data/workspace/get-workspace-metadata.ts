@@ -1,10 +1,9 @@
 "use server";
 
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { requireUser } from "@/lib/auth/require-user";
-import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import prisma from "@/lib/db";
-import { notFound } from "next/navigation";
 
 /**
  * Lightweight workspace metadata for layouts
@@ -15,9 +14,20 @@ import { notFound } from "next/navigation";
  * - Only fetches workspace name and ID
  * - Does NOT fetch mutable business data
  */
-export const getWorkspaceMetadata = cache(async (workspaceId: string) => {
-    const user = await requireUser();
+const METADATA_MEMORY_CACHE = new Map<string, { data: any, timestamp: number }>();
+const MEMORY_TTL = 60000; // 60 seconds for metadata
 
+function getMemoryMetadata(key: string) {
+    const cached = METADATA_MEMORY_CACHE.get(key);
+    if (cached && Date.now() - cached.timestamp < MEMORY_TTL) return cached.data;
+    return null;
+}
+
+function setMemoryMetadata(key: string, data: any) {
+    METADATA_MEMORY_CACHE.set(key, { data, timestamp: Date.now() });
+    if (METADATA_MEMORY_CACHE.size > 200) METADATA_MEMORY_CACHE.clear();
+}
+async function _getWorkspaceMetadataInternal(workspaceId: string, userId: string) {
     // Verify workspace exists and user has access
     const workspace = await prisma.workspace.findUnique({
         where: { id: workspaceId },
@@ -27,28 +37,57 @@ export const getWorkspaceMetadata = cache(async (workspaceId: string) => {
         }
     });
 
-    if (!workspace) {
-        return null;
-    }
+    if (!workspace) return null;
 
     // Verify user is a member
     const member = await prisma.workspaceMember.findFirst({
         where: {
             workspaceId,
-            userId: user.id,
+            userId,
         },
         select: { id: true }
     });
 
-    if (!member) {
-        return null;
-    }
+    if (!member) return null;
 
     return {
         id: workspace.id,
         name: workspace.name,
-        userId: user.id,
+        userId: userId,
     };
+}
+
+/**
+ * Public function — returns lightweight workspace metadata
+ */
+export const getWorkspaceMetadata = cache(async (workspaceId: string, providedUserId?: string) => {
+    const userId = providedUserId || (await requireUser()).id;
+    const cacheKey = `metadata-${workspaceId}-${userId}`;
+
+    // 1. Memory Cache
+    const memory = getMemoryMetadata(cacheKey);
+    if (memory) return memory;
+
+    // 2. Bypass for active sessions
+    if (providedUserId) {
+        const direct = await _getWorkspaceMetadataInternal(workspaceId, userId);
+        setMemoryMetadata(cacheKey, direct);
+        return direct;
+    }
+
+    // 3. Next.js cache
+    const fetchMetadata = unstable_cache(
+        async () => _getWorkspaceMetadataInternal(workspaceId, userId),
+        [`workspace-metadata-${workspaceId}-${userId}`],
+        {
+            tags: ["workspace-metadata", `workspace-${workspaceId}`],
+            revalidate: 3600, // 1 hour - metadata rarely changes
+        }
+    );
+
+    const result = await fetchMetadata();
+    setMemoryMetadata(cacheKey, result);
+    return result;
 });
 
 export type WorkspaceMetadata = Awaited<ReturnType<typeof getWorkspaceMetadata>>;

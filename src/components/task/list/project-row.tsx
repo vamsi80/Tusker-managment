@@ -1,7 +1,7 @@
 import React from "react";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, Folder, CornerDownRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Folder } from "lucide-react";
 
 interface ProjectRowProps {
     project: { id: string; name: string; color?: string };
@@ -23,10 +23,10 @@ export function ProjectRow({
     return (
         <>
             <TableRow
-                className="group [&_td]:py-2 bg-muted/50 hover:bg-muted/70 cursor-pointer transition-colors h-8"
+                className="group [&_td]:py-2 bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 cursor-pointer transition-colors h-8 sticky top-10 z-[15]"
                 onClick={onToggle}
             >
-                <TableCell colSpan={colSpan} className="py-2 px-2 font-medium">
+                <TableCell colSpan={colSpan} className="py-2 px-4 shadow-[0_1px_2px_0_rgba(0,0,0,0.05)] border-y border-neutral-200 dark:border-neutral-800">
                     <div className="flex items-center gap-2">
                         <Button
                             variant="ghost"
@@ -49,13 +49,9 @@ export function ProjectRow({
                             style={{ color: project.color || "#666", fill: project.color ? `${project.color}33` : "#66633" }}
                         />
 
-                        <span className="text-sm font-semibold">{project.name}</span>
+                        <span className="text-sm font-semibold text-foreground">{project.name}</span>
 
-                        {totalTasksCount !== undefined && totalTasksCount > 0 && (
-                            <span className="text-xs text-muted-foreground ml-2">
-                                ({totalTasksCount} tasks)
-                            </span>
-                        )}
+
                     </div>
                 </TableCell>
             </TableRow>

@@ -43,7 +43,6 @@ async function _fetchWorkspaceMembersInternal(workspaceId: string): Promise<Work
           surname: true,
           contactNumber: true,
           email: true,
-          image: true,
         },
       },
       projectMembers: {
@@ -117,4 +116,3 @@ export const getWorkspaceMembers = cache(async (workspaceId: string): Promise<Wo
  * Export types for callers
  */
 export type WorkspaceMembersType = WorkspaceMemberRow[];
-

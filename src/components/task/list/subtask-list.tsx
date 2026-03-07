@@ -6,7 +6,7 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { Plus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProjectMembersType } from "@/data/project/get-project-members";
-import { SubTaskType } from "@/data/task/list/get-subtasks";
+import { SubTaskType } from "@/data/task";
 import { ColumnVisibility } from "../shared/column-visibility";
 import { SubTaskSkeleton } from "@/components/task/list/list-skeleton";
 import { InlineSubTaskForm } from "./inline-subtask-form";

@@ -1,43 +1,32 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
 /**
- * Project Header Skeleton
- * 
- * Loading skeleton for the project header component.
- * Displays placeholder UI while the header data is being fetched.
- * 
- * Includes:
- * - Project title skeleton
- * - Description skeleton
- * - Action buttons skeleton (reload, bulk upload, create task)
- * - Navigation tabs skeleton
+ * Mobile-responsive header + nav-tab skeleton.
+ * Shown inside layout.tsx while ProjectHeader data loads.
  */
 export function ProjectHeaderSkeleton() {
     return (
         <>
-            {/* Header Section */}
-            <div className="flex items-center justify-between">
-                {/* Title and Description */}
-                <div className="space-y-2">
-                    <Skeleton className="h-9 w-64" /> {/* Project title */}
-                    <Skeleton className="h-4 w-48" /> {/* Description */}
+            {/* Header: title + action buttons */}
+            <div className="flex items-start sm:items-center justify-between gap-3">
+                <div className="space-y-1.5 min-w-0">
+                    <Skeleton className="h-7 sm:h-9 w-40 sm:w-64" />
+                    <Skeleton className="h-3 w-28 sm:w-48" />
                 </div>
-
-                {/* Action Buttons */}
-                <div className="flex items-center gap-3">
-                    <Skeleton className="h-9 w-9" />   {/* Reload button */}
-                    <Skeleton className="h-9 w-32" />  {/* Bulk upload button */}
-                    <Skeleton className="h-9 w-32" />  {/* Create task button */}
+                <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+                    <Skeleton className="h-8 sm:h-9 w-8 sm:w-9 rounded-md" />
+                    <Skeleton className="hidden sm:block h-9 w-28 rounded-md" />
+                    <Skeleton className="h-8 sm:h-9 w-20 sm:w-32 rounded-md" />
                 </div>
             </div>
 
-            {/* Navigation Tabs */}
-            <div className="border-b">
-                <div className="flex h-10 items-center gap-4">
-                    <Skeleton className="h-full w-28" /> {/* Dashboard tab */}
-                    <Skeleton className="h-full w-20" /> {/* List tab */}
-                    <Skeleton className="h-full w-24" /> {/* Kanban tab */}
-                    <Skeleton className="h-full w-20" /> {/* Gantt tab */}
+            {/* Navigation tabs */}
+            <div className="border-b border-neutral-200 dark:border-neutral-700">
+                <div className="flex h-9 sm:h-10 items-end gap-1 overflow-hidden">
+                    <Skeleton className="h-7 sm:h-8 w-20 sm:w-28 rounded-t-md rounded-b-none shrink-0" />
+                    <Skeleton className="h-6 sm:h-7 w-12 sm:w-20 rounded-t-md rounded-b-none shrink-0" />
+                    <Skeleton className="h-6 sm:h-7 w-16 sm:w-24 rounded-t-md rounded-b-none shrink-0" />
+                    <Skeleton className="h-6 sm:h-7 w-12 sm:w-20 rounded-t-md rounded-b-none shrink-0" />
                 </div>
             </div>
         </>

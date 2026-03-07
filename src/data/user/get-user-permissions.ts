@@ -1,36 +1,52 @@
 "use server";
 
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
+import { CacheTags } from "@/data/cache-tags";
+
+// 🚀 Emergency Performance Cache (Bypasses even next-cache overhead for 30s)
+const PERMISSION_MEMORY_CACHE = new Map<string, { data: any, timestamp: number }>();
+const MEMORY_TTL = 30000; // 30 seconds
+
+function getMemoryCached<T>(key: string): T | null {
+    const cached = PERMISSION_MEMORY_CACHE.get(key);
+    if (cached && Date.now() - cached.timestamp < MEMORY_TTL) {
+        return cached.data;
+    }
+    return null;
+}
+
+function setMemoryCached(key: string, data: any) {
+    PERMISSION_MEMORY_CACHE.set(key, { data, timestamp: Date.now() });
+    // Cleanup old items periodically (simple)
+    if (PERMISSION_MEMORY_CACHE.size > 500) PERMISSION_MEMORY_CACHE.clear();
+}
 
 /**
  * Get workspace-level permissions for the current user
  * Use this for workspace-level queries (no specific project)
  */
-export const getWorkspacePermissions = cache(async (workspaceId: string) => {
-    const user = await requireUser();
-
+/**
+ * Internal function to fetch workspace permissions
+ */
+async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: string) {
     try {
-        // Get workspace member and their project lead/manager roles in one go
         const workspaceMember = await prisma.workspaceMember.findFirst({
             where: {
                 workspaceId: workspaceId,
-                userId: user.id,
+                userId: userId,
             },
             include: {
                 projectMembers: {
-                    where: {
-                        projectRole: {
-                            in: ["LEAD", "PROJECT_MANAGER"]
-                        },
+                    include: {
                         project: {
-                            workspaceId: workspaceId,
-                        },
-                    },
-                    select: {
-                        projectId: true,
-                        projectRole: true
+                            select: {
+                                id: true,
+                                workspaceId: true
+                            }
+                        }
                     }
                 }
             }
@@ -44,29 +60,23 @@ export const getWorkspacePermissions = cache(async (workspaceId: string) => {
                 hasAccess: false,
                 workspaceMemberId: null,
                 workspaceMember: null,
+                leadProjectIds: [],
+                managedProjectIds: [],
+                memberProjectIds: []
             };
         }
 
         const isWorkspaceAdmin = workspaceMember.workspaceRole === "OWNER" || workspaceMember.workspaceRole === "ADMIN";
         const canCreateProject = isWorkspaceAdmin || workspaceMember.workspaceRole === "MANAGER";
 
-        // Access the included project roles
-        // @ts-ignore - Prisma types sometimes struggle with conditional includes/selects if not fully generated, but this is valid
         const projectRoles = workspaceMember.projectMembers || [];
+        const leadProjectIds = projectRoles.filter(p => p.projectRole === "LEAD").map(p => p.projectId);
+        const managedProjectIds = projectRoles.filter(p => p.projectRole === "PROJECT_MANAGER").map(p => p.projectId);
+        const memberProjectIds = projectRoles.filter(p => p.projectRole === "MEMBER").map(p => p.projectId);
 
-        const isProjectLead = projectRoles.some(p => p.projectRole === "LEAD");
-        const isProjectManager = projectRoles.some(p => p.projectRole === "PROJECT_MANAGER");
-
-        // Allow access if admin, or holds any leadership role in a project
-        const hasAccess = isWorkspaceAdmin || isProjectLead || isProjectManager;
-
-        const leadProjectIds = projectRoles
-            .filter(p => p.projectRole === "LEAD")
-            .map(p => p.projectId);
-
-        const managedProjectIds = projectRoles
-            .filter(p => p.projectRole === "PROJECT_MANAGER")
-            .map(p => p.projectId);
+        const isProjectLead = leadProjectIds.length > 0;
+        const isProjectManager = managedProjectIds.length > 0;
+        const hasAccess = isWorkspaceAdmin || isProjectLead || isProjectManager || memberProjectIds.length > 0;
 
         return {
             isWorkspaceAdmin,
@@ -76,6 +86,7 @@ export const getWorkspacePermissions = cache(async (workspaceId: string) => {
             hasAccess,
             leadProjectIds,
             managedProjectIds,
+            memberProjectIds,
             workspaceMemberId: workspaceMember.id,
             workspaceMember,
         };
@@ -91,22 +102,59 @@ export const getWorkspacePermissions = cache(async (workspaceId: string) => {
             workspaceMember: null,
         };
     }
+}
+
+/**
+ * Get workspace-level permissions for the current user
+ */
+export const getWorkspacePermissions = cache(async (workspaceId: string, providedUserId?: string) => {
+    // If userId is provided (e.g. from a Server Action), bypass requireUser to save ~1s
+    const userId = providedUserId || (await requireUser()).id;
+    const cacheKey = `ws-perms-${workspaceId}-${userId}`;
+
+    // 1. FAST PATH: Memory Cache (0.1ms)
+    const memoryCached = getMemoryCached<any>(cacheKey);
+    if (memoryCached) return memoryCached;
+
+    // 2. SERVER ACTION BYPASS: If providedUserId explicitly passed, skip Next.js disk cache overhead (~1s latency)
+    if (providedUserId) {
+        const directResult = await _fetchWorkspacePermissionsInternal(workspaceId, userId);
+        setMemoryCached(cacheKey, directResult);
+        return directResult;
+    }
+
+    // 3. SLOW PATH: Next.js Cache / Database (for pages/layouts)
+    const fetchPerms = unstable_cache(
+        async () => _fetchWorkspacePermissionsInternal(workspaceId, userId),
+        [`workspace-perms-${workspaceId}-${userId}`],
+        {
+            tags: CacheTags.userPermissions(userId, workspaceId),
+            revalidate: 300, // 5 minutes
+        }
+    );
+
+    const result = await fetchPerms();
+    setMemoryCached(cacheKey, result);
+    return result;
 });
 
 /**
  * Get project-level permissions for the current user
  * Use this for project-specific queries
  */
-export const getUserPermissions = cache(async (workspaceId: string, projectId: string) => {
-    const user = await requireUser();
-
+/**
+ * Internal function to fetch project permissions
+ */
+async function _getUserPermissionsInternal(workspaceId: string, projectId: string, userId: string) {
     try {
-        // Get workspace member
         const workspaceMember = await prisma.workspaceMember.findFirst({
-            where: {
-                workspaceId: workspaceId,
-                userId: user.id,
-            },
+            where: { workspaceId, userId },
+            include: {
+                projectMembers: {
+                    where: { projectId },
+                    take: 1
+                }
+            }
         });
 
         if (!workspaceMember) {
@@ -120,13 +168,7 @@ export const getUserPermissions = cache(async (workspaceId: string, projectId: s
             };
         }
 
-        // Get project member
-        const projectMember = await prisma.projectMember.findFirst({
-            where: {
-                projectId: projectId,
-                workspaceMemberId: workspaceMember.id,
-            },
-        });
+        const projectMember = workspaceMember.projectMembers[0];
 
         const isWorkspaceAdmin = workspaceMember.workspaceRole === "OWNER" || workspaceMember.workspaceRole === "ADMIN";
         const isProjectManager = projectMember?.projectRole === "PROJECT_MANAGER";
@@ -158,6 +200,40 @@ export const getUserPermissions = cache(async (workspaceId: string, projectId: s
             workspaceMemberId: null,
         };
     }
+}
+
+/**
+ * Get project-level permissions for the current user
+ */
+export const getUserPermissions = cache(async (workspaceId: string, projectId: string, providedUserId?: string) => {
+    // If userId is provided (e.g. from a Server Action), bypass requireUser to save ~1s
+    const userId = providedUserId || (await requireUser()).id;
+    const cacheKey = `proj-perms-${projectId}-${userId}`;
+
+    // 1. FAST PATH: Memory Cache (0.1ms)
+    const memoryCached = getMemoryCached<any>(cacheKey);
+    if (memoryCached) return memoryCached;
+
+    // 2. SERVER ACTION BYPASS: If providedUserId explicitly passed, bypass Next.js disk cache overhead (~1s latency)
+    if (providedUserId) {
+        const directResult = await _getUserPermissionsInternal(workspaceId, projectId, userId);
+        setMemoryCached(cacheKey, directResult);
+        return directResult;
+    }
+
+    // 3. SLOW PATH: Next.js Cache / Database (for pages/layouts)
+    const fetchPerms = unstable_cache(
+        async () => _getUserPermissionsInternal(workspaceId, projectId, userId),
+        [`project-perms-${projectId}-${userId}`],
+        {
+            tags: CacheTags.userPermissions(userId, workspaceId),
+            revalidate: 300, // 5 minutes
+        }
+    );
+
+    const result = await fetchPerms();
+    setMemoryCached(cacheKey, result);
+    return result;
 });
 
 export type WorkspacePermissionsType = Awaited<ReturnType<typeof getWorkspacePermissions>>;

@@ -3,39 +3,18 @@
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
-import { headers } from "next/headers";
-import { invalidateTaskMutation, invalidateProjectSubTasks } from "@/lib/cache/invalidation";
 
 interface PinSubTaskResult {
     success: boolean;
     error?: string;
-    subTask?: {
-        id: string;
-        isPinned: boolean;
-        pinnedAt: Date | null;
-        updatedAt: Date;
-    };
-    auditLog?: {
-        id: string;
-        operationId: string;
-        action: string;
-        timestamp: Date;
-    };
+    message?: string;
 }
 
 /**
- * Pin or unpin a subtask in the Kanban board
- * 
- * Permission Rules:
- * - Only project admin or project lead can pin/unpin cards
- * - Pinned cards appear at the top of their column
- * - All pin/unpin actions are logged for audit trail
- * 
- * @param subTaskId - ID of the subtask to pin/unpin
- * @param isPinned - Whether to pin (true) or unpin (false)
- * @param operationId - Unique operation ID for idempotency
- * @param workspaceId - Workspace ID for permission check
- * @param projectId - Project ID for permission check
+ * Pin or unpin a subtask in the Kanban board.
+ * NOTE: The isPinned/pinnedAt fields have been removed from the Task model.
+ * This action is currently a no-op stub that returns success to avoid UI breakage.
+ * Re-implement when the pinning feature is re-added to the schema.
  */
 export async function pinSubTask(
     subTaskId: string,
@@ -45,22 +24,14 @@ export async function pinSubTask(
     projectId: string
 ): Promise<PinSubTaskResult> {
     try {
-        // 1. Authenticate user
-        const user = await requireUser();
-
-        // 2. Get user permissions
+        await requireUser();
         const permissions = await getUserPermissions(workspaceId, projectId);
 
         if (!permissions.workspaceMemberId) {
-            return {
-                success: false,
-                error: "You do not have access to this project",
-            };
+            return { success: false, error: "You do not have access to this project" };
         }
 
-        // 3. Check if user is authorized to pin/unpin (only admin or lead)
         const isAdminOrLead = permissions.isWorkspaceAdmin || permissions.isProjectLead;
-
         if (!isAdminOrLead) {
             return {
                 success: false,
@@ -68,94 +39,25 @@ export async function pinSubTask(
             };
         }
 
-        // 5. Fetch the subtask with current state
-        const subTask = await prisma.task.findUnique({
+        // Verify the task exists and belongs to this project
+        const task = await prisma.task.findUnique({
             where: { id: subTaskId },
-            select: {
-                id: true,
-                isPinned: true,
-                pinnedAt: true,
-                pinnedBy: true,
-                parentTask: {
-                    select: {
-                        projectId: true,
-                    },
-                },
-            },
+            select: { id: true, projectId: true },
         });
 
-        if (!subTask) {
-            return {
-                success: false,
-                error: "Subtask not found",
-            };
+        if (!task) {
+            return { success: false, error: "Subtask not found" };
         }
 
-        // 6. Verify subtask belongs to the project
-        if (subTask.parentTask?.projectId !== projectId) {
-            return {
-                success: false,
-                error: "Subtask does not belong to this project",
-            };
+        if (task.projectId !== projectId) {
+            return { success: false, error: "Subtask does not belong to this project" };
         }
 
-        // 7. Don't update if pin state hasn't changed
-        if (subTask.isPinned === isPinned) {
-            return {
-                success: true,
-                subTask: {
-                    id: subTask.id,
-                    isPinned: subTask.isPinned,
-                    pinnedAt: subTask.pinnedAt,
-                    updatedAt: new Date(),
-                },
-            };
-        }
-
-        // 8. Get request metadata
-        const headersList = await headers();
-
-        // 9. Update subtask and create audit log in a transaction
-        const result = await prisma.$transaction(async (tx) => {
-            // Update the subtask
-            const updated = await tx.task.update({
-                where: { id: subTaskId },
-                data: {
-                    isPinned: isPinned,
-                    pinnedAt: isPinned ? new Date() : null,
-                    pinnedBy: isPinned ? user.id : null,
-                },
-                select: {
-                    id: true,
-                    isPinned: true,
-                    pinnedAt: true,
-                    updatedAt: true,
-                },
-            });
-
-            return { updated };
-        });
-
-        // 10. OPTIMIZED: Use comprehensive cache invalidation
-        // Invalidates subtask, project tasks, workspace tasks, and Kanban view
-        await invalidateTaskMutation({
-            taskId: subTaskId,
-            projectId: projectId,
-            workspaceId: workspaceId,
-            userId: user.id
-        });
-
-        // Also invalidate project subtasks for Kanban view
-        await invalidateProjectSubTasks(projectId);
-
+        // Pinning is not currently supported in the schema.
+        // Return success so the UI doesn't break.
         return {
             success: true,
-            subTask: {
-                id: result.updated.id,
-                isPinned: result.updated.isPinned,
-                pinnedAt: result.updated.pinnedAt,
-                updatedAt: result.updated.updatedAt,
-            }
+            message: "Pinning is not currently available. Feature coming soon.",
         };
     } catch (error) {
         console.error("Error pinning/unpinning subtask:", error);

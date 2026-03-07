@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSubTasks } from "@/data/task";
+import { getWorkspaceTasks } from "@/data/task";
 
 export async function GET(
     request: NextRequest,
@@ -11,8 +11,9 @@ export async function GET(
 
         const parentTaskId = searchParams.get("parentTaskId");
         const projectId = searchParams.get("projectId");
-        const page = parseInt(searchParams.get("page") || "1");
-        const pageSize = parseInt(searchParams.get("pageSize") || "10");
+        const cursorParam = searchParams.get("cursor");
+        const cursor = cursorParam ? JSON.parse(cursorParam) : undefined;
+        const pageSize = parseInt(searchParams.get("pageSize") || "30");
 
         if (!parentTaskId || !projectId) {
             return NextResponse.json(
@@ -21,14 +22,13 @@ export async function GET(
             );
         }
 
-        const result = await getSubTasks(
-            parentTaskId,
+        const result = await getWorkspaceTasks({
             workspaceId,
             projectId,
-            {}, // filters
-            page,
-            pageSize
-        );
+            filterParentTaskId: parentTaskId,
+            cursor,
+            limit: pageSize
+        });
 
         return NextResponse.json(result, {
             headers: {

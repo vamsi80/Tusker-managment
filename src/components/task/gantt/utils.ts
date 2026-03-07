@@ -1,4 +1,4 @@
-import { GanttTask, GanttSubtask, ComputedTaskDates, TimelineGranularity, DependencyLine } from "./types";
+import { GanttTask, GanttSubtask, ComputedTaskDates, TimelineGranularity, } from "./types";
 
 /**
  * Get current date (midnight) for today comparisons
@@ -20,27 +20,27 @@ export function parseDate(dateStr: string): Date | null {
 }
 
 /**
- * Compute task start/end dates from subtasks
- * task.start = min(subtask.start)
- * task.end = max(subtask.end)
+ * Compute task start/end dates from task metadata or its subtasks
+ * 1. Priority: task.start / task.end (Direct DB values)
+ * 2. Fallback: min(subtask.start) / max(subtask.end)
  */
 export function computeTaskDates(task: GanttTask): ComputedTaskDates {
-    if (!task.subtasks || task.subtasks.length === 0) {
-        return { start: null, end: null };
-    }
+    // Attempt to use direct values first
+    let minStart = task.start ? parseDate(task.start) : null;
+    let maxEnd = task.end ? parseDate(task.end) : null;
 
-    let minStart: Date | null = null;
-    let maxEnd: Date | null = null;
+    // If subtasks exist, they can expand the boundary
+    if (task.subtasks && task.subtasks.length > 0) {
+        for (const subtask of task.subtasks) {
+            const start = parseDate(subtask.start);
+            const end = parseDate(subtask.end);
 
-    for (const subtask of task.subtasks) {
-        const start = parseDate(subtask.start);
-        const end = parseDate(subtask.end);
-
-        if (start && (!minStart || start < minStart)) {
-            minStart = start;
-        }
-        if (end && (!maxEnd || end > maxEnd)) {
-            maxEnd = end;
+            if (start && (!minStart || start < minStart)) {
+                minStart = start;
+            }
+            if (end && (!maxEnd || end > maxEnd)) {
+                maxEnd = end;
+            }
         }
     }
 
@@ -204,55 +204,55 @@ export function formatDateRange(start: Date | null, end: Date | null): string {
  * Validate dependencies for subtasks within a task
  * Returns subtasks with isBlocked and blockedByNames populated
  */
-export function validateDependencies(subtasks: GanttSubtask[]): GanttSubtask[] {
-    const subtaskMap = new Map<string, GanttSubtask>();
-    subtasks.forEach(st => subtaskMap.set(st.id, st));
+// export function validateDependencies(subtasks: GanttSubtask[]): GanttSubtask[] {
+//     const subtaskMap = new Map<string, GanttSubtask>();
+//     subtasks.forEach(st => subtaskMap.set(st.id, st));
 
-    return subtasks.map(subtask => {
-        if (!subtask.dependsOnIds || subtask.dependsOnIds.length === 0) {
-            return { ...subtask, isBlocked: false, blockedByNames: [] };
-        }
+//     return subtasks.map(subtask => {
+//         if (!subtask.dependsOnIds || subtask.dependsOnIds.length === 0) {
+//             return { ...subtask, isBlocked: false, blockedByNames: [] };
+//         }
 
-        // Check if all dependencies are COMPLETED
-        const blockedBy: string[] = [];
-        for (const depId of subtask.dependsOnIds) {
-            const parent = subtaskMap.get(depId);
-            if (parent && parent.status !== 'COMPLETED') {
-                blockedBy.push(parent.name);
-            }
-        }
+//         // Check if all dependencies are COMPLETED
+//         const blockedBy: string[] = [];
+//         for (const depId of subtask.dependsOnIds) {
+//             const parent = subtaskMap.get(depId);
+//             if (parent && parent.status !== 'COMPLETED') {
+//                 blockedBy.push(parent.name);
+//             }
+//         }
 
-        return {
-            ...subtask,
-            isBlocked: blockedBy.length > 0,
-            blockedByNames: blockedBy
-        };
-    });
-}
+//         return {
+//             ...subtask,
+//             isBlocked: blockedBy.length > 0,
+//             blockedByNames: blockedBy
+//         };
+//     });
+// }
 
 /**
  * Extract dependency lines for visual rendering
  */
-export function getDependencyLines(subtasks: GanttSubtask[]): DependencyLine[] {
-    const subtaskMap = new Map<string, GanttSubtask>();
-    subtasks.forEach(st => subtaskMap.set(st.id, st));
+// export function getDependencyLines(subtasks: GanttSubtask[]): DependencyLine[] {
+//     const subtaskMap = new Map<string, GanttSubtask>();
+//     subtasks.forEach(st => subtaskMap.set(st.id, st));
 
-    const lines: DependencyLine[] = [];
+//     const lines: DependencyLine[] = [];
 
-    for (const subtask of subtasks) {
-        if (subtask.dependsOnIds && subtask.dependsOnIds.length > 0) {
-            for (const depId of subtask.dependsOnIds) {
-                const parent = subtaskMap.get(depId);
-                if (parent) {
-                    lines.push({
-                        fromId: parent.id,
-                        toId: subtask.id,
-                        fromName: parent.name,
-                        toName: subtask.name
-                    });
-                }
-            }
-        }
-    }
-    return lines;
-}
+//     for (const subtask of subtasks) {
+//         if (subtask.dependsOnIds && subtask.dependsOnIds.length > 0) {
+//             for (const depId of subtask.dependsOnIds) {
+//                 const parent = subtaskMap.get(depId);
+//                 if (parent) {
+//                     lines.push({
+//                         fromId: parent.id,
+//                         toId: subtask.id,
+//                         fromName: parent.name,
+//                         toName: subtask.name
+//                     });
+//                 }
+//             }
+//         }
+//     }
+//     return lines;
+// }

@@ -20,10 +20,7 @@ async function _getProjectMembersInternal(projectId: string) {
                     user: {
                         select: {
                             id: true,
-                            name: true,
                             surname: true,
-                            image: true,
-                            email: true,
                         },
                     },
                 },

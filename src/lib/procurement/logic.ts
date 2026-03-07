@@ -78,10 +78,10 @@ export async function getWorkspaceProcurementTasks(workspaceId: string) {
                     assignee: {
                         select: {
                             id: true,
-                            name: true,
+                            // name: true,
                             surname: true,
-                            image: true,
-                            email: true,
+                            // image: true,
+                            // email: true,
                         }
                     }
                 }

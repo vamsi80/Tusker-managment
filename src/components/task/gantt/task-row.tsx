@@ -4,7 +4,7 @@ import { useMemo, useState, useRef, useEffect } from "react";
 import { ChevronDown, ChevronRight, CornerDownRight } from "lucide-react";
 import { computeTaskDates, calculateBarPosition, formatDateRange, getDaysBetween } from "./utils";
 import { SortableSubtaskList } from "./sortable-subtask-list";
-import { DependencyPicker } from "./dependency-picker";
+
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,12 +26,17 @@ interface TaskRowProps {
     totalDays: number;
     isExpanded: boolean;
     onToggle: () => void;
-    onSubtaskReorder?: (taskId: string, subtaskIds: string[]) => void;
     onSubtaskClick?: (subtaskId: string) => void;
     allTasks?: GanttTask[]; // All tasks for dependency picker
     workspaceId?: string;
     projectId?: string;
     isNestedInProject?: boolean;
+    currentUser?: { id: string };
+    permissions?: {
+        isWorkspaceAdmin: boolean;
+        leadProjectIds: string[];
+        managedProjectIds: string[];
+    };
 }
 
 export function TaskRow({
@@ -40,15 +45,15 @@ export function TaskRow({
     totalDays,
     isExpanded,
     onToggle,
-    onSubtaskReorder,
     onSubtaskClick,
     allTasks,
     workspaceId,
     projectId,
-    isNestedInProject = false
+    isNestedInProject = false,
+    currentUser,
+    permissions
 }: TaskRowProps) {
-    const [dependencyPickerOpen, setDependencyPickerOpen] = useState(false);
-    const [selectedSubtask, setSelectedSubtask] = useState<GanttSubtask | null>(null);
+
     const [visibleSubtaskCount, setVisibleSubtaskCount] = useState(SUBTASKS_PER_PAGE);
 
     const { start, end } = useMemo(() => computeTaskDates(task), [task]);
@@ -60,10 +65,7 @@ export function TaskRow({
 
     const hasSubtasks = task.subtasks && task.subtasks.length > 0;
 
-    const handleManageDependencies = (subtask: GanttSubtask) => {
-        setSelectedSubtask(subtask);
-        setDependencyPickerOpen(true);
-    };
+
 
     // Handle load more subtasks
     const handleLoadMoreSubtasks = () => {
@@ -88,13 +90,16 @@ export function TaskRow({
     }, [hasMoreSubtasks]);
 
     return (
-        <>
-            {/* Task Row */}
-            <>
+        <div className="flex flex-col">
+            {/* Task Row Header */}
+            <div
+                className="grid"
+                style={{ gridTemplateColumns: 'var(--gantt-sidebar-width) var(--gantt-total-width)' }}
+            >
                 {/* Left Panel - Task Name */}
                 <div
                     className={cn(
-                        "sticky left-0 z-30 w-[200px] min-w-[200px] flex items-center gap-1 px-3 py-2 min-h-[36px]",
+                        "sticky left-0 z-30 flex items-center gap-1 px-3 py-2 min-h-[36px]",
                         "bg-white dark:bg-neutral-900",
                         "border-b border-r border-neutral-200 dark:border-neutral-700",
                         "hover:bg-neutral-50 dark:hover:bg-neutral-800/50",
@@ -172,7 +177,7 @@ export function TaskRow({
                                         </p>
                                         {start && end && (
                                             <p className="text-xs text-muted-foreground">
-                                                {getDaysBetween(start, end) + 1} days • {task.subtasks.length} subtasks
+                                                {getDaysBetween(start, end) + 1} days
                                             </p>
                                         )}
                                     </div>
@@ -185,27 +190,30 @@ export function TaskRow({
                         </span>
                     )}
                 </div>
-            </>
+            </div>
 
             {/* Subtask Rows - Sortable */}
             {isExpanded && hasSubtasks && (
-                <>
+                <div className="flex flex-col">
                     <SortableSubtaskList
-                        taskId={task.id}
                         subtasks={visibleSubtasks}
                         timelineStart={timelineStart}
                         totalDays={totalDays}
-                        onReorder={onSubtaskReorder || (() => { })}
-                        onManageDependencies={handleManageDependencies}
+
                         onSubtaskClick={onSubtaskClick}
                         workspaceId={workspaceId}
                         projectId={projectId}
+                        currentUser={currentUser}
+                        permissions={permissions}
                     />
 
                     {hasMoreSubtasks && (
-                        <>
+                        <div
+                            className="grid"
+                            style={{ gridTemplateColumns: 'var(--gantt-sidebar-width) var(--gantt-total-width)' }}
+                        >
                             {/* Left Panel - Auto Load Trigger */}
-                            <div ref={subtaskLoaderRef} className="sticky left-0 z-30 w-[200px] min-w-[200px] shrink-0 bg-neutral-50 dark:bg-neutral-800/30 border-b border-r border-neutral-200 dark:border-neutral-700 flex items-center px-2 py-1.5 pl-8">
+                            <div ref={subtaskLoaderRef} className="sticky left-0 z-30 shrink-0 bg-neutral-50 dark:bg-neutral-800/30 border-b border-r border-neutral-200 dark:border-neutral-700 flex items-center px-2 py-1.5 pl-8">
                                 <span className="text-xs text-muted-foreground ml-6">Loading more subtasks...</span>
                             </div>
 
@@ -213,22 +221,12 @@ export function TaskRow({
                             <div
                                 className="relative min-h-[32px] w-full bg-neutral-50/50 dark:bg-neutral-800/10 border-b border-neutral-200 dark:border-neutral-700"
                             />
-                        </>
+                        </div>
                     )}
-
-                    {/* Dependency Picker Dialog */}
-                    {selectedSubtask && allTasks && workspaceId && projectId && (
-                        <DependencyPicker
-                            open={dependencyPickerOpen}
-                            onOpenChange={setDependencyPickerOpen}
-                            subtask={selectedSubtask}
-                            allTasks={allTasks}
-                            workspaceId={workspaceId}
-                            projectId={projectId}
-                        />
-                    )}
-                </>
+                </div>
             )}
-        </>
+
+
+        </div>
     );
 }

@@ -24,10 +24,8 @@ interface Props {
 export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) => {
   const router = useRouter();
   const workspaces = data?.workspaces ?? []; // array of workspace items
-  const [selected, setSelected] = useState<typeof workspaces[number] | undefined>(undefined);
-
   // find current workspace item from workspaceId or default to first item
-  const current = useMemo(() => {
+  const selected = useMemo(() => {
     if (!workspaces || workspaces.length === 0) return undefined;
     return (
       workspaces.find((w) => w.id === workspaceId) ??
@@ -35,13 +33,7 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
     );
   }, [workspaces, workspaceId]);
 
-  useEffect(() => {
-    setSelected(current);
-  }, [current]);
-
   const onWorkspaceSelect = (workspaceId: string) => {
-    const found = workspaces.find((w) => w.id === workspaceId);
-    setSelected(found);
     router.push(`/w/${workspaceId}`);
   };
 
@@ -55,8 +47,8 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarImage src={`https://avatar.vercel.sh/${selected?.id ?? "W"}`} alt={selected?.name ?? ""} />
-                <AvatarFallback className="rounded-lg">
+                {/* No external avatar, fallback to initials using Tailwind CSS */}
+                <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
                   {(selected?.name ?? selected?.id ?? "W").charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
@@ -83,8 +75,8 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
                 <DropdownMenuItem key={ws.id} onClick={() => onWorkspaceSelect(routeKey)}>
                   <div className="flex flex-row items-center gap-2">
                     <Avatar className="h-8 w-8 rounded-lg">
-                      <AvatarImage src={`https://avatar.vercel.sh/${ws.id}`} alt={ws.name ?? ""} />
-                      <AvatarFallback className="rounded-lg">
+                      {/* No external avatar, fallback to initials using Tailwind CSS */}
+                      <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
                         {(ws.name ?? ws.id ?? "W").charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>

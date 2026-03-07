@@ -2,36 +2,37 @@
 
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { SubTaskList } from "./subtask-list";
 import { Button } from "@/components/ui/button";
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { Loader2, Plus, ChevronsUpDown, Maximize2, Minimize2 } from "lucide-react";
-import { loadMoreTasksAction, loadMoreTasksFlatAction, loadSubTasksAction, loadSubTasksBatchAction, loadSortedSubTasksAction } from "@/actions/task/list-actions";
-import { updateSubtaskPositions } from "@/actions/task/gantt";
-import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
-import { TableCell, TableRow } from "@/components/ui/table";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Loader2, ChevronsUpDown, Maximize2, Minimize2, ChevronDown } from "lucide-react";
+import { loadTasksAction } from "@/actions/task/list-actions";
+import { getSubTasksAction } from "@/actions/task/get-subtasks";
+import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 import { ProjectMembersType } from "@/data/project/get-project-members";
-import { SubTaskType } from "@/data/task/list/get-subtasks";
-import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
-import { TaskWithSubTasks, SortConfig, TableViewMode, SortField } from "@/components/task/shared/types";
-import { TaskRow } from "./task-row";
+import { SubTaskType } from "@/data/task";
+import { DndContext, closestCenter } from "@dnd-kit/core";
+import { TaskWithSubTasks, SortConfig, SortField, hasActiveFilters } from "@/components/task/shared/types";
 import { TaskFilters } from "../shared/types";
 import { GlobalFilterToolbar } from "../shared/global-filter-toolbar";
 import { ColumnVisibility } from "../shared/column-visibility";
 import { extractAllFilterOptions } from "@/lib/utils/extract-filter-options";
-import { InlineTaskForm } from "./inline-task-form";
-import { ProjectRow } from "./project-row";
-import { SortedTaskRow } from "./sorted-task-row";
-import { SortableHeader } from "./sortable-header";
+import { SortableHeader } from "./sort/sortable-header";
 import { UserPermissionsType } from "@/data/user/get-user-permissions";
 import { useTaskCacheStore } from "@/lib/store/task-cache-store";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+
+// Extracted UI Components
+import { TableLoading } from "./table/table-loading";
+import { LoadMoreSentinel } from "./table/load-more-sentinel";
+import { ProjectTaskGroup } from "./group/project-task-group";
+import { FlatTaskList } from "./group/flat-task-list";
+import { EmptyState } from "./table/empty-state";
+import { SortedTaskList } from "./sort/sorted-task-list";
 
 interface TaskTableProps {
     initialTasks: TaskWithSubTasks[];
     initialHasMore: boolean;
+    initialNextCursor?: any;
     initialTotalCount?: number;
     members: ProjectMembersType;
     assignees?: Array<{ id: string; name: string; surname?: string }>;
@@ -68,6 +69,7 @@ export function TaskTable({
     permissions,
     userId,
     initialHasMore,
+    initialNextCursor,
     initialTotalCount,
     projectCounts,
 }: TaskTableProps) {
@@ -75,27 +77,43 @@ export function TaskTable({
     const [searchQuery, setSearchQuery] = useState("");
     const [filters, setFilters] = useState<TaskFilters>({});
     const [isLoadingFilters, setIsLoadingFilters] = useState(false);
+    const [isCurrentlyFiltered, setIsCurrentlyFiltered] = useState(false);
+    const filtersActive = hasActiveFilters(filters) || !!searchQuery;
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
     const [loadingSubTasks, setLoadingSubTasks] = useState<Record<string, boolean>>({});
     const [loadingMoreSubTasks, setLoadingMoreSubTasks] = useState<Record<string, boolean>>({});
     const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
     const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({});
     const [sorts, setSorts] = useState<SortConfig[]>([]);
-    const [sortedTasks, setSortedTasks] = useState<Record<string, any[]>>({});
+    const [sortedTasks, setSortedTasks] = useState<any[]>([]);
+    const [sortedHasMore, setSortedHasMore] = useState(false);
+    const [sortedNextCursor, setSortedNextCursor] = useState<any>(null);
+    const [isLoadingMoreSorted, setIsLoadingMoreSorted] = useState(false);
     const [isSortedViewLoading, setIsSortedViewLoading] = useState(false);
     const setCachedSubTasks = useTaskCacheStore(state => state.setCachedSubTasks);
     const getCachedSubTasks = useTaskCacheStore(state => state.getCachedSubTasks);
     const setProjectTasksCache = useTaskCacheStore(state => state.setProjectTasksCache);
     const observerRef = useRef<IntersectionObserver | null>(null);
     const loadProjectTasksRef = useRef<((id: string) => Promise<void>) | null>(null);
+    const loadMoreSortedRef = useRef<(() => Promise<void>) | null>(null);
+    const sortedSentinelRef = useRef<HTMLTableRowElement | null>(null);
     const autoExpandRef = useRef(false);
     const tasksRef = useRef<TaskWithSubTasks[]>([]);
     // Assigned after tasks declaration
-    const viewMode: TableViewMode = useMemo(() => {
+    const mode = useMemo(() => {
         return sorts.length > 0 ? "sorted" : "hierarchy";
     }, [sorts]);
 
+    // Stable string key derived from sorts — used as a useEffect dependency instead of
+    // JSON.stringify(sorts) which creates a new string on every render even when sorts
+    // hasn't actually changed.
+    const sortsKey = sorts.map(s => `${s.field}:${s.direction}`).join(",");
+
     const hydrateTasks = useCallback((taskList: TaskWithSubTasks[]) => {
+        // Skip persistent cache hydration when filters are active to prevent 
+        // "Unfiltered" subtasks from leaking into a filtered view.
+        if (filtersActive) return taskList;
+
         const getCache = useTaskCacheStore.getState().getCachedSubTasks;
         return taskList.map(t => {
             if (t.subTasks !== undefined) return t; // Already has data (or empty array)
@@ -105,14 +123,19 @@ export function TaskTable({
                     ...t,
                     subTasks: cached.subTasks,
                     subTasksHasMore: cached.hasMore,
-                    subTasksPage: cached.page
+                    subTasksNextCursor: cached.nextCursor
                 };
             }
             return t;
         });
-    }, []);
+    }, [filtersActive]);
 
     const [tasks, setTasks] = useState<TaskWithSubTasks[]>(() => {
+        // Skip cache merge if we have active filters/search
+        if (filtersActive) {
+            return initialTasks;
+        }
+
         // Unified Logic: Identify relevant projects and merge their caches with initial server data
         const relevantProjectIds = level === 'project' && projectId
             ? [projectId]
@@ -146,6 +169,10 @@ export function TaskTable({
         // 4. Hydrate subtasks
         return hydrateTasks(mergedList);
     });
+
+    useEffect(() => {
+        tasksRef.current = tasks;
+    }, [tasks]);
 
     tasksRef.current = tasks;
 
@@ -191,27 +218,28 @@ export function TaskTable({
         });
     }, [initialTasks, initialHasMore, initialTotalCount, setProjectTasksCache]);
 
-    const [projectPagination, setProjectPagination] = useState<Record<string, { page: number; hasMore: boolean; isLoading: boolean }>>(() => {
+    const [projectPagination, setProjectPagination] = useState<Record<string, { page: number; nextCursor: any; hasMore: boolean; isLoading: boolean }>>(() => {
         if (level === 'project' && projectId) {
             const cached = useTaskCacheStore.getState().getProjectTasksCache(projectId);
             if (cached) {
                 return {
                     [projectId]: {
-                        // If cache has more than we rendered (100), reset pagination to continue from there
-                        page: cached.tasks.length > 100 ? 2 : cached.page,
-                        hasMore: cached.tasks.length > 100 ? true : cached.hasMore,
+                        page: cached.page,
+                        nextCursor: cached.nextCursor,
+                        hasMore: cached.hasMore,
                         isLoading: false
                     }
                 };
             }
         } else if (level === 'workspace') {
-            const initialState: Record<string, { page: number; hasMore: boolean; isLoading: boolean }> = {};
+            const initialState: Record<string, { page: number; nextCursor: any; hasMore: boolean; isLoading: boolean }> = {};
             projects.forEach(p => {
                 const cached = useTaskCacheStore.getState().getProjectTasksCache(p.id);
                 if (cached) {
                     initialState[p.id] = {
-                        page: cached.tasks.length > 100 ? 2 : cached.page,
-                        hasMore: cached.tasks.length > 100 ? true : cached.hasMore,
+                        page: cached.page,
+                        nextCursor: cached.nextCursor,
+                        hasMore: cached.hasMore,
                         isLoading: false
                     };
                 }
@@ -223,6 +251,7 @@ export function TaskTable({
             return {
                 [projectId]: {
                     page: 1,
+                    nextCursor: initialNextCursor,
                     hasMore: initialHasMore,
                     isLoading: false
                 }
@@ -241,8 +270,11 @@ export function TaskTable({
                 entries.forEach((entry) => {
                     if (entry.isIntersecting) {
                         const projectId = (entry.target as HTMLElement).dataset.projectId;
-                        if (projectId && loadProjectTasksRef.current) {
-                            loadProjectTasksRef.current(projectId);
+
+                        if (projectId === "sorted") {
+                            loadMoreSortedRef.current?.();
+                        } else if (projectId) {
+                            loadProjectTasksRef.current?.(projectId);
                         }
                     }
                 });
@@ -252,61 +284,290 @@ export function TaskTable({
     };
 
     useEffect(() => {
-        // clearCache(); // Don't clear cache on filter change to prevent reloading subtasks
+        if (mode !== "hierarchy") return;
+
         setExpanded({});
         setProjectPagination({});
-        if (Object.keys(filters).length > 0 || searchQuery) {
-            setTasks([]);
-        }
-        // Clear sorted tasks when filters or search change
-        setSortedTasks({});
-    }, [filters, searchQuery]);
+        processedSubTasksRef.current.clear();
+        fetchingSubTasksRef.current.clear();
 
-    // Effect to load sorted tasks when sorting is active
+        setTasks(hydrateTasks(initialTasks));
+
+        if (level === "project" && projectId) {
+            setProjectPagination({
+                [projectId]: {
+                    page: 1,
+                    nextCursor: initialNextCursor,
+                    hasMore: initialHasMore,
+                    isLoading: false,
+                },
+            });
+        }
+    }, [mode, initialTasks]);
+
     useEffect(() => {
-        if (viewMode === "sorted" && sorts.length > 0) {
+        let isAborted = false;
+
+        const fetchFiltered = async () => {
+            setIsLoadingFilters(true);
+            setIsCurrentlyFiltered(true);
+
+            try {
+                const startTime = performance.now();
+                console.time("Filter Hierarchy Load");
+
+                const response = await loadTasksAction({
+                    workspaceId: workspaceId,
+                    ...(level === "project" && projectId ? { projectId } : {}),
+                    status: filters.status as any,
+                    assigneeId: filters.assigneeId as any,
+                    tagId: filters.tagId as any,
+                    search: searchQuery,
+                    dueAfter: filters.startDate ? new Date(filters.startDate) : undefined,
+                    dueBefore: filters.endDate ? new Date(filters.endDate) : undefined,
+                    hierarchyMode: "parents",
+                    includeSubTasks: true, // Bulk load subtasks in one request
+                    limit: 50, // Increase limit for filtered views
+                    sorts,
+                    view_mode: "list",
+                });
+
+                console.timeEnd("Filter Hierarchy Load");
+                const endTime = performance.now();
+                console.log(`⏱️ Filter Load took: ${(endTime - startTime).toFixed(2)} ms`);
+
+                if (isAborted) return;
+
+                if (response.success && response.data) {
+                    const result = response.data;
+                    setTasks(hydrateTasks(result.tasks));
+
+                    if (level === "project" && projectId) {
+                        setProjectPagination({
+                            [projectId]: {
+                                page: 1,
+                                nextCursor: result.nextCursor,
+                                hasMore: result.hasMore,
+                                isLoading: false,
+                            },
+                        });
+                    }
+
+                    // Auto-expand all filtered parents
+                    const expandedMap: Record<string, boolean> = {};
+                    result.tasks.forEach(t => {
+                        expandedMap[t.id] = true;
+                    });
+                    setExpanded(expandedMap);
+
+                    // Auto-expand project groups if workspace view
+                    if (level === "workspace") {
+                        const projectExpandMap: Record<string, boolean> = {};
+                        result.tasks.forEach(t => {
+                            if (t.projectId) projectExpandMap[t.projectId] = true;
+                        });
+                        setExpandedProjects(projectExpandMap);
+                    }
+                }
+            } catch (err) {
+                console.error("Filter error:", err);
+                if (!isAborted) toast.error("Failed to apply filters");
+            } finally {
+                if (!isAborted) setIsLoadingFilters(false);
+            }
+        };
+
+        if (mode === "hierarchy") {
+            if (filtersActive) {
+                fetchFiltered();
+            } else if (isCurrentlyFiltered) {
+                // RESET LOGIC — Restore from cache if possible
+                const relevantProjectIds = level === 'project' && projectId ? [projectId] : projects.map(p => p.id);
+                const getCache = useTaskCacheStore.getState().getProjectTasksCache;
+                const taskMap = new Map<string, TaskWithSubTasks>();
+                const newPagination: Record<string, any> = {};
+
+                relevantProjectIds.forEach(pId => {
+                    const cache = getCache(pId);
+                    if (cache && cache.tasks.length > 0) {
+                        // Filter out subtasks from root list
+                        cache.tasks.filter(t => !t.parentTaskId).forEach(t => taskMap.set(t.id, t));
+                        newPagination[pId] = {
+                            page: cache.page,
+                            nextCursor: cache.nextCursor,
+                            hasMore: cache.hasMore,
+                            isLoading: false
+                        };
+                    } else if (pId === projectId) {
+                        // Fallback to initialData
+                        initialTasks.forEach(t => taskMap.set(t.id, t));
+                        newPagination[pId] = {
+                            page: 1,
+                            nextCursor: initialNextCursor,
+                            hasMore: initialHasMore,
+                            isLoading: false
+                        };
+                    }
+                });
+
+                if (!isAborted) {
+                    const resetList = Array.from(taskMap.values());
+                    setTasks(hydrateTasks(resetList));
+                    setProjectPagination(newPagination);
+                    setExpanded({});
+                    setIsCurrentlyFiltered(false);
+                    setIsLoadingFilters(false);
+                }
+            }
+        }
+
+        return () => { isAborted = true; };
+    }, [mode, JSON.stringify(filters), searchQuery, sortsKey, workspaceId, projectId, level, initialTasks]);
+
+    // Effect to load sorted/filtered tasks when flat mode is active
+    useEffect(() => {
+        if (mode !== "sorted") {
+            setSortedTasks([]);
+            setSortedHasMore(false);
+            return;
+        }
+
+        let isMounted = true;
+
+        const fetchSorted = async () => {
             setIsSortedViewLoading(true);
 
-            // Build filters with projectId if in project view
-            const sortFilters = {
-                ...filters,
-                startDate: filters.startDate ? new Date(filters.startDate) : undefined,
-                endDate: filters.endDate ? new Date(filters.endDate) : undefined,
-                search: searchQuery,
-                // Add projectId filter if in project view (level === 'project')
-                ...(level === 'project' && projectId ? { projectId } : {})
-            };
+            const startTime = performance.now();
+            console.time("Filter Flat List Load");
 
-            loadSortedSubTasksAction(
+            const res = await loadTasksAction({
                 workspaceId,
-                { ...sortFilters, workspaceId },
+                ...(level === "project" && projectId ? { projectId } : {}),
+                status: filters.status,
+                assigneeId: filters.assigneeId,
+                tagId: filters.tagId,
+                search: searchQuery,
+                dueAfter: filters.startDate ? new Date(filters.startDate) : undefined,
+                dueBefore: filters.endDate ? new Date(filters.endDate) : undefined,
+                onlySubtasks: true,
                 sorts,
-                1,
-                100 // Load more items for sorted view
-            ).then(response => {
-                if (response.success && response.data) {
-                    setSortedTasks(response.data.tasksByProject);
-                } else {
-                    toast.error(response.error || "Failed to load sorted tasks");
-                }
-            }).catch(error => {
-                console.error("Error loading sorted tasks:", error);
-                toast.error("Failed to load sorted tasks");
-            }).finally(() => {
-                setIsSortedViewLoading(false);
+                limit: 50, // Increased limit for faster "Load More" feel
+                view_mode: "list",
             });
-        } else {
-            // Clear sorted tasks when switching back to hierarchy view
-            setSortedTasks({});
+
+            console.timeEnd("Filter Flat List Load");
+            const endTime = performance.now();
+            console.log(`⏱️ Sorted Load took: ${(endTime - startTime).toFixed(2)} ms`);
+
+            if (!isMounted) return;
+
+            if (res.success && res.data) {
+                setSortedTasks(res.data.tasks || []);
+                setSortedHasMore(res.data.hasMore);
+                setSortedNextCursor(res.data.nextCursor);
+
+                // Debug: print tasks in sorted order with correct field values
+                const sortField = sorts[0]?.field;
+                const getSortValue = (t: any, field: string): string => {
+                    if (field === "startDate" || field === "dueDate") return t[field] ? new Date(t[field]).toISOString().slice(0, 10) : "null";
+                    return String(t[field] ?? "null");
+                };
+                console.group(`[Sorted] ${res.data.tasks.length} tasks — sort: ${sortField} ${sorts[0]?.direction} | hasMore=${res.data.hasMore}`);
+                res.data.tasks.forEach((t: any, i: number) => {
+                    console.log(`#${String(i + 1).padStart(2)}  ${sortField}=${getSortValue(t, sortField)}  name=${t.name}  id=${t.id.slice(0, 8)}`);
+                });
+                console.groupEnd();
+            }
+
+            setIsSortedViewLoading(false);
+        };
+
+        // Reset pagination before fresh fetch — do NOT clear tasks here to avoid flicker
+        setSortedHasMore(false);
+        setSortedNextCursor(null);
+
+        fetchSorted();
+
+        return () => { isMounted = false; };
+
+    }, [sortsKey, workspaceId, projectId, JSON.stringify(filters), searchQuery]);
+
+    const loadMoreSorted = async () => {
+        if (!sortedHasMore || isLoadingMoreSorted) {
+            // console.log("[LoadMoreSorted] Skip:", { sortedHasMore, isLoadingMoreSorted });
+            return;
         }
-    }, [viewMode, sorts, workspaceId, filters, searchQuery, projectId, level]);
+
+        // console.log("[LoadMoreSorted] Start — cursor:", sortedCursor);
+        setIsLoadingMoreSorted(true);
+
+        try {
+            const res = await loadTasksAction({
+                workspaceId,
+                ...(level === "project" && projectId ? { projectId } : {}),
+                status: filters.status,
+                assigneeId: filters.assigneeId,
+                tagId: filters.tagId,
+                search: searchQuery,
+                dueAfter: filters.startDate ? new Date(filters.startDate) : undefined,
+                dueBefore: filters.endDate ? new Date(filters.endDate) : undefined,
+                onlySubtasks: true,
+                sorts,
+                cursor: sortedNextCursor,
+                limit: 50,
+                view_mode: "list",
+            });
+
+            if (res.success && res.data) {
+                const newTasks = res.data.tasks || [];
+                // console.log(`[LoadMoreSorted] Success: ${newTasks.length} tasks, hasMore: ${res.data.hasMore}`);
+
+                setSortedTasks(prev => [...prev, ...newTasks]);
+                setSortedHasMore(res.data.hasMore);
+                setSortedNextCursor(res.data.nextCursor);
+            } else {
+                console.error("[LoadMoreSorted] Server error:", res.error);
+                toast.error("Failed to load more sorted tasks");
+                setSortedHasMore(false);
+            }
+        } catch (err) {
+            console.error("[LoadMoreSorted] Runtime error:", err);
+            toast.error("An error occurred while loading more tasks");
+        } finally {
+            setIsLoadingMoreSorted(false);
+        }
+    };
+
+    useEffect(() => {
+        loadMoreSortedRef.current = loadMoreSorted;
+    }, [loadMoreSorted]);
+
+    // Dedicated IntersectionObserver for sorted scroll pagination.
+    // Re-creates on every tasks-length change AND whenever hasMore flips,
+    // so the observer fires even when the sentinel stays in the viewport.
+    useEffect(() => {
+        const sentinel = sortedSentinelRef.current;
+        if (!sentinel) return;
+
+        const obs = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting && sortedHasMore) {
+                    loadMoreSortedRef.current?.();
+                }
+            },
+            { rootMargin: "300px", threshold: 0 }
+        );
+
+        obs.observe(sentinel);
+        return () => obs.disconnect();
+    }, [sortedTasks.length, sortedHasMore]);
 
     const [activeInlineProjectId, setActiveInlineProjectId] = useState<string | null>(null);
     const [filteredProjects, setFilteredProjects] = useState<{ id: string; name: string; }[]>(projects || []);
-    const totalCount = tasks.length;
+    // const totalCount = tasks.length;
 
     const loadProjectTasks = async (targetProjectId: string) => {
-        const currentPagination = projectPagination[targetProjectId] || { page: 0, hasMore: true, isLoading: false };
+        const currentPagination = projectPagination[targetProjectId] || { page: 0, nextCursor: undefined, hasMore: true, isLoading: false };
 
         if (currentPagination.isLoading || !currentPagination.hasMore) return;
 
@@ -316,25 +577,28 @@ export function TaskTable({
         }));
 
         try {
-            const nextPage = currentPagination.page + 1;
-            const response = await loadMoreTasksAction(
+            const response = await loadTasksAction({
                 workspaceId,
-                {
-                    ...filters,
-                    projectId: targetProjectId,
-                    startDate: filters.startDate ? new Date(filters.startDate) : undefined,
-                    endDate: filters.endDate ? new Date(filters.endDate) : undefined,
-                    search: searchQuery,
-                    workspaceId
-                },
-                nextPage,
-                10
-            );
+                projectId: targetProjectId,
+                status: filters.status as any,
+                assigneeId: filters.assigneeId as any,
+                tagId: filters.tagId as any,
+                search: searchQuery,
+                dueAfter: filters.startDate ? new Date(filters.startDate) as any : undefined,
+                dueBefore: filters.endDate ? new Date(filters.endDate) as any : undefined,
+                hierarchyMode: "parents",
+                includeSubTasks: false, // 🚀 Changed to false to prevent expensive recursive scans on simple scroll
+                cursor: currentPagination.nextCursor,
+                limit: 50,
+                sorts,
+                view_mode: "list",
+            });
 
             if (response.success && response.data) {
+                const resultData = response.data as any;
                 setTasks(prev => {
                     const existingIds = new Set(prev.map(t => t.id));
-                    const newTasks = (response.data!.tasks as unknown as TaskWithSubTasks[])
+                    const newTasks = (resultData.tasks as unknown as TaskWithSubTasks[])
                         .filter(task => !existingIds.has(task.id));
                     const updatedList = [...prev, ...newTasks];
 
@@ -342,9 +606,10 @@ export function TaskTable({
                     const tasksForCache = updatedList.filter(t => t.projectId === targetProjectId);
                     setProjectTasksCache(targetProjectId, {
                         tasks: tasksForCache,
-                        hasMore: response.data!.hasMore ?? false,
-                        page: nextPage,
-                        totalCount: response.data!.totalCount
+                        hasMore: resultData.hasMore ?? false,
+                        page: currentPagination.page + 1,
+                        nextCursor: resultData.nextCursor,
+                        totalCount: resultData.totalCount ?? undefined
                     });
 
                     if (autoExpandRef.current && newTasks.length > 0) {
@@ -363,8 +628,9 @@ export function TaskTable({
                 setProjectPagination(prev => ({
                     ...prev,
                     [targetProjectId]: {
-                        page: nextPage,
-                        hasMore: response.data!.hasMore ?? false,
+                        page: currentPagination.page + 1,
+                        nextCursor: resultData.nextCursor,
+                        hasMore: resultData.hasMore ?? false,
                         isLoading: false
                     }
                 }));
@@ -389,6 +655,8 @@ export function TaskTable({
         loadProjectTasksRef.current = loadProjectTasks;
     }, [loadProjectTasks]);
 
+
+
     const toggleProjectExpand = (targetProjectId: string) => {
         setExpandedProjects(prev => {
             const isExpanding = !prev[targetProjectId];
@@ -399,7 +667,7 @@ export function TaskTable({
         });
         const isCurrentlyExpanded = expandedProjects[targetProjectId];
         if (!isCurrentlyExpanded) {
-            if (!projectPagination[targetProjectId]) {
+            if (!projectPagination[targetProjectId] && !filtersActive) {
                 loadProjectTasks(targetProjectId);
             }
         }
@@ -410,26 +678,31 @@ export function TaskTable({
     };
 
     useEffect(() => {
-        if (level === 'project' && projectId && !projectPagination[projectId]) {
+        if (
+            level === 'project' &&
+            projectId &&
+            !projectPagination[projectId] &&
+            !filtersActive
+        ) {
             loadProjectTasks(projectId);
         }
-    }, [level, projectId]);
+    }, [level, projectId, filters, searchQuery]);
 
-    const { openSubTaskSheet } = useSubTaskSheet();
+    const { openSubTaskSheet } = useSubTaskSheetActions();
 
     const filterOptions = React.useMemo(() => {
         const options = extractAllFilterOptions(tasks as any, showAdvancedFilters ? 'workspace' : 'project');
 
         const assigneesForFilter = assignees || members
-            .filter(member => member.workspaceMember?.user) // Filter out members without user data
+            .filter(member => member.workspaceMember?.user)
             .map(member => ({
                 id: member.workspaceMember.user!.id,
-                name: member.workspaceMember.user!.name,
+                // name: member.workspaceMember.user!.name,
                 surname: member.workspaceMember.user!.surname || undefined,
             }))
             .sort((a, b) => {
-                const nameA = `${a.name} ${a.surname || ''}`.trim();
-                const nameB = `${b.name} ${b.surname || ''}`.trim();
+                const nameA = `${a.surname || ''}`.trim();
+                const nameB = `${b.surname || ''}`.trim();
                 return nameA.localeCompare(nameB);
             });
 
@@ -440,74 +713,6 @@ export function TaskTable({
             projects: filteredProjects,
         };
     }, [tasks, showAdvancedFilters, members, assignees, tags, filteredProjects]);
-
-    const handleSubTaskUpdated = (taskId: string, subTaskId: string, updatedData: Partial<SubTaskType>) => {
-        setTasks(prevTasks =>
-            prevTasks.map(task => {
-                if (task.id === taskId && task.subTasks) {
-                    return {
-                        ...task,
-                        subTasks: task.subTasks.map((subTask: SubTaskType) =>
-                            subTask.id === subTaskId
-                                ? { ...subTask, ...updatedData }
-                                : subTask
-                        ),
-                    };
-                }
-                return task;
-            })
-        );
-    };
-
-    const handleSubTaskDeleted = (taskId: string, subTaskId: string) => {
-        setTasks(prevTasks =>
-            prevTasks.map(task => {
-                if (task.id === taskId && task.subTasks) {
-                    const newSubTasks = task.subTasks.filter((subTask: SubTaskType) => subTask.id !== subTaskId);
-                    return {
-                        ...task,
-                        subTasks: newSubTasks,
-                        _count: {
-                            ...task._count,
-                            subTasks: newSubTasks.length
-                        },
-                    };
-                }
-                return task;
-            })
-        );
-    };
-
-    const handleSubTaskCreated = (taskId: string, newSubTask: any, tempId?: string) => {
-        setTasks(prevTasks =>
-            prevTasks.map(task => {
-                if (task.id === taskId) {
-                    const currentSubTasks = task.subTasks || [];
-
-                    if (tempId) {
-                        return {
-                            ...task,
-                            subTasks: currentSubTasks.map((st: SubTaskType) => st.id === tempId ? newSubTask : st)
-                        };
-                    }
-
-                    if (currentSubTasks.some((st: SubTaskType) => st.id === newSubTask.id)) {
-                        return task;
-                    }
-
-                    return {
-                        ...task,
-                        subTasks: [...currentSubTasks, newSubTask],
-                        _count: {
-                            ...task._count,
-                            subTasks: (task._count?.subTasks || 0) + 1
-                        },
-                    };
-                }
-                return task;
-            })
-        );
-    };
 
     // Calculate project task counts
     const projectTaskCounts = useMemo(() => {
@@ -580,7 +785,7 @@ export function TaskTable({
                         ...t,
                         subTasks: cached.subTasks,
                         subTasksHasMore: cached.hasMore,
-                        subTasksPage: cached.page
+                        subTasksNextCursor: cached.nextCursor
                     };
                 }
                 return t;
@@ -596,30 +801,54 @@ export function TaskTable({
         const taskProjectId = task.projectId || projectId || "";
 
         try {
-            const response = await loadSubTasksAction(taskId, workspaceId, taskProjectId, { workspaceId }, 1, 10);
+            // Include current filters so expanded subtasks match the filtered dataset
+            const activeFilters = {
+                ...filters,
+                search: searchQuery || filters.search,
+                workspaceId
+            };
 
-            if (response.success && response.data) {
-                const result = response.data;
+            const response = await getSubTasksAction(
+                taskId,
+                workspaceId,
+                taskProjectId,
+                {
+                    status: activeFilters.status,
+                    assigneeId: activeFilters.assigneeId,
+                    tagId: activeFilters.tagId,
+                    search: activeFilters.search,
+                    dueAfter: filters.startDate ? new Date(filters.startDate) : undefined,
+                    dueBefore: filters.endDate ? new Date(filters.endDate) : undefined,
+                },
+                30, // pageSize
+                "list"
+            );
+
+            if (response.success && response.subTasks) {
+                const subTasks = response.subTasks;
+                console.log(`[CLIENT] Loaded subtasks for parent ${taskId}:`, subTasks);
                 processedSubTasksRef.current.add(taskId);
 
                 // Dedup
-                const uniqueSubTasks = result.subTasks.filter((st, index, self) =>
-                    index === self.findIndex((t) => (t.id === st.id))
+                const uniqueSubTasks = subTasks.filter((st: any, index: number, self: any[]) =>
+                    index === self.findIndex((t: any) => (t.id === st.id))
                 );
 
-                setCachedSubTasks(taskId, {
-                    subTasks: uniqueSubTasks,
-                    hasMore: result.hasMore,
-                    page: 1
-                });
+                if (!filtersActive) {
+                    setCachedSubTasks(taskId, {
+                        subTasks: uniqueSubTasks,
+                        hasMore: response.hasMore,
+                        nextCursor: response.nextCursor
+                    });
+                }
 
                 setTasks(prev => prev.map(t => {
                     if (t.id === taskId) {
                         return {
                             ...t,
                             subTasks: uniqueSubTasks,
-                            subTasksHasMore: result.hasMore,
-                            subTasksPage: 1
+                            subTasksHasMore: response.hasMore,
+                            subTasksNextCursor: response.nextCursor
                         };
                     }
                     return t;
@@ -635,7 +864,7 @@ export function TaskTable({
                 return next;
             });
         }
-    }, [projectId, workspaceId, getCachedSubTasks, setCachedSubTasks]);
+    }, [projectId, workspaceId, filters, searchQuery, getCachedSubTasks, setCachedSubTasks]);
 
 
     // 3. UI-ONLY Toggle
@@ -684,7 +913,6 @@ export function TaskTable({
         setLoadingMoreSubTasks((prev) => ({ ...prev, [taskId]: true }));
 
         try {
-            const nextPage = (task.subTasksPage || 1) + 1;
             const cleanFilters: any = {};
             const rawFilters = {
                 ...filters,
@@ -700,30 +928,39 @@ export function TaskTable({
                 }
             });
 
-            const response = await loadSubTasksAction(
-                taskId,
+            const response = await loadTasksAction({
                 workspaceId,
-                task.projectId || projectId,
-                cleanFilters,
-                nextPage,
-                10
-            );
+                projectId: task.projectId || projectId,
+                filterParentTaskId: taskId,
+                status: cleanFilters.status,
+                assigneeId: cleanFilters.assigneeId,
+                tagId: cleanFilters.tagId,
+                search: cleanFilters.search,
+                dueAfter: cleanFilters.startDate,
+                dueBefore: cleanFilters.endDate,
+                cursor: task.subTasksNextCursor,
+                limit: 30,
+                sorts,
+            });
 
             if (response.success && response.data) {
+                const resultData = response.data as any;
+                console.log(`[CLIENT] Loaded more subtasks for parent ${taskId}:`, resultData.tasks);
                 // Deduplicate: combine existing + new subtasks, remove duplicates
                 const existingSubTasks = task.subTasks || [];
                 const existingIds = new Set(existingSubTasks.map(st => st.id));
-                const newSubTasks = response.data.subTasks.filter(st =>
+                const newSubTasks = (resultData.tasks as any[]).filter((st: any) =>
                     st.id && !existingIds.has(st.id)
                 );
                 const combinedSubTasks = [...existingSubTasks, ...newSubTasks];
 
-                // Update cache
-                setCachedSubTasks(taskId, {
-                    subTasks: combinedSubTasks,
-                    hasMore: response.data!.hasMore,
-                    page: nextPage,
-                });
+                if (!filtersActive) {
+                    setCachedSubTasks(taskId, {
+                        subTasks: combinedSubTasks,
+                        hasMore: resultData.hasMore,
+                        nextCursor: resultData.nextCursor,
+                    });
+                }
 
                 setTasks((prevTasks) =>
                     prevTasks.map((t) =>
@@ -731,8 +968,8 @@ export function TaskTable({
                             ? {
                                 ...t,
                                 subTasks: combinedSubTasks,
-                                subTasksHasMore: response.data!.hasMore,
-                                subTasksPage: nextPage,
+                                subTasksHasMore: resultData.hasMore,
+                                subTasksNextCursor: resultData.nextCursor,
                             }
                             : t
                     )
@@ -747,118 +984,28 @@ export function TaskTable({
             setLoadingMoreSubTasks((prev) => ({ ...prev, [taskId]: false }));
         }
     };
-
-    const handleDragEnd = async (event: DragEndEvent) => {
-        const { active, over } = event;
-
-        if (!over || active.id === over.id) return;
-
-        const activeSubTaskId = active.id as string;
-        const overSubTaskId = over.id as string;
-
-        const parentTask = tasks.find((task) =>
-            task.subTasks?.some((sub: SubTaskType) => sub.id === activeSubTaskId)
-        );
-
-        if (!parentTask || !parentTask.subTasks) return;
-
-        const isOverInSameParent = parentTask.subTasks.some(
-            (sub: SubTaskType) => sub.id === overSubTaskId
-        );
-
-        if (isOverInSameParent) {
-            const oldIndex = parentTask.subTasks.findIndex(
-                (sub: SubTaskType) => sub.id === activeSubTaskId
-            );
-            const newIndex = parentTask.subTasks.findIndex(
-                (sub: SubTaskType) => sub.id === overSubTaskId
-            );
-            const newSubTasks = arrayMove(parentTask.subTasks, oldIndex, newIndex) as SubTaskType[];
-            const updatedSubTasks = newSubTasks.map((subtask: SubTaskType, index: number) => ({
-                ...subtask,
-                position: index
-            }));
-            const newTasks = tasks.map((t) => {
-                if (t.id === parentTask.id) {
-                    return { ...t, subTasks: updatedSubTasks };
-                }
-                return t;
-            });
-
-            setTasks(newTasks);
-            const toastId = toast.loading("Updating subtask order...");
-
-            try {
-                const updates = updatedSubTasks.map((subtask, index) => ({
-                    subtaskId: subtask.id,
-                    newPosition: index
-                }));
-
-                const result = await updateSubtaskPositions(
-                    parentTask.id,
-                    projectId,
-                    workspaceId,
-                    updates
-                );
-
-                if (result.success) {
-                    toast.success("Subtask order updated successfully", { id: toastId });
-                } else {
-                    setTasks(tasks);
-                    toast.error(result.message || "Failed to update subtask order", { id: toastId });
-                }
-            } catch (error) {
-                console.error("Error updating subtask positions:", error);
-                setTasks(tasks);
-                toast.error("Failed to update subtask order", { id: toastId });
-            }
-        }
-    };
-
-    const sensors = useSensors(
-        useSensor(PointerSensor),
-        useSensor(KeyboardSensor, {
-            coordinateGetter: sortableKeyboardCoordinates,
-        })
-    );
-
-    // Helper function to check if any filters are active
-    const hasActiveFilters = (filters: TaskFilters): boolean => {
-        return !!(
-            filters.status ||
-            filters.assigneeId ||
-            filters.tagId ||
-            filters.startDate ||
-            filters.endDate ||
-            filters.projectId
-        );
-    };
-
-    // Handle sort column click
     const handleSort = (field: SortField) => {
-        setSorts(prevSorts => {
-            const existingSort = prevSorts.find(s => s.field === field);
+        setSorts(prev => {
+            const existing = prev.find(s => s.field === field);
 
-            if (existingSort) {
-                // Toggle direction or remove if already descending
-                if (existingSort.direction === "asc") {
-                    return prevSorts.map(s =>
-                        s.field === field ? { ...s, direction: "desc" as const } : s
-                    );
-                } else {
-                    // Remove this sort
-                    return prevSorts.filter(s => s.field !== field);
-                }
-            } else {
-                // Add new sort
-                return [...prevSorts, { field, direction: "asc" as const }];
+            // If no sort active → start ASC
+            if (!existing) {
+                return [{ field, direction: "asc" as const }];
             }
+
+            // If ASC → switch to DESC
+            if (existing.direction === "asc") {
+                return [{ field, direction: "desc" as const }];
+            }
+
+            // If DESC → remove sort
+            return [];
         });
     };
 
     return (
-        <div className="space-y-4 mt-4">
-            <div className="flex items-center gap-2 mb-4">
+        <div className="space-y-4 mt-0">
+            <div className="flex items-center gap-2">
                 <GlobalFilterToolbar
                     className="flex-1"
                     level={showAdvancedFilters ? "workspace" : "project"}
@@ -891,7 +1038,9 @@ export function TaskTable({
                     </div>
                 )}
                 <div className={cn(
-                    "max-h-[calc(100vh-280px)] overflow-auto",
+                    "overflow-auto",
+                    level === "workspace" ? "max-h-[70vh]" : "max-h-[65vh]",
+                    "mt-0",
                     "[&::-webkit-scrollbar]:w-0.5",
                     "[&::-webkit-scrollbar]:h-1",
                     "[&::-webkit-scrollbar-track]:bg-transparent",
@@ -900,14 +1049,14 @@ export function TaskTable({
                     "[&::-webkit-scrollbar-thumb]:hover:bg-slate-400"
                 )}>
                     <DndContext
-                        sensors={sensors}
+                        // sensors={sensors}
                         collisionDetection={closestCenter}
-                        onDragEnd={handleDragEnd}
+                    // onDragEnd={handleDragEnd}
                     >
                         <table className="w-full caption-bottom text-sm table-fixed">
                             <thead className="[&_tr]:border-b">
                                 <tr className="sticky top-0 z-10 bg-background border-b shadow-sm hover:bg-muted/50">
-                                    <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[50px] bg-background">
+                                    <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[40px] md:w-[50px] bg-background">
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
                                                 <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted">
@@ -931,21 +1080,19 @@ export function TaskTable({
                                         label="Task Name"
                                         sorts={sorts}
                                         onSortChange={handleSort}
-                                        className="w-[250px]"
+                                        className="w-[180px] sm:w-[250px] md:w-[350px]"
                                     />
                                     {/* Project column removed (using grouping instead) */}
-                                    {columnVisibility.description && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[200px] bg-background">Description</th>}
+                                    {columnVisibility.description && <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[150px] sm:w-[200px] bg-background">Description</th>}
                                     {columnVisibility.assignee && (
-                                        <SortableHeader
-                                            field="assignee"
-                                            label="Assignee"
-                                            sorts={sorts}
-                                            onSortChange={handleSort}
-                                            className="w-[100px]"
-                                        />
+                                        <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[80px] sm:w-[100px] bg-background">
+                                            {/* ⚠️ Not sortable — sorting by FK id is meaningless.
+                                                Re-enable once assigneeDisplayName is denormalized onto Task. */}
+                                            Assignee
+                                        </th>
                                     )}
                                     {columnVisibility.reviewer && (
-                                        <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] bg-background">
+                                        <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[80px] sm:w-[100px] bg-background">
                                             Reviewer
                                         </th>
                                     )}
@@ -955,398 +1102,151 @@ export function TaskTable({
                                             label="Status"
                                             sorts={sorts}
                                             onSortChange={handleSort}
-                                            className="w-[100px]"
+                                            className="w-[90px] sm:w-[120px]"
                                         />
                                     )}
                                     {columnVisibility.startDate && (
-                                        <SortableHeader
-                                            field="startDate"
-                                            label="Start Date"
-                                            sorts={sorts}
-                                            onSortChange={handleSort}
-                                            className="w-[100px]"
-                                        />
-                                    )}
-                                    {columnVisibility.dueDate && (
-                                        <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] bg-background">
-                                            Due Date
+                                        <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[90px] sm:w-[120px] bg-background">
+                                            Start Date
                                         </th>
                                     )}
-                                    {columnVisibility.progress && (
+                                    {columnVisibility.dueDate && (
                                         <SortableHeader
                                             field="dueDate"
-                                            label="Deadline"
+                                            label="Due Date"
                                             sorts={sorts}
                                             onSortChange={handleSort}
-                                            className="w-[100px]"
+                                            className="w-[90px] sm:w-[120px]"
                                         />
                                     )}
+                                    {columnVisibility.progress && (
+                                        <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] sm:w-[150px] bg-background">
+                                            Urgency
+                                        </th>
+                                    )}
                                     {columnVisibility.tag && (
-                                        <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[120px] bg-background">
+                                        <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] sm:w-[120px] bg-background">
                                             Tag
                                         </th>
                                     )}
-                                    <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[50px] bg-background"></th>
+                                    <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[40px] bg-background"></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {/* SORTED VIEW: Flat task rows grouped by project */}
-                                {viewMode === "sorted" ? (
-                                    isSortedViewLoading ? (
-                                        <TableRow>
-                                            <TableCell colSpan={visibleColumnsCount} className="h-12">
-                                                <div className="flex items-center gap-2 px-2">
-                                                    <Skeleton className="h-4 w-full" />
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : Object.keys(sortedTasks).length > 0 ? (
-                                        level === 'workspace' ? (
-                                            Object.entries(sortedTasks).map(([projectId, projectSortedTasks]) => {
-                                                const project = projects?.find(p => p.id === projectId);
-                                                if (projectId === 'unknown' && projectSortedTasks.length === 0) return null;
-
-                                                const isProjectExpanded = expandedProjects[projectId] === true;
-
-                                                return (
-                                                    <React.Fragment key={`sorted-${projectId}`}>
-                                                        <ProjectRow
-                                                            project={project || { id: projectId, name: "Unknown Project" }}
-                                                            totalTasksCount={projectSortedTasks.length}
-                                                            isExpanded={isProjectExpanded}
-                                                            onToggle={() => toggleProjectExpand(projectId)}
-                                                            colSpan={visibleColumnsCount}
-                                                        >
-                                                            {isProjectExpanded && projectSortedTasks.map((task: any) => (
-                                                                <SortedTaskRow
-                                                                    key={task.id}
-                                                                    task={task}
-                                                                    columnVisibility={columnVisibility}
-                                                                    onClick={() => handleSubTaskClick(task)}
-                                                                />
-                                                            ))}
-                                                        </ProjectRow>
-                                                    </React.Fragment>
-                                                );
-                                            })
-                                        ) : (
-                                            Object.values(sortedTasks).flat().map((task: any) => (
-                                                <SortedTaskRow
-                                                    key={task.id}
-                                                    task={task}
-                                                    columnVisibility={columnVisibility}
-                                                    onClick={() => handleSubTaskClick(task)}
-                                                />
-                                            ))
-                                        )
-                                    ) : (
-                                        <TableRow>
-                                            <TableCell colSpan={visibleColumnsCount} className="h-24 text-center text-muted-foreground">
-                                                No tasks found.
-                                            </TableCell>
-                                        </TableRow>
-                                    )
+                                {mode === "sorted" ? (
+                                    <SortedTaskList
+                                        sortedTasks={sortedTasks}
+                                        isLoading={isSortedViewLoading}
+                                        hasMore={sortedHasMore}
+                                        isLoadingMore={isLoadingMoreSorted}
+                                        columnVisibility={columnVisibility}
+                                        visibleColumnsCount={visibleColumnsCount}
+                                        sortedSentinelRef={sortedSentinelRef}
+                                        handleSubTaskClick={handleSubTaskClick}
+                                    />
                                 ) : (
                                     groupedTasks ? (
-                                        Object.entries(groupedTasks).map(([projectId, projectTasks]) => {
-                                            const project = projects?.find(p => p.id === projectId);
-                                            if (projectId === 'unknown' && projectTasks.length === 0) return null;
-
-                                            const isProjectExpanded = expandedProjects[projectId] === true;
+                                        Object.entries(groupedTasks).map(([currentProjectId, projectTasks]) => {
+                                            const project = projects?.find(p => p.id === currentProjectId);
+                                            if (currentProjectId === 'unknown' && projectTasks.length === 0) return null;
 
                                             return (
-                                                <React.Fragment key={projectId}>
-                                                    <ProjectRow
-                                                        project={project || { id: projectId, name: "Unknown Project" }}
-                                                        totalTasksCount={projectCounts ? (projectCounts[projectId] || 0) : projectTaskCounts[projectId]}
-                                                        isExpanded={isProjectExpanded}
-                                                        onToggle={() => toggleProjectExpand(projectId)}
-                                                        colSpan={visibleColumnsCount}
-                                                    >
-                                                        {isProjectExpanded && projectTasks.map((task) => (
-                                                            <React.Fragment key={task.id}>
-                                                                <TaskRow
-                                                                    task={task}
-                                                                    isExpanded={!!expanded[task.id]}
-                                                                    onToggleExpand={() => toggleExpand(task.id)}
-                                                                    columnVisibility={columnVisibility}
-                                                                    isUpdating={updatingTaskId === task.id}
-                                                                    onUpdateStart={() => setUpdatingTaskId(task.id)}
-                                                                    onUpdateEnd={() => setUpdatingTaskId(null)}
-                                                                    onTaskUpdated={(updatedTask) => {
-                                                                        setTasks(prevTasks =>
-                                                                            prevTasks.map(t =>
-                                                                                t.id === task.id
-                                                                                    ? { ...t, name: updatedTask.name, taskSlug: updatedTask.taskSlug }
-                                                                                    : t
-                                                                            )
-                                                                        );
-                                                                    }}
-                                                                    onTaskDeleted={(taskId) => {
-                                                                        setTasks(prevTasks =>
-                                                                            prevTasks.filter(t => t.id !== taskId)
-                                                                        );
-                                                                    }}
-                                                                    permissions={permissions}
-                                                                    userId={userId}
-                                                                    isWorkspaceAdmin={isWorkspaceAdmin}
-                                                                    leadProjectIds={leadProjectIds}
-                                                                    projects={projects}
-                                                                    onRequestSubtasks={handleRequestSubtasks}
-                                                                    isCached={!!getCachedSubTasks(task.id)}
-                                                                >
-                                                                    <SubTaskList
-                                                                        task={task}
-                                                                        tags={tags}
-                                                                        members={members}
-                                                                        workspaceId={workspaceId}
-                                                                        projectId={task.projectId || projectId}
-                                                                        canCreateSubTask={
-                                                                            level === 'project'
-                                                                                ? canCreateSubTask
-                                                                                : (canCreateSubTask && task.projectId ? (
-                                                                                    leadProjectIds.includes(task.projectId) ||
-                                                                                    !!isWorkspaceAdmin ||
-                                                                                    !!projects?.find(p => p.id === task.projectId)?.canManageMembers
-                                                                                ) : false)
-                                                                        }
-                                                                        columnVisibility={columnVisibility}
-                                                                        isLoading={!!loadingSubTasks[task.id]}
-                                                                        isLoadingMore={!!loadingMoreSubTasks[task.id]}
-                                                                        onLoadMore={() => loadMoreSubTasks(task.id)}
-                                                                        onSubTaskClick={handleSubTaskClick}
-                                                                        onSubTaskUpdated={(subTaskId, updatedData) =>
-                                                                            handleSubTaskUpdated(task.id, subTaskId, updatedData)
-                                                                        }
-                                                                        onSubTaskDeleted={(subTaskId) =>
-                                                                            handleSubTaskDeleted(task.id, subTaskId)
-                                                                        }
-                                                                        onSubTaskCreated={(newSubTask, tempId) =>
-                                                                            handleSubTaskCreated(task.id, newSubTask, tempId)
-                                                                        }
-                                                                        permissions={permissions}
-                                                                        userId={userId}
-                                                                        isWorkspaceAdmin={isWorkspaceAdmin}
-                                                                        leadProjectIds={leadProjectIds}
-                                                                        projects={projects}
-                                                                        level={level}
-                                                                    />
-                                                                </TaskRow>
-                                                            </React.Fragment>
-                                                        ))}
-                                                        {isProjectExpanded && projectPagination[projectId]?.isLoading && projectTasks.length === 0 && (
-                                                            Array.from({ length: 3 }).map((_, i) => (
-                                                                <TableRow key={`skeleton-${projectId}-${i}`}>
-                                                                    <TableCell colSpan={visibleColumnsCount} className="p-4">
-                                                                        <div className="flex items-center gap-4">
-                                                                            <Skeleton className="h-4 w-4 rounded" />
-                                                                            <div className="flex-1 space-y-2">
-                                                                                <Skeleton className="h-4 w-[200px]" />
-                                                                            </div>
-                                                                            <Skeleton className="h-4 w-[100px]" />
-                                                                            <Skeleton className="h-4 w-[80px]" />
-                                                                            <Skeleton className="h-4 w-[80px]" />
-                                                                        </div>
-                                                                    </TableCell>
-                                                                </TableRow>
-                                                            ))
-                                                        )}
-
-                                                        {isProjectExpanded && projectPagination[projectId]?.hasMore && (
-                                                            <TableRow
-                                                                ref={(node) => {
-                                                                    if (node) getObserver().observe(node);
-                                                                }}
-                                                                data-project-id={projectId}
-                                                            >
-                                                                <TableCell colSpan={visibleColumnsCount} className="py-2 h-10">
-                                                                    {projectPagination[projectId]?.isLoading ? (
-                                                                        <div className="flex items-center gap-4 px-2 opacity-60">
-                                                                            <Skeleton className="h-4 w-4 rounded" />
-                                                                            <div className="flex-1">
-                                                                                <Skeleton className="h-4 w-[150px]" />
-                                                                            </div>
-                                                                            <Skeleton className="h-4 w-[100px]" />
-                                                                        </div>
-                                                                    ) : (
-                                                                        <div className="h-1 w-full" />
-                                                                    )}
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        )}
-                                                        {isProjectExpanded && !projectPagination[projectId]?.isLoading && projectTasks.length === 0 && (!!searchQuery || hasActiveFilters(filters) || !canCreateSubTask) && (
-                                                            <TableRow>
-                                                                <TableCell colSpan={visibleColumnsCount} className="h-24 text-center text-muted-foreground">
-                                                                    No tasks found.
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        )}
-                                                        {isProjectExpanded && canCreateSubTask && !searchQuery && Object.keys(filters).length === 0 && (
-                                                            activeInlineProjectId === projectId ? (
-                                                                <InlineTaskForm
-                                                                    workspaceId={workspaceId}
-                                                                    projectId={projectId}
-                                                                    projects={projects}
-                                                                    level={level}
-                                                                    leadProjectIds={leadProjectIds}
-                                                                    isWorkspaceAdmin={isWorkspaceAdmin}
-                                                                    onCancel={() => setActiveInlineProjectId(null)}
-                                                                    onTaskDeleted={(taskId) => {
-                                                                        setTasks(prev => prev.filter(t => t.id !== taskId));
-                                                                    }}
-                                                                    onTaskCreated={(task, tempId) => {
-                                                                        if (tempId) {
-                                                                            setTasks(prev => prev.map(t => t.id === tempId ? task : t));
-                                                                        } else {
-                                                                            setTasks(prev => [task, ...prev]);
-                                                                        }
-                                                                        setActiveInlineProjectId(null);
-                                                                    }}
-                                                                />
-                                                            ) : (
-                                                                <TableRow
-                                                                    className="hover:bg-muted/20 cursor-pointer h-8"
-                                                                    onClick={(e) => { e.stopPropagation(); setActiveInlineProjectId(projectId); }}
-                                                                >
-                                                                    <TableCell colSpan={visibleColumnsCount} className="py-2 px-2 pl-8">
-                                                                        <div className="flex items-center gap-2 text-primary font-medium hover:text-primary/80 transition-colors">
-                                                                            <Plus className="h-4 w-4" />
-                                                                            <span>Add Task</span>
-                                                                        </div>
-                                                                    </TableCell>
-                                                                </TableRow>
-                                                            )
-                                                        )}
-                                                    </ProjectRow>
-                                                </React.Fragment>
-                                            );
-                                        })
-                                    ) : (
-                                        filteredTasks.map((task) => (
-                                            <React.Fragment key={task.id}>
-                                                <TaskRow
-                                                    task={task}
-                                                    isExpanded={!!expanded[task.id]}
-                                                    onToggleExpand={() => toggleExpand(task.id)}
+                                                <ProjectTaskGroup
+                                                    key={currentProjectId}
+                                                    projectId={currentProjectId}
+                                                    project={project || { id: currentProjectId, name: "Unknown Project" }}
+                                                    initialTasks={projectTasks}
+                                                    totalTasksCount={projectCounts ? (projectCounts[currentProjectId] || 0) : projectTaskCounts[currentProjectId]}
+                                                    isExpanded={expandedProjects[currentProjectId] === true}
+                                                    onToggle={() => toggleProjectExpand(currentProjectId)}
+                                                    visibleColumnsCount={visibleColumnsCount}
                                                     columnVisibility={columnVisibility}
-                                                    isUpdating={updatingTaskId === task.id}
-                                                    onUpdateStart={() => setUpdatingTaskId(task.id)}
-                                                    onUpdateEnd={() => setUpdatingTaskId(null)}
-                                                    onTaskUpdated={(updatedTask) => {
-                                                        setTasks(prevTasks =>
-                                                            prevTasks.map(t =>
-                                                                t.id === task.id
-                                                                    ? { ...t, name: updatedTask.name, taskSlug: updatedTask.taskSlug }
-                                                                    : t
-                                                            )
-                                                        );
-                                                    }}
-                                                    onTaskDeleted={(taskId) => {
-                                                        setTasks(prevTasks =>
-                                                            prevTasks.filter(t => t.id !== taskId)
-                                                        );
-                                                    }}
+                                                    expandedTasks={expanded}
+                                                    onToggleExpandTask={toggleExpand}
+                                                    updatingTaskId={updatingTaskId}
+                                                    setUpdatingTaskId={setUpdatingTaskId}
                                                     permissions={permissions}
                                                     userId={userId}
                                                     isWorkspaceAdmin={isWorkspaceAdmin}
                                                     leadProjectIds={leadProjectIds}
                                                     projects={projects}
                                                     onRequestSubtasks={handleRequestSubtasks}
-                                                    isCached={!!getCachedSubTasks(task.id)}
-                                                >
-                                                    <SubTaskList
-                                                        task={task}
-                                                        tags={tags}
-                                                        members={members}
-                                                        workspaceId={workspaceId}
-                                                        projectId={task.projectId || projectId}
-                                                        canCreateSubTask={
-                                                            level === 'project'
-                                                                ? canCreateSubTask
-                                                                : (canCreateSubTask && task.projectId ? (
-                                                                    leadProjectIds.includes(task.projectId) ||
-                                                                    !!isWorkspaceAdmin ||
-                                                                    !!projects?.find(p => p.id === task.projectId)?.canManageMembers
-                                                                ) : false)
-                                                        }
-                                                        columnVisibility={columnVisibility}
-                                                        isLoading={!!loadingSubTasks[task.id]}
-                                                        isLoadingMore={!!loadingMoreSubTasks[task.id]}
-                                                        onLoadMore={() => loadMoreSubTasks(task.id)}
-                                                        onSubTaskClick={handleSubTaskClick}
-                                                        onSubTaskUpdated={(subTaskId, updatedData) =>
-                                                            handleSubTaskUpdated(task.id, subTaskId, updatedData)
-                                                        }
-                                                        onSubTaskDeleted={(subTaskId) =>
-                                                            handleSubTaskDeleted(task.id, subTaskId)
-                                                        }
-                                                        onSubTaskCreated={(newSubTask, tempId) =>
-                                                            handleSubTaskCreated(task.id, newSubTask, tempId)
-                                                        }
-                                                        permissions={permissions}
-                                                        userId={userId}
-                                                        isWorkspaceAdmin={isWorkspaceAdmin}
-                                                        leadProjectIds={leadProjectIds}
-                                                        projects={projects}
-                                                        level={level}
-                                                    />
-                                                </TaskRow>
-                                            </React.Fragment>
-                                        ))
-                                    )
-                                )}
-                                {isLoadingFilters && filteredTasks.length === 0 && (
-                                    <TableRow>
-                                        <TableCell colSpan={visibleColumnsCount} className="h-32 text-center">
-                                            <div className="flex flex-col items-center justify-center gap-2">
-                                                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                                                <span className="text-sm text-muted-foreground">Loading tasks...</span>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-
-                                {filteredTasks.length === 0 && !isLoadingFilters && !groupedTasks && (
-                                    <TableRow>
-                                        <TableCell colSpan={visibleColumnsCount} className="h-24 text-center">
-                                            No tasks found.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-
-
-                                {canCreateSubTask && !groupedTasks && !hasActiveFilters(filters) && !searchQuery && (
-                                    activeInlineProjectId === projectId ? (
-                                        <InlineTaskForm
+                                                    getCachedSubTasks={getCachedSubTasks}
+                                                    tags={tags}
+                                                    members={members}
+                                                    workspaceId={workspaceId}
+                                                    canCreateSubTask={canCreateSubTask}
+                                                    loadingSubTasks={loadingSubTasks}
+                                                    loadingMoreSubTasks={loadingMoreSubTasks}
+                                                    onLoadMoreSubTasks={loadMoreSubTasks}
+                                                    handleSubTaskClick={handleSubTaskClick}
+                                                    level={level}
+                                                    paginationState={projectPagination[currentProjectId]}
+                                                    getObserver={getObserver}
+                                                    filtersActive={filtersActive}
+                                                    activeInlineProjectId={activeInlineProjectId}
+                                                    setActiveInlineProjectId={setActiveInlineProjectId}
+                                                    onUpdateParentTaskLists={(updatedProjectTasks) => {
+                                                        // Merge updated project tasks back into main task list
+                                                        setTasks(prev => {
+                                                            const others = prev.filter(t => t.projectId !== currentProjectId);
+                                                            return [...others, ...updatedProjectTasks];
+                                                        });
+                                                    }}
+                                                />
+                                            );
+                                        })
+                                    ) : (
+                                        <FlatTaskList
+                                            initialTasks={filteredTasks}
+                                            columnVisibility={columnVisibility}
+                                            visibleColumnsCount={visibleColumnsCount}
+                                            expandedTasks={expanded}
+                                            onToggleExpandTask={toggleExpand}
+                                            updatingTaskId={updatingTaskId}
+                                            setUpdatingTaskId={setUpdatingTaskId}
+                                            permissions={permissions}
+                                            userId={userId}
+                                            isWorkspaceAdmin={isWorkspaceAdmin}
+                                            leadProjectIds={leadProjectIds}
+                                            projects={projects}
+                                            onRequestSubtasks={handleRequestSubtasks}
+                                            getCachedSubTasks={getCachedSubTasks}
+                                            tags={tags}
+                                            members={members}
                                             workspaceId={workspaceId}
                                             projectId={projectId}
-                                            projects={projects}
+                                            canCreateSubTask={canCreateSubTask}
+                                            loadingSubTasks={loadingSubTasks}
+                                            loadingMoreSubTasks={loadingMoreSubTasks}
+                                            onLoadMoreSubTasks={loadMoreSubTasks}
+                                            handleSubTaskClick={handleSubTaskClick}
                                             level={level}
-                                            leadProjectIds={leadProjectIds}
-                                            isWorkspaceAdmin={isWorkspaceAdmin}
-                                            onCancel={() => setActiveInlineProjectId(null)}
-                                            onTaskDeleted={(taskId) => {
-                                                setTasks(prev => prev.filter(t => t.id !== taskId));
-                                            }}
-                                            onTaskCreated={(task, tempId) => {
-                                                if (tempId) {
-                                                    setTasks(prev => prev.map(t => t.id === tempId ? task : t));
-                                                } else {
-                                                    setTasks(prev => [task, ...prev]);
-                                                }
-                                                setActiveInlineProjectId(null);
+                                            filtersActive={filtersActive}
+                                            activeInlineProjectId={activeInlineProjectId}
+                                            setActiveInlineProjectId={setActiveInlineProjectId}
+                                            onUpdateParentTaskLists={(updatedTasks) => {
+                                                setTasks(updatedTasks);
                                             }}
                                         />
-                                    ) : (
-                                        <TableRow className="hover:bg-muted/20 cursor-pointer h-8" onClick={() => setActiveInlineProjectId(projectId)}>
-                                            <TableCell colSpan={visibleColumnsCount} className="py-2 px-2 text-muted-foreground">
-                                                <div className="flex items-center gap-2 text-primary font-medium hover:text-primary/80">
-                                                    <Plus className="h-4 w-4" />
-                                                    <span>Add Task</span>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
                                     )
+                                )}
+                                {/* Load More Sentinel for Flat List */}
+                                {!groupedTasks && projectPagination[projectId]?.hasMore && (
+                                    <LoadMoreSentinel
+                                        visibleColumnsCount={visibleColumnsCount}
+                                        projectId={projectId}
+                                        observer={getObserver()}
+                                    />
+                                )}
+
+                                {isLoadingFilters && filteredTasks.length === 0 && (
+                                    <TableLoading visibleColumnsCount={visibleColumnsCount} />
+                                )}
+
+                                {mode !== "sorted" && filteredTasks.length === 0 && !isLoadingFilters && !groupedTasks && (
+                                    <EmptyState visibleColumnsCount={visibleColumnsCount} />
                                 )}
                             </tbody>
                         </table>

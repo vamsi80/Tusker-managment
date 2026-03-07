@@ -5,7 +5,7 @@
  * used across task components (List, Kanban, Gantt, and shared components).
  */
 import { WorkspaceTaskType } from "@/data/task";
-import { SubTaskType } from "@/data/task/list/get-subtasks";
+import { SubTaskType } from "@/data/task";
 
 // ============================================================================
 // FILTER TYPES
@@ -69,17 +69,17 @@ export function isViewType(value: unknown): value is ViewType {
 export type TableViewMode = "hierarchy" | "sorted";
 
 /**
- * Sort field options
+ * Sort field options — must match a key in SORT_MAP in get-tasks.ts.
+ * ⚠️ Only DB columns that exist directly on the Task table are allowed.
+ * Do NOT add relation fields (assignee, reviewer) or computed fields (progress, tags)
+ * until they are denormalized into the Task table.
  */
 export type SortField =
     | "name"
-    | "assignee"
-    | "reviewer"
     | "status"
     | "startDate"
     | "dueDate"
-    | "progress"
-    | "tags";
+    | "createdAt";
 
 /**
  * Sort direction
@@ -160,7 +160,7 @@ export interface ProjectOption {
  */
 export interface MemberOption {
     id: string;
-    name: string;
+    // name: string;
     surname?: string;
     email?: string;
     avatar?: string;
@@ -358,10 +358,9 @@ export function hasActiveFilters(filters: TaskFilters): boolean {
 export type TaskWithSubTasks = WorkspaceTaskType & {
     subTasks?: SubTaskType[];
     subTasksHasMore?: boolean;
-    subTasksPage?: number;
-    // Add isOptimistic if needed generally, though often casted
+    subTasksNextCursor?: any;
+    nextCursor?: any;
     isOptimistic?: boolean;
-    // Add taskSlug for easier access if it's not on WorkspaceTaskType directly
     taskSlug?: string;
 };
 

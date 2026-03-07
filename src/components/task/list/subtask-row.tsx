@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useDueDate, useRemainingDays } from "@/hooks/use-due-date";
+import { useState, memo } from "react";
+import { useRemainingDays } from "@/hooks/use-due-date";
 import { useSortable } from "@dnd-kit/sortable";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -9,11 +9,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { CornerDownRight, GripVertical, Calendar, Tag, MoreHorizontal } from "lucide-react";
-import { SubTaskType } from "@/data/task/list/get-subtasks";
+import { SubTaskType } from "@/data/task";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { cn, formatDateUTC } from "@/lib/utils";
 import { EditSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/edit-subtask-form";
 import { DeleteSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/delete-subtask-form";
 import { InlineSubTaskForm } from "./inline-subtask-form";
@@ -41,7 +41,7 @@ interface SubTaskRowProps {
     projects?: Array<{ id: string; canManageMembers?: boolean }>; // For workspace view
 }
 
-export function SubTaskRow({
+export const SubTaskRow = memo(function SubTaskRow({
     subTask,
     columnVisibility,
     onClick,
@@ -75,7 +75,7 @@ export function SubTaskRow({
         // Workspace view (use alternative data)
         if (isWorkspaceAdmin) return true;
 
-        // For subtasks, we need to check the parent task's project ID if subtask doesn't have one explicitly
+        // For subtasks, we need to check the person task's project ID if subtask doesn't have one explicitly
         // Usually subtasks share the same project as parent
         const projectIdToCheck = (subTask as any).projectId || projectId;
 
@@ -118,9 +118,11 @@ export function SubTaskRow({
     const assignee = subTask.assignee;
 
     // Use custom hooks for date calculations
-    const calculatedDueDate = useDueDate(subTask.startDate, subTask.days);
-    const dueDate = subTask.dueDate ? new Date(subTask.dueDate) : calculatedDueDate;
-    const { remainingDays, isOverdue } = useRemainingDays(subTask.startDate, subTask.days);
+    // Use custom hook for remaining days calculation, passing persisted dueDate if available
+    const { remainingDays, isOverdue, dueDate } = useRemainingDays(subTask.startDate, subTask.days, subTask.dueDate);
+
+    // Debug: Print due date from database
+    console.log(`[SubTask DB] ${subTask.name}: dueDate = ${subTask.dueDate}`);
 
     const getProgressColor = () => {
         if (!subTask.startDate || !subTask.days || remainingDays === null) return "bg-gray-300";
@@ -221,8 +223,9 @@ export function SubTaskRow({
                 (subTask as any).isOptimistic && "opacity-60 grayscale-[0.5]"
             )}
         >
-            <TableCell className="pl-6" colSpan={2}>
-                <div className="flex items-center gap-1 ml-2">
+            <TableCell className="pl-4 sm:pl-4 w-[60px] md:w-[80px]">
+                <div className="flex items-center">
+                    <div className="w-3 shrink-0" />
                     <Button
                         variant="ghost"
                         size="icon"
@@ -233,22 +236,35 @@ export function SubTaskRow({
                     >
                         <CornerDownRight className="h-3.5 w-3.5 text-muted-foreground" />
                     </Button>
-                    <span
-                        className="truncate text-muted-foreground text-sm max-w-[200px] block cursor-pointer hover:text-foreground transition-colors"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            if (onClick) onClick(subTask);
-                        }}
-                    >
-                        {subTask.name}
-                    </span>
                 </div>
+            </TableCell>
+
+            <TableCell className="w-[180px] sm:w-[250px] md:w-[350px]">
+                <span
+                    className="truncate text-muted-foreground text-sm block cursor-pointer hover:text-foreground transition-colors"
+                    onMouseEnter={() => {
+                        // 🚀 Cache check (No DB hit for prefetching)
+                        if (subTask.id) {
+                            import("@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/subtask-details-sheet").then(m => {
+                                if (m.commentCache.has(subTask.id)) {
+                                    console.log(`✨ [CACHE-HIT] Subtask ${subTask.id} ready.`);
+                                }
+                            });
+                        }
+                    }}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        if (onClick) onClick(subTask);
+                    }}
+                >
+                    {subTask.name}
+                </span>
             </TableCell>
 
             {/* Project column removed */}
 
             {columnVisibility.description && (
-                <TableCell className="w-[200px] max-w-[200px]">
+                <TableCell className="w-[150px] sm:w-[200px]">
                     <span
                         className="truncate text-muted-foreground text-sm block"
                         title={(subTask as any).description}
@@ -259,7 +275,7 @@ export function SubTaskRow({
             )}
 
             {columnVisibility.assignee && (
-                <TableCell className="w-[100px] max-w-[100px]">
+                <TableCell className="w-[80px] sm:w-[100px]">
                     {assignee ? (
                         <div className="flex items-center gap-2 min-w-0">
                             <Avatar className="h-5 w-5 flex-shrink-0">
@@ -277,8 +293,31 @@ export function SubTaskRow({
             )}
 
             {columnVisibility.reviewer && (
-                <TableCell className="w-[100px] max-w-[100px]">
-                    {subTask.reviewer ? (
+                <TableCell className="w-[80px] sm:w-[100px]">
+                    {subTask.parentTask?.reviewer ? (
+                        <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-2 min-w-0" title="Parent Reviewer">
+                                <Avatar className="h-5 w-5 flex-shrink-0 border-blue-500/30 border">
+                                    <AvatarImage src={subTask.parentTask.reviewer.image || ""} />
+                                    <AvatarFallback className="text-[10px] bg-blue-50 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                                        {subTask.parentTask.reviewer.surname?.[0] || subTask.parentTask.reviewer.name?.[0]}
+                                    </AvatarFallback>
+                                </Avatar>
+                                <span className="text-xs text-blue-700 dark:text-blue-400 font-medium truncate">
+                                    {subTask.parentTask.reviewer.surname || subTask.parentTask.reviewer.name}
+                                </span>
+                            </div>
+                            {subTask.reviewer && subTask.reviewer.id !== subTask.parentTask.reviewer.id && (
+                                <div className="flex items-center gap-2 min-w-0 opacity-60 ml-2" title="Task Reviewer">
+                                    <Avatar className="h-3.5 w-3.5 flex-shrink-0">
+                                        <AvatarImage src={subTask.reviewer.image || ""} />
+                                        <AvatarFallback className="text-[8px]">{subTask.reviewer.surname?.[0]}</AvatarFallback>
+                                    </Avatar>
+                                    <span className="text-[9px] truncate">{subTask.reviewer.surname || subTask.reviewer.name}</span>
+                                </div>
+                            )}
+                        </div>
+                    ) : subTask.reviewer ? (
                         <div className="flex items-center gap-2 min-w-0">
                             <Avatar className="h-5 w-5 flex-shrink-0">
                                 <AvatarImage src={subTask.reviewer.image || ""} />
@@ -289,18 +328,18 @@ export function SubTaskRow({
                             </span>
                         </div>
                     ) : (
-                        <span className="text-xs text-muted-foreground">No Reviewer</span>
+                        <span className="text-xs text-muted-foreground text-center block">-</span>
                     )}
                 </TableCell>
             )}
 
             {columnVisibility.status && (
-                <TableCell className="w-[120px] max-w-[120px]">
+                <TableCell className="w-[90px] sm:w-[120px]">
                     {subTask.status ? (
                         <Badge
                             variant="outline"
                             className={cn(
-                                "text-xs font-medium h-5 px-1.5 flex items-center justify-center whitespace-nowrap",
+                                "text-[10px] sm:text-xs font-medium h-5 px-1.5 flex items-center justify-center whitespace-nowrap",
                                 getStatusColors(subTask.status).color,
                                 getStatusColors(subTask.status).bgColor,
                                 getStatusColors(subTask.status).borderColor
@@ -309,59 +348,59 @@ export function SubTaskRow({
                             {getStatusLabel(subTask.status)}
                         </Badge>
                     ) : (
-                        <span className="text-muted-foreground text-xs">-</span>
+                        <span className="text-muted-foreground text-xs text-center block">-</span>
                     )}
                 </TableCell>
             )}
 
             {columnVisibility.startDate && (
-                <TableCell className="w-[120px] max-w-[120px]">
+                <TableCell className="w-[90px] sm:w-[120px]">
                     {subTask.startDate ? (
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <Calendar className="h-3 w-3 flex-shrink-0" />
-                            <span className="truncate">{new Date(subTask.startDate).toLocaleDateString('en-GB')}</span>
+                        <div className="flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs text-muted-foreground">
+                            <Calendar className="h-3 w-3 flex-shrink-0 hidden xs:block" />
+                            <span className="truncate">{formatDateUTC(subTask.startDate)}</span>
                         </div>
                     ) : (
-                        <span className="text-muted-foreground text-xs">-</span>
+                        <span className="text-muted-foreground text-xs text-center block">-</span>
                     )}
                 </TableCell>
             )}
 
             {columnVisibility.dueDate && (
-                <TableCell className="w-[120px] max-w-[120px]">
+                <TableCell className="w-[90px] sm:w-[120px]">
                     {dueDate ? (
-                        <div className="flex items-center gap-2 text-xs font-medium">
-                            <Calendar className="h-3 w-3 flex-shrink-0" />
-                            <span className="truncate">{dueDate.toLocaleDateString('en-GB')}</span>
+                        <div className="flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs font-medium">
+                            <Calendar className="h-3 w-3 flex-shrink-0 hidden xs:block" />
+                            <span className="truncate">{formatDateUTC(dueDate)}</span>
                         </div>
                     ) : (
-                        <span className="text-muted-foreground text-xs">-</span>
+                        <span className="text-muted-foreground text-xs text-center block">-</span>
                     )}
                 </TableCell>
             )}
 
             {columnVisibility.progress && (
-                <TableCell className="w-[120px] max-w-[120px]">
+                <TableCell className="w-[100px] sm:w-[150px]">
                     {subTask.startDate && subTask.days && remainingDays !== null ? (
                         <div className="flex items-center gap-2 min-w-0">
-                            <div className={`h-3 w-3 rounded-full flex-shrink-0 ${progressColor}`} />
-                            <span className="text-xs text-muted-foreground truncate">
+                            <div className={`h-2.5 w-2.5 rounded-full flex-shrink-0 ${progressColor}`} />
+                            <span className="text-[10px] sm:text-xs text-muted-foreground truncate">
                                 {remainingDays > 0
-                                    ? `${remainingDays} day${remainingDays !== 1 ? 's' : ''} left`
+                                    ? `${remainingDays}d left`
                                     : remainingDays === 0
-                                        ? 'Due today'
-                                        : `Delay by ${Math.abs(remainingDays)} day${Math.abs(remainingDays) !== 1 ? 's' : ''}`
+                                        ? 'Due tody'
+                                        : `${Math.abs(remainingDays)}d late`
                                 }
                             </span>
                         </div>
                     ) : (
-                        <span className="text-muted-foreground text-xs">-</span>
+                        <span className="text-muted-foreground text-xs text-center block">-</span>
                     )}
                 </TableCell>
             )}
 
             {columnVisibility.tag && (
-                <TableCell className="w-[120px] max-w-[120px]">
+                <TableCell className="w-[100px] sm:w-[120px]">
                     {subTask.tag ? (() => {
                         // Find the tag by ID
                         const tagId = typeof subTask.tag === 'string' ? subTask.tag : (subTask.tag as any)?.id;
@@ -369,17 +408,17 @@ export function SubTaskRow({
 
                         if (tag) {
                             return (
-                                <div className="flex items-center gap-1.5 min-w-0">
-                                    <Tag className="size-3 flex-shrink-0" />
-                                    <span className="text-xs text-muted-foreground truncate">{tag.name}</span>
+                                <div className="flex items-center gap-1 min-w-0">
+                                    <Tag className="size-3 flex-shrink-0 hidden xs:block" />
+                                    <span className="text-[10px] sm:text-xs text-muted-foreground truncate">{tag.name}</span>
                                 </div>
                             );
                         }
 
                         // Fallback if tag not found
-                        return <span className="text-muted-foreground text-xs">-</span>;
+                        return <span className="text-muted-foreground text-xs text-center block">-</span>;
                     })() : (
-                        <span className="text-muted-foreground text-xs">-</span>
+                        <span className="text-muted-foreground text-xs text-center block">-</span>
                     )}
                 </TableCell>
             )}
@@ -415,4 +454,4 @@ export function SubTaskRow({
             </TableCell>
         </TableRow>
     );
-}
+});

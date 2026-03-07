@@ -1,9 +1,8 @@
 "use server";
 
 import { cache } from "react";
+import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
-import { getProjectBySlug } from "@/data/project/get-project-by-slug";
-import { getUserPermissions } from "@/data/user/get-user-permissions";
 
 /**
  * Lightweight project metadata for layouts
@@ -15,31 +14,68 @@ import { getUserPermissions } from "@/data/user/get-user-permissions";
  * - Does NOT fetch mutable business data (tasks, members lists, etc.)
  */
 export const getProjectMetadata = cache(async (workspaceId: string, slug: string) => {
-    const user = await requireUser();
+    try {
+        const user = await requireUser();
 
-    // Get basic project info (already cached)
-    const project = await getProjectBySlug(workspaceId, slug);
+        // SINGLE QUERY for both project data and user access
+        // This is significantly faster than chaining multiple functions
+        const project = await prisma.project.findFirst({
+            where: {
+                workspaceId,
+                OR: [{ slug }, { id: slug }]
+            },
+            select: {
+                id: true,
+                name: true,
+                slug: true,
+                color: true,
+                workspaceId: true,
+                workspace: {
+                    select: {
+                        members: {
+                            where: { userId: user.id },
+                            select: {
+                                id: true,
+                                workspaceRole: true,
+                                projectMembers: {
+                                    where: { project: { OR: [{ slug }, { id: slug }] } },
+                                    select: {
+                                        projectRole: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
 
-    if (!project) {
+        if (!project || project.workspace.members.length === 0) {
+            return null;
+        }
+
+        const workspaceMember = project.workspace.members[0];
+        const isWorkspaceAdmin = workspaceMember.workspaceRole === "OWNER" || workspaceMember.workspaceRole === "ADMIN";
+        const projectMember = workspaceMember.projectMembers[0];
+
+        // Security check: Must be workspace admin or direct project member
+        if (!isWorkspaceAdmin && !projectMember) {
+            return null;
+        }
+
+        return {
+            id: project.id,
+            name: project.name,
+            slug: project.slug,
+            color: project.color,
+            workspaceId: project.workspaceId,
+            userId: user.id,
+            canPerformBulkOperations: isWorkspaceAdmin || (projectMember?.projectRole === "LEAD" || projectMember?.projectRole === "PROJECT_MANAGER"),
+        };
+    } catch (error) {
+        console.error("Error in getProjectMetadata:", error);
         return null;
     }
-
-    // Get user permissions (already cached)
-    const permissions = await getUserPermissions(workspaceId, project.id);
-
-    if (!permissions.workspaceMemberId) {
-        return null;
-    }
-
-    return {
-        id: project.id,
-        name: project.name,
-        slug: project.slug,
-        color: project.color,
-        workspaceId: project.workspaceId,
-        userId: user.id,
-        canPerformBulkOperations: permissions.canPerformBulkOperations,
-    };
 });
 
 export type ProjectMetadata = Awaited<ReturnType<typeof getProjectMetadata>>;

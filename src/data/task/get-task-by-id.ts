@@ -32,7 +32,6 @@ async function _getTaskByIdInternal(
             taskSlug: true,
             description: true,
             status: true,
-            position: true,
             startDate: true,
             days: true,
             tag: {
@@ -48,35 +47,32 @@ async function _getTaskByIdInternal(
             createdBy: {
                 select: {
                     id: true,
-                    name: true,
+                    // name: true,
                     surname: true,
-                    image: true,
-                    email: true,
+                    // image: true,
+                    // email: true,
                 },
             },
             assignee: {
                 select: {
                     id: true,
-                    name: true,
+                    // name: true,
                     surname: true,
-                    image: true,
-                    email: true,
+                    // image: true,
+                    // email: true,
                 },
             },
             project: {
                 select: {
                     id: true,
                     name: true,
-                    slug: true,
-                    workspaceId: true,
+                    color: true,
                 },
             },
             parentTask: {
                 select: {
                     id: true,
                     name: true,
-                    taskSlug: true,
-                    status: true,
                 },
             },
             subTasks: isMember
@@ -92,7 +88,6 @@ async function _getTaskByIdInternal(
                         taskSlug: true,
                         description: true,
                         status: true,
-                        position: true,
                         startDate: true,
                         days: true,
                         tag: {
@@ -104,9 +99,9 @@ async function _getTaskByIdInternal(
                         assignee: {
                             select: {
                                 id: true,
-                                name: true,
+                                // name: true,
                                 surname: true,
-                                image: true,
+                                // image: true,
                             },
                         },
                         _count: {
@@ -114,9 +109,6 @@ async function _getTaskByIdInternal(
                                 reviewComments: true,
                             },
                         },
-                    },
-                    orderBy: {
-                        position: 'asc',
                     },
                 }
                 : {
@@ -126,7 +118,6 @@ async function _getTaskByIdInternal(
                         taskSlug: true,
                         description: true,
                         status: true,
-                        position: true,
                         startDate: true,
                         days: true,
                         tag: {
@@ -138,9 +129,9 @@ async function _getTaskByIdInternal(
                         assignee: {
                             select: {
                                 id: true,
-                                name: true,
+                                // name: true,
                                 surname: true,
-                                image: true,
+                                // image: true,
                             },
                         },
                         _count: {
@@ -148,9 +139,6 @@ async function _getTaskByIdInternal(
                                 reviewComments: true,
                             },
                         },
-                    },
-                    orderBy: {
-                        position: 'asc',
                     },
                 },
             _count: {

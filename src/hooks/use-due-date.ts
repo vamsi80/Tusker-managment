@@ -39,9 +39,23 @@ export function useDueDate(startDate: Date | string | null | undefined, days: nu
  *   return <Badge variant="destructive">{Math.abs(remainingDays)} days overdue</Badge>;
  * }
  */
-export function useRemainingDays(startDate: Date | string | null | undefined, days: number | null | undefined) {
+export function useRemainingDays(
+    startDate: Date | string | null | undefined,
+    days: number | null | undefined,
+    providedDueDate?: Date | string | null
+) {
     return useMemo(() => {
-        if (!startDate || !days) {
+        let dueDate: Date | null = null;
+
+        if (providedDueDate) {
+            dueDate = new Date(providedDueDate);
+        } else if (startDate && days) {
+            const start = new Date(startDate);
+            dueDate = new Date(start);
+            dueDate.setDate(dueDate.getDate() + days);
+        }
+
+        if (!dueDate) {
             return {
                 remainingDays: null,
                 isOverdue: false,
@@ -51,12 +65,9 @@ export function useRemainingDays(startDate: Date | string | null | undefined, da
             };
         }
 
-        const start = new Date(startDate);
         const now = new Date();
         now.setHours(0, 0, 0, 0); // Reset time to start of day for accurate comparison
 
-        const dueDate = new Date(start);
-        dueDate.setDate(dueDate.getDate() + days);
         dueDate.setHours(0, 0, 0, 0); // Reset time to start of day
 
         const diffTime = dueDate.getTime() - now.getTime();
@@ -88,8 +99,12 @@ export function useRemainingDays(startDate: Date | string | null | undefined, da
  *   </div>
  * );
  */
-export function useDueDateInfo(startDate: Date | string | null | undefined, days: number | null | undefined) {
-    const { remainingDays, isOverdue, isDueToday, isDueSoon, dueDate } = useRemainingDays(startDate, days);
+export function useDueDateInfo(
+    startDate: Date | string | null | undefined,
+    days: number | null | undefined,
+    providedDueDate?: Date | string | null
+) {
+    const { remainingDays, isOverdue, isDueToday, isDueSoon, dueDate } = useRemainingDays(startDate, days, providedDueDate);
 
     return useMemo(() => {
         if (!dueDate || remainingDays === null) {

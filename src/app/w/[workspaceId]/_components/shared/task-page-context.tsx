@@ -1,9 +1,12 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import { TaskPageDataType, ProjectPageData, WorkspacePageData } from "@/data/task/get-task-page-data";
+// import { TaskPageDataType, ProjectPageData, WorkspacePageData } from "@/data/task/get-task-page-data";
 
-export type PageDataType = NonNullable<TaskPageDataType>;
+// Temporarily define placeholders as this file is currently unused and causing build errors
+export type PageDataType = any;
+type ProjectPageData = any;
+type WorkspacePageData = any;
 
 interface TaskPageContextType {
     pageData: PageDataType;

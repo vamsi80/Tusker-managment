@@ -1,27 +1,28 @@
 "use client";
+import { formatIST } from "@/lib/utils";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TabsContent } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, Paperclip, Download } from "lucide-react";
+import { Loader2, Paperclip, Download, ArrowRight } from "lucide-react";
 
 interface ReviewComment {
     id: string;
     text: string;
     attachment: {
-        fileName: string;
-        fileType: string;
-        fileSize: number;
-        url: string;
+        fileName?: string;
+        fileType?: string;
+        fileSize?: number;
+        url?: string;
+        previousStatus?: string;
+        targetStatus?: string;
     } | null;
     author: {
         id: string;
-        user: {
-            name: string;
-            surname: string;
-            image: string;
-        };
+        name: string;
+        surname: string;
+        image: string;
     };
     createdAt: Date;
 }
@@ -48,9 +49,9 @@ export function ReviewTab({ reviewComments, isLoadingReview }: ReviewTabProps) {
     };
 
     return (
-        <TabsContent value="review" className="flex-1 flex flex-col m-0 data-[state=inactive]:hidden">
-            <div className="flex-1 overflow-y-auto px-6 py-4 bg-muted/20">
-                {isLoadingReview ? (
+        <TabsContent value="review" className="flex-1 flex flex-col m-0 data-[state=inactive]:hidden overflow-hidden">
+            <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 bg-muted/20 min-h-0">
+                {isLoadingReview && reviewComments.length === 0 ? (
                     <div className="flex items-center justify-center h-full">
                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                     </div>
@@ -61,7 +62,7 @@ export function ReviewTab({ reviewComments, isLoadingReview }: ReviewTabProps) {
                 ) : (
                     <div className="space-y-4">
                         {reviewComments.map((review) => {
-                            const author = review.author.user;
+                            const author = review.author;
                             return (
                                 <div
                                     key={review.id}
@@ -70,59 +71,57 @@ export function ReviewTab({ reviewComments, isLoadingReview }: ReviewTabProps) {
                                     {/* Author Info */}
                                     <div className="flex items-center gap-3 mb-3">
                                         <Avatar className="h-8 w-8">
-                                            <AvatarImage src={author.image || ""} />
+                                            <AvatarImage src={author?.image || ""} />
                                             <AvatarFallback className="text-xs">
-                                                {author.name[0]}
+                                                {author?.name?.[0] || "?"}
                                             </AvatarFallback>
                                         </Avatar>
                                         <div className="flex-1">
                                             <p className="text-sm font-semibold">
-                                                {author.name} {author.surname || ""}
+                                                {author?.surname || ""}
                                             </p>
                                             <p className="text-xs text-muted-foreground">
-                                                {new Date(review.createdAt).toLocaleString('en-US', {
-                                                    month: 'short',
-                                                    day: 'numeric',
-                                                    year: 'numeric',
-                                                    hour: '2-digit',
-                                                    minute: '2-digit'
-                                                })}
+                                                {formatIST(review.createdAt, "MMM d, yyyy h:mm a")}
                                             </p>
                                         </div>
-                                        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-                                            Review
-                                        </Badge>
+                                        <div className="flex flex-col items-end gap-1.5">
+                                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                                                Review
+                                            </Badge>
+                                            {review.attachment?.previousStatus && review.attachment?.targetStatus && (
+                                                <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-medium bg-muted px-1.5 py-0.5 rounded-sm whitespace-nowrap border">
+                                                    {review.attachment.previousStatus.replace("_", " ")}
+                                                    <ArrowRight className="h-3 w-3" />
+                                                    {review.attachment.targetStatus.replace("_", " ")}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
 
-                                    {/* Review Text */}
-                                    <p className="text-sm leading-relaxed mb-3">
-                                        {review.text}
-                                    </p>
-
-                                    {/* Attachment */}
-                                    {review.attachment && (
-                                        <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-md border">
-                                            <Paperclip className="h-4 w-4 text-muted-foreground" />
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium truncate">
-                                                    {review.attachment.fileName}
-                                                </p>
-                                                <p className="text-xs text-muted-foreground">
-                                                    {formatFileSize(review.attachment.fileSize)}
-                                                </p>
-                                            </div>
+                                    {/* Review Text with Download Icon */}
+                                    <div className="flex items-start gap-2 mb-2">
+                                        {review.attachment?.fileName && review.attachment?.url ? (
                                             <Button
-                                                size="sm"
+                                                size="icon"
                                                 variant="ghost"
-                                                className="flex-shrink-0"
-                                                onClick={() => {
-                                                    window.open(review.attachment!.url, '_blank');
-                                                }}
+                                                className="flex-shrink-0 mt-0.5 h-6 w-6 text-primary hover:text-primary hover:bg-primary/10"
+                                                onClick={() => window.open(review.attachment!.url, '_blank')}
+                                                title={`Download ${review.attachment.fileName}`}
                                             >
                                                 <Download className="h-4 w-4" />
                                             </Button>
-                                        </div>
-                                    )}
+                                        ) : (
+                                            <div
+                                                title="no file uploaded"
+                                                className="flex-shrink-0 mt-0.5 h-6 w-6 flex items-center justify-center text-muted-foreground/30 cursor-help"
+                                            >
+                                                <Download className="h-4 w-4" />
+                                            </div>
+                                        )}
+                                        <p className="text-sm leading-relaxed flex-1 break-words">
+                                            {review.text}
+                                        </p>
+                                    </div>
                                 </div>
                             );
                         })}

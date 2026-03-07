@@ -59,54 +59,54 @@ export function DependencyLines({
             toId: string;
         }> = [];
 
-        subtasks.forEach((subtask) => {
-            if (!subtask.dependsOnIds || subtask.dependsOnIds.length === 0) return;
+        // subtasks.forEach((subtask) => {
+        //     if (!subtask.dependsOnIds || subtask.dependsOnIds.length === 0) return;
 
-            const toPos = subtaskPositions.get(subtask.id);
-            if (!toPos) return;
+        //     const toPos = subtaskPositions.get(subtask.id);
+        //     if (!toPos) return;
 
-            subtask.dependsOnIds.forEach((depId: string) => {
-                const fromPos = subtaskPositions.get(depId);
-                if (!fromPos) return;
+        //     subtask.dependsOnIds.forEach((depId: string) => {
+        //         const fromPos = subtaskPositions.get(depId);
+        //         if (!fromPos) return;
 
-                // Microsoft Project-style: right-angle connectors
-                // Start from the end of the predecessor bar
-                const startX = fromPos.endX;
-                const startY = fromPos.y;
+        //         // Microsoft Project-style: right-angle connectors
+        //         // Start from the end of the predecessor bar
+        //         const startX = fromPos.endX;
+        //         const startY = fromPos.y;
 
-                // End at the start of the successor bar
-                const endX = toPos.x;
-                const endY = toPos.y;
+        //         // End at the start of the successor bar
+        //         const endX = toPos.x;
+        //         const endY = toPos.y;
 
-                // Calculate intermediate points for right-angle connection
-                const horizontalOffset = 0.5; // Small offset in percentage
-                const midX1 = startX + horizontalOffset;
-                const midX2 = endX - horizontalOffset;
+        //         // Calculate intermediate points for right-angle connection
+        //         const horizontalOffset = 0.5; // Small offset in percentage
+        //         const midX1 = startX + horizontalOffset;
+        //         const midX2 = endX - horizontalOffset;
 
-                let path: string;
+        //         let path: string;
 
-                if (startY === endY) {
-                    // Same row - simple horizontal line
-                    path = `M ${startX}% ${startY} L ${endX}% ${endY}`;
-                } else {
-                    // Different rows - create right-angle connector
-                    // Pattern: horizontal -> vertical -> horizontal
-                    const midX = (startX + endX) / 2;
+        //         if (startY === endY) {
+        //             // Same row - simple horizontal line
+        //             path = `M ${startX}% ${startY} L ${endX}% ${endY}`;
+        //         } else {
+        //             // Different rows - create right-angle connector
+        //             // Pattern: horizontal -> vertical -> horizontal
+        //             const midX = (startX + endX) / 2;
 
-                    path = `M ${startX}% ${startY} 
-                            L ${midX}% ${startY} 
-                            L ${midX}% ${endY} 
-                            L ${endX}% ${endY}`;
-                }
+        //             path = `M ${startX}% ${startY} 
+        //                     L ${midX}% ${startY} 
+        //                     L ${midX}% ${endY} 
+        //                     L ${endX}% ${endY}`;
+        //         }
 
-                result.push({
-                    path,
-                    isBlocked: subtask.isBlocked || false,
-                    fromId: depId,
-                    toId: subtask.id
-                });
-            });
-        });
+        //         result.push({
+        //             path,
+        //             isBlocked: subtask.isBlocked || false,
+        //             fromId: depId,
+        //             toId: subtask.id
+        //         });
+        //     });
+        // });
 
         return result;
     }, [subtasks, subtaskPositions]);

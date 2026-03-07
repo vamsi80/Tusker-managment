@@ -1,18 +1,18 @@
 "use client";
 
-import { useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, MoreHorizontal, CornerDownRight } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TableCell, TableRow } from "@/components/ui/table";
+import { ColumnVisibility } from "../shared/column-visibility";
 import { TaskWithSubTasks } from "@/components/task/shared/types";
+import { UserPermissionsType } from "@/data/user/get-user-permissions";
+import { useRef, useEffect, useState, memo, cloneElement } from "react";
+import { ChevronDown, ChevronRight, MoreHorizontal } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { EditTaskDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/edit-task-form";
 import { DeleteTaskDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/delete-task-form";
-import { ColumnVisibility } from "../shared/column-visibility";
-import { UserPermissionsType } from "@/data/user/get-user-permissions";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 interface TaskRowProps {
     task: TaskWithSubTasks;
@@ -35,8 +35,8 @@ interface TaskRowProps {
     children?: React.ReactNode;
 }
 
-export function TaskRow({
-    task,
+export const TaskRow = memo(function TaskRow({
+    task: initialTask,
     isExpanded,
     onToggleExpand,
     columnVisibility,
@@ -54,6 +54,14 @@ export function TaskRow({
     isCached = false,
     children
 }: TaskRowProps) {
+    // MAINTAIN OPTIMISTIC LOCAL STATE FOR SMOOTHEST DRAG & DROP / EDITS
+    const [task, setTask] = useState(initialTask);
+
+    // Sync with upstream database overrides seamlessly
+    useEffect(() => {
+        setTask(initialTask);
+    }, [initialTask]);
+
     const subtaskCount = task._count?.subTasks || 0;
     const rowRef = useRef<HTMLTableRowElement>(null);
 
@@ -91,16 +99,54 @@ export function TaskRow({
     if (columnVisibility.assignee) colSpan++;
     if (columnVisibility.startDate) colSpan++;
     if (columnVisibility.dueDate) colSpan++;
-    if (columnVisibility.status) colSpan++;
     if (columnVisibility.progress) colSpan++;
+    if (columnVisibility.status) colSpan++;
     if (columnVisibility.tag) colSpan++;
-    if (columnVisibility.reviewer) colSpan++; // Added reviewer
 
     const handleTaskUpdated = (updatedTask: { name: string; taskSlug: string }) => {
-        // Update the task in parent state immediately (Optimistic Level 1)
-        if (onTaskUpdated) {
-            onTaskUpdated(updatedTask);
-        }
+        onTaskUpdated?.(updatedTask);
+        // Optimistically update local name immediately for responsiveness
+        setTask(prev => ({ ...prev, name: updatedTask.name, taskSlug: updatedTask.taskSlug }));
+    };
+
+    const handleOptimisticSubTaskUpdated = (subTaskId: string, updatedData: any) => {
+        setTask(prev => ({
+            ...prev,
+            subTasks: prev.subTasks?.map((st: any) => st.id === subTaskId ? { ...st, ...updatedData } : st)
+        }));
+    };
+
+    const handleOptimisticSubTaskDeleted = (subTaskId: string) => {
+        setTask(prev => ({
+            ...prev,
+            subTasks: prev.subTasks?.filter((st: any) => st.id !== subTaskId),
+            _count: {
+                ...prev._count,
+                subTasks: Math.max(0, (prev._count?.subTasks || 0) - 1)
+            }
+        }));
+    };
+
+    const handleOptimisticSubTaskCreated = (newSubTask: any, tempId?: string) => {
+        setTask(prev => {
+            const currentSubTasks = prev.subTasks || [];
+            if (tempId) {
+                return {
+                    ...prev,
+                    subTasks: currentSubTasks.map((st: any) => st.id === tempId ? newSubTask : st)
+                };
+            }
+            if (currentSubTasks.some((st: any) => st.id === newSubTask.id)) return prev;
+
+            return {
+                ...prev,
+                subTasks: [...currentSubTasks, newSubTask],
+                _count: {
+                    ...prev._count,
+                    subTasks: (prev.subTasks?.length || 0) + 1
+                }
+            };
+        });
     };
 
     // Determine if user can edit/delete this task
@@ -162,9 +208,7 @@ export function TaskRow({
                     <div className="flex items-center gap-2 ml-2">
                         <div className="flex items-center">
                             <div className="flex items-center gap-0">
-                                <div className="w-6 flex justify-center shrink-0">
-                                    <CornerDownRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                                </div>
+                                <div className="w-2 shrink-0" />
                                 <Button
                                     variant="ghost"
                                     size="icon"
@@ -182,11 +226,35 @@ export function TaskRow({
                                 </Button>
                             </div>
                         </div>
-                        <span className="truncate">{task.name}</span>
+                        <span
+                            className="truncate"
+                            onMouseEnter={() => {
+                                // 🚀 Cache check (No DB hit for prefetching)
+                                if (task.id) {
+                                    import("@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/subtask-details-sheet").then(m => {
+                                        if (m.commentCache.has(task.id)) {
+                                            console.log(`✨ [CACHE-HIT] Task ${task.id} ready.`);
+                                        }
+                                    });
+                                }
+                            }}
+                        >
+                            {task.name}
+                        </span>
                         {subtaskCount > 0 && (
-                            <span className="text-xs text-muted-foreground">
-                                {subtaskCount}
+                            <span className="text-xs text-muted-foreground mr-1">
+                                ({subtaskCount})
                             </span>
+                        )}
+                        {task.reviewer && (
+                            <div className="flex items-center" title={`Reviewer: ${task.reviewer.surname || task.reviewer.name}`}>
+                                <Avatar className="h-4 w-4 border border-blue-200 dark:border-blue-800 shadow-sm opacity-80">
+                                    <AvatarImage src={task.reviewer.image || ""} />
+                                    <AvatarFallback className="text-[8px] bg-blue-50 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                                        {(task.reviewer.surname?.[0])}
+                                    </AvatarFallback>
+                                </Avatar>
+                            </div>
                         )}
                     </div>
                 </TableCell>
@@ -218,7 +286,21 @@ export function TaskRow({
                     )}
                 </TableCell>
             </TableRow>
-            {isExpanded && children}
+            {isExpanded && children && cloneElement(children as any, {
+                task,
+                onSubTaskUpdated: (subTaskId: string, updatedData: any) => {
+                    handleOptimisticSubTaskUpdated(subTaskId, updatedData);
+                    (children as any).props.onSubTaskUpdated?.(subTaskId, updatedData);
+                },
+                onSubTaskDeleted: (subTaskId: string) => {
+                    handleOptimisticSubTaskDeleted(subTaskId);
+                    (children as any).props.onSubTaskDeleted?.(subTaskId);
+                },
+                onSubTaskCreated: (newSubTask: any, tempId?: string) => {
+                    handleOptimisticSubTaskCreated(newSubTask, tempId);
+                    (children as any).props.onSubTaskCreated?.(newSubTask, tempId);
+                }
+            })}
         </>
     );
-}
+});

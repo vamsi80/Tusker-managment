@@ -245,7 +245,7 @@ export function EditTaskDialog({
                                                 {reviewers.map((reviewer) => (
                                                     <SelectItem key={reviewer.id} value={reviewer.id}>
                                                         <div className="flex items-center gap-2">
-                                                            <span>{reviewer.name}</span>
+                                                            <span>{reviewer.surname}</span>
                                                             <span className="text-xs text-muted-foreground ml-1">
                                                                 ({reviewer.role})
                                                             </span>

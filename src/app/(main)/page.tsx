@@ -8,10 +8,10 @@ export default function Home() {
 
   return (
     <>
-      <section className="relative py-20">
-        <div className="flex flex-col items-center justify-center text-center space-x-6">
+      <section className="relative py-20 px-4">
+        <div className="flex flex-col items-center justify-center text-center gap-6">
           <Badge variant={"outline"}>Welcome to Tusker managment</Badge>
-          <h1 className="mt-6 text-4xl md:text-6xl font-bold tracking-tight text-gray-900 sm:text-5xl">
+          <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-gray-900 sm:text-5xl">
             Elevate your Learning Experiance
           </h1>
           <p className="max-w-[700px] mt-6 text-lg text-gray-600">
@@ -21,13 +21,13 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row gap-4 mt-6">
             <Link
               className={buttonVariants({ size: "lg" })}
-              href="/workspace"
+              href="/w"
             >
               Explore workspace
             </Link>
             <Link
-              className={buttonVariants({ 
-                size: "lg", 
+              className={buttonVariants({
+                size: "lg",
                 variant: "outline"
               })}
               href="/sign-in"
