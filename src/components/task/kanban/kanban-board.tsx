@@ -198,6 +198,8 @@ export function KanbanBoard({
         logger.perf("KANBAN_HYDRATION", duration, { workspaceId, projectId, level });
     }, [projectId, workspaceId, level, projects, initialData]); // initialData as dependency ensures we respond to fresh props
 
+    const [visibleColumns, setVisibleColumns] = useState<Record<TaskStatus, boolean>>(COLUMNS.reduce((acc, col) => ({ ...acc, [col.id]: true }), {} as Record<TaskStatus, boolean>));
+    const [updatingTaskIds, setUpdatingTaskIds] = useState<Set<string>>(new Set());
     const [loadingColumns, setLoadingColumns] = useState<Record<TaskStatus, boolean>>(
         Object.fromEntries(COLUMNS.map(col => [col.id, false])) as Record<TaskStatus, boolean>
     );
@@ -216,14 +218,6 @@ export function KanbanBoard({
 
     const [filters, setFilters] = useState<TaskFilters>({});
     const [searchQuery, setSearchQuery] = useState("");
-    const [visibleColumns, setVisibleColumns] = useState<KanbanColumnVisibilityType>({
-        TO_DO: true,
-        IN_PROGRESS: true,
-        CANCELLED: true,
-        REVIEW: true,
-        HOLD: true,
-        COMPLETED: true,
-    });
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -649,13 +643,31 @@ export function KanbanBoard({
         return projectId;
     };
 
+    const updateSubTaskInPlace = (subTaskId: string, data: any) => {
+        setColumnData(prev => {
+            const next = { ...prev };
+            Object.keys(next).forEach(status => {
+                const col = next[status as TaskStatus];
+                const index = col.subTasks.findIndex(t => t.id === subTaskId);
+                if (index !== -1) {
+                    col.subTasks[index] = { ...col.subTasks[index], ...data };
+                }
+            });
+            return next;
+        });
+    }
+
     const performStatusUpdate = async (
         subTaskId: string,
         newStatus: TaskStatus,
         previousStatus: TaskStatus,
-        reviewCommentId?: string
+        reviewCommentId?: string,
+        comment?: string,
+        attachmentData?: any
     ) => {
+        // Optimistic move
         moveSubTaskBetweenColumns(subTaskId, previousStatus, newStatus);
+        setUpdatingTaskIds(prev => new Set(prev).add(subTaskId));
 
         const toastId = toast.loading("Updating subtask status...");
 
@@ -667,30 +679,36 @@ export function KanbanBoard({
                 newStatus,
                 workspaceId,
                 targetProjectId,
-                undefined,
-                reviewCommentId
+                reviewCommentId,
+                comment,
+                attachmentData
             );
 
             if (result.success) {
+                if (result.subTask) {
+                    updateSubTaskInPlace(subTaskId, result.subTask);
+                }
                 toast.success("Subtask status updated successfully", {
                     id: toastId,
                 });
-
-                // reloadView();
             } else {
                 moveSubTaskBetweenColumns(subTaskId, newStatus, previousStatus);
-
                 toast.error(result.error || "Failed to update subtask status", {
                     id: toastId,
                 });
             }
         } catch (error) {
             moveSubTaskBetweenColumns(subTaskId, newStatus, previousStatus);
-
             toast.error("An unexpected error occurred. Please try again.", {
                 id: toastId,
             });
             console.error("Error updating subtask status:", error);
+        } finally {
+            setUpdatingTaskIds(prev => {
+                const next = new Set(prev);
+                next.delete(subTaskId);
+                return next;
+            });
         }
     };
 
@@ -735,33 +753,14 @@ export function KanbanBoard({
 
             const targetProjectId = getTaskProjectId(pendingReviewMove.subTaskId) || projectId;
 
-            const reviewResult = await createReviewCommentAction(
-                pendingReviewMove.subTaskId,
-                comment,
-                workspaceId,
-                targetProjectId,
-                attachmentData,
-                pendingReviewMove.previousStatus,
-                pendingReviewMove.targetStatus
-            );
-
-            if (!reviewResult.success) {
-                // Rollback
-                moveSubTaskBetweenColumns(
-                    pendingReviewMove.subTaskId,
-                    pendingReviewMove.targetStatus,
-                    pendingReviewMove.previousStatus
-                );
-                toast.error(reviewResult.error || "Failed to create review comment");
-                setPendingReviewMove(null);
-                return;
-            }
-
+            // ATOMIC: Do both in ONE server action call to prevent double UI refreshes
             await performStatusUpdate(
                 pendingReviewMove.subTaskId,
                 pendingReviewMove.targetStatus,
                 pendingReviewMove.previousStatus,
-                reviewResult.reviewCommentId
+                undefined, // reviewCommentId not needed if we pass comment text
+                comment,
+                attachmentData
             );
 
             setPendingReviewMove(null);
@@ -896,6 +895,7 @@ export function KanbanBoard({
                                     onSubTaskClick={handleSubTaskClick}
                                     onLoadMore={() => handleLoadMore(column.id)}
                                     projectManagers={projectManagers}
+                                    updatingTaskIds={updatingTaskIds}
                                 />
                             );
                         })}

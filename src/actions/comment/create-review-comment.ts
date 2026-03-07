@@ -35,11 +35,20 @@ export async function createReviewCommentAction(
     targetStatus?: string
 ): Promise<CreateReviewCommentResult> {
     try {
-        // 1. Authenticate user
+        // 1. Start parallel fetch
+        const authStart = performance.now();
         const user = await requireUser();
 
-        // 2. Get user permissions
-        const permissions = await getUserPermissions(workspaceId, projectId);
+        const [permissions, subTask] = await Promise.all([
+            getUserPermissions(workspaceId, projectId, user.id),
+            prisma.task.findUnique({
+                where: { id: subTaskId },
+                select: {
+                    id: true,
+                    projectId: true, // Direct project lookup to avoid nested parent lookup
+                },
+            })
+        ]);
 
         if (!permissions.workspaceMemberId) {
             return {
@@ -48,24 +57,6 @@ export async function createReviewCommentAction(
             };
         }
 
-        // 3. Verify subtask exists and belongs to the project
-        const subTask = await prisma.task.findUnique({
-            where: { id: subTaskId },
-            select: {
-                id: true,
-                parentTask: {
-                    select: {
-                        projectId: true,
-                        project: {
-                            select: {
-                                slug: true
-                            }
-                        }
-                    },
-                },
-            },
-        });
-
         if (!subTask) {
             return {
                 success: false,
@@ -73,7 +64,7 @@ export async function createReviewCommentAction(
             };
         }
 
-        if (subTask.parentTask?.projectId !== projectId) {
+        if (subTask.projectId !== projectId) {
             return {
                 success: false,
                 error: "Subtask does not belong to this project",
