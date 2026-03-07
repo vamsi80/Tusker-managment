@@ -2,6 +2,7 @@
 
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { formatIST } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -64,7 +65,11 @@ export function DailyReportModal({ workspaceId, isOpen, onClose, onSubmitted }: 
 
         startTransition(async () => {
             try {
-                await submitDailyReport({ workspaceId, entries });
+                await submitDailyReport({
+                    workspaceId,
+                    entries,
+                    date: formatIST(new Date(), "yyyy-MM-dd")
+                });
                 toast.success("Daily report submitted successfully!");
                 onSubmitted?.();
                 onClose();

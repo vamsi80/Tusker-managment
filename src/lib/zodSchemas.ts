@@ -505,6 +505,7 @@ export const dailyReportEntrySchema = z.object({
 
 export const dailyReportSchema = z.object({
     workspaceId: z.string().uuid(),
+    date: z.string().optional(), // YYYY-MM-DD format from client
     entries: z.array(dailyReportEntrySchema).min(1, "At least one report entry is required."),
 });
 

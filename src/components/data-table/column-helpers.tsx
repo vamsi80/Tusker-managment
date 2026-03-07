@@ -13,7 +13,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { IconArrowsSort, IconSortAscending, IconSortDescending, IconDotsVertical } from "@tabler/icons-react";
-import { cn } from "@/lib/utils";
+import { cn, formatIST } from "@/lib/utils";
 
 /**
  * Creates a sortable header component
@@ -162,7 +162,7 @@ export function createDateColumn<T>(
             const dateObj = typeof date === "string" ? new Date(date) : date;
 
             if (format === "datetime") {
-                return dateObj.toLocaleString();
+                return formatIST(dateObj, "PPp");
             } else if (format === "relative") {
                 const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
                 const diff = dateObj.getTime() - Date.now();
@@ -170,7 +170,7 @@ export function createDateColumn<T>(
                 return rtf.format(days, "day");
             }
 
-            return dateObj.toLocaleDateString();
+            return formatIST(dateObj, "PP");
         },
     };
 }

@@ -20,13 +20,15 @@ export default async function ReportsPage({
 
     const { workspaceMembers } = await getWorkspaceMembers(workspaceId);
     const search = await searchParams;
+    // Check if user is an admin or manager to allow visibility of other reports
+    const isManager = workspaceMember.workspaceRole === "MANAGER";
+    const canManageReports = isWorkspaceAdmin || isManager;
 
-    // Optional date filter
-    const dateQuery = search.date ? new Date(search.date) : undefined;
-    if (dateQuery) dateQuery.setHours(0, 0, 0, 0);
+    // Optional date filter - use UTC midnight to be timezone agnostic
+    const dateQuery = search.date ? new Date(`${search.date}T00:00:00Z`) : undefined;
 
-    // If not admin, only show own reports
-    const effectiveUserId = isWorkspaceAdmin ? search.userId : workspaceMember.userId;
+    // Handle filtering by specific user if permitted
+    const effectiveUserId = canManageReports ? search.userId : workspaceMember.userId;
 
     const reports = await prisma.dailyReport.findMany({
         where: {
@@ -38,7 +40,7 @@ export default async function ReportsPage({
             user: {
                 select: {
                     surname: true,
-                    email: true
+                    email: true,
                 }
             },
             entries: {
@@ -108,7 +110,7 @@ export default async function ReportsPage({
                 user: report.user,
                 status: report.status,
                 submittedAt: report.submittedAt,
-                date: report.date,
+                date: report.date ? report.date.toISOString().split("T")[0] : null,
                 entries: report.entries,
                 task: report.entries[0]?.task,
                 description: report.entries[0]?.description,
@@ -121,7 +123,7 @@ export default async function ReportsPage({
             <div className="flex flex-col gap-2">
                 <h1 className="text-2xl font-bold tracking-tight">Daily Work Reports</h1>
                 <p className="text-muted-foreground text-sm">
-                    View work reports logs from your workspace members.
+                    View work reports logs from your workspace assignees.
                 </p>
             </div>
 
@@ -131,7 +133,7 @@ export default async function ReportsPage({
                 members={workspaceMembers}
                 initialDate={search.date}
                 initialUserId={search.userId}
-                isAdmin={isWorkspaceAdmin}
+                isAdmin={canManageReports}
             />
         </div>
     );

@@ -1,4 +1,5 @@
 "use client";
+import { formatIST } from "@/lib/utils";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -80,13 +81,7 @@ export function ReviewTab({ reviewComments, isLoadingReview }: ReviewTabProps) {
                                                 {author?.surname || ""}
                                             </p>
                                             <p className="text-xs text-muted-foreground">
-                                                {new Date(review.createdAt).toLocaleString('en-US', {
-                                                    month: 'short',
-                                                    day: 'numeric',
-                                                    year: 'numeric',
-                                                    hour: '2-digit',
-                                                    minute: '2-digit'
-                                                })}
+                                                {formatIST(review.createdAt, "MMM d, yyyy h:mm a")}
                                             </p>
                                         </div>
                                         <div className="flex flex-col items-end gap-1.5">

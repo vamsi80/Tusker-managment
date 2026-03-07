@@ -1,22 +1,23 @@
 "use client";
 
 import React, { useMemo, useState, useEffect, useCallback } from "react";
-import { format } from "date-fns";
+import { formatIST } from "@/lib/utils";
 import { DataTable } from "@/components/data-table/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { loadMoreReportsAction } from "@/actions/daily-report/load-reports";
-import { WorkspaceMemberRow } from "@/data/workspace/get-workspace-members";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-// import { utils, writeFile } from "xlsx";
 import { ReportDetailModal } from "./report-detail-sheet";
-import { Loader2, CalendarIcon, UserIcon, X, Download } from "lucide-react";
+import { Loader2, CalendarIcon, UserIcon, X, ChevronDown, Clock, Search } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { WorkspaceMemberRow } from "@/data/workspace/get-workspace-members";
+import { loadMoreReportsAction } from "@/actions/daily-report/load-reports";
 
 interface Props {
     initialData: any[];
@@ -31,13 +32,13 @@ export function ReportsTable({ initialData, workspaceId, members, initialDate, i
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
-
     const [data, setData] = useState(initialData);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(initialData.length >= 30);
     const [skip, setSkip] = useState(30);
     const [selectedReport, setSelectedReport] = useState<any>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
 
     // Sync with initialData change (when server-side searchParams change)
     useEffect(() => {
@@ -104,320 +105,328 @@ export function ReportsTable({ initialData, workspaceId, members, initialDate, i
         return () => observer.disconnect();
     }, [loadMore, hasMore, isLoadingMore]);
 
-    // const exportToExcel = useCallback(() => {
-    //     const flattenedData: any[] = [];
-
-    //     data.forEach(row => {
-    //         if (row.entries && row.entries.length > 0) {
-    //             row.entries.forEach((entry: any) => {
-    //                 flattenedData.push({
-    //                     User: `${row.user?.name} ${row.user?.surname || ""}`,
-    //                     Email: row.user?.email || "-",
-    //                     Status: row.status,
-    //                     Date: row.date ? format(new Date(row.date), "MMM d, yyyy") : "-",
-    //                     Time: row.submittedAt ? format(new Date(row.submittedAt), "h:mm a") : "-",
-    //                     Task: entry.task?.name || "Other Work",
-    //                     TaskID: entry.task?.taskSlug || "-",
-    //                     Description: entry.description
-    //                 });
-    //             });
-    //         } else {
-    //             flattenedData.push({
-    //                 User: `${row.user?.name} ${row.user?.surname || ""}`,
-    //                 Email: row.user?.email || "-",
-    //                 Status: row.status,
-    //                 Date: row.date ? format(new Date(row.date), "MMM d, yyyy") : "-",
-    //                 Time: row.submittedAt ? format(new Date(row.submittedAt), "h:mm a") : "-",
-    //                 Task: row.status === "ABSENT" ? "Absent" : "No Task",
-    //                 TaskID: "-",
-    //                 Description: row.description
-    //             });
-    //         }
-    //     });
-
-    //     const ws = utils.json_to_sheet(flattenedData);
-    //     const wb = utils.book_new();
-    //     utils.book_append_sheet(wb, ws, "Reports");
-
-    //     const fileName = `Reports_${initialDate || format(new Date(), "yyyy-MM-dd")}.xlsx`;
-    //     writeFile(wb, fileName);
-    // }, [data, initialDate]);
-
-    const columns = useMemo<ColumnDef<any>[]>(() => [
-        {
-            accessorKey: "user.name",
-            header: "User",
-            cell: ({ row }) => {
-                const user = row.original.user;
-                return (
-                    <div className="flex items-center gap-3 w-[300px]">
-                        <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center overflow-hidden shrink-0 border">
-                            {user?.image ? (
-                                <img src={user.image} alt={user.name} className="w-full h-full object-cover" />
-                            ) : (
-                                <span className="text-xs font-medium text-secondary-foreground text-opacity-70">
-                                    {user?.surname?.charAt(0) || "U"}
-                                </span>
-                            )}
-                        </div>
-                        <div className="truncate">
-                            <div className="font-medium text-sm leading-tight truncate">{user?.surname}</div>
-                            <div className="text-xs text-muted-foreground truncate">{user?.email}</div>
-                        </div>
-                    </div>
-                );
-            },
-            filterFn: (row, id, value) => {
-                const user = row.original.user;
-                const search = `${user?.name} ${user?.surname} ${user?.email}`.toLowerCase();
-                return search.includes(String(value).toLowerCase());
-            }
-        },
-        {
-            accessorKey: "task",
-            header: "Task Reference",
-            cell: ({ row }) => {
-                const entries = row.original.entries || [];
-                const hasMore = entries.length > 1;
-
-                if (entries.length === 0) {
-                    if (row.original.status === "ABSENT") return <span className="text-muted-foreground font-medium italic">Absent</span>;
-                    return <span className="text-muted-foreground font-medium italic">Other Work</span>;
-                }
-
-                const firstEntry = entries[0];
-                const task = firstEntry.task;
-
-                return (
-                    <div className="flex flex-col gap-0.5 max-w-[200px]">
-                        <div className="flex items-center gap-1.5 overflow-hidden">
-                            {task?.project?.color ? (
-                                <div
-                                    className="w-1.5 h-1.5 rounded-full shrink-0 shadow-sm"
-                                    style={{ backgroundColor: task.project.color }}
-                                />
-                            ) : (
-                                <div className="w-1.5 h-1.5 rounded-full shrink-0 bg-muted-foreground/30 shadow-none border border-black/5" />
-                            )}
-                            <span className={cn(
-                                "font-medium text-xs truncate leading-tight",
-                                !task && "text-muted-foreground italic"
-                            )}>
-                                {task?.name || "Other Work"}
-                            </span>
-                            {hasMore && (
-                                <Badge variant="secondary" className="h-4 px-1 text-[9px] font-bold shrink-0 bg-secondary/80">
-                                    +{entries.length - 1} Other
-                                </Badge>
-                            )}
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <span className="text-[10px] text-muted-foreground font-mono bg-muted/60 px-1 rounded-sm border border-black/5">
-                                {task?.taskSlug || "OTHER"}
-                            </span>
-                        </div>
-                    </div>
-                );
-            }
-        },
-        {
-            accessorKey: "description",
-            header: "Description / Log",
-            cell: ({ row }) => {
-                const desc = row.getValue("description") as string;
-                const count = row.original.entries?.length || 0;
-                return (
-                    <div className="max-w-[200px]">
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <p className="text-sm truncate cursor-help text-card-foreground/90">
-                                        {desc} {count > 1 && <span className="text-[10px] text-primary font-bold">(+{count - 1} more)</span>}
-                                    </p>
-                                </TooltipTrigger>
-                                <TooltipContent side="top" className="max-w-[200px] p-3 text-xs leading-relaxed">
-                                    <p className="whitespace-pre-wrap">{desc}</p>
-                                    {count > 1 && (
-                                        <p className="mt-2 text-[10px] font-bold border-t pt-1 border-white/20">
-                                            Click to view all {count} logs
-                                        </p>
-                                    )}
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                    </div>
-                );
-            }
-        },
-        {
-            accessorKey: "date",
-            header: "Date",
-            cell: ({ getValue }) => {
-                const val = getValue() as Date | null;
-                if (!val) return "-";
-                return <span className="text-muted-foreground text-xs whitespace-nowrap">{format(new Date(val), "MMM d, yyyy")}</span>;
-            },
-            filterFn: (row, id, value) => {
-                if (!value) return true;
-                return format(new Date(row.getValue(id)), "yyyy-MM-dd") === value;
-            }
-        },
-        {
-            accessorKey: "submittedAt",
-            header: "Time",
-            cell: ({ getValue }) => {
-                const val = getValue() as Date | null;
-                if (!val) return "-";
-                return <span className="text-muted-foreground text-xs whitespace-nowrap">{format(new Date(val), "h:mm a")}</span>;
-            }
-        },
-        {
-            accessorKey: "status",
-            header: "Status",
-            cell: ({ getValue }) => {
-                const status = getValue() as string;
-                return (
-                    <Badge
-                        variant={status === "ABSENT" ? "destructive" : "default"}
-                        className={status === "SUBMITTED" ? "bg-green-600 hover:bg-green-700 text-white shadow-none" : "shadow-none"}
-                    >
-                        {status}
-                    </Badge>
-                );
-            },
-            filterFn: (row, id, value) => {
-                if (!value || (Array.isArray(value) && value.length === 0)) return true;
-                const rowValue = row.getValue(id) as string;
-                return Array.isArray(value) ? value.includes(rowValue) : rowValue === value;
-            }
-        }
-    ], []);
-
-    const filterFields = useMemo(() => [
-        {
-            label: "Status",
-            value: "status",
-            options: [
-                { label: "Submitted", value: "SUBMITTED" },
-                { label: "Not Submitted", value: "NOT_SUBMITTED" },
-                { label: "Absent", value: "ABSENT" }
-            ]
-        }
-    ], []);
-
     const selectedMember = useMemo(() => {
         return members.find(m => m.userId === initialUserId);
     }, [members, initialUserId]);
 
-    return (
-        <div className="space-y-4">
-            <DataTable
-                data={data}
-                columns={columns}
-                searchKey="user.name"
-                searchPlaceholder="Search logs..."
-                filterFields={filterFields}
-                pageSize={data.length}
-                showPagination={false}
-                filterDisplay="default"
-                showColumnToggle={true}
-                onRowClick={(row) => {
-                    setSelectedReport(row);
-                    setIsDialogOpen(true);
-                }}
-                extraToolbarContent={
-                    <>
-                        {/* Member Picker - Admins Only */}
-                        {isAdmin && (
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
+    const filteredData = useMemo(() => {
+        if (!searchQuery) return data;
+        const lowSearch = searchQuery.toLowerCase();
+        return data.filter(item => {
+            const user = item.user;
+            const userName = `${user?.name} ${user?.surname} ${user?.email}`.toLowerCase();
+            const entries = item.entries || [];
+            const taskMatch = entries.some((e: any) =>
+                (e.task?.name?.toLowerCase() || "").includes(lowSearch) ||
+                (e.task?.taskSlug?.toLowerCase() || "").includes(lowSearch) ||
+                (e.description?.toLowerCase() || "").includes(lowSearch)
+            );
+            const reportDescMatch = (item.description?.toLowerCase() || "").includes(lowSearch);
+
+            return userName.includes(lowSearch) || taskMatch || reportDescMatch;
+        });
+    }, [data, searchQuery]);
+
+    const groupedData = useMemo(() => {
+        const groups: Record<string, any[]> = {};
+        filteredData.forEach(report => {
+            // Treat date as a plain string YYYY-MM-DD to avoid timezone shifts
+            let dateStr = "No Date";
+            if (report.date) {
+                dateStr = typeof report.date === "string"
+                    ? report.date.split("T")[0]
+                    : formatIST(report.date, "yyyy-MM-dd");
+            }
+
+            if (!groups[dateStr]) groups[dateStr] = [];
+
+            const entries = report.entries || [];
+            if (entries.length === 0) {
+                groups[dateStr].push({
+                    ...report,
+                    _isFirstInReport: true,
+                    _entry: null,
+                });
+            } else {
+                entries.forEach((entry: any, index: number) => {
+                    groups[dateStr].push({
+                        ...report,
+                        _isFirstInReport: index === 0,
+                        _entry: entry,
+                    });
+                });
+            }
+        });
+        return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
+    }, [filteredData]);
+
+    const reportColumns = useMemo<ColumnDef<any>[]>(() => [
+        {
+            accessorKey: "user",
+            header: "Assignee",
+            meta: { className: "[&:not(th)]:align-top" } as any,
+            cell: ({ row }) => {
+                if (!row.original._isFirstInReport) return null;
+
+                const user = row.original.user;
+                const status = row.original.status;
+                return (
+                    <div className="flex items-start gap-4 py-0 pl-1">
+                        <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center overflow-hidden shrink-0 border shadow-sm">
+                            {user?.image ? (
+                                <img src={user.image} alt={user.name} className="w-full h-full object-cover" />
+                            ) : (
+                                <span className="text-xs font-medium text-secondary-foreground">
+                                    {user?.surname?.charAt(0) || "U"}
+                                </span>
+
+                            )}
+
+                        </div>
+                        <div className="flex flex-col gap-1 min-w-0 flex-1">
+                            <div className="truncate">
+                                <div className="font-normal text-sm text-foreground truncate flex items-center gap-2">
+                                    {user?.surname}
+                                    <Badge
+                                        variant={status === "ABSENT" ? "destructive" : "default"}
                                         className={cn(
-                                            "h-8 justify-start text-left font-normal border-dashed",
-                                            !initialUserId && "text-muted-foreground"
+                                            "text-[9px] h-4 w-fit px-1.5 shadow-none font-bold uppercase tracking-tighter",
+                                            status === "SUBMITTED" && "bg-green-600/10 text-green-600 border-green-600/20 hover:bg-green-600/20"
                                         )}
                                     >
-                                        <UserIcon className="mr-2 h-4 w-4" />
-                                        {selectedMember ? `${selectedMember.user?.name} ${selectedMember.user?.surname || ""}` : "All members"}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="p-0 w-[200px]" align="start">
-                                    <Command>
-                                        <CommandInput placeholder="Search member..." />
-                                        <CommandList>
-                                            <CommandEmpty>No member found.</CommandEmpty>
-                                            <CommandGroup>
-                                                <CommandItem
-                                                    onSelect={() => updateFilters({ userId: undefined })}
-                                                >
-                                                    All members
-                                                </CommandItem>
-                                                {members.map((m) => (
-                                                    <CommandItem
-                                                        key={m.userId}
-                                                        onSelect={() => updateFilters({ userId: m.userId })}
-                                                    >
-                                                        {m.user?.name} {m.user?.surname}
-                                                    </CommandItem>
-                                                ))}
-                                            </CommandGroup>
-                                        </CommandList>
-                                    </Command>
-                                </PopoverContent>
-                            </Popover>
-                        )}
+                                        {status}
+                                    </Badge>
+                                </div>
+                                <div className="text-[10px] text-muted-foreground truncate">{user?.email}</div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+        },
+        {
+            accessorKey: "tasks",
+            header: "Task & Time",
+            meta: { className: "w-[25%] border-l border-border/10 pl-4 [&:not(th)]:align-top" } as any,
+            cell: ({ row }) => {
+                const entry = row.original._entry;
+                const submittedAt = row.original.submittedAt;
 
-                        {/* Date Picker */}
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className={cn(
-                                        "h-8 justify-start text-left font-normal border-dashed",
-                                        !initialDate && "text-muted-foreground"
-                                    )}
-                                >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {initialDate ? format(new Date(initialDate), "MMM d, yyyy") : "Any date"}
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                                <Calendar
-                                    mode="single"
-                                    selected={initialDate ? new Date(initialDate) : undefined}
-                                    onSelect={(date) => updateFilters({ date: date ? format(date, "yyyy-MM-dd") : undefined })}
-                                    initialFocus
-                                />
-                            </PopoverContent>
-                        </Popover>
+                if (!entry) {
+                    return (
+                        <div className="py-3 flex items-start gap-3">
+                            <span className="text-xs text-muted-foreground italic bg-muted/30 px-2 py-1 rounded-md border border-dashed">
+                                {row.original.status === "ABSENT" ? "Absent" : "Other Work"}
+                            </span>
+                            {submittedAt && (
+                                <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-mono bg-secondary/30 px-1.5 py-0.5 rounded mt-1">
+                                    <Clock className="h-2.5 w-2.5" />
+                                    {formatIST(submittedAt, "h:mm a")}
+                                </div>
+                            )}
+                        </div>
+                    );
+                }
 
-                        {(initialDate || (isAdmin && initialUserId)) && (
+                return (
+                    <div className="flex flex-col gap-1 py-1 items-start justify-start min-h-[44px]">
+                        <div className="flex items-center gap-2">
+                            <div
+                                className="w-2 h-2 rounded-full shrink-0 shadow-sm"
+                                style={{ backgroundColor: entry.task?.project?.color || "#cbd5e1" }}
+                            />
+                            <span className="font-normal text-xs truncate leading-tight text-foreground/80">
+                                {entry.task?.name || "Other Work"}
+                            </span>
+                        </div>
+                        <div className="pl-4 flex items-center gap-2">
+                            {submittedAt && (
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground/60 font-mono">
+                                    <Clock className="h-2 w-2" />
+                                    {formatIST(submittedAt, "h:mm a")}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                );
+            }
+        },
+        {
+            accessorKey: "logs",
+            header: "Work Log Descriptions",
+            meta: { className: "w-[55%] border-l border-border/10 pl-4 [&:not(th)]:align-top" } as any,
+            cell: ({ row }) => {
+                const entry = row.original._entry;
+                const description = entry ? entry.description : row.original.description;
+
+                return (
+                    <div className="py-1 flex items-start min-h-[44px]">
+                        <p className="text-sm text-card-foreground/90 font-normal leading-relaxed whitespace-pre-wrap">
+                            {description || "-"}
+                        </p>
+                    </div>
+                );
+            }
+        }
+    ], []);
+
+    return (
+        <div className="space-y-6">
+            {/* Top Toolbar */}
+            <div className="flex flex-wrap items-center gap-3">
+                <div className="relative flex-1 max-w-sm">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Search assignees, tasks, or logs..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-9 h-9 border-muted/40 focus:border-primary/30 transition-all text-sm"
+                    />
+                </div>
+
+                {isAdmin && (
+                    <Popover>
+                        <PopoverTrigger asChild>
                             <Button
-                                variant="ghost"
+                                variant="outline"
                                 size="sm"
-                                onClick={() => updateFilters({ date: undefined, userId: undefined })}
-                                className="h-8 px-2 text-muted-foreground hover:text-foreground"
+                                className={cn(
+                                    "h-9 justify-start text-left font-normal border-dashed",
+                                    !initialUserId && "text-muted-foreground"
+                                )}
                             >
-                                <X className="mr-1 h-4 w-4" />
-                                Clear
+                                <UserIcon className="mr-2 h-4 w-4" />
+                                {selectedMember ? `${selectedMember.user?.surname || ""}` : "All Assignees"}
                             </Button>
-                        )}
+                        </PopoverTrigger>
+                        <PopoverContent className="p-0 w-[200px]" align="start">
+                            <Command>
+                                <CommandInput placeholder="Search assignee..." />
+                                <CommandList>
+                                    <CommandEmpty>No assignee found.</CommandEmpty>
+                                    <CommandGroup>
+                                        <CommandItem
+                                            onSelect={() => updateFilters({ userId: undefined })}
+                                        >
+                                            All members
+                                        </CommandItem>
+                                        {members.map((m) => (
+                                            <CommandItem
+                                                key={m.userId}
+                                                onSelect={() => updateFilters({ userId: m.userId })}
+                                            >
+                                                {m.user?.surname}
+                                            </CommandItem>
+                                        ))}
+                                    </CommandGroup>
+                                </CommandList>
+                            </Command>
+                        </PopoverContent>
+                    </Popover>
+                )}
 
-                        {/* <Button
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button
                             variant="outline"
                             size="sm"
-                            onClick={exportToExcel}
-                            className="h-8 px-2 ml-auto"
+                            className={cn(
+                                "h-9 justify-start text-left font-normal border-dashed",
+                                !initialDate && "text-muted-foreground"
+                            )}
                         >
-                            <Download className="mr-2 h-4 w-4" />
-                            Export Excel
-                        </Button> */}
-                    </>
-                }
-            />
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {initialDate ? formatIST(new Date(`${initialDate}T12:00:00`), "MMM d, yyyy") : "Any date"}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                            mode="single"
+                            selected={initialDate ? new Date(initialDate) : undefined}
+                            onSelect={(date) => updateFilters({ date: date ? formatIST(date, "yyyy-MM-dd") : undefined })}
+                            initialFocus
+                        />
+                    </PopoverContent>
+                </Popover>
+
+                {(initialDate || (isAdmin && initialUserId)) && (
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => updateFilters({ date: undefined, userId: undefined })}
+                        className="h-9 px-2 text-muted-foreground hover:text-foreground"
+                    >
+                        <X className="mr-1 h-4 w-4" />
+                        Clear
+                    </Button>
+                )}
+            </div>
+
+            {/* Grouped Date Sections */}
+            <div className="space-y-4">
+                {groupedData.length > 0 ? (
+                    groupedData.map(([date, rows], index) => (
+                        <Collapsible
+                            key={date}
+                            defaultOpen={index === 0}
+                            className="bg-card/30 border border-border/40 rounded-2xl overflow-hidden hover:border-primary/20 transition-all duration-300 shadow-sm"
+                        >
+                            <CollapsibleTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    className="w-full flex items-center justify-between p-5 h-auto hover:bg-muted/30 group text-foreground"
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary border border-primary/10 group-hover:bg-primary group-hover:text-white transition-colors">
+                                            <CalendarIcon className="h-5 w-5" />
+                                        </div>
+                                        <div className="text-left">
+                                            <h3 className="font-semibold text-base">
+                                                {date !== "No Date" ? formatIST(new Date(`${date}T12:00:00`), "EEEE, MMMM d, yyyy") : "No Date"}
+                                            </h3>
+                                            <p className="text-xs text-muted-foreground">
+                                                Daily activity logs
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <ChevronDown className="h-4 w-4 text-muted-foreground group-data-[state=open]:rotate-180 transition-transform" />
+                                </Button>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
+                                <div className="px-4 pb-4 space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                                    <Separator className="mb-2 bg-border/20" />
+                                    <div className="rounded-xl border border-border/10 overflow-auto max-h-[60vh] shadow-inner bg-card/20 scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent hover:scrollbar-thumb-muted-foreground/40 [&_thead]:sticky [&_thead]:top-0 [&_thead]:z-20 [&_thead]:bg-background/95 [&_thead]:backdrop-blur [&_[data-slot=table-container]]:overflow-visible transition-colors">
+                                        <DataTable
+                                            data={rows}
+                                            columns={reportColumns}
+                                            pageSize={rows.length}
+                                            showPagination={false}
+                                            showColumnToggle={false}
+                                            getRowClassName={(row: any) =>
+                                                row.original._isFirstInReport ? "border-t border-border/40 mt-4 first:mt-0 first:border-0" : ""
+                                            }
+                                            onRowClick={(row) => {
+                                                setSelectedReport(row);
+                                                setIsDialogOpen(true);
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            </CollapsibleContent>
+                        </Collapsible>
+                    ))
+                ) : (
+                    <div className="flex flex-col items-center justify-center py-20 bg-muted/20 border border-dashed rounded-2xl text-center">
+                        <div className="p-4 rounded-full bg-muted/50 mb-4">
+                            <Search className="h-8 w-8 text-muted-foreground/50" />
+                        </div>
+                        <h3 className="font-medium text-lg">No reports found</h3>
+                        <p className="text-sm text-muted-foreground max-w-xs">
+                            Try adjusting your search or filters to find what you're looking for.
+                        </p>
+                    </div>
+                )}
+            </div>
 
             {hasMore && (
                 <div ref={observerRef} className="flex justify-center p-4">

@@ -5,7 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Calendar, Tag, User, FileCheck } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatIST } from "@/lib/utils";
 import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { memo } from "react";
 
@@ -78,7 +78,7 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({ subTask }: 
                         <span className="text-xs sm:text-sm font-medium w-20 sm:w-24 shrink-0">Due Date</span>
                         {subTask.startDate ? (
                             <span className="text-xs sm:text-sm">
-                                {new Date(subTask.startDate).toLocaleDateString('en-GB')}
+                                {formatIST(subTask.startDate, "dd/MM/yyyy")}
                             </span>
                         ) : (
                             <span className="text-xs sm:text-sm text-muted-foreground">No due date</span>
