@@ -57,7 +57,7 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
             limit: 300,
             sorts: [{ field: "createdAt", direction: "desc" }],
             view_mode: "kanban"
-        }, user.id),
+        }), // Remove user.id to enable unstable_cache bypass in get-tasks.ts
         getWorkspacePermissions(workspaceId, user.id),
         membersPromise,
         projectsPromise,

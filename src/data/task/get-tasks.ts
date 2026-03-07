@@ -273,11 +273,8 @@ export const resolveTaskPermissions = cache(async (workspaceId: string, projectI
         if (isWorkspaceAdmin) {
             authorizedProjectIds = [];
         } else {
-            const myProjects = await prisma.projectMember.findMany({
-                where: { workspaceMemberId: permissions.workspaceMemberId, hasAccess: true },
-                select: { projectId: true },
-            });
-            authorizedProjectIds = myProjects.map(p => p.projectId);
+            // OPTIMIZATION: Extract from the existing perms object instead of re-querying the DB
+            authorizedProjectIds = (wsPerms.workspaceMember?.projectMembers || []).map((p: any) => p.projectId);
         }
 
         const fullAccessProjectIds = [

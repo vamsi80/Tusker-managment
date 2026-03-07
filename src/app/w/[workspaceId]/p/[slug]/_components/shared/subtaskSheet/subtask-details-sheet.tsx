@@ -32,10 +32,7 @@ interface Comment {
     taskId: string;
     user: {
         id: string;
-        name: string;
         surname: string;
-        email: string;
-        image: string;
     };
     isEdited: boolean;
     editedAt: Date;

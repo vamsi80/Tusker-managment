@@ -19,9 +19,10 @@ interface KanbanCardProps {
     isDragging?: boolean;
     onSubTaskClick?: (subTask: KanbanSubTaskType) => void;
     projectManagers?: Record<string, any>;
+    isUpdating?: boolean;
 }
 
-export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTaskClick, projectManagers }: KanbanCardProps) {
+export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTaskClick, projectManagers, isUpdating }: KanbanCardProps) {
     const {
         attributes,
         listeners,
@@ -270,6 +271,15 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
                     )}
                 </div>
             </CardContent>
+            {isUpdating && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/50 backdrop-blur-[1px] animate-pulse">
+                    <div className="h-1 w-full bg-primary/30 absolute bottom-0 overflow-hidden">
+                        <div className="h-full w-1/2 bg-primary animate-[shimmer_1.5s_infinite_linear]" style={{
+                            backgroundImage: 'linear-gradient(90deg, transparent, currentColor, transparent)',
+                        }} />
+                    </div>
+                </div>
+            )}
         </Card >
     );
 }
