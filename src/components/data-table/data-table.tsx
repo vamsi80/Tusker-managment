@@ -103,155 +103,157 @@ export function DataTable<TData, TValue>({
     return (
         <div className="space-y-4">
             {/* Toolbar */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
-                {/* Search */}
-                {searchKey && (
-                    <div className="flex items-center flex-1 max-w-sm w-full">
-                        <div className="relative w-full">
-                            <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                placeholder={searchPlaceholder}
-                                value={(table.getColumn(searchKey)?.getFilterValue() as string) ?? ""}
-                                onChange={(event) =>
-                                    table.getColumn(searchKey)?.setFilterValue(event.target.value)
-                                }
-                                className="pl-9 w-full"
-                            />
+            {(searchKey || (filterFields && filterFields.length > 0) || extraToolbarContent || showColumnToggle) && (
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
+                    {/* Search */}
+                    {searchKey && (
+                        <div className="flex items-center flex-1 max-w-sm w-full">
+                            <div className="relative w-full">
+                                <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    placeholder={searchPlaceholder}
+                                    value={(table.getColumn(searchKey)?.getFilterValue() as string) ?? ""}
+                                    onChange={(event) =>
+                                        table.getColumn(searchKey)?.setFilterValue(event.target.value)
+                                    }
+                                    className="pl-9 w-full"
+                                />
+                            </div>
                         </div>
-                    </div>
-                )}
-
-                <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
-
-                    {filterDisplay === "menu" ? (
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-8 border-dashed">
-                                    <IconFilter className="mr-2 h-4 w-4" />
-                                    Filters
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="start" className="w-[200px]">
-                                {filterFields.map((field) => {
-                                    const column = table.getColumn(field.value);
-                                    if (!column) return null;
-                                    return (
-                                        <DropdownMenuSub key={field.value}>
-                                            <DropdownMenuSubTrigger>
-                                                {field.label}
-                                            </DropdownMenuSubTrigger>
-                                            <DropdownMenuSubContent className="w-[200px]">
-                                                {field.options?.map((option) => {
-                                                    const filterValue = column.getFilterValue();
-                                                    const isSelected = Array.isArray(filterValue)
-                                                        ? filterValue.includes(option.value)
-                                                        : filterValue === option.value;
-
-                                                    return (
-                                                        <DropdownMenuCheckboxItem
-                                                            key={option.value}
-                                                            checked={isSelected}
-                                                            onCheckedChange={(checked) => {
-                                                                const current = (column.getFilterValue() as string[]) || [];
-                                                                if (checked) {
-                                                                    column.setFilterValue([...current, option.value]);
-                                                                } else {
-                                                                    column.setFilterValue(current.filter((v) => v !== option.value));
-                                                                }
-                                                            }}
-                                                        >
-                                                            {option.label}
-                                                        </DropdownMenuCheckboxItem>
-                                                    );
-                                                })}
-                                                {(column.getFilterValue() as string[])?.length > 0 && (
-                                                    <>
-                                                        <DropdownMenuSeparator />
-                                                        <DropdownMenuItem
-                                                            onSelect={() => column.setFilterValue(undefined)}
-                                                            className="justify-center text-center text-xs"
-                                                        >
-                                                            Clear
-                                                        </DropdownMenuItem>
-                                                    </>
-                                                )}
-                                            </DropdownMenuSubContent>
-                                        </DropdownMenuSub>
-                                    );
-                                })}
-                                {(table.getState().columnFilters.length > 0) && (
-                                    <>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem
-                                            onSelect={() => table.resetColumnFilters()}
-                                            className="justify-center text-center"
-                                        >
-                                            Reset all
-                                        </DropdownMenuItem>
-                                    </>
-                                )}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    ) : (
-                        <>
-                            {filterFields.map((field) => {
-                                const column = table.getColumn(field.value);
-                                return (
-                                    column && (
-                                        <DataTableFacetedFilter
-                                            key={field.value}
-                                            column={column}
-                                            title={field.label}
-                                            options={field.options || []}
-                                        />
-                                    )
-                                );
-                            })}
-                            {(table.getState().columnFilters.length > 0 || !!table.getState().globalFilter) && (
-                                <Button
-                                    variant="ghost"
-                                    onClick={() => table.resetColumnFilters()}
-                                    className="h-8 px-2 lg:px-3"
-                                >
-                                    Reset
-                                    <IconX className="ml-2 h-4 w-4" />
-                                </Button>
-                            )}
-                        </>
                     )}
 
-                    {extraToolbarContent}
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
 
-                    {/* Column Toggle */}
-                    {showColumnToggle && (
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="ml-auto">
-                                    <IconColumns className="mr-2 h-4 w-4" />
-                                    Columns
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-[200px]">
-                                {table
-                                    .getAllColumns()
-                                    .filter((column) => column.getCanHide())
-                                    .map((column) => {
+                        {filterDisplay === "menu" ? (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" size="sm" className="h-8 border-dashed">
+                                        <IconFilter className="mr-2 h-4 w-4" />
+                                        Filters
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start" className="w-[200px]">
+                                    {filterFields.map((field) => {
+                                        const column = table.getColumn(field.value);
+                                        if (!column) return null;
                                         return (
-                                            <DropdownMenuCheckboxItem
-                                                key={column.id}
-                                                className="capitalize"
-                                                checked={column.getIsVisible()}
-                                                onCheckedChange={(value) => column.toggleVisibility(!!value)}
-                                            >
-                                                {column.id}
-                                            </DropdownMenuCheckboxItem>
+                                            <DropdownMenuSub key={field.value}>
+                                                <DropdownMenuSubTrigger>
+                                                    {field.label}
+                                                </DropdownMenuSubTrigger>
+                                                <DropdownMenuSubContent className="w-[200px]">
+                                                    {field.options?.map((option) => {
+                                                        const filterValue = column.getFilterValue();
+                                                        const isSelected = Array.isArray(filterValue)
+                                                            ? filterValue.includes(option.value)
+                                                            : filterValue === option.value;
+
+                                                        return (
+                                                            <DropdownMenuCheckboxItem
+                                                                key={option.value}
+                                                                checked={isSelected}
+                                                                onCheckedChange={(checked) => {
+                                                                    const current = (column.getFilterValue() as string[]) || [];
+                                                                    if (checked) {
+                                                                        column.setFilterValue([...current, option.value]);
+                                                                    } else {
+                                                                        column.setFilterValue(current.filter((v) => v !== option.value));
+                                                                    }
+                                                                }}
+                                                            >
+                                                                {option.label}
+                                                            </DropdownMenuCheckboxItem>
+                                                        );
+                                                    })}
+                                                    {(column.getFilterValue() as string[])?.length > 0 && (
+                                                        <>
+                                                            <DropdownMenuSeparator />
+                                                            <DropdownMenuItem
+                                                                onSelect={() => column.setFilterValue(undefined)}
+                                                                className="justify-center text-center text-xs"
+                                                            >
+                                                                Clear
+                                                            </DropdownMenuItem>
+                                                        </>
+                                                    )}
+                                                </DropdownMenuSubContent>
+                                            </DropdownMenuSub>
                                         );
                                     })}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    )}
+                                    {(table.getState().columnFilters.length > 0) && (
+                                        <>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem
+                                                onSelect={() => table.resetColumnFilters()}
+                                                className="justify-center text-center"
+                                            >
+                                                Reset all
+                                            </DropdownMenuItem>
+                                        </>
+                                    )}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        ) : (
+                            <>
+                                {filterFields.map((field) => {
+                                    const column = table.getColumn(field.value);
+                                    return (
+                                        column && (
+                                            <DataTableFacetedFilter
+                                                key={field.value}
+                                                column={column}
+                                                title={field.label}
+                                                options={field.options || []}
+                                            />
+                                        )
+                                    );
+                                })}
+                                {(table.getState().columnFilters.length > 0 || !!table.getState().globalFilter) && (
+                                    <Button
+                                        variant="ghost"
+                                        onClick={() => table.resetColumnFilters()}
+                                        className="h-8 px-2 lg:px-3"
+                                    >
+                                        Reset
+                                        <IconX className="ml-2 h-4 w-4" />
+                                    </Button>
+                                )}
+                            </>
+                        )}
+
+                        {extraToolbarContent}
+
+                        {/* Column Toggle */}
+                        {showColumnToggle && (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" size="sm" className="ml-auto">
+                                        <IconColumns className="mr-2 h-4 w-4" />
+                                        Columns
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-[200px]">
+                                    {table
+                                        .getAllColumns()
+                                        .filter((column) => column.getCanHide())
+                                        .map((column) => {
+                                            return (
+                                                <DropdownMenuCheckboxItem
+                                                    key={column.id}
+                                                    className="capitalize"
+                                                    checked={column.getIsVisible()}
+                                                    onCheckedChange={(value) => column.toggleVisibility(!!value)}
+                                                >
+                                                    {column.id}
+                                                </DropdownMenuCheckboxItem>
+                                            );
+                                        })}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* Active Filters Display for Menu Mode */}
             {filterDisplay === "menu" && table.getState().columnFilters.length > 0 && (
