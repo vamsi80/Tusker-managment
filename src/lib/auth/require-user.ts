@@ -27,21 +27,11 @@ async function retryWithBackoff<T>(
 
             if (attempt < maxRetries - 1) {
                 const delay = baseDelay * Math.pow(2, attempt);
-                console.warn(`[requireUser] Attempt ${attempt + 1} failed, retrying in ${delay}ms...`, {
-                    error: error instanceof Error ? error.message : String(error),
-                    attempt: attempt + 1,
-                    maxRetries
-                });
                 await new Promise(resolve => setTimeout(resolve, delay));
             }
         }
     }
 
-    console.error('[requireUser] All retry attempts failed', {
-        error: lastError?.message,
-        stack: lastError?.stack,
-        maxRetries
-    });
     throw lastError;
 }
 
@@ -53,12 +43,6 @@ export const getSession = cache(async () => {
             });
         });
     } catch (error) {
-        console.error('[getSession] Session fetch failed', {
-            error: error instanceof Error ? error.message : String(error),
-            stack: error instanceof Error ? error.stack : undefined,
-            timestamp: new Date().toISOString()
-        });
-
         if (error instanceof Error && error.message.includes('NEXT_REDIRECT')) {
             throw error;
         }
@@ -71,7 +55,6 @@ export const requireUser = async () => {
     const session = await getSession();
 
     if (!session) {
-        console.warn('[requireUser] No session found, redirecting to sign-in');
         return redirect('/sign-in');
     }
 
