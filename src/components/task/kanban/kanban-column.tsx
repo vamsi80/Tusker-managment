@@ -3,12 +3,12 @@
 import { useDroppable, useDndContext } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 
-import { KanbanSubTaskType } from "@/data/task";
+import type { KanbanSubTaskType } from "@/data/task";
 import { cn } from "@/lib/utils";
 import { KanbanCard } from "./kanban-card";
 import { KanbanCardSkeleton } from "./kanban-skeleton";
 import { useInView } from "react-intersection-observer";
-import { useEffect } from "react";
+import React, { useEffect } from "react";
 import { Plus } from "lucide-react";
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "REVIEW" | "HOLD" | "COMPLETED" | "CANCELLED";
@@ -35,7 +35,7 @@ interface KanbanColumnProps {
  * Kanban Column Component
  * ...
  */
-export function KanbanColumn({
+export const KanbanColumn = React.memo(function KanbanColumn({
     column,
     subTasks,
     totalCount,
@@ -189,4 +189,4 @@ export function KanbanColumn({
             </div>
         </div>
     );
-}
+});

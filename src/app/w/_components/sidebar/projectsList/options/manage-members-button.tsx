@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ProjectRole } from "@/generated/prisma/client";
+import type { ProjectRole } from "@/generated/prisma/client";
 import { WorkspaceMembersResult } from "@/data/workspace";
 import { ManageProjectMembersDialog } from "./manage-members-dialog";
 

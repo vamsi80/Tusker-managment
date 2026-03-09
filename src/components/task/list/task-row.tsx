@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { ColumnVisibility } from "../shared/column-visibility";
 import { TaskWithSubTasks } from "@/components/task/shared/types";
-import { UserPermissionsType } from "@/data/user/get-user-permissions";
+import type { UserPermissionsType } from "@/data/user/get-user-permissions";
 import { useRef, useEffect, useState, memo, cloneElement } from "react";
 import { ChevronDown, ChevronRight, MoreHorizontal } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
