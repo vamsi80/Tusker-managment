@@ -1,11 +1,14 @@
-import { TaskTable } from "@/components/task/list/task-table";
+import dynamic from "next/dynamic";
 import { getWorkspaceTags } from "@/data/tag/get-tags";
 import { getWorkspaceMembers } from "@/data/workspace/get-workspace-members";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { getUserProjects } from "@/data/project/get-projects";
 import { requireUser } from "@/lib/auth/require-user";
 import { getTasks } from "@/data/task/get-tasks";
-import { TaskWithSubTasks } from "@/components/task/shared/types";
+import type { TaskWithSubTasks } from "@/components/task/shared/types";
+const TaskTable = dynamic(() => import("@/components/task/list/task-table"), {
+    loading: () => <div className="h-[60vh] w-full flex items-center justify-center text-muted-foreground animate-pulse">Loading Tasks...</div>
+});
 
 interface WorkspaceListViewProps {
     workspaceId: string;
@@ -48,8 +51,8 @@ export async function WorkspaceListView({
             id: member.id,
             workspaceRole: member.workspaceRole as any,
             user: {
-                id: member.user?.id || '',
-                surname: member.user?.surname || '',
+                id: member.user?.id,
+                surname: member.user?.surname,
             }
         }
     }));

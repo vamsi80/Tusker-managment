@@ -25,20 +25,20 @@ export async function AppSidebar({ data, workspaceId, ...props }: React.Componen
   const mainNavItems: Array<{
     title: string;
     url: string;
-    icon?: "IconDashboard" | "IconUsersPlus" | "IconCheckupList" | "IconSettings";
+    icon?: "LayoutDashboard" | "Users" | "CheckSquare" | "Settings";
   }> = [
-      { title: "Dashboard", url: `/w/${workspaceId}`, icon: "IconDashboard" },
-      { title: "Team", url: `/w/${workspaceId}/team`, icon: "IconUsersPlus" },
-      { title: "Tasks", url: `/w/${workspaceId}/tasks`, icon: "IconCheckupList" },
+      { title: "Dashboard", url: `/w/${workspaceId}`, icon: "LayoutDashboard" },
+      { title: "Team", url: `/w/${workspaceId}/team`, icon: "Users" },
+      { title: "Tasks", url: `/w/${workspaceId}/tasks`, icon: "CheckSquare" },
     ];
 
   const footerNavItems: Array<{
     title: string;
     url: string;
-    icon: "IconSettings" | "IconReport";
+    icon: "Settings" | "BarChart3";
   }> = [
-      { title: "Reports", url: `/w/${workspaceId}/reports`, icon: "IconReport" },
-      { title: "Settings", url: `/w/${workspaceId}/settings`, icon: "IconSettings" },
+      { title: "Reports", url: `/w/${workspaceId}/reports`, icon: "BarChart3" },
+      { title: "Settings", url: `/w/${workspaceId}/settings`, icon: "Settings" },
     ];
 
   return (

@@ -6,7 +6,7 @@ import {
     createActionsColumn,
     createBadgeColumn,
 } from "@/components/data-table/column-helpers";
-import { IconEye, IconEdit, IconTrash } from "@tabler/icons-react";
+import { Eye, Edit, Trash } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { WorkspaceMemberRow } from "@/data/workspace";
 
@@ -107,7 +107,7 @@ export function createTeamMemberColumns(
             {
                 label: "View Details",
                 onClick: onView,
-                icon: <IconEye className="h-4 w-4" />,
+                icon: <Eye className="h-4 w-4" />,
             },
         ];
 
@@ -116,12 +116,12 @@ export function createTeamMemberColumns(
             {
                 label: "Edit Member",
                 onClick: onEdit,
-                icon: <IconEdit className="h-4 w-4" />,
+                icon: <Edit className="h-4 w-4" />,
             },
             {
                 label: "Remove Member",
                 onClick: onDelete,
-                icon: <IconTrash className="h-4 w-4" />,
+                icon: <Trash className="h-4 w-4" />,
                 variant: "destructive",
             }
         );

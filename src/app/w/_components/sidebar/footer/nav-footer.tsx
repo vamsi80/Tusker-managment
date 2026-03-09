@@ -1,14 +1,14 @@
 "use client";
 
-import { IconSettings, IconReport } from "@tabler/icons-react";
+import { Settings, BarChart3 } from "lucide-react";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 // Icon mapping for footer
 const iconMap = {
-    IconSettings,
-    IconReport,
+    Settings,
+    BarChart3,
 } as const;
 
 type IconName = keyof typeof iconMap;
@@ -43,7 +43,7 @@ export function NavFooter({
                         >
                             <Link href={item.url} className="flex items-center gap-0">
                                 <div className="flex-shrink-0">
-                                    <IconComponent size={19} stroke={1.5} />
+                                    <IconComponent size={16} strokeWidth={1.5} />
                                 </div>
                                 <span className="font-medium">{item.title}</span>
                             </Link>

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataTableFacetedFilter } from "./data-table-faceted-filter";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { IconChevronLeft, IconChevronRight, IconColumns, IconSearch, IconPlus, IconX, IconFilter } from "@tabler/icons-react";
+import { ChevronLeft, ChevronRight, Columns, Search, Plus, X, Filter } from "lucide-react";
 import { ColumnDef, ColumnFiltersState, SortingState, VisibilityState, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, getFacetedRowModel, getFacetedUniqueValues, useReactTable } from "@tanstack/react-table";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
@@ -109,7 +109,7 @@ export function DataTable<TData, TValue>({
                     {searchKey && (
                         <div className="flex items-center flex-1 max-w-sm w-full">
                             <div className="relative w-full">
-                                <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                 <Input
                                     placeholder={searchPlaceholder}
                                     value={(table.getColumn(searchKey)?.getFilterValue() as string) ?? ""}
@@ -128,7 +128,7 @@ export function DataTable<TData, TValue>({
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="outline" size="sm" className="h-8 border-dashed">
-                                        <IconFilter className="mr-2 h-4 w-4" />
+                                        <Filter className="mr-2 h-4 w-4" />
                                         Filters
                                     </Button>
                                 </DropdownMenuTrigger>
@@ -215,7 +215,7 @@ export function DataTable<TData, TValue>({
                                         className="h-8 px-2 lg:px-3"
                                     >
                                         Reset
-                                        <IconX className="ml-2 h-4 w-4" />
+                                        <X className="ml-2 h-4 w-4" />
                                     </Button>
                                 )}
                             </>
@@ -228,7 +228,7 @@ export function DataTable<TData, TValue>({
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="outline" size="sm" className="ml-auto">
-                                        <IconColumns className="mr-2 h-4 w-4" />
+                                        <Columns className="mr-2 h-4 w-4" />
                                         Columns
                                     </Button>
                                 </DropdownMenuTrigger>
@@ -289,7 +289,7 @@ export function DataTable<TData, TValue>({
                                             );
                                         }}
                                     >
-                                        <IconX className="h-3 w-3 hover:text-destructive" />
+                                        <X className="h-3 w-3 hover:text-destructive" />
                                     </button>
                                 </Badge>
                             );
@@ -301,7 +301,7 @@ export function DataTable<TData, TValue>({
                         className="h-6 px-2 text-xs"
                     >
                         Reset
-                        <IconX className="ml-2 h-3 w-3" />
+                        <X className="ml-2 h-3 w-3" />
                     </Button>
                 </div>
             )}
@@ -380,7 +380,7 @@ export function DataTable<TData, TValue>({
                             >
                                 <TableCell colSpan={columns.length} className="p-2">
                                     <div className="flex items-center justify-center gap-2 h-9 text-primary font-medium transition-colors border-dashed border border-primary/50 bg-primary/5 rounded-md hover:bg-primary/10">
-                                        <IconPlus className="h-4 w-4" />
+                                        <Plus className="h-4 w-4" />
                                         <span className="text-sm">{addButtonLabel}</span>
                                     </div>
                                 </TableCell>
@@ -415,7 +415,7 @@ export function DataTable<TData, TValue>({
                                     disabled={!table.getCanPreviousPage()}
                                     className="h-8"
                                 >
-                                    <IconChevronLeft className="h-4 w-4" />
+                                    <ChevronLeft className="h-4 w-4" />
                                     <span className="sr-only sm:not-sr-only sm:ml-2">Previous</span>
                                 </Button>
                                 <Button
@@ -426,7 +426,7 @@ export function DataTable<TData, TValue>({
                                     className="h-8"
                                 >
                                     <span className="sr-only sm:not-sr-only sm:mr-2">Next</span>
-                                    <IconChevronRight className="h-4 w-4" />
+                                    <ChevronRight className="h-4 w-4" />
                                 </Button>
                             </div>
                         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Calendar, Tag, GripVertical, MessageSquare, AlertCircle, Folder, Crown } from "lucide-react";
-import { KanbanSubTaskType } from "@/data/task";
+import type { KanbanSubTaskType } from "@/data/task";
 import { cn } from "@/lib/utils";
 import { getColorFromString } from "@/lib/colors/project-colors";
 import { commentCache, reviewCommentCache, pendingPrefetches } from "@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/subtask-details-sheet";
@@ -22,7 +22,7 @@ interface KanbanCardProps {
     isUpdating?: boolean;
 }
 
-export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTaskClick, projectManagers, isUpdating }: KanbanCardProps) {
+export const KanbanCard = React.memo(function KanbanCard({ subTask, columnColor, isDragging = false, onSubTaskClick, projectManagers, isUpdating }: KanbanCardProps) {
     const {
         attributes,
         listeners,
@@ -47,19 +47,9 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
     // Get Project Manager from the hoisted map (effective way)
     const projectManager = projectManagers && subTask.projectId ? projectManagers[subTask.projectId] : null;
 
-    const [isMounted, setIsMounted] = useState(false);
-    useEffect(() => {
-        setIsMounted(true);
-    }, []);
-
     // 🚀 Speculative Pre-fetching for "Instant" feel
     const handlePrefetch = () => {
         if (!subTask?.id) return;
-        const taskId = subTask.id;
-
-        if (commentCache.has(taskId)) {
-            console.log(`✨ [CACHE-HIT] Task ${taskId} is ready.`);
-        }
     };
 
     const dueDate = subTask.dueDate ? new Date(subTask.dueDate) : (() => {
@@ -70,7 +60,7 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
         return due;
     })();
 
-    const isOverdue = isMounted && dueDate && new Date() > dueDate;
+    const isOverdue = dueDate && new Date() > dueDate;
 
     const handleNameClick = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -282,4 +272,4 @@ export function KanbanCard({ subTask, columnColor, isDragging = false, onSubTask
             )}
         </Card >
     );
-}
+});
