@@ -5,6 +5,8 @@ import { Building2, MapPin, Phone, Mail, Globe, IdCard } from "lucide-react";
 import { WorkspaceInfoForm } from "./_components/workspace-info-form";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 
+export const revalidate = 300; // Revalidate every 5 minutes (semi-static)
+
 interface InfoPageProps {
     params: Promise<{
         workspaceId: string;

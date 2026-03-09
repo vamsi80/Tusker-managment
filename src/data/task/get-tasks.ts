@@ -68,8 +68,8 @@ const SORT_MAP: Record<string, SortDefinition> = {
     dueDate: { dbField: "dueDate", nulls: "last" },
     startDate: { dbField: "startDate", nulls: "last" },
     createdAt: { dbField: "createdAt" },
-    // assignee → REMOVED. Sorting by assigneeTo (FK id) is meaningless.
-    // Re-add once assigneeDisplayName is denormalized onto the Task table.
+    assignee: { dbField: "assigneeDisplayName", nulls: "last" },
+    reviewer: { dbField: "reviewerDisplayName", nulls: "last" },
 };
 
 function buildOrderBy(sorts?: Array<{ field: string; direction: "asc" | "desc" }>) {
@@ -515,7 +515,7 @@ async function _fetchFilteredHierarchy(
                 ]
             },
             select: getTaskSelect(opts.view_mode),
-            take: 1000 // Batch safety limit
+            take: 200 // Batch safety limit — prevent RSC payload bloat
         });
 
         if (extraTasks.length === 0) break;
@@ -531,7 +531,7 @@ async function _fetchFilteredHierarchy(
         currentGeneration = newEntries;
 
         // Cumulative safety cap to prevent RSC payload bloating
-        if (taskMap.size > 2500) break;
+        if (taskMap.size > 500) break;
     }
 
     // 3. RE-NESTING

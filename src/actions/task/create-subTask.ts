@@ -52,6 +52,7 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
         }
 
         let assigneeId: string | null = null;
+        let assigneeDisplayName: string | null = null;
         if (validation.data.assignee) {
             // The assignee value is the workspaceMemberId, find the corresponding projectMember's user ID
             const assigneeProjectMember = await prisma.projectMember.findFirst({
@@ -63,11 +64,18 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
                     ]
                 },
                 include: {
-                    workspaceMember: true
+                    workspaceMember: {
+                        include: {
+                            user: {
+                                select: { surname: true, name: true }
+                            }
+                        }
+                    }
                 }
             });
             if (assigneeProjectMember) {
                 assigneeId = assigneeProjectMember.workspaceMember.userId;
+                assigneeDisplayName = assigneeProjectMember.workspaceMember.user.surname || assigneeProjectMember.workspaceMember.user.name;
             }
         }
 
@@ -101,53 +109,60 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
         // We use validation.data.name because generateUniqueSlug slugifies it internally
         const uniqueSubtaskSlug = await generateUniqueSlug(validation.data.name, 'task', parentTask.taskSlug);
 
-        const newSubTask = await prisma.task.create({
-            data: {
-                name: validation.data.name,
-                taskSlug: uniqueSubtaskSlug, // Use unique slug
-                description: validation.data.description,
-                status: validation.data.status,
-                projectId: validation.data.projectId,
-                workspaceId: project.workspaceId,
-                parentTaskId: validation.data.parentTaskId,
-                createdById: permissions.workspaceMember.userId,
-                assigneeTo: assigneeId,
-                tagId: validation.data.tag || null,
-                startDate: validation.data.startDate
-                    ? (() => {
-                        const d = new Date(validation.data.startDate);
-                        return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-                    })()
-                    : null,
-                dueDate: dueDate,
-                days: validation.data.days,
-                reviewerId: reviewerId,
-                isParent: false,
-            },
-            include: {
-                assignee: {
-                    select: {
-                        id: true,
-                        // name: true,
-                        surname: true,
-                        // image: true,
-                    }
+        // Fetch reviewer name if present
+        let reviewerDisplayName: string | null = null;
+        if (reviewerId) {
+            const revMember = await prisma.user.findUnique({
+                where: { id: reviewerId },
+                select: { surname: true }
+            });
+            reviewerDisplayName = revMember ? (revMember.surname) : null;
+        }
+
+        // Use transaction to ensure counters and display names stay in sync
+        const newSubTask = await prisma.$transaction(async (tx) => {
+            const task = await tx.task.create({
+                data: {
+                    name: validation.data.name,
+                    taskSlug: uniqueSubtaskSlug,
+                    description: validation.data.description,
+                    status: validation.data.status,
+                    projectId: validation.data.projectId,
+                    workspaceId: project.workspaceId,
+                    parentTaskId: validation.data.parentTaskId,
+                    createdById: permissions.workspaceMember!.userId,
+                    assigneeTo: assigneeId,
+                    assigneeDisplayName: assigneeDisplayName,
+                    reviewerId: reviewerId,
+                    reviewerDisplayName: reviewerDisplayName,
+                    tagId: validation.data.tag || null,
+                    startDate: validation.data.startDate
+                        ? (() => {
+                            const d = new Date(validation.data.startDate);
+                            return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+                        })()
+                        : null,
+                    dueDate: dueDate,
+                    days: validation.data.days,
+                    isParent: false,
                 },
-                tag: {
-                    select: {
-                        id: true,
-                        name: true,
-                    }
-                },
-                reviewer: {
-                    select: {
-                        id: true,
-                        // name: true,
-                        surname: true,
-                        // image: true,
-                    }
+                include: {
+                    assignee: { select: { id: true, surname: true } },
+                    tag: { select: { id: true, name: true } },
+                    reviewer: { select: { id: true, surname: true } }
                 }
-            }
+            });
+
+            // Increment parent counters
+            await tx.task.update({
+                where: { id: validation.data.parentTaskId },
+                data: {
+                    subtaskCount: { increment: 1 },
+                    completedSubtaskCount: validation.data.status === "COMPLETED" ? { increment: 1 } : undefined,
+                }
+            });
+
+            return task;
         });
 
         // Sync to procurement

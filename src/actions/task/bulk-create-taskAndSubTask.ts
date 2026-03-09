@@ -66,20 +66,41 @@ export async function bulkUploadTasksAndSubtasks(data: {
                 workspaceMember: {
                     include: {
                         user: {
-                            select: { email: true, id: true }
+                            select: { email: true, id: true, surname: true }
                         }
                     }
                 }
             }
         });
 
-        // Create email to member ID mapping
-        const emailToMemberId = new Map(
-            projectMembers.map(pm => [
-                pm.workspaceMember.user.email.toLowerCase(),
-                pm.workspaceMember.user.id
-            ])
-        );
+        // Create mappings for lookup
+        const emailToUserId = new Map<string, string>();
+        const emailToSurname = new Map<string, string>();
+        const userIdToSurname = new Map<string, string>();
+
+        for (const pm of projectMembers) {
+            const email = pm.workspaceMember.user.email.toLowerCase();
+            const userId = pm.workspaceMember.user.id;
+            const surname = pm.workspaceMember.user.surname || "";
+
+            emailToUserId.set(email, userId);
+            emailToSurname.set(email, surname);
+            userIdToSurname.set(userId, surname);
+        }
+
+        // Ensure we have the current user's surname for default reviewer display name
+        if (!userIdToSurname.has(user.id)) {
+            const currentAuthUser = await prisma.user.findUnique({
+                where: { id: user.id },
+                select: { surname: true }
+            });
+            if (currentAuthUser?.surname) {
+                userIdToSurname.set(user.id, currentAuthUser.surname);
+            }
+        }
+
+        // Legacy mapping for validation logic
+        const emailToMemberId = emailToUserId;
 
         // Validate assignee and reviewer emails BEFORE starting the transaction
         const invalidAssigneeEmails: string[] = [];
@@ -234,6 +255,11 @@ export async function bulkUploadTasksAndSubtasks(data: {
                     if (tagInfo) parentTagId = tagInfo.id;
                 }
 
+                // Pre-calculate subtask counts for this parent
+                const subtaskRowsForThisParent = taskGroup.filter(t => t.subtaskName);
+                const subtaskCountVal = subtaskRowsForThisParent.length;
+                const completedSubtaskCountVal = subtaskRowsForThisParent.filter(st => st.status === "COMPLETED").length;
+
                 // Create parent task
                 const parentTask = await tx.task.create({
                     data: {
@@ -242,7 +268,7 @@ export async function bulkUploadTasksAndSubtasks(data: {
                         description: firstRow.description,
                         projectId: data.projectId,
                         workspaceId: project.workspaceId,
-                        createdById: permissions.workspaceMember.userId,
+                        createdById: permissions.workspaceMember!.userId,
                         isParent: true,
                         status: firstRow.status ? (firstRow.status as any) : undefined,
                         assigneeTo: parentAssigneeId,
@@ -250,6 +276,8 @@ export async function bulkUploadTasksAndSubtasks(data: {
                         startDate: parentStartDate,
                         days: firstRow.days,
                         tagId: parentTagId,
+                        subtaskCount: subtaskCountVal,
+                        completedSubtaskCount: completedSubtaskCountVal,
                     },
                 });
 
@@ -300,7 +328,13 @@ export async function bulkUploadTasksAndSubtasks(data: {
                                 parentTaskId: parentTask.id,
                                 isParent: false,
                                 assigneeTo: subtaskAssigneeId,
+                                assigneeDisplayName: subtaskRow.assigneeEmail
+                                    ? emailToSurname.get(subtaskRow.assigneeEmail.trim().toLowerCase()) || null
+                                    : null,
                                 reviewerId: subtaskReviewerId,
+                                reviewerDisplayName: subtaskReviewerId
+                                    ? userIdToSurname.get(subtaskReviewerId) || null
+                                    : null,
                                 startDate: subtaskStartDate,
                                 days: subtaskRow.days,
                                 dueDate: calculateDueDate(subtaskStartDate, subtaskRow.days),

@@ -56,15 +56,11 @@ export async function AppSidebar({ data, workspaceId, ...props }: React.Componen
           items={mainNavItems}
           workspaceId={workspaceId}
           quickCreateButton={
-            <Suspense fallback={<QuickCreateSubTaskSkeleton />}>
-              <QuickCreateSubTaskAsync workspaceId={workspaceId} />
-            </Suspense>
+            <QuickCreateSubTaskAsync workspaceId={workspaceId} />
           }
         />
 
-        <React.Suspense fallback={<NavProjectsSkeleton />}>
-          <NavProjectsAsync workspaceId={workspaceId} />
-        </React.Suspense>
+        <NavProjectsAsync workspaceId={workspaceId} />
       </SidebarContent>
 
       <SidebarFooter className="px-3">

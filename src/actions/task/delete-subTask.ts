@@ -56,9 +56,21 @@ export async function deleteSubTask(
             };
         }
 
-        // Delete the subtask
-        await prisma.task.delete({
-            where: { id: subTaskId },
+        // Delete the subtask and update parent counters in a transaction
+        await prisma.$transaction(async (tx) => {
+            await tx.task.delete({
+                where: { id: subTaskId },
+            });
+
+            if (existingSubTask.parentTaskId) {
+                await tx.task.update({
+                    where: { id: existingSubTask.parentTaskId },
+                    data: {
+                        subtaskCount: { decrement: 1 },
+                        completedSubtaskCount: existingSubTask.status === "COMPLETED" ? { decrement: 1 } : undefined
+                    }
+                });
+            }
         });
 
         // OPTIMIZED: Use comprehensive cache invalidation

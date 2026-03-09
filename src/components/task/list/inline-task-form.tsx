@@ -82,7 +82,8 @@ export function InlineTaskForm({
             projectId: level === "workspace" ? selectedProjectId : initialProjectId,
             createdAt: new Date(),
             updatedAt: new Date(),
-            _count: { subTasks: 0 },
+            subtaskCount: 0,
+            completedSubtaskCount: 0,
             isOptimistic: true,
         };
 

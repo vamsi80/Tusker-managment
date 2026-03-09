@@ -70,6 +70,7 @@ export async function updateSubTaskStatus(
                     createdById: true,
                     assigneeTo: true,
                     reviewerId: true,
+                    parentTaskId: true,
                 },
             }),
             reviewCommentId
@@ -207,6 +208,20 @@ export async function updateSubTaskStatus(
                     select: { id: true },
                 });
                 finalCommentId = reviewComment.id;
+            }
+
+            if (subTask.parentTaskId) {
+                const wasCompleted = subTask.status === "COMPLETED";
+                const isNowCompleted = newStatus === "COMPLETED";
+
+                if (wasCompleted !== isNowCompleted) {
+                    await tx.task.update({
+                        where: { id: subTask.parentTaskId },
+                        data: {
+                            completedSubtaskCount: { [isNowCompleted ? "increment" : "decrement"]: 1 }
+                        }
+                    });
+                }
             }
 
             return await tx.task.update({

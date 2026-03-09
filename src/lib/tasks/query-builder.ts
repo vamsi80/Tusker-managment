@@ -27,6 +27,8 @@ export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
         assigneeTo: true,
         reviewerId: true,
         tagId: true,
+        subtaskCount: true,
+        completedSubtaskCount: true,
 
         // Relations with minimal user data (Surname + Image for Avatars)
         assignee: {
@@ -45,10 +47,6 @@ export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
         }
     };
 
-    // Include subTasks count ONLY if it's a parent task or list view that needs expansion
-    if (isList || isGantt) {
-        (select._count as any).select.subTasks = true;
-    }
 
     // 1. Description: Specifically for List view per user request
     if (isList) {

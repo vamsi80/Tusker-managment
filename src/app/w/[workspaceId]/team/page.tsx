@@ -4,6 +4,8 @@ import { TeamMembers } from "./_components/team-members-table";
 import { TeamPageSkeleton, TeamPageSkeleton as TeamMembersSkeletonFallback } from "@/components/shared/workspace-skeletons";
 import { getWorkspaceMembers } from "@/data/workspace";
 
+export const revalidate = 300; // 5 minute ISR cache
+
 interface TeamPageProps {
     params: Promise<{ workspaceId: string }>;
 }
