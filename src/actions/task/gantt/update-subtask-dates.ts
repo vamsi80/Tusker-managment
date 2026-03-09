@@ -182,6 +182,7 @@ export async function updateSubtaskDates(
                 where: { id: subtaskId },
                 data: {
                     startDate: start,
+                    dueDate: end,
                     days: days,
                 },
             }),

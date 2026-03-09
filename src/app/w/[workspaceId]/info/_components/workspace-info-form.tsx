@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { IconLoader2 } from "@tabler/icons-react";
+import { Loader2 } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { WorkspaceData } from "@/data/workspace/get-workspace-by-id";
 import { updateWorkspaceInfo } from "@/actions/workspace/update-workspace-info";
@@ -77,7 +77,7 @@ export function WorkspaceInfoForm({ workspace }: WorkspaceInfoFormProps) {
                     <Button type="submit" disabled={isPending || !form.formState.isDirty}>
                         {isPending ? (
                             <>
-                                <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                 Saving...
                             </>
                         ) : (
