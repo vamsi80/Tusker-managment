@@ -6,9 +6,9 @@ import { TableRow, TableCell } from "@/components/ui/table";
 import { TaskRow } from "../task-row";
 import { SubTaskList } from "../subtask-list";
 import { InlineTaskForm } from "../inline-task-form";
-import { TaskWithSubTasks } from "../../shared/types";
-import { type ColumnVisibility } from "../../shared/column-visibility";
-import { UserPermissionsType } from "@/data/user/get-user-permissions";
+import type { TaskWithSubTasks } from "../../shared/types";
+import type { ColumnVisibility } from "../../shared/column-visibility";
+import type { UserPermissionsType } from "@/data/user/get-user-permissions";
 
 interface FlatTaskListProps {
     initialTasks: TaskWithSubTasks[];

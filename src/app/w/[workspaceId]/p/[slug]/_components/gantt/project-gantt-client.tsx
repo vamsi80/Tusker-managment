@@ -4,7 +4,7 @@ import { useState, useMemo, useTransition } from "react";
 import { Loader2 } from "lucide-react";
 import { GanttTask } from "../../../../../../../components/task/gantt/types";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
-import { WorkspaceTaskType } from "@/data/task";
+import type { WorkspaceTaskType } from "@/data/task";
 import { GanttChart } from "@/components/task/gantt/gantt-chart";
 import { GlobalFilterToolbar } from "@/components/task/shared/global-filter-toolbar";
 import { MemberOption, TagOption, TaskFilters } from "@/components/task/shared/types";

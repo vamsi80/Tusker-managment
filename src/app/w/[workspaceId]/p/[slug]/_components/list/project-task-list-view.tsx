@@ -1,9 +1,13 @@
+import dynamic from "next/dynamic";
 import { getTasks } from "@/data/task/get-tasks";
-import { ProjectMembersType } from "@/data/project/get-project-members";
-import { TaskTable } from "@/components/task/list/task-table";
+import type { ProjectMembersType } from "@/data/project/get-project-members";
 import { getWorkspaceTags } from "@/data/tag/get-tags";
-import { UserPermissionsType } from "@/data/user/get-user-permissions";
-import { TaskWithSubTasks } from "@/components/task/shared/types";
+import type { UserPermissionsType } from "@/data/user/get-user-permissions";
+import type { TaskWithSubTasks } from "@/components/task/shared/types";
+
+const TaskTable = dynamic(() => import("@/components/task/list/task-table"), {
+    loading: () => <div className="h-[60vh] w-full flex items-center justify-center text-muted-foreground animate-pulse">Loading Tasks...</div>
+});
 
 interface ProjectTaskListViewProps {
     workspaceId: string;

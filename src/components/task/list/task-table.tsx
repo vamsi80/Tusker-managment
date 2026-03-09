@@ -8,16 +8,16 @@ import { Loader2, ChevronsUpDown, Maximize2, Minimize2, ChevronDown } from "luci
 import { loadTasksAction } from "@/actions/task/list-actions";
 import { getSubTasksAction } from "@/actions/task/get-subtasks";
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
-import { ProjectMembersType } from "@/data/project/get-project-members";
-import { SubTaskType } from "@/data/task";
+import type { ProjectMembersType } from "@/data/project/get-project-members";
+import type { SubTaskType } from "@/data/task";
 import { DndContext, closestCenter } from "@dnd-kit/core";
-import { TaskWithSubTasks, SortConfig, SortField, hasActiveFilters } from "@/components/task/shared/types";
-import { TaskFilters } from "../shared/types";
+import { type TaskWithSubTasks, type SortConfig, type SortField, hasActiveFilters } from "@/components/task/shared/types";
+import type { TaskFilters } from "../shared/types";
 import { GlobalFilterToolbar } from "../shared/global-filter-toolbar";
 import { ColumnVisibility } from "../shared/column-visibility";
 import { extractAllFilterOptions } from "@/lib/utils/extract-filter-options";
 import { SortableHeader } from "./sort/sortable-header";
-import { UserPermissionsType } from "@/data/user/get-user-permissions";
+import type { UserPermissionsType } from "@/data/user/get-user-permissions";
 import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
@@ -53,7 +53,7 @@ interface TaskTableProps {
 const DEFAULT_TAGS: { id: string; name: string; }[] = [];
 const DEFAULT_PROJECTS: { id: string; name: string; }[] = [];
 
-export function TaskTable({
+export default function TaskTable({
     initialTasks,
     members,
     assignees,

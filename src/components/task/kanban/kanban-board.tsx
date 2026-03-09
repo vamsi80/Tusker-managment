@@ -1,20 +1,18 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
-import { SubTasksByStatusResponse, KanbanSubTaskType } from "@/data/task";
-import { ProjectMembersType } from "@/data/project/get-project-members";
+import type { SubTasksByStatusResponse, KanbanSubTaskType } from "@/data/task";
+import type { ProjectMembersType } from "@/data/project/get-project-members";
 import { cn } from "@/lib/utils";
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
-import { createReviewCommentAction } from "@/actions/comment";
 import { toast } from "sonner";
 import { KanbanCard } from "./kanban-card";
 import { KanbanColumn } from "./kanban-column";
-import { TaskFilters, type ProjectOption, type TagOption } from "../shared/types";
+import type { TaskFilters, ProjectOption, TagOption } from "../shared/types";
 import { STATUS_COLORS, STATUS_LABELS } from "@/lib/colors/status-colors";
 import { updateSubTaskStatus } from "@/actions/task/kanban/update-subtask-status";
 import { loadTasksAction } from "@/actions/task/list-actions";
 import { GlobalFilterToolbar, ParentTaskOption } from "../shared/global-filter-toolbar";
-import { KanbanColumnVisibility as KanbanColumnVisibilityType } from "../shared/kanban-column-visibility";
 import { ReviewCommentDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/review-comment-form";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, pointerWithin, PointerSensor, MouseSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { useTaskCacheStore } from "@/lib/store/task-cache-store";
@@ -386,7 +384,7 @@ export function KanbanBoard({
                 groupBy: "status",
                 includeSubTasks: true,
                 excludeParents: true, // ONLY CARDS
-                limit: 200,
+                limit: 30,
                 sorts: [{ field: "createdAt", direction: "desc" }],
                 cursor: currentCursor,
                 view_mode: "kanban",

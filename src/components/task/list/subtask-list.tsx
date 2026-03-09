@@ -5,14 +5,14 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Plus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ProjectMembersType } from "@/data/project/get-project-members";
-import { SubTaskType } from "@/data/task";
+import type { ProjectMembersType } from "@/data/project/get-project-members";
+import type { SubTaskType } from "@/data/task";
 import { ColumnVisibility } from "../shared/column-visibility";
 import { SubTaskSkeleton } from "@/components/task/list/list-skeleton";
 import { InlineSubTaskForm } from "./inline-subtask-form";
 import { SubTaskRow } from "./subtask-row";
-import { TaskWithSubTasks } from "@/components/task/shared/types";
-import { UserPermissionsType } from "@/data/user/get-user-permissions";
+import type { TaskWithSubTasks } from "@/components/task/shared/types";
+import type { UserPermissionsType } from "@/data/user/get-user-permissions";
 
 interface SubTaskListProps {
     task: TaskWithSubTasks;

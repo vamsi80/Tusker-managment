@@ -13,7 +13,7 @@ import { subTaskSchema, SubTaskSchemaType } from "@/lib/zodSchemas";
 import { tryCatch } from "@/hooks/try-catch";
 import { useConfetti } from "@/hooks/use-confetti";
 import { toast } from "sonner";
-import { ProjectMembersType } from "@/data/project/get-project-members";
+import type { ProjectMembersType } from "@/data/project/get-project-members";
 import slugify from "slugify";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
