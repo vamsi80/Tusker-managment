@@ -1,6 +1,6 @@
 "use client";
 
-import { IconCirclePlusFilled } from "@tabler/icons-react";
+import { PlusCircle } from "lucide-react";
 import { CreateSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/create-subTask-form";
 import { SidebarMenuButton } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
@@ -41,7 +41,7 @@ export function QuickCreateSubTask({ workspaceId, data }: QuickCreateSubTaskProp
                     asChild
                 >
                     <Button className="w-full justify-start h-auto p-2 bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground border-0">
-                        <IconCirclePlusFilled size={20} />
+                        <PlusCircle size={20} />
                         <span className="font-semibold">Quick Create SubTask</span>
                     </Button>
                 </SidebarMenuButton>

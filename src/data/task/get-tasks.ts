@@ -246,7 +246,6 @@ export const resolveTaskPermissions = cache(async (workspaceId: string, projectI
     if (projectId) {
         const pStart = performance.now();
         permissions = await getUserPermissions(workspaceId, projectId, userId);
-        console.log(`[PERF:PERMS] project fetch: ${(performance.now() - pStart).toFixed(2)}ms`);
         isWorkspaceAdmin = permissions.isWorkspaceAdmin;
 
         const hasFullAccess =
@@ -261,12 +260,10 @@ export const resolveTaskPermissions = cache(async (workspaceId: string, projectI
             fullAccessProjectIds: hasFullAccess ? [projectId] : [],
             restrictedProjectIds: hasFullAccess ? [] : [projectId]
         };
-        console.log(`[PERF:PERMS] resolve total: ${(performance.now() - start).toFixed(2)}ms`);
         return result;
     } else {
         const wsStart = performance.now();
         const wsPerms = await getWorkspacePermissions(workspaceId, userId);
-        console.log(`[PERF:PERMS] workspace fetch: ${(performance.now() - wsStart).toFixed(2)}ms`);
         permissions = wsPerms;
         isWorkspaceAdmin = wsPerms.isWorkspaceAdmin;
 
@@ -293,7 +290,6 @@ export const resolveTaskPermissions = cache(async (workspaceId: string, projectI
             fullAccessProjectIds,
             restrictedProjectIds
         };
-        console.log(`[PERF:PERMS] resolve total: ${(performance.now() - start).toFixed(2)}ms`);
         return result;
     }
 });
@@ -402,7 +398,6 @@ async function _fetchSubtasks(
         cursor: opts.cursor,
     });
 
-    console.log(`[PRISMA SUBTASKS] where:`, JSON.stringify(where, null, 2));
     const rawSubtasks = await prisma.task.findMany({
         where,
         select: getTaskSelect(opts.view_mode),
@@ -795,8 +790,8 @@ async function _getTasksInternal(
                 includeSubTasks: opts.includeSubTasks,
             }, userId);
 
-            // Fetch a larger batch for the whole board (300 total)
-            const limit = opts.limit ?? 300;
+            // Fetch a larger batch for the whole board (50 total)
+            const limit = opts.limit ?? 50;
             const tasks = await prisma.task.findMany({
                 where: baseWhere,
                 take: limit,

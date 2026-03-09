@@ -1,25 +1,24 @@
 "use client";
 
 import {
-  IconDashboard,
-  IconUsersPlus,
-  IconCheckupList,
-  IconSettings,
-  IconReport
-} from "@tabler/icons-react";
+  LayoutDashboard,
+  Users,
+  CheckSquare,
+  Settings,
+  BarChart3
+} from "lucide-react";
 import { SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuButton, SidebarMenuItem, } from "@/components/ui/sidebar"
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 
 // Icon mapping to resolve string names to actual components
-// Note: Procurement icons (IconTruck, IconCube, IconBook) removed for release-core-v1
 const iconMap = {
-  IconDashboard,
-  IconUsersPlus,
-  IconCheckupList,
-  IconSettings,
-  IconReport
+  LayoutDashboard,
+  Users,
+  CheckSquare,
+  Settings,
+  BarChart3
 } as const;
 
 type IconName = keyof typeof iconMap;
@@ -71,7 +70,7 @@ export function NavMain({
                   >
                     <Link href={item.url} className="flex items-center gap-2">
                       <div className="flex-shrink-0">
-                        {IconComponent && <IconComponent size={19} stroke={1.5} />}
+                        {IconComponent && <IconComponent size={16} strokeWidth={1.5} />}
                       </div>
                       <span className="font-medium">{item.title}</span>
                     </Link>

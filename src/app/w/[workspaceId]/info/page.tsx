@@ -1,7 +1,7 @@
 import { getWorkspaceById } from "@/data/workspace/get-workspace-by-id";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { IconBuildingSkyscraper, IconMapPin, IconPhone, IconMail, IconWorld, IconId } from "@tabler/icons-react";
+import { Building2, MapPin, Phone, Mail, Globe, IdCard } from "lucide-react";
 import { WorkspaceInfoForm } from "./_components/workspace-info-form";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 
@@ -74,7 +74,7 @@ export default async function InfoPage({ params }: InfoPageProps) {
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <IconBuildingSkyscraper className="w-5 h-5" />
+                            <Building2 className="w-5 h-5" />
                             Organization Details
                         </CardTitle>
                         <CardDescription>Legal and registration information</CardDescription>
@@ -84,9 +84,9 @@ export default async function InfoPage({ params }: InfoPageProps) {
                         <DetailRow label="Legal Entity Name" value={workspace.legalName} />
                         <DetailRow label="Industry" value={workspace.industry} />
                         <DetailRow label="Company Type" value={workspace.companyType} />
-                        <DetailRow label="GST Number" value={workspace.gstNumber} icon={IconId} />
-                        <DetailRow label="PAN Number" value={workspace.panNumber} icon={IconId} />
-                        <DetailRow label="MSME Number" value={workspace.msmeNumber} icon={IconId} />
+                        <DetailRow label="GST Number" value={workspace.gstNumber} icon={IdCard} />
+                        <DetailRow label="PAN Number" value={workspace.panNumber} icon={IdCard} />
+                        <DetailRow label="MSME Number" value={workspace.msmeNumber} icon={IdCard} />
                         <DetailRow label="Description" value={workspace.description} />
                     </CardContent>
                 </Card>
@@ -95,19 +95,19 @@ export default async function InfoPage({ params }: InfoPageProps) {
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <IconMapPin className="w-5 h-5" />
+                            <MapPin className="w-5 h-5" />
                             Contact & Location
                         </CardTitle>
                         <CardDescription>Address and communication details</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-1">
-                        <DetailRow label="Email" value={workspace.email} icon={IconMail} />
-                        <DetailRow label="Phone" value={workspace.phone} icon={IconPhone} />
-                        <DetailRow label="Website" value={workspace.website} icon={IconWorld} />
+                        <DetailRow label="Email" value={workspace.email} icon={Mail} />
+                        <DetailRow label="Phone" value={workspace.phone} icon={Phone} />
+                        <DetailRow label="Website" value={workspace.website} icon={Globe} />
 
                         {hasAddress && (
                             <div className="flex items-start py-3 border-b last:border-0 border-border/50">
-                                <IconMapPin className="w-5 h-5 mr-3 text-muted-foreground mt-0.5 shrink-0" />
+                                <MapPin className="w-5 h-5 mr-3 text-muted-foreground mt-0.5 shrink-0" />
                                 <div className="flex-1">
                                     <p className="text-sm font-medium text-muted-foreground mb-1">Registered Address</p>
                                     <p className="text-base text-foreground whitespace-pre-line leading-relaxed">

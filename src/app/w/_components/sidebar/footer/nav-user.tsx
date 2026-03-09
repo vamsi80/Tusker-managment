@@ -1,12 +1,11 @@
 "use client"
 
-import { IconDashboard, IconDotsVertical, IconLogout } from "@tabler/icons-react"
+import { LayoutDashboard, MoreVertical, LogOut, HomeIcon, Tv2 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar"
 import { authClient } from "@/lib/auth-clint"
 import Link from "next/link"
-import { HomeIcon, Tv2 } from "lucide-react"
 import { useSignout } from "@/hooks/use-signout"
 
 export function NavUser() {
@@ -46,7 +45,7 @@ export function NavUser() {
                   {session?.user?.email}
                 </span>
               </div>
-              <IconDotsVertical className="ml-auto size-4" />
+              <MoreVertical className="ml-auto size-4" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -87,7 +86,7 @@ export function NavUser() {
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link href="/admin">
-                  <IconDashboard />
+                  <LayoutDashboard />
                   Dashboard
                 </Link>
               </DropdownMenuItem>
@@ -100,7 +99,7 @@ export function NavUser() {
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
-              <IconLogout />
+              <LogOut />
               Log out
             </DropdownMenuItem>
           </DropdownMenuContent>
