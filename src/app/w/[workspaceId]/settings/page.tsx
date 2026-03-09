@@ -4,6 +4,8 @@ import { TagsManager } from "./_components/tag/tags-manager";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { SettingsPageSkeleton } from "@/components/shared/workspace-skeletons";
 
+export const revalidate = 60; // 1 minute ISR revalidation
+
 interface SettingsPageProps {
     params: Promise<{ workspaceId: string }>;
 }

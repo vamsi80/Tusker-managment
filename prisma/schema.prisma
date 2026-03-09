@@ -248,6 +248,10 @@ model Task {
   dueDate               DateTime?
   isParent              Boolean            @default(true)
   path                  String?
+  subtaskCount          Int                @default(0)
+  completedSubtaskCount Int                @default(0)
+  assigneeDisplayName   String?
+  reviewerDisplayName   String?
   reviewComments        ReviewComment[]
   assignee              User?              @relation("TaskAssignee", fields: [assigneeTo], references: [id])
   createdBy             User               @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Cascade)

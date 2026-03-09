@@ -55,7 +55,12 @@ export async function editSubTask(
                     },
                     select: {
                         workspaceMember: {
-                            select: { userId: true }
+                            select: {
+                                userId: true,
+                                user: {
+                                    select: { surname: true }
+                                }
+                            }
                         }
                     }
                 })
@@ -114,6 +119,11 @@ export async function editSubTask(
             };
         }
 
+        // Fetch assignee display name if changed
+        const assigneeDisplayName = assigneeInfo?.workspaceMember
+            ? ((assigneeInfo.workspaceMember as any).user?.surname || null)
+            : null;
+
         // Perform the update
         await prisma.task.update({
             where: { id: subTaskId },
@@ -121,6 +131,7 @@ export async function editSubTask(
                 name: validation.data.name,
                 description: validation.data.description,
                 assigneeTo: assigneeInfo?.workspaceMember.userId || null,
+                assigneeDisplayName: assigneeDisplayName,
                 tagId: validation.data.tag || null,
                 startDate: validation.data.startDate
                     ? (() => {
