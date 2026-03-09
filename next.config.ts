@@ -1,7 +1,43 @@
 import type { NextConfig } from "next";
-import { hostname } from "os";
+
+const withBundleAnalyzer = require('@next/bundle-analyzer')({
+  enabled: process.env.ANALYZE === 'true',
+})
 
 const nextConfig: NextConfig = {
+  experimental: {
+    optimizePackageImports: [
+      "@tabler/icons-react",
+      "lucide-react",
+      "date-fns",
+      "@radix-ui/react-icons",
+      "@radix-ui/react-dialog",
+      "@radix-ui/react-dropdown-menu",
+      "@radix-ui/react-popover",
+      "@radix-ui/react-select",
+      "@radix-ui/react-tooltip",
+      "@radix-ui/react-tabs",
+      "@radix-ui/react-slot",
+      "@radix-ui/react-separator",
+      "@radix-ui/react-avatar",
+      "@radix-ui/react-badge",
+      "@radix-ui/react-checkbox",
+      "@radix-ui/react-label",
+      "@dnd-kit/core",
+      "@dnd-kit/sortable",
+      "@dnd-kit/utilities",
+      "@dnd-kit/modifiers"
+    ]
+  },
+  serverExternalPackages: [
+    '@prisma/client',
+    'prisma',
+    'xlsx-js-style',
+    'nodemailer',
+    'resend',
+    '@aws-sdk/client-s3',
+    '@aws-sdk/s3-request-presigner'
+  ],
   /* config options here */
   cacheLife: {
     layout: {
@@ -24,4 +60,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withBundleAnalyzer(nextConfig);
