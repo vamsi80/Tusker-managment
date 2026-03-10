@@ -95,21 +95,13 @@ const getCachedWorkspaces = (userId: string, bypass: boolean) => {
     const memory = getMemoryWorkspaces(cacheKey);
     if (memory) return Promise.resolve(memory);
 
-    // 2. Bypass
-    if (bypass) {
-        return _fetchWorkspacesInternal(userId).then(res => {
-            setMemoryWorkspaces(cacheKey, res);
-            return res;
-        });
-    }
-
-    // 3. Disk
+    // 2. Next.js App Router Cache
     return unstable_cache(
         async () => _fetchWorkspacesInternal(userId),
         [cacheKey],
         {
             tags: CacheTags.userWorkspaces(userId),
-            revalidate: 60, // 1 minute
+            revalidate: 60, // 1 minute cache for fast navigations
         }
     )().then(res => {
         setMemoryWorkspaces(cacheKey, res);
