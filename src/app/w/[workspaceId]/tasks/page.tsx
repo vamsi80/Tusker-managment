@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { requireUser } from "@/lib/auth/require-user";
 import { WorkspaceListView } from "./_components/views/list/workspace-list-view";
 import { WorkspaceGanttView } from "./_components/views/gantt/workspace-gantt-view";
 import { WorkspaceTasksSkeleton } from "@/components/shared/workspace-skeletons";

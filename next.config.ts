@@ -6,6 +6,10 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
 
 const nextConfig: NextConfig = {
   experimental: {
+    staleTimes: {
+      dynamic: 30,  // Cache dynamic pages on client for 30 seconds
+      static: 180,  // Cache static pages on client for 3 minutes
+    },
     optimizePackageImports: [
       "@tabler/icons-react",
       "lucide-react",
