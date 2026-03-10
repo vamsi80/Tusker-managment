@@ -1,6 +1,5 @@
 import React from "react";
-import { notFound } from "next/navigation";
-import { getWorkspaces } from "@/data/workspace/get-workspaces";
+import { getWorkspaceMetadata } from "@/data/workspace/get-workspace-metadata";
 
 type Props = {
   params: Promise<{ workspaceId: string }>;
@@ -8,20 +7,13 @@ type Props = {
 
 export default async function WorkSpacePage({ params }: Props) {
   const { workspaceId } = await params;
-  const { workspaces } = await getWorkspaces();
 
-  if (!workspaces?.length) {
-    return notFound();
-  }
-
-  const matched = workspaces.find((w) => w.id === workspaceId);
-  if (!matched) {
-    return notFound();
-  }
+  // Uses cached metadata from the layout's WorkspaceAccessGuard — zero extra DB calls
+  const workspace = await getWorkspaceMetadata(workspaceId);
 
   return (
     <div>
-      welcome to dashboard {matched.name}
+      welcome to dashboard {workspace?.name ?? "Workspace"}
     </div>
   );
 }

@@ -1,17 +1,12 @@
-import { Suspense } from "react";
-import { getWorkspaceTaskCreationData } from "@/data/workspace/get-workspace-task-creation-data";
 import { QuickCreateSubTask } from "./quick-create-subtask";
 
 interface Props {
     workspaceId: string;
 }
 
-export async function QuickCreateSubTaskAsync({ workspaceId }: Props) {
-    // Fetch data specifically for this button
-    const quickCreateData = await getWorkspaceTaskCreationData(workspaceId);
-
+export function QuickCreateSubTaskAsync({ workspaceId }: Props) {
     return (
-        <QuickCreateSubTask workspaceId={workspaceId} data={quickCreateData} />
+        <QuickCreateSubTask workspaceId={workspaceId} />
     );
 }
 
@@ -20,3 +15,4 @@ export function QuickCreateSubTaskSkeleton() {
         <div className="h-9 w-full rounded-md bg-sidebar-accent/50 animate-pulse" />
     );
 }
+

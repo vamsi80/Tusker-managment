@@ -54,7 +54,7 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
             workspaceId,
             groupBy: "status",
             excludeParents: true, // ONLY FETCH CARDS (NOT PARENTS)
-            limit: 300,
+            limit: 50,
             sorts: [{ field: "createdAt", direction: "desc" }],
             view_mode: "kanban"
         }), // Remove user.id to enable unstable_cache bypass in get-tasks.ts
