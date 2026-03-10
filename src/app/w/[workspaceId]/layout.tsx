@@ -8,6 +8,7 @@ import { getWorkspaceMetadata } from "@/data/workspace/get-workspace-metadata";
 import { notFound } from "next/navigation";
 import { DailyReportFAB } from "./reports/_components/DailyReportFAB";
 import { getDailyReportStatus } from "@/actions/daily-report-actions";
+import { getWorkspaceLayoutData } from "@/data/workspace/get-workspace-layout-data";
 import { requireUser } from "@/lib/auth/require-user";
 import { WorkspaceClientProviders } from "@/app/w/[workspaceId]/_components/workspace-client-providers";
 
@@ -23,6 +24,9 @@ interface Props {
 export default async function WorkSpaceLayout({ children, params }: Props) {
     const { workspaceId } = await params;
 
+    // Start fetching ALL layout requirements immediately in parallel
+    const layoutDataPromise = getWorkspaceLayoutData(workspaceId);
+
     return (
         <WorkspaceClientProviders>
             <SidebarProvider
@@ -33,9 +37,8 @@ export default async function WorkSpaceLayout({ children, params }: Props) {
                     } as React.CSSProperties
                 }
             >
-                {/* 🚀 Zero-Blocking Sidebar: UI appears instantly while auth/data streams */}
                 <Suspense fallback={<WorkspaceSidebarSkeleton />}>
-                    <SidebarLoader workspaceId={workspaceId} />
+                    <SidebarLoader dataPromise={layoutDataPromise} workspaceId={workspaceId} />
                 </Suspense>
 
                 <SidebarInset className="m-0 rounded-none bg-background">
@@ -43,9 +46,8 @@ export default async function WorkSpaceLayout({ children, params }: Props) {
                     <div className="flex flex-1 flex-col">
                         <div className="@container/main flex flex-1 flex-col gap-2">
                             <div className="flex flex-col gap-4 py-2 px-4 sm:px-6 lg:px-8">
-                                {/* 🔒 Security Boundary: Permission check happens here in parallel with sidebar */}
                                 <Suspense fallback={<WorkspaceContentSkeleton />}>
-                                    <WorkspaceAccessGuard workspaceId={workspaceId}>
+                                    <WorkspaceAccessGuard dataPromise={layoutDataPromise}>
                                         {children}
                                     </WorkspaceAccessGuard>
                                 </Suspense>
@@ -55,45 +57,30 @@ export default async function WorkSpaceLayout({ children, params }: Props) {
                 </SidebarInset>
 
                 <Suspense fallback={null}>
-                    <DailyReportFABLoader workspaceId={workspaceId} />
+                    <DailyReportFABLoader dataPromise={layoutDataPromise} workspaceId={workspaceId} />
                 </Suspense>
             </SidebarProvider>
         </WorkspaceClientProviders>
     );
 }
 
-/**
- * Combined Auth & Sidebar data fetcher
- */
-async function SidebarLoader({ workspaceId }: { workspaceId: string }) {
-    const user = await requireUser();
-    const data = await getWorkspaces(user.id);
-    return <AppSidebar data={data as any} workspaceId={workspaceId} />;
+async function SidebarLoader({ dataPromise, workspaceId }: { dataPromise: Promise<any>, workspaceId: string }) {
+    const { workspaces } = await dataPromise;
+    return <AppSidebar data={workspaces as any} workspaceId={workspaceId} />;
 }
 
-/**
- * Independent access guard to prevent waterfalls.
- * If this fails, it triggers notFound() without blocking the sidebar.
- */
-async function WorkspaceAccessGuard({ workspaceId, children }: { workspaceId: string, children: React.ReactNode }) {
-    const user = await requireUser();
-    const workspace = await getWorkspaceMetadata(workspaceId, user.id);
+async function WorkspaceAccessGuard({ dataPromise, children }: { dataPromise: Promise<any>, children: React.ReactNode }) {
+    const { metadata } = await dataPromise;
 
-    if (!workspace) {
+    if (!metadata) {
         return notFound();
     }
 
     return <>{children}</>;
 }
 
-async function DailyReportFABLoader({ workspaceId }: { workspaceId: string }) {
-    let initialStatus: "SUBMITTED" | "ABSENT" | "NOT_SUBMITTED" | "LOADING" = "NOT_SUBMITTED";
-    try {
-        const data = await getDailyReportStatus(workspaceId);
-        initialStatus = (data.status as "SUBMITTED" | "ABSENT" | "NOT_SUBMITTED") || "NOT_SUBMITTED";
-    } catch (error) {
-        // Fallback to NOT_SUBMITTED on error
-    }
-
-    return <DailyReportFAB workspaceId={workspaceId} initialStatus={initialStatus} />;
+async function DailyReportFABLoader({ dataPromise, workspaceId }: { dataPromise: Promise<any>, workspaceId: string }) {
+    const { reportStatus } = await dataPromise;
+    return <DailyReportFAB workspaceId={workspaceId} initialStatus={reportStatus.status} />;
 }
+

@@ -96,6 +96,7 @@ export function EditTaskDialog({
     }, [watchedName, autoSlugEnabled, open, form]);
 
     function onSubmit(values: TaskSchemaType) {
+        if (pending) return;
         // Check if there are any actual changes
         const hasChanges =
             values.name !== task.name ||

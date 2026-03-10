@@ -32,6 +32,7 @@ interface TaskRowProps {
     isSubtask?: boolean;
     onRequestSubtasks?: (taskId: string) => void;
     isCached?: boolean;
+    scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
     children?: React.ReactNode;
 }
 
@@ -52,6 +53,7 @@ export const TaskRow = memo(function TaskRow({
     projects,
     onRequestSubtasks,
     isCached = false,
+    scrollContainerRef,
     children
 }: TaskRowProps) {
     // MAINTAIN OPTIMISTIC LOCAL STATE FOR SMOOTHEST DRAG & DROP / EDITS
@@ -81,7 +83,10 @@ export const TaskRow = memo(function TaskRow({
                     onRequestSubtasks(task.id);
                 }
             },
-            { rootMargin: "100px" }
+            { 
+                root: scrollContainerRef?.current || null,
+                rootMargin: "20px" 
+            }
         );
 
         if (rowRef.current) {

@@ -54,6 +54,7 @@ export function InlineTaskForm({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (pending) return;
 
         if (!taskName.trim()) {
             toast.error("Task name is required");

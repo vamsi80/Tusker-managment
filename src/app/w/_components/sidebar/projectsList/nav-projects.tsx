@@ -6,6 +6,7 @@ import { useState } from "react";
 import { EditProjectForm } from "./options/edit-project-form";
 import { ManageProjectMembersDialog } from "./options/manage-members-dialog";
 import { usePathname, useRouter } from "next/navigation";
+import { useTransition, useRef, useEffect } from "react";
 import { deleteProject } from "@/actions/project/delete-project";
 import type { UserProjectsType } from "@/data/project/get-projects";
 import type { WorkspaceMembersResult } from "@/data/workspace/get-workspace-members";
@@ -31,6 +32,27 @@ export function NavProjects({ projects, workspaceId, isAdmin, canCreateProject, 
   const { isMobile } = useSidebar();
   const pathname = usePathname();
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const navigatingTo = useRef<string | null>(null);
+
+  // Clear navigating ref when transition ends or path changes
+  useEffect(() => {
+    if (!isPending) {
+      navigatingTo.current = null;
+    }
+  }, [isPending, pathname]);
+
+  const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, url: string) => {
+    e.preventDefault();
+    // 1. Block if already navigating OR if isPending
+    // 2. Block if already on the target URL (pathname check)
+    if (isPending || pathname === url || navigatingTo.current === url) return;
+
+    navigatingTo.current = url;
+    startTransition(() => {
+      router.push(url);
+    });
+  };
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -51,7 +73,7 @@ export function NavProjects({ projects, workspaceId, isAdmin, canCreateProject, 
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
 
   const loadMembers = async () => {
-    if (members.length > 0) return;
+    if (members.length > 0 || isLoadingMembers) return;
     setIsLoadingMembers(true);
     try {
       const result = await getWorkspaceMembersAction(workspaceId);
@@ -74,6 +96,7 @@ export function NavProjects({ projects, workspaceId, isAdmin, canCreateProject, 
   };
 
   const handleEditClick = async (projectId: string) => {
+    if (isLoadingProject) return;
     setIsLoadingProject(true);
     try {
       const [fullDataResult, membersResult] = await Promise.all([
@@ -96,6 +119,7 @@ export function NavProjects({ projects, workspaceId, isAdmin, canCreateProject, 
   };
 
   const handleManageMembersClick = async (projectId: string) => {
+    if (isLoadingProject) return;
     setIsLoadingProject(true);
     try {
       const [fullDataResult, membersResult] = await Promise.all([
@@ -118,7 +142,7 @@ export function NavProjects({ projects, workspaceId, isAdmin, canCreateProject, 
   };
 
   const handleDeleteConfirm = async () => {
-    if (!projectToDelete) return;
+    if (!projectToDelete || isDeleting) return;
 
     setIsDeleting(true);
     try {
@@ -167,10 +191,11 @@ export function NavProjects({ projects, workspaceId, isAdmin, canCreateProject, 
 
             return (
               <SidebarMenuItem key={proj.id}>
-                <SidebarMenuButton asChild>
+                <SidebarMenuButton asChild disabled={isPending}>
                   <Link
                     href={href}
-                    onMouseEnter={() => router.prefetch(href)}
+                    prefetch={false}
+                    onClick={(e) => handleLinkClick(e, href)}
                     className={
                       isActive
                         ? "bg-foreground/10 dark:bg-foreground/20 border-foreground/50 hover:bg-foreground/20 dark:hover:bg-foreground/30 text-foreground hover:text-primary"

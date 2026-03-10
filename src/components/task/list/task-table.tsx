@@ -97,6 +97,7 @@ export default function TaskTable({
     const loadProjectTasksRef = useRef<((id: string) => Promise<void>) | null>(null);
     const loadMoreSortedRef = useRef<(() => Promise<void>) | null>(null);
     const sortedSentinelRef = useRef<HTMLTableRowElement | null>(null);
+    const scrollContainerRef = useRef<HTMLDivElement | null>(null);
     const autoExpandRef = useRef(false);
     const tasksRef = useRef<TaskWithSubTasks[]>([]);
     // Assigned after tasks declaration
@@ -498,7 +499,7 @@ export default function TaskTable({
             return;
         }
 
-        // console.log("[LoadMoreSorted] Start — cursor:", sortedCursor);
+        if (isLoadingMoreSorted || !sortedHasMore) return;
         setIsLoadingMoreSorted(true);
 
         try {
@@ -878,25 +879,21 @@ export default function TaskTable({
     const handleExpandAll = () => {
         autoExpandRef.current = true;
 
-        // Expand all projects
+        // 1. Expand all projects (Existing ones will show, others will load on scroll)
         const allProjectIds = projects.map(p => p.id);
         const allProjects = allProjectIds.reduce((acc, pId) => ({ ...acc, [pId]: true }), {});
         setExpandedProjects(allProjects);
 
-        // Load tasks for all unloaded projects (Project-First)
-        allProjectIds.forEach(id => {
-            if (!projectPagination[id]) {
-                loadProjectTasks(id);
-            }
-        });
+        // 🚀 Optimization: Remove the manual loadProjectTasks(id) loop. 
+        // Sentinels will handle loading as the user scrolls down naturally.
 
-        // 1. Bulk Apply Cache for Immediate Display
-        // We use hydrateTasks to ensure state is consistent with cache before expanding
+        // 2. Bulk Apply Cache for Immediate Display
         setTasks(prev => hydrateTasks(prev));
 
-        // 2. Expand all tasks (This will trigger lazy loaders for non-cached items)
-        const allTasks = tasks.reduce((acc, task) => ({ ...acc, [task.id]: true }), {});
-        setExpanded(allTasks);
+        // 3. Expand all tasks (This will trigger lazy loaders for items that hit the viewport)
+        const allTasksMap: Record<string, boolean> = {};
+        tasks.forEach(t => { allTasksMap[t.id] = true; });
+        setExpanded(allTasksMap);
     };
 
     const handleCollapseAll = () => {
@@ -911,6 +908,7 @@ export default function TaskTable({
         const task = tasks.find((t) => t.id === taskId);
         if (!task || !task.subTasks) return;
 
+        if (loadingMoreSubTasks[taskId]) return;
         setLoadingMoreSubTasks((prev) => ({ ...prev, [taskId]: true }));
 
         try {
@@ -1038,9 +1036,11 @@ export default function TaskTable({
                         </div>
                     </div>
                 )}
-                <div className={cn(
-                    "overflow-auto",
-                    level === "workspace" ? "max-h-[70vh]" : "max-h-[65vh]",
+                <div 
+                    ref={scrollContainerRef}
+                    className={cn(
+                        "overflow-auto",
+                        level === "workspace" ? "max-h-[70vh]" : "max-h-[65vh]",
                     "mt-0",
                     "[&::-webkit-scrollbar]:w-0.5",
                     "[&::-webkit-scrollbar]:h-1",
@@ -1175,6 +1175,7 @@ export default function TaskTable({
                                                     onRequestSubtasks={handleRequestSubtasks}
                                                     getCachedSubTasks={getCachedSubTasks}
                                                     tags={tags}
+                                                    scrollContainerRef={scrollContainerRef}
                                                     members={members}
                                                     workspaceId={workspaceId}
                                                     canCreateSubTask={canCreateSubTask}
@@ -1215,6 +1216,7 @@ export default function TaskTable({
                                             onRequestSubtasks={handleRequestSubtasks}
                                             getCachedSubTasks={getCachedSubTasks}
                                             tags={tags}
+                                            scrollContainerRef={scrollContainerRef}
                                             members={members}
                                             workspaceId={workspaceId}
                                             projectId={projectId}

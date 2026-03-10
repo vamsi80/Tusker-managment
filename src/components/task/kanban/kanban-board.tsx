@@ -362,6 +362,7 @@ export function KanbanBoard({
     };
 
     const handleLoadMore = async (status: TaskStatus) => {
+        if (loadingColumns[status] || !columnData[status].hasMore) return;
         setLoadingColumns(prev => ({ ...prev, [status]: true }));
 
         try {
@@ -656,6 +657,7 @@ export function KanbanBoard({
         comment?: string,
         attachmentData?: any
     ) => {
+        if (updatingTaskIds.has(subTaskId)) return;
         // Optimistic move
         moveSubTaskBetweenColumns(subTaskId, previousStatus, newStatus);
         setUpdatingTaskIds(prev => new Set(prev).add(subTaskId));

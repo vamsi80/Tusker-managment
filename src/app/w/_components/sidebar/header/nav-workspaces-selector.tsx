@@ -1,7 +1,7 @@
 // NavWorkspacesSelector.tsx
 "use client";
 
-import React, { useMemo, useTransition } from "react";
+import React, { useMemo, useTransition, useRef, useEffect } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +24,8 @@ interface Props {
 export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) => {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const navigatingTo = useRef<string | null>(null);
+
   const workspaces = data?.workspaces ?? []; // array of workspace items
   // find current workspace item from workspaceId or default to first item
   const selected = useMemo(() => {
@@ -34,8 +36,15 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
     );
   }, [workspaces, workspaceId]);
 
+  useEffect(() => {
+    if (!isPending) {
+      navigatingTo.current = null;
+    }
+  }, [isPending]);
+
   const onWorkspaceSelect = (targetWorkspaceId: string) => {
-    if (targetWorkspaceId === workspaceId) return; // Already on this workspace
+    if (targetWorkspaceId === workspaceId || isPending || navigatingTo.current === targetWorkspaceId) return; // Already on this workspace or switching
+    navigatingTo.current = targetWorkspaceId;
     startTransition(() => {
       router.push(`/w/${targetWorkspaceId}`);
     });

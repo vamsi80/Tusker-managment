@@ -128,6 +128,7 @@ export function InlineSubTaskForm({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (pending) return;
 
         if (!subTaskName.trim()) {
             toast.error("SubTask name is required");

@@ -4,7 +4,6 @@ import { getWorkspaceMembers } from "@/data/workspace";
 import { getUserProjects } from "@/data/project/get-projects";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { requireUser } from "@/lib/auth/require-user";
-import prisma from "@/lib/db";
 import dynamic from "next/dynamic";
 
 const KanbanBoard = dynamic(
@@ -22,20 +21,16 @@ interface WorkspaceKanbanViewProps {
  * Shows all subtasks from all projects in Kanban format
  * Uses unified getTasks function for consistent data access
  */
+import { getWorkspaceProjectMembersMap, getWorkspaceProjectManagersMap } from "@/data/workspace/get-workspace-kanban-data";
+
 export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewProps) {
     // 1. Kick off all independent queries immediately!
     const userPromise = requireUser();
     const membersPromise = getWorkspaceMembers(workspaceId);
     const projectsPromise = getUserProjects(workspaceId);
     const tagsPromise = getWorkspaceTags(workspaceId);
-    const pmMatchesPromise = prisma.projectMember.findMany({
-        where: { project: { workspaceId } },
-        select: { projectId: true, workspaceMember: { select: { userId: true } } }
-    });
-    const pmLeadersPromise = prisma.projectMember.findMany({
-        where: { project: { workspaceId }, projectRole: "PROJECT_MANAGER", hasAccess: true },
-        select: { projectId: true, workspaceMember: { select: { user: { select: { id: true, surname: true } } } } }
-    });
+    const pmMatchesPromise = getWorkspaceProjectMembersMap(workspaceId);
+    const projectManagersPromise = getWorkspaceProjectManagersMap(workspaceId);
 
     // 2. Wait for user safely before launching the dependent queries
     const user = await userPromise;
@@ -46,25 +41,26 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
         permissions,
         workspaceMembers,
         projects,
-        projectMemberMatches,
+        projectUserMap,
         tags,
-        projectManagers,
+        pmMap,
     ] = await Promise.all([
         getTasks({
             workspaceId,
             groupBy: "status",
-            excludeParents: true, // ONLY FETCH CARDS (NOT PARENTS)
+            excludeParents: true,
             limit: 50,
             sorts: [{ field: "createdAt", direction: "desc" }],
             view_mode: "kanban"
-        }), // Remove user.id to enable unstable_cache bypass in get-tasks.ts
+        }, user.id),
         getWorkspacePermissions(workspaceId, user.id),
         membersPromise,
         projectsPromise,
         pmMatchesPromise,
         tagsPromise,
-        pmLeadersPromise,
+        projectManagersPromise,
     ]);
+
 
     // Group tasks by status in JS with strict deduplication
     const statusGroups: Record<string, any[]> = {
@@ -167,19 +163,6 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
         ).values()
     );
 
-    // Build map of project -> userIds
-    const projectUserMap: Record<string, string[]> = {};
-    projectMemberMatches.forEach(pm => {
-        if (!projectUserMap[pm.projectId]) projectUserMap[pm.projectId] = [];
-        projectUserMap[pm.projectId].push(pm.workspaceMember.userId);
-    });
-
-    // Build map of project -> Project Manager user object
-    const pmMap: Record<string, any> = {};
-    projectManagers.forEach(pm => {
-        pmMap[pm.projectId] = pm.workspaceMember.user;
-    });
-
     // Convert projects to ProjectOption format for filters
     const projectOptions = projects.map(project => ({
         id: project.id,
@@ -188,6 +171,7 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
         color: project.color,
         memberIds: projectUserMap[project.id] || []
     }));
+
 
     return (
         <KanbanBoard
