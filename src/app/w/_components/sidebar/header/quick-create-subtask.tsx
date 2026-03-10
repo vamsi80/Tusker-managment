@@ -24,6 +24,7 @@ export function QuickCreateSubTask({ workspaceId }: QuickCreateSubTaskProps) {
     const [hasError, setHasError] = useState(false);
 
     const handleOpenChange = (isOpen: boolean) => {
+        if (isLoading) return;
         setOpen(isOpen);
         if (isOpen && !data) {
             // Fetch data on first open

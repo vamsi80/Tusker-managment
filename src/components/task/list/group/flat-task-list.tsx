@@ -39,6 +39,7 @@ interface FlatTaskListProps {
     activeInlineProjectId: string | null;
     setActiveInlineProjectId: (id: string | null) => void;
     onUpdateParentTaskLists: (updatedList: TaskWithSubTasks[]) => void;
+    scrollContainerRef: React.RefObject<HTMLDivElement | null>;
 }
 
 export function FlatTaskList({
@@ -69,7 +70,8 @@ export function FlatTaskList({
     filtersActive,
     activeInlineProjectId,
     setActiveInlineProjectId,
-    onUpdateParentTaskLists
+    onUpdateParentTaskLists,
+    scrollContainerRef
 }: FlatTaskListProps) {
     const [localTasks, setLocalTasks] = useState<TaskWithSubTasks[]>(initialTasks);
 
@@ -138,6 +140,7 @@ export function FlatTaskList({
                     projects={projects}
                     onRequestSubtasks={onRequestSubtasks}
                     isCached={!!getCachedSubTasks(task.id)}
+                    scrollContainerRef={scrollContainerRef}
                 >
                     <SubTaskList
                         task={task}
@@ -164,6 +167,7 @@ export function FlatTaskList({
                         isWorkspaceAdmin={isWorkspaceAdmin}
                         leadProjectIds={leadProjectIds}
                         projects={projects}
+                        scrollContainerRef={scrollContainerRef}
                         level={level}
                     />
                 </TaskRow>

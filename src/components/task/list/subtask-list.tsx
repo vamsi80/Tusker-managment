@@ -38,6 +38,7 @@ interface SubTaskListProps {
     isWorkspaceAdmin?: boolean; // For workspace view
     leadProjectIds?: string[]; // For workspace view
     projects?: Array<{ id: string; canManageMembers?: boolean }>; // For workspace view
+    scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 export function SubTaskList({
@@ -63,6 +64,7 @@ export function SubTaskList({
     isWorkspaceAdmin,
     leadProjectIds,
     projects,
+    scrollContainerRef,
 }: SubTaskListProps) {
     const [showInlineSubTaskForm, setShowInlineSubTaskForm] = useState(false);
 
@@ -78,7 +80,10 @@ export function SubTaskList({
                     onLoadMore();
                 }
             },
-            { rootMargin: "100px" }
+            { 
+                root: scrollContainerRef?.current || null,
+                rootMargin: "20px" 
+            }
         );
 
         const currentRef = bottomRef.current;

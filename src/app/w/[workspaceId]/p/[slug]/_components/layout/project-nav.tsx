@@ -51,13 +51,14 @@ export function ProjectNav({ workspaceId, slug }: ProjectNavProps) {
 
     const handleViewChange = (href: string, e: React.MouseEvent) => {
         e.preventDefault();
+        if (isPending) return;
         startTransition(() => {
             router.push(href);
         });
     };
 
     return (
-        <div className="border-b">
+        <div className={cn("border-b", isPending && "opacity-60 pointer-events-none transition-opacity")}>
             <div className="flex h-10 items-center gap-4 overflow-x-auto scrollbar-hide">
                 {isProjectPage && viewTabs.map((tab) => {
                     const isActive = currentView === tab.value;

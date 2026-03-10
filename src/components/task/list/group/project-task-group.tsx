@@ -42,6 +42,7 @@ interface ProjectTaskGroupProps {
     loadingMoreSubTasks: Record<string, boolean>;
     onLoadMoreSubTasks: (taskId: string) => void;
     handleSubTaskClick: (subTask: any) => void;
+    scrollContainerRef: React.RefObject<HTMLDivElement | null>;
     level: "workspace" | "project";
     paginationState?: { isLoading: boolean; hasMore: boolean; nextCursor?: any };
     getObserver: () => IntersectionObserver | null;
@@ -79,6 +80,7 @@ export function ProjectTaskGroup({
     loadingMoreSubTasks,
     onLoadMoreSubTasks,
     handleSubTaskClick,
+    scrollContainerRef,
     level,
     paginationState = { isLoading: false, hasMore: false },
     getObserver,
@@ -187,6 +189,7 @@ export function ProjectTaskGroup({
                             isWorkspaceAdmin={isWorkspaceAdmin}
                             leadProjectIds={leadProjectIds}
                             projects={projects}
+                            scrollContainerRef={scrollContainerRef}
                             level={level}
                         />
                     </TaskRow>
