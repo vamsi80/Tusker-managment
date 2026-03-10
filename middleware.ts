@@ -15,6 +15,7 @@ export default async function middleware(request: NextRequest) {
     // Better Auth default: better-auth.session_token
     const sessionToken =
       request.cookies.get("better-auth.session_token")?.value ||
+      request.cookies.get("__Secure-better-auth.session_token")?.value ||
       request.cookies.get("__session")?.value; // Fallback for some environments
 
     if (!sessionToken) {
