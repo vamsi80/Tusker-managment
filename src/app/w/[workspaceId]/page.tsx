@@ -1,4 +1,3 @@
-import React from "react";
 import { getWorkspaceMetadata } from "@/data/workspace/get-workspace-metadata";
 
 type Props = {
@@ -8,7 +7,6 @@ type Props = {
 export default async function WorkSpacePage({ params }: Props) {
   const { workspaceId } = await params;
 
-  // Uses cached metadata from the layout's WorkspaceAccessGuard — zero extra DB calls
   const workspace = await getWorkspaceMetadata(workspaceId);
 
   return (

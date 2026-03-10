@@ -42,12 +42,12 @@ const nextConfig: NextConfig = {
     '@aws-sdk/client-s3',
     '@aws-sdk/s3-request-presigner'
   ],
-  /* config options here */
+
   cacheLife: {
     layout: {
-      stale: 3600, // 1 hour
-      revalidate: 86400, // 24 hours
-      expire: 604800, // 1 week
+      stale: 3600,
+      revalidate: 86400,
+      expire: 604800,
     },
     max: {
       stale: 3600,
