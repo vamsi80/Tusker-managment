@@ -66,4 +66,6 @@ const nextConfig: NextConfig = {
 
 export default withBundleAnalyzer(nextConfig);
 
-import('@opennextjs/cloudflare').then(m => m.initOpenNextCloudflareForDev());
+if (process.env.NODE_ENV === 'development' && !process.env.VERCEL) {
+  import('@opennextjs/cloudflare').then(m => m.initOpenNextCloudflareForDev());
+}
