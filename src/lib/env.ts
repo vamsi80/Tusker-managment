@@ -3,28 +3,28 @@ import { z } from "zod";
 
 export const env = createEnv({
   server: {
-    RESEND_API_KEY: z.string().min(1).optional(),
-    DATABASE_URL: z.string().url(),
-    BETTER_AUTH_SECRET: z.string().min(1),
-    BETTER_AUTH_URL: z.string().url(),
+    RESEND_API_KEY: z.string().optional(),
+    DATABASE_URL: z.string().optional(),
+    BETTER_AUTH_SECRET: z.string().optional(),
+    BETTER_AUTH_URL: z.string().optional(),
 
-    AUTH_GITHUB_CLIENT_ID: z.string().min(1),
-    AUTH_GITHUB_SECRET: z.string().min(1),
+    AUTH_GITHUB_CLIENT_ID: z.string().optional(),
+    AUTH_GITHUB_SECRET: z.string().optional(),
 
-    GOOGLE_CLIENT_ID: z.string().min(1).optional(),
-    GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
+    GOOGLE_CLIENT_ID: z.string().optional(),
+    GOOGLE_CLIENT_SECRET: z.string().optional(),
 
     // SMTP Configuration
-    SMTP_HOST: z.string().min(1),
-    SMTP_PORT: z.string().min(1),
-    SMTP_SECURE: z.string().min(1),
-    SMTP_USER: z.string().min(1),
-    SMTP_PASSWORD: z.string().min(1),
-    SMTP_FROM: z.string().min(1),
+    SMTP_HOST: z.string().optional(),
+    SMTP_PORT: z.string().optional(),
+    SMTP_SECURE: z.string().optional(),
+    SMTP_USER: z.string().optional(),
+    SMTP_PASSWORD: z.string().optional(),
+    SMTP_FROM: z.string().optional(),
   },
 
   client: {
-    NEXT_PUBLIC_S3_BUCKET_NAME_IMAGES: z.string().min(1).optional(),
+    NEXT_PUBLIC_S3_BUCKET_NAME_IMAGES: z.string().optional(),
   },
   runtimeEnv: {
     DATABASE_URL: process.env.DATABASE_URL,
@@ -43,8 +43,6 @@ export const env = createEnv({
     RESEND_API_KEY: process.env.RESEND_API_KEY,
     NEXT_PUBLIC_S3_BUCKET_NAME_IMAGES: process.env.NEXT_PUBLIC_S3_BUCKET_NAME_IMAGES,
   },
-  skipValidation: 
-    !!process.env.SKIP_ENV_VALIDATION || 
-    process.env.PHASE === "phase-production-build" || 
-    !!process.env.CF_PAGES,
+  skipValidation: true,
+  emptyStringAsUndefined: true,
 });
