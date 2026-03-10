@@ -3,13 +3,9 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "../_components/sidebar/workspace-sidebar";
 import { SiteHeader } from "../_components/sidebar/header/site-header";
 import { WorkspaceContentSkeleton, WorkspaceSidebarSkeleton } from "../_components/workspace-skeleton";
-import { getWorkspaces } from "@/data/workspace/get-workspaces";
-import { getWorkspaceMetadata } from "@/data/workspace/get-workspace-metadata";
 import { notFound } from "next/navigation";
 import { DailyReportFAB } from "./reports/_components/DailyReportFAB";
-import { getDailyReportStatus } from "@/actions/daily-report-actions";
 import { getWorkspaceLayoutData } from "@/data/workspace/get-workspace-layout-data";
-import { requireUser } from "@/lib/auth/require-user";
 import { WorkspaceClientProviders } from "@/app/w/[workspaceId]/_components/workspace-client-providers";
 
 interface Props {
@@ -17,16 +13,9 @@ interface Props {
     params: Promise<{ workspaceId: string }>;
 }
 
-/**
- * Loads sidebar data independently so the shell renders immediately
- * while the sidebar data streams in.
- */
 export default async function WorkSpaceLayout({ children, params }: Props) {
     const { workspaceId } = await params;
-
-    // Start fetching ALL layout requirements immediately in parallel
     const layoutDataPromise = getWorkspaceLayoutData(workspaceId);
-
     return (
         <WorkspaceClientProviders>
             <SidebarProvider
@@ -83,4 +72,3 @@ async function DailyReportFABLoader({ dataPromise, workspaceId }: { dataPromise:
     const { reportStatus } = await dataPromise;
     return <DailyReportFAB workspaceId={workspaceId} initialStatus={reportStatus.status} />;
 }
-
