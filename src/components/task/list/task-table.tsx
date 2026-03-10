@@ -808,21 +808,22 @@ export default function TaskTable({
                 workspaceId
             };
 
-            const response = await getSubTasksAction(
-                taskId,
-                workspaceId,
-                taskProjectId,
-                {
-                    status: activeFilters.status,
-                    assigneeId: activeFilters.assigneeId,
-                    tagId: activeFilters.tagId,
-                    search: activeFilters.search,
-                    dueAfter: filters.startDate ? new Date(filters.startDate) : undefined,
-                    dueBefore: filters.endDate ? new Date(filters.endDate) : undefined,
-                },
-                30, // pageSize
-                "list"
-            );
+            const queryParams = new URLSearchParams();
+            queryParams.set("workspaceId", workspaceId);
+            if (taskProjectId) queryParams.set("projectId", taskProjectId);
+            queryParams.set("pageSize", "30");
+            queryParams.set("viewMode", "list");
+
+            if (activeFilters.status) queryParams.set("status", JSON.stringify(activeFilters.status));
+            if (activeFilters.assigneeId) queryParams.set("assigneeId", JSON.stringify(activeFilters.assigneeId));
+            if (activeFilters.tagId) queryParams.set("tagId", JSON.stringify(activeFilters.tagId));
+            if (activeFilters.search) queryParams.set("search", activeFilters.search);
+            if (filters.startDate) queryParams.set("dueAfter", new Date(filters.startDate).toISOString());
+            if (filters.endDate) queryParams.set("dueBefore", new Date(filters.endDate).toISOString());
+
+            const res = await fetch(`/api/tasks/${taskId}/subtasks?${queryParams.toString()}`);
+            if (!res.ok) throw new Error("Failed to fetch subtasks");
+            const response = await res.json();
 
             if (response.success && response.subTasks) {
                 const subTasks = response.subTasks;

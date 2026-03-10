@@ -70,7 +70,7 @@ export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
     }
 
     // 4. Parent Task Metadata: Specifically for Kanban and List views
-    if (isKanban || isList) {
+    if (isKanban || isList || isGantt) {
         select.parentTask = {
             select: {
                 id: true,

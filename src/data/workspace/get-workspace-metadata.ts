@@ -66,14 +66,7 @@ export const getWorkspaceMetadata = cache(async (workspaceId: string, providedUs
     const memory = getMemoryMetadata(cacheKey);
     if (memory) return memory;
 
-    // 2. Bypass for active sessions
-    if (providedUserId) {
-        const direct = await _getWorkspaceMetadataInternal(workspaceId, userId);
-        setMemoryMetadata(cacheKey, direct);
-        return direct;
-    }
-
-    // 3. Next.js cache
+    // 2. Next.js cache
     const fetchMetadata = unstable_cache(
         async () => _getWorkspaceMetadataInternal(workspaceId, userId),
         [`workspace-metadata-${workspaceId}-${userId}`],

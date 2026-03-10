@@ -58,15 +58,21 @@ export async function getAdminAllReportEntries(workspaceId: string, date?: Date,
                 ...(userId ? { userId } : {})
             }
         },
-        include: {
+        select: {
+            id: true,
+            type: true,
+            description: true,
+            createdAt: true,
             report: {
-                include: {
+                select: {
+                    id: true,
+                    date: true,
+                    status: true,
+                    userId: true,
                     user: {
                         select: {
-                            // name: true,
                             surname: true,
                             email: true,
-                            // image: true
                         }
                     }
                 }
