@@ -91,8 +91,9 @@ function buildOrderBy(sorts?: Array<{ field: string; direction: "asc" | "desc" }
         ? { [def.dbField]: { sort: direction, nulls: def.nulls } }
         : { [def.dbField]: direction };
 
-    // Always append id as the deterministic tiebreaker—same direction as primary.
-    return [primary, { id: direction }];
+    // ALWAYS use id: asc as the deterministic tiebreaker to match query builder's 'gt' logic 
+    // and take advantage of standard compound indexes (field, id).
+    return [primary, { id: "asc" as const }];
 }
 
 /**
@@ -136,13 +137,13 @@ function buildSeekCondition(
 
         // We are in the non-null block
         const conditions: any[] = [
-            // 1. All rows strictly after this value
+            // 1. All rows strictly after this value (direction-dependent: lt for DESC, gt for ASC)
             { [dbField]: { [op]: lastFieldValue } },
-            // 2. Rows with SAME value but strictly after this ID
+            // 2. Rows with SAME value but strictly after this ID (ALWAYS 'gt' because tiebreaker is ALWAYS 'asc')
             {
                 AND: [
                     { [dbField]: lastFieldValue },
-                    { id: { [op]: lastId } },
+                    { id: { gt: lastId } },
                 ],
             },
         ];
@@ -200,10 +201,7 @@ function buildQuerySignature(
     permissionScope: { fullAccessProjectIds: string[], restrictedProjectIds: string[] } | string,
     opts: GetTasksOptions
 ) {
-    // 1. Extract and normalize filters
     const f: Record<string, any> = {};
-
-    // Array filters - sort for stability
     const sortArr = (val: any) => (Array.isArray(val) ? [...val].sort() : val);
 
     if (opts.status) f.st = sortArr(opts.status);
@@ -333,7 +331,7 @@ async function _fetchProjectRoot(
         delete where.OR;
     }
 
-    const countWhere = { ...where };
+    // const countWhere = { ...where };
     // console.log(`[PRISMA PROJECT ROOT] where:`, JSON.stringify(where, null, 2));
     const [rawTasks, totalCount] = await Promise.all([
         prisma.task.findMany({
@@ -790,14 +788,39 @@ async function _getTasksInternal(
                 includeSubTasks: opts.includeSubTasks,
             }, userId);
 
-            // Fetch a larger batch for the whole board (50 total)
+            // Normalize input cursor early for Prisma safety
+            if (opts.cursor && typeof opts.cursor.createdAt === 'string') {
+                opts.cursor.createdAt = new Date(opts.cursor.createdAt);
+            }
+
+            // --- KANBAN OPTIMIZATION: STATUS COUNTS ---
+            // Fetch total counts per status to support "Load More" UI and correct hasMore flags.
+            // We strip the cursor so we get the TOTAL count for the currently applied filters.
+            const countWhere = { ...baseWhere };
+            delete countWhere.AND; // Remove the cursor/seek condition if it was added
+
+            const countsResult = await prisma.task.groupBy({
+                by: ['status'],
+                where: countWhere,
+                _count: true
+            });
+
+            const statusCounts: Record<string, number> = {};
+            countsResult.forEach(c => {
+                if (c.status) statusCounts[c.status] = c._count;
+            });
+
+            // Normal Prisma take+1 logic to determine if there's more accurately via the query
             const limit = opts.limit ?? 50;
             const tasks = await prisma.task.findMany({
                 where: baseWhere,
-                take: limit,
+                take: limit + 1, // Take one extra to confidently define hasMore
                 select: getTaskSelect(opts.view_mode),
                 orderBy: buildOrderBy(opts.sorts)
             });
+
+            const trueHasMore = tasks.length > limit;
+            if (trueHasMore) tasks.pop(); // Remove the extra sentinel task
 
             // If recursive hierarchy requested, fetch subtasks for any parents in this set
             if (opts.includeSubTasks && tasks.length > 0) {
@@ -828,19 +851,23 @@ async function _getTasksInternal(
                 }
             }
 
-            // Fetch counts per status for the whole board to support "Load More" indicator
-            // *Optimization: Removed groupBy as it causes massive DB pipeline stalls on large views.
-            // Using precise in-memory column lengths on the client instead.
-            const statusCounts: Record<string, number> = {};
-
-            // Determine next cursor for pagination
-            const lastTask = tasks.length > 0 ? tasks[tasks.length - 1] : null;
-            const nextCursor = lastTask ? { id: lastTask.id, createdAt: lastTask.createdAt } : null;
+            // Determine next cursor for pagination (supporting custom sorting)
+            const primarySort = opts.sorts?.[0];
+            const lastTask = tasks.length > 0 ? (tasks[tasks.length - 1] as any) : null;
+            
+            const nextCursor: any = trueHasMore && lastTask
+                ? primarySort && SORT_MAP[primarySort.field]
+                    ? {
+                        id: lastTask.id,
+                        [SORT_MAP[primarySort.field].dbField]: lastTask[SORT_MAP[primarySort.field].dbField],
+                    }
+                    : { id: lastTask.id, createdAt: lastTask.createdAt }
+                : null;
 
             return {
                 tasks,
-                totalCount: tasks.length,
-                hasMore: tasks.length >= limit,
+                totalCount: tasks.length, // Accurate UI total count is generated via facets later
+                hasMore: trueHasMore,
                 nextCursor,
                 facets: {
                     ...emptyFacets,
@@ -883,6 +910,11 @@ async function _getTasksInternal(
 export const getTasks = cache(async (opts: GetTasksOptions, providedUserId?: string) => {
     const { workspaceId, projectId } = opts;
 
+    // --- Normalization ---
+    if (opts.cursor && typeof opts.cursor.createdAt === 'string') {
+        opts.cursor.createdAt = new Date(opts.cursor.createdAt);
+    }
+
     // --- Auth + Permission Resolution ---
     const {
         permissions,
@@ -910,9 +942,10 @@ export const getTasks = cache(async (opts: GetTasksOptions, providedUserId?: str
         ? CacheTags.projectTasks(projectId, permissions.workspaceMember.userId)
         : CacheTags.workspaceTasks(workspaceId, permissions.workspaceMember.userId);
 
+    let res;
     // 🚀 BYPASS For Server Actions or single user loads 
     if (providedUserId) {
-        return await _getTasksInternal(
+        res = await _getTasksInternal(
             workspaceId,
             permissions.workspaceMember!.userId,
             isWorkspaceAdmin,
@@ -920,21 +953,32 @@ export const getTasks = cache(async (opts: GetTasksOptions, providedUserId?: str
             restrictedProjectIds,
             opts
         );
+    } else {
+        res = await unstable_cache(
+            () => _getTasksInternal(
+                workspaceId,
+                permissions.workspaceMember!.userId,
+                isWorkspaceAdmin,
+                fullAccessProjectIds,
+                restrictedProjectIds,
+                opts
+            ),
+            [cacheKey],
+            { tags, revalidate: 30 }
+        )();
     }
 
-    return await unstable_cache(
-        () => _getTasksInternal(
-            workspaceId,
-            permissions.workspaceMember!.userId,
-            isWorkspaceAdmin,
-            fullAccessProjectIds,
-            restrictedProjectIds,
-            opts
-        ),
+    // Strip reviewer from parent tasks to save payload bandwidth per exact request
+    if (res && res.tasks) {
+        res.tasks.forEach((t: any) => {
+            if (t.isParent) {
+                delete t.reviewer;
+                delete (t as any).reviewerId;
+            }
+        });
+    }
 
-        [cacheKey],
-        { tags, revalidate: 30 }
-    )();
+    return res;
 });
 
 export type GetTasksResponse = Awaited<ReturnType<typeof getTasks>>;

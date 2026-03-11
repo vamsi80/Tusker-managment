@@ -13,10 +13,6 @@ interface QuickCreateSubTaskProps {
     workspaceId: string;
 }
 
-/**
- * Quick Create SubTask button in sidebar.
- * Renders the button instantly — data is fetched on-demand when clicked.
- */
 export function QuickCreateSubTask({ workspaceId }: QuickCreateSubTaskProps) {
     const [open, setOpen] = useState(false);
     const [data, setData] = useState<WorkspaceTaskCreationData | null>(null);
@@ -27,7 +23,6 @@ export function QuickCreateSubTask({ workspaceId }: QuickCreateSubTaskProps) {
         if (isLoading) return;
         setOpen(isOpen);
         if (isOpen && !data) {
-            // Fetch data on first open
             setHasError(false);
             startTransition(async () => {
                 try {

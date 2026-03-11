@@ -10,73 +10,73 @@ export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
     const isGantt = viewMode === "gantt";
     const isCalendar = viewMode === "calendar";
     const isSearch = viewMode === "search";
+    const isSubtask = viewMode === "subtask";
 
-    // Core fields needed for every view
+    /**
+     * CORE FIELDS: Strictly what's needed for basic rendering & core logic (Dnd, Permissions).
+     * We exclude heavy fields (description) and redundant IDs (assigneeTo) where possible.
+     */
     const select: Prisma.TaskSelect = {
         id: true,
         name: true,
         taskSlug: true,
         status: true,
         dueDate: true,
-        days: true,
-        projectId: true,
-        parentTaskId: true,
-        isParent: true,
-        createdAt: true,
-        createdById: true,
-        assigneeTo: true,
-        reviewerId: true,
-        tagId: true,
         subtaskCount: true,
         completedSubtaskCount: true,
+        tagId: true,
 
-        // Relations with minimal user data (Surname + Image for Avatars)
-        assignee: {
-            select: { id: true, surname: true, image: true }
-        },
-        reviewer: {
-            select: { id: true, surname: true, image: true }
-        },
-        tag: {
-            select: { id: true, name: true }
-        },
-        _count: {
-            select: {
-                reviewComments: true,
-            }
-        }
+        // Relations: Minimal data only
+        assignee: { select: { id: true, surname: true, image: true } },
+        tag: { select: { id: true, name: true } },
+
+        // Metadata for pagination & permissions & tree logic
+        createdAt: true,        // Tiebreaker for pagination
+        createdById: true,      // For "Can I Edit?" logic
+        projectId: true,        // For "Which project permissions apply?"
+        parentTaskId: true,     // For tree structure
+        isParent: true,         // For tree structure
     };
 
-
-    // 1. Description: Specifically for List view per user request
-    if (isList) {
-        select.description = true;
+    // 1. Comment Counts: Only for Views that show badge/indicators (Board and List)
+    if (isKanban || isList) {
+        select._count = {
+            select: { reviewComments: true }
+        };
     }
 
-    // 2. Start Date: For List, Gantt, and Calendar
-    if (isList || isGantt || isCalendar) {
+    // 2. Dates & Progress:
+    // startDate is now exclusive to List view per user request (and Gantt/Calendar/Subtasks which require it)
+    if (isList || isGantt || isCalendar || isSubtask) {
         select.startDate = true;
     }
 
-    // 3. Project Metadata: Specifically for Kanban, Search, List, and Gantt
-    if (isKanban || isSearch || isList || isGantt) {
+    if (isGantt || isList || isKanban || isCalendar) {
+        select.days = true;
+    }
+
+    // 3. Project & Parent Meta: Fetched only when context is ambiguous (Workspace view)
+    // For subtasks, the batcher Uses these selects to fetch context ONCE and inject it.
+    if (isKanban || isSearch || isList || isGantt || isSubtask) {
         select.project = {
-            select: {
-                id: true,
-                name: true,
-                color: true,
-            }
+            select: { id: true, name: true, color: true }
+        };
+        select.parentTask = {
+            select: { id: true, name: true }
         };
     }
 
-    // 4. Parent Task Metadata: Specifically for Kanban and List views
-    if (isKanban || isList || isGantt) {
-        select.parentTask = {
-            select: {
-                id: true,
-                name: true,
-            }
+    // 4. Reviewer: Specifically for List & Subtask expansions (removed from Kanban per request)
+    if (isList || isSubtask) {
+        select.reviewer = {
+            select: { id: true, surname: true }
         };
+    }
+
+    // 5. Description: HEAVY FIELD. 
+    // We skip for subtasks by default to save massive bandwidth during expansions.
+    if ((isList || isSearch) && !isSubtask) {
+        select.description = true;
     }
 
     if (isSearch) {

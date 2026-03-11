@@ -15,7 +15,7 @@ import { useMemo } from "react";
  */
 export function useDueDate(startDate: Date | string | null | undefined, days: number | null | undefined): Date | null {
     return useMemo(() => {
-        if (!startDate || !days) return null;
+        if (!startDate || (days === null || days === undefined)) return null;
 
         const start = new Date(startDate);
         const due = new Date(start);
@@ -49,7 +49,7 @@ export function useRemainingDays(
 
         if (providedDueDate) {
             dueDate = new Date(providedDueDate);
-        } else if (startDate && days) {
+        } else if (startDate && (days !== null && days !== undefined)) {
             const start = new Date(startDate);
             dueDate = new Date(start);
             dueDate.setDate(dueDate.getDate() + days);
@@ -174,7 +174,7 @@ export function calculateDueDate(
     startDate: Date | string | null | undefined,
     days: number | null | undefined
 ): Date | null {
-    if (!startDate || !days) return null;
+    if (!startDate || (days === null || days === undefined)) return null;
 
     const start = new Date(startDate);
     const due = new Date(start);
