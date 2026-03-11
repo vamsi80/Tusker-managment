@@ -7,7 +7,14 @@ import { X, Filter, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type TaskFilters, type ViewLevel, type ViewType, type ProjectOption, type MemberOption, type TagOption, getFilterConfig, getActiveFilters } from "./types";
 import { formatIST } from "@/lib/utils";
-import { DateRange, RangeKeyDict } from "react-date-range";
+import dynamic from "next/dynamic";
+import { RangeKeyDict } from "react-date-range";
+
+// Dynamically import date picker since it's heavy
+const DateRange = dynamic(
+    () => import("react-date-range").then((mod) => mod.DateRange),
+    { ssr: false, loading: () => <div className="h-[300px] w-[300px] animate-pulse bg-muted rounded-md" /> }
+);
 import "react-date-range/dist/styles.css"; // main style file
 import "react-date-range/dist/theme/default.css"; // theme css file
 import { TaskSearch } from "./task-search";

@@ -48,7 +48,8 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
     const [tasksData, projects, workspaceMembers, projectMemberMatches, tags, permissions] = await Promise.all([
         getTasks({
             workspaceId,
-            sorts: [{ field: "createdAt", direction: "desc" }],
+            hierarchyMode: "parents",
+            includeSubTasks: true,
             limit: 1000,
             includeFacets: true,
             view_mode: "gantt"
@@ -60,7 +61,15 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
         getWorkspacePermissions(workspaceId, user.id),
     ]);
 
-    const allTasks = tasksData.tasks;
+    const rawTasks = tasksData.tasks;
+    const allTasks: any[] = [];
+    rawTasks.forEach((t: any) => {
+        allTasks.push(t);
+        if (t.subTasks && t.subTasks.length > 0) {
+            allTasks.push(...t.subTasks);
+        }
+    });
+
     const parentTasks = allTasks.filter(task => !task.parentTaskId);
 
     const subtasksMap = new Map<string, any[]>();

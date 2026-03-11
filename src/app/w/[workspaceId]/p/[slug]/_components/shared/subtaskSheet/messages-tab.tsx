@@ -17,10 +17,7 @@ interface Comment {
     taskId: string;
     user: {
         id: string;
-        name: string;
         surname: string;
-        email: string;
-        image: string;
     };
     isEdited: boolean;
     editedAt: Date;
@@ -39,15 +36,6 @@ interface MessagesTabProps {
     isLoading: boolean;
 }
 
-/**
- * Messages Tab Component
- * 
- * Displays and manages task comments:
- * - Shows all comments in chat-style UI
- * - Allows sending new comments
- * - Auto-scrolls to bottom
- * - Distinguishes current user vs others
- */
 export function MessagesTab({
     taskId,
     comments,
@@ -131,9 +119,8 @@ export function MessagesTab({
                                 >
                                     {!isCurrentUser && (
                                         <Avatar className="h-8 w-8 flex-shrink-0">
-                                            <AvatarImage src={comment.user.image || ""} />
                                             <AvatarFallback className="text-xs">
-                                                {comment.user.name[0]}
+                                                {comment.user.surname[0]}
                                             </AvatarFallback>
                                         </Avatar>
                                     )}
@@ -151,7 +138,7 @@ export function MessagesTab({
                                         >
                                             {!isCurrentUser && (
                                                 <p className="text-xs font-normal text-primary">
-                                                    {comment.user.name} {comment.user.surname || ""}
+                                                    {comment.user.surname || ""}
                                                 </p>
                                             )}
                                             <p className="text-sm leading-relaxed break-words">

@@ -1,9 +1,6 @@
-import { ProjectPageSkeleton } from "@/components/shared/project-page-skeleton";
+import { AppLoader } from "@/components/shared/app-loader";
 
-/**
- * Shown INSTANTLY by Next.js on navigation to /p/[slug] — before any DB query runs.
- * Uses the shared ProjectPageSkeleton so it always matches the real page layout.
- */
-export default function ProjectPageLoading() {
-    return <ProjectPageSkeleton />;
+/** Shown during project navigation to override the workspace shell skeleton */
+export default function ProjectLoading() {
+    return <AppLoader />;
 }

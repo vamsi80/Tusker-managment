@@ -5,10 +5,8 @@ import { NavProjectsAsync } from "./projectsList/nav-projects-async";
 import { NavWorkspacesSelector } from "./header/nav-workspaces-selector";
 import { NavFooter } from "./footer/nav-footer";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuItem } from "@/components/ui/sidebar";
-import { NavProjectsSkeleton } from "./projectsList/projects-skeleton";
 import { WorkspacesType } from "@/data/workspace/get-workspaces";
-import { QuickCreateSubTaskAsync, QuickCreateSubTaskSkeleton } from "./header/quick-create-subtask-async";
-import { Suspense } from "react";
+import { QuickCreateSubTaskAsync } from "./header/quick-create-subtask-async";
 
 interface iAppProps {
   data: WorkspacesType;
@@ -25,20 +23,20 @@ export async function AppSidebar({ data, workspaceId, ...props }: React.Componen
   const mainNavItems: Array<{
     title: string;
     url: string;
-    icon?: "IconDashboard" | "IconUsersPlus" | "IconCheckupList" | "IconSettings";
+    icon?: "LayoutDashboard" | "Users" | "CheckSquare" | "Settings";
   }> = [
-      { title: "Dashboard", url: `/w/${workspaceId}`, icon: "IconDashboard" },
-      { title: "Team", url: `/w/${workspaceId}/team`, icon: "IconUsersPlus" },
-      { title: "Tasks", url: `/w/${workspaceId}/tasks`, icon: "IconCheckupList" },
+      { title: "Dashboard", url: `/w/${workspaceId}`, icon: "LayoutDashboard" },
+      { title: "Team", url: `/w/${workspaceId}/team`, icon: "Users" },
+      { title: "Tasks", url: `/w/${workspaceId}/tasks`, icon: "CheckSquare" },
     ];
 
   const footerNavItems: Array<{
     title: string;
     url: string;
-    icon: "IconSettings" | "IconReport";
+    icon: "Settings" | "BarChart3";
   }> = [
-      { title: "Reports", url: `/w/${workspaceId}/reports`, icon: "IconReport" },
-      { title: "Settings", url: `/w/${workspaceId}/settings`, icon: "IconSettings" },
+      { title: "Reports", url: `/w/${workspaceId}/reports`, icon: "BarChart3" },
+      { title: "Settings", url: `/w/${workspaceId}/settings`, icon: "Settings" },
     ];
 
   return (
@@ -56,15 +54,11 @@ export async function AppSidebar({ data, workspaceId, ...props }: React.Componen
           items={mainNavItems}
           workspaceId={workspaceId}
           quickCreateButton={
-            <Suspense fallback={<QuickCreateSubTaskSkeleton />}>
-              <QuickCreateSubTaskAsync workspaceId={workspaceId} />
-            </Suspense>
+            <QuickCreateSubTaskAsync workspaceId={workspaceId} />
           }
         />
 
-        <React.Suspense fallback={<NavProjectsSkeleton />}>
-          <NavProjectsAsync workspaceId={workspaceId} />
-        </React.Suspense>
+        <NavProjectsAsync workspaceId={workspaceId} />
       </SidebarContent>
 
       <SidebarFooter className="px-3">

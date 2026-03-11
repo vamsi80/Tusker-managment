@@ -18,10 +18,8 @@ export function ProjectNav({ workspaceId, slug }: ProjectNavProps) {
     const [isPending, startTransition] = useTransition();
     const baseUrl = `/w/${workspaceId}/p/${slug}`;
 
-    // Get current view from search params
     const currentView = searchParams.get('view') || 'dashboard';
 
-    // Check if we're on the main project page
     const isProjectPage = pathname === baseUrl;
 
     const viewTabs = [
@@ -53,15 +51,15 @@ export function ProjectNav({ workspaceId, slug }: ProjectNavProps) {
 
     const handleViewChange = (href: string, e: React.MouseEvent) => {
         e.preventDefault();
+        if (isPending) return;
         startTransition(() => {
             router.push(href);
         });
     };
 
     return (
-        <div className="border-b">
+        <div className={cn("border-b", isPending && "opacity-60 pointer-events-none transition-opacity")}>
             <div className="flex h-10 items-center gap-4 overflow-x-auto scrollbar-hide">
-                {/* Show view tabs only on project page */}
                 {isProjectPage && viewTabs.map((tab) => {
                     const isActive = currentView === tab.value;
                     const Icon = tab.icon;
@@ -69,8 +67,8 @@ export function ProjectNav({ workspaceId, slug }: ProjectNavProps) {
                         <Link
                             key={tab.href}
                             href={tab.href}
-                            prefetch={true}
-                            onMouseEnter={() => router.prefetch(tab.href)}
+                            prefetch={false}
+                            scroll={false}
                             onClick={(e) => handleViewChange(tab.href, e)}
                             className={cn(
                                 "flex h-full items-center gap-2 border-b-2 px-2 sm:px-3 text-sm font-medium transition-colors hover:text-primary whitespace-nowrap flex-shrink-0",

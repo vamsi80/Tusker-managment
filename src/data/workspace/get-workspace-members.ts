@@ -35,7 +35,11 @@ export type WorkspaceMembersResult = {
 async function _fetchWorkspaceMembersInternal(workspaceId: string): Promise<WorkspaceMembersResult> {
   const workspaceMembers = await prisma.workspaceMember.findMany({
     where: { workspaceId },
-    include: {
+    select: {
+      id: true,
+      workspaceId: true,
+      userId: true,
+      workspaceRole: true,
       user: {
         select: {
           id: true,
@@ -43,6 +47,7 @@ async function _fetchWorkspaceMembersInternal(workspaceId: string): Promise<Work
           surname: true,
           contactNumber: true,
           email: true,
+          image: true,
         },
       },
       projectMembers: {

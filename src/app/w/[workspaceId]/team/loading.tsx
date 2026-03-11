@@ -1,6 +1,6 @@
-import { TeamPageSkeleton } from "@/components/shared/workspace-skeletons";
+import { AppLoader } from "@/components/shared/app-loader";
 
 /** Shown INSTANTLY by Next.js when navigating to /team */
 export default function TeamLoading() {
-    return <TeamPageSkeleton />;
+    return <AppLoader />;
 }

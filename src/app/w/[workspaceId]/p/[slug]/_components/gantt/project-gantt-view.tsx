@@ -40,7 +40,8 @@ export async function GanttServerWrapper({ workspaceId, projectId }: GanttServer
         getWorkspaceTasks({
             workspaceId,
             projectId,
-            sorts: [{ field: "createdAt", direction: "desc" }], // Flat array trick
+            hierarchyMode: "parents",
+            includeSubTasks: true,
             limit: 1000,
             includeFacets: true,
             view_mode: "gantt"
@@ -50,7 +51,14 @@ export async function GanttServerWrapper({ workspaceId, projectId }: GanttServer
         tagsPromise
     ]);
 
-    const allTasks = tasksData.tasks;
+    const rawTasks = tasksData.tasks;
+    const allTasks: any[] = [];
+    rawTasks.forEach((t: any) => {
+        allTasks.push(t);
+        if (t.subTasks && t.subTasks.length > 0) {
+            allTasks.push(...t.subTasks);
+        }
+    });
 
     // 3. Create record for subtask data (plain object for server→client serialization)
     const subtaskDataMap: Record<string, any> = {};

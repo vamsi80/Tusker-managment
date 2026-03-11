@@ -1,4 +1,3 @@
-import * as XLSX from "xlsx-js-style";
 import { GanttTask } from "./types";
 import { format, eachDayOfInterval, parseISO, min, max } from "date-fns";
 
@@ -11,7 +10,8 @@ const statusColors: Record<string, string> = {
     "CANCELLED": "FCA5A5",  // red-300
 };
 
-export const exportGanttToExcel = (tasks: GanttTask[], fileName: string = "gantt-export.xlsx") => {
+export const exportGanttToExcel = async (tasks: GanttTask[], fileName: string = "gantt-export.xlsx") => {
+    const XLSX = await import("xlsx-js-style");
     // 1. Calculate Date Range for Timeline
     const allDates: Date[] = [];
     tasks.forEach(t => {

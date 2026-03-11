@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { ColumnVisibility } from "../shared/column-visibility";
 import { TaskWithSubTasks } from "@/components/task/shared/types";
-import { UserPermissionsType } from "@/data/user/get-user-permissions";
+import type { UserPermissionsType } from "@/data/user/get-user-permissions";
 import { useRef, useEffect, useState, memo, cloneElement } from "react";
 import { ChevronDown, ChevronRight, MoreHorizontal } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -32,6 +32,7 @@ interface TaskRowProps {
     isSubtask?: boolean;
     onRequestSubtasks?: (taskId: string) => void;
     isCached?: boolean;
+    scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
     children?: React.ReactNode;
 }
 
@@ -52,6 +53,7 @@ export const TaskRow = memo(function TaskRow({
     projects,
     onRequestSubtasks,
     isCached = false,
+    scrollContainerRef,
     children
 }: TaskRowProps) {
     // MAINTAIN OPTIMISTIC LOCAL STATE FOR SMOOTHEST DRAG & DROP / EDITS
@@ -62,7 +64,7 @@ export const TaskRow = memo(function TaskRow({
         setTask(initialTask);
     }, [initialTask]);
 
-    const subtaskCount = task._count?.subTasks || 0;
+    const subtaskCount = task.subtaskCount || 0;
     const rowRef = useRef<HTMLTableRowElement>(null);
 
     // Lazy load subtasks when visible and expanded
@@ -81,7 +83,10 @@ export const TaskRow = memo(function TaskRow({
                     onRequestSubtasks(task.id);
                 }
             },
-            { rootMargin: "100px" }
+            { 
+                root: scrollContainerRef?.current || null,
+                rootMargin: "20px" 
+            }
         );
 
         if (rowRef.current) {
@@ -117,13 +122,16 @@ export const TaskRow = memo(function TaskRow({
     };
 
     const handleOptimisticSubTaskDeleted = (subTaskId: string) => {
+        const subTaskToDelete = task.subTasks?.find((st: any) => st.id === subTaskId);
+        const wasCompleted = subTaskToDelete?.status === "COMPLETED";
+
         setTask(prev => ({
             ...prev,
             subTasks: prev.subTasks?.filter((st: any) => st.id !== subTaskId),
-            _count: {
-                ...prev._count,
-                subTasks: Math.max(0, (prev._count?.subTasks || 0) - 1)
-            }
+            subtaskCount: Math.max(0, (prev.subtaskCount || 0) - 1),
+            completedSubtaskCount: wasCompleted
+                ? Math.max(0, (prev.completedSubtaskCount || 0) - 1)
+                : (prev.completedSubtaskCount || 0)
         }));
     };
 
@@ -141,10 +149,10 @@ export const TaskRow = memo(function TaskRow({
             return {
                 ...prev,
                 subTasks: [...currentSubTasks, newSubTask],
-                _count: {
-                    ...prev._count,
-                    subTasks: (prev.subTasks?.length || 0) + 1
-                }
+                subtaskCount: (prev.subtaskCount || 0) + 1,
+                completedSubtaskCount: newSubTask.status === "COMPLETED"
+                    ? (prev.completedSubtaskCount || 0) + 1
+                    : (prev.completedSubtaskCount || 0)
             };
         });
     };

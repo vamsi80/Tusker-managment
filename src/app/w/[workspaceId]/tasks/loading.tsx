@@ -1,6 +1,6 @@
-import { WorkspaceTasksSkeleton } from "@/components/shared/workspace-skeletons";
+import { AppLoader } from "@/components/shared/app-loader";
 
 /** Shown INSTANTLY by Next.js when navigating to /tasks */
 export default function TasksLoading() {
-    return <WorkspaceTasksSkeleton />;
+    return <AppLoader />;
 }
