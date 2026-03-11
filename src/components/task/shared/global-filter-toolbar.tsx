@@ -120,10 +120,8 @@ interface GlobalFilterToolbarProps {
     onClearAll: () => void;
     className?: string;
     showSearch?: boolean;
-    // Column visibility (only for list view)
     columnVisibility?: ColumnVisibility;
     setColumnVisibility?: React.Dispatch<React.SetStateAction<ColumnVisibility>>;
-    // Kanban-specific props
     parentTasks?: ParentTaskOption[];
     kanbanColumnVisibility?: KanbanColumnVisibilityType;
     setKanbanColumnVisibility?: React.Dispatch<React.SetStateAction<KanbanColumnVisibilityType>>;
@@ -151,15 +149,10 @@ export function GlobalFilterToolbar({
     const [isOpen, setIsOpen] = useState(false);
     const config = getFilterConfig(view, level);
     const rawActiveFilters = getActiveFilters(filters);
-
-    // Map IDs to labels (assignee name, formatted dates)
-    // Map IDs to labels (assignee name, formatted dates)
     const activeFilters = rawActiveFilters.map(filter => {
-        // Map Assignee ID to Name (Surname preferred)
         if (filter.key === 'assigneeId' && members) {
             const assignee = members.find(m => m.id === filter.value);
             if (assignee) {
-                // User requested "surname instead of name"
                 const displayName = assignee.surname ? assignee.surname : "";
                 return {
                     ...filter,
@@ -168,7 +161,6 @@ export function GlobalFilterToolbar({
             }
         }
 
-        // Map Project ID to Project Name
         if (filter.key === 'projectId' && projects) {
             const project = projects.find(p => p.id === filter.value);
             if (project) {
@@ -178,8 +170,6 @@ export function GlobalFilterToolbar({
                 };
             }
         }
-
-        // Map Tag ID to Tag Name
         if (filter.key === 'tagId' && tags) {
             const tag = tags.find(t => t.id === filter.value);
             if (tag) {
@@ -189,8 +179,6 @@ export function GlobalFilterToolbar({
                 };
             }
         }
-
-        // Map Status Value to Label
         if (filter.key === 'status') {
             const statusOption = STATUS_OPTIONS.find(s => s.value === filter.value);
             if (statusOption) {
@@ -200,8 +188,6 @@ export function GlobalFilterToolbar({
                 };
             }
         }
-
-        // Map Parent Task ID to Name
         if (filter.key === 'parentTaskId' && parentTasks) {
             const parent = parentTasks.find(p => p.id === filter.value);
             if (parent) {
@@ -211,8 +197,6 @@ export function GlobalFilterToolbar({
                 };
             }
         }
-
-        // Format dates
         if ((filter.key === 'startDate' || filter.key === 'endDate') && filter.value) {
             try {
                 return {
@@ -236,7 +220,15 @@ export function GlobalFilterToolbar({
     };
 
     const removeFilter = (key: keyof TaskFilters) => {
-        handleFilterChange(key, undefined);
+        if (key === 'startDate' || key === 'endDate') {
+            onFilterChange({
+                ...filters,
+                startDate: undefined,
+                endDate: undefined,
+            });
+        } else {
+            handleFilterChange(key, undefined);
+        }
     };
 
     const handleClearAll = () => {
@@ -245,15 +237,13 @@ export function GlobalFilterToolbar({
     };
 
     const handleApply = () => {
-        // Keep popover open to allow further refinement
+        setIsOpen(false);
     };
 
     return (
         <div className={cn("space-y-0", className)}>
             <style>{DATE_RANGE_THEME_OVERRIDE}</style>
-            {/* Top Bar with Search and Filter Button */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
-                {/* Search */}
                 {showSearch && config.showSearch && (
                     <div className="flex-1">
                         <TaskSearch
@@ -266,7 +256,6 @@ export function GlobalFilterToolbar({
                 )}
 
                 <div className="flex items-center gap-2 w-full sm:w-auto">
-                    {/* Filter Popover */}
                     <Popover open={isOpen} onOpenChange={setIsOpen}>
                         <PopoverTrigger asChild>
                             <Button
