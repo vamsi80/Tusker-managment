@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { isAdminServer } from "@/lib/auth/requireAdmin";
 import { TeamMembers } from "./_components/team-members-table";
-import { TeamPageSkeleton, TeamPageSkeleton as TeamMembersSkeletonFallback } from "@/components/shared/workspace-skeletons";
+import { AppLoader } from "@/components/shared/app-loader";
 import { getWorkspaceMembers } from "@/data/workspace";
 
 export const revalidate = 300; // 5 minute ISR cache
@@ -29,8 +29,7 @@ async function TeamMembersList({ workspaceId }: { workspaceId: string }) {
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 /**
- * Team Page — skeleton shows instantly via loading.tsx.
- * Data fetches are inside Suspense so they don't block rendering.
+ * Team Page — AppLoader shows while streaming members.
  */
 export default async function TeamPage({ params }: TeamPageProps) {
     const { workspaceId } = await params;
@@ -45,7 +44,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
             </div>
 
             {/* Members table streams in */}
-            <Suspense fallback={<TeamPageSkeleton />}>
+            <Suspense fallback={<AppLoader />}>
                 <TeamMembersList workspaceId={workspaceId} />
             </Suspense>
         </div>

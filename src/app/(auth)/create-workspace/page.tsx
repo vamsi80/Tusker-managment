@@ -17,6 +17,8 @@ import { Textarea } from '@/components/ui/textarea'
 import slugify from "slugify";
 import { createWorkSpace } from '@/actions/workspace/create-workspace'
 
+import { AppLoader } from '@/components/shared/app-loader'
+
 function CreateWorkspaceContent() {
 
     const [Pending, startTransition] = useTransition();
@@ -163,7 +165,7 @@ function CreateWorkspaceContent() {
 
 export default function CreateWorkspace() {
     return (
-        <Suspense fallback={null}>
+        <Suspense fallback={<AppLoader />}>
             <CreateWorkspaceContent />
         </Suspense>
     );

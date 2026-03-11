@@ -5,6 +5,8 @@ import { LoginForm } from './_components/loginForm';
 import { headers } from 'next/headers';
 import { Suspense } from 'react';
 
+import { AppLoader } from '@/components/shared/app-loader';
+
 const signInPage = async () => {
 
   const session = await auth.api.getSession({
@@ -16,7 +18,7 @@ const signInPage = async () => {
   }
 
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<AppLoader />}>
       <LoginForm />
     </Suspense>
   )

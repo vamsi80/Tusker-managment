@@ -5,10 +5,8 @@ import { NavProjectsAsync } from "./projectsList/nav-projects-async";
 import { NavWorkspacesSelector } from "./header/nav-workspaces-selector";
 import { NavFooter } from "./footer/nav-footer";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuItem } from "@/components/ui/sidebar";
-import { NavProjectsSkeleton } from "./projectsList/projects-skeleton";
 import { WorkspacesType } from "@/data/workspace/get-workspaces";
-import { QuickCreateSubTaskAsync, QuickCreateSubTaskSkeleton } from "./header/quick-create-subtask-async";
-import { Suspense } from "react";
+import { QuickCreateSubTaskAsync } from "./header/quick-create-subtask-async";
 
 interface iAppProps {
   data: WorkspacesType;
