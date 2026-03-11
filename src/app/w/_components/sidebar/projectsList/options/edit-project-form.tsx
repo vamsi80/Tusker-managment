@@ -120,38 +120,15 @@ export const EditProjectForm = ({
                                         <FormControl>
                                             <Input placeholder="Enter project name" {...field} />
                                         </FormControl>
+                                        {field.value && (
+                                            <p className="text-[10px] text-muted-foreground mt-1 px-1">
+                                                Slug: {slugify(field.value, { lower: true, strict: true })}
+                                            </p>
+                                        )}
                                         <FormMessage />
                                     </FormItem>
                                 )}
                             />
-
-                            {/* Slug with Generate button */}
-                            <div className="flex gap-4 items-end">
-                                <FormField
-                                    control={form.control}
-                                    name="slug"
-                                    render={({ field }) => (
-                                        <FormItem className="w-full">
-                                            <FormLabel>Slug</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="Slug" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <Button
-                                    type="button"
-                                    className="w-fit"
-                                    onClick={() => {
-                                        const nameValue = form.getValues("name");
-                                        const slug = slugify(nameValue);
-                                        form.setValue("slug", slug, { shouldValidate: true });
-                                    }}
-                                >
-                                    Generate Slug <SparkleIcon className="ml-1" size={16} />
-                                </Button>
-                            </div>
 
                             {/* Description */}
                             <FormField

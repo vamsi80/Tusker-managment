@@ -306,8 +306,11 @@ export function GlobalFilterToolbar({
                                                         variant="ghost"
                                                         size="sm"
                                                         onClick={() => {
-                                                            handleFilterChange("startDate", undefined);
-                                                            handleFilterChange("endDate", undefined);
+                                                            onFilterChange({
+                                                                ...filters,
+                                                                startDate: undefined,
+                                                                endDate: undefined,
+                                                            });
                                                         }}
                                                         className="h-auto p-0 text-xs text-blue-600 hover:text-blue-700 hover:bg-transparent"
                                                     >
