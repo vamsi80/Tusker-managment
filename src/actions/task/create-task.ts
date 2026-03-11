@@ -74,21 +74,11 @@ export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
                 projectId: validation.data.projectId,
                 workspaceId: project.workspaceId,
                 createdById: permissions.workspaceMember.userId,
-                reviewerId: reviewerId,
-                reviewerDisplayName: reviewerDisplayName,
             },
             include: {
                 _count: {
                     select: { subTasks: true }
                 },
-                reviewer: {
-                    select: {
-                        id: true,
-                        // name: true,
-                        surname: true,
-                        // image: true,
-                    }
-                }
             }
         });
 
