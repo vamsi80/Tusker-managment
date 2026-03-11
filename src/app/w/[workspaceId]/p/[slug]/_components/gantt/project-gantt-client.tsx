@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { GanttTask } from "../../../../../../../components/task/gantt/types";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
@@ -13,9 +13,9 @@ import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
 interface ProjectGanttClientProps {
     workspaceId: string;
     projectId: string;
-    initialTasks: GanttTask[]; // Hierarchical - already transformed server-side
-    allTasks: any[]; // Flat tasks for filtering
-    subtaskDataMap: Record<string, WorkspaceTaskType>; // Plain object for server→client serialization
+    initialTasks: GanttTask[];
+    allTasks: any[];
+    subtaskDataMap: Record<string, WorkspaceTaskType>;
     members: MemberOption[];
     tags: TagOption[];
     projectCounts?: Record<string, number>;
@@ -66,56 +66,49 @@ export function ProjectGanttClient({
         });
     };
 
-    const ganttTasks = useMemo(() => {
-        const hasFilters = searchQuery || Object.keys(filters).length > 0;
-        if (!hasFilters) return initialTasks;
+    const [tasks, setTasks] = useState<GanttTask[]>(initialTasks);
+    const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-        // 1. Identify direct matches
-        const directMatches = allTasks.filter(task => {
-            // Search
-            if (searchQuery) {
-                const q = searchQuery.toLowerCase();
-                const matchesSearch = task.name.toLowerCase().includes(q) ||
-                    task.taskSlug.toLowerCase().includes(q) ||
-                    task.assignee?.name.toLowerCase().includes(q) ||
-                    task.assignee?.surname?.toLowerCase().includes(q);
-                if (!matchesSearch) return false;
-            }
+    useEffect(() => {
+        if (isInitialLoad) {
+            setIsInitialLoad(false);
+            return;
+        }
 
-            // Filters
-            if (filters.status && task.status !== filters.status) return false;
-            if (filters.assigneeId && task.assignee?.id !== filters.assigneeId) return false;
+        const fetchTasks = async () => {
+            const params = new URLSearchParams();
+            params.append("w", workspaceId);
+            params.append("p", projectId);
+            if (filters.status) params.append("s", filters.status);
+            if (filters.assigneeId) params.append("a", filters.assigneeId);
+            if (filters.tagId) params.append("t", filters.tagId);
+            if (filters.startDate) params.append("da", filters.startDate instanceof Date ? filters.startDate.toISOString() : filters.startDate);
+            if (filters.endDate) params.append("db", filters.endDate instanceof Date ? filters.endDate.toISOString() : filters.endDate);
+            if (searchQuery) params.append("q", searchQuery);
 
-            // Tag filtering
-            if (filters.tagId) {
-                const tag = task.tag as any;
-                if (!tag || tag.id !== filters.tagId) return false;
-            }
+            startTransition(async () => {
+                try {
+                    const res = await fetch(`/api/gt?${params.toString()}`);
+                    const json = await res.json();
+                    if (json.success) {
+                        const allFetchedTasks: any[] = [];
+                        json.data.tasks.forEach((t: any) => {
+                            allFetchedTasks.push(t);
+                            if (t.subTasks) allFetchedTasks.push(...t.subTasks);
+                        });
+                        setTasks(transformToGanttTasks(allFetchedTasks));
+                    }
+                } catch (err) {
+                    console.error("Failed to fetch gantt tasks:", err);
+                }
+            });
+        };
 
-            if (filters.startDate && (!task.startDate || new Date(task.startDate) < new Date(filters.startDate))) return false;
-            if (filters.endDate) {
-                const end = task.startDate ? new Date(new Date(task.startDate).getTime() + ((task.days || 1) - 1) * 86400000) : null;
-                if (!end || end > new Date(filters.endDate)) return false;
-            }
+        const timer = setTimeout(fetchTasks, 300);
+        return () => clearTimeout(timer);
+    }, [workspaceId, projectId, filters, searchQuery]);
 
-            return true;
-        });
-
-        // 2. Identify parents needed
-        const parentsNeeded = new Set<string>();
-        directMatches.forEach(t => {
-            if (t.parentTaskId) parentsNeeded.add(t.parentTaskId);
-            else parentsNeeded.add(t.id); // It is a parent
-        });
-
-        // 3. Collect final set
-        const finalTasks = allTasks.filter(t =>
-            directMatches.includes(t) || parentsNeeded.has(t.id)
-        );
-
-        return transformToGanttTasks(finalTasks);
-
-    }, [allTasks, initialTasks, filters, searchQuery]);
+    const ganttTasks = tasks;
 
     return (
         <div className="space-y-4">
