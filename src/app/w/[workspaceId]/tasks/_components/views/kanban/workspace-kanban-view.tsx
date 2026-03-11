@@ -15,16 +15,9 @@ interface WorkspaceKanbanViewProps {
     workspaceId: string;
 }
 
-/**
- * Workspace Kanban View
- * 
- * Shows all subtasks from all projects in Kanban format
- * Uses unified getTasks function for consistent data access
- */
 import { getWorkspaceProjectMembersMap, getWorkspaceProjectManagersMap } from "@/data/workspace/get-workspace-kanban-data";
 
 export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewProps) {
-    // 1. Kick off all independent queries immediately!
     const userPromise = requireUser();
     const membersPromise = getWorkspaceMembers(workspaceId);
     const projectsPromise = getUserProjects(workspaceId);
@@ -35,9 +28,11 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
     // 2. Wait for user safely before launching the dependent queries
     const user = await userPromise;
 
+    const COLUMNS = ["TO_DO", "IN_PROGRESS", "REVIEW", "HOLD", "COMPLETED", "CANCELLED"] as const;
+
     // 3. Launch the final large queries
     const [
-        tasksResponse,
+        statusResponses,
         permissions,
         workspaceMembers,
         projects,
@@ -45,14 +40,17 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
         tags,
         pmMap,
     ] = await Promise.all([
-        getTasks({
-            workspaceId,
-            groupBy: "status",
-            excludeParents: true,
-            limit: 50,
-            sorts: [{ field: "createdAt", direction: "desc" }],
-            view_mode: "kanban"
-        }, user.id),
+        Promise.all(COLUMNS.map(status =>
+            getTasks({
+                workspaceId,
+                status: [status],
+                excludeParents: true,
+                limit: 30, // Increased to 30 to better fill initial screen and prevent eager paging
+                sorts: [{ field: "createdAt", direction: "desc" }],
+                view_mode: "kanban",
+                includeFacets: true
+            }, user.id)
+        )),
         getWorkspacePermissions(workspaceId, user.id),
         membersPromise,
         projectsPromise,
@@ -60,76 +58,23 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
         tagsPromise,
         projectManagersPromise,
     ]);
+    const initialData: Record<string, any> = {};
 
+    COLUMNS.forEach((status, index) => {
+        const response = statusResponses[index];
+        const tasks = response.tasks;
+        const totalInDb = (response.facets as any)?.statusCounts?.[status] || tasks.length;
 
-    // Group tasks by status in JS with strict deduplication
-    const statusGroups: Record<string, any[]> = {
-        TO_DO: [],
-        IN_PROGRESS: [],
-        CANCELLED: [],
-        REVIEW: [],
-        HOLD: [],
-        COMPLETED: [],
-    };
-
-    const idSet = new Set();
-    tasksResponse.tasks.forEach((task: any) => {
-        // Guard 1: Deduplicate
-        if (idSet.has(task.id)) return;
-        idSet.add(task.id);
-
-        // Guard 2: Strict Status Grouping
-        if (task.status && statusGroups[task.status]) {
-            statusGroups[task.status].push(task);
-        }
+        initialData[status] = {
+            subTasks: tasks,
+            totalCount: totalInDb,
+            hasMore: totalInDb > tasks.length,
+            nextCursor: totalInDb > tasks.length && tasks.length > 0
+                ? { id: tasks[tasks.length - 1].id, createdAt: tasks[tasks.length - 1].createdAt }
+                : null,
+            currentPage: 1
+        };
     });
-
-    const counts = (tasksResponse.facets as any).statusCounts || {};
-
-    const initialData = {
-        TO_DO: {
-            subTasks: statusGroups.TO_DO,
-            totalCount: counts.TO_DO || statusGroups.TO_DO.length,
-            hasMore: (counts.TO_DO || statusGroups.TO_DO.length) > statusGroups.TO_DO.length,
-            nextCursor: statusGroups.TO_DO.length > 0 ? { id: statusGroups.TO_DO[statusGroups.TO_DO.length - 1].id, createdAt: statusGroups.TO_DO[statusGroups.TO_DO.length - 1].createdAt } : undefined,
-            currentPage: 1
-        },
-        IN_PROGRESS: {
-            subTasks: statusGroups.IN_PROGRESS,
-            totalCount: counts.IN_PROGRESS || statusGroups.IN_PROGRESS.length,
-            hasMore: (counts.IN_PROGRESS || statusGroups.IN_PROGRESS.length) > statusGroups.IN_PROGRESS.length,
-            nextCursor: statusGroups.IN_PROGRESS.length > 0 ? { id: statusGroups.IN_PROGRESS[statusGroups.IN_PROGRESS.length - 1].id, createdAt: statusGroups.IN_PROGRESS[statusGroups.IN_PROGRESS.length - 1].createdAt } : undefined,
-            currentPage: 1
-        },
-        CANCELLED: {
-            subTasks: statusGroups.CANCELLED,
-            totalCount: counts.CANCELLED || statusGroups.CANCELLED.length,
-            hasMore: (counts.CANCELLED || statusGroups.CANCELLED.length) > statusGroups.CANCELLED.length,
-            nextCursor: statusGroups.CANCELLED.length > 0 ? { id: statusGroups.CANCELLED[statusGroups.CANCELLED.length - 1].id, createdAt: statusGroups.CANCELLED[statusGroups.CANCELLED.length - 1].createdAt } : undefined,
-            currentPage: 1
-        },
-        REVIEW: {
-            subTasks: statusGroups.REVIEW,
-            totalCount: counts.REVIEW || statusGroups.REVIEW.length,
-            hasMore: (counts.REVIEW || statusGroups.REVIEW.length) > statusGroups.REVIEW.length,
-            nextCursor: statusGroups.REVIEW.length > 0 ? { id: statusGroups.REVIEW[statusGroups.REVIEW.length - 1].id, createdAt: statusGroups.REVIEW[statusGroups.REVIEW.length - 1].createdAt } : undefined,
-            currentPage: 1
-        },
-        HOLD: {
-            subTasks: statusGroups.HOLD,
-            totalCount: counts.HOLD || statusGroups.HOLD.length,
-            hasMore: (counts.HOLD || statusGroups.HOLD.length) > statusGroups.HOLD.length,
-            nextCursor: statusGroups.HOLD.length > 0 ? { id: statusGroups.HOLD[statusGroups.HOLD.length - 1].id, createdAt: statusGroups.HOLD[statusGroups.HOLD.length - 1].createdAt } : undefined,
-            currentPage: 1
-        },
-        COMPLETED: {
-            subTasks: statusGroups.COMPLETED,
-            totalCount: counts.COMPLETED || statusGroups.COMPLETED.length,
-            hasMore: (counts.COMPLETED || statusGroups.COMPLETED.length) > statusGroups.COMPLETED.length,
-            nextCursor: statusGroups.COMPLETED.length > 0 ? { id: statusGroups.COMPLETED[statusGroups.COMPLETED.length - 1].id, createdAt: statusGroups.COMPLETED[statusGroups.COMPLETED.length - 1].createdAt } : undefined,
-            currentPage: 1
-        },
-    };
 
     // Convert workspace members to project members format
     // The KanbanBoard expects ProjectMembersType, but we can adapt workspace members

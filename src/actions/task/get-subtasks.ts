@@ -10,7 +10,7 @@ export async function getSubTasksAction(
     projectId?: string,
     filters: Partial<TaskFilters> = {},
     pageSize: number = 30,
-    viewMode: string = "list"
+    viewMode: string = "subtask"
 ) {
     const startTime = performance.now();
     const user = await requireUser();

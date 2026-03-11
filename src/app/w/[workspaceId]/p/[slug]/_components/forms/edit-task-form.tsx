@@ -22,6 +22,8 @@ interface EditTaskDialogProps {
     task: TaskWithSubTasks;
     projectId?: string;
     onTaskUpdated?: (updatedTask: { name: string; taskSlug: string }) => void;
+    onUpdateStart?: () => void;
+    onUpdateEnd?: () => void;
     level?: "workspace" | "project";
     projects?: { id: string; name: string; }[];
 }
@@ -37,13 +39,14 @@ export function EditTaskDialog({
     task,
     projectId,
     onTaskUpdated,
+    onUpdateStart,
+    onUpdateEnd,
     level = "project", // Default to project level
     projects = [], // Default to empty array
 }: EditTaskDialogProps) {
     const [pending, startTransition] = useTransition();
     const [open, setOpen] = useState(false);
     const [autoSlugEnabled, setAutoSlugEnabled] = useState(true);
-    const [selectedProjectId, setSelectedProjectId] = useState<string>(projectId || task.projectId || "");
     const reloadView = useReloadView();
 
     const form = useForm<TaskSchemaType>({
@@ -52,17 +55,13 @@ export function EditTaskDialog({
             name: task.name,
             taskSlug: task.taskSlug,
             projectId: task.projectId,
-            reviewerId: (task as any).reviewerId || null,
         },
     });
 
-    const [reviewers, setReviewers] = useState<ProjectReviewer[]>([]);
-
     useEffect(() => {
-        if (open && selectedProjectId) {
-            getProjectReviewers(selectedProjectId)
+        if (open) {
+            getProjectReviewers(task.projectId)
                 .then((fetchedReviewers) => {
-                    setReviewers(fetchedReviewers);
 
                     // Default to Task Creator if no reviewer set
                     if (!form.getValues("reviewerId")) {
@@ -76,7 +75,7 @@ export function EditTaskDialog({
                 })
                 .catch(err => console.error("Failed to fetch reviewers", err));
         }
-    }, [open, selectedProjectId, form]);
+    }, [open, form]);
 
     const watchedName = useWatch({
         control: form.control,
@@ -105,7 +104,9 @@ export function EditTaskDialog({
         }
 
         startTransition(async () => {
+            if (onUpdateStart) onUpdateStart();
             const { data: result, error } = await tryCatch(editTask(values, task.id));
+            if (onUpdateEnd) onUpdateEnd();
 
             if (error) {
                 toast.error(error.message);
@@ -179,7 +180,6 @@ export function EditTaskDialog({
                                             <Select
                                                 onValueChange={(value) => {
                                                     field.onChange(value);
-                                                    setSelectedProjectId(value);
                                                 }}
                                                 value={field.value}
                                             >
@@ -217,40 +217,6 @@ export function EditTaskDialog({
                                                 {...field}
                                             />
                                         </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-
-                            <FormField
-                                control={form.control}
-                                name="reviewerId"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Review By</FormLabel>
-                                        <Select
-                                            onValueChange={(value) => field.onChange(value === "unassigned" ? null : value)}
-                                            value={field.value || "unassigned"}
-                                        >
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select a reviewer" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                <SelectItem value="unassigned">No Reviewer</SelectItem>
-                                                {reviewers.map((reviewer) => (
-                                                    <SelectItem key={reviewer.id} value={reviewer.id}>
-                                                        <div className="flex items-center gap-2">
-                                                            <span>{reviewer.surname}</span>
-                                                            <span className="text-xs text-muted-foreground ml-1">
-                                                                ({reviewer.role})
-                                                            </span>
-                                                        </div>
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
                                         <FormMessage />
                                     </FormItem>
                                 )}
