@@ -121,23 +121,30 @@ export function InlineTaskForm({
 
             {/* Task Name Input */}
             <TableCell className="min-w-[250px]">
-                <Input
-                    placeholder="Task name..."
-                    value={taskName}
-                    onChange={(e) => setTaskName(e.target.value)}
-                    onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault();
-                            handleSubmit(e);
-                        }
-                        if (e.key === "Escape") {
-                            onCancel();
-                        }
-                    }}
-                    autoFocus
-                    disabled={pending}
-                    className="h-8 border-primary/50 focus-visible:ring-primary"
-                />
+                <div className="flex flex-col">
+                    <Input
+                        placeholder="Task name..."
+                        value={taskName}
+                        onChange={(e) => setTaskName(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSubmit(e);
+                            }
+                            if (e.key === "Escape") {
+                                onCancel();
+                            }
+                        }}
+                        autoFocus
+                        disabled={pending}
+                        className="h-8 border-primary/50 focus-visible:ring-primary"
+                    />
+                    {taskName.trim().length > 0 && (
+                        <p className="text-[10px] text-muted-foreground mt-0.5 px-1">
+                            Slug: {slugify(taskName.trim(), { lower: true, strict: true })}
+                        </p>
+                    )}
+                </div>
             </TableCell>
 
             {/* Project Selection (Workspace Level) or Description placeholder */}

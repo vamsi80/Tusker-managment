@@ -280,23 +280,30 @@ export function InlineSubTaskForm({
 
             {/* SubTask Name Input */}
             <TableCell className="w-[250px] pl-0">
-                <Input
-                    placeholder="SubTask name..."
-                    value={subTaskName}
-                    onChange={(e) => setSubTaskName(e.target.value)}
-                    onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault();
-                            handleSubmit(e);
-                        }
-                        if (e.key === "Escape") {
-                            onCancel();
-                        }
-                    }}
-                    autoFocus
-                    disabled={pending}
-                    className="h-8 border-primary/50 focus-visible:ring-primary"
-                />
+                <div className="flex flex-col">
+                    <Input
+                        placeholder="SubTask name..."
+                        value={subTaskName}
+                        onChange={(e) => setSubTaskName(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSubmit(e);
+                            }
+                            if (e.key === "Escape") {
+                                onCancel();
+                            }
+                        }}
+                        autoFocus
+                        disabled={pending}
+                        className="h-8 border-primary/50 focus-visible:ring-primary"
+                    />
+                    {subTaskName.trim().length > 0 && (
+                        <p className="text-[10px] text-muted-foreground mt-0.5 px-1">
+                            Slug: {slugify(subTaskName.trim(), { lower: true, strict: true })}
+                        </p>
+                    )}
+                </div>
             </TableCell>
 
             {/* Description - Popover with Textarea */}

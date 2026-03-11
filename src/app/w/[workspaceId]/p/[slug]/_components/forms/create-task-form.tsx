@@ -154,6 +154,11 @@ export const CreateTaskForm = ({
                                             <FormControl>
                                                 <Input placeholder="Enter task title" {...field} />
                                             </FormControl>
+                                            {field.value && (
+                                                <p className="text-[10px] text-muted-foreground mt-1 px-1">
+                                                    Slug: {slugify(field.value, { lower: true, strict: true })}
+                                                </p>
+                                            )}
                                             <FormMessage />
                                         </FormItem>
                                     )}
@@ -189,45 +194,6 @@ export const CreateTaskForm = ({
                                         )}
                                     />
                                 )}
-                                <div className=" flex gap-4 items-end">
-                                    <FormField
-                                        control={form.control}
-                                        name="taskSlug"
-                                        render={({ field }) => (
-                                            <FormItem className="w-full">
-                                                <FormLabel>
-                                                    Slug
-                                                    {autoSlugEnabled && (
-                                                        <span className="text-xs text-muted-foreground ml-2">
-                                                            (auto-updating)
-                                                        </span>
-                                                    )}
-                                                </FormLabel>
-                                                <FormControl>
-                                                    <Input
-                                                        placeholder="Slug"
-                                                        {...field}
-                                                        onChange={(e) => {
-                                                            field.onChange(e);
-                                                            // Disable auto-slug if user manually edits
-                                                            setAutoSlugEnabled(false);
-                                                        }}
-                                                    />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        className="w-fit shrink-0"
-                                        onClick={handleManualSlugGenerate}
-                                    >
-                                        <SparkleIcon className="mr-1" size={16} />
-                                        Generate
-                                    </Button>
-                                </div>
 
                                 <div className="flex flex-row items-center gap-4">
                                     <Button type="submit" disabled={Pending} className="cursor-pointer">

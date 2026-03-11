@@ -15,6 +15,7 @@ import { subTaskSchema, SubTaskSchemaType } from "@/lib/zodSchemas";
 import { tryCatch } from "@/hooks/try-catch";
 import { toast } from "sonner";
 import type { ProjectMembersType } from "@/data/project/get-project-members";
+import slugify from "slugify";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
@@ -173,6 +174,11 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                         <FormControl>
                                             <Input placeholder="Enter subtask name" {...field} />
                                         </FormControl>
+                                        {field.value && (
+                                            <p className="text-[10px] text-muted-foreground mt-1 px-1">
+                                                Slug: {slugify(field.value, { lower: true, strict: true })}
+                                            </p>
+                                        )}
                                         <FormMessage />
                                     </FormItem>
                                 )}
