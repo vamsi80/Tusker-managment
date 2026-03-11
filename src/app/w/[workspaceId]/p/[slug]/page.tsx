@@ -6,7 +6,7 @@ import { ReloadableView } from "./_components/shared/reloadable-view";
 import { ProjectTaskListView } from "./_components/list/project-task-list-view";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
 import { requireUser } from "@/lib/auth/require-user";
-import { ProjectPageSkeleton } from "@/components/shared/project-page-skeleton";
+import { AppLoader } from "@/components/shared/app-loader";
 
 interface iAppProps {
   params: Promise<{ workspaceId: string; slug: string }>;
@@ -30,37 +30,37 @@ export default async function ProjectPage({ params, searchParams }: iAppProps) {
     ? view
     : "dashboard";
 
-  const skeleton = <ProjectPageSkeleton />;
+  const loader = <AppLoader />;
 
   return (
     <>
       {currentView === "dashboard" && (
-        <ReloadableView skeleton={skeleton}>
-          <Suspense fallback={skeleton}>
+        <ReloadableView skeleton={loader}>
+          <Suspense fallback={loader}>
             <ProjectDashboard />
           </Suspense>
         </ReloadableView>
       )}
 
       {currentView === "list" && (
-        <ReloadableView skeleton={skeleton}>
-          <Suspense fallback={skeleton}>
+        <ReloadableView skeleton={loader}>
+          <Suspense fallback={loader}>
             <ProjectTaskListViewServer workspaceId={workspaceId} slug={slug} />
           </Suspense>
         </ReloadableView>
       )}
 
       {currentView === "kanban" && (
-        <ReloadableView skeleton={skeleton}>
-          <Suspense fallback={skeleton}>
+        <ReloadableView skeleton={loader}>
+          <Suspense fallback={loader}>
             <ProjectKanbanViewServer workspaceId={workspaceId} slug={slug} />
           </Suspense>
         </ReloadableView>
       )}
 
       {currentView === "gantt" && (
-        <ReloadableView skeleton={skeleton}>
-          <Suspense fallback={skeleton}>
+        <ReloadableView skeleton={loader}>
+          <Suspense fallback={loader}>
             <ProjectGanttViewServer workspaceId={workspaceId} slug={slug} />
           </Suspense>
         </ReloadableView>

@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { WorkspaceListView } from "./_components/views/list/workspace-list-view";
 import { WorkspaceGanttView } from "./_components/views/gantt/workspace-gantt-view";
-import { WorkspaceTasksSkeleton } from "@/components/shared/workspace-skeletons";
+import { AppLoader } from "@/components/shared/app-loader";
 import { ReloadableView } from "@/components/shared/reloadable-view";
 import WorkspaceKanbanView from "./_components/views/kanban/workspace-kanban-view";
 
@@ -28,25 +28,25 @@ export default async function WorkspaceTasksPage({
     const { workspaceId } = await params;
     const { view = "list" } = await searchParams;
 
-    const skeleton = <WorkspaceTasksSkeleton />;
+    const loader = <AppLoader />;
 
     return (
-        <ReloadableView skeleton={skeleton}>
+        <ReloadableView skeleton={loader}>
             {/* View content streams in - now without the outer div as layout handles it */}
             {view === "list" && (
-                <Suspense fallback={skeleton}>
+                <Suspense fallback={loader}>
                     <WorkspaceListView workspaceId={workspaceId} />
                 </Suspense>
             )}
 
             {view === "kanban" && (
-                <Suspense fallback={skeleton}>
+                <Suspense fallback={loader}>
                     <WorkspaceKanbanView workspaceId={workspaceId} />
                 </Suspense>
             )}
 
             {view === "gantt" && (
-                <Suspense fallback={skeleton}>
+                <Suspense fallback={loader}>
                     <WorkspaceGanttView workspaceId={workspaceId} />
                 </Suspense>
             )}

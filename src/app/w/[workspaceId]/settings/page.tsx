@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { getWorkspaceTagsWithCount } from "@/data/tag/get-tags";
 import { TagsManager } from "./_components/tag/tags-manager";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
-import { SettingsPageSkeleton } from "@/components/shared/workspace-skeletons";
+import { AppLoader } from "@/components/shared/app-loader";
 
 export const revalidate = 60; // 1 minute ISR revalidation
 
@@ -39,8 +39,7 @@ async function SettingsContent({ workspaceId }: { workspaceId: string }) {
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 /**
- * Settings Page — skeleton shows instantly via loading.tsx.
- * Static heading renders immediately; content streams in via Suspense.
+ * Settings Page — static heading renders immediately; content streams in via AppLoader.
  */
 export default async function SettingsPage({ params }: SettingsPageProps) {
     const { workspaceId } = await params;
@@ -56,7 +55,7 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
             </div>
 
             {/* Content streams in */}
-            <Suspense fallback={<SettingsPageSkeleton />}>
+            <Suspense fallback={<AppLoader />}>
                 <SettingsContent workspaceId={workspaceId} />
             </Suspense>
         </div>

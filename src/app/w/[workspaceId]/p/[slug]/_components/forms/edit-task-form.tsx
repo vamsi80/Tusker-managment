@@ -20,12 +20,10 @@ import { useReloadView } from "@/hooks/use-reload-view";
 
 interface EditTaskDialogProps {
     task: TaskWithSubTasks;
-    projectId?: string; // Optional for workspace level
+    projectId?: string;
     onTaskUpdated?: (updatedTask: { name: string; taskSlug: string }) => void;
-    onUpdateStart?: () => void;
-    onUpdateEnd?: () => void;
-    level?: "workspace" | "project"; // Explicitly define the level
-    projects?: { id: string; name: string; }[]; // For workspace-level project selection
+    level?: "workspace" | "project";
+    projects?: { id: string; name: string; }[];
 }
 
 /**
@@ -39,8 +37,6 @@ export function EditTaskDialog({
     task,
     projectId,
     onTaskUpdated,
-    onUpdateStart,
-    onUpdateEnd,
     level = "project", // Default to project level
     projects = [], // Default to empty array
 }: EditTaskDialogProps) {
