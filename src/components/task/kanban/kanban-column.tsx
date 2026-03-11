@@ -3,13 +3,14 @@
 import { useDroppable, useDndContext } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 
-import { KanbanSubTaskType } from "@/data/task";
+import type { KanbanSubTaskType } from "@/data/task";
 import { cn } from "@/lib/utils";
 import { KanbanCard } from "./kanban-card";
 import { KanbanCardSkeleton } from "./kanban-skeleton";
 import { useInView } from "react-intersection-observer";
-import { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { Plus } from "lucide-react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "REVIEW" | "HOLD" | "COMPLETED" | "CANCELLED";
 
@@ -21,28 +22,30 @@ interface KanbanColumnProps {
         bgColor: string;
         borderColor: string;
     };
-    subTasks: KanbanSubTaskType[];
+    subTaskIds: string[];
     totalCount: number;
     hasMore: boolean;
     isLoadingMore: boolean;
     onSubTaskClick: (subTask: KanbanSubTaskType) => void;
     onLoadMore: () => void;
     projectManagers?: Record<string, any>;
+    updatingTaskIds?: Set<string>;
 }
 
 /**
- * Kanban Column Component
- * ...
+ * Kanban Column Component 
+ * Optimized with virtualization and normalized data flow.
  */
-export function KanbanColumn({
+export const KanbanColumn = React.memo(function KanbanColumn({
     column,
-    subTasks,
+    subTaskIds,
     totalCount,
     hasMore,
     isLoadingMore,
     onSubTaskClick,
     onLoadMore,
-    projectManagers
+    projectManagers,
+    updatingTaskIds = new Set()
 }: KanbanColumnProps) {
     const { setNodeRef, isOver } = useDroppable({
         id: column.id,
@@ -56,15 +59,22 @@ export function KanbanColumn({
         rootMargin: '100px', // Trigger before hitting bottom slightly
     });
 
+    const parentRef = useRef<HTMLDivElement>(null);
+
+    const virtualizer = useVirtualizer({
+        count: subTaskIds.length + (hasMore || isLoadingMore ? 1 : 0),
+        getScrollElement: () => parentRef.current,
+        estimateSize: () => 140, // Estimated card height with space
+        overscan: 10,
+    });
+
+    const virtualItems = virtualizer.getVirtualItems();
+
     useEffect(() => {
         if (inView && hasMore && !isLoadingMore) {
             onLoadMore();
         }
     }, [inView, hasMore, isLoadingMore, onLoadMore]);
-
-    const deduplicatedSubTasks = Array.from(
-        new Map(subTasks.map((t) => [t.id, t])).values()
-    );
 
     return (
         <div
@@ -107,12 +117,12 @@ export function KanbanColumn({
                             </div>
                         )}
                     </div>
-
                 </div>
             </div>
 
             {/* Column Content with individual scroll */}
             <div
+                ref={parentRef}
                 className={cn(
                     "flex-1 p-3 overflow-y-auto",
                     !isOver && "border-t-0",
@@ -126,64 +136,88 @@ export function KanbanColumn({
                 )}
             >
                 <SortableContext
-                    items={deduplicatedSubTasks.map((t) => t.id)}
+                    items={subTaskIds}
                     strategy={verticalListSortingStrategy}
                 >
-                    <div className="space-y-3 min-h-[100px]">
-                        <div className="flex flex-col gap-2 min-h-[50px]">
-                            {deduplicatedSubTasks.map((subTask) => (
-                                <KanbanCard
-                                    key={subTask.id}
-                                    subTask={subTask}
-                                    columnColor={column.color}
-                                    onSubTaskClick={onSubTaskClick}
-                                    projectManagers={projectManagers}
-                                />
-                            ))}
+                    <div
+                        style={{
+                            height: `${virtualizer.getTotalSize()}px`,
+                            width: '100%',
+                            position: 'relative',
+                        }}
+                    >
+                        {virtualItems.map((virtualItem) => {
+                            const isLoader = virtualItem.index >= subTaskIds.length;
+                            const subTaskId = subTaskIds[virtualItem.index];
 
-                            {/* Infinite Scroll Sentinel & Skeleton */}
-                            {(hasMore || isLoadingMore) && (
-                                <div ref={loadMoreRef} className="py-2 w-full">
-                                    {isLoadingMore ? (
-                                        <div className="space-y-3">
-                                            <KanbanCardSkeleton />
+                            return (
+                                <div
+                                    key={virtualItem.key}
+                                    data-index={virtualItem.index}
+                                    ref={virtualizer.measureElement}
+                                    style={{
+                                        position: 'absolute',
+                                        top: 0,
+                                        left: 0,
+                                        width: '100%',
+                                        transform: `translateY(${virtualItem.start}px)`,
+                                        paddingBottom: '12px', // space-y-3 equivalent
+                                    }}
+                                >
+                                    {isLoader ? (
+                                        <div ref={loadMoreRef} className="py-2 w-full">
+                                            {isLoadingMore ? (
+                                                <div className="space-y-3">
+                                                    <KanbanCardSkeleton />
+                                                </div>
+                                            ) : (
+                                                <div className="h-4 w-full" /> // Invisible sentinel
+                                            )}
                                         </div>
                                     ) : (
-                                        <div className="h-4 w-full" /> // Invisible sentinel
+                                        <KanbanCardWrapper
+                                            id={subTaskId}
+                                            columnColor={column.color}
+                                            onSubTaskClick={onSubTaskClick}
+                                            projectManagers={projectManagers}
+                                            isUpdating={updatingTaskIds.has(subTaskId)}
+                                        />
                                     )}
                                 </div>
-                            )}
-
-                            {deduplicatedSubTasks.length === 0 && !isLoadingMore && (
-                                <div className="flex items-center justify-center h-24 text-muted-foreground text-xs uppercase font-medium tracking-wider border-2 border-dashed rounded-lg bg-muted/20">
-                                    No subtasks
-                                </div>
-                            )}
-
-                            {/* Visual Drop Zone at the bottom */}
-                            {/* <div className={cn(
-                                "group border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all duration-300",
-                                isOver
-                                    ? "border-primary/50 bg-primary/10 scale-95 shadow-inner"
-                                    : "border-muted-foreground/10 bg-muted/5 opacity-40 hover:opacity-100"
-                            )}>
-                                <div className={cn(
-                                    "p-2 rounded-full border-2 border-dashed transition-colors",
-                                    isOver ? "border-primary text-primary bg-background" : "border-muted-foreground/20 text-muted-foreground"
-                                )}>
-                                    <Plus className="h-5 w-5" />
-                                </div>
-                                <span className={cn(
-                                    "text-[10px] font-bold uppercase tracking-widest transition-colors",
-                                    isOver ? "text-primary" : "text-muted-foreground/60"
-                                )}>
-                                    {isOver ? "Release to Move" : "Drop here"}
-                                </span>
-                            </div> */}
-                        </div>
+                            );
+                        })}
                     </div>
+
+                    {subTaskIds.length === 0 && !isLoadingMore && (
+                        <div className="flex items-center justify-center h-24 text-muted-foreground text-xs uppercase font-medium tracking-wider border-2 border-dashed rounded-lg bg-muted/20">
+                            No subtasks
+                        </div>
+                    )}
                 </SortableContext>
             </div>
         </div>
     );
-}
+});
+
+import { useTaskCacheStore } from "@/lib/store/task-cache-store";
+
+const KanbanCardWrapper = React.memo(function KanbanCardWrapper({
+    id,
+    ...props
+}: {
+    id: string;
+    columnColor: string;
+    onSubTaskClick: (subTask: KanbanSubTaskType) => void;
+    projectManagers?: Record<string, any>;
+    isUpdating: boolean;
+}) {
+    const subTask = useTaskCacheStore(state => state.entities[id]);
+    if (!subTask) return null;
+
+    return (
+        <KanbanCard
+            subTask={subTask as KanbanSubTaskType}
+            {...props}
+        />
+    );
+});

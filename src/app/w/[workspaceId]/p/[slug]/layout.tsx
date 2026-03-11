@@ -2,25 +2,7 @@ import { Suspense } from "react";
 import { getProjectMetadata } from "@/data/project/get-project-metadata";
 import ProjectHeader from "./_components/layout/project-header";
 import { TaskPageWrapper } from "@/app/w/[workspaceId]/_components/shared/task-page-wrapper";
-import { ProjectHeaderSkeleton } from "./_components/layout/project-header-skeleton";
 
-/**
- * Project Layout
- *
- * IMPORTANT: This layout ONLY provides structure.
- * It does NOT fetch business data (tasks, members lists, etc.)
- *
- * Data fetching happens in:
- * - page.tsx for initial page data
- * - Individual view components for their specific data
- * - Server Actions for mutations and lazy loading
- */
-
-/**
- * Async server component that fetches project metadata and renders the header.
- * By isolating the await here inside a Suspense boundary, the layout shell
- * renders INSTANTLY and the header streams in — no blocking.
- */
 async function ProjectHeaderLoader({
     workspaceId,
     slug,
@@ -71,8 +53,7 @@ export default async function ProjectLayout({
     return (
         <TaskPageWrapper>
             <div className="flex flex-col gap-4 pb-3 px-0 h-full">
-                {/* Header streams in without blocking page content */}
-                <Suspense fallback={<ProjectHeaderSkeleton />}>
+                <Suspense fallback={null}>
                     <ProjectHeaderLoader workspaceId={workspaceId} slug={slug} />
                 </Suspense>
 

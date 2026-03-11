@@ -56,6 +56,16 @@ export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
         // For parent tasks, the default reviewer should be null if not provided
         const reviewerId = validation.data.reviewerId ?? null;
 
+        // Fetch reviewer name if present
+        let reviewerDisplayName: string | null = null;
+        if (reviewerId) {
+            const revMember = await prisma.user.findUnique({
+                where: { id: reviewerId },
+                select: { surname: true }
+            });
+            reviewerDisplayName = revMember ? revMember.surname : null;
+        }
+
         // 3. Create the task
         const newTask = await prisma.task.create({
             data: {
@@ -65,6 +75,7 @@ export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
                 workspaceId: project.workspaceId,
                 createdById: permissions.workspaceMember.userId,
                 reviewerId: reviewerId,
+                reviewerDisplayName: reviewerDisplayName,
             },
             include: {
                 _count: {

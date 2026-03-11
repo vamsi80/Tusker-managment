@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { tryCatch } from "@/hooks/try-catch";
 import { addProjectMembers, removeProjectMembers, updateProjectMemberRole } from "@/actions/project/manage-members";
-import { ProjectRole } from "@/generated/prisma/client";
+import type { ProjectRole } from "@/generated/prisma/client";
 import { WorkspaceMembersResult } from "@/data/workspace";
 
 interface ProjectMember {

@@ -1,11 +1,14 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useRef } from "react";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
-import { SubTaskDetailsSheet } from "@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/subtask-details-sheet";
+const SubTaskDetailsSheet = dynamic(() => import("@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/subtask-details-sheet").then(mod => mod.SubTaskDetailsSheet), {
+    ssr: false,
+    loading: () => null
+});
 import { useSearchParams, useParams } from "next/navigation";
 import { fetchSubTaskBySlugAction } from "@/actions/task/fetch-subtask-by-slug";
-import { toast } from "sonner";
 
 export function GlobalSubTaskSheet() {
     const { isOpen, subTask, openSubTaskSheet, openSubTaskSheetLoading, closeSubTaskSheet } = useSubTaskSheet();

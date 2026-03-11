@@ -1,7 +1,7 @@
 // NavWorkspacesSelector.tsx
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useTransition, useRef, useEffect } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Check, ChevronsUpDown, Plus } from "lucide-react";
+import { Check, ChevronsUpDown, Loader2, Plus } from "lucide-react";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "../../../../../components/ui/sidebar";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -23,6 +23,9 @@ interface Props {
 
 export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) => {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const navigatingTo = useRef<string | null>(null);
+
   const workspaces = data?.workspaces ?? []; // array of workspace items
   // find current workspace item from workspaceId or default to first item
   const selected = useMemo(() => {
@@ -33,8 +36,18 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
     );
   }, [workspaces, workspaceId]);
 
-  const onWorkspaceSelect = (workspaceId: string) => {
-    router.push(`/w/${workspaceId}`);
+  useEffect(() => {
+    if (!isPending) {
+      navigatingTo.current = null;
+    }
+  }, [isPending]);
+
+  const onWorkspaceSelect = (targetWorkspaceId: string) => {
+    if (targetWorkspaceId === workspaceId || isPending || navigatingTo.current === targetWorkspaceId) return; // Already on this workspace or switching
+    navigatingTo.current = targetWorkspaceId;
+    startTransition(() => {
+      router.push(`/w/${targetWorkspaceId}`);
+    });
   };
 
   return (
@@ -44,18 +57,21 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              className={`data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground ${isPending ? 'opacity-60' : ''}`}
             >
-              <Avatar className="h-8 w-8 rounded-lg">
-                {/* No external avatar, fallback to initials using Tailwind CSS */}
-                <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
-                  {(selected?.name ?? selected?.id ?? "W").charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
+              {isPending ? (
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              ) : (
+                <Avatar className="h-8 w-8 rounded-lg">
+                  <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
+                    {(selected?.name ?? selected?.id ?? "W").charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              )}
 
               <div className="flex flex-col ml-2">
                 <div className="font-semibold text-muted-foreground">
-                  {selected?.name ?? "No Workspaces"}
+                  {isPending ? "Switching..." : (selected?.name ?? "No Workspaces")}
                 </div>
               </div>
               <ChevronsUpDown className="ml-auto" />
@@ -72,7 +88,11 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
             {workspaces.map((ws) => {
               const routeKey = ws.id;
               return (
-                <DropdownMenuItem key={ws.id} onClick={() => onWorkspaceSelect(routeKey)}>
+                <DropdownMenuItem
+                  key={ws.id}
+                  onClick={() => onWorkspaceSelect(routeKey)}
+                  disabled={isPending}
+                >
                   <div className="flex flex-row items-center gap-2">
                     <Avatar className="h-8 w-8 rounded-lg">
                       {/* No external avatar, fallback to initials using Tailwind CSS */}
@@ -91,17 +111,6 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
               );
             })}
 
-            {/* <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="gap-2 p-2 cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
-                router.push(`/create-workspace`);
-              }}
-            >
-              <Plus className="size-4" />
-              <span className="text-muted-foreground font-medium">Create Workspace</span>
-            </DropdownMenuItem> */}
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

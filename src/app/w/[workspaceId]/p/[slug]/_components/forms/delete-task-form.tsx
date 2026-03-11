@@ -28,6 +28,7 @@ export function DeleteTaskDialog({ task, onTaskDeleted }: DeleteTaskDialogProps)
     const reloadView = useReloadView();
 
     const handleDelete = () => {
+        if (pending) return;
         startTransition(async () => {
             const { data: result, error } = await tryCatch(deleteTask(task.id));
 

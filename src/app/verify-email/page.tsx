@@ -3,6 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { Mail, AlertCircle, CheckCircle } from "lucide-react";
+import { AppLoader } from "@/components/shared/app-loader";
 
 function VerifyEmailContent() {
     const searchParams = useSearchParams();
@@ -129,7 +130,7 @@ function VerifyEmailContent() {
 
 export default function VerifyEmailPage() {
     return (
-        <Suspense fallback={null}>
+        <Suspense fallback={<AppLoader />}>
             <VerifyEmailContent />
         </Suspense>
     );

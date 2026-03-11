@@ -69,6 +69,11 @@ export const CacheTags = {
     ],
 
     /**
+     * Tag for all projects in a workspace
+     */
+    workspaceProjects: (workspaceId: string) => [`workspace-projects-${workspaceId}`],
+
+    /**
      * Tag for full project data
      * Use when: Comprehensive project data changes
      */

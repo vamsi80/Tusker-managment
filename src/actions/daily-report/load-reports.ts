@@ -35,9 +35,8 @@ export async function loadMoreReportsAction({
         include: {
             user: {
                 select: {
-                    // name: true,
+                    id: true,
                     surname: true,
-                    // image: true,
                     email: true
                 }
             },
@@ -81,7 +80,7 @@ export async function loadMoreReportsAction({
         if (report.status === "ABSENT" || report.status === "NOT_SUBMITTED") {
             rows.push({
                 id: `${report.status.toLowerCase()}-${report.id}`,
-                reportId: report.id,
+                userId: report.userId,
                 user: report.user,
                 status: report.status,
                 submittedAt: null,
@@ -93,7 +92,7 @@ export async function loadMoreReportsAction({
         } else if (report.entries.length === 0) {
             rows.push({
                 id: `empty-${report.id}`,
-                reportId: report.id,
+                userId: report.userId,
                 user: report.user,
                 status: report.status,
                 submittedAt: report.submittedAt,
@@ -105,7 +104,7 @@ export async function loadMoreReportsAction({
         } else {
             rows.push({
                 id: report.id,
-                reportId: report.id,
+                userId: report.userId,
                 user: report.user,
                 status: report.status,
                 submittedAt: report.submittedAt,

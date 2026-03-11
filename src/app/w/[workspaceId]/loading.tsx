@@ -1,9 +1,9 @@
-import { WorkspaceContentSkeleton } from "../_components/workspace-skeleton";
+import { WorkspaceFullSkeleton } from "../_components/workspace-skeleton";
 
 /** 
- * Shown when loading the main workspace dashboard page.
- * Mimics the dashboard layout using skeletons.
+ * Root Workspace Loading UI.
+ * Shown instantly by Next.js during transitions to any workspace route.
  */
 export default function WorkspaceLoading() {
-    return <WorkspaceContentSkeleton />;
+    return <WorkspaceFullSkeleton />;
 }

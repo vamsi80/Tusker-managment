@@ -28,27 +28,25 @@ function setMemoryMetadata(key: string, data: any) {
     if (METADATA_MEMORY_CACHE.size > 200) METADATA_MEMORY_CACHE.clear();
 }
 async function _getWorkspaceMetadataInternal(workspaceId: string, userId: string) {
-    // Verify workspace exists and user has access
-    const workspace = await prisma.workspace.findUnique({
-        where: { id: workspaceId },
-        select: {
-            id: true,
-            name: true,
-        }
-    });
+    // Verify workspace exists and user has access — run in parallel
+    const [workspace, member] = await Promise.all([
+        prisma.workspace.findUnique({
+            where: { id: workspaceId },
+            select: {
+                id: true,
+                name: true,
+            }
+        }),
+        prisma.workspaceMember.findFirst({
+            where: {
+                workspaceId,
+                userId,
+            },
+            select: { id: true }
+        })
+    ]);
 
-    if (!workspace) return null;
-
-    // Verify user is a member
-    const member = await prisma.workspaceMember.findFirst({
-        where: {
-            workspaceId,
-            userId,
-        },
-        select: { id: true }
-    });
-
-    if (!member) return null;
+    if (!workspace || !member) return null;
 
     return {
         id: workspace.id,
@@ -68,14 +66,7 @@ export const getWorkspaceMetadata = cache(async (workspaceId: string, providedUs
     const memory = getMemoryMetadata(cacheKey);
     if (memory) return memory;
 
-    // 2. Bypass for active sessions
-    if (providedUserId) {
-        const direct = await _getWorkspaceMetadataInternal(workspaceId, userId);
-        setMemoryMetadata(cacheKey, direct);
-        return direct;
-    }
-
-    // 3. Next.js cache
+    // 2. Next.js cache
     const fetchMetadata = unstable_cache(
         async () => _getWorkspaceMetadataInternal(workspaceId, userId),
         [`workspace-metadata-${workspaceId}-${userId}`],

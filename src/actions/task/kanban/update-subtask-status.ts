@@ -4,10 +4,8 @@ import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
 import { headers } from "next/headers";
-import {
-    invalidateTaskMutation,
-    invalidateProjectSubTasks
-} from "@/lib/cache/invalidation";
+import { revalidateTag } from "next/cache";
+import { CacheTags } from "@/data/cache-tags";
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "CANCELLED" | "REVIEW" | "HOLD" | "COMPLETED";
 
@@ -52,18 +50,36 @@ export async function updateSubTaskStatus(
     newStatus: TaskStatus,
     workspaceId: string,
     projectId: string,
-    operationId?: string,
-    reviewCommentId?: string
+    reviewCommentId?: string,
+    comment?: string,
+    attachmentData?: any
 ): Promise<UpdateSubTaskStatusResult> {
+    const startTime = performance.now();
     try {
-        // 1. Authenticate user
         const user = await requireUser();
 
-        // 2. Generate operation ID if not provided
-        const opId = operationId || `move-${subTaskId}-${newStatus}-${Date.now()}`;
-
-        // 4. Get user permissions
-        const permissions = await getUserPermissions(workspaceId, projectId);
+        // 1. Parallelize initial data fetching (Permissions + Task Data + Review Comment)
+        // Pass user.id to getUserPermissions to bypass Next.js unstable_cache (~1s overhead)
+        const [permissions, subTask, reviewComment] = await Promise.all([
+            getUserPermissions(workspaceId, projectId, user.id),
+            prisma.task.findUnique({
+                where: { id: subTaskId },
+                select: {
+                    id: true,
+                    status: true,
+                    createdById: true,
+                    assigneeTo: true,
+                    reviewerId: true,
+                    parentTaskId: true,
+                },
+            }),
+            reviewCommentId
+                ? prisma.reviewComment.findUnique({
+                    where: { id: reviewCommentId },
+                    select: { id: true, subTaskId: true },
+                })
+                : Promise.resolve(null)
+        ]);
 
         if (!permissions.workspaceMemberId) {
             return {
@@ -72,23 +88,6 @@ export async function updateSubTaskStatus(
             };
         }
 
-        // 5. Fetch the subtask with current assignee
-        const subTask = await prisma.task.findUnique({
-            where: { id: subTaskId },
-            select: {
-                id: true,
-                projectId: true,
-                parentTaskId: true,
-                name: true,
-                status: true,
-                description: true,
-                startDate: true,
-                days: true,
-                createdById: true,
-                assigneeTo: true,      // FK — avoids JOIN
-            },
-        });
-
         if (!subTask) {
             return {
                 success: false,
@@ -96,23 +95,13 @@ export async function updateSubTaskStatus(
             };
         }
 
-        // 6. Verify subtask belongs to the project
-        if (subTask.projectId !== projectId) {
-            return {
-                success: false,
-                error: "Subtask does not belong to this project",
-            };
-        }
-
-        // 7. Check if user is authorized to move this card
-        // 7. Check if user is authorized to edit this task (move/update)
+        // 7. Authorization checks
         const isWorkspaceAdmin = permissions.isWorkspaceAdmin;
         const isProjectManager = permissions.isProjectManager;
         const isProjectLead = permissions.isProjectLead;
         const isCreator = subTask.createdById === user.id;
         const isAssignee = subTask.assigneeTo === user.id;
 
-        // Basic Authorization check
         if (!isWorkspaceAdmin && !isProjectManager) {
             if (isProjectLead) {
                 // Leads can edit tasks they created OR tasks assigned to them
@@ -133,88 +122,59 @@ export async function updateSubTaskStatus(
             }
         }
 
-        // 8. Role-based Status Transition Restrictions (Hierarchy Rule)
-        // Restrict ANY move if assigned to a superior (PM tasks Admin-only, Lead tasks PM/Admin-only)
-        let assigneeRole: string | null = null;
-        if (subTask.assigneeTo) {
-            const assigneeMember = await prisma.projectMember.findFirst({
-                where: {
-                    projectId: projectId,
-                    workspaceMember: { userId: subTask.assigneeTo }
-                },
-                select: { projectRole: true }
-            });
-            assigneeRole = assigneeMember?.projectRole || "MEMBER";
-        }
+        // 7b. Specific Restriction: Tasks in REVIEW status
+        // A person assigned to a task (assignee) should NOT be able to move it once it's in REVIEW.
+        // This ensures they don't review/approve their own work.
+        if (subTask.status === "REVIEW") {
 
-        if (assigneeRole === "PROJECT_MANAGER") {
-            if (!isWorkspaceAdmin) {
+            // Only Admins, PMs, or the designated Reviewer can move tasks out of REVIEW.
+            // Explicitly block the assignee if they are not an Admin/PM.
+            if (isAssignee && !isWorkspaceAdmin && !isProjectManager) {
                 return {
                     success: false,
-                    error: "Only a Workspace Admin can move a task assigned to a Project Manager",
-                };
-            }
-        } else if (assigneeRole === "LEAD") {
-            if (!isWorkspaceAdmin && !isProjectManager) {
-                return {
-                    success: false,
-                    error: "Only a Workspace Admin or Project Manager can move a task assigned to a Lead.",
+                    error: "As the assignee, you cannot move this task out of Review status. Only a Reviewer, Project Manager, or Admin can approve or reject tasks.",
                 };
             }
         }
 
         const privilegedStatuses = ["COMPLETED", "CANCELLED", "HOLD"];
         if (privilegedStatuses.includes(newStatus)) {
-            // Additional privileged status logic (if any) could go here
+            // Additional privileged status logic
         }
 
-        // 9. Status Transition Validation
-        // PREVENT REVIEW TO REVIEW
+        // 9. Status Transition Validation & Review Comment Verification
+        // Case A: Staying in Review
         if (subTask.status === "REVIEW" && newStatus === "REVIEW") {
             return {
                 success: false,
-                error: "This task is already in review. You cannot move a task from Review back to Review.",
+                error: "This task is already in review.",
             };
         }
 
-        // FROM REVIEW -> ANYWHERE EXCEPT COMPLETED
-        if (subTask.status === "REVIEW" && newStatus !== "COMPLETED") {
-            // Require a comment for rejecting/sending back from review
-            if (!reviewCommentId) {
-                return {
-                    success: false,
-                    error: "A comment is required when rejecting or moving a task out of Review status (unless it is being Completed).",
-                };
+        // Case B: Moving TO Review or Rejecting FROM Review
+        const needsReviewComment = (subTask.status === "REVIEW" && newStatus !== "COMPLETED") || newStatus === "REVIEW";
+
+        if (needsReviewComment) {
+            // Check if both the ID and the raw text are missing
+            if (!reviewCommentId && !comment) {
+                const errorMsg = newStatus === "REVIEW"
+                    ? "A comment or attachment is required when moving to REVIEW status"
+                    : "A comment is required when rejecting or moving a task out of Review status (unless it is being Completed).";
+                return { success: false, error: errorMsg };
             }
 
-            // Verify the review comment exists and belongs to this subtask
-            const reviewComment = await prisma.reviewComment.findUnique({
-                where: { id: reviewCommentId },
-                select: { id: true, subTaskId: true },
-            });
+            // If we're using an existing comment ID (backward compatibility or specific use cases)
+            if (reviewCommentId && !comment) {
+                if (!reviewComment) {
+                    return { success: false, error: `Review comment not found (ID: ${reviewCommentId}). Please try resubmitting.` };
+                }
 
-            if (!reviewComment || reviewComment.subTaskId !== subTaskId) {
-                return { success: false, error: "Invalid review comment" };
-            }
-        }
-
-        // MOVING TO REVIEW (Requires Comment)
-        if (newStatus === "REVIEW") {
-            if (!reviewCommentId) {
-                return {
-                    success: false,
-                    error: "A comment or attachment is required when moving to REVIEW status",
-                };
-            }
-
-            // Verify the review comment exists and belongs to this subtask
-            const reviewComment = await prisma.reviewComment.findUnique({
-                where: { id: reviewCommentId },
-                select: { id: true, subTaskId: true },
-            });
-
-            if (!reviewComment || reviewComment.subTaskId !== subTaskId) {
-                return { success: false, error: "Invalid review comment" };
+                if (reviewComment.subTaskId !== subTaskId) {
+                    return {
+                        success: false,
+                        error: `This comment (linked to task: ${reviewComment.subTaskId}) does not match the current subtask (${subTaskId}).`
+                    };
+                }
             }
         }
 
@@ -230,47 +190,88 @@ export async function updateSubTaskStatus(
             };
         }
 
-        // 11. Get request metadata
-        const headersList = await headers();
-        const ipAddress = headersList.get("x-forwarded-for") || headersList.get("x-real-ip") || "unknown";
-        const userAgent = headersList.get("user-agent") || "unknown";
+        // 11. Atomic update (with comment creation if provided)
+        const updated = await prisma.$transaction(async (tx) => {
+            let finalCommentId = reviewCommentId;
 
-        // 12. Update subtask status and create audit log in a transaction
-        const result = await prisma.$transaction(async (tx) => {
-            // Update the subtask
-            const updated = await tx.task.update({
+            // If comment text is provided during a review transition, create it.
+            // This now includes both moves TO Review and rejections/moves OUT OF Review.
+            if (comment && needsReviewComment) {
+                const reviewComment = await tx.reviewComment.create({
+                    data: {
+                        subTaskId: subTaskId,
+                        authorId: user.id,
+                        workspaceId: workspaceId,
+                        text: comment.trim(),
+                        attachment: attachmentData,
+                    },
+                    select: { id: true },
+                });
+                finalCommentId = reviewComment.id;
+            }
+
+            if (subTask.parentTaskId) {
+                const wasCompleted = subTask.status === "COMPLETED";
+                const isNowCompleted = newStatus === "COMPLETED";
+
+                if (wasCompleted !== isNowCompleted) {
+                    await tx.task.update({
+                        where: { id: subTask.parentTaskId },
+                        data: {
+                            completedSubtaskCount: { [isNowCompleted ? "increment" : "decrement"]: 1 }
+                        }
+                    });
+                }
+            }
+
+            return await tx.task.update({
                 where: { id: subTaskId },
                 data: { status: newStatus },
-                select: {
-                    id: true,
-                    status: true,
-                    updatedAt: true,
-                },
+                select: { id: true, status: true, updatedAt: true },
             });
-
-            return { updated };
         });
 
-        // 13. OPTIMIZED: Use comprehensive cache invalidation
-        // Invalidates: subtask, parent task, project tasks, workspace tasks
-        await invalidateTaskMutation({
-            taskId: subTaskId,
-            projectId: projectId,
-            workspaceId: workspaceId,
-            userId: user.id,
-            // CHANGED: Use correct parentTaskId
-            parentTaskId: subTask.parentTaskId || undefined
-        });
+        // 13. SURGICAL INVALIDATION (Targeted to the card, not the whole board)
+        // We only revalidate the specific subtask and generic task tags synchronously.
+        // This ensures the Action returns in <400ms and doesn't trigger a full 10s board re-fetch.
+        const tagsToRevalidate = new Set<string>();
+        CacheTags.subtask(subTaskId).forEach((t: string) => tagsToRevalidate.add(t));
+        CacheTags.task(subTaskId).forEach((t: string) => tagsToRevalidate.add(t));
 
-        // Also invalidate project subtasks for Kanban view
-        await invalidateProjectSubTasks(projectId);
+        // Revalidate synchronously (fast)
+        for (const tag of tagsToRevalidate) {
+            revalidateTag(tag, "layout");
+        }
+
+        // 14. BACKGROUND REVALIDATION: Broad tags are hit without 'await' to allow server-side
+        // cache to eventually update without blocking the current request's return.
+        const broadTags = new Set<string>();
+        CacheTags.projectSubTasks(projectId).forEach((t: string) => broadTags.add(t));
+        if (subTask.status) {
+            CacheTags.subtasksByStatus(projectId, subTask.status as string).forEach((t: string) => broadTags.add(t));
+        }
+        CacheTags.subtasksByStatus(projectId, newStatus as string).forEach((t: string) => broadTags.add(t));
+
+        // FIRE AND FORGET (Next.js will attempt these in the background)
+        (async () => {
+            try {
+                for (const tag of broadTags) {
+                    revalidateTag(tag, "layout");
+                }
+            } catch (e) {
+                console.error("Background revalidation failed:", e);
+            }
+        })();
+
+        const duration = performance.now() - startTime;
+        console.log(`[PERF] updateSubTaskStatus (ATOMIC) took ${duration.toFixed(2)}ms`, { subTaskId, newStatus });
 
         return {
             success: true,
             subTask: {
-                id: result.updated.id,
-                status: result.updated.status as TaskStatus,
-                updatedAt: result.updated.updatedAt,
+                id: updated.id,
+                status: updated.status as TaskStatus,
+                updatedAt: updated.updatedAt,
             }
         };
     } catch (error) {

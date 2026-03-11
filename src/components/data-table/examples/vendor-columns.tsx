@@ -8,7 +8,7 @@ import {
     createDateColumn,
     createBadgeColumn,
 } from "@/components/data-table/column-helpers";
-import { IconEdit, IconTrash, IconEye, IconMail, IconPhone, IconMapPin } from "@tabler/icons-react";
+import { Edit, Trash, Eye, Mail, Phone, MapPin } from "lucide-react";
 
 // Example Vendor type (you'll need to create this model in Prisma)
 export type Vendor = {
@@ -62,13 +62,13 @@ export function createVendorColumns(
                         <span className="font-medium">{vendor.contactPerson}</span>
                         {vendor.email && (
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                <IconMail className="h-3 w-3" />
+                                <Mail className="h-3 w-3" />
                                 {vendor.email}
                             </div>
                         )}
                         {vendor.phone && (
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                <IconPhone className="h-3 w-3" />
+                                <Phone className="h-3 w-3" />
                                 {vendor.phone}
                             </div>
                         )}
@@ -115,7 +115,7 @@ export function createVendorColumns(
 
                 return (
                     <div className="flex items-start gap-2 max-w-xs">
-                        <IconMapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                        <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                         <span className="text-sm line-clamp-2" title={address}>
                             {address}
                         </span>
@@ -135,17 +135,17 @@ export function createVendorColumns(
             {
                 label: "View Details",
                 onClick: onView,
-                icon: <IconEye className="h-4 w-4" />,
+                icon: <Eye className="h-4 w-4" />,
             },
             {
                 label: "Edit",
                 onClick: onEdit,
-                icon: <IconEdit className="h-4 w-4" />,
+                icon: <Edit className="h-4 w-4" />,
             },
             {
                 label: "Delete",
                 onClick: onDelete,
-                icon: <IconTrash className="h-4 w-4" />,
+                icon: <Trash className="h-4 w-4" />,
                 variant: "destructive",
             },
         ]),

@@ -82,8 +82,10 @@ export type WorkspaceTaskType = {
         id: string;
         name: string;
     } | null;
+    subtaskCount: number;
+    completedSubtaskCount: number;
     _count: {
-        subTasks: number;
+        subTasks?: number;
         reviewComments: number;
     };
 };

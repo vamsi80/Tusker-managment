@@ -72,10 +72,7 @@ export async function updateSubtaskDates(
                 assignee: {
                     select: {
                         id: true,
-                        name: true,
                         surname: true,
-                        image: true,
-                        email: true,
                     }
                 },
                 parentTask: {
@@ -185,6 +182,7 @@ export async function updateSubtaskDates(
                 where: { id: subtaskId },
                 data: {
                     startDate: start,
+                    dueDate: end,
                     days: days,
                 },
             }),

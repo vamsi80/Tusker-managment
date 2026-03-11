@@ -10,9 +10,9 @@ import { InlineTaskForm } from "../inline-task-form";
 import { TableLoadingSkeleton } from "../table/table-skeleton";
 import { LoadMoreSentinel } from "../table/load-more-sentinel";
 import { EmptyState } from "../table/empty-state";
-import { TaskWithSubTasks } from "../../shared/types";
-import { type ColumnVisibility } from "../../shared/column-visibility";
-import { UserPermissionsType } from "@/data/user/get-user-permissions";
+import type { TaskWithSubTasks } from "../../shared/types";
+import type { ColumnVisibility } from "../../shared/column-visibility";
+import type { UserPermissionsType } from "@/data/user/get-user-permissions";
 
 interface ProjectTaskGroupProps {
     projectId: string;
@@ -42,6 +42,7 @@ interface ProjectTaskGroupProps {
     loadingMoreSubTasks: Record<string, boolean>;
     onLoadMoreSubTasks: (taskId: string) => void;
     handleSubTaskClick: (subTask: any) => void;
+    scrollContainerRef: React.RefObject<HTMLDivElement | null>;
     level: "workspace" | "project";
     paginationState?: { isLoading: boolean; hasMore: boolean; nextCursor?: any };
     getObserver: () => IntersectionObserver | null;
@@ -79,6 +80,7 @@ export function ProjectTaskGroup({
     loadingMoreSubTasks,
     onLoadMoreSubTasks,
     handleSubTaskClick,
+    scrollContainerRef,
     level,
     paginationState = { isLoading: false, hasMore: false },
     getObserver,
@@ -187,6 +189,7 @@ export function ProjectTaskGroup({
                             isWorkspaceAdmin={isWorkspaceAdmin}
                             leadProjectIds={leadProjectIds}
                             projects={projects}
+                            scrollContainerRef={scrollContainerRef}
                             level={level}
                         />
                     </TaskRow>

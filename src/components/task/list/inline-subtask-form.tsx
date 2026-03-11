@@ -128,6 +128,7 @@ export function InlineSubTaskForm({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (pending) return;
 
         if (!subTaskName.trim()) {
             toast.error("SubTask name is required");
@@ -166,6 +167,8 @@ export function InlineSubTaskForm({
                 createdAt: new Date(),
                 updatedAt: new Date(),
                 isOptimistic: true,
+                subtaskCount: 0,
+                completedSubtaskCount: 0,
                 _count: { reviewComments: 0 },
                 // Include full objects for UI
                 assignee: selectedMember ? {

@@ -82,6 +82,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
     }, [watchedName, form]);
 
     function onSubmit(data: ProjectSchemaType) {
+        if (pending) return;
         startTransition(async () => {
             const { data: result, error } = await tryCatch(createProject(data));
             console.log("results", { result });

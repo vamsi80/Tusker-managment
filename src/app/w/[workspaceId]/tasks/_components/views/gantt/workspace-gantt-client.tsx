@@ -111,7 +111,7 @@ export function WorkspaceGanttClient({
         });
     };
 
-    const { setProjectTasksCache, entities } = useTaskCacheStore();
+    const setProjectTasksCache = useTaskCacheStore(state => state.setProjectTasksCache);
     const { openSubTaskSheet } = useSubTaskSheetActions();
 
     useMemo(() => {
@@ -152,7 +152,8 @@ export function WorkspaceGanttClient({
     const handleSubtaskClick = (subtaskId: string) => {
         let subtaskData = subtaskDataMap[subtaskId];
         if (!subtaskData) {
-            subtaskData = entities[subtaskId];
+            // Read directly from store state WITHOUT subscribing the component
+            subtaskData = useTaskCacheStore.getState().entities[subtaskId];
         }
 
         if (subtaskData) {

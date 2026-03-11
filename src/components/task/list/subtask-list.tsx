@@ -5,14 +5,14 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Plus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ProjectMembersType } from "@/data/project/get-project-members";
-import { SubTaskType } from "@/data/task";
+import type { ProjectMembersType } from "@/data/project/get-project-members";
+import type { SubTaskType } from "@/data/task";
 import { ColumnVisibility } from "../shared/column-visibility";
 import { SubTaskSkeleton } from "@/components/task/list/list-skeleton";
 import { InlineSubTaskForm } from "./inline-subtask-form";
 import { SubTaskRow } from "./subtask-row";
-import { TaskWithSubTasks } from "@/components/task/shared/types";
-import { UserPermissionsType } from "@/data/user/get-user-permissions";
+import type { TaskWithSubTasks } from "@/components/task/shared/types";
+import type { UserPermissionsType } from "@/data/user/get-user-permissions";
 
 interface SubTaskListProps {
     task: TaskWithSubTasks;
@@ -38,6 +38,7 @@ interface SubTaskListProps {
     isWorkspaceAdmin?: boolean; // For workspace view
     leadProjectIds?: string[]; // For workspace view
     projects?: Array<{ id: string; canManageMembers?: boolean }>; // For workspace view
+    scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 export function SubTaskList({
@@ -63,6 +64,7 @@ export function SubTaskList({
     isWorkspaceAdmin,
     leadProjectIds,
     projects,
+    scrollContainerRef,
 }: SubTaskListProps) {
     const [showInlineSubTaskForm, setShowInlineSubTaskForm] = useState(false);
 
@@ -78,7 +80,10 @@ export function SubTaskList({
                     onLoadMore();
                 }
             },
-            { rootMargin: "100px" }
+            { 
+                root: scrollContainerRef?.current || null,
+                rootMargin: "20px" 
+            }
         );
 
         const currentRef = bottomRef.current;

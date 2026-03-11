@@ -8,16 +8,16 @@ import { Loader2, ChevronsUpDown, Maximize2, Minimize2, ChevronDown } from "luci
 import { loadTasksAction } from "@/actions/task/list-actions";
 import { getSubTasksAction } from "@/actions/task/get-subtasks";
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
-import { ProjectMembersType } from "@/data/project/get-project-members";
-import { SubTaskType } from "@/data/task";
+import type { ProjectMembersType } from "@/data/project/get-project-members";
+import type { SubTaskType } from "@/data/task";
 import { DndContext, closestCenter } from "@dnd-kit/core";
-import { TaskWithSubTasks, SortConfig, SortField, hasActiveFilters } from "@/components/task/shared/types";
-import { TaskFilters } from "../shared/types";
+import { type TaskWithSubTasks, type SortConfig, type SortField, hasActiveFilters } from "@/components/task/shared/types";
+import type { TaskFilters } from "../shared/types";
 import { GlobalFilterToolbar } from "../shared/global-filter-toolbar";
 import { ColumnVisibility } from "../shared/column-visibility";
 import { extractAllFilterOptions } from "@/lib/utils/extract-filter-options";
 import { SortableHeader } from "./sort/sortable-header";
-import { UserPermissionsType } from "@/data/user/get-user-permissions";
+import type { UserPermissionsType } from "@/data/user/get-user-permissions";
 import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
@@ -53,7 +53,7 @@ interface TaskTableProps {
 const DEFAULT_TAGS: { id: string; name: string; }[] = [];
 const DEFAULT_PROJECTS: { id: string; name: string; }[] = [];
 
-export function TaskTable({
+export default function TaskTable({
     initialTasks,
     members,
     assignees,
@@ -97,6 +97,7 @@ export function TaskTable({
     const loadProjectTasksRef = useRef<((id: string) => Promise<void>) | null>(null);
     const loadMoreSortedRef = useRef<(() => Promise<void>) | null>(null);
     const sortedSentinelRef = useRef<HTMLTableRowElement | null>(null);
+    const scrollContainerRef = useRef<HTMLDivElement | null>(null);
     const autoExpandRef = useRef(false);
     const tasksRef = useRef<TaskWithSubTasks[]>([]);
     // Assigned after tasks declaration
@@ -498,7 +499,7 @@ export function TaskTable({
             return;
         }
 
-        // console.log("[LoadMoreSorted] Start — cursor:", sortedCursor);
+        if (isLoadingMoreSorted || !sortedHasMore) return;
         setIsLoadingMoreSorted(true);
 
         try {
@@ -808,21 +809,22 @@ export function TaskTable({
                 workspaceId
             };
 
-            const response = await getSubTasksAction(
-                taskId,
-                workspaceId,
-                taskProjectId,
-                {
-                    status: activeFilters.status,
-                    assigneeId: activeFilters.assigneeId,
-                    tagId: activeFilters.tagId,
-                    search: activeFilters.search,
-                    dueAfter: filters.startDate ? new Date(filters.startDate) : undefined,
-                    dueBefore: filters.endDate ? new Date(filters.endDate) : undefined,
-                },
-                30, // pageSize
-                "list"
-            );
+            const queryParams = new URLSearchParams();
+            queryParams.set("workspaceId", workspaceId);
+            if (taskProjectId) queryParams.set("projectId", taskProjectId);
+            queryParams.set("pageSize", "30");
+            queryParams.set("viewMode", "list");
+
+            if (activeFilters.status) queryParams.set("status", JSON.stringify(activeFilters.status));
+            if (activeFilters.assigneeId) queryParams.set("assigneeId", JSON.stringify(activeFilters.assigneeId));
+            if (activeFilters.tagId) queryParams.set("tagId", JSON.stringify(activeFilters.tagId));
+            if (activeFilters.search) queryParams.set("search", activeFilters.search);
+            if (filters.startDate) queryParams.set("dueAfter", new Date(filters.startDate).toISOString());
+            if (filters.endDate) queryParams.set("dueBefore", new Date(filters.endDate).toISOString());
+
+            const res = await fetch(`/api/tasks/${taskId}/subtasks?${queryParams.toString()}`);
+            if (!res.ok) throw new Error("Failed to fetch subtasks");
+            const response = await res.json();
 
             if (response.success && response.subTasks) {
                 const subTasks = response.subTasks;
@@ -877,25 +879,21 @@ export function TaskTable({
     const handleExpandAll = () => {
         autoExpandRef.current = true;
 
-        // Expand all projects
+        // 1. Expand all projects (Existing ones will show, others will load on scroll)
         const allProjectIds = projects.map(p => p.id);
         const allProjects = allProjectIds.reduce((acc, pId) => ({ ...acc, [pId]: true }), {});
         setExpandedProjects(allProjects);
 
-        // Load tasks for all unloaded projects (Project-First)
-        allProjectIds.forEach(id => {
-            if (!projectPagination[id]) {
-                loadProjectTasks(id);
-            }
-        });
+        // 🚀 Optimization: Remove the manual loadProjectTasks(id) loop. 
+        // Sentinels will handle loading as the user scrolls down naturally.
 
-        // 1. Bulk Apply Cache for Immediate Display
-        // We use hydrateTasks to ensure state is consistent with cache before expanding
+        // 2. Bulk Apply Cache for Immediate Display
         setTasks(prev => hydrateTasks(prev));
 
-        // 2. Expand all tasks (This will trigger lazy loaders for non-cached items)
-        const allTasks = tasks.reduce((acc, task) => ({ ...acc, [task.id]: true }), {});
-        setExpanded(allTasks);
+        // 3. Expand all tasks (This will trigger lazy loaders for items that hit the viewport)
+        const allTasksMap: Record<string, boolean> = {};
+        tasks.forEach(t => { allTasksMap[t.id] = true; });
+        setExpanded(allTasksMap);
     };
 
     const handleCollapseAll = () => {
@@ -910,6 +908,7 @@ export function TaskTable({
         const task = tasks.find((t) => t.id === taskId);
         if (!task || !task.subTasks) return;
 
+        if (loadingMoreSubTasks[taskId]) return;
         setLoadingMoreSubTasks((prev) => ({ ...prev, [taskId]: true }));
 
         try {
@@ -1037,9 +1036,11 @@ export function TaskTable({
                         </div>
                     </div>
                 )}
-                <div className={cn(
-                    "overflow-auto",
-                    level === "workspace" ? "max-h-[70vh]" : "max-h-[65vh]",
+                <div 
+                    ref={scrollContainerRef}
+                    className={cn(
+                        "overflow-auto",
+                        level === "workspace" ? "max-h-[70vh]" : "max-h-[65vh]",
                     "mt-0",
                     "[&::-webkit-scrollbar]:w-0.5",
                     "[&::-webkit-scrollbar]:h-1",
@@ -1174,6 +1175,7 @@ export function TaskTable({
                                                     onRequestSubtasks={handleRequestSubtasks}
                                                     getCachedSubTasks={getCachedSubTasks}
                                                     tags={tags}
+                                                    scrollContainerRef={scrollContainerRef}
                                                     members={members}
                                                     workspaceId={workspaceId}
                                                     canCreateSubTask={canCreateSubTask}
@@ -1214,6 +1216,7 @@ export function TaskTable({
                                             onRequestSubtasks={handleRequestSubtasks}
                                             getCachedSubTasks={getCachedSubTasks}
                                             tags={tags}
+                                            scrollContainerRef={scrollContainerRef}
                                             members={members}
                                             workspaceId={workspaceId}
                                             projectId={projectId}

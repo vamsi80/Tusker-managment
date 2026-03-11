@@ -11,8 +11,9 @@ import { fetchCommentsAction, fetchReviewCommentsAction } from "@/actions/commen
 // Import modular components
 import { SubtaskSheetHeader } from "./subtask-sheet-header";
 import { SubtaskSheetNavBar } from "./subtask-sheet-navbar";
-import { MessagesTab } from "./messages-tab";
-import { ReviewTab } from "./review-tab";
+import dynamic from "next/dynamic";
+const MessagesTab = dynamic(() => import("./messages-tab").then(mod => mod.MessagesTab), { ssr: false });
+const ReviewTab = dynamic(() => import("./review-tab").then(mod => mod.ReviewTab), { ssr: false });
 
 interface SubTaskDetailsSheetProps {
     subTask: TaskByIdType | null;
@@ -32,10 +33,7 @@ interface Comment {
     taskId: string;
     user: {
         id: string;
-        name: string;
         surname: string;
-        email: string;
-        image: string;
     };
     isEdited: boolean;
     editedAt: Date;

@@ -80,6 +80,7 @@ export const EditProjectForm = ({
     });
 
     function onSubmit(data: EditProjectSchemaType) {
+        if (pending) return;
         startTransition(async () => {
             const { data: result, error } = await tryCatch(editProject(data));
 

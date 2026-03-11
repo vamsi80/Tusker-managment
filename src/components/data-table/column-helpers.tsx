@@ -12,7 +12,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { IconArrowsSort, IconSortAscending, IconSortDescending, IconDotsVertical } from "@tabler/icons-react";
+import { ChevronsUpDown, ArrowUp, ArrowDown, MoreVertical } from "lucide-react";
 import { cn, formatIST } from "@/lib/utils";
 
 /**
@@ -30,11 +30,11 @@ export function createSortableHeader<T>(
         >
             {title}
             {column.getIsSorted() === "asc" ? (
-                <IconSortAscending className="ml-2 h-4 w-4" />
+                <ArrowUp className="ml-2 h-4 w-4" />
             ) : column.getIsSorted() === "desc" ? (
-                <IconSortDescending className="ml-2 h-4 w-4" />
+                <ArrowDown className="ml-2 h-4 w-4" />
             ) : (
-                <IconArrowsSort className="ml-2 h-4 w-4 opacity-50" />
+                <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
             )}
         </Button>
     );
@@ -90,7 +90,7 @@ export function createActionsColumn<T>(
                         <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                             <Button variant="ghost" className="h-8 w-8 p-0">
                                 <span className="sr-only">Open menu</span>
-                                <IconDotsVertical className="h-4 w-4" />
+                                <MoreVertical className="h-4 w-4" />
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">

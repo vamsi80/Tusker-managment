@@ -36,8 +36,6 @@ export function Navbar({ session: serverSession }: iAppProps) {
       router.push("/sign-in?next=/workspace");
       return;
     }
-
-    // Navigate directly - the workspace page will show its own loading skeleton
     router.push("/w");
   };
 
