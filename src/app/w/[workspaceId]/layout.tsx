@@ -2,11 +2,11 @@ import { Suspense } from "react";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "../_components/sidebar/workspace-sidebar";
 import { SiteHeader } from "../_components/sidebar/header/site-header";
-import { AppLoader } from "@/components/shared/app-loader";
 import { notFound } from "next/navigation";
 import { DailyReportFAB } from "./reports/_components/DailyReportFAB";
 import { getWorkspaceLayoutData } from "@/data/workspace/get-workspace-layout-data";
 import { WorkspaceClientProviders } from "@/app/w/[workspaceId]/_components/workspace-client-providers";
+import { WorkspaceFullSkeleton } from "../_components/workspace-skeleton";
 
 interface Props {
     children: React.ReactNode;
@@ -26,10 +26,10 @@ export default async function WorkSpaceLayout({ children, params }: Props) {
                     } as React.CSSProperties
                 }
             >
-                {/* Single loader for the entire layout shell */}
-                <Suspense fallback={<AppLoader />}>
+                {/* Initial layout shell uses a full-page skeleton for a premium boot experience */}
+                <Suspense fallback={<WorkspaceFullSkeleton />}>
                     <SidebarLoader dataPromise={layoutDataPromise} workspaceId={workspaceId} />
-                    
+
                     <SidebarInset className="m-0 rounded-none bg-background">
                         <SiteHeader workspaceId={workspaceId} />
                         <div className="flex flex-1 flex-col">
