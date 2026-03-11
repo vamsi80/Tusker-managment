@@ -171,7 +171,7 @@ export const KanbanColumn = React.memo(function KanbanColumn({
                                                     <KanbanCardSkeleton />
                                                 </div>
                                             ) : (
-                                                <div className="h-4 w-full" /> // Invisible sentinel
+                                                <div className="h-4 w-full" />
                                             )}
                                         </div>
                                     ) : (
@@ -190,7 +190,13 @@ export const KanbanColumn = React.memo(function KanbanColumn({
 
                     {subTaskIds.length === 0 && !isLoadingMore && (
                         <div className="flex items-center justify-center h-24 text-muted-foreground text-xs uppercase font-medium tracking-wider border-2 border-dashed rounded-lg bg-muted/20">
-                            No subtasks
+                            No tasks found
+                        </div>
+                    )}
+
+                    {subTaskIds.length > 0 && !hasMore && !isLoadingMore && (
+                        <div className="flex items-center justify-center py-6 text-muted-foreground text-xs font-medium tracking-wider">
+                            No tasks found
                         </div>
                     )}
                 </SortableContext>

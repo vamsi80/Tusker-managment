@@ -92,11 +92,12 @@ export function KanbanBoard({
     }>>(() => {
         const map: any = {};
         COLUMNS.forEach(col => {
+            const serverCol = initialData[col.id];
             map[col.id] = {
-                subTaskIds: initialData[col.id].subTasks.map(t => t.id),
-                totalCount: initialData[col.id].totalCount,
-                hasMore: initialData[col.id].hasMore,
-                nextCursor: undefined
+                subTaskIds: serverCol.subTasks.map(t => t.id),
+                totalCount: serverCol.totalCount,
+                hasMore: serverCol.hasMore,
+                nextCursor: serverCol.nextCursor
             };
         });
         return map;
@@ -146,7 +147,7 @@ export function KanbanBoard({
 
             let totalCount = initialData[col.id].totalCount;
             let hasMore = initialData[col.id].hasMore;
-            let nextCursor = cached ? cached.nextCursor : undefined;
+            let nextCursor = cached ? cached.nextCursor : initialData[col.id].nextCursor;
 
             // 2. Workspace Aggregation: Merge cached tasks from OTHER projects
             if (level === 'workspace' && projects) {
@@ -316,14 +317,22 @@ export function KanbanBoard({
                             useTaskCacheStore.getState().upsertTasks(colTasks);
                         }
 
+                        // Use the statusCounts to compute if this SPECIFIC column has more items
+                        // since this specific query fetches everything generically
                         const totalForCol = counts[col.id] || colTasks.length;
-                        const hasMore = totalForCol > colTasks.length;
+                        const hasMoreLocal = totalForCol > colTasks.length;
+                        
+                        // Extract a custom cursor specifically for this column if needed
+                        const lastTask = colTasks[colTasks.length - 1];
+                        const nextCursor = hasMoreLocal && lastTask 
+                                ? { id: lastTask.id, createdAt: lastTask.createdAt } 
+                                : null;
 
                         groupedData[col.id] = {
                             subTaskIds: colTasks.map((t: any) => t.id),
                             totalCount: totalForCol,
-                            hasMore,
-                            nextCursor: hasMore ? { id: colTasks[colTasks.length - 1].id, createdAt: colTasks[colTasks.length - 1].createdAt } : null
+                            hasMore: hasMoreLocal,
+                            nextCursor: nextCursor
                         };
                     });
                     setColumnData(groupedData);
@@ -378,19 +387,23 @@ export function KanbanBoard({
 
             const targetProjectId = filters.projectId || projectId;
 
-            const response = await loadTasksAction({
-                workspaceId,
-                status: [status],
-                projectId: targetProjectId,
-                groupBy: "status",
-                includeSubTasks: true,
-                excludeParents: true, // ONLY CARDS
-                limit: 30,
-                sorts: [{ field: "createdAt", direction: "desc" }],
-                cursor: currentCursor,
-                view_mode: "kanban",
-                ...activeFilters
-            });
+            // Build the URL with short parameters (w, s, l, vm, p, c, q)
+            const params = new URLSearchParams();
+            params.set("w", workspaceId);
+            params.set("s", status);
+            params.set("l", "30");
+            params.set("vm", "kanban");
+
+            if (targetProjectId) params.set("p", targetProjectId);
+            if (currentCursor) params.set("c", JSON.stringify(currentCursor));
+            if (searchQuery) params.set("q", searchQuery);
+            
+            // Filters
+            if (filters.assigneeId) params.append("a", filters.assigneeId);
+            if (filters.tagId) params.append("t", filters.tagId);
+            
+            const apiRes = await fetch(`/api/kt?${params.toString()}`);
+            const response = await apiRes.json();
 
             if (!response.success) {
                 toast.error(response.error || "Failed to load more subtasks");
@@ -411,18 +424,21 @@ export function KanbanBoard({
                 useTaskCacheStore.getState().upsertTasks(newTasks);
 
                 // Deduplicate using a Set
-                const idSet = new Set([...existingIds, ...newTasks.map(t => t.id)]);
+                const idSet = new Set([...existingIds, ...newTasks.map((t: any) => t.id)]);
                 const deduplicatedIds = Array.from(idSet);
                 const totalForCol = counts[status] || (prev[status].totalCount ?? 0);
-                const hasMore = totalForCol > deduplicatedIds.length;
+                
+                // Trust the server's pagination state directly to avoid infinite loops
+                const serverHasMore = response.data.hasMore || false;
+                const serverNextCursor = response.data.nextCursor || null;
 
                 const newData = {
                     ...prev,
                     [status]: {
                         subTaskIds: deduplicatedIds,
                         totalCount: totalForCol,
-                        hasMore,
-                        nextCursor: hasMore ? { id: deduplicatedIds[deduplicatedIds.length - 1], createdAt: newTasks[newTasks.length - 1]?.createdAt } : null,
+                        hasMore: serverHasMore,
+                        nextCursor: serverNextCursor,
                     }
                 };
 

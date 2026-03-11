@@ -28,6 +28,7 @@ import { ProjectTaskGroup } from "./group/project-task-group";
 import { FlatTaskList } from "./group/flat-task-list";
 import { EmptyState } from "./table/empty-state";
 import { SortedTaskList } from "./sort/sorted-task-list";
+import { TableCell, TableRow } from "@/components/ui/table";
 
 interface TaskTableProps {
     initialTasks: TaskWithSubTasks[];
@@ -810,19 +811,19 @@ export default function TaskTable({
             };
 
             const queryParams = new URLSearchParams();
-            queryParams.set("workspaceId", workspaceId);
-            if (taskProjectId) queryParams.set("projectId", taskProjectId);
-            queryParams.set("pageSize", "30");
-            queryParams.set("viewMode", "list");
+            queryParams.set("w", workspaceId);
+            if (taskProjectId) queryParams.set("p", taskProjectId);
+            queryParams.set("ps", "30");
+            queryParams.set("vm", "subtask");
 
-            if (activeFilters.status) queryParams.set("status", JSON.stringify(activeFilters.status));
-            if (activeFilters.assigneeId) queryParams.set("assigneeId", JSON.stringify(activeFilters.assigneeId));
-            if (activeFilters.tagId) queryParams.set("tagId", JSON.stringify(activeFilters.tagId));
-            if (activeFilters.search) queryParams.set("search", activeFilters.search);
-            if (filters.startDate) queryParams.set("dueAfter", new Date(filters.startDate).toISOString());
-            if (filters.endDate) queryParams.set("dueBefore", new Date(filters.endDate).toISOString());
+            if (activeFilters.status) queryParams.set("s", JSON.stringify(activeFilters.status));
+            if (activeFilters.assigneeId) queryParams.set("a", JSON.stringify(activeFilters.assigneeId));
+            if (activeFilters.tagId) queryParams.set("t", JSON.stringify(activeFilters.tagId));
+            if (activeFilters.search) queryParams.set("q", activeFilters.search);
+            if (filters.startDate) queryParams.set("da", new Date(filters.startDate).toISOString());
+            if (filters.endDate) queryParams.set("db", new Date(filters.endDate).toISOString());
 
-            const res = await fetch(`/api/tasks/${taskId}/subtasks?${queryParams.toString()}`);
+            const res = await fetch(`/api/expand/${taskId}?${queryParams.toString()}`);
             if (!res.ok) throw new Error("Failed to fetch subtasks");
             const response = await res.json();
 
@@ -1036,19 +1037,19 @@ export default function TaskTable({
                         </div>
                     </div>
                 )}
-                <div 
+                <div
                     ref={scrollContainerRef}
                     className={cn(
                         "overflow-auto",
                         level === "workspace" ? "max-h-[70vh]" : "max-h-[65vh]",
-                    "mt-0",
-                    "[&::-webkit-scrollbar]:w-0.5",
-                    "[&::-webkit-scrollbar]:h-1",
-                    "[&::-webkit-scrollbar-track]:bg-transparent",
-                    "[&::-webkit-scrollbar-thumb]:bg-slate-300",
-                    "[&::-webkit-scrollbar-thumb]:rounded-full",
-                    "[&::-webkit-scrollbar-thumb]:hover:bg-slate-400"
-                )}>
+                        "mt-0",
+                        "[&::-webkit-scrollbar]:w-0.5",
+                        "[&::-webkit-scrollbar]:h-1",
+                        "[&::-webkit-scrollbar-track]:bg-transparent",
+                        "[&::-webkit-scrollbar-thumb]:bg-slate-300",
+                        "[&::-webkit-scrollbar-thumb]:rounded-full",
+                        "[&::-webkit-scrollbar-thumb]:hover:bg-slate-400"
+                    )}>
                     <DndContext
                         // sensors={sensors}
                         collisionDetection={closestCenter}
@@ -1235,7 +1236,6 @@ export default function TaskTable({
                                         />
                                     )
                                 )}
-                                {/* Load More Sentinel for Flat List */}
                                 {!groupedTasks && projectPagination[projectId]?.hasMore && (
                                     <LoadMoreSentinel
                                         visibleColumnsCount={visibleColumnsCount}
@@ -1249,8 +1249,21 @@ export default function TaskTable({
                                 )}
 
                                 {mode !== "sorted" && filteredTasks.length === 0 && !isLoadingFilters && !groupedTasks && (
-                                    <EmptyState visibleColumnsCount={visibleColumnsCount} />
+                                    <EmptyState message="No tasks found" visibleColumnsCount={visibleColumnsCount} />
                                 )}
+
+                                {/* Global "No tasks found" marker when all tasks are fully loaded */}
+                                {!isLoadingFilters && (
+                                    (mode === "sorted" && !sortedHasMore && sortedTasks.length > 0) ||
+                                    (!groupedTasks && mode !== "sorted" && !projectPagination[projectId]?.hasMore && filteredTasks.length > 0) ||
+                                    (groupedTasks && Object.keys(groupedTasks).length > 0 && !Object.values(projectPagination).some(p => p.hasMore))
+                                ) && (
+                                        <TableRow className="hover:bg-transparent border-0">
+                                            <TableCell colSpan={visibleColumnsCount} className="py-12 text-center text-muted-foreground/30 text-[10px] font-bold uppercase tracking-[0.4em] pointer-events-none select-none">
+                                                no tasks found
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
                             </tbody>
                         </table>
                     </DndContext>
