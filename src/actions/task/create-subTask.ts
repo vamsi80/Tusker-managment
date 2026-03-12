@@ -96,13 +96,20 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
         const providedReviewerId = validation.data.reviewerId || null;
         const reviewerId = providedReviewerId ?? permissions.workspaceMember.userId;
 
-        // Calculate dueDate from startDate and days (UTC safe)
+        // Calculate dueDate and days (UTC safe)
         let dueDate: Date | null = null;
-        if (validation.data.startDate && validation.data.days) {
-            const d = new Date(validation.data.startDate);
-            const utcStart = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-            dueDate = new Date(utcStart.getTime());
-            dueDate.setUTCDate(dueDate.getUTCDate() + validation.data.days);
+        let days: number | null = null;
+        
+        if (validation.data.dueDate) {
+            const d = new Date(validation.data.dueDate);
+            dueDate = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+            
+            if (validation.data.startDate) {
+                const s = new Date(validation.data.startDate);
+                const utcStart = new Date(Date.UTC(s.getFullYear(), s.getMonth(), s.getDate()));
+                const diffTime = Math.abs(dueDate.getTime() - utcStart.getTime());
+                days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            }
         }
 
         // Create unique slug for subtask using helper to prevent collisions
@@ -143,7 +150,7 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
                         })()
                         : null,
                     dueDate: dueDate,
-                    days: validation.data.days,
+                    days: days,
                     isParent: false,
                 },
                 include: {

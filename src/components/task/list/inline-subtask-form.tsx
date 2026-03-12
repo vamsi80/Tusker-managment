@@ -69,7 +69,9 @@ export function InlineSubTaskForm({
     const [startDate, setStartDate] = useState(
         subTask?.startDate ? new Date(subTask.startDate).toISOString().split('T')[0] : ""
     );
-    const [days, setDays] = useState(String(subTask?.days || 0));
+    const [dueDate, setDueDate] = useState(
+        (subTask as any)?.dueDate ? new Date((subTask as any).dueDate).toISOString().split('T')[0] : ""
+    );
     const [tag, setTag] = useState(subTask?.tag?.id || "");
 
     const [availableMembers, setAvailableMembers] = useState<ProjectMembersType>(members);
@@ -161,7 +163,7 @@ export function InlineSubTaskForm({
                 description: description.trim() || undefined,
                 status,
                 startDate: startDate ? new Date(startDate) : null,
-                days: parseInt(days) || 0,
+                dueDate: dueDate ? new Date(dueDate) : null,
                 projectId,
                 parentTaskId,
                 createdAt: new Date(),
@@ -195,7 +197,7 @@ export function InlineSubTaskForm({
                         reviewerId: reviewer || undefined,
                         tag: tag || undefined,
                         startDate: startDate || undefined,
-                        days: (days && Number(days) > 0) ? Number(days) : undefined,
+                        dueDate: dueDate || undefined,
                     })
                 );
 
@@ -226,7 +228,7 @@ export function InlineSubTaskForm({
                 description: description.trim() || undefined,
                 status,
                 startDate: startDate ? new Date(startDate) : null,
-                days: parseInt(days) || 0,
+                dueDate: dueDate ? new Date(dueDate) : null,
                 // Include full objects for UI
                 assignee: selectedMember ? {
                     id: selectedMember.workspaceMember.userId,
@@ -251,7 +253,7 @@ export function InlineSubTaskForm({
                         status,
                         assignee: assignee || undefined,
                         startDate: startDate || undefined,
-                        days: parseInt(days) || 0,
+                        dueDate: dueDate || undefined,
                         tag: tag || undefined,
                     }, subTask.id)
                 );
@@ -412,17 +414,15 @@ export function InlineSubTaskForm({
                 </TableCell>
             )}
 
-            {/* Days (for due date calculation) */}
+            {/* Due Date */}
             {columnVisibility.dueDate && (
                 <TableCell className="w-[120px]">
                     <Input
-                        type="number"
-                        placeholder="Days..."
-                        value={days}
-                        onChange={(e) => setDays(e.target.value)}
+                        type="date"
+                        value={dueDate}
+                        onChange={(e) => setDueDate(e.target.value)}
                         disabled={pending}
                         className="h-8"
-                        min="0"
                     />
                 </TableCell>
             )}
