@@ -6,11 +6,12 @@ import { requireUser } from "@/lib/auth/require-user";
 import prisma from "@/lib/db";
 import { generateUniqueSlugs } from "@/lib/slug-generator";
 import { ApiResponse } from "@/lib/types";
+import { parseIST } from "@/lib/utils";
 
 function calculateDueDate(startDate: Date | undefined, days: number | undefined): Date | undefined {
     if (!startDate || days === undefined || days === null) return undefined;
-    const dueDate = new Date(startDate.getTime());
-    dueDate.setUTCDate(dueDate.getUTCDate() + Number(days));
+    // Add days as milliseconds to stay timezone-agnostic for the duration calculation
+    const dueDate = new Date(startDate.getTime() + (Number(days) * 24 * 60 * 60 * 1000));
     return dueDate;
 }
 
@@ -60,7 +61,6 @@ export async function bulkUploadTasksAndSubtasks(data: {
             };
         }
 
-        // Get all project members for assignee lookup
         const projectMembers = await prisma.projectMember.findMany({
             where: { projectId: data.projectId },
             include: {
@@ -74,7 +74,6 @@ export async function bulkUploadTasksAndSubtasks(data: {
             }
         });
 
-        // Create mappings for lookup
         const emailToUserId = new Map<string, string>();
         const emailToSurname = new Map<string, string>();
         const userIdToSurname = new Map<string, string>();
@@ -89,7 +88,6 @@ export async function bulkUploadTasksAndSubtasks(data: {
             userIdToSurname.set(userId, surname);
         }
 
-        // Ensure we have the current user's surname for default reviewer display name
         if (!userIdToSurname.has(user.id)) {
             const currentAuthUser = await prisma.user.findUnique({
                 where: { id: user.id },
@@ -100,10 +98,7 @@ export async function bulkUploadTasksAndSubtasks(data: {
             }
         }
 
-        // Legacy mapping for validation logic
         const emailToMemberId = emailToUserId;
-
-        // Validate assignee and reviewer emails BEFORE starting the transaction
         const invalidAssigneeEmails: string[] = [];
         const invalidReviewerEmails: string[] = [];
         const uniqueAssigneeEmails = new Set<string>();
@@ -300,10 +295,7 @@ export async function bulkUploadTasksAndSubtasks(data: {
                             : permissions.workspaceMember.userId;
 
                         const subtaskStartDate = subtaskRow.startDate
-                            ? (() => {
-                                const d = new Date(subtaskRow.startDate);
-                                return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-                            })()
+                            ? parseIST(subtaskRow.startDate) || undefined
                             : undefined;
 
                         // Resolve tag ID

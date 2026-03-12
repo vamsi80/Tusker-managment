@@ -28,7 +28,6 @@ export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
 
         // Relations: Minimal data only
         assignee: { select: { id: true, surname: true, image: true } },
-        tag: { select: { id: true, name: true } },
 
         // Metadata for pagination & permissions & tree logic
         createdAt: true,        // Tiebreaker for pagination
@@ -43,6 +42,7 @@ export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
         select._count = {
             select: { reviewComments: true }
         };
+        select.tag = { select: { id: true, name: true } };
     }
 
     // 2. Dates & Progress:
@@ -73,9 +73,8 @@ export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
         };
     }
 
-    // 5. Description: HEAVY FIELD. 
-    // We skip for subtasks by default to save massive bandwidth during expansions.
-    if ((isList || isSearch) && !isSubtask) {
+    // 5. Description: Added to List and Search views for better context
+    if (isList || isSearch || isSubtask) {
         select.description = true;
     }
 

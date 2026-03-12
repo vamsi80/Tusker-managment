@@ -23,6 +23,7 @@ import { editSubTask } from "@/actions/task/update-subTask";
 import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { Badge } from "@/components/ui/badge";
 import { useReloadView } from "@/hooks/use-reload-view";
+import { parseIST } from "@/lib/utils";
 
 type SubTaskBase = {
     id: string;
@@ -87,8 +88,24 @@ export function EditSubTaskForm<T extends SubTaskBase>({
             assignee: subTask.assignee?.id || "",
             tag: subTask.tag?.id || tags[0]?.id || "",
             status: (subTask.status || "TO_DO") as "TO_DO" | "IN_PROGRESS" | "CANCELLED" | "REVIEW" | "HOLD" | "COMPLETED",
-            startDate: subTask.startDate ? new Date(subTask.startDate).toISOString().split('T')[0] : "",
-            dueDate: (subTask as any).dueDate ? new Date((subTask as any).dueDate).toISOString().split('T')[0] : "",
+            startDate: subTask.startDate ? (() => {
+                const d = new Date(subTask.startDate);
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                const hours = String(d.getHours()).padStart(2, '0');
+                const minutes = String(d.getMinutes()).padStart(2, '0');
+                return `${year}-${month}-${day}T${hours}:${minutes}`;
+            })() : "",
+            dueDate: (subTask as any).dueDate ? (() => {
+                const d = new Date((subTask as any).dueDate);
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                const hours = String(d.getHours()).padStart(2, '0');
+                const minutes = String(d.getMinutes()).padStart(2, '0');
+                return `${year}-${month}-${day}T${hours}:${minutes}`;
+            })() : "",
         },
     });
 
@@ -115,11 +132,27 @@ export function EditSubTaskForm<T extends SubTaskBase>({
         // Check if there are any actual changes
         const hasChanges =
             values.name !== subTask.name ||
-            values.description !== (subTask.description || "") ||
+            values.status !== (subTask.status || "TO_DO") ||
             values.assignee !== (subTask.assignee?.id || "") ||
             values.tag !== (subTask.tag?.id || "") ||
-            values.startDate !== (subTask.startDate ? new Date(subTask.startDate).toISOString().split('T')[0] : "") ||
-            values.dueDate !== ((subTask as any).dueDate ? new Date((subTask as any).dueDate).toISOString().split('T')[0] : "");
+            values.startDate !== (subTask.startDate ? (() => {
+                const d = new Date(subTask.startDate);
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                const hours = String(d.getHours()).padStart(2, '0');
+                const minutes = String(d.getMinutes()).padStart(2, '0');
+                return `${year}-${month}-${day}T${hours}:${minutes}`;
+            })() : "") ||
+            values.dueDate !== ((subTask as any).dueDate ? (() => {
+                const d = new Date((subTask as any).dueDate);
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                const hours = String(d.getHours()).padStart(2, '0');
+                const minutes = String(d.getMinutes()).padStart(2, '0');
+                return `${year}-${month}-${day}T${hours}:${minutes}`;
+            })() : "");
 
         if (!hasChanges) {
             toast.info("No changes detected");
@@ -144,8 +177,8 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                         name: values.name,
                         description: values.description,
                         tag: values.tag,
-                        startDate: values.startDate ? new Date(values.startDate) : null,
-                        dueDate: values.dueDate ? new Date(values.dueDate) : null,
+                        startDate: values.startDate ? parseIST(values.startDate) : null,
+                        dueDate: values.dueDate ? parseIST(values.dueDate) : null,
                     } as Partial<T>);
                 }
 
@@ -334,13 +367,13 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                     control={form.control}
                                     name="startDate"
                                     render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Start Date</FormLabel>
-                                            <FormControl>
-                                                <Input type="date" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
+                                        <FormItem >
+                                        <FormLabel>Start Date</FormLabel>
+                                        <FormControl>
+                                            <Input type="datetime-local" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
                                     )}
                                 />
 
@@ -351,7 +384,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                         <FormItem>
                                             <FormLabel>Due Date</FormLabel>
                                             <FormControl>
-                                                <Input type="date" {...field} />
+                                                <Input type="datetime-local" {...field} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>

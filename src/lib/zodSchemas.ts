@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { parseIST } from './utils'
 
 export const SubTaskStatus = ["TO_DO", "IN_PROGRESS", "REVIEW", "HOLD", "COMPLETED", "CANCELLED"] as const
 
@@ -275,6 +276,46 @@ export const subTaskSchema = z.object({
         .optional(),
     projectId: z.string().uuid({ message: "Invalid project id" }),
     parentTaskId: z.string().uuid({ message: "Invalid parent task id" }),
+}).refine((data) => {
+    if (data.startDate) {
+        const start = parseIST(data.startDate);
+        if (start) {
+            // Allow 2 minute buffer
+            if (start.getTime() < Date.now() - 120000) {
+                return false;
+            }
+        }
+    }
+    return true;
+}, {
+    message: "Start date must be in the future",
+    path: ["startDate"],
+}).refine((data) => {
+    if (data.dueDate) {
+        const due = parseIST(data.dueDate);
+        if (due) {
+            // Allow 2 minute buffer
+            if (due.getTime() < Date.now() - 120000) {
+                return false;
+            }
+        }
+    }
+    return true;
+}, {
+    message: "Due date must be in the future",
+    path: ["dueDate"],
+}).refine((data) => {
+    if (data.startDate && data.dueDate) {
+        const start = parseIST(data.startDate);
+        const due = parseIST(data.dueDate);
+        if (start && due) {
+            return due >= start;
+        }
+    }
+    return true;
+}, {
+    message: "Due date must be after start date",
+    path: ["dueDate"],
 });
 
 export const unitSchema = z.object({

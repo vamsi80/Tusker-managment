@@ -7,6 +7,7 @@ import {
     invalidateTaskMutation,
     invalidateProjectSubTasks
 } from "@/lib/cache/invalidation";
+import { parseIST } from "@/lib/utils";
 
 export interface UpdateSubtaskDatesResult {
     success: boolean;
@@ -40,21 +41,17 @@ export async function updateSubtaskDates(
     workspaceId: string
 ): Promise<UpdateSubtaskDatesResult> {
     try {
-        // 1. Authenticate user
         const user = await requireUser();
-
-        // 2. Get user permissions (cached)
         const permissions = await getUserPermissions(workspaceId, projectId);
 
         if (!permissions.workspaceMemberId) {
             return { success: false, message: "You do not have access to this project" };
         }
 
-        // 3. Validate dates
-        const start = new Date(startDate);
-        const end = new Date(endDate);
+        const start = parseIST(startDate);
+        const end = parseIST(endDate);
 
-        if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        if (!start || !end || isNaN(start.getTime()) || isNaN(end.getTime())) {
             return { success: false, message: "Invalid dates" };
         }
 
@@ -62,7 +59,6 @@ export async function updateSubtaskDates(
             return { success: false, message: "Start date must be before end date" };
         }
 
-        // 4. Fetch subtask with all needed data in ONE query (optimized)
         const subtask = await prisma.task.findUnique({
             where: { id: subtaskId },
             select: {
@@ -80,13 +76,6 @@ export async function updateSubtaskDates(
                         projectId: true,
                     },
                 },
-                Task_TaskDependency_B: {
-                    select: {
-                        id: true,
-                        startDate: true,
-                        days: true,
-                    },
-                },
             },
         });
 
@@ -94,12 +83,9 @@ export async function updateSubtaskDates(
             return { success: false, message: "Subtask not found" };
         }
 
-        // 5. Verify subtask belongs to the project
         if (subtask.parentTask?.projectId !== projectId) {
             return { success: false, message: "Subtask does not belong to this project" };
         }
-
-        // 6. Check permissions based on global hierarchy
         const isWorkspaceAdmin = permissions.isWorkspaceAdmin;
         const isProjectManager = permissions.isProjectManager;
         const isProjectLead = permissions.isProjectLead;
@@ -154,40 +140,17 @@ export async function updateSubtaskDates(
         }
 
         // 7. Calculate days
-        const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        const days = Math.ceil((end!.getTime() - start!.getTime()) / (1000 * 60 * 60 * 24)) || 1;
 
-        // 8. Prepare batch updates for dependent tasks
-        const dependentUpdates = [];
-        if (subtask.Task_TaskDependency_B && subtask.Task_TaskDependency_B.length > 0) {
-            const newDependentStart = new Date(end);
-            newDependentStart.setDate(newDependentStart.getDate() + 1);
-
-            for (const dependent of subtask.Task_TaskDependency_B) {
-                if (dependent.startDate && dependent.days) {
-                    if (dependent.startDate < newDependentStart) {
-                        dependentUpdates.push(
-                            prisma.task.update({
-                                where: { id: dependent.id },
-                                data: { startDate: newDependentStart },
-                            })
-                        );
-                    }
-                }
-            }
-        }
-
-        // 9. Execute ALL updates in a single transaction (MUCH FASTER)
-        await prisma.$transaction([
-            prisma.task.update({
-                where: { id: subtaskId },
-                data: {
-                    startDate: start,
-                    dueDate: end,
-                    days: days,
-                },
-            }),
-            ...dependentUpdates,
-        ]);
+        // 9. Execute update
+        await prisma.task.update({
+            where: { id: subtaskId },
+            data: {
+                startDate: start,
+                dueDate: end,
+                days: days,
+            },
+        });
 
         // 10. OPTIMIZED: Use comprehensive cache invalidation
         // Invalidates subtask, parent task, project tasks, and Gantt view

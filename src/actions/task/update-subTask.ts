@@ -7,6 +7,7 @@ import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
 import { SubTaskSchemaType, subTaskSchema } from "@/lib/zodSchemas";
 import { syncTaskToProcurement } from "@/lib/procurement/logic";
+import { parseIST } from "@/lib/utils";
 
 export async function editSubTask(
     data: SubTaskSchemaType,
@@ -133,25 +134,18 @@ export async function editSubTask(
                 assigneeTo: assigneeInfo?.workspaceMember.userId || null,
                 assigneeDisplayName: assigneeDisplayName,
                 tagId: validation.data.tag || null,
-                startDate: validation.data.startDate
-                    ? (() => {
-                        const d = new Date(validation.data.startDate);
-                        return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-                    })()
-                    : null,
-                dueDate: validation.data.dueDate
-                    ? (() => {
-                        const d = new Date(validation.data.dueDate);
-                        return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-                    })() : null,
+                startDate: parseIST(validation.data.startDate),
+                dueDate: parseIST(validation.data.dueDate),
                 days: (validation.data.dueDate && validation.data.startDate)
                     ? (() => {
-                        const start = new Date(validation.data.startDate);
-                        const due = new Date(validation.data.dueDate);
-                        const utcStart = new Date(Date.UTC(start.getFullYear(), start.getMonth(), start.getDate()));
-                        const utcDue = new Date(Date.UTC(due.getFullYear(), due.getMonth(), due.getDate()));
-                        const diffTime = Math.abs(utcDue.getTime() - utcStart.getTime());
-                        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        const start = parseIST(validation.data.startDate);
+                        const due = parseIST(validation.data.dueDate);
+                        if (start && due) {
+                            const diffTime = Math.abs(due.getTime() - start.getTime());
+                            let d = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                            return d === 0 ? 1 : d;
+                        }
+                        return null;
                     })() : null,
             },
         });
