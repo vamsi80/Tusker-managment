@@ -265,9 +265,9 @@ export const subTaskSchema = z.object({
         .string()
         .min(3, { message: "Due date should select" })
         .optional(),
-    days: z
-        .number()
-        .min(1, { message: "Days should be at least 1" })
+    dueDate: z
+        .string()
+        .min(3, { message: "Due date should select" })
         .optional(),
     tag: z
         .string()

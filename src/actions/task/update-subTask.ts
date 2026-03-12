@@ -139,15 +139,20 @@ export async function editSubTask(
                         return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
                     })()
                     : null,
-                dueDate: validation.data.startDate && validation.data.days
+                dueDate: validation.data.dueDate
                     ? (() => {
-                        const d = new Date(validation.data.startDate);
-                        const utcStart = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-                        const due = new Date(utcStart.getTime());
-                        due.setUTCDate(due.getUTCDate() + validation.data.days);
-                        return due;
+                        const d = new Date(validation.data.dueDate);
+                        return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
                     })() : null,
-                days: validation.data.days,
+                days: (validation.data.dueDate && validation.data.startDate)
+                    ? (() => {
+                        const start = new Date(validation.data.startDate);
+                        const due = new Date(validation.data.dueDate);
+                        const utcStart = new Date(Date.UTC(start.getFullYear(), start.getMonth(), start.getDate()));
+                        const utcDue = new Date(Date.UTC(due.getFullYear(), due.getMonth(), due.getDate()));
+                        const diffTime = Math.abs(utcDue.getTime() - utcStart.getTime());
+                        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    })() : null,
             },
         });
 

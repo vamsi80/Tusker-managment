@@ -32,6 +32,7 @@ type SubTaskBase = {
     tag: { id: string } | null;
     status: string | null;
     startDate: Date | string | null;
+    dueDate: Date | string | null;
     days: number | null;
     assignee?: {
         id: string;
@@ -87,7 +88,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
             tag: subTask.tag?.id || tags[0]?.id || "",
             status: (subTask.status || "TO_DO") as "TO_DO" | "IN_PROGRESS" | "CANCELLED" | "REVIEW" | "HOLD" | "COMPLETED",
             startDate: subTask.startDate ? new Date(subTask.startDate).toISOString().split('T')[0] : "",
-            days: subTask.days || 0,
+            dueDate: (subTask as any).dueDate ? new Date((subTask as any).dueDate).toISOString().split('T')[0] : "",
         },
     });
 
@@ -118,7 +119,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
             values.assignee !== (subTask.assignee?.id || "") ||
             values.tag !== (subTask.tag?.id || "") ||
             values.startDate !== (subTask.startDate ? new Date(subTask.startDate).toISOString().split('T')[0] : "") ||
-            values.days !== subTask.days;
+            values.dueDate !== ((subTask as any).dueDate ? new Date((subTask as any).dueDate).toISOString().split('T')[0] : "");
 
         if (!hasChanges) {
             toast.info("No changes detected");
@@ -144,7 +145,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                         description: values.description,
                         tag: values.tag,
                         startDate: values.startDate ? new Date(values.startDate) : null,
-                        days: values.days,
+                        dueDate: values.dueDate ? new Date(values.dueDate) : null,
                     } as Partial<T>);
                 }
 
@@ -345,17 +346,12 @@ export function EditSubTaskForm<T extends SubTaskBase>({
 
                                 <FormField
                                     control={form.control}
-                                    name="days"
+                                    name="dueDate"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Duration (Days)</FormLabel>
+                                            <FormLabel>Due Date</FormLabel>
                                             <FormControl>
-                                                <Input
-                                                    type="number"
-                                                    placeholder="Days"
-                                                    {...field}
-                                                    onChange={(e) => field.onChange(e.target.valueAsNumber || 0)}
-                                                />
+                                                <Input type="date" {...field} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>

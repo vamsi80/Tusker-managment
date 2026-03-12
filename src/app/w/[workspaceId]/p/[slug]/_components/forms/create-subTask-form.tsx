@@ -85,7 +85,7 @@ export const CreateSubTaskForm = ({
             description: "",
             taskSlug: "",
             startDate: "",
-            days: 0,
+            dueDate: "",
             assignee: "",
             status: "TO_DO",
             tag: tags[0]?.id || "", // Use first tag's ID or empty string
@@ -350,16 +350,14 @@ export const CreateSubTaskForm = ({
 
                             <FormField
                                 control={form.control}
-                                name="days"
+                                name="dueDate"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Duration (Days)</FormLabel>
+                                        <FormLabel>Due Date</FormLabel>
                                         <FormControl>
                                             <Input
-                                                type="number"
-                                                placeholder="Days"
+                                                type="date"
                                                 {...field}
-                                                onChange={(e) => field.onChange(e.target.valueAsNumber || 0)}
                                             />
                                         </FormControl>
                                         <FormMessage />
