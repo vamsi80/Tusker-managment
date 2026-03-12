@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState, useTransition, useEffect, useMemo } from "react";
-import { Resolver, useForm } from "react-hook-form";
+import { Resolver, useForm, useWatch } from "react-hook-form";
 import { Check, Loader2, Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -24,7 +24,6 @@ import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { Badge } from "@/components/ui/badge";
 import { useReloadView } from "@/hooks/use-reload-view";
 
-// Generic subtask type that works with any subtask structure
 type SubTaskBase = {
     id: string;
     name: string;
@@ -85,12 +84,29 @@ export function EditSubTaskForm<T extends SubTaskBase>({
             projectId: projectId,
             parentTaskId: parentTaskId,
             assignee: subTask.assignee?.id || "",
-            tag: subTask.tag?.id || tags[0]?.id || "", // Use existing tag or first available tag
+            tag: subTask.tag?.id || tags[0]?.id || "",
             status: (subTask.status || "TO_DO") as "TO_DO" | "IN_PROGRESS" | "CANCELLED" | "REVIEW" | "HOLD" | "COMPLETED",
             startDate: subTask.startDate ? new Date(subTask.startDate).toISOString().split('T')[0] : "",
             days: subTask.days || 0,
         },
     });
+
+    const watchedName = useWatch({
+        control: form.control,
+        name: "name",
+    });
+
+    const watchedTaskSlug = useWatch({
+        control: form.control,
+        name: "taskSlug",
+    });
+
+    useEffect(() => {
+        if (watchedName) {
+            const newSlug = slugify(watchedName, { lower: true, strict: true });
+            form.setValue('taskSlug', newSlug, { shouldDirty: true, shouldValidate: true });
+        }
+    }, [watchedName, form]);
 
 
 
@@ -174,9 +190,10 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                         <FormControl>
                                             <Input placeholder="Enter subtask name" {...field} />
                                         </FormControl>
-                                        {field.value && (
+                                        <input type="hidden" {...form.register("taskSlug")} />
+                                        {watchedTaskSlug && (
                                             <p className="text-[10px] text-muted-foreground mt-1 px-1">
-                                                Slug: {slugify(field.value, { lower: true, strict: true })}
+                                                Slug: <span className="font-mono">{watchedTaskSlug}</span>
                                             </p>
                                         )}
                                         <FormMessage />

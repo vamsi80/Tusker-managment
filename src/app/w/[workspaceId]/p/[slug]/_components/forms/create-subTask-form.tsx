@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTransition, useState, useEffect, useMemo } from "react";
-import { Resolver, useForm } from "react-hook-form";
+import { Resolver, useForm, useWatch } from "react-hook-form";
 import { Check, Loader2, PlusIcon, SparkleIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -92,21 +92,25 @@ export const CreateSubTaskForm = ({
             projectId: projectId || (parentTasks.length > 0 ? parentTasks[0].projectId : "") || "",
             parentTaskId: parentTaskId || (parentTasks.length > 0 ? parentTasks[0].id : "") || "",
         },
-    })
+    });
 
-    // Auto-update slug when subtask name changes
+    const watchedName = useWatch({
+        control: form.control,
+        name: "name",
+    });
+
+    const watchedTaskSlug = useWatch({
+        control: form.control,
+        name: "taskSlug",
+    });
+
     useEffect(() => {
         if (!autoSlugEnabled || !open) return;
-
-        const subscription = form.watch((value, { name: fieldName }) => {
-            if (fieldName === 'name' && value.name) {
-                const newSlug = slugify(value.name, { lower: true, strict: true });
-                form.setValue('taskSlug', newSlug, { shouldValidate: false });
-            }
-        });
-
-        return () => subscription.unsubscribe();
-    }, [form, autoSlugEnabled, open]);
+        if (watchedName) {
+            const newSlug = slugify(watchedName, { lower: true, strict: true });
+            form.setValue('taskSlug', newSlug, { shouldValidate: false });
+        }
+    }, [watchedName, autoSlugEnabled, open, form]);
 
     // Reset auto-slug when dialog opens
     useEffect(() => {
@@ -163,12 +167,7 @@ export const CreateSubTaskForm = ({
         });
     }
 
-    const handleManualSlugGenerate = () => {
-        const nameValue = form.getValues("name") || "";
-        const slug = slugify(nameValue, { lower: true, strict: true });
-        form.setValue('taskSlug', slug, { shouldValidate: true });
-        setAutoSlugEnabled(true); // Re-enable auto-slug
-    };
+
 
     const formContent = (
         <>
@@ -193,9 +192,10 @@ export const CreateSubTaskForm = ({
                                     <FormControl>
                                         <Input placeholder={level === "workspace" ? "Enter task name" : "Enter subtask name"} {...field} />
                                     </FormControl>
-                                    {field.value && (
+                                    <input type="hidden" {...form.register("taskSlug")} />
+                                    {watchedTaskSlug && (
                                         <p className="text-[10px] text-muted-foreground mt-1 px-1">
-                                            Slug: {slugify(field.value, { lower: true, strict: true })}
+                                            Slug: <span className="font-mono">{watchedTaskSlug}</span>
                                         </p>
                                     )}
                                     <FormMessage />

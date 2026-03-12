@@ -55,6 +55,11 @@ export const CreateTaskForm = ({
         name: "name",
     });
 
+    const watchedTaskSlug = useWatch({
+        control: form.control,
+        name: "taskSlug",
+    });
+
     useEffect(() => {
         if (!autoSlugEnabled || !open) return;
         if (!watchedName) return;
@@ -118,12 +123,7 @@ export const CreateTaskForm = ({
         });
     }
 
-    const handleManualSlugGenerate = () => {
-        const nameValue = form.getValues("name") || "";
-        const slug = slugify(nameValue, { lower: true, strict: true });
-        form.setValue('taskSlug', slug, { shouldValidate: true });
-        setAutoSlugEnabled(true); // Re-enable auto-slug
-    };
+
 
 
     return (
@@ -154,9 +154,10 @@ export const CreateTaskForm = ({
                                             <FormControl>
                                                 <Input placeholder="Enter task title" {...field} />
                                             </FormControl>
-                                            {field.value && (
+                                            <input type="hidden" {...form.register("taskSlug")} />
+                                            {watchedTaskSlug && (
                                                 <p className="text-[10px] text-muted-foreground mt-1 px-1">
-                                                    Slug: {slugify(field.value, { lower: true, strict: true })}
+                                                    Slug: <span className="font-mono">{watchedTaskSlug}</span>
                                                 </p>
                                             )}
                                             <FormMessage />

@@ -41,7 +41,6 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
 
     // Determine if user is MANAGER (auto-assigned as project manager)
     const isManager = userRole === "MANAGER";
-    const isOwnerOrAdmin = userRole === "OWNER" || userRole === "ADMIN";
 
     const form = useForm<ProjectSchemaType>({
         resolver: zodResolver(projectSchema) as unknown as Resolver<ProjectSchemaType>,
@@ -74,10 +73,17 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
         name: "color",
     });
 
+    const watchedSlug = useWatch({
+        control: form.control,
+        name: "slug",
+    });
+
     useEffect(() => {
         if (watchedName) {
             const autoColor = getColorFromString(watchedName);
             form.setValue("color", autoColor, { shouldDirty: true });
+            const generatedSlug = slugify(watchedName, { lower: true, strict: true });
+            form.setValue("slug", generatedSlug, { shouldDirty: true, shouldValidate: true });
         }
     }, [watchedName, form]);
 
@@ -142,36 +148,16 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
                                                 <Input placeholder="Enter project name" {...field} />
                                             </FormControl>
                                             <input type="hidden" {...form.register("color")} />
+                                            <input type="hidden" {...form.register("slug")} />
+                                            {watchedSlug && (
+                                                <p className="text-[10px] text-muted-foreground mt-1 ml-1">
+                                                    Slug: <span className="font-mono">{watchedSlug}</span>
+                                                </p>
+                                            )}
                                             <FormMessage />
                                         </FormItem>
                                     )}
                                 />
-
-                                <div className="flex gap-4 items-end">
-                                    <FormField
-                                        control={form.control}
-                                        name="slug"
-                                        render={({ field }) => (
-                                            <FormItem className="w-full">
-                                                <FormLabel>Slug</FormLabel>
-                                                <FormControl>
-                                                    <Input placeholder="Slug" {...field} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <Button type="button" className="w-fit" onClick={() => {
-                                        const nameValue = form.getValues("name");
-                                        const slug = slugify(nameValue)
-
-                                        form.setValue('slug', slug, { shouldValidate: true })
-                                    }}>
-                                        Generate Slug <SparkleIcon className="ml-1" size={16} />
-                                    </Button>
-                                </div>
-
-
 
                                 {/* Description */}
                                 <FormField
