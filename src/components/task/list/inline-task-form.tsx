@@ -141,7 +141,7 @@ export function InlineTaskForm({
                     />
                     {taskName.trim().length > 0 && (
                         <p className="text-[10px] text-muted-foreground mt-0.5 px-1">
-                            Slug: {slugify(taskName.trim(), { lower: true, strict: true })}
+                            Slug: <span className="font-mono">{slugify(taskName.trim(), { lower: true, strict: true })}</span>
                         </p>
                     )}
                 </div>

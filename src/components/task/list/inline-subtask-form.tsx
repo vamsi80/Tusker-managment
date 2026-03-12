@@ -300,7 +300,7 @@ export function InlineSubTaskForm({
                     />
                     {subTaskName.trim().length > 0 && (
                         <p className="text-[10px] text-muted-foreground mt-0.5 px-1">
-                            Slug: {slugify(subTaskName.trim(), { lower: true, strict: true })}
+                            Slug: <span className="font-mono">{slugify(subTaskName.trim(), { lower: true, strict: true })}</span>
                         </p>
                     )}
                 </div>
