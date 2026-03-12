@@ -97,7 +97,7 @@ export function GanttChart({
 
     const timelineRange = useMemo(() => calculateTimelineRange(tasks), [tasks]);
     const totalDays = useMemo(
-        () => getDaysBetween(timelineRange.start, timelineRange.end),
+        () => getDaysBetween(timelineRange.start, timelineRange.end) + 1,
         [timelineRange]
     );
 
@@ -429,10 +429,6 @@ export function GanttChart({
                 <div className="flex items-center gap-2">
                     <div className="w-4 h-2 rounded bg-green-400 dark:bg-green-500" />
                     <span>Completed</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="w-4 h-2 rounded bg-amber-400 dark:bg-amber-500" />
-                    <span>Blocked</span>
                 </div>
                 <div className="flex items-center gap-2">
                     <div className="w-0.5 h-4 bg-red-500 dark:bg-red-400" />

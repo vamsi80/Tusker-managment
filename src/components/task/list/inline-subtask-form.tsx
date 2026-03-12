@@ -19,7 +19,7 @@ import { ColumnVisibility } from "../shared/column-visibility";
 import { SubTaskType } from "@/data/task";
 import { ApiResponse } from "@/lib/types";
 import { getProjectReviewers, ProjectReviewer } from "@/actions/project/get-project-reviewers";
-import { cn } from "@/lib/utils";
+import { cn, parseIST } from "@/lib/utils";
 
 interface InlineSubTaskFormProps {
     workspaceId: string;
@@ -67,10 +67,42 @@ export function InlineSubTaskForm({
         (subTask?.status as typeof SubTaskStatus[number]) || "TO_DO"
     );
     const [startDate, setStartDate] = useState(
-        subTask?.startDate ? new Date(subTask.startDate).toISOString().split('T')[0] : ""
+        subTask?.startDate ? (() => {
+            const d = new Date(subTask.startDate);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const hours = String(d.getHours()).padStart(2, '0');
+            const minutes = String(d.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        })() : (() => {
+            const now = new Date(Date.now() + 10 * 60000);
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        })()
     );
     const [dueDate, setDueDate] = useState(
-        (subTask as any)?.dueDate ? new Date((subTask as any).dueDate).toISOString().split('T')[0] : ""
+        (subTask as any)?.dueDate ? (() => {
+            const d = new Date((subTask as any).dueDate);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const hours = String(d.getHours()).padStart(2, '0');
+            const minutes = String(d.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        })() : (() => {
+            const now = new Date(Date.now() + 30 * 60000);
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        })()
     );
     const [tag, setTag] = useState(subTask?.tag?.id || "");
 
@@ -162,8 +194,8 @@ export function InlineSubTaskForm({
                 name: subTaskName.trim(),
                 description: description.trim() || undefined,
                 status,
-                startDate: startDate ? new Date(startDate) : null,
-                dueDate: dueDate ? new Date(dueDate) : null,
+                startDate: startDate ? parseIST(startDate) : null,
+                dueDate: dueDate ? parseIST(dueDate) : null,
                 projectId,
                 parentTaskId,
                 createdAt: new Date(),
@@ -227,8 +259,8 @@ export function InlineSubTaskForm({
                 name: subTaskName.trim(),
                 description: description.trim() || undefined,
                 status,
-                startDate: startDate ? new Date(startDate) : null,
-                dueDate: dueDate ? new Date(dueDate) : null,
+                startDate: startDate ? parseIST(startDate) : null,
+                dueDate: dueDate ? parseIST(dueDate) : null,
                 // Include full objects for UI
                 assignee: selectedMember ? {
                     id: selectedMember.workspaceMember.userId,
@@ -405,7 +437,7 @@ export function InlineSubTaskForm({
             {columnVisibility.startDate && (
                 <TableCell className="w-[120px]">
                     <Input
-                        type="date"
+                        type="datetime-local"
                         value={startDate}
                         onChange={(e) => setStartDate(e.target.value)}
                         disabled={pending}
@@ -418,7 +450,7 @@ export function InlineSubTaskForm({
             {columnVisibility.dueDate && (
                 <TableCell className="w-[120px]">
                     <Input
-                        type="date"
+                        type="datetime-local"
                         value={dueDate}
                         onChange={(e) => setDueDate(e.target.value)}
                         disabled={pending}

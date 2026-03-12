@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Loader2, ChevronsUpDown, Maximize2, Minimize2, ChevronDown } from "lucide-react";
 import { loadTasksAction } from "@/actions/task/list-actions";
-import { getSubTasksAction } from "@/actions/task/get-subtasks";
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 import type { ProjectMembersType } from "@/data/project/get-project-members";
 import type { SubTaskType } from "@/data/task";

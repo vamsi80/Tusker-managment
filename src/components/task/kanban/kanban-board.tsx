@@ -49,14 +49,14 @@ const COLUMNS: { id: TaskStatus; title: string; color: string; bgColor: string; 
         ...STATUS_COLORS.REVIEW,
     },
     {
-        id: "HOLD",
-        title: STATUS_LABELS.HOLD,
-        ...STATUS_COLORS.HOLD,
-    },
-    {
         id: "COMPLETED",
         title: STATUS_LABELS.COMPLETED,
         ...STATUS_COLORS.COMPLETED,
+    },
+    {
+        id: "HOLD",
+        title: STATUS_LABELS.HOLD,
+        ...STATUS_COLORS.HOLD,
     },
     {
         id: "CANCELLED",
@@ -321,12 +321,12 @@ export function KanbanBoard({
                         // since this specific query fetches everything generically
                         const totalForCol = counts[col.id] || colTasks.length;
                         const hasMoreLocal = totalForCol > colTasks.length;
-                        
+
                         // Extract a custom cursor specifically for this column if needed
                         const lastTask = colTasks[colTasks.length - 1];
-                        const nextCursor = hasMoreLocal && lastTask 
-                                ? { id: lastTask.id, createdAt: lastTask.createdAt } 
-                                : null;
+                        const nextCursor = hasMoreLocal && lastTask
+                            ? { id: lastTask.id, createdAt: lastTask.createdAt }
+                            : null;
 
                         groupedData[col.id] = {
                             subTaskIds: colTasks.map((t: any) => t.id),
@@ -397,11 +397,11 @@ export function KanbanBoard({
             if (targetProjectId) params.set("p", targetProjectId);
             if (currentCursor) params.set("c", JSON.stringify(currentCursor));
             if (searchQuery) params.set("q", searchQuery);
-            
+
             // Filters
             if (filters.assigneeId) params.append("a", filters.assigneeId);
             if (filters.tagId) params.append("t", filters.tagId);
-            
+
             const apiRes = await fetch(`/api/kt?${params.toString()}`);
             const response = await apiRes.json();
 
@@ -427,7 +427,7 @@ export function KanbanBoard({
                 const idSet = new Set([...existingIds, ...newTasks.map((t: any) => t.id)]);
                 const deduplicatedIds = Array.from(idSet);
                 const totalForCol = counts[status] || (prev[status].totalCount ?? 0);
-                
+
                 // Trust the server's pagination state directly to avoid infinite loops
                 const serverHasMore = response.data.hasMore || false;
                 const serverNextCursor = response.data.nextCursor || null;

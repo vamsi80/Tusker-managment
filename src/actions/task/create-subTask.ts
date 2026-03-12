@@ -8,6 +8,7 @@ import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
 import { SubTaskSchemaType, subTaskSchema } from "@/lib/zodSchemas";
 import { syncTaskToProcurement } from "@/lib/procurement/logic";
+import { parseIST } from "@/lib/utils";
 
 export async function createSubTask(values: SubTaskSchemaType): Promise<ApiResponse> {
     const user = await requireUser();
@@ -101,14 +102,17 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
         let days: number | null = null;
         
         if (validation.data.dueDate) {
-            const d = new Date(validation.data.dueDate);
-            dueDate = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+            dueDate = parseIST(validation.data.dueDate);
             
-            if (validation.data.startDate) {
-                const s = new Date(validation.data.startDate);
-                const utcStart = new Date(Date.UTC(s.getFullYear(), s.getMonth(), s.getDate()));
-                const diffTime = Math.abs(dueDate.getTime() - utcStart.getTime());
-                days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            if (validation.data.startDate && dueDate) {
+                const start = parseIST(validation.data.startDate);
+                if (start) {
+                    const diffTime = Math.abs(dueDate.getTime() - start.getTime());
+                    days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    // If they are the same day but different times, this might return 0 if < 24h.
+                    // Usually developers prefer at least 1 day if it's on the same day.
+                    if (days === 0) days = 1;
+                }
             }
         }
 
@@ -143,12 +147,7 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
                     reviewerId: reviewerId,
                     reviewerDisplayName: reviewerDisplayName,
                     tagId: validation.data.tag || null,
-                    startDate: validation.data.startDate
-                        ? (() => {
-                            const d = new Date(validation.data.startDate);
-                            return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-                        })()
-                        : null,
+                    startDate: parseIST(validation.data.startDate),
                     dueDate: dueDate,
                     days: days,
                     isParent: false,

@@ -84,8 +84,24 @@ export const CreateSubTaskForm = ({
             name: "",
             description: "",
             taskSlug: "",
-            startDate: "",
-            dueDate: "",
+            startDate: (() => {
+                const now = new Date(Date.now() + 10 * 60000); // 10 minutes in future
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                return `${year}-${month}-${day}T${hours}:${minutes}`;
+            })(),
+            dueDate: (() => {
+                const now = new Date(Date.now() + 30 * 60000); // 30 minutes in future for due date
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                return `${year}-${month}-${day}T${hours}:${minutes}`;
+            })(),
             assignee: "",
             status: "TO_DO",
             tag: tags[0]?.id || "", // Use first tag's ID or empty string
@@ -341,7 +357,7 @@ export const CreateSubTaskForm = ({
                                     <FormItem >
                                         <FormLabel>Start Date</FormLabel>
                                         <FormControl>
-                                            <Input type="date" {...field} />
+                                            <Input type="datetime-local" {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -356,7 +372,7 @@ export const CreateSubTaskForm = ({
                                         <FormLabel>Due Date</FormLabel>
                                         <FormControl>
                                             <Input
-                                                type="date"
+                                                type="datetime-local"
                                                 {...field}
                                             />
                                         </FormControl>

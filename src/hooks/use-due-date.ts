@@ -66,11 +66,13 @@ export function useRemainingDays(
         }
 
         const now = new Date();
-        now.setHours(0, 0, 0, 0); // Reset time to start of day for accurate comparison
+        const startOfToday = new Date(now);
+        startOfToday.setHours(0, 0, 0, 0);
 
-        dueDate.setHours(0, 0, 0, 0); // Reset time to start of day
+        const startOfDueDate = new Date(dueDate);
+        startOfDueDate.setHours(0, 0, 0, 0);
 
-        const diffTime = dueDate.getTime() - now.getTime();
+        const diffTime = startOfDueDate.getTime() - startOfToday.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
         return {

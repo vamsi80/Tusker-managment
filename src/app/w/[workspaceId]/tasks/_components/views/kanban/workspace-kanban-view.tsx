@@ -28,7 +28,7 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
     // 2. Wait for user safely before launching the dependent queries
     const user = await userPromise;
 
-    const COLUMNS = ["TO_DO", "IN_PROGRESS", "REVIEW", "HOLD", "COMPLETED", "CANCELLED"] as const;
+    const COLUMNS = ["TO_DO", "IN_PROGRESS", "REVIEW", "COMPLETED", "HOLD", "CANCELLED"] as const;
 
     // 3. Launch the final large queries
     const [

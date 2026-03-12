@@ -10,16 +10,49 @@ export function cn(...inputs: ClassValue[]) {
  * Formats a date string or object as DD/MM/YYYY using UTC components.
  * This prevents 1-day shifts caused by local timezone offsets.
  */
-export function formatDateUTC(date: string | Date | null | undefined): string {
+/**
+ * Parses a local date-time string (YYYY-MM-DDTHH:mm) as Indian Standard Time (IST)
+ */
+export function parseIST(dateStr: string | null | undefined): Date | null {
+  if (!dateStr) return null;
+  // If it's already an ISO string with timezone, parse it directly
+  if (dateStr.includes('Z') || dateStr.includes('+')) return new Date(dateStr);
+  
+  // datetime-local gives YYYY-MM-DDTHH:mm
+  // We append the IST offset +05:30
+  return new Date(`${dateStr}:00+05:30`);
+}
+
+/**
+ * Formats a date string or object as DD/MM/YYYY HH:mm in IST.
+ */
+export function formatDateUTC(date: string | Date | null | undefined, includeTime: boolean = true): string {
   if (!date) return "-";
   const d = new Date(date);
   if (isNaN(d.getTime())) return "-";
 
-  const day = String(d.getUTCDate()).padStart(2, '0');
-  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const year = d.getUTCFullYear();
+  // Using Intl.DateTimeFormat to reliably get IST components regardless of local environment
+  const formatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
 
-  return `${day}/${month}/${year}`;
+  const parts = formatter.formatToParts(d);
+  const getPart = (type: string) => parts.find(p => p.type === type)?.value;
+
+  const day = getPart('day');
+  const month = getPart('month');
+  const year = getPart('year');
+  const hours = getPart('hour');
+  const minutes = getPart('minute');
+
+  const dateStr = `${day}/${month}/${year}`;
+  return includeTime ? `${dateStr} ${hours}:${minutes}` : dateStr;
 }
 
 /**
