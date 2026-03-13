@@ -14,7 +14,7 @@ import { updateSubTaskStatus } from "@/actions/task/kanban/update-subtask-status
 import { loadTasksAction } from "@/actions/task/list-actions";
 import { GlobalFilterToolbar, ParentTaskOption } from "../shared/global-filter-toolbar";
 import { ReviewCommentDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/review-comment-form";
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, pointerWithin, PointerSensor, MouseSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { DndContext, DragEndEvent, DragOverEvent, DragOverlay, DragStartEvent, closestCorners, pointerWithin, PointerSensor, MouseSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 import { Loader2 } from "lucide-react";
 import { logger } from "@/lib/logger";
@@ -204,6 +204,7 @@ export function KanbanBoard({
     );
 
     const [activeSubTask, setActiveSubTask] = useState<KanbanSubTaskType | null>(null);
+    const [overInfo, setOverInfo] = useState<{ overId: string | null; columnId: TaskStatus | null }>({ overId: null, columnId: null });
 
     const { openSubTaskSheet } = useSubTaskSheetActions();
     // const reloadView = useReloadView();
@@ -477,19 +478,60 @@ export function KanbanBoard({
         }
     };
 
+    const handleDragOver = (event: DragOverEvent) => {
+        const { over } = event;
+        if (!over) {
+            setOverInfo({ overId: null, columnId: null });
+            return;
+        }
+        const overId = over.id as string;
+        const validStatuses: TaskStatus[] = ["TO_DO", "IN_PROGRESS", "CANCELLED", "REVIEW", "HOLD", "COMPLETED"];
+        // If dropped directly onto a column, overId is the column status
+        if (validStatuses.includes(overId as TaskStatus)) {
+            setOverInfo({ overId: null, columnId: overId as TaskStatus });
+        } else {
+            // overId is a card id — find which column it belongs to
+            for (const col of COLUMNS) {
+                if (columnData[col.id].subTaskIds.includes(overId)) {
+                    setOverInfo({ overId, columnId: col.id });
+                    return;
+                }
+            }
+            setOverInfo({ overId: null, columnId: null });
+        }
+    };
+
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
         setActiveSubTask(null);
+        setOverInfo({ overId: null, columnId: null });
 
         if (!over) {
             return;
         }
 
         const subTaskId = active.id as string;
-        const newStatus = over.id as TaskStatus;
+        const overId = over.id as string;
 
         const validStatuses: TaskStatus[] = ["TO_DO", "IN_PROGRESS", "CANCELLED", "REVIEW", "HOLD", "COMPLETED"];
-        if (!validStatuses.includes(newStatus)) {
+
+        // Resolve the target column:
+        // 1. If the pointer is directly over a column drop zone, over.id IS the status.
+        // 2. If the pointer is over another card, find which column that card belongs to.
+        let newStatus: TaskStatus | null = null;
+        if (validStatuses.includes(overId as TaskStatus)) {
+            newStatus = overId as TaskStatus;
+        } else {
+            // over.id is a card id — find its column
+            for (const col of COLUMNS) {
+                if (columnData[col.id].subTaskIds.includes(overId)) {
+                    newStatus = col.id;
+                    break;
+                }
+            }
+        }
+
+        if (!newStatus) {
             return;
         }
 
@@ -723,6 +765,7 @@ export function KanbanBoard({
 
     const handleDragCancel = () => {
         setActiveSubTask(null);
+        setOverInfo({ overId: null, columnId: null });
     };
 
     const handleSubTaskClick = (subTask: KanbanSubTaskType) => {
@@ -869,6 +912,7 @@ export function KanbanBoard({
                 sensors={sensors}
                 collisionDetection={pointerWithin}
                 onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
                 onDragEnd={handleDragEnd}
                 onDragCancel={handleDragCancel}
                 autoScroll={true}
@@ -907,6 +951,9 @@ export function KanbanBoard({
                                     onLoadMore={() => handleLoadMore(column.id)}
                                     projectManagers={projectManagers}
                                     updatingTaskIds={updatingTaskIds}
+                                    activeTaskId={activeSubTask?.id ?? null}
+                                    overCardId={overInfo.columnId === column.id ? overInfo.overId : null}
+                                    isOverColumn={overInfo.columnId === column.id}
                                 />
                             );
                         })}
