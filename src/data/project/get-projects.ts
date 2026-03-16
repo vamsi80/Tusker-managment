@@ -60,14 +60,13 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
             }
         },
         projectMembers: {
-            where: {
-                userId: userId
-            },
             select: {
+                userId: true,
                 projectRole: true
             }
         }
     } as const;
+
 
     let projects;
 
@@ -113,7 +112,7 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
     }
 
     return projects.map(project => {
-        const userProjectMember = project.projectMembers[0];
+        const userProjectMember = project.projectMembers.find(m => m.userId === userId);
         const isProjectManager = userProjectMember?.projectRole === "PROJECT_MANAGER";
         const isProjectLead = userProjectMember?.projectRole === "LEAD";
         const isCreator = project.createdBy === userId;
@@ -127,11 +126,13 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
             createdBy: project.createdBy,
             canManageMembers: isOwnerOrAdmin || isProjectManager || isCreator,
             memberCount: project._count.projectMembers,
+            memberIds: project.projectMembers.map(m => m.userId),
             // We only need basic status for the list, detail views fetch more
             isLead: isProjectLead,
         };
     });
 }
+
 
 // Cached version with Next.js unstable_cache (persists across requests)
 const getCachedUserProjects = (userId: string, workspaceId: string) =>
