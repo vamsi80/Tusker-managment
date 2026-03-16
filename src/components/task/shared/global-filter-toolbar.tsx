@@ -595,46 +595,16 @@ export function GlobalFilterToolbar({
                             setVisibleColumns={setKanbanColumnVisibility}
                         />
                     )}
+
+                    {view === 'gantt' && kanbanColumnVisibility && setKanbanColumnVisibility && (
+                        <KanbanColumnVisibility
+                            visibleColumns={kanbanColumnVisibility}
+                            setVisibleColumns={setKanbanColumnVisibility}
+                        />
+                    )}
                 </div>
 
-                {/* Active Filters Badges */}
-                {activeFilters.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs text-muted-foreground">Active:</span>
-                        {activeFilters.map((filter) => (
-                            <Badge
-                                key={filter.key}
-                                variant="secondary"
-                                className="gap-1.5 pl-2 pr-1"
-                            >
-                                <span className="text-xs">
-                                    {filter.label}: {filter.value}
-                                </span>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-4 w-4 p-0 hover:bg-transparent"
-                                    onClick={() => removeFilter(filter.key)}
-                                >
-                                    <X className="h-3 w-3" />
-                                </Button>
-                            </Badge>
-                        ))}
-                        {searchQuery && (
-                            <Badge variant="secondary" className="gap-1.5 pl-2 pr-1">
-                                <span className="text-xs">Search: {searchQuery}</span>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-4 w-4 p-0 hover:bg-transparent"
-                                    onClick={() => onSearchChange("")}
-                                >
-                                    <X className="h-3 w-3" />
-                                </Button>
-                            </Badge>
-                        )}
-                    </div>
-                )}
+
             </div>
         </div>
     );

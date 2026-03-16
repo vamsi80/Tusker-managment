@@ -576,8 +576,31 @@ async function _fetchFilteredHierarchy(
         ? { id: matches[matches.length - 1].id, createdAt: matches[matches.length - 1].createdAt }
         : null;
 
-    return { tasks: sortedRoots, totalCount: null, hasMore, nextCursor };
+    // 5. PROJECT FACETS (If requested)
+    const projectFacets: Record<string, number> = {};
+    if (opts.includeFacets) {
+        const facetWhere = { ...matchWhere };
+        delete (facetWhere as any).AND; // Remove cursor for global count
+        
+        const counts = await prisma.task.groupBy({
+            by: ['projectId'],
+            where: facetWhere,
+            _count: true
+        });
+        counts.forEach(c => {
+            if (c.projectId) projectFacets[c.projectId] = (projectFacets[c.projectId] || 0) + c._count;
+        });
+    }
+
+    return { 
+        tasks: sortedRoots, 
+        totalCount: matches.length, 
+        hasMore, 
+        nextCursor,
+        facets: { status: {}, assignee: {}, tags: {}, projects: projectFacets }
+    };
 }
+
 
 // ============================================================
 //  VIEW 4: WORKSPACE FILTER (Flat Layout)
@@ -629,10 +652,23 @@ async function _fetchWorkspaceFilter(
     if (isSorting && opts.cursor) {
         const seek = buildSeekCondition(opts.sorts!, opts.cursor);
         if (seek) {
-            where.AND = [
-                ...(where.AND ? (Array.isArray(where.AND) ? where.AND : [where.AND]) : []),
-                seek
-            ];
+            // Merge with any existing conditions to avoid overwriting scope clauses
+            if (where.OR) {
+                // If there's an existing OR, we need to wrap it in an AND with the new seek condition
+                const existingOR = where.OR;
+                delete where.OR; // Remove the top-level OR
+                where.AND = [
+                    ...(Array.isArray(where.AND) ? where.AND : (where.AND ? [where.AND] : [])),
+                    { OR: existingOR }, // Re-add the existing OR clause
+                    seek // Add the new seek condition
+                ];
+            } else {
+                // If no existing OR, just add the seek condition to AND
+                where.AND = [
+                    ...(Array.isArray(where.AND) ? where.AND : (where.AND ? [where.AND] : [])),
+                    seek
+                ];
+            }
         }
     }
 
