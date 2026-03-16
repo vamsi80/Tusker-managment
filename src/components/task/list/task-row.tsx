@@ -61,7 +61,7 @@ export const TaskRow = memo(function TaskRow({
         setTask(initialTask);
     }, [initialTask]);
 
-    const subtaskCount = task.subtaskCount || 0;
+    const subtaskCount = task.subtaskCount || (task as any)._count?.subTasks || 0;
     const rowRef = useRef<HTMLTableRowElement>(null);
 
     useEffect(() => {

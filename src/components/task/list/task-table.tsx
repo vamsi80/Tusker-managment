@@ -343,7 +343,32 @@ export default function TaskTable({
                     const result = response.data;
                     setTasks(hydrateTasks(result.tasks));
 
+                    // Auto-expand projects that have matches in workspace view
+                    if (level === "workspace" && result.tasks.length > 0) {
+                        const projectsWithTasks = new Set(result.tasks.map(t => t.projectId));
+                        setExpandedProjects(prev => {
+                            const next = { ...prev };
+                            projectsWithTasks.forEach(pId => {
+                                if (pId) next[pId] = true;
+                            });
+                            return next;
+                        });
+
+                        // Set global pagination state for workspace filter
+                        setProjectPagination(prev => ({
+                            ...prev,
+                            ["__global_filter__"]: {
+                                page: 1,
+                                nextCursor: result.nextCursor,
+                                hasMore: result.hasMore,
+                                isLoading: false
+                            }
+                        }));
+                    }
+
                     if (level === "project" && projectId) {
+
+
                         setProjectPagination({
                             [projectId]: {
                                 page: 1,
@@ -399,23 +424,29 @@ export default function TaskTable({
                             hasMore: cache.hasMore,
                             isLoading: false
                         };
-                    } else if (pId === projectId) {
-                        // Fallback to initialData
-                        initialTasks.forEach(t => taskMap.set(t.id, t));
-                        newPagination[pId] = {
-                            page: 1,
-                            nextCursor: initialNextCursor,
-                            hasMore: initialHasMore,
-                            isLoading: false
-                        };
+                    } else {
+                        // Fallback to initialData for this specific project
+                        const projectInitialTasks = initialTasks.filter(t => t.projectId === pId);
+                        if (projectInitialTasks.length > 0) {
+                            projectInitialTasks.forEach(t => taskMap.set(t.id, t));
+                            newPagination[pId] = {
+                                page: 1,
+                                nextCursor: initialNextCursor,
+                                hasMore: initialHasMore,
+                                isLoading: false
+                            };
+                        }
                     }
                 });
+
 
                 if (!isAborted) {
                     const resetList = Array.from(taskMap.values());
                     setTasks(hydrateTasks(resetList));
                     setProjectPagination(newPagination);
                     setExpanded({});
+                    processedSubTasksRef.current.clear();
+                    fetchingSubTasksRef.current.clear();
                     setIsCurrentlyFiltered(false);
                     setIsLoadingFilters(false);
                 }
@@ -577,10 +608,12 @@ export default function TaskTable({
             [targetProjectId]: { ...currentPagination, isLoading: true }
         }));
 
+        const isGlobal = targetProjectId === "__global_filter__";
+
         try {
             const response = await loadTasksAction({
                 workspaceId,
-                projectId: targetProjectId,
+                ...(isGlobal ? {} : { projectId: targetProjectId }),
                 status: filters.status as any,
                 assigneeId: filters.assigneeId as any,
                 tagId: filters.tagId as any,
@@ -588,12 +621,13 @@ export default function TaskTable({
                 dueAfter: filters.startDate ? new Date(filters.startDate) as any : undefined,
                 dueBefore: filters.endDate ? new Date(filters.endDate) as any : undefined,
                 hierarchyMode: "parents",
-                includeSubTasks: false, // 🚀 Changed to false to prevent expensive recursive scans on simple scroll
+                includeSubTasks: isGlobal, // Bulk load subtasks if global search
                 cursor: currentPagination.nextCursor,
                 limit: 50,
                 sorts,
                 view_mode: "list",
             });
+
 
             if (response.success && response.data) {
                 const resultData = response.data as any;
@@ -603,15 +637,18 @@ export default function TaskTable({
                         .filter(task => !existingIds.has(task.id));
                     const updatedList = [...prev, ...newTasks];
 
-                    // Cache Logic
-                    const tasksForCache = updatedList.filter(t => t.projectId === targetProjectId);
-                    setProjectTasksCache(targetProjectId, {
-                        tasks: tasksForCache,
-                        hasMore: resultData.hasMore ?? false,
-                        page: currentPagination.page + 1,
-                        nextCursor: resultData.nextCursor,
-                        totalCount: resultData.totalCount ?? undefined
-                    });
+                    // Cache Logic - Only update if NOT filtered
+                    if (!filtersActive) {
+                        const tasksForCache = updatedList.filter(t => t.projectId === targetProjectId);
+                        setProjectTasksCache(targetProjectId, {
+                            tasks: tasksForCache,
+                            hasMore: resultData.hasMore ?? false,
+                            page: currentPagination.page + 1,
+                            nextCursor: resultData.nextCursor,
+                            totalCount: resultData.totalCount ?? undefined
+                        });
+                    }
+
 
                     if (autoExpandRef.current && newTasks.length > 0) {
                         setTimeout(() => {
@@ -1050,9 +1087,7 @@ export default function TaskTable({
                         "[&::-webkit-scrollbar-thumb]:hover:bg-slate-400"
                     )}>
                     <DndContext
-                        // sensors={sensors}
                         collisionDetection={closestCenter}
-                    // onDragEnd={handleDragEnd}
                     >
                         <table className="w-full caption-bottom text-sm table-fixed">
                             <thead className="[&_tr]:border-b">
@@ -1251,18 +1286,33 @@ export default function TaskTable({
                                     <EmptyState message="No tasks found" visibleColumnsCount={visibleColumnsCount} />
                                 )}
 
-                                {/* Global "No tasks found" marker when all tasks are fully loaded */}
+                                {/* Global Pagination for Workspace Filtered View */}
+                                {level === "workspace" && filtersActive && projectPagination["__global_filter__"]?.hasMore && (
+                                    <LoadMoreSentinel
+                                        visibleColumnsCount={visibleColumnsCount}
+                                        projectId="__global_filter__"
+                                        observer={getObserver()}
+                                    />
+                                )}
+
+                                {/* Global "No more tasks" marker */}
                                 {!isLoadingFilters && (
                                     (mode === "sorted" && !sortedHasMore && sortedTasks.length > 0) ||
-                                    (!groupedTasks && mode !== "sorted" && !projectPagination[projectId]?.hasMore && filteredTasks.length > 0) ||
-                                    (groupedTasks && Object.keys(groupedTasks).length > 0 && !Object.values(projectPagination).some(p => p.hasMore))
+                                    (!groupedTasks && mode !== "sorted" && (level === "project" ? !projectPagination[projectId]?.hasMore : true) && filteredTasks.length > 0) ||
+                                    (groupedTasks && Object.keys(groupedTasks).length > 0 &&
+                                        (filtersActive
+                                            ? !projectPagination["__global_filter__"]?.hasMore
+                                            : !Object.values(projectPagination).some(p => p.hasMore))
+                                    )
                                 ) && (
                                         <TableRow className="hover:bg-transparent border-0">
                                             <TableCell colSpan={visibleColumnsCount} className="py-12 text-center text-muted-foreground/30 text-[10px] font-bold uppercase tracking-[0.4em] pointer-events-none select-none">
-                                                no tasks found
+                                                no more tasks found
                                             </TableCell>
                                         </TableRow>
                                     )}
+
+
                             </tbody>
                         </table>
                     </DndContext>

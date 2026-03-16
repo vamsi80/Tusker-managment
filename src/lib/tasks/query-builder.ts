@@ -1,9 +1,5 @@
 import { Prisma } from "@/generated/prisma";
 
-/**
- * Dynamic Task Selection
- * Fetches only what is needed for the specific view to save bandwidth.
- */
 export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
     const isList = viewMode === "list" || viewMode === "default" || !viewMode;
     const isKanban = viewMode === "kanban";
@@ -11,11 +7,6 @@ export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
     const isCalendar = viewMode === "calendar";
     const isSearch = viewMode === "search";
     const isSubtask = viewMode === "subtask";
-
-    /**
-     * CORE FIELDS: Strictly what's needed for basic rendering & core logic (Dnd, Permissions).
-     * We exclude heavy fields (description) and redundant IDs (assigneeTo) where possible.
-     */
     const select: Prisma.TaskSelect = {
         id: true,
         name: true,
@@ -40,10 +31,14 @@ export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
     // 1. Comment Counts: Only for Views that show badge/indicators (Board and List)
     if (isKanban || isList) {
         select._count = {
-            select: { reviewComments: true }
+            select: { 
+                reviewComments: true,
+                subTasks: true // Safety fallback for denormalized subtaskCount
+            }
         };
         select.tag = { select: { id: true, name: true } };
     }
+
 
     // 2. Dates & Progress:
     // startDate is now exclusive to List view per user request (and Gantt/Calendar/Subtasks which require it)
@@ -328,15 +323,26 @@ export function buildWorkspaceFilterWhere(
         }
     }
 
-    // ─── User-supplied assignee filter ─────────────────────────────────
-    const assigneeFilters = opts.assigneeId
-        ? (Array.isArray(opts.assigneeId) ? opts.assigneeId : [opts.assigneeId])
-        : null;
+    // ─── User-supplied filters: Combine with restricted scope ─────────
+    const applyFilter = (key: keyof Prisma.TaskWhereInput, values: any) => {
+        if (!values || (Array.isArray(values) && values.length === 0)) return;
+        
+        const filterValue = Array.isArray(values) ? { in: values } : values;
+        
+        if (where[key]) {
+            where.AND = [
+                ...(Array.isArray(where.AND) ? where.AND : (where.AND ? [where.AND] : [])),
+                { [key]: filterValue }
+            ];
+        } else {
+            where[key] = filterValue;
+        }
+    };
 
-    // Do not overwrite an assigneeTo already set by the restricted scope above
-    if (assigneeFilters && assigneeFilters.length > 0 && !where.assigneeTo) {
-        where.assigneeTo = { in: assigneeFilters };
-    }
+    applyFilter('assigneeTo', opts.assigneeId);
+    applyFilter('status', opts.status);
+    applyFilter('tagId', opts.tagId);
+
 
     // ─── Hierarchy ─────────────────────────────────────────────────────
     if (opts.onlyParents) {
