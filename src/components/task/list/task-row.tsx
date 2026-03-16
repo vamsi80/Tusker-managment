@@ -100,7 +100,6 @@ export const TaskRow = memo(function TaskRow({
     if (columnVisibility.dueDate) colSpan++;
     if (columnVisibility.progress) colSpan++;
     if (columnVisibility.tag) colSpan++;
-    if (columnVisibility.project) colSpan++;
 
     const handleTaskUpdated = (updatedTask: { name: string; taskSlug: string }) => {
         onTaskUpdated?.(updatedTask);

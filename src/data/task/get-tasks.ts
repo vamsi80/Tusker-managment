@@ -453,9 +453,11 @@ async function _fetchFilteredHierarchy(
             fullAccessProjectIds,
             restrictedProjectIds,
             // When not filtering, we only look at items that could be roots if hierarchyMode says so
-            onlyParents: !hasExplicitFilters && (opts.hierarchyMode === "parents"),
             projectIds: (!opts.projectId && opts.expandedProjectIds?.length) ? opts.expandedProjectIds : undefined,
+            includeSubTasks: opts.includeSubTasks,
+            viewMode: opts.view_mode,
         },
+
         userId
     );
 
@@ -511,6 +513,7 @@ async function _fetchFilteredHierarchy(
                                 fullAccessProjectIds,
                                 restrictedProjectIds,
                                 projectIds: (!opts.projectId && opts.expandedProjectIds?.length) ? opts.expandedProjectIds : undefined,
+                                viewMode: opts.view_mode,
                             }, userId)
                         ]
                     }
@@ -642,6 +645,8 @@ async function _fetchWorkspaceFilter(
         onlyParents: isSorting ? false : opts.onlyParents,
         excludeParents: opts.excludeParents,
         onlySubtasks: isSorting ? true : opts.onlySubtasks,
+
+        viewMode: opts.view_mode,
     };
 
     // --- STRATEGY: FLAT FILTER ---
@@ -826,7 +831,9 @@ async function _getTasksInternal(
                 onlySubtasks: opts.hierarchyMode === "children",
                 excludeParents: opts.excludeParents,
                 includeSubTasks: opts.includeSubTasks,
+                viewMode: opts.view_mode,
             }, userId);
+
 
             // Normalize input cursor early for Prisma safety
             if (opts.cursor && typeof opts.cursor.createdAt === 'string') {

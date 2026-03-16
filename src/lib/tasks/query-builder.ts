@@ -8,6 +8,7 @@ export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
     const isSearch = viewMode === "search";
     const isSubtask = viewMode === "subtask";
 
+    // 1. Core fields required everywhere
     const select: Prisma.TaskSelect = {
         id: true,
         name: true,
@@ -18,39 +19,31 @@ export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
         completedSubtaskCount: true,
         tagId: true,
 
-        assignee: { select: { id: true, surname: true } },
+        // Always include basic assignee info
+        assignee: { select: { id: true, surname: true, image: true } },
 
-        createdAt: true,        // Tiebreaker for pagination
-        createdById: true,      // For "Can I Edit?" logic
-        projectId: true,        // For "Which project permissions apply?"
-        parentTaskId: true,     // For tree structure
-        isParent: true,         // For tree structure
+        createdAt: true,
+        createdById: true,
+        projectId: true,
+        parentTaskId: true,
+        isParent: true,
     };
 
-    // 1. Comment Counts: Only for Views that show badge/indicators (Board, List, Search)
-    if (isKanban || isList || isSearch) {
+    // 2. Metadata: Tags & Comment Counts
+    // Uniformly added to most views for UI consistency
+    if (isKanban || isList || isSearch || isGantt || isCalendar || isSubtask) {
         select._count = {
             select: {
                 reviewComments: true,
-                subTasks: true // Safety fallback for denormalized subtaskCount
+                subTasks: true
             }
         };
         select.tag = { select: { id: true, name: true } };
     }
 
-    // 2. Dates & Progress:
-    // startDate is now exclusive to List view per user request (and Gantt/Calendar/Subtasks which require it)
-    if (isList || isGantt || isCalendar || isSubtask) {
-        select.startDate = true;
-    }
-
-    if (isGantt || isList || isKanban || isCalendar) {
-        select.days = true;
-    }
-
-    // 3. Project & Parent Meta: Fetched only when context is ambiguous (Workspace view)
-    // For subtasks, the batcher Uses these selects to fetch context ONCE and inject it.
-    if (isKanban || isSearch || isList || isGantt || isSubtask) {
+    // 3. Project & Parent Context
+    // Essential for workspace views and search results
+    if (isKanban || isSearch || isList || isGantt || isSubtask || isCalendar) {
         select.project = {
             select: { id: true, name: true, color: true }
         };
@@ -59,16 +52,20 @@ export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
         };
     }
 
-    // 4. Reviewer: Specifically for List & Subtask expansions (removed from Kanban per request)
-    if (isList || isSubtask) {
+    // 4. Extended Info: Description & Reviewer
+    // Uniformly included for better context across all views except minimal kanban nodes if needed
+    // But per user request to "make everything unique/consistent", we include them broadly.
+    if (isList || isSearch || isSubtask || isGantt || isCalendar) {
+        select.description = true;
         select.reviewer = {
-            select: { id: true, surname: true }
+            select: { id: true, surname: true, image: true }
         };
     }
 
-    // 5. Description: Added to List and Search views for better context
-    if (isList || isSearch || isSubtask) {
-        select.description = true;
+    // 5. specialized view fields
+    if (isList || isGantt || isCalendar || isSubtask) {
+        select.startDate = true;
+        select.days = true;
     }
 
     if (isSearch) {
@@ -79,6 +76,7 @@ export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
 
     return select;
 }
+
 
 // Keep a default for simple migrations
 export const TASK_CORE_SELECT = getTaskSelect("list");
@@ -245,12 +243,20 @@ export interface WorkspaceFilterOpts {
     excludeParents?: boolean;
     onlySubtasks?: boolean;
     includeSubTasks?: boolean;
+    viewMode?: string;
 }
 
 export function buildWorkspaceFilterWhere(
     opts: WorkspaceFilterOpts,
     userId: string
 ): Prisma.TaskWhereInput {
+    const viewMode = opts.viewMode || "list";
+    const isList = viewMode === "list" || viewMode === "default";
+    const isKanban = viewMode === "kanban";
+    const isGantt = viewMode === "gantt";
+    const isSearch = viewMode === "search";
+    const isCalendar = viewMode === "calendar";
+
     const where: Prisma.TaskWhereInput = {};
 
     // ─── Scope: which projects can these results come from? ─────────────
@@ -333,24 +339,37 @@ export function buildWorkspaceFilterWhere(
                 { [key]: filterVal }
             ];
         } else {
-            where[key] = filterVal;
+            (where as any)[key] = filterVal;
         }
+
     };
 
     applyFilter('status', opts.status);
     applyFilter('tagId', opts.tagId);
     applyFilter('assigneeTo', opts.assigneeId);
 
+    const hasFilters = !!(
+        (opts.status && opts.status.length > 0) ||
+        (opts.assigneeId) ||
+        (opts.tagId) ||
+        (opts.search && opts.search.trim().length > 0) ||
+        opts.dueAfter ||
+        opts.dueBefore
+    );
 
-
-    // ─── Hierarchy / View Mode ───────────────────────────────────────────
     if (opts.onlyParents) {
         where.isParent = true;
         where.parentTaskId = null;
     } else if (opts.onlySubtasks) {
         where.parentTaskId = { not: null };
-    } else if (opts.excludeParents) {
+    } else if (opts.excludeParents || isKanban) {
         where.isParent = false;
+    } else if (isList || isGantt || isCalendar) {
+        // Default to hierarchy only if NO filters are active
+        if (!hasFilters) {
+            where.isParent = true;
+            where.parentTaskId = null;
+        }
     }
 
 

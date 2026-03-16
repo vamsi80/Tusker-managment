@@ -19,6 +19,7 @@ export type NormalMember = {
         id: string;
         surname: string | null;
         email?: string;
+        image?: string | null;
     }
 };
 
@@ -42,7 +43,8 @@ async function _getProjectMembersInternal(params: { projectId?: string; workspac
                 select: {
                     id: true,
                     surname: true,
-                    email: true
+                    email: true,
+                    image: true
                 }
             }
         }
@@ -60,6 +62,7 @@ async function _getProjectMembersInternal(params: { projectId?: string; workspac
             });
         }
     });
+
 
     return Array.from(uniqueMembers.values());
 }
