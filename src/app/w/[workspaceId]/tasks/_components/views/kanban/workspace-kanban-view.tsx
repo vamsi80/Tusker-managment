@@ -1,10 +1,11 @@
 import { getTasks } from "@/data/task/get-tasks";
 import { getWorkspaceTags } from "@/data/tag/get-tags";
-import { getWorkspaceMembers } from "@/data/workspace";
 import { getUserProjects } from "@/data/project/get-projects";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { requireUser } from "@/lib/auth/require-user";
 import dynamic from "next/dynamic";
+import { getProjectMembers } from "@/data/project/get-project-members";
+import { getWorkspaceProjectMembersMap, getWorkspaceProjectManagersMap } from "@/data/workspace/get-workspace-kanban-data";
 
 const KanbanBoard = dynamic(
     () => import("@/components/task/kanban/kanban-board").then(mod => mod.KanbanBoard),
@@ -15,11 +16,9 @@ interface WorkspaceKanbanViewProps {
     workspaceId: string;
 }
 
-import { getWorkspaceProjectMembersMap, getWorkspaceProjectManagersMap } from "@/data/workspace/get-workspace-kanban-data";
-
 export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewProps) {
     const userPromise = requireUser();
-    const membersPromise = getWorkspaceMembers(workspaceId);
+    const membersPromise = getProjectMembers({ workspaceId });
     const projectsPromise = getUserProjects(workspaceId);
     const tagsPromise = getWorkspaceTags(workspaceId);
     const pmMatchesPromise = getWorkspaceProjectMembersMap(workspaceId);
@@ -34,7 +33,7 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
     const [
         statusResponses,
         permissions,
-        workspaceMembers,
+        projectMembers,
         projects,
         projectUserMap,
         tags,
@@ -58,6 +57,7 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
         tagsPromise,
         projectManagersPromise,
     ]);
+
     const initialData: Record<string, any> = {};
 
     COLUMNS.forEach((status, index) => {
@@ -76,30 +76,6 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
         };
     });
 
-    // Convert workspace members to project members format
-    // The KanbanBoard expects ProjectMembersType, but we can adapt workspace members
-    const adaptedMembers = Array.from(
-        new Map(
-            workspaceMembers.workspaceMembers.map((member) => [
-                member.userId,
-                {
-                    id: member.id,
-                    userId: member.userId,
-                    projectId: workspaceId,
-                    hasAccess: true,
-                    role: "MEMBER" as const,
-                    projectRole: "MEMBER" as const,
-                    createdAt: new Date("2024-01-01T00:00:00Z"),
-                    updatedAt: new Date("2024-01-01T00:00:00Z"),
-                    user: {
-                        id: member.user?.id || "",
-                        surname: member.user?.surname || null,
-                    },
-                }
-            ])
-        ).values()
-    );
-
     // Convert projects to ProjectOption format for filters
     const projectOptions = projects.map(project => ({
         id: project.id,
@@ -113,7 +89,7 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
     return (
         <KanbanBoard
             initialData={initialData}
-            projectMembers={adaptedMembers}
+            projectMembers={projectMembers as any}
             workspaceId={workspaceId}
             projectId="" // Empty for workspace-level
             projects={projectOptions}

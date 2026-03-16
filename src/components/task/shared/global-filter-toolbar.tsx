@@ -105,7 +105,8 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+
 
 interface GlobalFilterToolbarProps {
     level: ViewLevel;
@@ -147,7 +148,17 @@ export function GlobalFilterToolbar({
     setKanbanColumnVisibility,
 }: GlobalFilterToolbarProps) {
     const [isOpen, setIsOpen] = useState(false);
+
+    // Extract all unique project member IDs in the workspace
+    const allProjectMemberIds = useMemo(() => {
+        const set = new Set<string>();
+        projects?.forEach(p => p.memberIds?.forEach(id => set.add(id)));
+        return set;
+    }, [projects]);
+
+
     const config = getFilterConfig(view, level);
+
     const rawActiveFilters = getActiveFilters(filters);
     const activeFilters = rawActiveFilters.map(filter => {
         if (filter.key === 'assigneeId' && members) {
@@ -376,8 +387,6 @@ export function GlobalFilterToolbar({
                                         </div>
                                     )}
 
-
-
                                     {/* Project Filter */}
                                     {config.showProjectFilter && level === "workspace" && projects && (
                                         <div className="space-y-2">
@@ -514,15 +523,30 @@ export function GlobalFilterToolbar({
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="__all__">All Assignees</SelectItem>
-                                                    {members.map((member) => (
-                                                        <SelectItem key={member.id} value={member.id}>
-                                                            {member.surname ? member.surname : ""}
-                                                        </SelectItem>
-                                                    ))}
+                                                    {members
+                                                        .filter(member => {
+                                                            // If a project is selected, only show members of that project
+                                                            if (filters.projectId && projects) {
+                                                                const project = projects.find(p => p.id === filters.projectId);
+                                                                if (project && project.memberIds) {
+                                                                    return project.memberIds.includes(member.id);
+                                                                }
+                                                            }
+                                                            // If no project selected (Workspace level), show all members
+                                                            return true;
+
+                                                        })
+
+                                                        .map((member) => (
+                                                            <SelectItem key={member.id} value={member.id}>
+                                                                {member.surname ? member.surname : ""}
+                                                            </SelectItem>
+                                                        ))}
                                                 </SelectContent>
                                             </Select>
                                         </div>
                                     )}
+
 
                                     {/* Tag Filter */}
                                     {config.showTagFilter && tags && (

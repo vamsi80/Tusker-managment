@@ -7,6 +7,7 @@ export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
     const isCalendar = viewMode === "calendar";
     const isSearch = viewMode === "search";
     const isSubtask = viewMode === "subtask";
+
     const select: Prisma.TaskSelect = {
         id: true,
         name: true,
@@ -17,10 +18,8 @@ export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
         completedSubtaskCount: true,
         tagId: true,
 
-        // Relations: Minimal data only
-        assignee: { select: { id: true, surname: true, image: true } },
+        assignee: { select: { id: true, surname: true } },
 
-        // Metadata for pagination & permissions & tree logic
         createdAt: true,        // Tiebreaker for pagination
         createdById: true,      // For "Can I Edit?" logic
         projectId: true,        // For "Which project permissions apply?"
@@ -28,17 +27,16 @@ export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
         isParent: true,         // For tree structure
     };
 
-    // 1. Comment Counts: Only for Views that show badge/indicators (Board and List)
-    if (isKanban || isList) {
+    // 1. Comment Counts: Only for Views that show badge/indicators (Board, List, Search)
+    if (isKanban || isList || isSearch) {
         select._count = {
-            select: { 
+            select: {
                 reviewComments: true,
                 subTasks: true // Safety fallback for denormalized subtaskCount
             }
         };
         select.tag = { select: { id: true, name: true } };
     }
-
 
     // 2. Dates & Progress:
     // startDate is now exclusive to List view per user request (and Gantt/Calendar/Subtasks which require it)
@@ -323,28 +321,29 @@ export function buildWorkspaceFilterWhere(
         }
     }
 
-    // ─── User-supplied filters: Combine with restricted scope ─────────
+    // ─── Apply User Filters (Safely merge with security scope) ────────
     const applyFilter = (key: keyof Prisma.TaskWhereInput, values: any) => {
         if (!values || (Array.isArray(values) && values.length === 0)) return;
-        
-        const filterValue = Array.isArray(values) ? { in: values } : values;
-        
+        const filterVal = Array.isArray(values) ? { in: values } : values;
+
         if (where[key]) {
+            // Merge into AND to avoid overwriting restricted scope
             where.AND = [
                 ...(Array.isArray(where.AND) ? where.AND : (where.AND ? [where.AND] : [])),
-                { [key]: filterValue }
+                { [key]: filterVal }
             ];
         } else {
-            where[key] = filterValue;
+            where[key] = filterVal;
         }
     };
 
-    applyFilter('assigneeTo', opts.assigneeId);
     applyFilter('status', opts.status);
     applyFilter('tagId', opts.tagId);
+    applyFilter('assigneeTo', opts.assigneeId);
 
 
-    // ─── Hierarchy ─────────────────────────────────────────────────────
+
+    // ─── Hierarchy / View Mode ───────────────────────────────────────────
     if (opts.onlyParents) {
         where.isParent = true;
         where.parentTaskId = null;
@@ -354,15 +353,6 @@ export function buildWorkspaceFilterWhere(
         where.isParent = false;
     }
 
-    // ─── Status / Tag ───────────────────────────────────────────────────
-    if (opts.status && opts.status.length > 0) {
-        where.status = { in: opts.status as any };
-    }
-
-    if (opts.tagId) {
-        const tagIds = Array.isArray(opts.tagId) ? opts.tagId : [opts.tagId];
-        if (tagIds.length > 0) where.tagId = { in: tagIds };
-    }
 
     // ─── Due date ───────────────────────────────────────────────────────
     if (opts.dueAfter || opts.dueBefore) {
