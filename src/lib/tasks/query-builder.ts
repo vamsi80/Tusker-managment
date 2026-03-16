@@ -27,6 +27,7 @@ export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
         projectId: true,
         parentTaskId: true,
         isParent: true,
+        assigneeTo: true,
     };
 
     // 2. Metadata: Tags & Comment Counts
@@ -126,7 +127,7 @@ export function buildProjectRootWhere(
         const cursorCondition = {
             OR: [
                 { createdAt: { lt: opts.cursor.createdAt } },
-                { createdAt: opts.cursor.createdAt, id: { gt: opts.cursor.id } },
+                { createdAt: opts.cursor.createdAt, id: { lt: opts.cursor.id } },
             ]
         };
 
@@ -206,7 +207,7 @@ export function buildSubtaskExpansionWhere(
         const cursorCondition = {
             OR: [
                 { createdAt: { lt: opts.cursor.createdAt } },
-                { createdAt: opts.cursor.createdAt, id: { gt: opts.cursor.id } },
+                { createdAt: opts.cursor.createdAt, id: { lt: opts.cursor.id } },
             ]
         };
         where.AND = [
@@ -406,7 +407,7 @@ export function buildWorkspaceFilterWhere(
         const cursorCondition = {
             OR: [
                 { createdAt: { lt: opts.cursor.createdAt } },
-                { createdAt: opts.cursor.createdAt, id: { gt: opts.cursor.id } },
+                { createdAt: opts.cursor.createdAt, id: { lt: opts.cursor.id } },
             ]
         };
         where.AND = [

@@ -105,7 +105,7 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
-import { useState, useMemo } from "react";
+import { useState } from "react";
 
 
 interface GlobalFilterToolbarProps {
@@ -148,13 +148,6 @@ export function GlobalFilterToolbar({
     setKanbanColumnVisibility,
 }: GlobalFilterToolbarProps) {
     const [isOpen, setIsOpen] = useState(false);
-
-    // Extract all unique project member IDs in the workspace
-    const allProjectMemberIds = useMemo(() => {
-        const set = new Set<string>();
-        projects?.forEach(p => p.memberIds?.forEach(id => set.add(id)));
-        return set;
-    }, [projects]);
 
 
     const config = getFilterConfig(view, level);
@@ -245,6 +238,7 @@ export function GlobalFilterToolbar({
     const handleClearAll = () => {
         onClearAll();
         onSearchChange("");
+        setIsOpen(false);
     };
 
     const handleApply = () => {

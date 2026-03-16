@@ -76,7 +76,7 @@ function buildOrderBy(sorts?: Array<{ field: string; direction: "asc" | "desc" }
     if (!sorts || sorts.length === 0) {
         return [
             { createdAt: "desc" as const },
-            { id: "asc" as const },
+            { id: "desc" as const },
         ];
     }
 
@@ -91,9 +91,9 @@ function buildOrderBy(sorts?: Array<{ field: string; direction: "asc" | "desc" }
         ? { [def.dbField]: { sort: direction, nulls: def.nulls } }
         : { [def.dbField]: direction };
 
-    // ALWAYS use id: asc as the deterministic tiebreaker to match query builder's 'gt' logic 
+    // ALWAYS use id: desc as the deterministic tiebreaker
     // and take advantage of standard compound indexes (field, id).
-    return [primary, { id: "asc" as const }];
+    return [primary, { id: "desc" as const }];
 }
 
 /**
@@ -101,10 +101,6 @@ function buildOrderBy(sorts?: Array<{ field: string; direction: "asc" | "desc" }
  * Uses the exact same field order as buildOrderBy so pagination is stable.
  *
  * IMPORTANT: cursor keys are DB column names (e.g. "startDate"), NOT client field names.
- */
-/**
- * Builds a WHERE extension that skips all rows already delivered by the previous page.
- * Uses the exact same field order as buildOrderBy so pagination is stable.
  */
 function buildSeekCondition(
     sorts: Array<{ field: string; direction: "asc" | "desc" }>,
@@ -217,6 +213,7 @@ function buildQuerySignature(
     if (opts.groupBy) f.gb = opts.groupBy;
     if (opts.filterParentTaskId) f.pt = opts.filterParentTaskId;
     if (opts.expandedProjectIds) f.ep = sortArr(opts.expandedProjectIds);
+    if (opts.view_mode) f.vm = opts.view_mode;
     const signature = {
         ws: workspaceId,
         p: projectId ?? "all",
@@ -452,22 +449,42 @@ async function _fetchFilteredHierarchy(
             isAdmin,
             fullAccessProjectIds,
             restrictedProjectIds,
-            // When not filtering, we only look at items that could be roots if hierarchyMode says so
             projectIds: (!opts.projectId && opts.expandedProjectIds?.length) ? opts.expandedProjectIds : undefined,
             includeSubTasks: opts.includeSubTasks,
             viewMode: opts.view_mode,
+            // DO NOT pass cursor here — we want the base match pool without pagination 
+            // for the context expansion logic. Pagination is handled in the rawMatches query.
         },
-
         userId
     );
 
-    // 1. Fetch matches directly
+    // 1. Fetch matches directly (WITH pagination cursor)
     const rawMatches = await prisma.task.findMany({
-        where: matchWhere,
+        where: buildWorkspaceFilterWhere(
+            {
+                workspaceId,
+                projectId: opts.projectId,
+                assigneeId: toArray(opts.assigneeId),
+                status: toArray(opts.status),
+                tagId: toArray(opts.tagId),
+                dueAfter: toUTCDateOnly(opts.dueAfter),
+                dueBefore: opts.dueBefore ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!) : undefined,
+                search: opts.search,
+                isAdmin,
+                fullAccessProjectIds,
+                restrictedProjectIds,
+                projectIds: (!opts.projectId && opts.expandedProjectIds?.length) ? opts.expandedProjectIds : undefined,
+                includeSubTasks: opts.includeSubTasks,
+                viewMode: opts.view_mode,
+                cursor: opts.cursor, // Apply cursor ONLY here
+            },
+            userId
+        ),
         select: getTaskSelect(opts.view_mode),
         take: limit + 1,
         orderBy: buildOrderBy(opts.sorts),
     });
+
 
     const hasMore = rawMatches.length > limit;
     const matches = rawMatches.slice(0, limit);
@@ -484,6 +501,7 @@ async function _fetchFilteredHierarchy(
     // Depth limit based on context: 3 levels for filtered search, 1 level for global browse.
     const maxDepth = hasExplicitFilters ? 3 : 1;
     let currentGeneration = [...matches];
+    const expandedParentIds = new Set<string>(); // Track expanded parents to prevent infinite loops
 
     for (let i = 0; i < maxDepth; i++) {
         // Find parents that we matched as subtasks but don't have the parent object for
@@ -491,35 +509,42 @@ async function _fetchFilteredHierarchy(
             .filter(t => t.parentTaskId && !taskMap.has(t.parentTaskId))
             .map(t => t.parentTaskId!);
 
-        // Find subtasks for parents we matched (ONLY for global browse, NOT filtered context)
-        // If filters are active, we only climb UPWARDS to preserve the tree path. Downward children are already in 'matches' via pagination.
-        const parentIdsToExpand = (opts.includeSubTasks && !hasExplicitFilters)
-            ? currentGeneration.filter(t => t.isParent).map(t => t.id)
+        // Find subtasks for parents we matched
+        // When filters are active, ALSO expand down but apply filter conditions to subtask query
+        const parentIdsToExpand = opts.includeSubTasks
+            ? currentGeneration
+                .filter(t => t.isParent && !expandedParentIds.has(t.id))
+                .map(t => t.id)
             : [];
+
+        // Mark these parents as expanded so we don't re-expand in the next iteration
+        parentIdsToExpand.forEach(id => expandedParentIds.add(id));
 
         if (missingParentIds.length === 0 && parentIdsToExpand.length === 0) break;
 
-        const extraTasks = await prisma.task.findMany({
-            where: {
-                OR: [
-                    { id: { in: missingParentIds } },
-                    {
-                        AND: [
-                            { parentTaskId: { in: parentIdsToExpand } },
-                            hasExplicitFilters ? matchWhere : buildWorkspaceFilterWhere({
-                                workspaceId,
-                                projectId: opts.projectId,
-                                isAdmin,
-                                fullAccessProjectIds,
-                                restrictedProjectIds,
-                                projectIds: (!opts.projectId && opts.expandedProjectIds?.length) ? opts.expandedProjectIds : undefined,
-                                viewMode: opts.view_mode,
-                            }, userId)
-                        ]
-                    }
+        // Build the OR conditions for the expansion query
+        const orConditions: any[] = [];
+
+        // Upward: fetch missing parents by ID (no filter — we always want the parent shell)
+        if (missingParentIds.length > 0) {
+            orConditions.push({ id: { in: missingParentIds } });
+        }
+
+        // Downward: fetch children of matched parents, applying the same filter conditions
+        if (parentIdsToExpand.length > 0) {
+            orConditions.push({
+                AND: [
+                    { parentTaskId: { in: parentIdsToExpand } },
+                    // Always apply filter/scope conditions so we only get matching children
+                    matchWhere
                 ]
-            },
+            });
+        }
+
+        const extraTasks = await prisma.task.findMany({
+            where: { OR: orConditions },
             select: getTaskSelect(opts.view_mode),
+            orderBy: buildOrderBy(opts.sorts),
             take: 200 // Batch safety limit — prevent RSC payload bloat
         });
 
@@ -551,6 +576,12 @@ async function _fetchFilteredHierarchy(
             if (!parent.subTasks) parent.subTasks = [];
             if (!parent.subTasks.some((st: any) => st.id === task.id)) {
                 parent.subTasks.push(task);
+                // Ensure subtasks stay in correct order after expansion fetch
+                parent.subTasks.sort((sa: any, sb: any) => {
+                    const tDiff = new Date(sb.createdAt).getTime() - new Date(sa.createdAt).getTime();
+                    if (tDiff !== 0) return tDiff;
+                    return (sb.id < sa.id ? -1 : (sb.id > sa.id ? 1 : 0));
+                });
             }
             nestedIds.add(task.id);
         }
@@ -572,7 +603,9 @@ async function _fetchFilteredHierarchy(
         if (aIdx !== -1) return -1;
         if (bIdx !== -1) return 1;
 
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        const timeDiff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        if (timeDiff !== 0) return timeDiff;
+        return (b.id < a.id ? -1 : (b.id > a.id ? 1 : 0));
     });
 
     const nextCursor: TaskCursor | null = hasMore && matches.length > 0
@@ -582,23 +615,31 @@ async function _fetchFilteredHierarchy(
     // 5. PROJECT FACETS (If requested)
     const projectFacets: Record<string, number> = {};
     if (opts.includeFacets) {
-        const facetWhere = { ...matchWhere };
-        delete (facetWhere as any).AND; // Remove cursor for global count
+        // Deep clone matchWhere to avoid mutating the original
+        const facetWhere = JSON.parse(JSON.stringify(matchWhere));
         
+        // Remove ONLY the cursor condition from AND, keeping security scopes and filters.
+        if (Array.isArray(facetWhere.AND)) {
+            facetWhere.AND = facetWhere.AND.filter((cond: any) => 
+                !cond.OR || !cond.OR.some((c: any) => c.createdAt && (c.createdAt.lt || c.createdAt.gt))
+            );
+            if (facetWhere.AND.length === 0) delete facetWhere.AND;
+        }
+
         const counts = await prisma.task.groupBy({
             by: ['projectId'],
             where: facetWhere,
-            _count: true
+            _count: { id: true }
         });
         counts.forEach(c => {
-            if (c.projectId) projectFacets[c.projectId] = (projectFacets[c.projectId] || 0) + c._count;
+            if (c.projectId) projectFacets[c.projectId] = (projectFacets[c.projectId] || 0) + (c._count as any).id;
         });
     }
 
-    return { 
-        tasks: sortedRoots, 
-        totalCount: matches.length, 
-        hasMore, 
+    return {
+        tasks: sortedRoots,
+        totalCount: matches.length,
+        hasMore,
         nextCursor,
         facets: { status: {}, assignee: {}, tags: {}, projects: projectFacets }
     };
@@ -703,7 +744,35 @@ async function _fetchWorkspaceFilter(
             : { id: lastTask.id, createdAt: lastTask.createdAt }
         : null;
 
-    return { tasks: rawTasks, totalCount, hasMore, nextCursor };
+    // 5. PROJECT FACETS (If requested)
+    const projectFacets: Record<string, number> = {};
+    if (opts.includeFacets) {
+        const facetWhere = JSON.parse(JSON.stringify(where));
+        // Remove ONLY the cursor condition from AND (seek condition was added to AND/OR)
+        if (Array.isArray(facetWhere.AND)) {
+            facetWhere.AND = facetWhere.AND.filter((cond: any) => 
+                !cond.OR || !cond.OR.some((c: any) => c.createdAt && (c.createdAt.lt || c.createdAt.gt))
+            );
+            if (facetWhere.AND.length === 0) delete facetWhere.AND;
+        }
+
+        const counts = await prisma.task.groupBy({
+            by: ['projectId'],
+            where: facetWhere,
+            _count: { id: true }
+        });
+        counts.forEach(c => {
+            if (c.projectId) projectFacets[c.projectId] = (projectFacets[c.projectId] || 0) + (c._count as any).id;
+        });
+    }
+
+    return { 
+        tasks: rawTasks, 
+        totalCount, 
+        hasMore, 
+        nextCursor,
+        facets: { status: {}, assignee: {}, tags: {}, projects: projectFacets }
+    };
 }
 
 // ============================================================
@@ -738,7 +807,12 @@ async function _getTasksInternal(
                 (opts.sorts && opts.sorts.length > 0)
             );
 
-        const emptyFacets = { status: {}, assignee: {}, tags: {}, projects: {} };
+        const emptyFacets = {
+            status: {} as Record<string, number>,
+            assignee: {} as Record<string, number>,
+            tags: {} as Record<string, number>,
+            projects: {} as Record<string, number>
+        };
 
         if (!projectId && !hasExplicitFilters && !opts.expandedProjectIds?.length && hierarchyMode !== "parents") {
             strategy = "SAFETY_GUARD";
@@ -796,7 +870,7 @@ async function _getTasksInternal(
                 }
             }
 
-            return { ...result, facets: emptyFacets };
+            return result;
         }
 
         const isSorting = opts.sorts && opts.sorts.length > 0;
@@ -811,7 +885,7 @@ async function _getTasksInternal(
 
             // Note: _fetchFilteredHierarchy now handles context expansion (parents/subtasks)
             // and search-aware nesting even at the global workspace level.
-            return { ...result, facets: emptyFacets };
+            return result;
         }
         if (opts.groupBy === "status") {
             strategy = opts.includeSubTasks ? "KANBAN_RECURSIVE_HIERARCHY" : "KANBAN_SINGLE_QUERY";
@@ -901,7 +975,7 @@ async function _getTasksInternal(
             // Determine next cursor for pagination (supporting custom sorting)
             const primarySort = opts.sorts?.[0];
             const lastTask = tasks.length > 0 ? (tasks[tasks.length - 1] as any) : null;
-            
+
             const nextCursor: any = trueHasMore && lastTask
                 ? primarySort && SORT_MAP[primarySort.field]
                     ? {
@@ -923,7 +997,7 @@ async function _getTasksInternal(
             };
         }
 
-        strategy = "FLAT_WORKSPACE_FILTER";
+        strategy = "WORKSPACE_FLAT_FILTER";
         const filterResult = await _fetchWorkspaceFilter(
             workspaceId, userId, isAdmin,
             fullAccessProjectIds, restrictedProjectIds,
@@ -936,7 +1010,7 @@ async function _getTasksInternal(
             }
         );
 
-        return { ...filterResult, facets: emptyFacets };
+        return filterResult;
     } finally {
         const duration = performance.now() - startTime;
         if (duration > 50) { // Log significant queries

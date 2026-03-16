@@ -24,7 +24,7 @@ export function extractProjectOptions<T extends { projectId?: string; project?: 
         }
     });
 
-    return Array.from(projectsMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+    return Array.from(projectsMap.values());
 }
 
 /**
@@ -107,8 +107,8 @@ export function extractTagOptions<T extends { tag?: TaskTag | string | null }>(
         }
     });
 
-    // Return in alphabetical order
-    return Array.from(tagsSet).sort();
+    // Return in original found order (which should be newest first if input is)
+    return Array.from(tagsSet);
 }
 
 export function extractAllFilterOptions<T extends {

@@ -133,7 +133,10 @@ async function _getSubTasksByParentIdsInternal(
                     parentTaskId: true,
                 },
                 take: pageSize + 1,
-                orderBy: { createdAt: 'desc' }
+                orderBy: [
+                    { createdAt: 'desc' },
+                    { id: 'desc' },
+                ]
             }),
             parentRelationSelect?.select ? prisma.task.findUnique({
                 where: { id: parentId },
@@ -186,7 +189,10 @@ async function _getSubTasksByParentIdsInternal(
             parentTaskId: true,
         },
         take: BATCH_HARD_LIMIT,
-        orderBy: { createdAt: 'desc' }
+        orderBy: [
+            { createdAt: 'desc' },
+            { id: 'desc' },
+        ]
     });
 
     const subTasksMap = new Map<string, any[]>();
@@ -210,7 +216,7 @@ async function _getSubTasksByParentIdsInternal(
 
     return parentTaskIds.map(parentTaskId => {
         const subTasks = subTasksMap.get(parentTaskId) || [];
-        
+
         // Strip reviewer from any parent tasks in this subtask set
         subTasks.forEach((t: any) => {
             if (t.isParent) {
