@@ -21,19 +21,21 @@ export async function getDailyReportFormData(workspaceId: string) {
     });
 
     // Find projects managed by the user (LEAD or PROJECT_MANAGER)
-    const workspaceMember = await prisma.workspaceMember.findFirst({
-        where: { workspaceId, userId },
-        include: {
-            projectMembers: {
-                where: {
-                    projectRole: { in: ["LEAD", "PROJECT_MANAGER"] }
-                },
-                select: { projectId: true }
-            }
-        }
-    });
+    const [workspaceMember, projectMembers] = await Promise.all([
+        prisma.workspaceMember.findFirst({
+            where: { workspaceId, userId },
+        }),
+        prisma.projectMember.findMany({
+            where: {
+                userId,
+                project: { workspaceId },
+                projectRole: { in: ["LEAD", "PROJECT_MANAGER"] }
+            },
+            select: { projectId: true }
+        })
+    ]);
 
-    const managedProjectIds = workspaceMember?.projectMembers.map(pm => pm.projectId) || [];
+    const managedProjectIds = projectMembers.map(pm => pm.projectId);
     const isWorkspaceAdmin = workspaceMember?.workspaceRole === "OWNER" || workspaceMember?.workspaceRole === "ADMIN";
 
     const tasksQuery = prisma.task.findMany({

@@ -64,12 +64,8 @@ export async function bulkUploadTasksAndSubtasks(data: {
         const projectMembers = await prisma.projectMember.findMany({
             where: { projectId: data.projectId },
             include: {
-                workspaceMember: {
-                    include: {
-                        user: {
-                            select: { email: true, id: true, surname: true }
-                        }
-                    }
+                user: {
+                    select: { email: true, id: true, surname: true }
                 }
             }
         });
@@ -79,9 +75,9 @@ export async function bulkUploadTasksAndSubtasks(data: {
         const userIdToSurname = new Map<string, string>();
 
         for (const pm of projectMembers) {
-            const email = pm.workspaceMember.user.email.toLowerCase();
-            const userId = pm.workspaceMember.user.id;
-            const surname = pm.workspaceMember.user.surname || "";
+            const email = pm.user.email.toLowerCase();
+            const userId = pm.user.id;
+            const surname = pm.user.surname || "";
 
             emailToUserId.set(email, userId);
             emailToSurname.set(email, surname);

@@ -84,24 +84,16 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
                 member.userId,
                 {
                     id: member.id,
-                    workspaceMemberId: member.id,
+                    userId: member.userId,
                     projectId: workspaceId,
                     hasAccess: true,
                     role: "MEMBER" as const,
                     projectRole: "MEMBER" as const,
                     createdAt: new Date("2024-01-01T00:00:00Z"),
                     updatedAt: new Date("2024-01-01T00:00:00Z"),
-                    workspaceMember: {
-                        id: member.id,
-                        workspaceId: member.workspaceId,
-                        userId: member.userId,
-                        workspaceRole: member.workspaceRole as "OWNER" | "ADMIN" | "MEMBER" | "VIEWER",
-                        createdAt: new Date("2024-01-01T00:00:00Z"),
-                        updatedAt: new Date("2024-01-01T00:00:00Z"),
-                        user: {
-                            id: member.user?.id || "",
-                            surname: member.user?.surname || null,
-                        },
+                    user: {
+                        id: member.user?.id || "",
+                        surname: member.user?.surname || null,
                     },
                 }
             ])

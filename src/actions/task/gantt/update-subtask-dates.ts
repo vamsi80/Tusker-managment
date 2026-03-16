@@ -115,7 +115,7 @@ export async function updateSubtaskDates(
             const assigneeMember = await prisma.projectMember.findFirst({
                 where: {
                     projectId: projectId,
-                    workspaceMember: { userId: subtask.assignee.id }
+                    userId: subtask.assignee.id
                 },
                 select: { projectRole: true }
             });

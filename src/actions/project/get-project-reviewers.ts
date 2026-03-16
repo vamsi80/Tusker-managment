@@ -31,9 +31,7 @@ export async function getProjectReviewers(projectId: string): Promise<ProjectRev
             projectRole: { in: ["PROJECT_MANAGER", "LEAD"] }
         },
         include: {
-            workspaceMember: {
-                include: { user: true }
-            }
+            user: true
         }
     });
 
@@ -48,13 +46,13 @@ export async function getProjectReviewers(projectId: string): Promise<ProjectRev
     });
 
     projectLeaders.forEach(pm => {
-        const userId = pm.workspaceMember.userId;
+        const userId = pm.userId;
         const current = reviewerMap.get(userId);
 
         if (!current) {
             reviewerMap.set(userId, {
                 id: userId,
-                surname: pm.workspaceMember.user.surname || "",
+                surname: pm.user.surname || "",
                 role: pm.projectRole
             });
         }

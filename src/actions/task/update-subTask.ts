@@ -49,19 +49,17 @@ export async function editSubTask(
                 ? prisma.projectMember.findFirst({
                     where: {
                         projectId: validation.data.projectId,
-                        OR: [
-                            { workspaceMemberId: validation.data.assignee },
-                            { workspaceMember: { user: { id: validation.data.assignee } } }
-                        ]
+                        user: {
+                            OR: [
+                                { id: validation.data.assignee },
+                                { workspaces: { some: { id: validation.data.assignee } } }
+                            ]
+                        }
                     },
                     select: {
-                        workspaceMember: {
-                            select: {
-                                userId: true,
-                                user: {
-                                    select: { surname: true }
-                                }
-                            }
+                        userId: true,
+                        user: {
+                            select: { surname: true }
                         }
                     }
                 })
@@ -78,7 +76,7 @@ export async function editSubTask(
             const assigneeMember = await prisma.projectMember.findFirst({
                 where: {
                     projectId: existingSubTask.project.id,
-                    workspaceMember: { userId: existingSubTask.assigneeTo }
+                    userId: existingSubTask.assigneeTo
                 },
                 select: { projectRole: true }
             });
@@ -121,8 +119,8 @@ export async function editSubTask(
         }
 
         // Fetch assignee display name if changed
-        const assigneeDisplayName = assigneeInfo?.workspaceMember
-            ? ((assigneeInfo.workspaceMember as any).user?.surname || null)
+        const assigneeDisplayName = assigneeInfo?.user
+            ? (assigneeInfo.user.surname || null)
             : null;
 
         // Perform the update
@@ -131,7 +129,7 @@ export async function editSubTask(
             data: {
                 name: validation.data.name,
                 description: validation.data.description,
-                assigneeTo: assigneeInfo?.workspaceMember.userId || null,
+                assigneeTo: assigneeInfo?.userId || null,
                 assigneeDisplayName: assigneeDisplayName,
                 tagId: validation.data.tag || null,
                 startDate: parseIST(validation.data.startDate),

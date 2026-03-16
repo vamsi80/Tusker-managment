@@ -15,9 +15,7 @@ async function _fetchWorkspaceProjectMembersInternal(workspaceId: string) {
         },
         select: {
             projectId: true,
-            workspaceMember: {
-                select: { userId: true }
-            }
+            userId: true
         }
     });
 
@@ -26,7 +24,7 @@ async function _fetchWorkspaceProjectMembersInternal(workspaceId: string) {
         if (!projectUserMap[pm.projectId]) {
             projectUserMap[pm.projectId] = [];
         }
-        projectUserMap[pm.projectId].push(pm.workspaceMember.userId);
+        projectUserMap[pm.projectId].push(pm.userId);
     });
 
     return projectUserMap;
@@ -55,20 +53,16 @@ async function _fetchWorkspaceProjectManagersInternal(workspaceId: string) {
         },
         select: {
             projectId: true,
-            workspaceMember: {
-                select: {
-                    user: {
-                        select: { id: true, surname: true }
-                    }
-                }
+            user: {
+                select: { id: true, surname: true }
             }
         }
     });
 
     const pmMap: Record<string, { id: string, surname: string | null }> = {};
     managers.forEach(m => {
-        if (m.workspaceMember.user) {
-            pmMap[m.projectId] = m.workspaceMember.user;
+        if (m.user) {
+            pmMap[m.projectId] = m.user;
         }
     });
 

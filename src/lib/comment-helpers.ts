@@ -23,7 +23,7 @@ export async function canUserCommentOnTask(
                     },
                     projectMembers: {
                         where: {
-                            workspaceMember: { userId }
+                            userId: userId
                         },
                         select: { projectRole: true }
                     }

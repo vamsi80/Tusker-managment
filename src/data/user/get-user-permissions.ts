@@ -33,20 +33,26 @@ function setMemoryCached(key: string, data: any) {
  */
 async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: string) {
     try {
-        const workspaceMember = await prisma.workspaceMember.findFirst({
-            where: {
-                workspaceId: workspaceId,
-                userId: userId,
-            },
-            include: {
-                projectMembers: {
-                    select: {
-                        projectId: true,
-                        projectRole: true
-                    }
-                }
-            }
-        });
+        const [workspaceMember, projectRoles] = await Promise.all([
+            prisma.workspaceMember.findFirst({
+                where: {
+                    workspaceId: workspaceId,
+                    userId: userId,
+                },
+            }),
+            prisma.projectMember.findMany({
+                where: {
+                    userId: userId,
+                    project: {
+                        workspaceId: workspaceId,
+                    },
+                },
+                select: {
+                    projectId: true,
+                    projectRole: true,
+                },
+            }),
+        ]);
 
         if (!workspaceMember) {
             return {
@@ -65,7 +71,7 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
         const isWorkspaceAdmin = workspaceMember.workspaceRole === "OWNER" || workspaceMember.workspaceRole === "ADMIN";
         const canCreateProject = isWorkspaceAdmin || workspaceMember.workspaceRole === "MANAGER";
 
-        const projectRoles = workspaceMember.projectMembers || [];
+        // projectRoles is now the result of the separate query
         const leadProjectIds = projectRoles.filter(p => p.projectRole === "LEAD").map(p => p.projectId);
         const managedProjectIds = projectRoles.filter(p => p.projectRole === "PROJECT_MANAGER").map(p => p.projectId);
         const memberProjectIds = projectRoles.filter(p => p.projectRole === "MEMBER").map(p => p.projectId);
@@ -145,15 +151,14 @@ export const getWorkspacePermissions = cache(async (workspaceId: string, provide
  */
 async function _getUserPermissionsInternal(workspaceId: string, projectId: string, userId: string) {
     try {
-        const workspaceMember = await prisma.workspaceMember.findFirst({
-            where: { workspaceId, userId },
-            include: {
-                projectMembers: {
-                    where: { projectId },
-                    take: 1
-                }
-            }
-        });
+        const [workspaceMember, projectMember] = await Promise.all([
+            prisma.workspaceMember.findFirst({
+                where: { workspaceId, userId },
+            }),
+            prisma.projectMember.findFirst({
+                where: { userId, projectId },
+            }),
+        ]);
 
         if (!workspaceMember) {
             return {
@@ -165,8 +170,6 @@ async function _getUserPermissionsInternal(workspaceId: string, projectId: strin
                 workspaceMemberId: null,
             };
         }
-
-        const projectMember = workspaceMember.projectMembers[0];
 
         const isWorkspaceAdmin = workspaceMember.workspaceRole === "OWNER" || workspaceMember.workspaceRole === "ADMIN";
         const isProjectManager = projectMember?.projectRole === "PROJECT_MANAGER";

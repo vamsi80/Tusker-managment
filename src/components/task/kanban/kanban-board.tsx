@@ -865,11 +865,10 @@ export function KanbanBoard({
     const memberOptions = Array.from(
         new Map(
             projectMembers.map(member => [
-                member.workspaceMember.user.id,
+                member.userId,
                 {
-                    id: member.workspaceMember.user.id,
-                    // name: member.workspaceMember.user.name,
-                    surname: member.workspaceMember.user.surname || undefined,
+                    id: member.userId,
+                    surname: member.user?.surname || undefined,
                 }
             ])
         ).values()

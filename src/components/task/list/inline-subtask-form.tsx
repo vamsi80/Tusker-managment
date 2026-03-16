@@ -175,7 +175,7 @@ export function InlineSubTaskForm({
         }
 
         // Helper to get full objects for optimistic UI
-        const selectedMember = members.find(m => m.workspaceMember.userId === assignee);
+        const selectedMember = members.find(m => m.userId === assignee);
         const selectedTag = tags.find(t => t.id === tag);
 
         if (mode === "create") {
@@ -206,8 +206,8 @@ export function InlineSubTaskForm({
                 _count: { reviewComments: 0 },
                 // Include full objects for UI
                 assignee: selectedMember ? {
-                    id: selectedMember.workspaceMember.userId,
-                    surname: selectedMember.workspaceMember.user.surname,
+                    id: selectedMember.userId,
+                    surname: selectedMember.user.surname,
                 } : null,
                 tag: selectedTag ? { id: selectedTag.id, name: selectedTag.name } : null
             };
@@ -263,8 +263,8 @@ export function InlineSubTaskForm({
                 dueDate: dueDate ? parseIST(dueDate) : null,
                 // Include full objects for UI
                 assignee: selectedMember ? {
-                    id: selectedMember.workspaceMember.userId,
-                    surname: selectedMember.workspaceMember.user.surname,
+                    id: selectedMember.userId,
+                    surname: selectedMember.user.surname,
                 } as any : null,
                 tag: selectedTag ? { id: selectedTag.id, name: selectedTag.name } as any : null
             };
@@ -384,9 +384,9 @@ export function InlineSubTaskForm({
                         </SelectTrigger>
                         <SelectContent>
                             {availableMembers.map((member) => (
-                                <SelectItem key={member.workspaceMember.userId} value={member.workspaceMember.userId}>
+                                <SelectItem key={member.userId} value={member.userId}>
                                     <span className="truncate block">
-                                        {member.workspaceMember.user.surname}
+                                        {member.user.surname}
                                     </span>
                                 </SelectItem>
                             ))}
