@@ -2,6 +2,7 @@
 import { getUserPermissions } from "@/data/user/get-user-permissions";
 import { invalidateTaskMutation } from "@/lib/cache/invalidation";
 import { requireUser } from "@/lib/auth/require-user";
+import { revalidateTag } from "next/cache";
 import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
 
@@ -68,6 +69,14 @@ export async function deleteTask(
             workspaceId: existingTask.project.workspaceId,
             userId: user.id
         });
+
+        // 5. MANUAL REVALIDATION: Explicitly clear the fetch tags for the whole workspace/project
+        // This ensures the getTasks cache is purged immediately for everyone.
+        (revalidateTag as any)(`workspace-tasks-${existingTask.project.workspaceId}`, "layout");
+        if (existingTask.projectId) {
+            (revalidateTag as any)(`project-tasks-${existingTask.projectId}`, "layout");
+        }
+
 
         return {
             status: "success",
