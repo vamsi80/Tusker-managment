@@ -135,9 +135,7 @@ export const getWorkspacePermissions = cache(async (workspaceId: string, provide
         }
     );
 
-    const fetchStart = performance.now();
     const result = await fetchPerms();
-    console.log(`[PERF:DEBUG] getWorkspacePermissions fetch took ${(performance.now() - fetchStart).toFixed(2)}ms`);
     setMemoryCached(cacheKey, result);
     return result;
 });

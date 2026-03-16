@@ -90,6 +90,7 @@ export default function TaskTable({
     const [sortedNextCursor, setSortedNextCursor] = useState<any>(null);
     const [isLoadingMoreSorted, setIsLoadingMoreSorted] = useState(false);
     const [isSortedViewLoading, setIsSortedViewLoading] = useState(false);
+    const [currentProjectCounts, setCurrentProjectCounts] = useState<Record<string, number> | undefined>(projectCounts);
     const setCachedSubTasks = useTaskCacheStore(state => state.setCachedSubTasks);
     const getCachedSubTasks = useTaskCacheStore(state => state.getCachedSubTasks);
     const setProjectTasksCache = useTaskCacheStore(state => state.setProjectTasksCache);
@@ -100,6 +101,8 @@ export default function TaskTable({
     const scrollContainerRef = useRef<HTMLDivElement | null>(null);
     const autoExpandRef = useRef(false);
     const tasksRef = useRef<TaskWithSubTasks[]>([]);
+    const processedSubTasksRef = useRef<Set<string>>(new Set());
+    const fetchingSubTasksRef = useRef<Set<string>>(new Set());
     // Assigned after tasks declaration
     const mode = useMemo(() => {
         return sorts.length > 0 ? "sorted" : "hierarchy";
@@ -261,6 +264,41 @@ export default function TaskTable({
         return {};
     });
 
+    // Reactive Auto-Expansion for Filtered Views
+    // This ensures all projects and parents matching the filters are visible,
+    // including those loaded via infinite scroll.
+    useEffect(() => {
+        if (!filtersActive) return;
+
+        setExpandedProjects(prev => {
+            const next = { ...prev };
+            let changed = false;
+            tasks.forEach(t => {
+                const pId = t.projectId || 'unknown';
+                if (next[pId] === undefined) {
+                    next[pId] = true;
+                    changed = true;
+                }
+            });
+            return changed ? next : prev;
+        });
+
+        setExpanded(prev => {
+            const next = { ...prev };
+            let changed = false;
+            // Recursively find all parents that should be open
+            const visit = (t: TaskWithSubTasks) => {
+                if (t.id && next[t.id] === undefined) {
+                    next[t.id] = true;
+                    changed = true;
+                }
+                if (t.subTasks) t.subTasks.forEach(visit);
+            };
+            tasks.forEach(visit);
+            return changed ? next : prev;
+        });
+    }, [filtersActive, tasks]);
+
     useEffect(() => {
         return () => observerRef.current?.disconnect();
     }, []);
@@ -328,6 +366,7 @@ export default function TaskTable({
                     dueBefore: filters.endDate ? new Date(filters.endDate) : undefined,
                     hierarchyMode: "parents",
                     includeSubTasks: true, // Bulk load subtasks in one request
+                    includeFacets: true, // Get project facets to pre-initialize groups for stable ordering
                     limit: 50, // Increase limit for filtered views
                     sorts,
                     view_mode: "list",
@@ -342,18 +381,29 @@ export default function TaskTable({
                 if (response.success && response.data) {
                     const result = response.data;
                     setTasks(hydrateTasks(result.tasks));
+                    
+                    if (result.facets?.projects) {
+                        setCurrentProjectCounts(result.facets.projects as Record<string, number>);
+                    }
 
-                    // Auto-expand projects that have matches in workspace view
-                    if (level === "workspace" && result.tasks.length > 0) {
-                        const projectsWithTasks = new Set(result.tasks.map(t => t.projectId));
+                    // Use facets to pre-initialize project groups so they appear in stable order (Newest Project First)
+                    // even if their tasks haven't loaded yet in the current page.
+                    if (result.facets?.projects) {
                         setExpandedProjects(prev => {
                             const next = { ...prev };
-                            projectsWithTasks.forEach(pId => {
-                                if (pId) next[pId] = true;
+                            let changed = false;
+                            const facetProjects = result.facets!.projects as Record<string, number>;
+                            Object.keys(facetProjects).forEach(pId => {
+                                if (facetProjects[pId] > 0 && next[pId] === undefined) {
+                                    next[pId] = true;
+                                    changed = true;
+                                }
                             });
-                            return next;
+                            return changed ? next : prev;
                         });
+                    }
 
+                    if (level === "workspace" && result.tasks.length > 0) {
                         // Set global pagination state for workspace filter
                         setProjectPagination(prev => ({
                             ...prev,
@@ -367,8 +417,6 @@ export default function TaskTable({
                     }
 
                     if (level === "project" && projectId) {
-
-
                         setProjectPagination({
                             [projectId]: {
                                 page: 1,
@@ -377,22 +425,6 @@ export default function TaskTable({
                                 isLoading: false,
                             },
                         });
-                    }
-
-                    // Auto-expand all filtered parents
-                    const expandedMap: Record<string, boolean> = {};
-                    result.tasks.forEach(t => {
-                        expandedMap[t.id] = true;
-                    });
-                    setExpanded(expandedMap);
-
-                    // Auto-expand project groups if workspace view
-                    if (level === "workspace") {
-                        const projectExpandMap: Record<string, boolean> = {};
-                        result.tasks.forEach(t => {
-                            if (t.projectId) projectExpandMap[t.projectId] = true;
-                        });
-                        setExpandedProjects(projectExpandMap);
                     }
                 }
             } catch (err) {
@@ -631,37 +663,62 @@ export default function TaskTable({
 
             if (response.success && response.data) {
                 const resultData = response.data as any;
-                setTasks(prev => {
-                    const existingIds = new Set(prev.map(t => t.id));
-                    const newTasks = (resultData.tasks as unknown as TaskWithSubTasks[])
-                        .filter(task => !existingIds.has(task.id));
-                    const updatedList = [...prev, ...newTasks];
+                const newTasksFromServer = (resultData.tasks as unknown as TaskWithSubTasks[]);
+                
+                let nextTasks: TaskWithSubTasks[] = [];
+                let addedRoots: TaskWithSubTasks[] = [];
 
-                    // Cache Logic - Only update if NOT filtered
-                    if (!filtersActive) {
-                        const tasksForCache = updatedList.filter(t => t.projectId === targetProjectId);
-                        setProjectTasksCache(targetProjectId, {
-                            tasks: tasksForCache,
-                            hasMore: resultData.hasMore ?? false,
-                            page: currentPagination.page + 1,
-                            nextCursor: resultData.nextCursor,
-                            totalCount: resultData.totalCount ?? undefined
+                if (!isGlobal) {
+                    // Standard project-specific append logic (Flat/Grouped)
+                    const currentTasks = tasksRef.current;
+                    const existingIds = new Set(currentTasks.map(t => t.id));
+                    addedRoots = newTasksFromServer.filter(task => !existingIds.has(task.id));
+                    nextTasks = hydrateTasks([...currentTasks, ...addedRoots]);
+                } else {
+                    // Deep Merge Logic for Recursive Filtered Hierarchies
+                    const taskMap = new Map<string, TaskWithSubTasks>();
+                    tasksRef.current.forEach(t => taskMap.set(t.id, { ...t }));
+
+                    newTasksFromServer.forEach(task => {
+                        if (taskMap.has(task.id)) {
+                            const existing = taskMap.get(task.id)!;
+                            if (task.subTasks && task.subTasks.length > 0) {
+                                const subTaskMap = new Map((existing.subTasks || []).map(st => [st.id, st]));
+                                task.subTasks.forEach(st => subTaskMap.set(st.id, st));
+                                existing.subTasks = Array.from(subTaskMap.values());
+                            }
+                        } else {
+                            const newTask = { ...task };
+                            taskMap.set(newTask.id, newTask);
+                            addedRoots.push(newTask);
+                        }
+                    });
+
+                    nextTasks = hydrateTasks(Array.from(taskMap.values()));
+                }
+
+                setTasks(nextTasks);
+
+                // Cache Logic - Only update if NOT filtered
+                if (!filtersActive && !isGlobal) {
+                    setProjectTasksCache(targetProjectId, {
+                        tasks: nextTasks.filter(t => t.projectId === targetProjectId),
+                        hasMore: resultData.hasMore ?? false,
+                        page: currentPagination.page + 1,
+                        nextCursor: resultData.nextCursor,
+                        totalCount: resultData.totalCount ?? undefined
+                    });
+                }
+
+                if (autoExpandRef.current && addedRoots.length > 0) {
+                    setTimeout(() => {
+                        setExpanded(prevExpanded => {
+                            const newExpanded = { ...prevExpanded };
+                            addedRoots.forEach(t => { newExpanded[t.id] = true; });
+                            return newExpanded;
                         });
-                    }
-
-
-                    if (autoExpandRef.current && newTasks.length > 0) {
-                        setTimeout(() => {
-                            setExpanded(prevExpanded => {
-                                const newExpanded = { ...prevExpanded };
-                                newTasks.forEach(t => { newExpanded[t.id] = true; });
-                                return newExpanded;
-                            });
-                        }, 0);
-                    }
-
-                    return hydrateTasks(updatedList);
-                });
+                    }, 0);
+                }
 
                 setProjectPagination(prev => ({
                     ...prev,
@@ -767,18 +824,30 @@ export default function TaskTable({
     const groupedTasks = useMemo(() => {
         if (level !== "workspace") return null;
         const groups: Record<string, TaskWithSubTasks[]> = {};
-        projects.forEach(project => {
-            groups[project.id] = [];
-        });
+        
+        // Ensure all projects that have tasks (discovered via facets or current tasks) 
+        // are initialized so the project loop maintains consistent ordering.
+        if (!filtersActive) {
+            projects.forEach(project => {
+                groups[project.id] = [];
+            });
+        } else if (currentProjectCounts) {
+            projects.forEach(project => {
+                if ((currentProjectCounts[project.id] || 0) > 0) {
+                    groups[project.id] = [];
+                }
+            });
+        }
+
         filteredTasks.forEach((task) => {
-            const pId = task.projectId;
+            const pId = task.projectId || 'unknown';
             if (!groups[pId]) {
                 groups[pId] = [];
             }
             groups[pId].push(task);
         });
         return groups;
-    }, [filteredTasks, level, projects]);
+}, [filteredTasks, level, projects, filtersActive, currentProjectCounts]);
 
     const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
         assignee: true,
@@ -795,9 +864,6 @@ export default function TaskTable({
     const visibleColumnsCount = 2 + Object.entries(columnVisibility).filter(([k, v]) => k !== 'project' && v).length + 1;
 
     // 🔥 MASTER SUBTASK LOADER: The Single Source of Truth
-    // Tracks which tasks have been processed (fetched or confirmed empty) to prevent redundant work
-    const processedSubTasksRef = useRef<Set<string>>(new Set());
-    const fetchingSubTasksRef = useRef<Set<string>>(new Set());
 
     // 1. Lazy Subtask Loader Callback (Passed to TaskRow)
     const handleRequestSubtasks = useCallback(async (taskId: string) => {
@@ -1048,7 +1114,7 @@ export default function TaskTable({
                     view="list"
                     filters={filters}
                     searchQuery={searchQuery}
-                    projects={filterOptions.projects}
+                    projects={projects}
                     members={filterOptions.assignees}
                     tags={filterOptions.tags}
                     onFilterChange={setFilters}
@@ -1183,57 +1249,62 @@ export default function TaskTable({
                                     />
                                 ) : (
                                     groupedTasks ? (
-                                        Object.entries(groupedTasks).map(([currentProjectId, projectTasks]) => {
-                                            const project = projects?.find(p => p.id === currentProjectId);
-                                            if (currentProjectId === 'unknown' && projectTasks.length === 0) return null;
+                                        // Sort project IDs to match the order in the 'projects' array (which is server-sorted newest-first)
+                                        projects
+                                            .filter(p => groupedTasks[p.id])
+                                            .map((project) => {
+                                                const currentProjectId = project.id;
+                                                const projectTasks = groupedTasks[currentProjectId];
 
-                                            return (
-                                                <ProjectTaskGroup
-                                                    key={currentProjectId}
-                                                    projectId={currentProjectId}
-                                                    project={project || { id: currentProjectId, name: "Unknown Project" }}
-                                                    initialTasks={projectTasks}
-                                                    totalTasksCount={projectCounts ? (projectCounts[currentProjectId] || 0) : projectTaskCounts[currentProjectId]}
-                                                    isExpanded={expandedProjects[currentProjectId] === true}
-                                                    onToggle={() => toggleProjectExpand(currentProjectId)}
-                                                    visibleColumnsCount={visibleColumnsCount}
-                                                    columnVisibility={columnVisibility}
-                                                    expandedTasks={expanded}
-                                                    onToggleExpandTask={toggleExpand}
-                                                    updatingTaskId={updatingTaskId}
-                                                    setUpdatingTaskId={setUpdatingTaskId}
-                                                    permissions={permissions}
-                                                    userId={userId}
-                                                    isWorkspaceAdmin={isWorkspaceAdmin}
-                                                    leadProjectIds={leadProjectIds}
-                                                    projects={projects}
-                                                    onRequestSubtasks={handleRequestSubtasks}
-                                                    getCachedSubTasks={getCachedSubTasks}
-                                                    tags={tags}
-                                                    scrollContainerRef={scrollContainerRef}
-                                                    members={members}
-                                                    workspaceId={workspaceId}
-                                                    canCreateSubTask={canCreateSubTask}
-                                                    loadingSubTasks={loadingSubTasks}
-                                                    loadingMoreSubTasks={loadingMoreSubTasks}
-                                                    onLoadMoreSubTasks={loadMoreSubTasks}
-                                                    handleSubTaskClick={handleSubTaskClick}
-                                                    level={level}
-                                                    paginationState={projectPagination[currentProjectId]}
-                                                    getObserver={getObserver}
-                                                    filtersActive={filtersActive}
-                                                    activeInlineProjectId={activeInlineProjectId}
-                                                    setActiveInlineProjectId={setActiveInlineProjectId}
-                                                    onUpdateParentTaskLists={(updatedProjectTasks) => {
-                                                        // Merge updated project tasks back into main task list
-                                                        setTasks(prev => {
-                                                            const others = prev.filter(t => t.projectId !== currentProjectId);
-                                                            return [...others, ...updatedProjectTasks];
-                                                        });
-                                                    }}
-                                                />
-                                            );
-                                        })
+                                                return (
+                                                    <ProjectTaskGroup
+                                                        key={currentProjectId}
+                                                        projectId={currentProjectId}
+                                                        project={project}
+                                                        initialTasks={projectTasks}
+                                                        totalTasksCount={projectCounts ? (projectCounts[currentProjectId] || 0) : projectTaskCounts[currentProjectId]}
+                                                        isExpanded={expandedProjects[currentProjectId] === true}
+                                                        onToggle={() => toggleProjectExpand(currentProjectId)}
+                                                        visibleColumnsCount={visibleColumnsCount}
+                                                        columnVisibility={columnVisibility}
+                                                        expandedTasks={expanded}
+                                                        onToggleExpandTask={toggleExpand}
+                                                        updatingTaskId={updatingTaskId}
+                                                        setUpdatingTaskId={setUpdatingTaskId}
+                                                        permissions={permissions}
+                                                        userId={userId}
+                                                        isWorkspaceAdmin={isWorkspaceAdmin}
+                                                        leadProjectIds={leadProjectIds}
+                                                        projects={projects}
+                                                        onRequestSubtasks={handleRequestSubtasks}
+                                                        getCachedSubTasks={getCachedSubTasks}
+                                                        tags={tags}
+                                                        scrollContainerRef={scrollContainerRef}
+                                                        members={members}
+                                                        workspaceId={workspaceId}
+                                                        canCreateSubTask={canCreateSubTask}
+                                                        loadingSubTasks={loadingSubTasks}
+                                                        loadingMoreSubTasks={loadingMoreSubTasks}
+                                                        onLoadMoreSubTasks={loadMoreSubTasks}
+                                                        handleSubTaskClick={handleSubTaskClick}
+                                                        level={level}
+                                                        paginationState={projectPagination[currentProjectId]}
+                                                        getObserver={getObserver}
+                                                        filtersActive={filtersActive}
+                                                        activeInlineProjectId={activeInlineProjectId}
+                                                        setActiveInlineProjectId={setActiveInlineProjectId}
+                                                        onUpdateParentTaskLists={(updatedProjectTasks) => {
+                                                            // Maintain newest-first: updated tasks should stay in their relative created order.
+                                                            // For simplicity in a flat array, we just update the specific matching tasks in the main list.
+                                                            setTasks(prev => {
+                                                                const taskMap = new Map(prev.map(t => [t.id, t]));
+                                                                updatedProjectTasks.forEach(t => taskMap.set(t.id, t));
+                                                                return Array.from(taskMap.values());
+                                                            });
+                                                        }}
+                                                    />
+                                                );
+                                            })
                                     ) : (
                                         <FlatTaskList
                                             initialTasks={filteredTasks}
@@ -1298,8 +1369,8 @@ export default function TaskTable({
                                 {/* Global "No more tasks" marker */}
                                 {!isLoadingFilters && (
                                     (mode === "sorted" && !sortedHasMore && sortedTasks.length > 0) ||
-                                    (!groupedTasks && mode !== "sorted" && (level === "project" ? !projectPagination[projectId]?.hasMore : true) && filteredTasks.length > 0) ||
-                                    (groupedTasks && Object.keys(groupedTasks).length > 0 &&
+                                    (level === "project" && mode !== "sorted" && !projectPagination[projectId]?.hasMore && filteredTasks.length > 0) ||
+                                    (level === "workspace" && groupedTasks && Object.keys(groupedTasks).length > 0 &&
                                         (filtersActive
                                             ? !projectPagination["__global_filter__"]?.hasMore
                                             : !Object.values(projectPagination).some(p => p.hasMore))

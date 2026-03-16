@@ -74,7 +74,10 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
         projects = await prisma.project.findMany({
             where: { workspaceId },
             select: projectSelect,
-            orderBy: { createdAt: "desc" },
+            orderBy: [
+                { createdAt: "desc" },
+                { id: "desc" },
+            ],
         });
     } else if (isManager) {
         projects = await prisma.project.findMany({
@@ -93,7 +96,10 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
                 ],
             },
             select: projectSelect,
-            orderBy: { createdAt: "desc" },
+            orderBy: [
+                { createdAt: "desc" },
+                { id: "desc" },
+            ],
         });
     } else {
         projects = await prisma.project.findMany({
@@ -107,7 +113,10 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
                 },
             },
             select: projectSelect,
-            orderBy: { createdAt: "desc" },
+            orderBy: [
+                { createdAt: "desc" },
+                { id: "desc" },
+            ],
         });
     }
 

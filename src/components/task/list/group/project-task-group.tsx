@@ -215,8 +215,16 @@ export function ProjectTaskGroup({
                 )
             )}
 
-            {isExpanded && !paginationState.isLoading && localTasks.length === 0 && (filtersActive || !canCreateSubTask) && (
-                <EmptyState visibleColumnsCount={visibleColumnsCount} />
+            {isExpanded && !paginationState.isLoading && localTasks.length === 0 && (
+                totalTasksCount > 0 && filtersActive ? (
+                    <TableRow className="hover:bg-transparent border-b-0">
+                        <TableCell colSpan={visibleColumnsCount} className="py-8 text-center text-muted-foreground/50 italic text-xs">
+                            Tasks for this project are available on other pages. Scroll down to load more.
+                        </TableCell>
+                    </TableRow>
+                ) : (filtersActive || !canCreateSubTask) ? (
+                    <EmptyState visibleColumnsCount={visibleColumnsCount} />
+                ) : null
             )}
 
             {isExpanded && canCreateSubTask && !filtersActive && (
