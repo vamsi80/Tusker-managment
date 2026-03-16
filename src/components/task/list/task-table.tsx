@@ -695,11 +695,11 @@ export default function TaskTable({
         const options = extractAllFilterOptions(tasks as any, showAdvancedFilters ? 'workspace' : 'project');
 
         const assigneesForFilter = assignees || members
-            .filter(member => member.workspaceMember?.user)
+            .filter(member => member.user)
             .map(member => ({
-                id: member.workspaceMember.user!.id,
-                // name: member.workspaceMember.user!.name,
-                surname: member.workspaceMember.user!.surname || undefined,
+                id: member.user!.id,
+                // name: member.user!.name,
+                surname: member.user!.surname || undefined,
             }))
             .sort((a, b) => {
                 const nameA = `${a.surname || ''}`.trim();

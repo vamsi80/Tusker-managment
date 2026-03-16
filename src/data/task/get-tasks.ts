@@ -268,8 +268,12 @@ export const resolveTaskPermissions = cache(async (workspaceId: string, projectI
         if (isWorkspaceAdmin) {
             authorizedProjectIds = [];
         } else {
-            // OPTIMIZATION: Extract from the existing perms object instead of re-querying the DB
-            authorizedProjectIds = (wsPerms.workspaceMember?.projectMembers || []).map((p: any) => p.projectId);
+            // AUTHORIZED PROJECTS: Combine all projects where user has a defined role
+            authorizedProjectIds = [
+                ...(wsPerms.leadProjectIds || []),
+                ...(wsPerms.managedProjectIds || []),
+                ...(wsPerms.memberProjectIds || [])
+            ];
         }
 
         const fullAccessProjectIds = [

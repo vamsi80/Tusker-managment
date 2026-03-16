@@ -36,7 +36,7 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
         where: { project: { workspaceId } },
         select: {
             projectId: true,
-            workspaceMember: { select: { userId: true } },
+            userId: true,
             projectRole: true
         }
     });
@@ -103,8 +103,8 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
     const roleMap: Record<string, string> = {};
     projectMemberMatches.forEach(pm => {
         if (!projectUserMap[pm.projectId]) projectUserMap[pm.projectId] = [];
-        projectUserMap[pm.projectId].push(pm.workspaceMember.userId);
-        roleMap[`${pm.projectId}-${pm.workspaceMember.userId}`] = pm.projectRole;
+        projectUserMap[pm.projectId].push(pm.userId);
+        roleMap[`${pm.projectId}-${pm.userId}`] = pm.projectRole;
     });
 
     // Enrich tasks with assignee roles for permission checks

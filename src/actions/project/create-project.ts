@@ -125,7 +125,7 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
 
         // Create project member records for all project managers
         const projectMembersCreate = projectManagersToAdd.map(userId => ({
-            workspaceMember: { connect: { id: workspaceMemberMap.get(userId)! } },
+            userId: userId,
             hasAccess: true,
             projectRole: "PROJECT_MANAGER" as ProjectRole,
         }));

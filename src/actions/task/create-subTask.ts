@@ -55,28 +55,26 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
         let assigneeId: string | null = null;
         let assigneeDisplayName: string | null = null;
         if (validation.data.assignee) {
-            // The assignee value is the workspaceMemberId, find the corresponding projectMember's user ID
+            // Find the project member for the assignee. The assignee value could be a userId or workspaceMemberId.
             const assigneeProjectMember = await prisma.projectMember.findFirst({
                 where: {
                     projectId: values.projectId,
-                    OR: [
-                        { workspaceMemberId: validation.data.assignee },
-                        { workspaceMember: { user: { id: validation.data.assignee } } }
-                    ]
+                    user: {
+                        OR: [
+                            { id: validation.data.assignee },
+                            { workspaces: { some: { id: validation.data.assignee } } }
+                        ]
+                    }
                 },
                 include: {
-                    workspaceMember: {
-                        include: {
-                            user: {
-                                select: { surname: true, name: true }
-                            }
-                        }
+                    user: {
+                        select: { id: true, surname: true, name: true }
                     }
                 }
             });
             if (assigneeProjectMember) {
-                assigneeId = assigneeProjectMember.workspaceMember.userId;
-                assigneeDisplayName = assigneeProjectMember.workspaceMember.user.surname || assigneeProjectMember.workspaceMember.user.name;
+                assigneeId = assigneeProjectMember.userId;
+                assigneeDisplayName = assigneeProjectMember.user.surname || assigneeProjectMember.user.name;
             }
         }
 

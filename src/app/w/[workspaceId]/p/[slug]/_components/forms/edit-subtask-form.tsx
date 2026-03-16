@@ -436,8 +436,8 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                                     <Button variant="outline" className="w-full justify-between font-normal">
                                                         {field.value
                                                             ? (() => {
-                                                                const m = members?.find((m) => m.workspaceMember.user.id === field.value);
-                                                                return `${m?.workspaceMember.user.surname}`;
+                                                                const m = members?.find((m) => m.userId === field.value);
+                                                                return `${m?.user.surname}`;
                                                             })()
                                                             : "Select assignee"}
                                                     </Button>
@@ -449,11 +449,11 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                                         <CommandList>
                                                             <CommandEmpty>No members found.</CommandEmpty>
                                                             <CommandGroup>
-                                                                {members?.filter((member) => {
-                                                                    const role = member.workspaceMember.workspaceRole;
-                                                                    return role !== "VIEWER" && role !== "ADMIN";
+                                                            {members?.filter((member) => {
+                                                                    const role = member.projectRole;
+                                                                    return role !== "VIEWER" && role !== "PROJECT_MANAGER";
                                                                 }).map((member) => {
-                                                                    const user = member.workspaceMember.user;
+                                                                    const user = member.user;
                                                                     const userName = `${user.surname}`;
                                                                     const userId = user.id;
                                                                     const isSelected = field.value === userId;

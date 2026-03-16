@@ -52,15 +52,9 @@ export async function batchLoadProjects(ids: (string | null | undefined)[]) {
                 take: 2,
                 select: {
                     projectRole: true,
-                    workspaceMember: {
+                    user: {
                         select: {
-                            user: {
-                                select: {
-                                    // name: true,
-                                    surname: true,
-                                    // image: true
-                                }
-                            }
+                            surname: true,
                         }
                     }
                 }

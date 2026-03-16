@@ -15,14 +15,10 @@ async function _getProjectMembersInternal(projectId: string) {
             projectId: projectId,
         },
         include: {
-            workspaceMember: {
-                include: {
-                    user: {
-                        select: {
-                            id: true,
-                            surname: true,
-                        },
-                    },
+            user: {
+                select: {
+                    id: true,
+                    surname: true,
                 },
             },
         },

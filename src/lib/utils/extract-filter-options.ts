@@ -53,15 +53,11 @@ export function extractAssigneeOptions<T extends {
         id: string;
         name?: string;
         surname?: string | null;
-        workspaceMember?: {
-            id?: string;
-            user?: {
-                id: string;
-                name: string;
-                surname?: string | null;
-            }
+        user?: {
+            id: string;
+            name: string;
+            surname?: string | null;
         };
-        workspaceMemberId?: string;
     } | null;
 }>(
     tasks: T[]
@@ -72,27 +68,16 @@ export function extractAssigneeOptions<T extends {
         const assignee = task.assignee;
         if (!assignee) return;
 
-        // Check for new flattened structure first
-        if (assignee.name) {
-            assigneesMap.set(assignee.id, {
-                id: assignee.id,
-                name: assignee.name,
-                surname: assignee.surname || undefined,
-            });
-            return;
-        }
+        // Try to get info from assignee or nested user
+        const id = assignee.id;
+        const name = assignee.name || assignee.user?.name;
+        const surname = assignee.surname || assignee.user?.surname || undefined;
 
-        const workspaceMember = assignee.workspaceMember;
-        const user = workspaceMember?.user;
-
-        // Try to get the workspace member ID from various possible sources
-        const workspaceMemberId = assignee.workspaceMemberId || workspaceMember?.id;
-
-        if (user && workspaceMemberId) {
-            assigneesMap.set(workspaceMemberId, {
-                id: workspaceMemberId,
-                name: user.name,
-                surname: user.surname || undefined,
+        if (id && (name || surname)) {
+            assigneesMap.set(id, {
+                id,
+                name: name || "",
+                surname: surname || undefined,
             });
         }
     });
@@ -136,15 +121,11 @@ export function extractAllFilterOptions<T extends {
         id?: string;
         name?: string;
         surname?: string | null;
-        workspaceMember?: {
-            id?: string;
-            user?: {
-                id: string;
-                name: string;
-                surname?: string | null;
-            }
+        user?: {
+            id: string;
+            name: string;
+            surname?: string | null;
         };
-        workspaceMemberId?: string;
     };
 }>(
     tasks: T[],

@@ -47,7 +47,6 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
         workspaceMember.workspaceRole === "ADMIN";
     const isManager = workspaceMember.workspaceRole === "MANAGER";
 
-    // Common selection for projects
     const projectSelect = {
         id: true,
         name: true,
@@ -62,9 +61,7 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
         },
         projectMembers: {
             where: {
-                workspaceMember: {
-                    userId: userId
-                }
+                userId: userId
             },
             select: {
                 projectRole: true
@@ -89,7 +86,7 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
                     {
                         projectMembers: {
                             some: {
-                                workspaceMemberId: workspaceMember.id,
+                                userId: userId,
                                 hasAccess: true,
                             },
                         },
@@ -105,7 +102,7 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
                 workspaceId,
                 projectMembers: {
                     some: {
-                        workspaceMemberId: workspaceMember.id,
+                        userId: userId,
                         hasAccess: true,
                     },
                 },

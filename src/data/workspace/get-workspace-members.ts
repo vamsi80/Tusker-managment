@@ -48,12 +48,12 @@ async function _fetchWorkspaceMembersInternal(workspaceId: string): Promise<Work
           contactNumber: true,
           email: true,
           image: true,
-        },
-      },
-      projectMembers: {
-        select: {
-          id: true,
-          projectId: true,
+          projectMembers: {
+            select: {
+              id: true,
+              projectId: true,
+            },
+          },
         },
       },
     },
@@ -65,7 +65,7 @@ async function _fetchWorkspaceMembersInternal(workspaceId: string): Promise<Work
     workspaceId: m.workspaceId,
     userId: m.userId,
     workspaceRole: m.workspaceRole,
-    projectMembers: m.projectMembers ?? [],
+    projectMembers: m.user?.projectMembers ?? [],
     user: m.user ?? undefined,
   }));
 

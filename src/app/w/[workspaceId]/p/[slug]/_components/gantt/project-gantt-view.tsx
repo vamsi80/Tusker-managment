@@ -27,7 +27,8 @@ export async function GanttServerWrapper({ workspaceId, projectId }: GanttServer
     const pmMatchesPromise = prisma.projectMember.findMany({
         where: { projectId },
         select: {
-            workspaceMember: { select: { userId: true, user: true } },
+            userId: true,
+            user: true,
             projectRole: true
         }
     });
@@ -71,12 +72,12 @@ export async function GanttServerWrapper({ workspaceId, projectId }: GanttServer
     // 4. Enrich tasks with assignee roles & build member options
     const roleMap: Record<string, string> = {};
     const memberOptions = projectMembers.map((pm: any) => {
-        roleMap[pm.workspaceMember.userId] = pm.projectRole;
+        roleMap[pm.userId] = pm.projectRole;
         return {
-            id: pm.workspaceMember.userId,
-            name: pm.workspaceMember.user?.name || '',
-            surname: pm.workspaceMember.user?.surname || undefined,
-            email: pm.workspaceMember.user?.email || undefined
+            id: pm.userId,
+            name: pm.user?.name || '',
+            surname: pm.user?.surname || undefined,
+            email: pm.user?.email || undefined
         };
     });
 

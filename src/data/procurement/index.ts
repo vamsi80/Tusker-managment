@@ -140,7 +140,7 @@ export const getProcurableProjects = cache(async (workspaceId: string) => {
             ...(isWorkspaceAdmin ? {} : {
                 projectMembers: {
                     some: {
-                        workspaceMemberId: workspaceMember.id,
+                        userId: workspaceMember.userId,
                         projectRole: "LEAD",
                     },
                 },
