@@ -458,6 +458,12 @@ async function _fetchFilteredHierarchy(
         userId
     );
 
+    // FIX: For subtask expansion, we must strip the "root-only" filters (isParent=true, parentTaskId=null)
+    // otherwise the expansion query (which looks for a specific parentTaskId) will always return 0.
+    const expansionMatchWhere = { ...matchWhere };
+    delete (expansionMatchWhere as any).isParent;
+    delete (expansionMatchWhere as any).parentTaskId;
+
     // 1. Fetch matches directly (WITH pagination cursor)
     const rawMatches = await prisma.task.findMany({
         where: buildWorkspaceFilterWhere(
@@ -513,9 +519,13 @@ async function _fetchFilteredHierarchy(
         // When filters are active, ALSO expand down but apply filter conditions to subtask query
         const parentIdsToExpand = opts.includeSubTasks
             ? currentGeneration
-                .filter(t => t.isParent && !expandedParentIds.has(t.id))
+                .filter(t => (t as any).isParent && !expandedParentIds.has(t.id))
                 .map(t => t.id)
             : [];
+
+        if (parentIdsToExpand.length > 0) {
+            console.log(`🟦 [HIERARCHY DEBUG] Gen ${i}: expanding ${parentIdsToExpand.length} parents`);
+        }
 
         // Mark these parents as expanded so we don't re-expand in the next iteration
         parentIdsToExpand.forEach(id => expandedParentIds.add(id));
@@ -536,17 +546,21 @@ async function _fetchFilteredHierarchy(
                 AND: [
                     { parentTaskId: { in: parentIdsToExpand } },
                     // Always apply filter/scope conditions so we only get matching children
-                    matchWhere
+                    // FIX: Use expansionMatchWhere which strips root-only constraints
+                    expansionMatchWhere
                 ]
             });
         }
-
         const extraTasks = await prisma.task.findMany({
             where: { OR: orConditions },
             select: getTaskSelect(opts.view_mode),
             orderBy: buildOrderBy(opts.sorts),
-            take: 200 // Batch safety limit — prevent RSC payload bloat
+            take: opts.view_mode === "gantt" ? 1000 : 200 // Batch safety limit
         });
+
+        if (extraTasks.length > 0) {
+            console.log(`🟦 [HIERARCHY DEBUG] Gen ${i}: found ${extraTasks.length} extraTasks`);
+        }
 
         if (extraTasks.length === 0) break;
 
@@ -576,16 +590,19 @@ async function _fetchFilteredHierarchy(
             if (!parent.subTasks) parent.subTasks = [];
             if (!parent.subTasks.some((st: any) => st.id === task.id)) {
                 parent.subTasks.push(task);
-                // Ensure subtasks stay in correct order after expansion fetch
-                parent.subTasks.sort((sa: any, sb: any) => {
-                    const tDiff = new Date(sb.createdAt).getTime() - new Date(sa.createdAt).getTime();
-                    if (tDiff !== 0) return tDiff;
-                    return (sb.id < sa.id ? -1 : (sb.id > sa.id ? 1 : 0));
-                });
+                nestedIds.add(task.id);
             }
-            nestedIds.add(task.id);
         }
     });
+
+    if (allTasks.length > 0) {
+        console.log(`🟦 [HIERARCHY DEBUG] Nesting complete. Total: ${allTasks.length}, Nested: ${nestedIds.size}, Roots: ${allTasks.length - nestedIds.size}`);
+        if (nestedIds.size === 0 && allTasks.some(t => (t as any).parentTaskId)) {
+             console.log(`⚠️ [HIERARCHY DEBUG] Mismatch! found orphaned subtasks. First 3 parent IDs:`, 
+                allTasks.filter(t => (t as any).parentTaskId && !taskMap.has((t as any).parentTaskId)).slice(0, 3).map(t => (t as any).parentTaskId)
+             );
+        }
+    }
 
     // Second pass: Identify root rows
     allTasks.forEach(task => {
@@ -875,8 +892,8 @@ async function _getTasksInternal(
 
         const isSorting = opts.sorts && opts.sorts.length > 0;
 
-        // If sorting is OFF, and we are not forcing subtasks, execute Hierarchy search.
-        if (!isSorting && !opts.onlySubtasks && !opts.excludeParents && (hasExplicitFilters || (hierarchyMode === "parents" || !hierarchyMode))) {
+        // If sorting is OFF (or we are in Gantt mode), and we are not forcing subtasks, execute Hierarchy search.
+        if ((!isSorting || opts.view_mode === "gantt") && !opts.onlySubtasks && !opts.excludeParents && (hasExplicitFilters || (hierarchyMode === "parents" || !hierarchyMode))) {
             strategy = opts.includeSubTasks ? "FILTERED_RECURSIVE_HIERARCHY" : "FILTERED_HIERARCHY";
             const result = await _fetchFilteredHierarchy(
                 workspaceId, userId, isAdmin,
