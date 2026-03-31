@@ -47,7 +47,7 @@ export async function ProjectKanbanView({
     COLUMNS.forEach((status, index) => {
         const response = statusResponses[index];
         const tasks = response.tasks;
-        const totalInDb = (response.facets as any)?.statusCounts?.[status] || tasks.length;
+        const totalInDb = response.facets?.statusCounts?.[status] || tasks.length;
 
         initialData[status] = {
             subTasks: tasks,
