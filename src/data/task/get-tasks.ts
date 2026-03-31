@@ -351,7 +351,13 @@ async function _fetchProjectRoot(
         ? { id: rawTasks[rawTasks.length - 1].id, createdAt: rawTasks[rawTasks.length - 1].createdAt }
         : null;
 
-    return { tasks: rawTasks, totalCount, hasMore, nextCursor };
+    return {
+        tasks: rawTasks,
+        totalCount,
+        hasMore,
+        nextCursor,
+        facets: { status: {}, assignee: {}, tags: {}, projects: {} }
+    };
 }
 
 // ============================================================
@@ -411,7 +417,13 @@ async function _fetchSubtasks(
         ? { id: rawSubtasks[rawSubtasks.length - 1].id, createdAt: rawSubtasks[rawSubtasks.length - 1].createdAt }
         : null;
 
-    return { tasks: rawSubtasks, hasMore, nextCursor };
+    return {
+        tasks: rawSubtasks,
+        totalCount: null,
+        hasMore,
+        nextCursor,
+        facets: { status: {}, assignee: {}, tags: {}, projects: {} }
+    };
 }
 
 // ============================================================
@@ -887,7 +899,7 @@ async function _getTasksInternal(
                 }
             }
 
-            return result;
+            return { ...result, facets: (result as any).facets || emptyFacets };
         }
 
         const isSorting = opts.sorts && opts.sorts.length > 0;
@@ -900,9 +912,7 @@ async function _getTasksInternal(
                 fullAccessProjectIds, restrictedProjectIds, opts
             );
 
-            // Note: _fetchFilteredHierarchy now handles context expansion (parents/subtasks)
-            // and search-aware nesting even at the global workspace level.
-            return result;
+            return { ...result, facets: (result as any).facets || emptyFacets };
         }
         if (opts.groupBy === "status") {
             strategy = opts.includeSubTasks ? "KANBAN_RECURSIVE_HIERARCHY" : "KANBAN_SINGLE_QUERY";
