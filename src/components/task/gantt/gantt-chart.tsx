@@ -3,17 +3,14 @@
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { TaskRow } from "./task-row";
+import { Calendar } from "lucide-react";
 import { ProjectRow } from "./project-row";
-import { Button } from "@/components/ui/button";
 import { ProjectOption } from "../shared/types";
 import { exportGanttToExcel } from "./export-utils";
 import { GanttTask, TimelineGranularity } from "./types";
 import { TimelineHeader, TimelineGrid } from "./timeline-grid";
 import { calculateTimelineRange, getDaysBetween } from "./utils";
-import { useState, useMemo, useTransition, useEffect, useRef } from "react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Calendar, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Folder, Download } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useState, useMemo, useEffect, useRef } from "react";
 
 interface GanttChartProps {
     tasks: GanttTask[];
@@ -193,8 +190,6 @@ export function GanttChart({
 
     useEffect(() => {
         if (!scrollContainerRef.current) return;
-
-        // Auto-scroll logic — only runs on mount or granularity change
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
@@ -205,8 +200,8 @@ export function GanttChart({
         const scrollPosition = Math.max(0, todayPosition - containerWidth / 2 + 200);
 
         scrollContainerRef.current.scrollLeft = scrollPosition;
-        setScrollX(scrollPosition); // Sync initial scroll state
-    }, [granularity]); // Only on granularity
+        setScrollX(scrollPosition);
+    }, [granularity]);
 
     const toggleTask = (taskId: string) => {
         setExpandedTasks((prev) => {

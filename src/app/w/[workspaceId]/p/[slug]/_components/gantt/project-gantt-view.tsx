@@ -91,7 +91,7 @@ export async function GanttServerWrapper({ workspaceId, projectId }: GanttServer
     const ganttTasks = transformToGanttTasks(allTasks);
 
     // 6. Get Project Counts
-    const projectCounts = tasksData.facets.projects;
+    const projectCounts = (tasksData as any)?.facets?.projects;
 
     const tagOptions = tags.map(t => ({ id: t.id, name: t.name }));
 

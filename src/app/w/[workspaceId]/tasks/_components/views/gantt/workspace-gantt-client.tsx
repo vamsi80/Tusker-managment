@@ -83,6 +83,7 @@ export function WorkspaceGanttClient({
                             allFetchedTasks.push(t);
                             if (t.subTasks) allFetchedTasks.push(...t.subTasks);
                         });
+                        console.log("🟦 [GANTT CLIENT] Workspace fetched tasks (flattened):", allFetchedTasks.length);
                         setTasks(transformToGanttTasks(allFetchedTasks));
                     }
                 } catch (err) {

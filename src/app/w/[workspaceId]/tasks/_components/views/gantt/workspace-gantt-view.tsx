@@ -50,13 +50,19 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
     ]);
 
     const rawTasks = tasksData.tasks;
+    console.log("🟦 [GANTT SERVER] rawTasks count:", rawTasks.length);
+    if (rawTasks.length > 0) {
+        console.log("🟦 [GANTT SERVER] SAMPLE TASK (First):", JSON.stringify(rawTasks[0], (key, value) => key === 'subTasks' ? (value?.length || 0) : value, 2));
+    }
     const allTasks: any[] = [];
     rawTasks.forEach((t: any) => {
         allTasks.push(t);
         if (t.subTasks && t.subTasks.length > 0) {
+            console.log(`   ✅ Task "${t.name}" (${t.id}) has ${t.subTasks.length} subTasks`);
             allTasks.push(...t.subTasks);
         }
     });
+    console.log("🟦 [GANTT SERVER] allTasks total count:", allTasks.length);
 
     // Build map of project -> userIds and project-user role map
     const projectUserMap: Record<string, string[]> = {};
@@ -74,7 +80,6 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
         }
     });
 
-    // Format options
     const projectOptions = projects.map(p => ({
         id: p.id,
         name: p.name,
@@ -83,7 +88,6 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
         memberIds: projectUserMap[p.id] || []
     }));
 
-    // Transform data to GanttTask format
     const ganttTasks = transformToGanttTasks(allTasks);
 
     return (
@@ -91,11 +95,11 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
             workspaceId={workspaceId}
             initialTasks={ganttTasks}
             allTasks={allTasks}
-            subtaskDataMap={{}} // Populated by client if needed or passed from allTasks
+            subtaskDataMap={{}}
             projects={projectOptions}
             members={projectMembers as any}
             tags={tags.map(t => ({ id: t.id, name: t.name }))}
-            projectCounts={tasksData.facets.projects}
+            projectCounts={(tasksData as any)?.facets?.projects}
             currentUser={{ id: user.id }}
             permissions={{
                 isWorkspaceAdmin: permissions.isWorkspaceAdmin,
