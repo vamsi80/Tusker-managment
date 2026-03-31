@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  const publicRoutes = ["/", "/sign-in", "/sign-up", "/verify-email"];
+  const publicRoutes = ["/", "/sign-in", "/sign-up", "/verify-email", "/forgot-password", "/reset-password"];
   if (publicRoutes.includes(pathname)) {
     return NextResponse.next();
   }
