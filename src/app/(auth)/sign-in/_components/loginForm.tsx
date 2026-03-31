@@ -7,9 +7,11 @@ import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-clint";
 import { Loader, Loader2, Github } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useState, useTransition, useEffect } from "react";
 import { toast } from "sonner";
 import { useTaskCacheStore } from "@/lib/store/task-cache-store";
+import { PasswordInput } from "@/components/ui/password-input";
 
 const GoogleIcon = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -47,14 +49,13 @@ export const LoginForm = () => {
     startGithubTransition(async () => {
       const callbackURL = workspaceId && role
         ? `/api/verify?workspaceId=${workspaceId}&role=${role}`
-        : "/";
+        : "/w";
 
       await authClient.signIn.social({
         provider: "github",
         callbackURL,
         fetchOptions: {
           onSuccess: (ctx) => {
-            ensureUser(ctx.data.user.id);
             toast.success("Signed in with Github, you will be redirected...");
           },
           onError: (error) => {
@@ -69,14 +70,13 @@ export const LoginForm = () => {
     startGoogleTransition(async () => {
       const callbackURL = workspaceId && role
         ? `/api/verify?workspaceId=${workspaceId}&role=${role}`
-        : "/";
+        : "/w";
 
       await authClient.signIn.social({
         provider: "google",
         callbackURL,
         fetchOptions: {
           onSuccess: (ctx) => {
-            ensureUser(ctx.data.user.id);
             toast.success("Signed in with google, you will be redirected...");
           },
           onError: (error) => {
@@ -92,7 +92,7 @@ export const LoginForm = () => {
       try {
         const callbackURL = workspaceId && role
           ? `/api/verify?workspaceId=${workspaceId}&role=${role}`
-          : "/";
+          : "/w";
 
         await authClient.signIn.email({
           email,
@@ -105,7 +105,21 @@ export const LoginForm = () => {
               window.location.href = callbackURL;
             },
             onError: (ctx) => {
-              toast.error(ctx.error.message || "Failed to sign in");
+              const isNoPassword = ctx.error.code === "USER_HAS_NO_PASSWORD" || 
+                                 ctx.error.message.toLowerCase().includes("password") && 
+                                 (ctx.error.message.toLowerCase().includes("not set") || ctx.error.message.toLowerCase().includes("no"));
+
+              if (isNoPassword) {
+                toast.error("No password found for this account. Please create a password to login with email.", {
+                  duration: 5000,
+                });
+                // Redirect to forgot password to trigger the reset flow
+                setTimeout(() => {
+                  router.push(`/forgot-password?email=${encodeURIComponent(email)}`);
+                }, 2000);
+              } else {
+                toast.error(ctx.error.message || "Failed to sign in");
+              }
             },
           },
         });
@@ -168,10 +182,17 @@ export const LoginForm = () => {
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password">Password</Label>
+              <a
+                href="/forgot-password"
+                className="text-xs text-muted-foreground hover:text-primary underline-offset-4 hover:underline"
+              >
+                Forgot password?
+              </a>
+            </div>
+            <PasswordInput
               id="password"
-              type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
@@ -224,6 +245,12 @@ export const LoginForm = () => {
               <GoogleIcon className="size-5" />
             )}
           </Button>
+        </div>
+        <div className="text-center text-sm">
+          Don&apos;t have an account?{" "}
+          <Link href="/sign-up" className="underline underline-offset-4 hover:text-primary">
+            Sign Up
+          </Link>
         </div>
       </CardContent>
     </Card>
