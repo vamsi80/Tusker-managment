@@ -40,43 +40,48 @@ function setMemoryWorkspaces(key: string, data: any) {
     if (WORKSPACES_MEMORY_CACHE.size > 100) WORKSPACES_MEMORY_CACHE.clear();
 }
 async function _fetchWorkspacesInternal(userId: string): Promise<WorkspacesResult> {
-    // Fetch user's workspace memberships
-    const workspaceMemberships = await prisma.workspaceMember.findMany({
-        where: { userId },
+    // Fetch all workspaces where the user is a member
+    const workspacesData = await prisma.workspace.findMany({
+        where: {
+            members: {
+                some: { userId }
+            }
+        },
         select: {
-            workspaceId: true,
-            workspaceRole: true,
-            workspace: {
+            id: true,
+            name: true,
+            slug: true,
+            ownerId: true,
+            createdAt: true,
+            updatedAt: true,
+            _count: {
                 select: {
-                    id: true,
-                    name: true,
-                    slug: true,
-                    ownerId: true,
-                    createdAt: true,
-                    updatedAt: true,
-                    _count: {
-                        select: {
-                            members: true,
-                        },
-                    },
+                    members: true,
+                },
+            },
+            members: {
+                where: { userId },
+                select: {
+                    workspaceRole: true,
                 },
             },
         },
-        orderBy: {
-            createdAt: "desc",
-        },
+        orderBy: [
+            { createdAt: "desc" },
+            { id: "desc" },
+        ],
     });
 
     // Transform to WorkspaceListItem format
-    const workspaces: WorkspaceListItem[] = workspaceMemberships.map((membership) => ({
-        id: membership.workspace.id,
-        name: membership.workspace.name,
-        slug: membership.workspace.slug,
-        ownerId: membership.workspace.ownerId,
-        createdAt: membership.workspace.createdAt,
-        updatedAt: membership.workspace.updatedAt,
-        workspaceRole: membership.workspaceRole,
-        memberCount: membership.workspace._count.members,
+    const workspaces: WorkspaceListItem[] = workspacesData.map((workspace) => ({
+        id: workspace.id,
+        name: workspace.name,
+        slug: workspace.slug,
+        ownerId: workspace.ownerId,
+        createdAt: workspace.createdAt,
+        updatedAt: workspace.updatedAt,
+        workspaceRole: workspace.members[0]?.workspaceRole || "VIEWER",
+        memberCount: workspace._count.members,
     }));
 
     return {

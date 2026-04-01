@@ -1,8 +1,8 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useTransition } from "react";
-import { Resolver, useForm } from "react-hook-form";
+import { useTransition, useEffect } from "react";
+import { Resolver, useForm, useWatch } from "react-hook-form";
 import { Check, Loader2, Save, SparkleIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
@@ -79,6 +79,24 @@ export const EditProjectForm = ({
         },
     });
 
+    const watchedName = useWatch({
+        control: form.control,
+        name: "name",
+    });
+
+    const watchedSlug = useWatch({
+        control: form.control,
+        name: "slug",
+    });
+
+
+    useEffect(() => {
+        if (watchedName) {
+            const generatedSlug = slugify(watchedName, { lower: true, strict: true });
+            form.setValue("slug", generatedSlug, { shouldDirty: true, shouldValidate: true });
+        }
+    }, [watchedName, form]);
+
     function onSubmit(data: EditProjectSchemaType) {
         if (pending) return;
         startTransition(async () => {
@@ -120,38 +138,16 @@ export const EditProjectForm = ({
                                         <FormControl>
                                             <Input placeholder="Enter project name" {...field} />
                                         </FormControl>
+                                        <input type="hidden" {...form.register("slug")} />
+                                        {watchedSlug && (
+                                            <p className="text-[10px] text-muted-foreground mt-1 px-1">
+                                                Slug: <span className="font-mono">{watchedSlug}</span>
+                                            </p>
+                                        )}
                                         <FormMessage />
                                     </FormItem>
                                 )}
                             />
-
-                            {/* Slug with Generate button */}
-                            <div className="flex gap-4 items-end">
-                                <FormField
-                                    control={form.control}
-                                    name="slug"
-                                    render={({ field }) => (
-                                        <FormItem className="w-full">
-                                            <FormLabel>Slug</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="Slug" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <Button
-                                    type="button"
-                                    className="w-fit"
-                                    onClick={() => {
-                                        const nameValue = form.getValues("name");
-                                        const slug = slugify(nameValue);
-                                        form.setValue("slug", slug, { shouldValidate: true });
-                                    }}
-                                >
-                                    Generate Slug <SparkleIcon className="ml-1" size={16} />
-                                </Button>
-                            </div>
 
                             {/* Description */}
                             <FormField

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect, useTransition, useMemo } from "react";
-import { AlertCircle, Link, Link2, GripHorizontal } from "lucide-react";
-import { parseDate, formatDate, getDaysBetween } from "./utils";
+import { AlertCircle, GripHorizontal } from "lucide-react";
+import { parseDate, formatDate, getDaysBetween, formatDateForAPI } from "./utils";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -14,12 +14,8 @@ interface DraggableSubtaskBarProps {
     subtask: GanttSubtask;
     timelineStart: Date;
     totalDays: number;
-    onManageDependencies?: () => void;
     workspaceId?: string;
     projectId?: string;
-    onDragConnectionStart?: (subtaskId: string) => void;
-    onDragConnectionEnd?: (fromSubtaskId: string, toSubtaskId: string) => void;
-    isConnectionTarget?: boolean;
     currentUser?: { id: string };
     permissions?: {
         isWorkspaceAdmin: boolean;
@@ -32,12 +28,8 @@ export function DraggableSubtaskBar({
     subtask,
     timelineStart,
     totalDays,
-    onManageDependencies,
     workspaceId,
     projectId,
-    onDragConnectionStart,
-    onDragConnectionEnd,
-    isConnectionTarget,
     currentUser,
     permissions
 }: DraggableSubtaskBarProps) {
@@ -95,7 +87,6 @@ export function DraggableSubtaskBar({
     const leftPercent = livePosition ? livePosition.left : (startOffset / totalDays) * 100;
     const widthPercent = livePosition ? livePosition.width : (duration / totalDays) * 100;
 
-    const isBlocked = false;
     const isCompleted = optimisticSubtask.status === 'COMPLETED';
 
 
@@ -119,19 +110,13 @@ export function DraggableSubtaskBar({
             return isWorkspaceAdmin || isProjectManager;
         }
 
-        // 2. Fallthrough Rules
-        // Workspace Admins and Project Managers can edit any other tasks (Member/Unassigned)
         if (isWorkspaceAdmin || isProjectManager) return true;
 
-        // Project Leads can edit if they CREATED the task
-        // (Note: Hierarchy rules already blocked Leads from editing their OWN assigned tasks if they were PM-assigned)
         if (isProjectLead && isCreator) return true;
 
-        // Normal members cannot edit dates in Gantt, even if they created or are assigned to the task
         return false;
     }, [currentUser, permissions, projectId, optimisticSubtask.createdById, optimisticSubtask.assignee, (optimisticSubtask as any).assigneeRole]);
 
-    // Handle bar drag (move dates)
     const handleBarMouseDown = (e: React.MouseEvent) => {
         if (!canEdit || isResizing || !startDate) return;
 
@@ -140,7 +125,6 @@ export function DraggableSubtaskBar({
         setDragStart({ x: e.clientX, date: startDate });
     };
 
-    // Handle resize drag from right edge (change end date)
     const handleResizeRightMouseDown = (e: React.MouseEvent) => {
         if (!canEdit || !endDate) return;
 
@@ -229,76 +213,73 @@ export function DraggableSubtaskBar({
             const daysDelta = Math.round(deltaX / pixelsPerDay);
 
             if (isDragging && daysDelta !== 0) {
-                const newStartDate = new Date(dragStart.date);
+                const dragBaseDate = dragStart.date;
+                if (!dragBaseDate || !endDate) return;
+
+                const newStartDate = new Date(dragBaseDate);
                 newStartDate.setDate(newStartDate.getDate() + daysDelta);
 
                 const newEndDate = new Date(endDate);
                 newEndDate.setDate(newEndDate.getDate() + daysDelta);
 
-                // Optimistically update the subtask state immediately
+                const startStr = formatDateForAPI(newStartDate, 'start');
+                const endStr = formatDateForAPI(newEndDate, 'end');
+
                 setOptimisticSubtask(prev => ({
                     ...prev,
-                    start: formatDate(newStartDate),
-                    end: formatDate(newEndDate)
+                    start: startStr,
+                    end: endStr
                 }));
 
-                // Mark that we're waiting for server update
                 setIsPendingUpdate(true);
-
-                // Save to database with loading toast
                 const toastId = toast.loading("Updating task dates...");
                 startTransition(async () => {
                     const result = await updateSubtaskDates(
                         subtask.id,
-                        formatDate(newStartDate),
-                        formatDate(newEndDate),
+                        startStr,
+                        endStr,
                         projectId,
                         workspaceId
                     );
 
                     if (!result.success) {
                         toast.error(result.message, { id: toastId });
-                        // Revert optimistic update on error
                         setOptimisticSubtask(subtask);
                         setIsPendingUpdate(false);
                         setLivePosition(null);
                     } else {
                         toast.success("Task dates updated", { id: toastId });
-                        // Don't reset isPendingUpdate here - let the useEffect handle it when server data arrives
                     }
                 });
             } else if (isResizing && daysDelta !== 0) {
                 if (resizeEdge === 'right') {
-                    // Resizing from right edge - change end date
-                    // Ensure start date exists
-                    if (!startDate) return;
+                    if (!startDate || !dragStart.date) return;
 
                     const newEndDate = new Date(dragStart.date);
                     newEndDate.setDate(newEndDate.getDate() + daysDelta);
 
+                    const endStr = formatDateForAPI(newEndDate, 'end');
+                    const startStr = formatDateForAPI(startDate, 'start');
+
                     if (newEndDate > startDate) {
-                        // Optimistically update the subtask state immediately
                         setOptimisticSubtask(prev => ({
                             ...prev,
-                            end: formatDate(newEndDate)
+                            end: endStr
                         }));
 
-                        // Mark that we're waiting for server update
                         setIsPendingUpdate(true);
-
                         const toastId = toast.loading("Updating task duration...");
                         startTransition(async () => {
                             const result = await updateSubtaskDates(
                                 subtask.id,
-                                formatDate(startDate),
-                                formatDate(newEndDate),
+                                startStr,
+                                endStr,
                                 projectId,
                                 workspaceId
                             );
 
                             if (!result.success) {
                                 toast.error(result.message, { id: toastId });
-                                // Revert optimistic update on error
                                 setOptimisticSubtask(subtask);
                                 setIsPendingUpdate(false);
                                 setLivePosition(null);
@@ -308,33 +289,33 @@ export function DraggableSubtaskBar({
                         });
                     }
                 } else if (resizeEdge === 'left') {
-                    // Resizing from left edge - change start date
+                    if (!endDate || !dragStart.date) return;
+
                     const newStartDate = new Date(dragStart.date);
                     newStartDate.setDate(newStartDate.getDate() + daysDelta);
 
+                    const startStr = formatDateForAPI(newStartDate, 'start');
+                    const endStr = formatDateForAPI(endDate, 'end');
+
                     if (newStartDate < endDate) {
-                        // Optimistically update the subtask state immediately
                         setOptimisticSubtask(prev => ({
                             ...prev,
-                            start: formatDate(newStartDate)
+                            start: startStr
                         }));
 
-                        // Mark that we're waiting for server update
                         setIsPendingUpdate(true);
-
                         const toastId = toast.loading("Updating task start date...");
                         startTransition(async () => {
                             const result = await updateSubtaskDates(
                                 subtask.id,
-                                formatDate(newStartDate),
-                                formatDate(endDate),
+                                startStr,
+                                endStr,
                                 projectId,
                                 workspaceId
                             );
 
                             if (!result.success) {
                                 toast.error(result.message, { id: toastId });
-                                // Revert optimistic update on error
                                 setOptimisticSubtask(subtask);
                                 setIsPendingUpdate(false);
                                 setLivePosition(null);
@@ -345,7 +326,6 @@ export function DraggableSubtaskBar({
                     }
                 }
             } else {
-                // No change, reset immediately
                 setLivePosition(null);
             }
 
@@ -395,7 +375,6 @@ export function DraggableSubtaskBar({
                                 "focus:outline-none focus:ring-2 focus:ring-offset-1",
                                 canEdit && "cursor-grab active:cursor-grabbing",
                                 isDragging && "opacity-70 scale-105",
-                                isConnectionTarget && "ring-2 ring-blue-500 ring-offset-2",
                                 // Status-based colors
                                 ({
                                     'TO_DO': "bg-slate-400 dark:bg-slate-500 hover:bg-slate-500 dark:hover:bg-slate-600 focus:ring-slate-500",
@@ -441,9 +420,7 @@ export function DraggableSubtaskBar({
                             )}
 
                             {/* Icons */}
-                            {isBlocked && (
-                                <AlertCircle className="absolute -top-1 -left-1 h-3 w-3 text-amber-700 dark:text-amber-300 bg-white dark:bg-neutral-900 rounded-full" />
-                            )}
+                            {/* Empty spacing for potential badges */}
 
 
                             {/* Dependency Management Button */}

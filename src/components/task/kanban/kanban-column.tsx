@@ -8,9 +8,9 @@ import { cn } from "@/lib/utils";
 import { KanbanCard } from "./kanban-card";
 import { KanbanCardSkeleton } from "./kanban-skeleton";
 import { useInView } from "react-intersection-observer";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect } from "react";
 import { Plus } from "lucide-react";
-import { useVirtualizer } from "@tanstack/react-virtual";
+
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "REVIEW" | "HOLD" | "COMPLETED" | "CANCELLED";
 
@@ -30,11 +30,18 @@ interface KanbanColumnProps {
     onLoadMore: () => void;
     projectManagers?: Record<string, any>;
     updatingTaskIds?: Set<string>;
+    /** The id of the card currently being dragged */
+    activeTaskId?: string | null;
+    /** The id of the card the dragged item is hovering over (null = column itself is hovered, empty) */
+    overCardId?: string | null;
+    /** Whether the dragged item is over this column at all */
+    isOverColumn?: boolean;
 }
 
 /**
- * Kanban Column Component 
+ * Kanban Column Component
  * Optimized with virtualization and normalized data flow.
+ * Includes ClickUp-style drop indicator showing where the card will land.
  */
 export const KanbanColumn = React.memo(function KanbanColumn({
     column,
@@ -45,7 +52,10 @@ export const KanbanColumn = React.memo(function KanbanColumn({
     onSubTaskClick,
     onLoadMore,
     projectManagers,
-    updatingTaskIds = new Set()
+    updatingTaskIds = new Set(),
+    activeTaskId,
+    overCardId,
+    isOverColumn = false,
 }: KanbanColumnProps) {
     const { setNodeRef, isOver } = useDroppable({
         id: column.id,
@@ -56,25 +66,34 @@ export const KanbanColumn = React.memo(function KanbanColumn({
 
     const { ref: loadMoreRef, inView } = useInView({
         threshold: 0,
-        rootMargin: '100px', // Trigger before hitting bottom slightly
+        rootMargin: '100px',
     });
 
-    const parentRef = useRef<HTMLDivElement>(null);
-
-    const virtualizer = useVirtualizer({
-        count: subTaskIds.length + (hasMore || isLoadingMore ? 1 : 0),
-        getScrollElement: () => parentRef.current,
-        estimateSize: () => 140, // Estimated card height with space
-        overscan: 10,
-    });
-
-    const virtualItems = virtualizer.getVirtualItems();
 
     useEffect(() => {
         if (inView && hasMore && !isLoadingMore) {
             onLoadMore();
         }
     }, [inView, hasMore, isLoadingMore, onLoadMore]);
+
+    /**
+     * Compute where the drop indicator should appear.
+     * - dropIndicatorIndex = the index BEFORE which the card will be inserted.
+     * - If overCardId is null but isOverColumn → dropped on empty column or below all cards → index = subTaskIds.length
+     * - If overCardId is a card id → indicator appears BEFORE that card's index.
+     */
+    const getDropIndicatorIndex = (): number | null => {
+        if (!isDragging || !isOverColumn) return null;
+        if (!overCardId) {
+            // Hovering the column itself (no card below cursor) → insert at bottom
+            return subTaskIds.length;
+        }
+        const idx = subTaskIds.indexOf(overCardId);
+        if (idx === -1) return null;
+        return idx;
+    };
+
+    const dropIndicatorIndex = getDropIndicatorIndex();
 
     return (
         <div
@@ -112,7 +131,7 @@ export const KanbanColumn = React.memo(function KanbanColumn({
                                     "text-[8px] font-bold uppercase tracking-tight transition-colors",
                                     isOver ? "text-primary" : "text-muted-foreground/60"
                                 )}>
-                                    {isOver ? "Release" : "Drop Top"}
+                                    {isOver ? "Release" : "Drop Here"}
                                 </span>
                             </div>
                         )}
@@ -122,7 +141,6 @@ export const KanbanColumn = React.memo(function KanbanColumn({
 
             {/* Column Content with individual scroll */}
             <div
-                ref={parentRef}
                 className={cn(
                     "flex-1 p-3 overflow-y-auto",
                     !isOver && "border-t-0",
@@ -139,58 +157,57 @@ export const KanbanColumn = React.memo(function KanbanColumn({
                     items={subTaskIds}
                     strategy={verticalListSortingStrategy}
                 >
-                    <div
-                        style={{
-                            height: `${virtualizer.getTotalSize()}px`,
-                            width: '100%',
-                            position: 'relative',
-                        }}
-                    >
-                        {virtualItems.map((virtualItem) => {
-                            const isLoader = virtualItem.index >= subTaskIds.length;
-                            const subTaskId = subTaskIds[virtualItem.index];
-
+                    {/* Non-virtualized rendering with drop indicators */}
+                    <div className="relative space-y-0">
+                        {subTaskIds.map((subTaskId, index) => {
+                            const showIndicatorBefore = dropIndicatorIndex === index && subTaskId !== activeTaskId;
                             return (
-                                <div
-                                    key={virtualItem.key}
-                                    data-index={virtualItem.index}
-                                    ref={virtualizer.measureElement}
-                                    style={{
-                                        position: 'absolute',
-                                        top: 0,
-                                        left: 0,
-                                        width: '100%',
-                                        transform: `translateY(${virtualItem.start}px)`,
-                                        paddingBottom: '12px', // space-y-3 equivalent
-                                    }}
-                                >
-                                    {isLoader ? (
-                                        <div ref={loadMoreRef} className="py-2 w-full">
-                                            {isLoadingMore ? (
-                                                <div className="space-y-3">
-                                                    <KanbanCardSkeleton />
-                                                </div>
-                                            ) : (
-                                                <div className="h-4 w-full" /> // Invisible sentinel
-                                            )}
-                                        </div>
-                                    ) : (
+                                <React.Fragment key={subTaskId}>
+                                    {/* Drop Indicator BEFORE this card */}
+                                    {showIndicatorBefore && (
+                                        <DropIndicator />
+                                    )}
+                                    <div className="pb-3">
                                         <KanbanCardWrapper
                                             id={subTaskId}
                                             columnColor={column.color}
                                             onSubTaskClick={onSubTaskClick}
                                             projectManagers={projectManagers}
                                             isUpdating={updatingTaskIds.has(subTaskId)}
+                                            isDimmed={isDragging && subTaskId === activeTaskId}
                                         />
-                                    )}
-                                </div>
+                                    </div>
+                                </React.Fragment>
                             );
                         })}
+
+                        {/* Drop indicator at bottom of list */}
+                        {dropIndicatorIndex === subTaskIds.length && (
+                            <DropIndicator />
+                        )}
+
+                        {/* Load more / skeleton */}
+                        {(hasMore || isLoadingMore) && (
+                            <div ref={loadMoreRef} className="py-2 w-full">
+                                {isLoadingMore ? (
+                                    <div className="space-y-3">
+                                        <KanbanCardSkeleton />
+                                    </div>
+                                ) : (
+                                    <div className="h-4 w-full" />
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     {subTaskIds.length === 0 && !isLoadingMore && (
-                        <div className="flex items-center justify-center h-24 text-muted-foreground text-xs uppercase font-medium tracking-wider border-2 border-dashed rounded-lg bg-muted/20">
-                            No subtasks
+                        <div className={cn(
+                            "flex items-center justify-center h-24 text-muted-foreground text-xs uppercase font-medium tracking-wider border-2 border-dashed rounded-lg transition-all duration-200",
+                            isOver
+                                ? "bg-primary/10 border-primary/40 text-primary scale-[1.02]"
+                                : "bg-muted/20"
+                        )}>
+                            {isOver ? "Drop here" : "No tasks found"}
                         </div>
                     )}
                 </SortableContext>
@@ -199,10 +216,50 @@ export const KanbanColumn = React.memo(function KanbanColumn({
     );
 });
 
+/**
+ * A ClickUp-style animated drop indicator line shown between cards during drag.
+ */
+function DropIndicator() {
+    return (
+        <div className="relative py-1 mb-1 pointer-events-none select-none">
+            {/* Outer glow bar */}
+            <div className="relative flex items-center gap-1.5">
+                {/* Circle handle */}
+                <div className="h-2.5 w-2.5 rounded-full bg-primary border-2 border-background shadow-md shadow-primary/40 shrink-0 animate-pulse" />
+                {/* Line */}
+                <div
+                    className="flex-1 h-0.5 rounded-full bg-primary shadow-[0_0_6px_2px_hsl(var(--primary)/0.4)]"
+                    style={{
+                        animation: "dropIndicatorPulse 1.2s ease-in-out infinite",
+                    }}
+                />
+            </div>
+        </div>
+    );
+}
+
+// Inline keyframe for the indicator glow pulse
+// We inject it once via a style tag approach in CSS-in-JS fashion
+if (typeof document !== "undefined") {
+    const styleId = "__kanban_drop_indicator_style";
+    if (!document.getElementById(styleId)) {
+        const style = document.createElement("style");
+        style.id = styleId;
+        style.textContent = `
+            @keyframes dropIndicatorPulse {
+                0%, 100% { opacity: 1; box-shadow: 0 0 6px 2px hsl(var(--primary) / 0.4); }
+                50% { opacity: 0.75; box-shadow: 0 0 10px 4px hsl(var(--primary) / 0.6); }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+}
+
 import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 
 const KanbanCardWrapper = React.memo(function KanbanCardWrapper({
     id,
+    isDimmed,
     ...props
 }: {
     id: string;
@@ -210,14 +267,17 @@ const KanbanCardWrapper = React.memo(function KanbanCardWrapper({
     onSubTaskClick: (subTask: KanbanSubTaskType) => void;
     projectManagers?: Record<string, any>;
     isUpdating: boolean;
+    isDimmed?: boolean;
 }) {
     const subTask = useTaskCacheStore(state => state.entities[id]);
     if (!subTask) return null;
 
     return (
-        <KanbanCard
-            subTask={subTask as KanbanSubTaskType}
-            {...props}
-        />
+        <div className={cn("transition-opacity duration-150", isDimmed && "opacity-30")}>
+            <KanbanCard
+                subTask={subTask as KanbanSubTaskType}
+                {...props}
+            />
+        </div>
     );
 });

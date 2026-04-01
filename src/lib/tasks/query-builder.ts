@@ -1,82 +1,72 @@
 import { Prisma } from "@/generated/prisma";
 
-/**
- * Dynamic Task Selection
- * Fetches only what is needed for the specific view to save bandwidth.
- */
 export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
     const isList = viewMode === "list" || viewMode === "default" || !viewMode;
     const isKanban = viewMode === "kanban";
     const isGantt = viewMode === "gantt";
     const isCalendar = viewMode === "calendar";
     const isSearch = viewMode === "search";
+    const isSubtask = viewMode === "subtask";
 
-    // Core fields needed for every view
+    // 1. Core fields required everywhere
     const select: Prisma.TaskSelect = {
         id: true,
         name: true,
         taskSlug: true,
         status: true,
         dueDate: true,
-        days: true,
+        subtaskCount: true,
+        completedSubtaskCount: true,
+        tagId: true,
+
+        // Always include basic assignee info
+        assignee: { select: { id: true, surname: true, image: true } },
+
+        createdAt: true,
+        createdById: true,
         projectId: true,
         parentTaskId: true,
         isParent: true,
-        createdAt: true,
-        createdById: true,
         assigneeTo: true,
-        reviewerId: true,
-        tagId: true,
-        subtaskCount: true,
-        completedSubtaskCount: true,
-
-        // Relations with minimal user data (Surname + Image for Avatars)
-        assignee: {
-            select: { id: true, surname: true, image: true }
-        },
-        reviewer: {
-            select: { id: true, surname: true, image: true }
-        },
-        tag: {
-            select: { id: true, name: true }
-        },
-        _count: {
-            select: {
-                reviewComments: true,
-            }
-        }
     };
 
-
-    // 1. Description: Specifically for List view per user request
-    if (isList) {
-        select.description = true;
+    // 2. Metadata: Tags & Comment Counts
+    // Uniformly added to most views for UI consistency
+    if (isKanban || isList || isSearch || isGantt || isCalendar || isSubtask) {
+        select._count = {
+            select: {
+                reviewComments: true,
+                subTasks: true
+            }
+        };
+        select.tag = { select: { id: true, name: true } };
     }
 
-    // 2. Start Date: For List, Gantt, and Calendar
-    if (isList || isGantt || isCalendar) {
-        select.startDate = true;
-    }
-
-    // 3. Project Metadata: Specifically for Kanban, Search, List, and Gantt
-    if (isKanban || isSearch || isList || isGantt) {
+    // 3. Project & Parent Context
+    // Essential for workspace views and search results
+    if (isKanban || isSearch || isList || isGantt || isSubtask || isCalendar) {
         select.project = {
-            select: {
-                id: true,
-                name: true,
-                color: true,
-            }
+            select: { id: true, name: true, color: true }
+        };
+        select.parentTask = {
+            select: { id: true, name: true }
         };
     }
 
-    // 4. Parent Task Metadata: Specifically for Kanban and List views
-    if (isKanban || isList || isGantt) {
-        select.parentTask = {
-            select: {
-                id: true,
-                name: true,
-            }
+    // 4. Extended Info: Description & Reviewer
+    // Uniformly included for better context across all views except minimal kanban nodes if needed
+    // But per user request to "make everything unique/consistent", we include them broadly.
+    if (isList || isSearch || isSubtask || isGantt || isCalendar) {
+        select.description = true;
+        select.reviewer = {
+            select: { id: true, surname: true, image: true }
         };
+    }
+
+    // 5. specialized view fields
+    if (isList || isGantt || isCalendar || isSubtask) {
+        select.startDate = true;
+        select.days = true;
     }
 
     if (isSearch) {
@@ -87,6 +77,7 @@ export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
 
     return select;
 }
+
 
 // Keep a default for simple migrations
 export const TASK_CORE_SELECT = getTaskSelect("list");
@@ -136,7 +127,7 @@ export function buildProjectRootWhere(
         const cursorCondition = {
             OR: [
                 { createdAt: { lt: opts.cursor.createdAt } },
-                { createdAt: opts.cursor.createdAt, id: { gt: opts.cursor.id } },
+                { createdAt: opts.cursor.createdAt, id: { lt: opts.cursor.id } },
             ]
         };
 
@@ -216,7 +207,7 @@ export function buildSubtaskExpansionWhere(
         const cursorCondition = {
             OR: [
                 { createdAt: { lt: opts.cursor.createdAt } },
-                { createdAt: opts.cursor.createdAt, id: { gt: opts.cursor.id } },
+                { createdAt: opts.cursor.createdAt, id: { lt: opts.cursor.id } },
             ]
         };
         where.AND = [
@@ -253,12 +244,20 @@ export interface WorkspaceFilterOpts {
     excludeParents?: boolean;
     onlySubtasks?: boolean;
     includeSubTasks?: boolean;
+    viewMode?: string;
 }
 
 export function buildWorkspaceFilterWhere(
     opts: WorkspaceFilterOpts,
     userId: string
 ): Prisma.TaskWhereInput {
+    const viewMode = opts.viewMode || "list";
+    const isList = viewMode === "list" || viewMode === "default";
+    const isKanban = viewMode === "kanban";
+    const isGantt = viewMode === "gantt";
+    const isSearch = viewMode === "search";
+    const isCalendar = viewMode === "calendar";
+
     const where: Prisma.TaskWhereInput = {};
 
     // ─── Scope: which projects can these results come from? ─────────────
@@ -329,35 +328,51 @@ export function buildWorkspaceFilterWhere(
         }
     }
 
-    // ─── User-supplied assignee filter ─────────────────────────────────
-    const assigneeFilters = opts.assigneeId
-        ? (Array.isArray(opts.assigneeId) ? opts.assigneeId : [opts.assigneeId])
-        : null;
+    // ─── Apply User Filters (Safely merge with security scope) ────────
+    const applyFilter = (key: keyof Prisma.TaskWhereInput, values: any) => {
+        if (!values || (Array.isArray(values) && values.length === 0)) return;
+        const filterVal = Array.isArray(values) ? { in: values } : values;
 
-    // Do not overwrite an assigneeTo already set by the restricted scope above
-    if (assigneeFilters && assigneeFilters.length > 0 && !where.assigneeTo) {
-        where.assigneeTo = { in: assigneeFilters };
-    }
+        if (where[key]) {
+            // Merge into AND to avoid overwriting restricted scope
+            where.AND = [
+                ...(Array.isArray(where.AND) ? where.AND : (where.AND ? [where.AND] : [])),
+                { [key]: filterVal }
+            ];
+        } else {
+            (where as any)[key] = filterVal;
+        }
 
-    // ─── Hierarchy ─────────────────────────────────────────────────────
+    };
+
+    applyFilter('status', opts.status);
+    applyFilter('tagId', opts.tagId);
+    applyFilter('assigneeTo', opts.assigneeId);
+
+    const hasFilters = !!(
+        (opts.status && opts.status.length > 0) ||
+        (opts.assigneeId) ||
+        (opts.tagId) ||
+        (opts.search && opts.search.trim().length > 0) ||
+        opts.dueAfter ||
+        opts.dueBefore
+    );
+
     if (opts.onlyParents) {
         where.isParent = true;
         where.parentTaskId = null;
     } else if (opts.onlySubtasks) {
         where.parentTaskId = { not: null };
-    } else if (opts.excludeParents) {
+    } else if (opts.excludeParents || isKanban) {
         where.isParent = false;
+    } else if (isList || isGantt || isCalendar) {
+        // Default to hierarchy only if NO filters are active
+        if (!hasFilters) {
+            where.isParent = true;
+            where.parentTaskId = null;
+        }
     }
 
-    // ─── Status / Tag ───────────────────────────────────────────────────
-    if (opts.status && opts.status.length > 0) {
-        where.status = { in: opts.status as any };
-    }
-
-    if (opts.tagId) {
-        const tagIds = Array.isArray(opts.tagId) ? opts.tagId : [opts.tagId];
-        if (tagIds.length > 0) where.tagId = { in: tagIds };
-    }
 
     // ─── Due date ───────────────────────────────────────────────────────
     if (opts.dueAfter || opts.dueBefore) {
@@ -392,7 +407,7 @@ export function buildWorkspaceFilterWhere(
         const cursorCondition = {
             OR: [
                 { createdAt: { lt: opts.cursor.createdAt } },
-                { createdAt: opts.cursor.createdAt, id: { gt: opts.cursor.id } },
+                { createdAt: opts.cursor.createdAt, id: { lt: opts.cursor.id } },
             ]
         };
         where.AND = [

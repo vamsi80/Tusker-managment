@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTransition, useState, useEffect, useMemo } from "react";
-import { Resolver, useForm } from "react-hook-form";
+import { Resolver, useForm, useWatch } from "react-hook-form";
 import { Check, Loader2, PlusIcon, SparkleIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -84,29 +84,49 @@ export const CreateSubTaskForm = ({
             name: "",
             description: "",
             taskSlug: "",
-            startDate: "",
-            days: 0,
+            startDate: (() => {
+                const now = new Date(Date.now() + 10 * 60000); // 10 minutes in future
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                return `${year}-${month}-${day}T${hours}:${minutes}`;
+            })(),
+            dueDate: (() => {
+                const now = new Date(Date.now() + 30 * 60000); // 30 minutes in future for due date
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                return `${year}-${month}-${day}T${hours}:${minutes}`;
+            })(),
             assignee: "",
             status: "TO_DO",
             tag: tags[0]?.id || "", // Use first tag's ID or empty string
             projectId: projectId || (parentTasks.length > 0 ? parentTasks[0].projectId : "") || "",
             parentTaskId: parentTaskId || (parentTasks.length > 0 ? parentTasks[0].id : "") || "",
         },
-    })
+    });
 
-    // Auto-update slug when subtask name changes
+    const watchedName = useWatch({
+        control: form.control,
+        name: "name",
+    });
+
+    const watchedTaskSlug = useWatch({
+        control: form.control,
+        name: "taskSlug",
+    });
+
     useEffect(() => {
         if (!autoSlugEnabled || !open) return;
-
-        const subscription = form.watch((value, { name: fieldName }) => {
-            if (fieldName === 'name' && value.name) {
-                const newSlug = slugify(value.name, { lower: true, strict: true });
-                form.setValue('taskSlug', newSlug, { shouldValidate: false });
-            }
-        });
-
-        return () => subscription.unsubscribe();
-    }, [form, autoSlugEnabled, open]);
+        if (watchedName) {
+            const newSlug = slugify(watchedName, { lower: true, strict: true });
+            form.setValue('taskSlug', newSlug, { shouldValidate: false });
+        }
+    }, [watchedName, autoSlugEnabled, open, form]);
 
     // Reset auto-slug when dialog opens
     useEffect(() => {
@@ -163,12 +183,7 @@ export const CreateSubTaskForm = ({
         });
     }
 
-    const handleManualSlugGenerate = () => {
-        const nameValue = form.getValues("name") || "";
-        const slug = slugify(nameValue, { lower: true, strict: true });
-        form.setValue('taskSlug', slug, { shouldValidate: true });
-        setAutoSlugEnabled(true); // Re-enable auto-slug
-    };
+
 
     const formContent = (
         <>
@@ -193,6 +208,12 @@ export const CreateSubTaskForm = ({
                                     <FormControl>
                                         <Input placeholder={level === "workspace" ? "Enter task name" : "Enter subtask name"} {...field} />
                                     </FormControl>
+                                    <input type="hidden" {...form.register("taskSlug")} />
+                                    {watchedTaskSlug && (
+                                        <p className="text-[10px] text-muted-foreground mt-1 px-1">
+                                            Slug: <span className="font-mono">{watchedTaskSlug}</span>
+                                        </p>
+                                    )}
                                     <FormMessage />
                                 </FormItem>
                             )}
@@ -275,46 +296,6 @@ export const CreateSubTaskForm = ({
                             </div>
                         )}
 
-                        <div className=" flex gap-4 items-end">
-                            <FormField
-                                control={form.control}
-                                name="taskSlug"
-                                render={({ field }) => (
-                                    <FormItem className="w-full">
-                                        <FormLabel>
-                                            Slug
-                                            {autoSlugEnabled && (
-                                                <span className="text-xs text-muted-foreground ml-2">
-                                                    (auto-updating)
-                                                </span>
-                                            )}
-                                        </FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                placeholder="Slug"
-                                                {...field}
-                                                onChange={(e) => {
-                                                    field.onChange(e);
-                                                    // Disable auto-slug if user manually edits
-                                                    setAutoSlugEnabled(false);
-                                                }}
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <Button
-                                type="button"
-                                variant="outline"
-                                className="w-fit shrink-0"
-                                onClick={handleManualSlugGenerate}
-                            >
-                                <SparkleIcon className="mr-1" size={16} />
-                                Generate
-                            </Button>
-                        </div>
-
                         {/* Description */}
                         <FormField
                             control={form.control}
@@ -376,7 +357,7 @@ export const CreateSubTaskForm = ({
                                     <FormItem >
                                         <FormLabel>Start Date</FormLabel>
                                         <FormControl>
-                                            <Input type="date" {...field} />
+                                            <Input type="datetime-local" {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -385,16 +366,14 @@ export const CreateSubTaskForm = ({
 
                             <FormField
                                 control={form.control}
-                                name="days"
+                                name="dueDate"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Duration (Days)</FormLabel>
+                                        <FormLabel>Due Date</FormLabel>
                                         <FormControl>
                                             <Input
-                                                type="number"
-                                                placeholder="Days"
+                                                type="datetime-local"
                                                 {...field}
-                                                onChange={(e) => field.onChange(e.target.valueAsNumber || 0)}
                                             />
                                         </FormControl>
                                         <FormMessage />
@@ -436,8 +415,8 @@ export const CreateSubTaskForm = ({
                                                 <Button variant="outline" className="w-full justify-between font-normal">
                                                     {field.value
                                                         ? (() => {
-                                                            const m = members?.find((m) => m.workspaceMember.user.id === field.value);
-                                                            return `${m?.workspaceMember.user.surname}`;
+                                                            const m = members?.find((m) => m.userId === field.value);
+                                                            return `${m?.user.surname}`;
                                                         })()
                                                         : "Select assignee"}
                                                 </Button>
@@ -450,10 +429,10 @@ export const CreateSubTaskForm = ({
                                                         <CommandEmpty>No members found.</CommandEmpty>
                                                         <CommandGroup>
                                                             {members?.filter((member) => {
-                                                                const role = member.workspaceMember.workspaceRole;
-                                                                return role !== "VIEWER" && role !== "ADMIN";
+                                                                const role = member.projectRole;
+                                                                return role !== "VIEWER" && role !== "PROJECT_MANAGER"; // Adjust logic if needed
                                                             }).map((member) => {
-                                                                const user = member.workspaceMember.user;
+                                                                const user = member.user;
                                                                 const userName = `${user.surname || ''}`;
                                                                 const userId = user.id;
                                                                 const isSelected = field.value === userId;

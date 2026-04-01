@@ -22,6 +22,8 @@ interface EditTaskDialogProps {
     task: TaskWithSubTasks;
     projectId?: string;
     onTaskUpdated?: (updatedTask: { name: string; taskSlug: string }) => void;
+    onUpdateStart?: () => void;
+    onUpdateEnd?: () => void;
     level?: "workspace" | "project";
     projects?: { id: string; name: string; }[];
 }
@@ -37,13 +39,14 @@ export function EditTaskDialog({
     task,
     projectId,
     onTaskUpdated,
+    onUpdateStart,
+    onUpdateEnd,
     level = "project", // Default to project level
     projects = [], // Default to empty array
 }: EditTaskDialogProps) {
     const [pending, startTransition] = useTransition();
     const [open, setOpen] = useState(false);
     const [autoSlugEnabled, setAutoSlugEnabled] = useState(true);
-    const [selectedProjectId, setSelectedProjectId] = useState<string>(projectId || task.projectId || "");
     const reloadView = useReloadView();
 
     const form = useForm<TaskSchemaType>({
@@ -52,17 +55,13 @@ export function EditTaskDialog({
             name: task.name,
             taskSlug: task.taskSlug,
             projectId: task.projectId,
-            reviewerId: (task as any).reviewerId || null,
         },
     });
 
-    const [reviewers, setReviewers] = useState<ProjectReviewer[]>([]);
-
     useEffect(() => {
-        if (open && selectedProjectId) {
-            getProjectReviewers(selectedProjectId)
+        if (open) {
+            getProjectReviewers(task.projectId)
                 .then((fetchedReviewers) => {
-                    setReviewers(fetchedReviewers);
 
                     // Default to Task Creator if no reviewer set
                     if (!form.getValues("reviewerId")) {
@@ -76,11 +75,16 @@ export function EditTaskDialog({
                 })
                 .catch(err => console.error("Failed to fetch reviewers", err));
         }
-    }, [open, selectedProjectId, form]);
+    }, [open, form]);
 
     const watchedName = useWatch({
         control: form.control,
         name: "name",
+    });
+
+    const watchedTaskSlug = useWatch({
+        control: form.control,
+        name: "taskSlug",
     });
 
     useEffect(() => {
@@ -105,7 +109,9 @@ export function EditTaskDialog({
         }
 
         startTransition(async () => {
+            if (onUpdateStart) onUpdateStart();
             const { data: result, error } = await tryCatch(editTask(values, task.id));
+            if (onUpdateEnd) onUpdateEnd();
 
             if (error) {
                 toast.error(error.message);
@@ -134,12 +140,7 @@ export function EditTaskDialog({
         });
     }
 
-    const handleManualSlugGenerate = () => {
-        const nameValue = form.getValues("name") || "";
-        const slug = slugify(nameValue, { lower: true, strict: true });
-        form.setValue('taskSlug', slug, { shouldValidate: true });
-        setAutoSlugEnabled(true); // Re-enable auto-slug
-    };
+
 
     return (
         <Dialog
@@ -179,7 +180,6 @@ export function EditTaskDialog({
                                             <Select
                                                 onValueChange={(value) => {
                                                     field.onChange(value);
-                                                    setSelectedProjectId(value);
                                                 }}
                                                 value={field.value}
                                             >
@@ -217,83 +217,16 @@ export function EditTaskDialog({
                                                 {...field}
                                             />
                                         </FormControl>
+                                        <input type="hidden" {...form.register("taskSlug")} />
+                                        {watchedTaskSlug && (
+                                            <p className="text-[10px] text-muted-foreground mt-1 px-1">
+                                                Slug: <span className="font-mono">{watchedTaskSlug}</span>
+                                            </p>
+                                        )}
                                         <FormMessage />
                                     </FormItem>
                                 )}
                             />
-
-                            <FormField
-                                control={form.control}
-                                name="reviewerId"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Review By</FormLabel>
-                                        <Select
-                                            onValueChange={(value) => field.onChange(value === "unassigned" ? null : value)}
-                                            value={field.value || "unassigned"}
-                                        >
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select a reviewer" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                <SelectItem value="unassigned">No Reviewer</SelectItem>
-                                                {reviewers.map((reviewer) => (
-                                                    <SelectItem key={reviewer.id} value={reviewer.id}>
-                                                        <div className="flex items-center gap-2">
-                                                            <span>{reviewer.surname}</span>
-                                                            <span className="text-xs text-muted-foreground ml-1">
-                                                                ({reviewer.role})
-                                                            </span>
-                                                        </div>
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <div className="flex gap-4 items-end">
-                                <FormField
-                                    control={form.control}
-                                    name="taskSlug"
-                                    render={({ field }) => (
-                                        <FormItem className="w-full">
-                                            <FormLabel>
-                                                Slug
-                                                {autoSlugEnabled && (
-                                                    <span className="text-xs text-muted-foreground ml-2">
-                                                        (auto-updating)
-                                                    </span>
-                                                )}
-                                            </FormLabel>
-                                            <FormControl>
-                                                <Input
-                                                    placeholder="Slug"
-                                                    {...field}
-                                                    onChange={(e) => {
-                                                        field.onChange(e);
-                                                        // Disable auto-slug if user manually edits
-                                                        setAutoSlugEnabled(false);
-                                                    }}
-                                                />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    className="w-fit shrink-0"
-                                    onClick={handleManualSlugGenerate}
-                                >
-                                    <SparkleIcon className="mr-1" size={16} />
-                                    Generate
-                                </Button>
-                            </div>
 
                             <div className="flex flex-row items-center gap-4 pt-4">
                                 <Button

@@ -29,6 +29,7 @@ model User {
   reviewedTasks          Task[]                 @relation("TaskReviewer")
   workspaceOwner         Workspace[]
   workspaces             WorkspaceMember[]
+  projectMembers         ProjectMember[]
   accounts               Account[]
   comments               Comment[]
   assignedIndents        IndentDetails[]        @relation("IndentAssignee")
@@ -135,7 +136,6 @@ model WorkspaceMember {
   workspaceRole  WorkspaceRole   @default(MEMBER)
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
-  projectMembers ProjectMember[]
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
@@ -173,18 +173,18 @@ model ProjectMember {
   id                String          @id @default(uuid())
   projectRole       ProjectRole     @default(MEMBER)
   projectId         String
-  workspaceMemberId String
+  userId            String
   hasAccess         Boolean         @default(false)
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
   project           Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  workspaceMember   WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   tasks             Task[]
 
-  @@unique([workspaceMemberId, projectId])
+  @@unique([userId, projectId])
   @@index([projectId, projectRole])
-  @@index([workspaceMemberId])
-  @@index([projectId, workspaceMemberId])
+  @@index([userId])
+  @@index([projectId, userId])
 }
 
 model Clints {

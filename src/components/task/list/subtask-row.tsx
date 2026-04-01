@@ -125,7 +125,7 @@ export const SubTaskRow = memo(function SubTaskRow({
     console.log(`[SubTask DB] ${subTask.name}: dueDate = ${subTask.dueDate}`);
 
     const getProgressColor = () => {
-        if (!subTask.startDate || !subTask.days || remainingDays === null) return "bg-gray-300";
+        if (remainingDays === null) return "bg-gray-300";
 
         // Color based on absolute days remaining, not percentage
         if (isOverdue) return "bg-red-500";           // Overdue
@@ -381,14 +381,14 @@ export const SubTaskRow = memo(function SubTaskRow({
 
             {columnVisibility.progress && (
                 <TableCell className="w-[100px] sm:w-[150px]">
-                    {subTask.startDate && subTask.days && remainingDays !== null ? (
+                    {remainingDays !== null ? (
                         <div className="flex items-center gap-2 min-w-0">
                             <div className={`h-2.5 w-2.5 rounded-full flex-shrink-0 ${progressColor}`} />
                             <span className="text-[10px] sm:text-xs text-muted-foreground truncate">
                                 {remainingDays > 0
                                     ? `${remainingDays}d left`
                                     : remainingDays === 0
-                                        ? 'Due tody'
+                                        ? 'Due today'
                                         : `${Math.abs(remainingDays)}d late`
                                 }
                             </span>
@@ -402,20 +402,24 @@ export const SubTaskRow = memo(function SubTaskRow({
             {columnVisibility.tag && (
                 <TableCell className="w-[100px] sm:w-[120px]">
                     {subTask.tag ? (() => {
-                        // Find the tag by ID
+                        // 1. Try to use the pre-fetched name directly (Fast & Bandwidth-efficient)
+                        const directName = typeof subTask.tag === 'object' ? (subTask.tag as any).name : null;
+                        
+                        // 2. Fallback to lookup by ID if name is missing
                         const tagId = typeof subTask.tag === 'string' ? subTask.tag : (subTask.tag as any)?.id;
-                        const tag = tags.find(t => t.id === tagId);
+                        const tagFromLookup = tags.find(t => t.id === (tagId || subTask.tagId));
+                        
+                        const tagName = directName || tagFromLookup?.name;
 
-                        if (tag) {
+                        if (tagName) {
                             return (
                                 <div className="flex items-center gap-1 min-w-0">
                                     <Tag className="size-3 flex-shrink-0 hidden xs:block" />
-                                    <span className="text-[10px] sm:text-xs text-muted-foreground truncate">{tag.name}</span>
+                                    <span className="text-[10px] sm:text-xs text-muted-foreground truncate">{tagName}</span>
                                 </div>
                             );
                         }
 
-                        // Fallback if tag not found
                         return <span className="text-muted-foreground text-xs text-center block">-</span>;
                     })() : (
                         <span className="text-muted-foreground text-xs text-center block">-</span>

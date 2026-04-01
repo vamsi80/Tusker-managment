@@ -37,14 +37,14 @@ export const getProjectMetadata = cache(async (workspaceId: string, slug: string
                             select: {
                                 id: true,
                                 workspaceRole: true,
-                                projectMembers: {
-                                    where: { project: { OR: [{ slug }, { id: slug }] } },
-                                    select: {
-                                        projectRole: true
-                                    }
-                                }
                             }
                         }
+                    }
+                },
+                projectMembers: {
+                    where: { userId: user.id },
+                    select: {
+                        projectRole: true
                     }
                 }
             }
@@ -56,7 +56,7 @@ export const getProjectMetadata = cache(async (workspaceId: string, slug: string
 
         const workspaceMember = project.workspace.members[0];
         const isWorkspaceAdmin = workspaceMember.workspaceRole === "OWNER" || workspaceMember.workspaceRole === "ADMIN";
-        const projectMember = workspaceMember.projectMembers[0];
+        const projectMember = project.projectMembers[0];
 
         // Security check: Must be workspace admin or direct project member
         if (!isWorkspaceAdmin && !projectMember) {

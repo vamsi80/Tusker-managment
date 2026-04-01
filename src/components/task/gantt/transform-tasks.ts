@@ -5,12 +5,17 @@ import { GanttSubtask, GanttTask } from "@/components/task/gantt/types";
  * Handles Project -> Task -> Subtask hierarchy and date normalization
  */
 export function transformToGanttTasks(allTasks: any[]): GanttTask[] {
+    console.log("🟦 [GANTT TRANSFORM] Input allTasks count:", allTasks.length);
+    const allIds = new Set(allTasks.map(t => t.id));
+
     // 1. Separate parent tasks and subtasks
-    const parentTasks = allTasks.filter(task => !task.parentTaskId);
+    // A task is a "parent" if it has no parentTaskId OR if its parentTaskId is not in the current set
+    const parentTasks = allTasks.filter(task => !task.parentTaskId || !allIds.has(task.parentTaskId));
+    console.log("🟦 [GANTT TRANSFORM] parentTasks (roots) count:", parentTasks.length);
     const subtasksMap = new Map<string, any[]>();
 
     allTasks.forEach(task => {
-        if (task.parentTaskId) {
+        if (task.parentTaskId && allIds.has(task.parentTaskId)) {
             if (!subtasksMap.has(task.parentTaskId)) {
                 subtasksMap.set(task.parentTaskId, []);
             }

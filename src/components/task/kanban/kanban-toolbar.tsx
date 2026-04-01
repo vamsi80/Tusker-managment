@@ -137,10 +137,10 @@ export function KanbanToolbar({
                         <SelectContent>
                             <SelectItem value="all">All Assignees</SelectItem>
                             {projectMembers
-                                .filter((member) => member.workspaceMember.workspaceRole !== "ADMIN")
+                                .filter((member) => member.projectRole !== "VIEWER")
                                 .map((member) => (
-                                    <SelectItem key={member.id} value={member.id}>
-                                        {member.workspaceMember.user.surname || ""}
+                                    <SelectItem key={member.userId} value={member.userId}>
+                                        {member.user.surname || ""}
                                     </SelectItem>
                                 ))}
                         </SelectContent>

@@ -146,7 +146,7 @@ export function ReviewCommentDialog({ isOpen, onClose, onSubmit, subTaskName }: 
                         onClick={handleSubmit}
                         disabled={isSubmitting || (!comment.trim() && !attachment)}
                     >
-                        {isSubmitting ? "Submitting..." : "Submit & Move to Review"}
+                        {isSubmitting ? "Submitting..." : "To Review"}
                     </Button>
                 </DialogFooter>
             </DialogContent>

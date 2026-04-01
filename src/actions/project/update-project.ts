@@ -127,9 +127,9 @@ export async function editProject(values: EditProjectSchemaType): Promise<ApiRes
             // Update project lead if provided
             if (validation.data.projectLead) {
                 const projectLeadUserId = String(validation.data.projectLead);
-                const leadWorkspaceMemberId = workspaceMemberMap.get(projectLeadUserId);
+                const isUserInWorkspace = workspaceMemberMap.has(projectLeadUserId);
 
-                if (leadWorkspaceMemberId) {
+                if (isUserInWorkspace) {
                     // Find existing lead
                     const existingLead = await tx.projectMember.findFirst({
                         where: {
@@ -139,7 +139,7 @@ export async function editProject(values: EditProjectSchemaType): Promise<ApiRes
                     });
 
                     // If the lead is changing
-                    if (existingLead && existingLead.workspaceMemberId !== leadWorkspaceMemberId) {
+                    if (existingLead && existingLead.userId !== projectLeadUserId) {
                         // Demote old lead to MEMBER
                         await tx.projectMember.update({
                             where: { id: existingLead.id },
@@ -150,7 +150,7 @@ export async function editProject(values: EditProjectSchemaType): Promise<ApiRes
                         const newLeadMember = await tx.projectMember.findFirst({
                             where: {
                                 projectId: values.projectId,
-                                workspaceMemberId: leadWorkspaceMemberId
+                                userId: projectLeadUserId
                             }
                         });
 
@@ -165,12 +165,22 @@ export async function editProject(values: EditProjectSchemaType): Promise<ApiRes
                             await tx.projectMember.create({
                                 data: {
                                     projectId: values.projectId,
-                                    workspaceMemberId: leadWorkspaceMemberId,
+                                    userId: projectLeadUserId,
                                     hasAccess: true,
                                     projectRole: "LEAD"
                                 }
                             });
                         }
+                    } else if (!existingLead) {
+                         // Create new lead member if none exists
+                         await tx.projectMember.create({
+                                data: {
+                                    projectId: values.projectId,
+                                    userId: projectLeadUserId,
+                                    hasAccess: true,
+                                    projectRole: "LEAD"
+                                }
+                            });
                     }
                 }
             }

@@ -73,8 +73,8 @@ export const auth = betterAuth({
       clientSecret: env.AUTH_GITHUB_SECRET!,
     },
     google: {
-      clientId: process.env.GOOGLE_CLIENT_ID as string,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+      clientId: env.GOOGLE_CLIENT_ID!,
+      clientSecret: env.GOOGLE_CLIENT_SECRET!,
     },
   },
   plugins: [
@@ -106,6 +106,7 @@ export async function sendWorkspaceInvitationEmail({
   workspaceId: string;
   role: string;
 }) {
+
   const signInUrl = `${process.env.BETTER_AUTH_URL}/sign-in`;
 
   await sendEmail({

@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState, useTransition, useEffect, useMemo } from "react";
-import { Resolver, useForm } from "react-hook-form";
+import { Resolver, useForm, useWatch } from "react-hook-form";
 import { Check, Loader2, Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -15,6 +15,7 @@ import { subTaskSchema, SubTaskSchemaType } from "@/lib/zodSchemas";
 import { tryCatch } from "@/hooks/try-catch";
 import { toast } from "sonner";
 import type { ProjectMembersType } from "@/data/project/get-project-members";
+import slugify from "slugify";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
@@ -22,8 +23,8 @@ import { editSubTask } from "@/actions/task/update-subTask";
 import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { Badge } from "@/components/ui/badge";
 import { useReloadView } from "@/hooks/use-reload-view";
+import { parseIST } from "@/lib/utils";
 
-// Generic subtask type that works with any subtask structure
 type SubTaskBase = {
     id: string;
     name: string;
@@ -32,6 +33,7 @@ type SubTaskBase = {
     tag: { id: string } | null;
     status: string | null;
     startDate: Date | string | null;
+    dueDate: Date | string | null;
     days: number | null;
     assignee?: {
         id: string;
@@ -84,12 +86,45 @@ export function EditSubTaskForm<T extends SubTaskBase>({
             projectId: projectId,
             parentTaskId: parentTaskId,
             assignee: subTask.assignee?.id || "",
-            tag: subTask.tag?.id || tags[0]?.id || "", // Use existing tag or first available tag
+            tag: subTask.tag?.id || tags[0]?.id || "",
             status: (subTask.status || "TO_DO") as "TO_DO" | "IN_PROGRESS" | "CANCELLED" | "REVIEW" | "HOLD" | "COMPLETED",
-            startDate: subTask.startDate ? new Date(subTask.startDate).toISOString().split('T')[0] : "",
-            days: subTask.days || 0,
+            startDate: subTask.startDate ? (() => {
+                const d = new Date(subTask.startDate);
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                const hours = String(d.getHours()).padStart(2, '0');
+                const minutes = String(d.getMinutes()).padStart(2, '0');
+                return `${year}-${month}-${day}T${hours}:${minutes}`;
+            })() : "",
+            dueDate: (subTask as any).dueDate ? (() => {
+                const d = new Date((subTask as any).dueDate);
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                const hours = String(d.getHours()).padStart(2, '0');
+                const minutes = String(d.getMinutes()).padStart(2, '0');
+                return `${year}-${month}-${day}T${hours}:${minutes}`;
+            })() : "",
         },
     });
+
+    const watchedName = useWatch({
+        control: form.control,
+        name: "name",
+    });
+
+    const watchedTaskSlug = useWatch({
+        control: form.control,
+        name: "taskSlug",
+    });
+
+    useEffect(() => {
+        if (watchedName) {
+            const newSlug = slugify(watchedName, { lower: true, strict: true });
+            form.setValue('taskSlug', newSlug, { shouldDirty: true, shouldValidate: true });
+        }
+    }, [watchedName, form]);
 
 
 
@@ -97,11 +132,27 @@ export function EditSubTaskForm<T extends SubTaskBase>({
         // Check if there are any actual changes
         const hasChanges =
             values.name !== subTask.name ||
-            values.description !== (subTask.description || "") ||
+            values.status !== (subTask.status || "TO_DO") ||
             values.assignee !== (subTask.assignee?.id || "") ||
             values.tag !== (subTask.tag?.id || "") ||
-            values.startDate !== (subTask.startDate ? new Date(subTask.startDate).toISOString().split('T')[0] : "") ||
-            values.days !== subTask.days;
+            values.startDate !== (subTask.startDate ? (() => {
+                const d = new Date(subTask.startDate);
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                const hours = String(d.getHours()).padStart(2, '0');
+                const minutes = String(d.getMinutes()).padStart(2, '0');
+                return `${year}-${month}-${day}T${hours}:${minutes}`;
+            })() : "") ||
+            values.dueDate !== ((subTask as any).dueDate ? (() => {
+                const d = new Date((subTask as any).dueDate);
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                const hours = String(d.getHours()).padStart(2, '0');
+                const minutes = String(d.getMinutes()).padStart(2, '0');
+                return `${year}-${month}-${day}T${hours}:${minutes}`;
+            })() : "");
 
         if (!hasChanges) {
             toast.info("No changes detected");
@@ -126,8 +177,8 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                         name: values.name,
                         description: values.description,
                         tag: values.tag,
-                        startDate: values.startDate ? new Date(values.startDate) : null,
-                        days: values.days,
+                        startDate: values.startDate ? parseIST(values.startDate) : null,
+                        dueDate: values.dueDate ? parseIST(values.dueDate) : null,
                     } as Partial<T>);
                 }
 
@@ -173,6 +224,12 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                         <FormControl>
                                             <Input placeholder="Enter subtask name" {...field} />
                                         </FormControl>
+                                        <input type="hidden" {...form.register("taskSlug")} />
+                                        {watchedTaskSlug && (
+                                            <p className="text-[10px] text-muted-foreground mt-1 px-1">
+                                                Slug: <span className="font-mono">{watchedTaskSlug}</span>
+                                            </p>
+                                        )}
                                         <FormMessage />
                                     </FormItem>
                                 )}
@@ -310,29 +367,24 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                     control={form.control}
                                     name="startDate"
                                     render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Start Date</FormLabel>
-                                            <FormControl>
-                                                <Input type="date" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
+                                        <FormItem >
+                                        <FormLabel>Start Date</FormLabel>
+                                        <FormControl>
+                                            <Input type="datetime-local" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
                                     )}
                                 />
 
                                 <FormField
                                     control={form.control}
-                                    name="days"
+                                    name="dueDate"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Duration (Days)</FormLabel>
+                                            <FormLabel>Due Date</FormLabel>
                                             <FormControl>
-                                                <Input
-                                                    type="number"
-                                                    placeholder="Days"
-                                                    {...field}
-                                                    onChange={(e) => field.onChange(e.target.valueAsNumber || 0)}
-                                                />
+                                                <Input type="datetime-local" {...field} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -384,8 +436,8 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                                     <Button variant="outline" className="w-full justify-between font-normal">
                                                         {field.value
                                                             ? (() => {
-                                                                const m = members?.find((m) => m.workspaceMember.user.id === field.value);
-                                                                return `${m?.workspaceMember.user.surname}`;
+                                                                const m = members?.find((m) => m.userId === field.value);
+                                                                return `${m?.user.surname}`;
                                                             })()
                                                             : "Select assignee"}
                                                     </Button>
@@ -397,11 +449,11 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                                         <CommandList>
                                                             <CommandEmpty>No members found.</CommandEmpty>
                                                             <CommandGroup>
-                                                                {members?.filter((member) => {
-                                                                    const role = member.workspaceMember.workspaceRole;
-                                                                    return role !== "VIEWER" && role !== "ADMIN";
+                                                            {members?.filter((member) => {
+                                                                    const role = member.projectRole;
+                                                                    return role !== "VIEWER" && role !== "PROJECT_MANAGER";
                                                                 }).map((member) => {
-                                                                    const user = member.workspaceMember.user;
+                                                                    const user = member.user;
                                                                     const userName = `${user.surname}`;
                                                                     const userId = user.id;
                                                                     const isSelected = field.value === userId;
