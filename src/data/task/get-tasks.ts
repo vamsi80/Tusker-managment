@@ -914,6 +914,7 @@ async function _getTasksInternal(
 
             return { ...result, facets: (result as any).facets || emptyFacets };
         }
+
         if (opts.groupBy === "status") {
             strategy = opts.includeSubTasks ? "KANBAN_RECURSIVE_HIERARCHY" : "KANBAN_SINGLE_QUERY";
             const baseWhere = buildWorkspaceFilterWhere({
@@ -935,17 +936,9 @@ async function _getTasksInternal(
                 viewMode: opts.view_mode,
             }, userId);
 
-
-            // Normalize input cursor early for Prisma safety
-            if (opts.cursor && typeof opts.cursor.createdAt === 'string') {
-                opts.cursor.createdAt = new Date(opts.cursor.createdAt);
-            }
-
             // --- KANBAN OPTIMIZATION: STATUS COUNTS ---
-            // Fetch total counts per status to support "Load More" UI and correct hasMore flags.
-            // We strip the cursor so we get the TOTAL count for the currently applied filters.
             const countWhere = { ...baseWhere };
-            delete countWhere.AND; // Remove the cursor/seek condition if it was added
+            delete countWhere.AND; 
 
             const countsResult = await prisma.task.groupBy({
                 by: ['status'],
@@ -958,19 +951,17 @@ async function _getTasksInternal(
                 if (c.status) statusCounts[c.status] = c._count;
             });
 
-            // Normal Prisma take+1 logic to determine if there's more accurately via the query
             const limit = opts.limit ?? 50;
             const tasks = await prisma.task.findMany({
                 where: baseWhere,
-                take: limit + 1, // Take one extra to confidently define hasMore
+                take: limit + 1, 
                 select: getTaskSelect(opts.view_mode),
                 orderBy: buildOrderBy(opts.sorts)
             });
 
             const trueHasMore = tasks.length > limit;
-            if (trueHasMore) tasks.pop(); // Remove the extra sentinel task
+            if (trueHasMore) tasks.pop(); 
 
-            // If recursive hierarchy requested, fetch subtasks for any parents in this set
             if (opts.includeSubTasks && tasks.length > 0) {
                 const parentIds = tasks.filter(t => t.isParent).map(t => t.id);
                 if (parentIds.length > 0) {
@@ -988,7 +979,6 @@ async function _getTasksInternal(
                         orderBy: buildOrderBy(opts.sorts)
                     });
 
-                    // Nest subtasks into parents
                     tasks.forEach((parent: any) => {
                         if (parent.isParent) {
                             parent.subTasks = subtasks.filter(st => st.parentTaskId === parent.id);
@@ -999,7 +989,6 @@ async function _getTasksInternal(
                 }
             }
 
-            // Determine next cursor for pagination (supporting custom sorting)
             const primarySort = opts.sorts?.[0];
             const lastTask = tasks.length > 0 ? (tasks[tasks.length - 1] as any) : null;
 
@@ -1014,7 +1003,7 @@ async function _getTasksInternal(
 
             return {
                 tasks,
-                totalCount: tasks.length, // Accurate UI total count is generated via facets later
+                totalCount: tasks.length,
                 hasMore: trueHasMore,
                 nextCursor,
                 facets: {
@@ -1030,7 +1019,6 @@ async function _getTasksInternal(
             fullAccessProjectIds, restrictedProjectIds,
             {
                 ...opts,
-                // If filtering, don't restrict to just parents/children; let the matching criteria find either
                 onlyParents: !hasExplicitFilters && (opts.onlyParents || (hierarchyMode === "parents")),
                 excludeParents: opts.excludeParents,
                 onlySubtasks: !hasExplicitFilters && (isSorting || opts.onlySubtasks || (hierarchyMode === "children"))
@@ -1040,7 +1028,7 @@ async function _getTasksInternal(
         return filterResult;
     } finally {
         const duration = performance.now() - startTime;
-        if (duration > 50) { // Log significant queries
+        if (duration > 50) {
             logger.serverPerf("GET_TASKS_INTERNAL", duration, {
                 strategy,
                 workspaceId,
