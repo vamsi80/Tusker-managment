@@ -19,7 +19,7 @@ import { ColumnVisibility } from "../shared/column-visibility";
 import { SubTaskType } from "@/data/task";
 import { ApiResponse } from "@/lib/types";
 import { getProjectReviewers, ProjectReviewer } from "@/actions/project/get-project-reviewers";
-import { cn } from "@/lib/utils";
+import { cn, parseIST } from "@/lib/utils";
 
 interface InlineSubTaskFormProps {
     workspaceId: string;
@@ -67,9 +67,43 @@ export function InlineSubTaskForm({
         (subTask?.status as typeof SubTaskStatus[number]) || "TO_DO"
     );
     const [startDate, setStartDate] = useState(
-        subTask?.startDate ? new Date(subTask.startDate).toISOString().split('T')[0] : ""
+        subTask?.startDate ? (() => {
+            const d = new Date(subTask.startDate);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const hours = String(d.getHours()).padStart(2, '0');
+            const minutes = String(d.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        })() : (() => {
+            const now = new Date(Date.now() + 10 * 60000);
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        })()
     );
-    const [days, setDays] = useState(String(subTask?.days || 0));
+    const [dueDate, setDueDate] = useState(
+        (subTask as any)?.dueDate ? (() => {
+            const d = new Date((subTask as any).dueDate);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const hours = String(d.getHours()).padStart(2, '0');
+            const minutes = String(d.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        })() : (() => {
+            const now = new Date(Date.now() + 30 * 60000);
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        })()
+    );
     const [tag, setTag] = useState(subTask?.tag?.id || "");
 
     const [availableMembers, setAvailableMembers] = useState<ProjectMembersType>(members);
@@ -141,7 +175,7 @@ export function InlineSubTaskForm({
         }
 
         // Helper to get full objects for optimistic UI
-        const selectedMember = members.find(m => m.workspaceMember.userId === assignee);
+        const selectedMember = members.find(m => m.userId === assignee);
         const selectedTag = tags.find(t => t.id === tag);
 
         if (mode === "create") {
@@ -160,8 +194,8 @@ export function InlineSubTaskForm({
                 name: subTaskName.trim(),
                 description: description.trim() || undefined,
                 status,
-                startDate: startDate ? new Date(startDate) : null,
-                days: parseInt(days) || 0,
+                startDate: startDate ? parseIST(startDate) : null,
+                dueDate: dueDate ? parseIST(dueDate) : null,
                 projectId,
                 parentTaskId,
                 createdAt: new Date(),
@@ -172,8 +206,8 @@ export function InlineSubTaskForm({
                 _count: { reviewComments: 0 },
                 // Include full objects for UI
                 assignee: selectedMember ? {
-                    id: selectedMember.workspaceMember.userId,
-                    surname: selectedMember.workspaceMember.user.surname,
+                    id: selectedMember.userId,
+                    surname: selectedMember.user.surname,
                 } : null,
                 tag: selectedTag ? { id: selectedTag.id, name: selectedTag.name } : null
             };
@@ -195,7 +229,7 @@ export function InlineSubTaskForm({
                         reviewerId: reviewer || undefined,
                         tag: tag || undefined,
                         startDate: startDate || undefined,
-                        days: (days && Number(days) > 0) ? Number(days) : undefined,
+                        dueDate: dueDate || undefined,
                     })
                 );
 
@@ -225,12 +259,12 @@ export function InlineSubTaskForm({
                 name: subTaskName.trim(),
                 description: description.trim() || undefined,
                 status,
-                startDate: startDate ? new Date(startDate) : null,
-                days: parseInt(days) || 0,
+                startDate: startDate ? parseIST(startDate) : null,
+                dueDate: dueDate ? parseIST(dueDate) : null,
                 // Include full objects for UI
                 assignee: selectedMember ? {
-                    id: selectedMember.workspaceMember.userId,
-                    surname: selectedMember.workspaceMember.user.surname,
+                    id: selectedMember.userId,
+                    surname: selectedMember.user.surname,
                 } as any : null,
                 tag: selectedTag ? { id: selectedTag.id, name: selectedTag.name } as any : null
             };
@@ -251,7 +285,7 @@ export function InlineSubTaskForm({
                         status,
                         assignee: assignee || undefined,
                         startDate: startDate || undefined,
-                        days: parseInt(days) || 0,
+                        dueDate: dueDate || undefined,
                         tag: tag || undefined,
                     }, subTask.id)
                 );
@@ -280,23 +314,30 @@ export function InlineSubTaskForm({
 
             {/* SubTask Name Input */}
             <TableCell className="w-[250px] pl-0">
-                <Input
-                    placeholder="SubTask name..."
-                    value={subTaskName}
-                    onChange={(e) => setSubTaskName(e.target.value)}
-                    onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault();
-                            handleSubmit(e);
-                        }
-                        if (e.key === "Escape") {
-                            onCancel();
-                        }
-                    }}
-                    autoFocus
-                    disabled={pending}
-                    className="h-8 border-primary/50 focus-visible:ring-primary"
-                />
+                <div className="flex flex-col">
+                    <Input
+                        placeholder="SubTask name..."
+                        value={subTaskName}
+                        onChange={(e) => setSubTaskName(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSubmit(e);
+                            }
+                            if (e.key === "Escape") {
+                                onCancel();
+                            }
+                        }}
+                        autoFocus
+                        disabled={pending}
+                        className="h-8 border-primary/50 focus-visible:ring-primary"
+                    />
+                    {subTaskName.trim().length > 0 && (
+                        <p className="text-[10px] text-muted-foreground mt-0.5 px-1">
+                            Slug: <span className="font-mono">{slugify(subTaskName.trim(), { lower: true, strict: true })}</span>
+                        </p>
+                    )}
+                </div>
             </TableCell>
 
             {/* Description - Popover with Textarea */}
@@ -343,9 +384,9 @@ export function InlineSubTaskForm({
                         </SelectTrigger>
                         <SelectContent>
                             {availableMembers.map((member) => (
-                                <SelectItem key={member.workspaceMember.userId} value={member.workspaceMember.userId}>
+                                <SelectItem key={member.userId} value={member.userId}>
                                     <span className="truncate block">
-                                        {member.workspaceMember.user.surname}
+                                        {member.user.surname}
                                     </span>
                                 </SelectItem>
                             ))}
@@ -396,7 +437,7 @@ export function InlineSubTaskForm({
             {columnVisibility.startDate && (
                 <TableCell className="w-[120px]">
                     <Input
-                        type="date"
+                        type="datetime-local"
                         value={startDate}
                         onChange={(e) => setStartDate(e.target.value)}
                         disabled={pending}
@@ -405,17 +446,15 @@ export function InlineSubTaskForm({
                 </TableCell>
             )}
 
-            {/* Days (for due date calculation) */}
+            {/* Due Date */}
             {columnVisibility.dueDate && (
                 <TableCell className="w-[120px]">
                     <Input
-                        type="number"
-                        placeholder="Days..."
-                        value={days}
-                        onChange={(e) => setDays(e.target.value)}
+                        type="datetime-local"
+                        value={dueDate}
+                        onChange={(e) => setDueDate(e.target.value)}
                         disabled={pending}
                         className="h-8"
-                        min="0"
                     />
                 </TableCell>
             )}

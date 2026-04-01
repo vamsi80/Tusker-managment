@@ -13,10 +13,33 @@ export function getIndianDate(): Date {
 /**
  * Parse ISO date string to Date object safely
  */
-export function parseDate(dateStr: string): Date | null {
+export function parseDate(dateStr: string | null | undefined): Date | null {
     if (!dateStr) return null;
     const date = new Date(dateStr);
-    return isNaN(date.getTime()) ? null : date;
+    if (isNaN(date.getTime())) return null;
+    return date;
+}
+/**
+ * Formats a date for the API (YYYY-MM-DDTHH:mm)
+ * If the time component is not set (00:00), it defaults to start of day (00:00) for starts 
+ * and end of day (23:59) for ends.
+ */
+export function formatDateForAPI(date: Date, type: 'start' | 'end'): string {
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    
+    let hours = d.getHours();
+    let minutes = d.getMinutes();
+
+    if (type === 'end' && hours === 0 && minutes === 0) {
+        hours = 23;
+        minutes = 59;
+    }
+    // Start dates already default to 00:00 if hours/mins are 0
+
+    return `${year}-${month}-${day}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
 
 /**

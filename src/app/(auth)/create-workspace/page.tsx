@@ -10,7 +10,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useTransition } from 'react'
 import { toast } from 'sonner'
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, Resolver } from 'react-hook-form';
+import { useForm, Resolver, useWatch } from 'react-hook-form';
 import { useConfetti } from '@/hooks/use-confetti'
 import { tryCatch } from '@/hooks/try-catch'
 import { Textarea } from '@/components/ui/textarea'
@@ -35,6 +35,23 @@ function CreateWorkspaceContent() {
             slug: '',
         },
     })
+
+    const watchedName = useWatch({
+        control: form.control,
+        name: "name",
+    });
+
+    const watchedSlug = useWatch({
+        control: form.control,
+        name: "slug",
+    });
+
+    useEffect(() => {
+        if (watchedName) {
+            const generatedSlug = slugify(watchedName, { lower: true, strict: true });
+            form.setValue("slug", generatedSlug, { shouldDirty: true, shouldValidate: true });
+        }
+    }, [watchedName, form]);
     function onSubmit(values: WorkSpaceSchemaType) {
 
         startTransition(async () => {
@@ -90,33 +107,17 @@ function CreateWorkspaceContent() {
                                         <FormControl>
                                             <Input placeholder="Title"{...field} />
                                         </FormControl>
+                                        <input type="hidden" {...form.register("slug")} />
+                                        {watchedSlug && (
+                                            <p className="text-[10px] text-muted-foreground mt-1 ml-1">
+                                                Slug: <span className="font-mono">{watchedSlug}</span>
+                                            </p>
+                                        )}
                                         <FormMessage />
                                     </FormItem>
                                 )}
                             />
-                            <div className=" flex gap-4 items-end">
-                                <FormField
-                                    control={form.control}
-                                    name="slug"
-                                    render={({ field }) => (
-                                        <FormItem className="w-full">
-                                            <FormLabel>Slug</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="Slug"{...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <Button type="button" className="w-fit" onClick={() => {
-                                    const nameValue = form.getValues("name");
-                                    const slug = slugify(nameValue)
 
-                                    form.setValue('slug', slug, { shouldValidate: true })
-                                }}>
-                                    Generate Slug <SparkleIcon className="ml-1" size={16} />
-                                </Button>
-                            </div>
                             <FormField
                                 control={form.control}
                                 name="description"

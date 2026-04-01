@@ -14,7 +14,7 @@ import { updateSubTaskStatus } from "@/actions/task/kanban/update-subtask-status
 import { loadTasksAction } from "@/actions/task/list-actions";
 import { GlobalFilterToolbar, ParentTaskOption } from "../shared/global-filter-toolbar";
 import { ReviewCommentDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/review-comment-form";
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, pointerWithin, PointerSensor, MouseSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { DndContext, DragEndEvent, DragOverEvent, DragOverlay, DragStartEvent, closestCorners, pointerWithin, PointerSensor, MouseSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 import { Loader2 } from "lucide-react";
 import { logger } from "@/lib/logger";
@@ -49,14 +49,14 @@ const COLUMNS: { id: TaskStatus; title: string; color: string; bgColor: string; 
         ...STATUS_COLORS.REVIEW,
     },
     {
-        id: "HOLD",
-        title: STATUS_LABELS.HOLD,
-        ...STATUS_COLORS.HOLD,
-    },
-    {
         id: "COMPLETED",
         title: STATUS_LABELS.COMPLETED,
         ...STATUS_COLORS.COMPLETED,
+    },
+    {
+        id: "HOLD",
+        title: STATUS_LABELS.HOLD,
+        ...STATUS_COLORS.HOLD,
     },
     {
         id: "CANCELLED",
@@ -92,11 +92,12 @@ export function KanbanBoard({
     }>>(() => {
         const map: any = {};
         COLUMNS.forEach(col => {
+            const serverCol = initialData[col.id];
             map[col.id] = {
-                subTaskIds: initialData[col.id].subTasks.map(t => t.id),
-                totalCount: initialData[col.id].totalCount,
-                hasMore: initialData[col.id].hasMore,
-                nextCursor: undefined
+                subTaskIds: serverCol.subTasks.map(t => t.id),
+                totalCount: serverCol.totalCount,
+                hasMore: serverCol.hasMore,
+                nextCursor: serverCol.nextCursor
             };
         });
         return map;
@@ -146,7 +147,7 @@ export function KanbanBoard({
 
             let totalCount = initialData[col.id].totalCount;
             let hasMore = initialData[col.id].hasMore;
-            let nextCursor = cached ? cached.nextCursor : undefined;
+            let nextCursor = cached ? cached.nextCursor : initialData[col.id].nextCursor;
 
             // 2. Workspace Aggregation: Merge cached tasks from OTHER projects
             if (level === 'workspace' && projects) {
@@ -203,6 +204,7 @@ export function KanbanBoard({
     );
 
     const [activeSubTask, setActiveSubTask] = useState<KanbanSubTaskType | null>(null);
+    const [overInfo, setOverInfo] = useState<{ overId: string | null; columnId: TaskStatus | null }>({ overId: null, columnId: null });
 
     const { openSubTaskSheet } = useSubTaskSheetActions();
     // const reloadView = useReloadView();
@@ -316,14 +318,22 @@ export function KanbanBoard({
                             useTaskCacheStore.getState().upsertTasks(colTasks);
                         }
 
+                        // Use the statusCounts to compute if this SPECIFIC column has more items
+                        // since this specific query fetches everything generically
                         const totalForCol = counts[col.id] || colTasks.length;
-                        const hasMore = totalForCol > colTasks.length;
+                        const hasMoreLocal = totalForCol > colTasks.length;
+
+                        // Extract a custom cursor specifically for this column if needed
+                        const lastTask = colTasks[colTasks.length - 1];
+                        const nextCursor = hasMoreLocal && lastTask
+                            ? { id: lastTask.id, createdAt: lastTask.createdAt }
+                            : null;
 
                         groupedData[col.id] = {
                             subTaskIds: colTasks.map((t: any) => t.id),
                             totalCount: totalForCol,
-                            hasMore,
-                            nextCursor: hasMore ? { id: colTasks[colTasks.length - 1].id, createdAt: colTasks[colTasks.length - 1].createdAt } : null
+                            hasMore: hasMoreLocal,
+                            nextCursor: nextCursor
                         };
                     });
                     setColumnData(groupedData);
@@ -378,19 +388,23 @@ export function KanbanBoard({
 
             const targetProjectId = filters.projectId || projectId;
 
-            const response = await loadTasksAction({
-                workspaceId,
-                status: [status],
-                projectId: targetProjectId,
-                groupBy: "status",
-                includeSubTasks: true,
-                excludeParents: true, // ONLY CARDS
-                limit: 30,
-                sorts: [{ field: "createdAt", direction: "desc" }],
-                cursor: currentCursor,
-                view_mode: "kanban",
-                ...activeFilters
-            });
+            // Build the URL with short parameters (w, s, l, vm, p, c, q)
+            const params = new URLSearchParams();
+            params.set("w", workspaceId);
+            params.set("s", status);
+            params.set("l", "30");
+            params.set("vm", "kanban");
+
+            if (targetProjectId) params.set("p", targetProjectId);
+            if (currentCursor) params.set("c", JSON.stringify(currentCursor));
+            if (searchQuery) params.set("q", searchQuery);
+
+            // Filters
+            if (filters.assigneeId) params.append("a", filters.assigneeId);
+            if (filters.tagId) params.append("t", filters.tagId);
+
+            const apiRes = await fetch(`/api/kt?${params.toString()}`);
+            const response = await apiRes.json();
 
             if (!response.success) {
                 toast.error(response.error || "Failed to load more subtasks");
@@ -411,18 +425,21 @@ export function KanbanBoard({
                 useTaskCacheStore.getState().upsertTasks(newTasks);
 
                 // Deduplicate using a Set
-                const idSet = new Set([...existingIds, ...newTasks.map(t => t.id)]);
+                const idSet = new Set([...existingIds, ...newTasks.map((t: any) => t.id)]);
                 const deduplicatedIds = Array.from(idSet);
                 const totalForCol = counts[status] || (prev[status].totalCount ?? 0);
-                const hasMore = totalForCol > deduplicatedIds.length;
+
+                // Trust the server's pagination state directly to avoid infinite loops
+                const serverHasMore = response.data.hasMore || false;
+                const serverNextCursor = response.data.nextCursor || null;
 
                 const newData = {
                     ...prev,
                     [status]: {
                         subTaskIds: deduplicatedIds,
                         totalCount: totalForCol,
-                        hasMore,
-                        nextCursor: hasMore ? { id: deduplicatedIds[deduplicatedIds.length - 1], createdAt: newTasks[newTasks.length - 1]?.createdAt } : null,
+                        hasMore: serverHasMore,
+                        nextCursor: serverNextCursor,
                     }
                 };
 
@@ -461,19 +478,60 @@ export function KanbanBoard({
         }
     };
 
+    const handleDragOver = (event: DragOverEvent) => {
+        const { over } = event;
+        if (!over) {
+            setOverInfo({ overId: null, columnId: null });
+            return;
+        }
+        const overId = over.id as string;
+        const validStatuses: TaskStatus[] = ["TO_DO", "IN_PROGRESS", "CANCELLED", "REVIEW", "HOLD", "COMPLETED"];
+        // If dropped directly onto a column, overId is the column status
+        if (validStatuses.includes(overId as TaskStatus)) {
+            setOverInfo({ overId: null, columnId: overId as TaskStatus });
+        } else {
+            // overId is a card id — find which column it belongs to
+            for (const col of COLUMNS) {
+                if (columnData[col.id].subTaskIds.includes(overId)) {
+                    setOverInfo({ overId, columnId: col.id });
+                    return;
+                }
+            }
+            setOverInfo({ overId: null, columnId: null });
+        }
+    };
+
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
         setActiveSubTask(null);
+        setOverInfo({ overId: null, columnId: null });
 
         if (!over) {
             return;
         }
 
         const subTaskId = active.id as string;
-        const newStatus = over.id as TaskStatus;
+        const overId = over.id as string;
 
         const validStatuses: TaskStatus[] = ["TO_DO", "IN_PROGRESS", "CANCELLED", "REVIEW", "HOLD", "COMPLETED"];
-        if (!validStatuses.includes(newStatus)) {
+
+        // Resolve the target column:
+        // 1. If the pointer is directly over a column drop zone, over.id IS the status.
+        // 2. If the pointer is over another card, find which column that card belongs to.
+        let newStatus: TaskStatus | null = null;
+        if (validStatuses.includes(overId as TaskStatus)) {
+            newStatus = overId as TaskStatus;
+        } else {
+            // over.id is a card id — find its column
+            for (const col of COLUMNS) {
+                if (columnData[col.id].subTaskIds.includes(overId)) {
+                    newStatus = col.id;
+                    break;
+                }
+            }
+        }
+
+        if (!newStatus) {
             return;
         }
 
@@ -707,6 +765,7 @@ export function KanbanBoard({
 
     const handleDragCancel = () => {
         setActiveSubTask(null);
+        setOverInfo({ overId: null, columnId: null });
     };
 
     const handleSubTaskClick = (subTask: KanbanSubTaskType) => {
@@ -806,11 +865,10 @@ export function KanbanBoard({
     const memberOptions = Array.from(
         new Map(
             projectMembers.map(member => [
-                member.workspaceMember.user.id,
+                member.userId,
                 {
-                    id: member.workspaceMember.user.id,
-                    // name: member.workspaceMember.user.name,
-                    surname: member.workspaceMember.user.surname || undefined,
+                    id: member.userId,
+                    surname: member.user?.surname || undefined,
                 }
             ])
         ).values()
@@ -853,6 +911,7 @@ export function KanbanBoard({
                 sensors={sensors}
                 collisionDetection={pointerWithin}
                 onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
                 onDragEnd={handleDragEnd}
                 onDragCancel={handleDragCancel}
                 autoScroll={true}
@@ -891,6 +950,9 @@ export function KanbanBoard({
                                     onLoadMore={() => handleLoadMore(column.id)}
                                     projectManagers={projectManagers}
                                     updatingTaskIds={updatingTaskIds}
+                                    activeTaskId={activeSubTask?.id ?? null}
+                                    overCardId={overInfo.columnId === column.id ? overInfo.overId : null}
+                                    isOverColumn={overInfo.columnId === column.id}
                                 />
                             );
                         })}

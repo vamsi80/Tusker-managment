@@ -107,6 +107,7 @@ import {
 } from "@/components/ui/popover";
 import { useState } from "react";
 
+
 interface GlobalFilterToolbarProps {
     level: ViewLevel;
     view: ViewType;
@@ -120,10 +121,8 @@ interface GlobalFilterToolbarProps {
     onClearAll: () => void;
     className?: string;
     showSearch?: boolean;
-    // Column visibility (only for list view)
     columnVisibility?: ColumnVisibility;
     setColumnVisibility?: React.Dispatch<React.SetStateAction<ColumnVisibility>>;
-    // Kanban-specific props
     parentTasks?: ParentTaskOption[];
     kanbanColumnVisibility?: KanbanColumnVisibilityType;
     setKanbanColumnVisibility?: React.Dispatch<React.SetStateAction<KanbanColumnVisibilityType>>;
@@ -149,17 +148,15 @@ export function GlobalFilterToolbar({
     setKanbanColumnVisibility,
 }: GlobalFilterToolbarProps) {
     const [isOpen, setIsOpen] = useState(false);
-    const config = getFilterConfig(view, level);
-    const rawActiveFilters = getActiveFilters(filters);
 
-    // Map IDs to labels (assignee name, formatted dates)
-    // Map IDs to labels (assignee name, formatted dates)
+
+    const config = getFilterConfig(view, level);
+
+    const rawActiveFilters = getActiveFilters(filters);
     const activeFilters = rawActiveFilters.map(filter => {
-        // Map Assignee ID to Name (Surname preferred)
         if (filter.key === 'assigneeId' && members) {
             const assignee = members.find(m => m.id === filter.value);
             if (assignee) {
-                // User requested "surname instead of name"
                 const displayName = assignee.surname ? assignee.surname : "";
                 return {
                     ...filter,
@@ -168,7 +165,6 @@ export function GlobalFilterToolbar({
             }
         }
 
-        // Map Project ID to Project Name
         if (filter.key === 'projectId' && projects) {
             const project = projects.find(p => p.id === filter.value);
             if (project) {
@@ -178,8 +174,6 @@ export function GlobalFilterToolbar({
                 };
             }
         }
-
-        // Map Tag ID to Tag Name
         if (filter.key === 'tagId' && tags) {
             const tag = tags.find(t => t.id === filter.value);
             if (tag) {
@@ -189,8 +183,6 @@ export function GlobalFilterToolbar({
                 };
             }
         }
-
-        // Map Status Value to Label
         if (filter.key === 'status') {
             const statusOption = STATUS_OPTIONS.find(s => s.value === filter.value);
             if (statusOption) {
@@ -200,8 +192,6 @@ export function GlobalFilterToolbar({
                 };
             }
         }
-
-        // Map Parent Task ID to Name
         if (filter.key === 'parentTaskId' && parentTasks) {
             const parent = parentTasks.find(p => p.id === filter.value);
             if (parent) {
@@ -211,8 +201,6 @@ export function GlobalFilterToolbar({
                 };
             }
         }
-
-        // Format dates
         if ((filter.key === 'startDate' || filter.key === 'endDate') && filter.value) {
             try {
                 return {
@@ -236,24 +224,31 @@ export function GlobalFilterToolbar({
     };
 
     const removeFilter = (key: keyof TaskFilters) => {
-        handleFilterChange(key, undefined);
+        if (key === 'startDate' || key === 'endDate') {
+            onFilterChange({
+                ...filters,
+                startDate: undefined,
+                endDate: undefined,
+            });
+        } else {
+            handleFilterChange(key, undefined);
+        }
     };
 
     const handleClearAll = () => {
         onClearAll();
         onSearchChange("");
+        setIsOpen(false);
     };
 
     const handleApply = () => {
-        // Keep popover open to allow further refinement
+        setIsOpen(false);
     };
 
     return (
         <div className={cn("space-y-0", className)}>
             <style>{DATE_RANGE_THEME_OVERRIDE}</style>
-            {/* Top Bar with Search and Filter Button */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
-                {/* Search */}
                 {showSearch && config.showSearch && (
                     <div className="flex-1">
                         <TaskSearch
@@ -266,7 +261,6 @@ export function GlobalFilterToolbar({
                 )}
 
                 <div className="flex items-center gap-2 w-full sm:w-auto">
-                    {/* Filter Popover */}
                     <Popover open={isOpen} onOpenChange={setIsOpen}>
                         <PopoverTrigger asChild>
                             <Button
@@ -317,8 +311,11 @@ export function GlobalFilterToolbar({
                                                         variant="ghost"
                                                         size="sm"
                                                         onClick={() => {
-                                                            handleFilterChange("startDate", undefined);
-                                                            handleFilterChange("endDate", undefined);
+                                                            onFilterChange({
+                                                                ...filters,
+                                                                startDate: undefined,
+                                                                endDate: undefined,
+                                                            });
                                                         }}
                                                         className="h-auto p-0 text-xs text-blue-600 hover:text-blue-700 hover:bg-transparent"
                                                     >
@@ -383,8 +380,6 @@ export function GlobalFilterToolbar({
                                             </Popover>
                                         </div>
                                     )}
-
-
 
                                     {/* Project Filter */}
                                     {config.showProjectFilter && level === "workspace" && projects && (
@@ -522,15 +517,30 @@ export function GlobalFilterToolbar({
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="__all__">All Assignees</SelectItem>
-                                                    {members.map((member) => (
-                                                        <SelectItem key={member.id} value={member.id}>
-                                                            {member.surname ? member.surname : ""}
-                                                        </SelectItem>
-                                                    ))}
+                                                    {members
+                                                        .filter(member => {
+                                                            // If a project is selected, only show members of that project
+                                                            if (filters.projectId && projects) {
+                                                                const project = projects.find(p => p.id === filters.projectId);
+                                                                if (project && project.memberIds) {
+                                                                    return project.memberIds.includes(member.id);
+                                                                }
+                                                            }
+                                                            // If no project selected (Workspace level), show all members
+                                                            return true;
+
+                                                        })
+
+                                                        .map((member) => (
+                                                            <SelectItem key={member.id} value={member.id}>
+                                                                {member.surname ? member.surname : ""}
+                                                            </SelectItem>
+                                                        ))}
                                                 </SelectContent>
                                             </Select>
                                         </div>
                                     )}
+
 
                                     {/* Tag Filter */}
                                     {config.showTagFilter && tags && (
@@ -603,46 +613,16 @@ export function GlobalFilterToolbar({
                             setVisibleColumns={setKanbanColumnVisibility}
                         />
                     )}
+
+                    {view === 'gantt' && kanbanColumnVisibility && setKanbanColumnVisibility && (
+                        <KanbanColumnVisibility
+                            visibleColumns={kanbanColumnVisibility}
+                            setVisibleColumns={setKanbanColumnVisibility}
+                        />
+                    )}
                 </div>
 
-                {/* Active Filters Badges */}
-                {activeFilters.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs text-muted-foreground">Active:</span>
-                        {activeFilters.map((filter) => (
-                            <Badge
-                                key={filter.key}
-                                variant="secondary"
-                                className="gap-1.5 pl-2 pr-1"
-                            >
-                                <span className="text-xs">
-                                    {filter.label}: {filter.value}
-                                </span>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-4 w-4 p-0 hover:bg-transparent"
-                                    onClick={() => removeFilter(filter.key)}
-                                >
-                                    <X className="h-3 w-3" />
-                                </Button>
-                            </Badge>
-                        ))}
-                        {searchQuery && (
-                            <Badge variant="secondary" className="gap-1.5 pl-2 pr-1">
-                                <span className="text-xs">Search: {searchQuery}</span>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-4 w-4 p-0 hover:bg-transparent"
-                                    onClick={() => onSearchChange("")}
-                                >
-                                    <X className="h-3 w-3" />
-                                </Button>
-                            </Badge>
-                        )}
-                    </div>
-                )}
+
             </div>
         </div>
     );

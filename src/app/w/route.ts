@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     const session = await requireUser();
 
     if (!session?.id) {
-      return NextResponse.redirect(`${origin}/login`);
+      return NextResponse.redirect(`${origin}/sign-in`);
     }
 
     const { workspaces } = await getWorkspaces();
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/w/${firstId}`);
   } catch (err: any) {
     if (err instanceof AuthError || err?.message === "missing_user_id") {
-      return NextResponse.redirect(`${origin}/login`);
+      return NextResponse.redirect(`${origin}/sign-in`);
     }
 
     console.error("workspace route error:", err);

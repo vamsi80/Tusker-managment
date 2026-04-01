@@ -47,7 +47,6 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
         workspaceMember.workspaceRole === "ADMIN";
     const isManager = workspaceMember.workspaceRole === "MANAGER";
 
-    // Common selection for projects
     const projectSelect = {
         id: true,
         name: true,
@@ -61,16 +60,13 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
             }
         },
         projectMembers: {
-            where: {
-                workspaceMember: {
-                    userId: userId
-                }
-            },
             select: {
+                userId: true,
                 projectRole: true
             }
         }
     } as const;
+
 
     let projects;
 
@@ -78,7 +74,10 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
         projects = await prisma.project.findMany({
             where: { workspaceId },
             select: projectSelect,
-            orderBy: { createdAt: "desc" },
+            orderBy: [
+                { createdAt: "desc" },
+                { id: "desc" },
+            ],
         });
     } else if (isManager) {
         projects = await prisma.project.findMany({
@@ -89,7 +88,7 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
                     {
                         projectMembers: {
                             some: {
-                                workspaceMemberId: workspaceMember.id,
+                                userId: userId,
                                 hasAccess: true,
                             },
                         },
@@ -97,7 +96,10 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
                 ],
             },
             select: projectSelect,
-            orderBy: { createdAt: "desc" },
+            orderBy: [
+                { createdAt: "desc" },
+                { id: "desc" },
+            ],
         });
     } else {
         projects = await prisma.project.findMany({
@@ -105,18 +107,21 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
                 workspaceId,
                 projectMembers: {
                     some: {
-                        workspaceMemberId: workspaceMember.id,
+                        userId: userId,
                         hasAccess: true,
                     },
                 },
             },
             select: projectSelect,
-            orderBy: { createdAt: "desc" },
+            orderBy: [
+                { createdAt: "desc" },
+                { id: "desc" },
+            ],
         });
     }
 
     return projects.map(project => {
-        const userProjectMember = project.projectMembers[0];
+        const userProjectMember = project.projectMembers.find(m => m.userId === userId);
         const isProjectManager = userProjectMember?.projectRole === "PROJECT_MANAGER";
         const isProjectLead = userProjectMember?.projectRole === "LEAD";
         const isCreator = project.createdBy === userId;
@@ -130,11 +135,13 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
             createdBy: project.createdBy,
             canManageMembers: isOwnerOrAdmin || isProjectManager || isCreator,
             memberCount: project._count.projectMembers,
+            memberIds: project.projectMembers.map(m => m.userId),
             // We only need basic status for the list, detail views fetch more
             isLead: isProjectLead,
         };
     });
 }
+
 
 // Cached version with Next.js unstable_cache (persists across requests)
 const getCachedUserProjects = (userId: string, workspaceId: string) =>

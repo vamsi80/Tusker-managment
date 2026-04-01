@@ -8,6 +8,7 @@ import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
 import { SubTaskSchemaType, subTaskSchema } from "@/lib/zodSchemas";
 import { syncTaskToProcurement } from "@/lib/procurement/logic";
+import { parseIST } from "@/lib/utils";
 
 export async function createSubTask(values: SubTaskSchemaType): Promise<ApiResponse> {
     const user = await requireUser();
@@ -54,28 +55,26 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
         let assigneeId: string | null = null;
         let assigneeDisplayName: string | null = null;
         if (validation.data.assignee) {
-            // The assignee value is the workspaceMemberId, find the corresponding projectMember's user ID
+            // Find the project member for the assignee. The assignee value could be a userId or workspaceMemberId.
             const assigneeProjectMember = await prisma.projectMember.findFirst({
                 where: {
                     projectId: values.projectId,
-                    OR: [
-                        { workspaceMemberId: validation.data.assignee },
-                        { workspaceMember: { user: { id: validation.data.assignee } } }
-                    ]
+                    user: {
+                        OR: [
+                            { id: validation.data.assignee },
+                            { workspaces: { some: { id: validation.data.assignee } } }
+                        ]
+                    }
                 },
                 include: {
-                    workspaceMember: {
-                        include: {
-                            user: {
-                                select: { surname: true, name: true }
-                            }
-                        }
+                    user: {
+                        select: { id: true, surname: true, name: true }
                     }
                 }
             });
             if (assigneeProjectMember) {
-                assigneeId = assigneeProjectMember.workspaceMember.userId;
-                assigneeDisplayName = assigneeProjectMember.workspaceMember.user.surname || assigneeProjectMember.workspaceMember.user.name;
+                assigneeId = assigneeProjectMember.userId;
+                assigneeDisplayName = assigneeProjectMember.user.surname || assigneeProjectMember.user.name;
             }
         }
 
@@ -96,13 +95,23 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
         const providedReviewerId = validation.data.reviewerId || null;
         const reviewerId = providedReviewerId ?? permissions.workspaceMember.userId;
 
-        // Calculate dueDate from startDate and days (UTC safe)
+        // Calculate dueDate and days (UTC safe)
         let dueDate: Date | null = null;
-        if (validation.data.startDate && validation.data.days) {
-            const d = new Date(validation.data.startDate);
-            const utcStart = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-            dueDate = new Date(utcStart.getTime());
-            dueDate.setUTCDate(dueDate.getUTCDate() + validation.data.days);
+        let days: number | null = null;
+        
+        if (validation.data.dueDate) {
+            dueDate = parseIST(validation.data.dueDate);
+            
+            if (validation.data.startDate && dueDate) {
+                const start = parseIST(validation.data.startDate);
+                if (start) {
+                    const diffTime = Math.abs(dueDate.getTime() - start.getTime());
+                    days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    // If they are the same day but different times, this might return 0 if < 24h.
+                    // Usually developers prefer at least 1 day if it's on the same day.
+                    if (days === 0) days = 1;
+                }
+            }
         }
 
         // Create unique slug for subtask using helper to prevent collisions
@@ -136,14 +145,9 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
                     reviewerId: reviewerId,
                     reviewerDisplayName: reviewerDisplayName,
                     tagId: validation.data.tag || null,
-                    startDate: validation.data.startDate
-                        ? (() => {
-                            const d = new Date(validation.data.startDate);
-                            return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-                        })()
-                        : null,
+                    startDate: parseIST(validation.data.startDate),
                     dueDate: dueDate,
-                    days: validation.data.days,
+                    days: days,
                     isParent: false,
                 },
                 include: {

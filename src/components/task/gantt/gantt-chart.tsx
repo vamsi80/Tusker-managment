@@ -3,17 +3,14 @@
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { TaskRow } from "./task-row";
+import { Calendar } from "lucide-react";
 import { ProjectRow } from "./project-row";
-import { Button } from "@/components/ui/button";
 import { ProjectOption } from "../shared/types";
 import { exportGanttToExcel } from "./export-utils";
 import { GanttTask, TimelineGranularity } from "./types";
 import { TimelineHeader, TimelineGrid } from "./timeline-grid";
 import { calculateTimelineRange, getDaysBetween } from "./utils";
-import { useState, useMemo, useTransition, useEffect, useRef } from "react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Calendar, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Folder, Download } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useState, useMemo, useEffect, useRef } from "react";
 
 interface GanttChartProps {
     tasks: GanttTask[];
@@ -97,7 +94,7 @@ export function GanttChart({
 
     const timelineRange = useMemo(() => calculateTimelineRange(tasks), [tasks]);
     const totalDays = useMemo(
-        () => getDaysBetween(timelineRange.start, timelineRange.end),
+        () => getDaysBetween(timelineRange.start, timelineRange.end) + 1,
         [timelineRange]
     );
 
@@ -193,8 +190,6 @@ export function GanttChart({
 
     useEffect(() => {
         if (!scrollContainerRef.current) return;
-
-        // Auto-scroll logic — only runs on mount or granularity change
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
@@ -205,8 +200,8 @@ export function GanttChart({
         const scrollPosition = Math.max(0, todayPosition - containerWidth / 2 + 200);
 
         scrollContainerRef.current.scrollLeft = scrollPosition;
-        setScrollX(scrollPosition); // Sync initial scroll state
-    }, [granularity]); // Only on granularity
+        setScrollX(scrollPosition);
+    }, [granularity]);
 
     const toggleTask = (taskId: string) => {
         setExpandedTasks((prev) => {
@@ -429,10 +424,6 @@ export function GanttChart({
                 <div className="flex items-center gap-2">
                     <div className="w-4 h-2 rounded bg-green-400 dark:bg-green-500" />
                     <span>Completed</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="w-4 h-2 rounded bg-amber-400 dark:bg-amber-500" />
-                    <span>Blocked</span>
                 </div>
                 <div className="flex items-center gap-2">
                     <div className="w-0.5 h-4 bg-red-500 dark:bg-red-400" />

@@ -215,8 +215,10 @@ export function ProjectTaskGroup({
                 )
             )}
 
-            {isExpanded && !paginationState.isLoading && localTasks.length === 0 && (filtersActive || !canCreateSubTask) && (
-                <EmptyState visibleColumnsCount={visibleColumnsCount} />
+            {isExpanded && !paginationState.isLoading && localTasks.length === 0 && totalTasksCount === 0 && (
+                (filtersActive || !canCreateSubTask) ? (
+                    <EmptyState visibleColumnsCount={visibleColumnsCount} />
+                ) : null
             )}
 
             {isExpanded && canCreateSubTask && !filtersActive && (

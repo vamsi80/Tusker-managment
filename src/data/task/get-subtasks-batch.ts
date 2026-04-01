@@ -133,7 +133,10 @@ async function _getSubTasksByParentIdsInternal(
                     parentTaskId: true,
                 },
                 take: pageSize + 1,
-                orderBy: { createdAt: 'desc' }
+                orderBy: [
+                    { createdAt: 'desc' },
+                    { id: 'desc' },
+                ]
             }),
             parentRelationSelect?.select ? prisma.task.findUnique({
                 where: { id: parentId },
@@ -142,10 +145,14 @@ async function _getSubTasksByParentIdsInternal(
         ]);
 
         const hasMore = rawTasks.length > pageSize;
-        const finalTasks = (hasMore ? rawTasks.slice(0, pageSize) : rawTasks).map(t => ({
-            ...t,
-            parentTask: parentData
-        }));
+        const finalTasks = (hasMore ? rawTasks.slice(0, pageSize) : rawTasks).map(t => {
+            const entry = { ...t, parentTask: parentData } as any;
+            if (entry.isParent) {
+                delete entry.reviewer;
+                delete entry.reviewerId;
+            }
+            return entry;
+        });
 
         const duration = performance.now() - startTime;
         console.log(`[PERF:QUERY] Subtask Expand (${parentId}): ${duration.toFixed(2)}ms for ${finalTasks.length} items. ParentData: ${parentData ? "FOUND" : "MISSING"}`);
@@ -182,7 +189,10 @@ async function _getSubTasksByParentIdsInternal(
             parentTaskId: true,
         },
         take: BATCH_HARD_LIMIT,
-        orderBy: { createdAt: 'desc' }
+        orderBy: [
+            { createdAt: 'desc' },
+            { id: 'desc' },
+        ]
     });
 
     const subTasksMap = new Map<string, any[]>();
@@ -206,6 +216,15 @@ async function _getSubTasksByParentIdsInternal(
 
     return parentTaskIds.map(parentTaskId => {
         const subTasks = subTasksMap.get(parentTaskId) || [];
+
+        // Strip reviewer from any parent tasks in this subtask set
+        subTasks.forEach((t: any) => {
+            if (t.isParent) {
+                delete t.reviewer;
+                delete t.reviewerId;
+            }
+        });
+
         const totalCount = totalCountMap.get(parentTaskId) || 0;
         return {
             parentTaskId,

@@ -31,7 +31,7 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
     const { remainingDays, isOverdue, dueDate } = useRemainingDays(task.startDate, task.days);
 
     const getProgressColor = () => {
-        if (!task.startDate || !task.days || remainingDays === null) return "bg-gray-300";
+        if (remainingDays === null) return "bg-gray-300";
 
         if (isOverdue) return "bg-red-500";
         if (remainingDays <= 10) return "bg-red-500";
@@ -165,7 +165,7 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
             {/* Progress */}
             {columnVisibility.progress && (
                 <TableCell className="w-[100px] sm:w-[150px]">
-                    {task.startDate && task.days && remainingDays !== null ? (
+                    {remainingDays !== null ? (
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <div className="flex items-center gap-2 min-w-0 cursor-help">
