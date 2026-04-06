@@ -22,6 +22,8 @@ import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { createSubTask } from "@/actions/task/create-subTask";
 import { useReloadView } from "@/hooks/use-reload-view";
+import { getProjectReviewers, ProjectReviewer } from "@/actions/project/get-project-reviewers";
+import { parseIST } from "@/lib/utils";
 
 interface iAppProps {
     members: ProjectMembersType;
@@ -69,6 +71,7 @@ export const CreateSubTaskForm = ({
 
     // const router = useRouter();
     const reloadView = useReloadView();
+    const [reviewers, setReviewers] = useState<ProjectReviewer[]>([]);
 
     // Memoize filtered parent tasks to prevent infinite loops
     const filteredParentTasks = useMemo(() => {
@@ -81,6 +84,8 @@ export const CreateSubTaskForm = ({
     const form = useForm<SubTaskSchemaType>({
         resolver: zodResolver(subTaskSchema) as unknown as Resolver<SubTaskSchemaType>,
         defaultValues: {
+            reviewerId: "",
+            days: 1,
             name: "",
             description: "",
             taskSlug: "",
@@ -109,6 +114,59 @@ export const CreateSubTaskForm = ({
             parentTaskId: parentTaskId || (parentTasks.length > 0 ? parentTasks[0].id : "") || "",
         },
     });
+
+    const watchedStartDate = useWatch({ control: form.control, name: "startDate" });
+    const watchedDueDate = useWatch({ control: form.control, name: "dueDate" });
+    const watchedDays = useWatch({ control: form.control, name: "days" });
+
+    // Fetch reviewers
+    useEffect(() => {
+        if (!open) return;
+        const fetchReviewers = async () => {
+            try {
+                const fetched = await getProjectReviewers(selectedProjectId || projectId || "");
+                setReviewers(fetched);
+            } catch (err) {
+                console.error("Failed to fetch reviewers", err);
+            }
+        };
+        fetchReviewers();
+    }, [open, selectedProjectId, projectId]);
+
+    // Sync: days/startDate -> dueDate
+    useEffect(() => {
+        if (watchedStartDate && watchedDays && open) {
+            const start = parseIST(watchedStartDate);
+            if (start) {
+                const due = new Date(start.getTime() + watchedDays * 24 * 60 * 60 * 1000);
+                const year = due.getFullYear();
+                const month = String(due.getMonth() + 1).padStart(2, '0');
+                const day = String(due.getDate()).padStart(2, '0');
+                const hours = String(due.getHours()).padStart(2, '0');
+                const minutes = String(due.getMinutes()).padStart(2, '0');
+                const formattedDue = `${year}-${month}-${day}T${hours}:${minutes}`;
+                
+                if (formattedDue !== watchedDueDate) {
+                    form.setValue("dueDate", formattedDue, { shouldValidate: true });
+                }
+            }
+        }
+    }, [watchedStartDate, watchedDays, form, open]);
+
+    // Sync: dueDate -> days
+    useEffect(() => {
+        if (watchedStartDate && watchedDueDate && open) {
+            const start = parseIST(watchedStartDate);
+            const due = parseIST(watchedDueDate);
+            if (start && due) {
+                const diffTime = due.getTime() - start.getTime();
+                const calculatedDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+                if (calculatedDays !== watchedDays) {
+                    form.setValue("days", calculatedDays, { shouldValidate: true });
+                }
+            }
+        }
+    }, [watchedDueDate, watchedStartDate, form, open]);
 
     const watchedName = useWatch({
         control: form.control,
@@ -349,7 +407,7 @@ export const CreateSubTaskForm = ({
                         />
 
                         {/* Date and Duration */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <FormField
                                 control={form.control}
                                 name="startDate"
@@ -358,6 +416,25 @@ export const CreateSubTaskForm = ({
                                         <FormLabel>Start Date</FormLabel>
                                         <FormControl>
                                             <Input type="datetime-local" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <FormField
+                                control={form.control}
+                                name="days"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Days</FormLabel>
+                                        <FormControl>
+                                            <Input 
+                                                type="number" 
+                                                min={1} 
+                                                {...field} 
+                                                onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                                            />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -380,7 +457,6 @@ export const CreateSubTaskForm = ({
                                     </FormItem>
                                 )}
                             />
-
                         </div>
                         <FormField
                             control={form.control}
@@ -405,7 +481,7 @@ export const CreateSubTaskForm = ({
                             name="assignee"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Assignee</FormLabel>
+                                    <FormLabel>Assignee *</FormLabel>
                                     <FormDescription className="text-xs text-muted-foreground mb-2">
                                         Select the assignee (only one allowed).
                                     </FormDescription>
@@ -416,7 +492,7 @@ export const CreateSubTaskForm = ({
                                                     {field.value
                                                         ? (() => {
                                                             const m = members?.find((m) => m.userId === field.value);
-                                                            return `${m?.user.surname}`;
+                                                            return `${m?.user.surname || ''}`;
                                                         })()
                                                         : "Select assignee"}
                                                 </Button>
@@ -435,6 +511,69 @@ export const CreateSubTaskForm = ({
                                                                 const user = member.user;
                                                                 const userName = `${user.surname || ''}`;
                                                                 const userId = user.id;
+                                                                const isSelected = field.value === userId;
+
+                                                                return (
+                                                                    <CommandItem
+                                                                        key={userId}
+                                                                        value={userName}
+                                                                        onSelect={() => {
+                                                                            field.onChange(userId);
+                                                                        }}
+                                                                    >
+                                                                        <Check
+                                                                            className={cn(
+                                                                                "mr-2 h-4 w-4",
+                                                                                isSelected ? "opacity-100" : "opacity-0"
+                                                                            )}
+                                                                        />
+                                                                        {userName}
+                                                                    </CommandItem>
+                                                                );
+                                                            })}
+                                                        </CommandGroup>
+                                                    </CommandList>
+                                                </Command>
+                                            </PopoverContent>
+                                        </Popover>
+                                    </div>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        {/* Reviewer Field */}
+                        <FormField
+                            control={form.control}
+                            name="reviewerId"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Reviewer *</FormLabel>
+                                    <FormDescription className="text-xs text-muted-foreground mb-2">
+                                        Select the reviewer.
+                                    </FormDescription>
+                                    <div className="space-y-2">
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button variant="outline" className="w-full justify-between font-normal">
+                                                    {field.value
+                                                        ? (() => {
+                                                            const r = reviewers.find((r) => r.id === field.value);
+                                                            return `${r?.surname || ''}`;
+                                                        })()
+                                                        : "Select reviewer"}
+                                                </Button>
+                                            </PopoverTrigger>
+
+                                            <PopoverContent className="p-0 w-64">
+                                                <Command>
+                                                    <CommandInput placeholder="Search reviewers…" />
+                                                    <CommandList>
+                                                        <CommandEmpty>No reviewers found.</CommandEmpty>
+                                                        <CommandGroup>
+                                                            {reviewers.map((reviewer) => {
+                                                                const userName = `${reviewer.surname || ''}`;
+                                                                const userId = reviewer.id;
                                                                 const isSelected = field.value === userId;
 
                                                                 return (

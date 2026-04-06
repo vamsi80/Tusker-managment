@@ -259,21 +259,18 @@ export const subTaskSchema = z.object({
         .enum(SubTaskStatus, { message: "status is Required" }),
     assignee: z
         .string()
-        .min(3, { message: "At least task should assign to one person" })
-        .optional(),
-    reviewerId: z.string().optional().nullable(),
+        .min(1, { message: "Assignee is required" }),
+    reviewerId: z.string().uuid({ message: "Reviewer is required" }),
     startDate: z
         .string()
-        .min(3, { message: "Due date should select" })
         .optional(),
     dueDate: z
         .string()
-        .min(3, { message: "Due date should select" })
-        .optional(),
+        .min(1, { message: "Due date is required" }),
+    days: z.number().min(1, { message: "Number of days is required" }),
     tag: z
         .string()
-        .uuid({ message: "Invalid tag id" })
-        .optional(),
+        .uuid({ message: "Tag is required" }),
     projectId: z.string().uuid({ message: "Invalid project id" }),
     parentTaskId: z.string().uuid({ message: "Invalid parent task id" }),
 }).refine((data) => {

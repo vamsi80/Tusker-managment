@@ -65,10 +65,18 @@ export async function updateSubtaskDates(
                 id: true,
                 parentTaskId: true,
                 createdById: true,
+                assigneeId: true,
                 assignee: {
                     select: {
                         id: true,
-                        surname: true,
+                        projectRole: true,
+                        workspaceMember: {
+                            select: {
+                                user: {
+                                    select: { surname: true }
+                                }
+                            }
+                        }
                     }
                 },
                 parentTask: {
@@ -89,7 +97,7 @@ export async function updateSubtaskDates(
         const isWorkspaceAdmin = permissions.isWorkspaceAdmin;
         const isProjectManager = permissions.isProjectManager;
         const isProjectLead = permissions.isProjectLead;
-        const isCreator = subtask.createdById === user.id;
+        const isCreator = permissions.projectMember ? subtask.createdById === permissions.projectMember.id : false;
 
         if (!isWorkspaceAdmin && !isProjectManager) {
             if (isProjectLead) {
@@ -109,17 +117,10 @@ export async function updateSubtaskDates(
         }
 
         // 7. Role-based Restrictions (Hierarchy Rule)
-        // Get assignee's project role
+        // Assignee role is available directly from the included relation
         let assigneeRole: string | null = null;
-        if (subtask.assignee?.id) {
-            const assigneeMember = await prisma.projectMember.findFirst({
-                where: {
-                    projectId: projectId,
-                    userId: subtask.assignee.id
-                },
-                select: { projectRole: true }
-            });
-            assigneeRole = assigneeMember?.projectRole || 'MEMBER';
+        if (subtask.assignee) {
+            assigneeRole = subtask.assignee.projectRole || 'MEMBER';
         }
 
         if (assigneeRole === "PROJECT_MANAGER") {

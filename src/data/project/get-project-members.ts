@@ -37,14 +37,18 @@ async function _getProjectMembersInternal(params: { projectId?: string; workspac
     const projectMembers = await prisma.projectMember.findMany({
         where: projectId ? { projectId } : { project: { workspaceId } },
         select: {
-            userId: true,
             projectRole: true,
-            user: {
+            workspaceMember: {
                 select: {
-                    id: true,
-                    surname: true,
-                    email: true,
-                    image: true
+                    userId: true,
+                    user: {
+                        select: {
+                            id: true,
+                            surname: true,
+                            email: true,
+                            image: true
+                        }
+                    }
                 }
             }
         }
@@ -53,12 +57,15 @@ async function _getProjectMembersInternal(params: { projectId?: string; workspac
     // Normalize to unique members by userId
     const uniqueMembers = new Map<string, NormalMember>();
     projectMembers.forEach(m => {
-        if (m.user && !uniqueMembers.has(m.userId)) {
-            uniqueMembers.set(m.userId, {
-                id: m.userId,
-                userId: m.userId,
+        const user = m.workspaceMember?.user;
+        const userId = m.workspaceMember?.userId;
+
+        if (user && userId && !uniqueMembers.has(userId)) {
+            uniqueMembers.set(userId, {
+                id: userId,
+                userId: userId,
                 projectRole: m.projectRole as ProjectRole,
-                user: m.user
+                user: user
             });
         }
     });

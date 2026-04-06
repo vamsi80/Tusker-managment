@@ -30,7 +30,15 @@ export async function fetchSubTaskBySlugAction(workspaceId: string, slugOrId: st
                 assignee: {
                     select: {
                         id: true,
-                        surname: true,
+                        workspaceMember: {
+                            select: {
+                                user: {
+                                    select: {
+                                        surname: true,
+                                    }
+                                }
+                            }
+                        }
                     }
                 },
                 tag: {

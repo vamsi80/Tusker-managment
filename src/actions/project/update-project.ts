@@ -128,8 +128,9 @@ export async function editProject(values: EditProjectSchemaType): Promise<ApiRes
             if (validation.data.projectLead) {
                 const projectLeadUserId = String(validation.data.projectLead);
                 const isUserInWorkspace = workspaceMemberMap.has(projectLeadUserId);
+                const wmId = workspaceMemberMap.get(projectLeadUserId);
 
-                if (isUserInWorkspace) {
+                if (isUserInWorkspace && wmId) {
                     // Find existing lead
                     const existingLead = await tx.projectMember.findFirst({
                         where: {
@@ -139,7 +140,7 @@ export async function editProject(values: EditProjectSchemaType): Promise<ApiRes
                     });
 
                     // If the lead is changing
-                    if (existingLead && existingLead.userId !== projectLeadUserId) {
+                    if (existingLead && wmId && existingLead.workspaceMemberId !== wmId) {
                         // Demote old lead to MEMBER
                         await tx.projectMember.update({
                             where: { id: existingLead.id },
@@ -150,7 +151,7 @@ export async function editProject(values: EditProjectSchemaType): Promise<ApiRes
                         const newLeadMember = await tx.projectMember.findFirst({
                             where: {
                                 projectId: values.projectId,
-                                userId: projectLeadUserId
+                                workspaceMemberId: wmId
                             }
                         });
 
@@ -165,7 +166,7 @@ export async function editProject(values: EditProjectSchemaType): Promise<ApiRes
                             await tx.projectMember.create({
                                 data: {
                                     projectId: values.projectId,
-                                    userId: projectLeadUserId,
+                                    workspaceMemberId: wmId!,
                                     hasAccess: true,
                                     projectRole: "LEAD"
                                 }
@@ -176,7 +177,7 @@ export async function editProject(values: EditProjectSchemaType): Promise<ApiRes
                          await tx.projectMember.create({
                                 data: {
                                     projectId: values.projectId,
-                                    userId: projectLeadUserId,
+                                    workspaceMemberId: wmId!,
                                     hasAccess: true,
                                     projectRole: "LEAD"
                                 }
