@@ -24,6 +24,7 @@ import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { Badge } from "@/components/ui/badge";
 import { useReloadView } from "@/hooks/use-reload-view";
 import { parseIST } from "@/lib/utils";
+import { getProjectReviewers, ProjectReviewer } from "@/actions/project/get-project-reviewers";
 
 type SubTaskBase = {
     id: string;
@@ -50,6 +51,7 @@ interface EditSubTaskFormProps<T extends SubTaskBase> {
     tags?: { id: string; name: string; }[]; // Dynamic tags
     projects?: { id: string; name: string; }[]; // For workspace-level project selection
     parentTasks?: { id: string; name: string; projectId: string; }[]; // For workspace-level parent task selection
+    reviewerId?: string | null;
 }
 
 export function EditSubTaskForm<T extends SubTaskBase>({
@@ -68,6 +70,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
     const [selectedProjectId, setSelectedProjectId] = useState<string>(projectId || "");
     const router = useRouter();
     const reloadView = useReloadView();
+    const [reviewers, setReviewers] = useState<ProjectReviewer[]>([]);
 
     // Memoize filtered parent tasks to prevent infinite loops
     const filteredParentTasks = useMemo(() => {
@@ -106,8 +109,63 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                 const minutes = String(d.getMinutes()).padStart(2, '0');
                 return `${year}-${month}-${day}T${hours}:${minutes}`;
             })() : "",
+            reviewerId: (subTask as any).reviewerId || "",
+            days: (subTask as any).days || 1,
         },
     });
+
+    const watchedStartDate = useWatch({ control: form.control, name: "startDate" });
+    const watchedDueDate = useWatch({ control: form.control, name: "dueDate" });
+    const watchedDays = useWatch({ control: form.control, name: "days" });
+
+    // Fetch reviewers
+    useEffect(() => {
+        if (!open) return;
+        const fetchReviewers = async () => {
+            try {
+                const fetched = await getProjectReviewers(selectedProjectId || projectId || "");
+                setReviewers(fetched);
+            } catch (err) {
+                console.error("Failed to fetch reviewers", err);
+            }
+        };
+        fetchReviewers();
+    }, [open, selectedProjectId, projectId]);
+
+    // Sync: days/startDate -> dueDate
+    useEffect(() => {
+        if (watchedStartDate && watchedDays && open) {
+            const start = parseIST(watchedStartDate);
+            if (start) {
+                const due = new Date(start.getTime() + watchedDays * 24 * 60 * 60 * 1000);
+                const year = due.getFullYear();
+                const month = String(due.getMonth() + 1).padStart(2, '0');
+                const day = String(due.getDate()).padStart(2, '0');
+                const hours = String(due.getHours()).padStart(2, '0');
+                const minutes = String(due.getMinutes()).padStart(2, '0');
+                const formattedDue = `${year}-${month}-${day}T${hours}:${minutes}`;
+                
+                if (formattedDue !== watchedDueDate) {
+                    form.setValue("dueDate", formattedDue, { shouldValidate: true });
+                }
+            }
+        }
+    }, [watchedStartDate, watchedDays, form, open]);
+
+    // Sync: dueDate -> days
+    useEffect(() => {
+        if (watchedStartDate && watchedDueDate && open) {
+            const start = parseIST(watchedStartDate);
+            const due = parseIST(watchedDueDate);
+            if (start && due) {
+                const diffTime = due.getTime() - start.getTime();
+                const calculatedDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+                if (calculatedDays !== watchedDays) {
+                    form.setValue("days", calculatedDays, { shouldValidate: true });
+                }
+            }
+        }
+    }, [watchedDueDate, watchedStartDate, form, open]);
 
     const watchedName = useWatch({
         control: form.control,
@@ -152,7 +210,9 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                 const hours = String(d.getHours()).padStart(2, '0');
                 const minutes = String(d.getMinutes()).padStart(2, '0');
                 return `${year}-${month}-${day}T${hours}:${minutes}`;
-            })() : "");
+            })() : "") ||
+            values.reviewerId !== ((subTask as any).reviewerId || "") ||
+            values.days !== ((subTask as any).days || 1);
 
         if (!hasChanges) {
             toast.info("No changes detected");
@@ -176,7 +236,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                     onSubTaskUpdated({
                         name: values.name,
                         description: values.description,
-                        tag: values.tag,
+                        tag: values.tag ? { id: values.tag } : null,
                         startDate: values.startDate ? parseIST(values.startDate) : null,
                         dueDate: values.dueDate ? parseIST(values.dueDate) : null,
                     } as Partial<T>);
@@ -362,7 +422,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                             />
 
                             {/* Date and Duration */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <FormField
                                     control={form.control}
                                     name="startDate"
@@ -374,6 +434,25 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
+                                    )}
+                                />
+
+                                <FormField
+                                    control={form.control}
+                                    name="days"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Days</FormLabel>
+                                            <FormControl>
+                                                <Input 
+                                                    type="number" 
+                                                    min={1} 
+                                                    {...field} 
+                                                    onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
                                     )}
                                 />
 
@@ -456,6 +535,69 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                                                     const user = member.user;
                                                                     const userName = `${user.surname}`;
                                                                     const userId = user.id;
+                                                                    const isSelected = field.value === userId;
+
+                                                                    return (
+                                                                        <CommandItem
+                                                                            key={userId}
+                                                                            value={userName}
+                                                                            onSelect={() => {
+                                                                                field.onChange(userId);
+                                                                            }}
+                                                                        >
+                                                                            <Check
+                                                                                className={cn(
+                                                                                    "mr-2 h-4 w-4",
+                                                                                    isSelected ? "opacity-100" : "opacity-0"
+                                                                                )}
+                                                                            />
+                                                                            {userName}
+                                                                        </CommandItem>
+                                                                    );
+                                                                })}
+                                                            </CommandGroup>
+                                                        </CommandList>
+                                                    </Command>
+                                                </PopoverContent>
+                                            </Popover>
+                                        </div>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            {/* Reviewer Field */}
+                            <FormField
+                                control={form.control}
+                                name="reviewerId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Reviewer *</FormLabel>
+                                        <FormDescription className="text-xs text-muted-foreground mb-2">
+                                            Select the reviewer.
+                                        </FormDescription>
+                                        <div className="space-y-2">
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                    <Button variant="outline" className="w-full justify-between font-normal">
+                                                        {field.value
+                                                            ? (() => {
+                                                                const r = reviewers.find((r) => r.id === field.value);
+                                                                return `${r?.surname || ''}`;
+                                                            })()
+                                                            : "Select reviewer"}
+                                                    </Button>
+                                                </PopoverTrigger>
+
+                                                <PopoverContent className="p-0 w-64">
+                                                    <Command>
+                                                        <CommandInput placeholder="Search reviewers…" />
+                                                        <CommandList>
+                                                            <CommandEmpty>No reviewers found.</CommandEmpty>
+                                                            <CommandGroup>
+                                                                {reviewers.map((reviewer) => {
+                                                                    const userName = `${reviewer.surname || ''}`;
+                                                                    const userId = reviewer.id;
                                                                     const isSelected = field.value === userId;
 
                                                                     return (

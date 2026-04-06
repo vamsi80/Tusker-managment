@@ -33,7 +33,7 @@ export async function getNotificationsAction(workspaceId: string, limit: number 
             where.task = {
                 ...where.task,
                 OR: [
-                    { assigneeTo: user.id },
+                    { assigneeId: user.id },
                     { createdById: user.id },
                     { reviewerId: user.id },
                     ...(privilegedProjectIds.length > 0

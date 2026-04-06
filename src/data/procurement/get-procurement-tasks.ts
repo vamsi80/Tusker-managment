@@ -44,17 +44,13 @@ async function _getProcurementTasksInternal(
                         assignee: {
                             select: {
                                 id: true,
-                                name: true,
-                                surname: true,
-                                image: true
+                                workspaceMember: { select: { user: { select: { name: true, surname: true, image: true } } } }
                             }
                         },
                         createdBy: {
                             select: {
                                 id: true,
-                                name: true,
-                                surname: true,
-                                image: true
+                                workspaceMember: { select: { user: { select: { name: true, surname: true, image: true } } } }
                             }
                         }
                     }

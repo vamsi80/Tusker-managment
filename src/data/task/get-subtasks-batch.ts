@@ -86,16 +86,15 @@ async function _getSubTasksByParentIdsInternal(
         if (fullAccessProjectIds.length > 0 && restrictedProjectIds.length > 0) {
             countWhere.OR = [
                 { projectId: { in: fullAccessProjectIds } },
-                { projectId: { in: restrictedProjectIds }, assigneeTo: userId }
+                { projectId: { in: restrictedProjectIds }, assigneeId: userId }
             ];
         } else if (fullAccessProjectIds.length > 0) {
             countWhere.projectId = { in: fullAccessProjectIds };
         } else if (restrictedProjectIds.length > 0) {
             countWhere.projectId = { in: restrictedProjectIds };
-            countWhere.assigneeTo = userId;
+            countWhere.assigneeId = userId;
         } else {
             // Short-circuit: no access to any requested project
-            console.log(`[PERF:QUERY] Expanding subtasks failed: User ${userId} has no access to any relevant projects.`);
             return parentTaskIds.map(parentTaskId => ({
                 parentTaskId,
                 subTasks: [],
@@ -116,18 +115,48 @@ async function _getSubTasksByParentIdsInternal(
         const parentRelationSelect = baseSelect.parentTask as any;
         delete subtaskSelect.parentTask;
 
-        // CRITICAL OPTIMIZATION: Do not ask for `_count.subTasks` on subtasks.
-        // It's exceptionally heavy on the DB when enumerating children.
-        if (subtaskSelect._count) {
-            const countSelect = { ...(subtaskSelect._count as any).select };
-            delete countSelect.subTasks;
-            subtaskSelect._count = { select: countSelect };
+        // 🚀 PERF: Remove _count entirely — reviewComments generates a correlated
+        // COUNT(*) subquery PER ROW which is the single biggest query cost.
+        // subTasks count is also removed. Both default to 0 in the response.
+        delete subtaskSelect._count;
+
+        // 🚀 PERF: Remove project relation — all subtasks share the parent's project.
+        // Fetch it once with parent data instead of JOINing per row (~30 JOINs saved).
+        delete subtaskSelect.project;
+
+        // 🚀 PERF: Build a leaner WHERE for single parent:
+        // - Direct equality instead of IN for single value
+        // - No workspaceId (all children share parent's workspace, allows
+        //   PostgreSQL to use the (parentTaskId, createdAt) index directly)
+        const singleParentWhere: any = {
+            parentTaskId: parentId,
+            ...buildSubTaskConditions({
+                ...filters,
+                workspaceId,
+                dueAfter,
+                dueBefore
+            })
+        };
+
+        // Apply permission scoping (only for non-admins)
+        if (!isAdmin) {
+            if (fullAccessProjectIds.length > 0 && restrictedProjectIds.length > 0) {
+                singleParentWhere.OR = [
+                    { projectId: { in: fullAccessProjectIds } },
+                    { projectId: { in: restrictedProjectIds }, assigneeId: userId }
+                ];
+            } else if (fullAccessProjectIds.length > 0) {
+                singleParentWhere.projectId = { in: fullAccessProjectIds };
+            } else if (restrictedProjectIds.length > 0) {
+                singleParentWhere.projectId = { in: restrictedProjectIds };
+                singleParentWhere.assigneeId = userId;
+            }
         }
 
-        // Fetch subtasks and parent metadata in parallel
-        const [rawTasks, parentData] = await Promise.all([
+        // Fetch subtasks and parent+project metadata in parallel
+        const [rawTasks, parentAndProjectData] = await Promise.all([
             prisma.task.findMany({
-                where: countWhere,
+                where: singleParentWhere,
                 select: {
                     ...subtaskSelect,
                     parentTaskId: true,
@@ -138,15 +167,30 @@ async function _getSubTasksByParentIdsInternal(
                     { id: 'desc' },
                 ]
             }),
-            parentRelationSelect?.select ? prisma.task.findUnique({
+            // Single query for BOTH parent info AND project info
+            prisma.task.findUnique({
                 where: { id: parentId },
-                select: parentRelationSelect.select
-            }) : Promise.resolve(null)
+                select: {
+                    ...(parentRelationSelect?.select || { id: true, name: true }),
+                    project: { select: { id: true, name: true, color: true } },
+                }
+            })
         ]);
+
+        // Extract parent and project data from the combined query
+        const parentData = parentAndProjectData
+            ? { id: parentAndProjectData.id, name: (parentAndProjectData as any).name }
+            : null;
+        const projectData = (parentAndProjectData as any)?.project || null;
 
         const hasMore = rawTasks.length > pageSize;
         const finalTasks = (hasMore ? rawTasks.slice(0, pageSize) : rawTasks).map(t => {
-            const entry = { ...t, parentTask: parentData } as any;
+            const entry = {
+                ...t,
+                parentTask: parentData,
+                project: projectData,
+                _count: { reviewComments: 0 },
+            } as any;
             if (entry.isParent) {
                 delete entry.reviewer;
                 delete entry.reviewerId;
@@ -155,7 +199,6 @@ async function _getSubTasksByParentIdsInternal(
         });
 
         const duration = performance.now() - startTime;
-        console.log(`[PERF:QUERY] Subtask Expand (${parentId}): ${duration.toFixed(2)}ms for ${finalTasks.length} items. ParentData: ${parentData ? "FOUND" : "MISSING"}`);
 
         const nextCursor = hasMore && finalTasks.length > 0
             ? { id: finalTasks[finalTasks.length - 1].id, createdAt: finalTasks[finalTasks.length - 1].createdAt }
@@ -174,13 +217,9 @@ async function _getSubTasksByParentIdsInternal(
     // For many parents, we fetch a matching set and group them in memory.
     const BATCH_HARD_LIMIT = 500;
 
-    // Fetch matching subtasks. TASK_CORE_SELECT already includes relations.
+    // 🚀 PERF: Remove _count for batch path too — same correlated subquery issue
     const batchSelect = { ...getTaskSelect(viewMode) };
-    if (batchSelect._count) {
-        const countSelect = { ...(batchSelect._count as any).select };
-        delete countSelect.subTasks;
-        batchSelect._count = { select: countSelect };
-    }
+    delete batchSelect._count;
 
     const rawSubTasksAll = await prisma.task.findMany({
         where: countWhere,
@@ -205,7 +244,7 @@ async function _getSubTasksByParentIdsInternal(
 
         if (currentCount < pageSize) {
             if (!subTasksMap.has(pId)) subTasksMap.set(pId, []);
-            subTasksMap.get(pId)!.push(task);
+            subTasksMap.get(pId)!.push({ ...task, _count: { reviewComments: 0 } });
         }
     });
 
@@ -281,9 +320,6 @@ const getCachedSubTasksByParentIds = async (
     )();
 
     const duration = performance.now() - startTime;
-    if (duration > 10) {
-        console.log(`[PERF:CACHE-MISS] Subtasks fetch: ${duration.toFixed(2)}ms for ${parentTaskIds.length} parents`);
-    }
 
     return results;
 };
@@ -329,8 +365,17 @@ export const getSubTasksByParentIds = cache(
                 restrictedProjectIds = restricted;
                 workspaceMemberUserId = permissions.workspaceMember.userId;
             } else if (userId) {
-                // VERY FAST PATH: Trust the UI since the user already saw the parent task to click expand!
-                isWorkspaceAdmin = true; // Bypasses the strict WHERE clause for filtering
+                // We still resolve permissions to get the correct isAdmin status and security scopes
+                // for the database query, even if we are 'skipping' the strict existence check.
+                const {
+                    isWorkspaceAdmin: isAdmin,
+                    fullAccessProjectIds: fullAccess,
+                    restrictedProjectIds: restricted,
+                } = await resolveTaskPermissions(workspaceId, projectId, userId);
+
+                isWorkspaceAdmin = isAdmin;
+                fullAccessProjectIds = fullAccess;
+                restrictedProjectIds = restricted;
                 workspaceMemberUserId = userId;
             }
 

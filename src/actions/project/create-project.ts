@@ -14,6 +14,8 @@ import { getUniqueRandomColor } from "@/lib/colors/project-colors";
  * Rules:
  * - OWNER/ADMIN: Can assign multiple PROJECT_MANAGERs, optionally include themselves
  * - MANAGER: Auto-assigned as PROJECT_MANAGER, cannot assign others
+ * 
+ * Chain: User → WorkspaceMember → ProjectMember (created via workspaceMemberId)
  */
 export async function createProject(values: ProjectSchemaType): Promise<ApiResponse> {
     const user = await requireUser();
@@ -123,13 +125,6 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
             };
         }
 
-        // Create project member records for all project managers
-        const projectMembersCreate = projectManagersToAdd.map(userId => ({
-            userId: userId,
-            hasAccess: true,
-            projectRole: "PROJECT_MANAGER" as ProjectRole,
-        }));
-
         // Determine project color
         let finalColor = validation.data.color;
 
@@ -147,34 +142,51 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
         }
 
         // Create project with project managers
-        const newProject = await prisma.project.create({
-            data: {
-                name: validation.data.name,
-                description: validation.data.description,
-                slug: validation.data.slug,
-                color: finalColor,
-                workspaceId: values.workspaceId,
-                createdBy: user.id, // Track who created the project
-                projectMembers: {
-                    create: projectMembersCreate,
-                },
-                clint: {
-                    create: {
-                        name: validation.data.companyName,
-                        registeredCompanyName: validation.data.registeredCompanyName,
-                        directorName: validation.data.directorName,
-                        address: validation.data.address,
-                        gstNumber: validation.data.gstNumber,
-                        clintMembers: {
-                            create: {
-                                name: validation.data.contactPerson,
-                                contactNumber: validation.data.contactNumber,
+        // KEY CHANGE: ProjectMember is created using workspaceMemberId only (no userId)
+        let newProject;
+        try {
+            newProject = await prisma.project.create({
+                data: {
+                    name: validation.data.name,
+                    description: validation.data.description,
+                    slug: validation.data.slug,
+                    color: finalColor,
+                    workspaceId: values.workspaceId,
+                    createdBy: user.id, // Track who created the project (User.id on Project model)
+                    projectMembers: {
+                        create: projectManagersToAdd.map(userId => ({
+                            workspaceMemberId: workspaceMemberMap.get(userId)!,
+                            hasAccess: true,
+                            projectRole: "PROJECT_MANAGER" as ProjectRole,
+                        })),
+                    },
+                    clint: {
+                        create: {
+                            name: validation.data.companyName,
+                            registeredCompanyName: validation.data.registeredCompanyName,
+                            directorName: validation.data.directorName,
+                            address: validation.data.address,
+                            gstNumber: validation.data.gstNumber,
+                            clintMembers: {
+                                create: {
+                                    name: validation.data.contactPerson,
+                                    contactNumber: validation.data.contactNumber,
+                                },
                             },
                         },
                     },
                 },
-            },
-        });
+            });
+        } catch (error: any) {
+            console.error("❌ [PRISMA_ERROR] Project creation failed:", error);
+            if (error.code === 'P2011') {
+                console.error("🔍 [PRISMA_META] Null constraint violation details:", error.meta);
+            }
+            return {
+                status: "error",
+                message: `Failed to create project: ${error.message || "Unknown database error"}`,
+            };
+        }
 
         // Invalidate project cache for all users in the workspace
         const { invalidateWorkspaceProjects } = await import("@/lib/cache/invalidation");

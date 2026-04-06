@@ -121,9 +121,6 @@ export const SubTaskRow = memo(function SubTaskRow({
     // Use custom hook for remaining days calculation, passing persisted dueDate if available
     const { remainingDays, isOverdue, dueDate } = useRemainingDays(subTask.startDate, subTask.days, subTask.dueDate);
 
-    // Debug: Print due date from database
-    console.log(`[SubTask DB] ${subTask.name}: dueDate = ${subTask.dueDate}`);
-
     const getProgressColor = () => {
         if (remainingDays === null) return "bg-gray-300";
 

@@ -42,7 +42,7 @@ export const getProjectMetadata = cache(async (workspaceId: string, slug: string
                     }
                 },
                 projectMembers: {
-                    where: { userId: user.id },
+                    where: { workspaceMember: { userId: user.id } },
                     select: {
                         projectRole: true
                     }

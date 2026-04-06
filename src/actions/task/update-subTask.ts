@@ -8,6 +8,7 @@ import { ApiResponse } from "@/lib/types";
 import { SubTaskSchemaType, subTaskSchema } from "@/lib/zodSchemas";
 import { syncTaskToProcurement } from "@/lib/procurement/logic";
 import { parseIST } from "@/lib/utils";
+import { resolveProjectMemberId } from "@/lib/auth/resolve-member-chain";
 
 export async function editSubTask(
     data: SubTaskSchemaType,
@@ -24,8 +25,7 @@ export async function editSubTask(
             return { status: "error", message: "Invalid validation form data" };
         }
 
-        // Optimized query: Get subtask and verify user permissions in one go where possible
-        // We need the workspaceId and projectId from the existing subtask to check permissions
+        // Get subtask and verify
         const existingSubTask = await prisma.task.findUnique({
             where: { id: subTaskId },
             include: {
@@ -33,6 +33,22 @@ export async function editSubTask(
                     select: {
                         id: true,
                         workspaceId: true,
+                    }
+                },
+                // Include the assignee chain to check project role
+                assignee: {
+                    include: {
+                        workspaceMember: {
+                            select: { userId: true }
+                        }
+                    }
+                },
+                // Include createdBy chain to check creator
+                createdBy: {
+                    include: {
+                        workspaceMember: {
+                            select: { userId: true }
+                        }
                     }
                 }
             }
@@ -42,27 +58,15 @@ export async function editSubTask(
             return { status: "error", message: "Subtask not found" };
         }
 
-        // Fetch permissions and assignee info in parallel
-        const [permissions, assigneeInfo] = await Promise.all([
+        // Fetch permissions and resolve assignee in parallel
+        const [permissions, assigneeProjectMemberId] = await Promise.all([
             getUserPermissions(existingSubTask.project.workspaceId, existingSubTask.project.id),
             validation.data.assignee
-                ? prisma.projectMember.findFirst({
-                    where: {
-                        projectId: validation.data.projectId,
-                        user: {
-                            OR: [
-                                { id: validation.data.assignee },
-                                { workspaces: { some: { id: validation.data.assignee } } }
-                            ]
-                        }
-                    },
-                    select: {
-                        userId: true,
-                        user: {
-                            select: { surname: true }
-                        }
-                    }
-                })
+                ? resolveProjectMemberId(
+                    validation.data.assignee,
+                    validation.data.projectId,
+                    existingSubTask.project.workspaceId
+                )
                 : Promise.resolve(null)
         ]);
 
@@ -72,21 +76,19 @@ export async function editSubTask(
 
         // Get assignee's project role for hierarchy enforcement
         let assigneeRole: string | null = null;
-        if (existingSubTask.assigneeTo) {
-            const assigneeMember = await prisma.projectMember.findFirst({
-                where: {
-                    projectId: existingSubTask.project.id,
-                    userId: existingSubTask.assigneeTo
-                },
+        if (existingSubTask.assignee) {
+            const assigneePM = await prisma.projectMember.findUnique({
+                where: { id: existingSubTask.assigneeId! },
                 select: { projectRole: true }
             });
-            assigneeRole = assigneeMember?.projectRole || "MEMBER";
+            assigneeRole = assigneePM?.projectRole || "MEMBER";
         }
 
         const isWorkspaceAdmin = permissions.isWorkspaceAdmin;
         const isProjectManager = permissions.isProjectManager;
         const isProjectLead = permissions.isProjectLead;
-        const isCreator = existingSubTask.createdById === user.id;
+        // Check if current user is the creator by comparing User.id through the chain
+        const isCreator = existingSubTask.createdBy.workspaceMember.userId === user.id;
 
         // 1. Hierarchy Rules (Strict)
         if (assigneeRole === "PROJECT_MANAGER") {
@@ -118,42 +120,34 @@ export async function editSubTask(
             };
         }
 
-        // Fetch assignee display name if changed
-        const assigneeDisplayName = assigneeInfo?.user
-            ? (assigneeInfo.user.surname || null)
-            : null;
+        // Resolve reviewer to ProjectMember.id
+        let reviewerProjectMemberId: string | null = null;
+        if (validation.data.reviewerId) {
+            reviewerProjectMemberId = await resolveProjectMemberId(
+                validation.data.reviewerId,
+                existingSubTask.project.id,
+                existingSubTask.project.workspaceId
+            );
+        }
 
-        // Perform the update
+        // Perform the update — all references now use ProjectMember.id
         await prisma.task.update({
             where: { id: subTaskId },
             data: {
                 name: validation.data.name,
                 description: validation.data.description,
-                assigneeTo: assigneeInfo?.userId || null,
-                assigneeDisplayName: assigneeDisplayName,
+                assigneeId: assigneeProjectMemberId || null,
+                reviewerId: reviewerProjectMemberId || null,
                 tagId: validation.data.tag || null,
                 startDate: parseIST(validation.data.startDate),
                 dueDate: parseIST(validation.data.dueDate),
-                days: (validation.data.dueDate && validation.data.startDate)
-                    ? (() => {
-                        const start = parseIST(validation.data.startDate);
-                        const due = parseIST(validation.data.dueDate);
-                        if (start && due) {
-                            const diffTime = Math.abs(due.getTime() - start.getTime());
-                            let d = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                            return d === 0 ? 1 : d;
-                        }
-                        return null;
-                    })() : null,
+                days: validation.data.days,
             },
         });
 
         // Sync with procurement
         await syncTaskToProcurement(subTaskId);
 
-        // Trigger invalidation without blocking the response if possible, 
-        // but for server actions we want to ensure cache is fresh for the re-render.
-        // We use the already fetched IDs to avoid extra DB lookups in invalidateTaskMutation
         await invalidateTaskMutation({
             taskId: subTaskId,
             projectId: existingSubTask.projectId,

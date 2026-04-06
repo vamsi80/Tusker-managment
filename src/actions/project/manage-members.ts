@@ -48,7 +48,11 @@ export async function addProjectMembers(
                 },
                 projectMembers: {
                     include: {
-                        user: true,
+                        workspaceMember: {
+                            include: {
+                                user: true,
+                            }
+                        }
                     },
                 },
             },
@@ -89,7 +93,7 @@ export async function addProjectMembers(
 
         // Get existing project member user IDs
         const existingMemberUserIds = new Set(
-            project.projectMembers.map((pm) => pm.userId)
+            project.projectMembers.map((pm) => pm.workspaceMember.userId)
         );
 
         // Filter out members who are already in the project
@@ -112,14 +116,14 @@ export async function addProjectMembers(
 
                 return {
                     projectId: projectId,
-                    userId: userId,
+                    workspaceMemberId: wmId,
                     hasAccess: true,
                     projectRole: "MEMBER" as ProjectRole,
                 };
             })
             .filter(Boolean) as Array<{
                 projectId: string;
-                userId: string;
+                workspaceMemberId: string;
                 hasAccess: boolean;
                 projectRole: ProjectRole;
             }>;
@@ -200,7 +204,11 @@ export async function removeProjectMembers(
                 },
                 projectMembers: {
                     include: {
-                        user: true,
+                        workspaceMember: {
+                            include: {
+                                user: true,
+                            }
+                        }
                     },
                 },
             },
@@ -233,8 +241,8 @@ export async function removeProjectMembers(
 
         // Get user IDs to remove
         const userIdsToRemove = project.projectMembers
-            .filter((pm) => memberUserIds.includes(pm.userId))
-            .map((pm) => pm.userId);
+            .filter((pm) => memberUserIds.includes(pm.workspaceMember.userId))
+            .map((pm) => pm.workspaceMember.userId);
 
         if (userIdsToRemove.length === 0) {
             return {
@@ -248,7 +256,7 @@ export async function removeProjectMembers(
             (pm) => pm.projectRole === "PROJECT_MANAGER"
         );
         const remainingManagers = currentManagers.filter(
-            (pm) => !userIdsToRemove.includes(pm.userId)
+            (pm) => !userIdsToRemove.includes(pm.workspaceMember.userId)
         );
 
         if (currentManagers.length > 0 && remainingManagers.length === 0) {
@@ -258,15 +266,21 @@ export async function removeProjectMembers(
             };
         }
 
+        // Get the specific ProjectMember IDs to remove
+        const projectMemberIdsToRemove = project.projectMembers
+            .filter(pm => userIdsToRemove.includes(pm.workspaceMember.userId))
+            .map(pm => pm.id);
+
         // Remove members
-        await prisma.projectMember.deleteMany({
-            where: {
-                projectId: projectId,
-                userId: {
-                    in: userIdsToRemove,
+        if (projectMemberIdsToRemove.length > 0) {
+            await prisma.projectMember.deleteMany({
+                where: {
+                    id: {
+                        in: projectMemberIdsToRemove,
+                    },
                 },
-            },
-        });
+            });
+        }
 
         // Invalidate caches in parallel (fire and forget for latency optimization, handle internal errors safely)
         Promise.all([
@@ -336,7 +350,11 @@ export async function updateProjectMemberRole(
                 },
                 projectMembers: {
                     include: {
-                        user: true,
+                        workspaceMember: {
+                            include: {
+                                user: true,
+                            }
+                        }
                     },
                 },
             },
@@ -369,7 +387,7 @@ export async function updateProjectMemberRole(
 
         // Find the member to update
         const targetMember = project.projectMembers.find(
-            (pm) => pm.userId === memberUserId
+            (pm) => pm.workspaceMember.userId === memberUserId
         );
 
         if (!targetMember) {
@@ -408,7 +426,7 @@ export async function updateProjectMemberRole(
             invalidateUserPermissions(memberUserId, project.workspaceId, projectId)
         ]).catch(console.error);
 
-        const memberName = targetMember.user?.surname || "Member";
+        const memberName = targetMember.workspaceMember.user?.surname || "Member";
         return {
             status: "success",
             message: `Successfully updated ${memberName}'s role to ${newRole}.`,
@@ -459,7 +477,11 @@ export async function toggleProjectMemberAccess(
                 },
                 projectMembers: {
                     include: {
-                        user: true,
+                        workspaceMember: {
+                            include: {
+                                user: true,
+                            }
+                        }
                     },
                 },
             },
@@ -492,7 +514,7 @@ export async function toggleProjectMemberAccess(
 
         // Find the member to update
         const targetMember = project.projectMembers.find(
-            (pm) => pm.userId === memberUserId
+            (pm) => pm.workspaceMember.userId === memberUserId
         );
 
         if (!targetMember) {

@@ -24,23 +24,11 @@ model User {
   banReason              String?
   banExpires             DateTime?
   reviewComments         ReviewComment[]
-  assignedTasks          Task[]                 @relation("TaskAssignee")
-  createdTasks           Task[]                 @relation("TaskCreator")
-  reviewedTasks          Task[]                 @relation("TaskReviewer")
   workspaceOwner         Workspace[]
   workspaces             WorkspaceMember[]
-  projectMembers         ProjectMember[]
   accounts               Account[]
   comments               Comment[]
-  assignedIndents        IndentDetails[]        @relation("IndentAssignee")
-  requestedIndents       IndentDetails[]        @relation("IndentRequestor")
-  finalApprovedItems     IndentItem[]           @relation("FinalApprover")
-  quantityApprovedItems  IndentItem[]           @relation("QuantityApprover")
-  approvedPurchaseOrders PurchaseOrder[]        @relation("POApprover")
-  createdPurchaseOrders  PurchaseOrder[]        @relation("POCreator")
-  recordedPayments       PurchaseOrderPayment[] @relation("PaymentRecorder")
   sessions               Session[]
-  createdUnits           Unit[]
   commentReads           CommentRead[]
   dailyReports           DailyReport[]
 
@@ -138,6 +126,17 @@ model WorkspaceMember {
   updatedAt      DateTime        @updatedAt
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projectMembers ProjectMember[]
+
+  // Workspace-scoped back-relations for models that reference WorkspaceMember
+  assignedIndents        IndentDetails[]        @relation("IndentAssignee")
+  requestedIndents       IndentDetails[]        @relation("IndentRequestor")
+  finalApprovedItems     IndentItem[]           @relation("FinalApprover")
+  quantityApprovedItems  IndentItem[]           @relation("QuantityApprover")
+  approvedPurchaseOrders PurchaseOrder[]        @relation("POApprover")
+  createdPurchaseOrders  PurchaseOrder[]        @relation("POCreator")
+  recordedPayments       PurchaseOrderPayment[] @relation("PaymentRecorder")
+  createdUnits           Unit[]
 
   @@unique([userId, workspaceId])
   @@index([workspaceId, workspaceRole])
@@ -154,7 +153,7 @@ model Project {
   workspaceId      String
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
-  color            String            @unique
+  color            String
   createdBy        String?
   clint            Clints[]
   workspace        Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -170,21 +169,25 @@ model Project {
 }
 
 model ProjectMember {
-  id                String          @id @default(uuid())
-  projectRole       ProjectRole     @default(MEMBER)
+  id                String        @id @default(uuid())
+  projectRole       ProjectRole   @default(MEMBER)
   projectId         String
-  userId            String
-  hasAccess         Boolean         @default(false)
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  project           Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tasks             Task[]
+  workspaceMemberId String
+  hasAccess         Boolean       @default(false)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  workspaceMember   WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
+  project           Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, projectId])
+  // Task back-relations (all three point to ProjectMember via named relations)
+  assignedTasks     Task[]         @relation("TaskAssignee")
+  createdTasks      Task[]         @relation("TaskCreator")
+  reviewingTasks    Task[]         @relation("TaskReviewer")
+
+  @@unique([workspaceMemberId, projectId])
   @@index([projectId, projectRole])
-  @@index([userId])
-  @@index([projectId, userId])
+  @@index([workspaceMemberId])
+  @@index([projectId, workspaceMemberId])
 }
 
 model Clints {
@@ -241,8 +244,7 @@ model Task {
   projectId             String
   createdAt             DateTime           @default(now())
   updatedAt             DateTime           @updatedAt
-  projectMemberId       String?
-  assigneeTo            String?
+  assigneeId            String?
   createdById           String
   reviewerId            String?
   dueDate               DateTime?
@@ -250,16 +252,13 @@ model Task {
   path                  String?
   subtaskCount          Int                @default(0)
   completedSubtaskCount Int                @default(0)
-  assigneeDisplayName   String?
-  reviewerDisplayName   String?
   reviewComments        ReviewComment[]
-  assignee              User?              @relation("TaskAssignee", fields: [assigneeTo], references: [id])
-  createdBy             User               @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  assignee              ProjectMember?     @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  createdBy             ProjectMember      @relation("TaskCreator", fields: [createdById], references: [id])
   parentTask            Task?              @relation("Task_subTasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
   subTasks              Task[]             @relation("Task_subTasks")
   project               Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  projectMember         ProjectMember?     @relation(fields: [projectMemberId], references: [id])
-  reviewer              User?              @relation("TaskReviewer", fields: [reviewerId], references: [id])
+  reviewer              ProjectMember?     @relation("TaskReviewer", fields: [reviewerId], references: [id])
   tag                   Tag?               @relation(fields: [tagId], references: [id])
   comments              Comment[]
   indentDetails         IndentDetails[]
@@ -273,13 +272,13 @@ model Task {
   @@index([workspaceId, projectId, status, isParent, dueDate, createdAt(sort: Desc)])
   @@index([parentTaskId, createdAt])
   @@index([workspaceId, parentTaskId, status, isParent, createdAt(sort: Desc)])
-  @@index([workspaceId, assigneeTo, status, createdAt])
-  @@index([projectId, assigneeTo, status, createdAt])
+  @@index([workspaceId, assigneeId, status, createdAt])
+  @@index([projectId, assigneeId, status, createdAt])
   @@index([name, id])
   @@index([startDate, id])
   @@index([dueDate, id])
   @@index([createdAt(sort: Desc), id])
-  @@index([workspaceId, assigneeTo, updatedAt(sort: Desc)])
+  @@index([workspaceId, assigneeId, updatedAt(sort: Desc)])
 }
 
 model ReviewComment {
@@ -355,24 +354,24 @@ model ProcurementTask {
 }
 
 model IndentDetails {
-  id               String       @id @default(uuid())
-  key              String       @unique
+  id               String          @id @default(uuid())
+  key              String          @unique
   name             String
   workspaceId      String
   projectId        String
   taskId           String?
   description      String?
   expectedDelivery DateTime?
-  requiresVendor   Boolean      @default(true)
-  requestedAt      DateTime     @default(now())
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  requiresVendor   Boolean         @default(true)
+  requestedAt      DateTime        @default(now())
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
   assignedTo       String?
   requestedBy      String
-  assignee         User?        @relation("IndentAssignee", fields: [assignedTo], references: [id])
-  project          Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  requestor        User         @relation("IndentRequestor", fields: [requestedBy], references: [id])
-  task             Task?        @relation(fields: [taskId], references: [id])
+  assignee         WorkspaceMember? @relation("IndentAssignee", fields: [assignedTo], references: [id])
+  project          Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  requestor        WorkspaceMember  @relation("IndentRequestor", fields: [requestedBy], references: [id])
+  task             Task?            @relation(fields: [taskId], references: [id])
   items            IndentItem[]
 
   @@index([workspaceId])
@@ -403,10 +402,10 @@ model IndentItem {
   finalApprovedBy     String?
   quantityApprovedBy  String?
   documentDisplayName String              @default("")
-  finalApprover       User?               @relation("FinalApprover", fields: [finalApprovedBy], references: [id])
+  finalApprover       WorkspaceMember?    @relation("FinalApprover", fields: [finalApprovedBy], references: [id])
   indentDetails       IndentDetails       @relation(fields: [indentDetailsId], references: [id], onDelete: Cascade)
   material            Material            @relation(fields: [materialId], references: [id])
-  quantityApprover    User?               @relation("QuantityApprover", fields: [quantityApprovedBy], references: [id])
+  quantityApprover    WorkspaceMember?    @relation("QuantityApprover", fields: [quantityApprovedBy], references: [id])
   unit                Unit?               @relation(fields: [unitId], references: [id], onDelete: Restrict)
   vendor              Vendor?             @relation(fields: [vendorId], references: [id])
   purchaseOrderItems  PurchaseOrderItem[]
@@ -434,7 +433,7 @@ model Unit {
   indentItems        IndentItem[]
   materials          Material[]
   purchaseOrderItems PurchaseOrderItem[]
-  creator            User?               @relation(fields: [createdBy], references: [id])
+  creator            WorkspaceMember?    @relation(fields: [createdBy], references: [id])
   workspace          Workspace?          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@unique([workspaceId, abbreviation])
@@ -513,8 +512,8 @@ model PurchaseOrder {
   deliveryingAt         DateTime
   termsAndConditions    String?
   purchaseOrderTerms    PurchaseOrderTerm[]
-  approvedBy            User?                  @relation("POApprover", fields: [approvedById], references: [id])
-  createdBy             User                   @relation("POCreator", fields: [createdById], references: [id])
+  approvedBy            WorkspaceMember?       @relation("POApprover", fields: [approvedById], references: [id])
+  createdBy             WorkspaceMember        @relation("POCreator", fields: [createdById], references: [id])
   project               Project                @relation(fields: [projectId], references: [id])
   vendor                Vendor                 @relation(fields: [vendorId], references: [id])
   workspace             Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -572,17 +571,17 @@ model PurchaseOrderTerm {
 }
 
 model PurchaseOrderPayment {
-  id              String        @id @default(uuid())
+  id              String          @id @default(uuid())
   purchaseOrderId String
-  amountPaid      Decimal       @db.Decimal(15, 2)
+  amountPaid      Decimal         @db.Decimal(15, 2)
   paymentDate     DateTime
   remarks         String?
   workspaceId     String
   recordedById    String
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  recordedBy      User          @relation("PaymentRecorder", fields: [recordedById], references: [id])
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  purchaseOrder   PurchaseOrder   @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  recordedBy      WorkspaceMember @relation("PaymentRecorder", fields: [recordedById], references: [id])
 
   @@index([purchaseOrderId])
   @@index([workspaceId])

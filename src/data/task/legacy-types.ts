@@ -28,7 +28,7 @@ export type WorkspaceTaskType = {
     updatedAt?: Date;
     createdById: string;
     reviewerId: string | null;
-    assigneeTo?: string | null;          // raw FK (from TASK_CORE_SELECT)
+    assigneeId: string | null;          // raw FK (from TASK_CORE_SELECT)
     tagId?: string | null;               // raw FK (from TASK_CORE_SELECT)
 
     // Hydrated relations — present after batch-loading

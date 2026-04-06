@@ -45,7 +45,7 @@ export async function deleteSubTask(
         // - PROJECT_MANAGER: Can delete all subtasks in their project
         // - LEAD: Can delete only subtasks they created
         const canDeleteAllTasks = permissions.isWorkspaceAdmin || permissions.isProjectManager;
-        const canDeleteOwnTasks = permissions.isProjectLead && existingSubTask.createdById === user.id;
+        const canDeleteOwnTasks = permissions.isProjectLead && permissions.projectMember && existingSubTask.createdById === permissions.projectMember.id;
 
         if (!canDeleteAllTasks && !canDeleteOwnTasks) {
             return {

@@ -42,8 +42,8 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
             }),
             prisma.projectMember.findMany({
                 where: {
-                    userId: userId,
-                    project: {
+                    workspaceMember: {
+                        userId: userId,
                         workspaceId: workspaceId,
                     },
                 },
@@ -154,7 +154,10 @@ async function _getUserPermissionsInternal(workspaceId: string, projectId: strin
                 where: { workspaceId, userId },
             }),
             prisma.projectMember.findFirst({
-                where: { userId, projectId },
+                where: {
+                    projectId,
+                    workspaceMember: { userId },
+                },
             }),
         ]);
 

@@ -6,7 +6,7 @@ import { TaskFilters } from "@/types/task-filters";
  * 
  * This function constructs index-friendly queries that leverage:
  * - Composite indexes: (projectId, status), (status, createdAt)
- * - Single-column indexes: workspaceId, assigneeTo, tagId, isPinned
+ * - Single-column indexes: workspaceId, assigneeId, tagId, isPinned
  * 
  * PostgreSQL will automatically use index intersection when beneficial.
  * 
@@ -86,7 +86,7 @@ export function buildTaskFilter(
             // Enforce via AND to avoid overwriting existing UI filters in 'where'
             where.AND = [
                 ...(Array.isArray(where.AND) ? where.AND : []),
-                { assigneeTo: userId }
+                { assigneeId: userId }
             ];
         } else if (isHybrid) {
             // Hybrid: Full access to some, personal access to others
@@ -98,7 +98,7 @@ export function buildTaskFilter(
                         { projectId: { in: fullAccessIds } },
                         {
                             projectId: { in: memberOnlyIds },
-                            assigneeTo: userId
+                            assigneeId: userId
                         }
                     ]
                 }
@@ -143,7 +143,7 @@ export function buildSubTaskConditions(filters: TaskFilters): any {
                 : [];
 
         if (assigneeIds.length > 0) {
-            conditions.assigneeTo = { in: assigneeIds };
+            conditions.assigneeId = { in: assigneeIds };
         }
     }
 

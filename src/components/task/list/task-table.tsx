@@ -918,7 +918,6 @@ export default function TaskTable({
 
             if (response.success && response.subTasks) {
                 const subTasks = response.subTasks;
-                console.log(`[CLIENT] Loaded subtasks for parent ${taskId}:`, subTasks);
                 processedSubTasksRef.current.add(taskId);
 
                 // Dedup

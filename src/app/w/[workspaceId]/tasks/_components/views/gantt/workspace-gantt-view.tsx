@@ -25,9 +25,14 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
     const pmMatchesPromise = prisma.projectMember.findMany({
         where: { project: { workspaceId } },
         select: {
+            id: true,
             projectId: true,
-            userId: true,
-            projectRole: true
+            projectRole: true,
+            workspaceMember: {
+                select: {
+                    userId: true,
+                }
+            }
         }
     });
 
@@ -68,15 +73,17 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
     const projectUserMap: Record<string, string[]> = {};
     const roleMap: Record<string, string> = {};
     projectMemberMatches.forEach(pm => {
+        const userId = pm.workspaceMember.userId;
         if (!projectUserMap[pm.projectId]) projectUserMap[pm.projectId] = [];
-        projectUserMap[pm.projectId].push(pm.userId);
-        roleMap[`${pm.projectId}-${pm.userId}`] = pm.projectRole;
+        projectUserMap[pm.projectId].push(userId);
+        // Map by PM.id since assigneeId now stores ProjectMember.id
+        roleMap[`${pm.projectId}-${pm.id}`] = pm.projectRole;
     });
 
     // Enrich tasks with assignee roles for permission checks
     allTasks.forEach(t => {
-        if (t.assigneeTo && t.projectId) {
-            t.projectRole = roleMap[`${t.projectId}-${t.assigneeTo}`];
+        if (t.assigneeId && t.projectId) {
+            t.projectRole = roleMap[`${t.projectId}-${t.assigneeId}`];
         }
     });
 

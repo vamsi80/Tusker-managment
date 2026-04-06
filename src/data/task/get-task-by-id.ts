@@ -47,13 +47,13 @@ async function _getTaskByIdInternal(
             createdBy: {
                 select: {
                     id: true,
-                    surname: true,
+                    workspaceMember: { select: { userId: true, user: { select: { surname: true } } } }
                 },
             },
             assignee: {
                 select: {
                     id: true,
-                    surname: true,
+                    workspaceMember: { select: { userId: true, user: { select: { surname: true } } } }
                 },
             },
             project: {
@@ -73,7 +73,9 @@ async function _getTaskByIdInternal(
                 ? {
                     where: {
                         assignee: {
-                            id: userId,
+                            workspaceMember: {
+                                userId: userId,
+                            }
                         },
                     },
                     select: {
@@ -93,7 +95,7 @@ async function _getTaskByIdInternal(
                         assignee: {
                             select: {
                                 id: true,
-                                surname: true,
+                                workspaceMember: { select: { userId: true, user: { select: { surname: true } } } }
                             },
                         },
                         _count: {
@@ -121,9 +123,7 @@ async function _getTaskByIdInternal(
                         assignee: {
                             select: {
                                 id: true,
-                                // name: true,
-                                surname: true,
-                                // image: true,
+                                workspaceMember: { select: { userId: true, user: { select: { surname: true } } } }
                             },
                         },
                         _count: {
@@ -139,7 +139,9 @@ async function _getTaskByIdInternal(
                         ? {
                             where: {
                                 assignee: {
-                                    id: userId,
+                                    workspaceMember: {
+                                        userId: userId,
+                                    }
                                 },
                             },
                         }
@@ -159,7 +161,7 @@ async function _getTaskByIdInternal(
     if (isMember) {
         // If it's a subtask, check if user is assigned
         if (task.parentTaskId) {
-            const isAssigned = task.assignee?.id === userId;
+            const isAssigned = task.assignee?.workspaceMember?.userId === userId;
             if (!isAssigned) {
                 return null; // Member doesn't have access to this subtask
             }
