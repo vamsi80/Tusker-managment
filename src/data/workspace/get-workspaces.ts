@@ -26,19 +26,11 @@ export type WorkspacesResult = {
     totalCount: number;
 };
 
-const WORKSPACES_MEMORY_CACHE = new Map<string, { data: any, timestamp: number }>();
-const MEMORY_TTL = 30000; // 30 seconds
-
-function getMemoryWorkspaces(key: string) {
-    const cached = WORKSPACES_MEMORY_CACHE.get(key);
-    if (cached && Date.now() - cached.timestamp < MEMORY_TTL) return cached.data;
-    return null;
+export function invalidateWorkspacesCache(userId: string) {
+    // With memory cache removed, we rely entirely on revalidateTag via our actions
+    // This is still exported for consistency in the codebase
 }
 
-function setMemoryWorkspaces(key: string, data: any) {
-    WORKSPACES_MEMORY_CACHE.set(key, { data, timestamp: Date.now() });
-    if (WORKSPACES_MEMORY_CACHE.size > 100) WORKSPACES_MEMORY_CACHE.clear();
-}
 async function _fetchWorkspacesInternal(userId: string): Promise<WorkspacesResult> {
     // Fetch all workspaces where the user is a member
     const workspacesData = await prisma.workspace.findMany({
@@ -96,22 +88,15 @@ async function _fetchWorkspacesInternal(userId: string): Promise<WorkspacesResul
 const getCachedWorkspaces = (userId: string, bypass: boolean) => {
     const cacheKey = `user-workspaces-${userId}`;
 
-    // 1. Memory
-    const memory = getMemoryWorkspaces(cacheKey);
-    if (memory) return Promise.resolve(memory);
-
-    // 2. Next.js App Router Cache
+    // Use Next.js App Router Cache with tags and a short revalidate for manual DB sync
     return unstable_cache(
         async () => _fetchWorkspacesInternal(userId),
         [cacheKey],
         {
             tags: CacheTags.userWorkspaces(userId),
-            revalidate: 60, // 1 minute cache for fast navigations
+            revalidate: 5, // Fast revalidation for manual DB changes
         }
-    )().then(res => {
-        setMemoryWorkspaces(cacheKey, res);
-        return res;
-    });
+    )();
 };
 
 /**

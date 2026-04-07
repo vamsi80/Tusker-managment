@@ -13,9 +13,8 @@ export default function ThemeToggle() {
     setMounted(true)
   }, [])
 
-  // treat resolvedTheme as source of truth once mounted
-  const active = mounted ? resolvedTheme : theme || 'light'
-  const isDark = active === 'dark'
+  // Use a fixed value (false for light) until mounted to ensure hydration matches server
+  const isDark = mounted ? (resolvedTheme === 'dark') : false
 
   const toggleTheme = () => setTheme(isDark ? 'light' : 'dark')
 

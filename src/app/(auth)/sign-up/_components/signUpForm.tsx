@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { authClient } from '@/lib/auth-clint'
-import { Loader, Loader2, Send, Github } from 'lucide-react'
+import { Loader, Loader2, Send, Github, Eye, EyeOff } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
@@ -29,7 +29,11 @@ export const SignUpForm = () => {
   const [emailPending, startEmailTransition] = useTransition()
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
+  const [surname, setSurname] = useState("")
   const [email, setEmail] = useState("")
+  const [phoneNumber, setPhoneNumber] = useState("")
+  const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
 
   // Generic helper for social signup (GitHub, Google, etc.)
   // verbose social signup (GitHub/Google)
@@ -69,32 +73,40 @@ export const SignUpForm = () => {
     })
   }
 
-  // verbose email+password signup (with names)
+  // Use standard email/password signup with verification link
   function signUpWithEmail() {
     startEmailTransition(async () => {
       try {
-        if (!firstName || !lastName || !email) {
+        if (!firstName || !lastName || !surname || !email || !phoneNumber || !password) {
           toast.error("Please fill all fields.");
           return;
         }
 
-        const result = await authClient.emailOtp.sendVerificationOtp({
+        await authClient.signUp.email({
           email,
-          type: "email-verification",
+          password,
+          name: `${firstName} ${lastName}`,
           fetchOptions: {
             onSuccess: () => {
-              toast.success("Verification email sent!");
-              router.push(`/verify-request?email=${encodeURIComponent(email)}`);
+              toast.success("Signup successful! Please check your email for a verification link.");
+              const query = new URLSearchParams({
+                email,
+                surname,
+                phoneNumber,
+                firstName,
+                lastName,
+                flow: "signup"
+              }).toString();
+              router.push(`/verify-request?${query}`);
             },
-            onError: (error) => {
-              const message = (error as any)?.message ?? JSON.stringify(error);
-              toast.error(`Signup failed: ${message}`);
-              console.error("Email OTP signup error:", error);
+            onError: (ctx: any) => {
+              const errorMessage = ctx.error.message || "Signup failed";
+              toast.error(errorMessage);
+              console.error("Signup error full context:", ctx);
+              if (ctx.error) console.error("Signup error details:", JSON.stringify(ctx.error, null, 2));
             },
           },
         });
-
-        console.log("OTP signup result:", result);
       } catch (err: any) {
         console.error("Unexpected signup error:", err);
         toast.error(err?.message ?? "Unexpected error");
@@ -140,6 +152,17 @@ export const SignUpForm = () => {
                 required
               />
             </div>
+            <div className="grid gap-2">
+              <Label htmlFor="surname">Surname</Label>
+              <Input
+                id="surname"
+                type="text"
+                value={surname}
+                onChange={(e) => setSurname(e.target.value)}
+                placeholder="Smith"
+                required
+              />
+            </div>
           </div>
           <div className='grid gap-2'>
             <Label htmlFor="email">Email</Label>
@@ -152,6 +175,37 @@ export const SignUpForm = () => {
               required
             />
           </div>
+          <div className='grid gap-2'>
+            <Label htmlFor="phone">Phone Number</Label>
+            <Input
+              id="phone"
+              type='tel'
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              placeholder='+1234567890'
+              required
+            />
+          </div>
+          <div className='grid gap-2'>
+            <Label htmlFor="password">Password</Label>
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder='Min. 8 characters'
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+            </div>
+          </div>
 
           <Button
             onClick={signUpWithEmail}
@@ -160,12 +214,12 @@ export const SignUpForm = () => {
             {emailPending ? (
               <>
                 <Loader2 className='size-4 animate-spin' />
-                <span>Loading...</span>
+                <span>Creating Account...</span>
               </>
             ) : (
               <>
                 <Send className='size-4' />
-                <span>Continue with Email</span>
+                <span>Sign Up & Send Verification Link</span>
               </>
             )}
           </Button>
