@@ -3,7 +3,7 @@ import "server-only";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { env } from "./env";
-import { emailOTP, admin, phoneNumber } from "better-auth/plugins"
+import { emailOTP, admin, phoneNumber, bearer } from "better-auth/plugins"
 import prisma from "./db";
 import { sendEmail } from "./email";
 
@@ -112,7 +112,8 @@ export const auth = betterAuth({
         // In production, you would use an SMS service like Twilio here
       },
     }),
-    admin()
+    admin(),
+    bearer()
   ]
 })
 
