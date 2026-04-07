@@ -66,14 +66,14 @@ export async function WorkspaceListView({
             initialTotalCount={tasksData.totalCount ?? undefined}
             members={formattedMembers as any}
             workspaceId={workspaceId}
-            projectId="" // Empty for workspace-level view
+            projectId=""
             canCreateSubTask={permissions.hasAccess}
             showAdvancedFilters={true}
             tags={tags}
-            projects={projects.map(p => ({ 
-                id: p.id, 
-                name: p.name, 
-                color: p.color || undefined, 
+            projects={projects.map(p => ({
+                id: p.id,
+                name: p.name,
+                color: p.color || undefined,
                 canManageMembers: p.canManageMembers,
                 memberIds: (p as any).memberIds
             }))}

@@ -12,6 +12,9 @@ import { useState, useTransition, useEffect } from "react";
 import { toast } from "sonner";
 import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 import { PasswordInput } from "@/components/ui/password-input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { Phone, Mail } from "lucide-react";
 
 const GoogleIcon = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -30,10 +33,15 @@ export const LoginForm = () => {
   const [githubPending, startGithubTransition] = useTransition();
   const [googlePending, startGoogleTransition] = useTransition();
   const [emailPending, startEmailTransition] = useTransition();
+  const [phonePending, startPhoneTransition] = useTransition();
   // const [firstName, setFirstName] = useState("");
   // const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [phoneOtp, setPhoneOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [activeTab, setActiveTab] = useState("email");
 
   const workspaceId = searchParams.get("workspaceId");
   const role = searchParams.get("role");
@@ -130,6 +138,66 @@ export const LoginForm = () => {
     });
   }
 
+  async function sendPhoneOtp() {
+    if (!phoneNumber) {
+      toast.error("Please enter a phone number");
+      return;
+    }
+
+    startPhoneTransition(async () => {
+      try {
+        await authClient.phoneNumber.sendOtp({
+          phoneNumber,
+          fetchOptions: {
+            onSuccess: () => {
+              setOtpSent(true);
+              toast.success("OTP sent to your phone!");
+            },
+            onError: (ctx: any) => {
+              toast.error(ctx.error.message || "Failed to send OTP");
+            },
+          },
+        });
+      } catch (error) {
+        toast.error("An error occurred while sending OTP");
+        console.error(error);
+      }
+    });
+  }
+
+  async function signInWithPhone() {
+    if (!phoneOtp || phoneOtp.length !== 6) {
+      toast.error("Please enter a valid 6-digit OTP");
+      return;
+    }
+
+    startPhoneTransition(async () => {
+      try {
+        const callbackURL = workspaceId && role
+          ? `/api/verify?workspaceId=${workspaceId}&role=${role}`
+          : "/w";
+
+        await authClient.phoneNumber.verify({
+          phoneNumber,
+          code: phoneOtp,
+          fetchOptions: {
+            onSuccess: (ctx) => {
+              ensureUser(ctx.data.user.id);
+              toast.success("Signed in successfully!");
+              window.location.href = callbackURL;
+            },
+            onError: (ctx) => {
+              toast.error(ctx.error.message || "Failed to sign in");
+            },
+          },
+        });
+      } catch (error) {
+        toast.error("An error occurred during sign in");
+        console.error(error);
+      }
+    });
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -144,76 +212,146 @@ export const LoginForm = () => {
       </CardHeader>
 
       <CardContent className="flex flex-col gap-4">
-        <div className="grid gap-3">
-          {/* <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="firstName">First Name</Label>
-              <Input
-                id="firstName"
-                type="text"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                placeholder="John"
-              />
-            </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsTrigger value="email">
+              <Mail className="size-3.5 mr-2" />
+              Email
+            </TabsTrigger>
+            <TabsTrigger value="phone">
+              <Phone className="size-3.5 mr-2" />
+              Phone
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="email" className="space-y-4">
+            <div className="grid gap-3">
+              <div className="grid gap-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="your@email.com"
+                  required
+                />
+              </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="lastName">Last Name</Label>
-              <Input
-                id="lastName"
-                type="text"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                placeholder="Doe"
-              />
-            </div>
-          </div> */}
+              <div className="grid gap-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">Password</Label>
+                  <a
+                    href="/forgot-password"
+                    className="text-xs text-muted-foreground hover:text-primary underline-offset-4 hover:underline"
+                  >
+                    Forgot password?
+                  </a>
+                </div>
+                <PasswordInput
+                  id="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="your@email.com"
-              required
-            />
-          </div>
-
-          <div className="grid gap-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="password">Password</Label>
-              <a
-                href="/forgot-password"
-                className="text-xs text-muted-foreground hover:text-primary underline-offset-4 hover:underline"
+              <Button
+                onClick={signInWithEmail}
+                disabled={emailPending || !email || !password}
+                className="w-full"
               >
-                Forgot password?
-              </a>
+                {emailPending ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    <span>Signing in...</span>
+                  </>
+                ) : (
+                  <span>Sign In</span>
+                )}
+              </Button>
             </div>
-            <PasswordInput
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-            />
-          </div>
+          </TabsContent>
 
-          <Button
-            onClick={signInWithEmail}
-            disabled={emailPending || !email || !password}
-          >
-            {emailPending ? (
-              <>
-                <Loader2 className="size-4 animate-spin" />
-                <span>Signing in...</span>
-              </>
+          <TabsContent value="phone" className="space-y-4">
+            {!otpSent ? (
+               <div className="grid gap-3">
+                <div className="grid gap-2">
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder="+1234567890"
+                    required
+                  />
+                  <p className="text-[10px] text-muted-foreground">Include country code (e.g. +91)</p>
+                </div>
+                <Button
+                  onClick={sendPhoneOtp}
+                  disabled={phonePending || !phoneNumber}
+                  className="w-full"
+                >
+                  {phonePending ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      <span>Sending OTP...</span>
+                    </>
+                  ) : (
+                    <span>Send Verification Code</span>
+                  )}
+                </Button>
+              </div>
             ) : (
-              <span>Sign In</span>
+              <div className="grid gap-4">
+                <div className="flex flex-col items-center space-y-4">
+                  <Label>Verification Code</Label>
+                  <InputOTP
+                    maxLength={6}
+                    value={phoneOtp}
+                    onChange={setPhoneOtp}
+                  >
+                    <InputOTPGroup>
+                      <InputOTPSlot index={0} />
+                      <InputOTPSlot index={1} />
+                      <InputOTPSlot index={2} />
+                    </InputOTPGroup>
+                    <InputOTPGroup>
+                      <InputOTPSlot index={3} />
+                      <InputOTPSlot index={4} />
+                      <InputOTPSlot index={5} />
+                    </InputOTPGroup>
+                  </InputOTP>
+                  <p className="text-xs text-muted-foreground">
+                    Code sent to {phoneNumber}
+                    <button 
+                      onClick={() => { setOtpSent(false); setPhoneOtp(""); }}
+                      className="ml-2 text-primary hover:underline font-medium"
+                    >
+                      Change
+                    </button>
+                  </p>
+                </div>
+                <Button
+                  onClick={signInWithPhone}
+                  disabled={phonePending || phoneOtp.length !== 6}
+                  className="w-full"
+                >
+                  {phonePending ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      <span>Verifying...</span>
+                    </>
+                  ) : (
+                    <span>Sign In with Phone</span>
+                  )}
+                </Button>
+              </div>
             )}
-          </Button>
-        </div>
+          </TabsContent>
+        </Tabs>
 
         <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
           <span className="relative z-10 bg-card px-2 text-muted-foreground">Or</span>

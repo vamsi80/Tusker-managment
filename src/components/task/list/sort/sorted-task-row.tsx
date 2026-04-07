@@ -9,6 +9,7 @@ import { ColumnVisibility } from "../../shared/column-visibility";
 import { cn } from "@/lib/utils";
 import { useRemainingDays } from "@/hooks/use-due-date";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface SortedTaskRowProps {
     task: any;
@@ -41,6 +42,9 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
     };
 
     const progressColor = getProgressColor();
+
+    const assigneeUser = (task.assignee as any)?.workspaceMember?.user;
+    const reviewerUser = (task.reviewer as any)?.workspaceMember?.user;
 
     return (
         <TableRow
@@ -87,9 +91,14 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
             {/* Assignee */}
             {columnVisibility.assignee && (
                 <TableCell className="w-[80px] sm:w-[100px]">
-                    {task.assignee ? (
-                        <div className="text-sm truncate">
-                            {task.assignee.name} {task.assignee.surname || ""}
+                    {assigneeUser ? (
+                        <div className="flex items-center gap-2 min-w-0">
+                            <Avatar className="h-5 w-5 flex-shrink-0">
+                                <AvatarFallback className="text-[10px]">{assigneeUser.surname?.[0] || assigneeUser.name?.[0]}</AvatarFallback>
+                            </Avatar>
+                            <span className="text-sm truncate">
+                                {assigneeUser.surname || assigneeUser.name}
+                            </span>
                         </div>
                     ) : (
                         <span className="text-muted-foreground text-sm">-</span>
@@ -97,23 +106,17 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
                 </TableCell>
             )}
 
-            {/* Reviewer with Parent Context */}
+            {/* Reviewer */}
             {columnVisibility.reviewer && (
                 <TableCell className="w-[80px] sm:w-[100px]">
-                    {task.parentTask?.reviewer ? (
-                        <div className="flex flex-col gap-0.5" title="Parent Reviewer ID">
-                            <div className="text-xs font-medium text-blue-700 dark:text-blue-400 truncate">
-                                {task.parentTask.reviewer.surname || task.parentTask.reviewer.name}
-                            </div>
-                            {task.reviewer && task.reviewer.id !== task.parentTask.reviewer.id && (
-                                <div className="text-[10px] text-muted-foreground truncate opacity-70" title="Subtask Reviewer">
-                                    {task.reviewer.surname || task.reviewer.name}
-                                </div>
-                            )}
-                        </div>
-                    ) : task.reviewer ? (
-                        <div className="text-sm truncate">
-                            {task.reviewer.surname || task.reviewer.name}
+                    {reviewerUser ? (
+                        <div className="flex items-center gap-2 min-w-0">
+                            <Avatar className="h-5 w-5 flex-shrink-0">
+                                <AvatarFallback className="text-[10px]">{reviewerUser.surname?.[0] || reviewerUser.name?.[0]}</AvatarFallback>
+                            </Avatar>
+                            <span className="text-sm truncate">
+                                {reviewerUser.surname || reviewerUser.name}
+                            </span>
                         </div>
                     ) : (
                         <span className="text-muted-foreground text-sm">-</span>

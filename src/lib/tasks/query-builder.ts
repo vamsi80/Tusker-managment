@@ -20,11 +20,11 @@ export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
         tagId: true,
 
         // Always include basic assignee info
-        assignee: { 
-            select: { 
-                id: true, 
-                workspaceMember: { select: { user: { select: { surname: true } } } } 
-            } 
+        assignee: {
+            select: {
+                id: true,
+                workspaceMember: { select: { user: { select: { name: true, surname: true } } } }
+            }
         },
 
         createdAt: true,
@@ -64,9 +64,9 @@ export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
     if (isList || isSearch || isSubtask || isGantt || isCalendar) {
         select.description = true;
         select.reviewer = {
-            select: { 
+            select: {
                 id: true,
-                workspaceMember: { select: { user: { select: { surname: true } } } }
+                workspaceMember: { select: { user: { select: { name: true, surname: true } } } }
             }
         };
     }
@@ -79,9 +79,9 @@ export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
 
     if (isSearch) {
         select.createdBy = {
-            select: { 
+            select: {
                 id: true,
-                workspaceMember: { select: { user: { select: { surname: true } } } }
+                workspaceMember: { select: { user: { select: { name: true, surname: true, image: true, email: true } } } }
             }
         };
     }

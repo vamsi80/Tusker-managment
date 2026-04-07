@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { X, Filter, Calendar } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { type TaskFilters, type ViewLevel, type ViewType, type ProjectOption, type MemberOption, type TagOption, getFilterConfig, getActiveFilters } from "./types";
 import { formatIST } from "@/lib/utils";
@@ -157,7 +158,7 @@ export function GlobalFilterToolbar({
         if (filter.key === 'assigneeId' && members) {
             const assignee = members.find(m => m.id === filter.value);
             if (assignee) {
-                const displayName = assignee.surname ? assignee.surname : "";
+                const displayName = assignee.surname || assignee.name || "";
                 return {
                     ...filter,
                     value: displayName
@@ -533,7 +534,12 @@ export function GlobalFilterToolbar({
 
                                                         .map((member) => (
                                                             <SelectItem key={member.id} value={member.id}>
-                                                                {member.surname ? member.surname : ""}
+                                                                <div className="flex items-center gap-2">
+                                                                    <Avatar className="h-4 w-4 flex-shrink-0">
+                                                                        <AvatarFallback className="text-[8px]">{member.surname?.[0] || member.name?.[0]}</AvatarFallback>
+                                                                    </Avatar>
+                                                                    <span className="truncate">{member.surname || member.name}</span>
+                                                                </div>
                                                             </SelectItem>
                                                         ))}
                                                 </SelectContent>
