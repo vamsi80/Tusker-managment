@@ -3,7 +3,8 @@
 import slugify from "slugify";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { useTransition, useEffect } from "react";
+import { useTransition, useEffect, useState } from "react";
+import { useMounted } from "@/hooks/use-mounted";
 import { useRouter } from "next/navigation";
 import { tryCatch } from "@/hooks/try-catch";
 import { Input } from "@/components/ui/input";
@@ -35,6 +36,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
     const [pending, startTransition] = useTransition();
     const router = useRouter();
     const { triggerConfetti } = useConfetti();
+    const mounted = useMounted();
 
     // Use explicit permission if provided, otherwise fallback to legacy isAdmin check
     const showCreateButton = canCreateProject ?? isAdmin;
@@ -114,7 +116,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
     return (
         <>
             <Dialog>
-                {showCreateButton && (
+                {showCreateButton && mounted && (
                     <DialogTrigger asChild>
                         <button className="cursor-pointer">
                             <Plus size={16} />
