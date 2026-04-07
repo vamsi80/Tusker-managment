@@ -68,7 +68,7 @@ export async function updateSubTaskStatus(
                     id: true,
                     status: true,
                     createdById: true,
-                    assigneeTo: true,
+                    assigneeId: true,
                     reviewerId: true,
                     parentTaskId: true,
                 },
@@ -95,12 +95,15 @@ export async function updateSubTaskStatus(
             };
         }
 
-        // 7. Authorization checks
+        // Authorization checks — compare via ProjectMember.id
+        // Since createdById & assigneeId are now ProjectMember IDs,
+        // we need to check against the current user's projectMember.id
         const isWorkspaceAdmin = permissions.isWorkspaceAdmin;
         const isProjectManager = permissions.isProjectManager;
         const isProjectLead = permissions.isProjectLead;
-        const isCreator = subTask.createdById === user.id;
-        const isAssignee = subTask.assigneeTo === user.id;
+        const currentProjectMemberId = permissions.projectMember?.id;
+        const isCreator = currentProjectMemberId ? subTask.createdById === currentProjectMemberId : false;
+        const isAssignee = currentProjectMemberId ? subTask.assigneeId === currentProjectMemberId : false;
 
         if (!isWorkspaceAdmin && !isProjectManager) {
             if (isProjectLead) {

@@ -115,14 +115,11 @@ export const SubTaskRow = memo(function SubTaskRow({
         }
     };
 
-    const assignee = subTask.assignee;
-
+    const assigneeUser = (subTask.assignee as any)?.workspaceMember?.user;
+    const reviewerUser = (subTask.reviewer as any)?.workspaceMember?.user;
     // Use custom hooks for date calculations
     // Use custom hook for remaining days calculation, passing persisted dueDate if available
     const { remainingDays, isOverdue, dueDate } = useRemainingDays(subTask.startDate, subTask.days, subTask.dueDate);
-
-    // Debug: Print due date from database
-    console.log(`[SubTask DB] ${subTask.name}: dueDate = ${subTask.dueDate}`);
 
     const getProgressColor = () => {
         if (remainingDays === null) return "bg-gray-300";
@@ -276,14 +273,13 @@ export const SubTaskRow = memo(function SubTaskRow({
 
             {columnVisibility.assignee && (
                 <TableCell className="w-[80px] sm:w-[100px]">
-                    {assignee ? (
+                    {assigneeUser ? (
                         <div className="flex items-center gap-2 min-w-0">
                             <Avatar className="h-5 w-5 flex-shrink-0">
-                                <AvatarImage src={assignee.image || ""} />
-                                <AvatarFallback className="text-[10px]">{assignee.surname?.[0] || assignee.name?.[0]}</AvatarFallback>
+                                <AvatarFallback className="text-[10px]">{assigneeUser.surname?.[0] || assigneeUser.name?.[0]}</AvatarFallback>
                             </Avatar>
                             <span className="text-xs text-muted-foreground truncate">
-                                {assignee.surname || assignee.name}
+                                {assigneeUser.surname || assigneeUser.name}
                             </span>
                         </div>
                     ) : (
@@ -294,37 +290,13 @@ export const SubTaskRow = memo(function SubTaskRow({
 
             {columnVisibility.reviewer && (
                 <TableCell className="w-[80px] sm:w-[100px]">
-                    {subTask.parentTask?.reviewer ? (
-                        <div className="flex flex-col gap-0.5">
-                            <div className="flex items-center gap-2 min-w-0" title="Parent Reviewer">
-                                <Avatar className="h-5 w-5 flex-shrink-0 border-blue-500/30 border">
-                                    <AvatarImage src={subTask.parentTask.reviewer.image || ""} />
-                                    <AvatarFallback className="text-[10px] bg-blue-50 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-                                        {subTask.parentTask.reviewer.surname?.[0] || subTask.parentTask.reviewer.name?.[0]}
-                                    </AvatarFallback>
-                                </Avatar>
-                                <span className="text-xs text-blue-700 dark:text-blue-400 font-medium truncate">
-                                    {subTask.parentTask.reviewer.surname || subTask.parentTask.reviewer.name}
-                                </span>
-                            </div>
-                            {subTask.reviewer && subTask.reviewer.id !== subTask.parentTask.reviewer.id && (
-                                <div className="flex items-center gap-2 min-w-0 opacity-60 ml-2" title="Task Reviewer">
-                                    <Avatar className="h-3.5 w-3.5 flex-shrink-0">
-                                        <AvatarImage src={subTask.reviewer.image || ""} />
-                                        <AvatarFallback className="text-[8px]">{subTask.reviewer.surname?.[0]}</AvatarFallback>
-                                    </Avatar>
-                                    <span className="text-[9px] truncate">{subTask.reviewer.surname || subTask.reviewer.name}</span>
-                                </div>
-                            )}
-                        </div>
-                    ) : subTask.reviewer ? (
+                    {reviewerUser ? (
                         <div className="flex items-center gap-2 min-w-0">
                             <Avatar className="h-5 w-5 flex-shrink-0">
-                                <AvatarImage src={subTask.reviewer.image || ""} />
-                                <AvatarFallback className="text-[10px]">{subTask.reviewer.surname?.[0] || subTask.reviewer.name?.[0]}</AvatarFallback>
+                                <AvatarFallback className="text-[10px]">{reviewerUser.surname?.[0] || reviewerUser.name?.[0]}</AvatarFallback>
                             </Avatar>
                             <span className="text-xs text-muted-foreground truncate">
-                                {subTask.reviewer.surname || subTask.reviewer.name}
+                                {reviewerUser.surname || reviewerUser.name}
                             </span>
                         </div>
                     ) : (
@@ -404,11 +376,11 @@ export const SubTaskRow = memo(function SubTaskRow({
                     {subTask.tag ? (() => {
                         // 1. Try to use the pre-fetched name directly (Fast & Bandwidth-efficient)
                         const directName = typeof subTask.tag === 'object' ? (subTask.tag as any).name : null;
-                        
+
                         // 2. Fallback to lookup by ID if name is missing
                         const tagId = typeof subTask.tag === 'string' ? subTask.tag : (subTask.tag as any)?.id;
                         const tagFromLookup = tags.find(t => t.id === (tagId || subTask.tagId));
-                        
+
                         const tagName = directName || tagFromLookup?.name;
 
                         if (tagName) {

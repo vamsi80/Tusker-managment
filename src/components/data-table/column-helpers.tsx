@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ChevronsUpDown, ArrowUp, ArrowDown, MoreVertical } from "lucide-react";
 import { cn, formatIST } from "@/lib/utils";
+import { useMounted } from "@/hooks/use-mounted";
 
 /**
  * Creates a sortable header component
@@ -70,6 +71,66 @@ export function createSelectColumn<T>(): ColumnDef<T> {
 }
 
 /**
+ * Row actions component to handle hydration
+ */
+function RowActions<T>({
+    row,
+    actions
+}: {
+    row: any;
+    actions: {
+        label: string;
+        onClick: (row: T) => void;
+        icon?: React.ReactNode;
+        variant?: "default" | "destructive";
+    }[]
+}) {
+    const mounted = useMounted();
+
+    if (!mounted) {
+        return (
+            <div className="flex w-full justify-center">
+                <Button variant="ghost" className="h-8 w-8 p-0" disabled>
+                    <MoreVertical className="h-4 w-4 opacity-50" />
+                </Button>
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex w-full justify-center">
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                    <Button variant="ghost" className="h-8 w-8 p-0">
+                        <span className="sr-only">Open menu</span>
+                        <MoreVertical className="h-4 w-4" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {actions.map((action, index) => (
+                        <DropdownMenuItem
+                            key={index}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                action.onClick(row.original);
+                            }}
+                            className={cn(
+                                action.variant === "destructive" && "text-destructive focus:text-destructive"
+                            )}
+                        >
+                            {action.icon && <span className="mr-0">{action.icon}</span>}
+                            {action.label}
+                        </DropdownMenuItem>
+                    ))}
+                </DropdownMenuContent>
+            </DropdownMenu>
+        </div>
+    );
+}
+
+/**
  * Creates an actions column with dropdown menu
  */
 export function createActionsColumn<T>(
@@ -83,39 +144,7 @@ export function createActionsColumn<T>(
     return {
         id: "actions",
         header: " ",
-        cell: ({ row }) => {
-            return (
-                <div className="flex w-full justify-center">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                                <span className="sr-only">Open menu</span>
-                                <MoreVertical className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            {actions.map((action, index) => (
-                                <DropdownMenuItem
-                                    key={index}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        action.onClick(row.original);
-                                    }}
-                                    className={cn(
-                                        action.variant === "destructive" && "text-destructive focus:text-destructive"
-                                    )}
-                                >
-                                    {action.icon && <span className="mr-0">{action.icon}</span>}
-                                    {action.label}
-                                </DropdownMenuItem>
-                            ))}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
-            );
-        },
+        cell: ({ row }) => <RowActions row={row} actions={actions} />,
         enableSorting: false,
         enableHiding: false,
     };

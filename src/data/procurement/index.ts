@@ -54,16 +54,12 @@ export const getIndentRequests = cache(async (workspaceId: string) => {
             assignee: {
                 select: {
                     id: true,
-                    // name: true,
-                    surname: true,
-                    // image: true,
+                    user: { select: { surname: true } }
                 },
             },
             requestor: {
                 select: {
-                    // name: true,
-                    surname: true,
-                    // image: true,
+                    user: { select: { surname: true } }
                 },
             },
             items: {
@@ -140,7 +136,7 @@ export const getProcurableProjects = cache(async (workspaceId: string) => {
             ...(isWorkspaceAdmin ? {} : {
                 projectMembers: {
                     some: {
-                        userId: workspaceMember.userId,
+                        workspaceMemberId: workspaceMember.id,
                         projectRole: "LEAD",
                     },
                 },
@@ -251,8 +247,8 @@ export const getProcurementTasks = cache(async (workspaceId: string) => {
                     description: true,
                     assignee: {
                         select: {
-                            name: true,
-                            // image: true,
+                            id: true,
+                            workspaceMember: { select: { user: { select: { name: true } } } }
                         },
                     },
                 },
@@ -331,7 +327,7 @@ export const getPurchaseOrders = cache(async (workspaceId: string) => {
                     id: true,
                     name: true,
                     contactPerson: true,
-                    contactNumber: true,
+                    phoneNumber: true,
                 },
             },
             project: {

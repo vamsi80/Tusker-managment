@@ -78,10 +78,7 @@ export async function getWorkspaceProcurementTasks(workspaceId: string) {
                     assignee: {
                         select: {
                             id: true,
-                            // name: true,
-                            surname: true,
-                            // image: true,
-                            // email: true,
+                            workspaceMember: { select: { user: { select: { surname: true } } } }
                         }
                     }
                 }

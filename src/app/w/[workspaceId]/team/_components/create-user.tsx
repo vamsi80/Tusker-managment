@@ -68,7 +68,7 @@ export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onO
             email: "",
             password: "",
             niceName: "",
-            contactNumber: "",
+            phoneNumber: "",
             role: "MEMBER",
             workspaceId,
         },
@@ -179,11 +179,11 @@ export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onO
                                 )}
                             />
                             <FormField
-                                // control={form.control}s
-                                name="contactNumber"
+                                control={form.control}
+                                name="phoneNumber"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Contact Number</FormLabel>
+                                        <FormLabel>Phone Number</FormLabel>
                                         <FormControl>
                                             <Input
                                                 placeholder="e.g. +91 98765 43210"

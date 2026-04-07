@@ -72,13 +72,13 @@ export function createTeamMemberColumns(
         },
 
         {
-            accessorKey: "user.contactNumber",
-            header: "Contact",
+            accessorKey: "user.phoneNumber",
+            header: "Phone",
             cell: ({ row }) => {
-                const contact = row.original.user?.contactNumber;
+                const phone = row.original.user?.phoneNumber;
                 return (
                     <div className="text-muted-foreground">
-                        {contact || "—"}
+                        {phone || "—"}
                     </div>
                 );
             },

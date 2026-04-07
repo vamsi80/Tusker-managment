@@ -83,7 +83,7 @@ export async function createTaskCommentAction(
             (perms.leadProjectIds || []).includes(task.projectId) ||
             (perms.managedProjectIds || []).includes(task.projectId);
 
-        const isTaskParticipant = task.assigneeTo === user.id ||
+        const isTaskParticipant = task.assigneeId === user.id ||
             task.createdById === user.id ||
             task.reviewerId === user.id;
 

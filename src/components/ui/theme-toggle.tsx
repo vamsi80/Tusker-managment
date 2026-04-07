@@ -1,21 +1,20 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { MoonIcon, SunIcon } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Toggle } from '@/components/ui/toggle'
 
 export default function ThemeToggle() {
   const { theme, setTheme, resolvedTheme } = useTheme()
-  // resolvedTheme is the real theme applied ("light" | "dark")
+  const [mounted, setMounted] = useState(false)
 
-  // initialize mounted in a lazy way so we don't call setState inside an effect.
-  // This is safe because this component is "use client" and the initializer runs on the client.
-  const [mounted] = useState<boolean>(() => typeof window !== 'undefined')
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
-  // treat resolvedTheme as source of truth once mounted
-  const active = mounted ? resolvedTheme : theme || 'light'
-  const isDark = active === 'dark'
+  // Use a fixed value (false for light) until mounted to ensure hydration matches server
+  const isDark = mounted ? (resolvedTheme === 'dark') : false
 
   const toggleTheme = () => setTheme(isDark ? 'light' : 'dark')
 

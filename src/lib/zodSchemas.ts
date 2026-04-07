@@ -40,10 +40,10 @@ export const inviteUserSchema = z.object({
         .string()
         .min(3, { message: "Email must be at least 3 charcters long" })
         .max(100, { message: "Email must be at most 100 character long" }),
-    contactNumber: z
+    phoneNumber: z
         .string()
-        .min(10, { message: "Contact Number must be at least 10 charcters long" })
-        .max(15, { message: "Contact Number must be at most 15 character long" }),
+        .min(10, { message: "Phone Number must be at least 10 characters long" })
+        .max(15, { message: "Phone Number must be at most 15 characters long" }),
     password: z
         .string()
         .min(8, "Password must be at least 8 characters")
@@ -157,10 +157,10 @@ export const projectSchema = z.object({
         .string()
         .min(3, { message: "Contact Person must be at least 3 charcters long" })
         .max(100, { message: "Contact Person must be at most 100 character long" }),
-    contactNumber: z
+    phoneNumber: z
         .string()
-        .min(10, { message: "Contact Number must be at least 10 charcters long" })
-        .max(15, { message: "Contact Number must be at most 15 character long" }),
+        .min(10, { message: "Phone Number must be at least 10 characters long" })
+        .max(15, { message: "Phone Number must be at most 15 characters long" }),
     workspaceId: z
         .string().optional(),
     projectLead: z.string().optional(),
@@ -219,10 +219,10 @@ export const editProjectSchema = z.object({
         .min(3, { message: "Contact Person must be at least 3 characters long" })
         .max(100, { message: "Contact Person must be at most 100 characters long" })
         .optional(),
-    contactNumber: z
+    phoneNumber: z
         .string()
-        .min(10, { message: "Contact Number must be at least 10 characters long" })
-        .max(15, { message: "Contact Number must be at most 15 characters long" })
+        .min(10, { message: "Phone Number must be at least 10 characters long" })
+        .max(15, { message: "Phone Number must be at most 15 characters long" })
         .optional(),
     // Team fields
     projectLead: z.string().optional(),
@@ -259,21 +259,18 @@ export const subTaskSchema = z.object({
         .enum(SubTaskStatus, { message: "status is Required" }),
     assignee: z
         .string()
-        .min(3, { message: "At least task should assign to one person" })
-        .optional(),
-    reviewerId: z.string().optional().nullable(),
+        .min(1, { message: "Assignee is required" }),
+    reviewerId: z.string().uuid({ message: "Reviewer is required" }),
     startDate: z
         .string()
-        .min(3, { message: "Due date should select" })
         .optional(),
     dueDate: z
         .string()
-        .min(3, { message: "Due date should select" })
-        .optional(),
+        .min(1, { message: "Due date is required" }),
+    days: z.number().min(1, { message: "Number of days is required" }),
     tag: z
         .string()
-        .uuid({ message: "Invalid tag id" })
-        .optional(),
+        .uuid({ message: "Tag is required" }),
     projectId: z.string().uuid({ message: "Invalid project id" }),
     parentTaskId: z.string().uuid({ message: "Invalid parent task id" }),
 }).refine((data) => {
@@ -368,9 +365,9 @@ export const vendorSchema = z.object({
         .max(100, { message: "Contact person must be at most 100 characters long" })
         .optional()
         .nullable(),
-    contactNumber: z
+    phoneNumber: z
         .string()
-        .max(20, { message: "Contact number must be at most 20 characters long" })
+        .max(20, { message: "Phone number must be at most 20 characters long" })
         .optional()
         .nullable(),
     email: z

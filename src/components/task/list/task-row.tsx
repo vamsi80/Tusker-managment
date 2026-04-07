@@ -222,15 +222,6 @@ export const TaskRow = memo(function TaskRow({
                     <div className="flex items-center gap-2 min-w-0">
                         <span
                             className="truncate font-semibold text-sm cursor-pointer hover:text-primary transition-colors"
-                            onMouseEnter={() => {
-                                if (task.id) {
-                                    import("@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/subtask-details-sheet").then(m => {
-                                        if (m.commentCache.has(task.id)) {
-                                            console.log(`✨ [CACHE-HIT] Task ${task.id} ready.`);
-                                        }
-                                    });
-                                }
-                            }}
                         >
                             {task.name}
                         </span>

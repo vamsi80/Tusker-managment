@@ -31,7 +31,7 @@ export interface FullProjectData {
     address?: string | null;
     gstNumber?: string | null;
     contactPerson?: string | null;
-    contactNumber?: string | null;
+    phoneNumber?: string | null;
 }
 
 /**
@@ -44,10 +44,14 @@ async function _getFullProjectDataInternal(projectId: string, userId: string): P
         include: {
             projectMembers: {
                 include: {
-                    user: {
-                        select: {
-                            id: true,
-                            surname: true,
+                    workspaceMember: {
+                        include: {
+                            user: {
+                                select: {
+                                    id: true,
+                                    surname: true,
+                                }
+                            }
                         }
                     }
                 }
@@ -69,7 +73,7 @@ async function _getFullProjectDataInternal(projectId: string, userId: string): P
 
     // 2. Efficient access check - look for current user in the project's member list
     const currentUserMember = project.projectMembers.find(
-        (pm) => pm.userId === userId
+        (pm) => pm.workspaceMember.userId === userId
     );
 
     // 3. Admin fallback check (if not directly in project, check workspace role)
@@ -87,8 +91,8 @@ async function _getFullProjectDataInternal(projectId: string, userId: string): P
     // Map project members with minimal data
     const projectMembersData = project.projectMembers.map((pm) => ({
         id: pm.id,
-        userId: pm.userId,
-        userName: pm.user?.surname || "Unknown",
+        userId: pm.workspaceMember.userId,
+        userName: pm.workspaceMember.user?.surname || "Unknown",
         projectRole: pm.projectRole,
         hasAccess: pm.hasAccess,
     }));
@@ -101,8 +105,8 @@ async function _getFullProjectDataInternal(projectId: string, userId: string): P
         description: project.description,
         slug: project.slug,
         workspaceId: project.workspaceId,
-        projectLead: projectLead?.userId || null,
-        memberAccess: project.projectMembers.map(pm => pm.userId),
+        projectLead: projectLead ? projectLead.workspaceMember.userId : null,
+        memberAccess: project.projectMembers.map(pm => pm.workspaceMember.userId),
         projectMembers: projectMembersData,
         companyName: project.clint[0]?.name || null,
         registeredCompanyName: project.clint[0]?.registeredCompanyName || null,
@@ -110,7 +114,7 @@ async function _getFullProjectDataInternal(projectId: string, userId: string): P
         address: project.clint[0]?.address || null,
         gstNumber: project.clint[0]?.gstNumber || null,
         contactPerson: project.clint[0]?.clintMembers[0]?.name || null,
-        contactNumber: project.clint[0]?.clintMembers[0]?.contactNumber || null,
+        phoneNumber: project.clint[0]?.clintMembers[0]?.phoneNumber || null,
     };
 }
 

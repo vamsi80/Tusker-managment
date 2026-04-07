@@ -64,37 +64,46 @@ export async function bulkUploadTasksAndSubtasks(data: {
         const projectMembers = await prisma.projectMember.findMany({
             where: { projectId: data.projectId },
             include: {
-                user: {
-                    select: { email: true, id: true, surname: true }
+                workspaceMember: {
+                    include: {
+                        user: {
+                            select: { email: true, id: true, surname: true }
+                        }
+                    }
                 }
             }
         });
 
-        const emailToUserId = new Map<string, string>();
+        // Map email → ProjectMember.id (not User.id)
+        const emailToProjectMemberId = new Map<string, string>();
         const emailToSurname = new Map<string, string>();
-        const userIdToSurname = new Map<string, string>();
+        const pmIdToSurname = new Map<string, string>();
+
+        // Find current user's ProjectMember.id
+        let creatorProjectMemberId: string | null = null;
 
         for (const pm of projectMembers) {
-            const email = pm.user.email.toLowerCase();
-            const userId = pm.user.id;
-            const surname = pm.user.surname || "";
+            const email = pm.workspaceMember.user.email.toLowerCase();
+            const surname = pm.workspaceMember.user.surname || "";
+            const userId = pm.workspaceMember.userId;
 
-            emailToUserId.set(email, userId);
+            emailToProjectMemberId.set(email, pm.id);
             emailToSurname.set(email, surname);
-            userIdToSurname.set(userId, surname);
-        }
+            pmIdToSurname.set(pm.id, surname);
 
-        if (!userIdToSurname.has(user.id)) {
-            const currentAuthUser = await prisma.user.findUnique({
-                where: { id: user.id },
-                select: { surname: true }
-            });
-            if (currentAuthUser?.surname) {
-                userIdToSurname.set(user.id, currentAuthUser.surname);
+            if (userId === user.id) {
+                creatorProjectMemberId = pm.id;
             }
         }
 
-        const emailToMemberId = emailToUserId;
+        if (!creatorProjectMemberId) {
+            return {
+                status: "error",
+                message: "You are not a member of this project",
+            };
+        }
+
+        const emailToMemberId = emailToProjectMemberId;
         const invalidAssigneeEmails: string[] = [];
         const invalidReviewerEmails: string[] = [];
         const uniqueAssigneeEmails = new Set<string>();
@@ -232,7 +241,7 @@ export async function bulkUploadTasksAndSubtasks(data: {
 
                 const parentReviewerId = firstRow.reviewerEmail
                     ? emailToMemberId.get(firstRow.reviewerEmail.trim().toLowerCase())
-                    : permissions.workspaceMember.userId;
+                    : creatorProjectMemberId;
 
                 const parentStartDate = firstRow.startDate
                     ? (() => {
@@ -260,10 +269,10 @@ export async function bulkUploadTasksAndSubtasks(data: {
                         description: firstRow.description,
                         projectId: data.projectId,
                         workspaceId: project.workspaceId,
-                        createdById: permissions.workspaceMember!.userId,
+                        createdById: creatorProjectMemberId,
                         isParent: true,
                         status: firstRow.status ? (firstRow.status as any) : undefined,
-                        assigneeTo: parentAssigneeId,
+                        assigneeId: parentAssigneeId,
                         reviewerId: parentReviewerId,
                         startDate: parentStartDate,
                         days: firstRow.days,
@@ -288,7 +297,7 @@ export async function bulkUploadTasksAndSubtasks(data: {
 
                         const subtaskReviewerId = subtaskRow.reviewerEmail
                             ? emailToMemberId.get(subtaskRow.reviewerEmail.trim().toLowerCase())
-                            : permissions.workspaceMember.userId;
+                            : creatorProjectMemberId;
 
                         const subtaskStartDate = subtaskRow.startDate
                             ? parseIST(subtaskRow.startDate) || undefined
@@ -313,17 +322,11 @@ export async function bulkUploadTasksAndSubtasks(data: {
                                 description: subtaskRow.description,
                                 projectId: data.projectId,
                                 workspaceId: project.workspaceId,
-                                createdById: permissions.workspaceMember.userId,
+                                createdById: creatorProjectMemberId,
                                 parentTaskId: parentTask.id,
                                 isParent: false,
-                                assigneeTo: subtaskAssigneeId,
-                                assigneeDisplayName: subtaskRow.assigneeEmail
-                                    ? emailToSurname.get(subtaskRow.assigneeEmail.trim().toLowerCase()) || null
-                                    : null,
+                                assigneeId: subtaskAssigneeId,
                                 reviewerId: subtaskReviewerId,
-                                reviewerDisplayName: subtaskReviewerId
-                                    ? userIdToSurname.get(subtaskReviewerId) || null
-                                    : null,
                                 startDate: subtaskStartDate,
                                 days: subtaskRow.days,
                                 dueDate: calculateDueDate(subtaskStartDate, subtaskRow.days),

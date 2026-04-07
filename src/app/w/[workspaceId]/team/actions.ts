@@ -28,15 +28,14 @@ export async function inviteUserToWorkspace(
             message: "Invalid input data",
         };
     }
-
     const {
         name,
         niceName,
-        contactNumber,
         email,
         password,
         role,
         workspaceId,
+        phoneNumber,
     } = parsed.data;
 
     let createdAuthUserId: string | undefined;
@@ -67,13 +66,13 @@ export async function inviteUserToWorkspace(
                     name,
                     email,
                     surname: niceName ?? null,
-                    contactNumber: contactNumber ?? null,
+                    phoneNumber: phoneNumber ?? null,
                     // Don't manually set emailVerified - Better Auth manages this
                 },
                 update: {
                     name,
                     surname: niceName ?? null,
-                    contactNumber: contactNumber ?? null,
+                    phoneNumber: phoneNumber ?? null,
                     email,
                 },
             }),
@@ -109,6 +108,10 @@ export async function inviteUserToWorkspace(
         const { invalidateUserWorkspaces, invalidateWorkspaceMembers } = await import('@/lib/cache/invalidation');
         await invalidateUserWorkspaces(authUserId);
         await invalidateWorkspaceMembers(workspaceId);
+        
+        // Match the project's revalidateTag pattern (needs 2 arguments in this env)
+        const { revalidateTag } = await import("next/cache");
+        (revalidateTag as any)(`workspace-members-${workspaceId}`, 'layout');
 
         return {
             status: "success",
@@ -276,9 +279,10 @@ export async function deleteWorkspaceMember(
         }
 
         // 10. Invalidate caches
-        const { revalidateTag } = await import("next/cache");
-        revalidateTag(`workspace-members-${workspaceId}`, "layout");
-        revalidateTag(`user-workspaces-${userIdToDelete}`, "layout");
+        const { revalidateTag, revalidatePath } = await import("next/cache");
+        (revalidateTag as any)(`workspace-members-${workspaceId}`, "layout");
+        (revalidateTag as any)(`user-workspaces-${userIdToDelete}`, "layout");
+        revalidatePath(`/w/${workspaceId}/team`);
 
         return {
             status: "success",

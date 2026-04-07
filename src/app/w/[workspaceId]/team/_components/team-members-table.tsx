@@ -160,9 +160,9 @@ export function TeamMembers({ data, isAdmin, workspaceId }: TeamMembersProps) {
                                     </span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Contact:</span>
+                                    <span className="text-muted-foreground">Phone:</span>
                                     <span className="font-medium">
-                                        {memberToView.user?.contactNumber || "N/A"}
+                                        {memberToView.user?.phoneNumber || "N/A"}
                                     </span>
                                 </div>
                                 <div className="flex justify-between">

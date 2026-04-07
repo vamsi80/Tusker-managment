@@ -21,7 +21,8 @@ export type WorkspaceMemberRow = {
     surname?: string | null;
     email: string;
     image?: string | null;
-    contactNumber?: string | null
+    contactNumber?: string | null; // This will be deprecated soon, mapping to phoneNumber
+    phoneNumber?: string | null;
   };
 };
 
@@ -40,20 +41,20 @@ async function _fetchWorkspaceMembersInternal(workspaceId: string): Promise<Work
       workspaceId: true,
       userId: true,
       workspaceRole: true,
+      projectMembers: {
+        select: {
+          id: true,
+          projectId: true,
+        },
+      },
       user: {
         select: {
           id: true,
           name: true,
           surname: true,
-          contactNumber: true,
+          phoneNumber: true,
           email: true,
           image: true,
-          projectMembers: {
-            select: {
-              id: true,
-              projectId: true,
-            },
-          },
         },
       },
     },
@@ -65,7 +66,7 @@ async function _fetchWorkspaceMembersInternal(workspaceId: string): Promise<Work
     workspaceId: m.workspaceId,
     userId: m.userId,
     workspaceRole: m.workspaceRole,
-    projectMembers: m.user?.projectMembers ?? [],
+    projectMembers: m.projectMembers ?? [],
     user: m.user ?? undefined,
   }));
 
