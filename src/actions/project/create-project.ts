@@ -170,7 +170,7 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
                             clintMembers: {
                                 create: {
                                     name: validation.data.contactPerson,
-                                    contactNumber: validation.data.contactNumber,
+                                    phoneNumber: validation.data.phoneNumber,
                                 },
                             },
                         },

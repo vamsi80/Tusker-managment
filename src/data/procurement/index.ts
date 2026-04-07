@@ -327,7 +327,7 @@ export const getPurchaseOrders = cache(async (workspaceId: string) => {
                     id: true,
                     name: true,
                     contactPerson: true,
-                    contactNumber: true,
+                    phoneNumber: true,
                 },
             },
             project: {

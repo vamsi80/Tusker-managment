@@ -107,7 +107,7 @@ export async function editProject(values: EditProjectSchemaType): Promise<ApiRes
                 });
 
                 // Update client member contact info if provided
-                if (validation.data.contactPerson || validation.data.contactNumber) {
+                if (validation.data.contactPerson || validation.data.phoneNumber) {
                     const clientMember = await tx.clintMembers.findFirst({
                         where: { clintId: clientRecord.id },
                     });
@@ -117,7 +117,7 @@ export async function editProject(values: EditProjectSchemaType): Promise<ApiRes
                             where: { id: clientMember.id },
                             data: {
                                 ...(validation.data.contactPerson && { name: validation.data.contactPerson }),
-                                ...(validation.data.contactNumber && { contactNumber: validation.data.contactNumber }),
+                                ...(validation.data.phoneNumber && { phoneNumber: validation.data.phoneNumber }),
                             },
                         });
                     }

@@ -13,7 +13,6 @@ model User {
   id                     String                 @id
   name                   String
   surname                String?
-  contactNumber          String?
   email                  String                 @unique
   emailVerified          Boolean                @default(false)
   image                  String?
@@ -210,7 +209,7 @@ model ClintMembers {
   id            String   @id @default(uuid())
   name          String
   email         String?
-  contactNumber String?
+  phoneNumber   String?
   clintId       String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -472,7 +471,7 @@ model Vendor {
   name           String
   companyName    String?
   contactPerson  String?
-  contactNumber  String?
+  phoneNumber    String?
   email          String?
   address        String?
   gstNumber      String?

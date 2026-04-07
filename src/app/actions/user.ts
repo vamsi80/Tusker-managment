@@ -20,8 +20,6 @@ export async function syncUserProfile({
     console.log(`[Sync] Updating profile for user ${userId}...`);
     
     // We use executeRaw to bypass any stale Prisma Client types
-    // The table name is usually "user" (lowercase) in Prisma/Postgres by default, 
-    // but Better Auth sometimes uses "User". We'll try to be safe.
     
     if (surname && phoneNumber) {
       await prisma.$executeRaw`
@@ -48,5 +46,26 @@ export async function syncUserProfile({
   } catch (error) {
     console.error("[Sync] Failed to sync user profile via Raw SQL:", error);
     return { success: false, error: String(error) };
+  }
+}
+
+/**
+ * Checks if a user with the given phone number exists in the database.
+ */
+export async function checkUserExistsByPhone(phoneNumber: string) {
+  if (!phoneNumber) return { exists: false };
+  
+  try {
+    const user = await prisma.user.findFirst({
+      where: {
+        phoneNumber: phoneNumber
+      },
+      select: { id: true }
+    });
+    
+    return { exists: !!user };
+  } catch (error) {
+    console.error("[Auth] Failed to check user existence by phone:", error);
+    return { exists: false, error: String(error) };
   }
 }
