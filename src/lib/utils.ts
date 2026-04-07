@@ -11,16 +11,24 @@ export function cn(...inputs: ClassValue[]) {
  * This prevents 1-day shifts caused by local timezone offsets.
  */
 /**
- * Parses a local date-time string (YYYY-MM-DDTHH:mm) as Indian Standard Time (IST)
+ * Parses a local date-time string (YYYY-MM-DDTHH:mm or YYYY-MM-DD) as Indian Standard Time (IST)
  */
 export function parseIST(dateStr: string | null | undefined): Date | null {
   if (!dateStr) return null;
   // If it's already an ISO string with timezone, parse it directly
-  if (dateStr.includes('Z') || dateStr.includes('+')) return new Date(dateStr);
+  if (dateStr.includes('Z') || dateStr.includes('+')) {
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? null : d;
+  }
   
-  // datetime-local gives YYYY-MM-DDTHH:mm
-  // We append the IST offset +05:30
-  return new Date(`${dateStr}:00+05:30`);
+  // If it's just YYYY-MM-DD (date only), add default time
+  let finalStr = dateStr;
+  if (!dateStr.includes('T') && dateStr.includes('-')) {
+    finalStr = `${dateStr}T00:00`;
+  }
+  
+  const d = new Date(`${finalStr}:00+05:30`);
+  return isNaN(d.getTime()) ? null : d;
 }
 
 /**
