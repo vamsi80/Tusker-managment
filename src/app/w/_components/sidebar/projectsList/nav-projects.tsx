@@ -18,6 +18,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuAction, useSidebar } from "@/components/ui/sidebar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, } from "@/components/ui/alert-dialog";
 import { CreateProjectForm } from "@/app/w/[workspaceId]/p/_components/create-project-form";
+import { useMounted } from "@/hooks/use-mounted";
 
 interface iAppProps {
   projects: UserProjectsType;
@@ -34,6 +35,7 @@ export function NavProjects({ projects, workspaceId, isAdmin, canCreateProject, 
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const navigatingTo = useRef<string | null>(null);
+  const mounted = useMounted();
 
   // Clear navigating ref when transition ends or path changes
   useEffect(() => {
@@ -174,14 +176,16 @@ export function NavProjects({ projects, workspaceId, isAdmin, canCreateProject, 
         <SidebarGroupLabel>
           <div className="flex text-sm items-center justify-between w-full cursor-pointer mb-4" onClick={onOpenCreateProject}>
             <span>Projects</span>
-            <CreateProjectForm
-              members={members}
-              workspaceId={workspaceId}
-              isAdmin={isAdmin} // Still used?
-              canCreateProject={canCreateProject ?? isAdmin} // Fallback to isAdmin if undefined
-              userRole={userRole}
-              currentUserId={currentUserId}
-            />
+            {mounted && (
+              <CreateProjectForm
+                members={members}
+                workspaceId={workspaceId}
+                isAdmin={isAdmin} // Still used?
+                canCreateProject={canCreateProject ?? isAdmin} // Fallback to isAdmin if undefined
+                userRole={userRole}
+                currentUserId={currentUserId}
+              />
+            )}
           </div>
         </SidebarGroupLabel>
         <SidebarMenu>
@@ -208,70 +212,72 @@ export function NavProjects({ projects, workspaceId, isAdmin, canCreateProject, 
                 </SidebarMenuButton>
 
                 {/* Action dropdown menu */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <SidebarMenuAction>
-                      <MoreHorizontal className="h-4 w-4" />
-                      <span className="sr-only">More options</span>
-                    </SidebarMenuAction>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent side="right" align="start" className="w-48">
-                    {/* View */}
-                    <DropdownMenuItem asChild>
-                      <Link href={href} className="flex items-center gap-2 cursor-pointer">
-                        <Eye className="h-4 w-4" />
-                        <span>View Project</span>
-                      </Link>
-                    </DropdownMenuItem>
-
-                    {/* Edit - PROJECT_MANAGER or Admin */}
-                    {proj.canManageMembers && (
-                      <DropdownMenuItem
-                        className="flex items-center gap-2 cursor-pointer"
-                        disabled={isLoadingProject}
-                        onClick={() => handleEditClick(proj.id)}
-                      >
-                        {isLoadingProject ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Pencil className="h-4 w-4" />
-                        )}
-                        <span>{isLoadingProject ? "Loading..." : "Edit Project"}</span>
+                {mounted && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <SidebarMenuAction>
+                        <MoreHorizontal className="h-4 w-4" />
+                        <span className="sr-only">More options</span>
+                      </SidebarMenuAction>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent side="right" align="start" className="w-48">
+                      {/* View */}
+                      <DropdownMenuItem asChild>
+                        <Link href={href} className="flex items-center gap-2 cursor-pointer">
+                          <Eye className="h-4 w-4" />
+                          <span>View Project</span>
+                        </Link>
                       </DropdownMenuItem>
-                    )}
-
-                    {/* Manage Members - PROJECT_MANAGER or Admin */}
-                    {proj.canManageMembers && (
-                      <DropdownMenuItem
-                        className="flex items-center gap-2 cursor-pointer"
-                        disabled={isLoadingProject}
-                        onClick={() => handleManageMembersClick(proj.id)}
-                      >
-                        {isLoadingProject ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Users className="h-4 w-4" />
-                        )}
-                        <span>{isLoadingProject ? "Loading..." : "Manage Members"}</span>
-                      </DropdownMenuItem>
-                    )}
-
-                    {proj.canManageMembers && (
-                      <>
-                        <DropdownMenuSeparator />
-
-                        {/* Delete - PROJECT_MANAGER or Admin */}
+  
+                      {/* Edit - PROJECT_MANAGER or Admin */}
+                      {proj.canManageMembers && (
                         <DropdownMenuItem
-                          className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive"
-                          onClick={() => handleDeleteClick({ id: proj.id, name: proj.name })}
+                          className="flex items-center gap-2 cursor-pointer"
+                          disabled={isLoadingProject}
+                          onClick={() => handleEditClick(proj.id)}
                         >
-                          <Trash2 className="h-4 w-4" />
-                          <span>Delete Project</span>
+                          {isLoadingProject ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Pencil className="h-4 w-4" />
+                          )}
+                          <span>{isLoadingProject ? "Loading..." : "Edit Project"}</span>
                         </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                      )}
+  
+                      {/* Manage Members - PROJECT_MANAGER or Admin */}
+                      {proj.canManageMembers && (
+                        <DropdownMenuItem
+                          className="flex items-center gap-2 cursor-pointer"
+                          disabled={isLoadingProject}
+                          onClick={() => handleManageMembersClick(proj.id)}
+                        >
+                          {isLoadingProject ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Users className="h-4 w-4" />
+                          )}
+                          <span>{isLoadingProject ? "Loading..." : "Manage Members"}</span>
+                        </DropdownMenuItem>
+                      )}
+  
+                      {proj.canManageMembers && (
+                        <>
+                          <DropdownMenuSeparator />
+  
+                          {/* Delete - PROJECT_MANAGER or Admin */}
+                          <DropdownMenuItem
+                            className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive"
+                            onClick={() => handleDeleteClick({ id: proj.id, name: proj.name })}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            <span>Delete Project</span>
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </SidebarMenuItem>
             );
           })}
