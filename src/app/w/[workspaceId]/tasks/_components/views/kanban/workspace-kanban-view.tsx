@@ -43,7 +43,7 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
             getTasks({
                 workspaceId,
                 status: [status],
-                excludeParents: true,
+                excludeParents: false,
                 limit: 30, // Increased to 30 to better fill initial screen and prevent eager paging
                 sorts: [{ field: "createdAt", direction: "desc" }],
                 view_mode: "kanban",
