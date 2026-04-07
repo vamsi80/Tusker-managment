@@ -187,7 +187,7 @@ export const KanbanColumn = React.memo(function KanbanColumn({
                         )}
 
                         {/* Load more / skeleton */}
-                        {(hasMore || isLoadingMore) && (
+                        {(hasMore || isLoadingMore) ? (
                             <div ref={loadMoreRef} className="py-2 w-full">
                                 {isLoadingMore ? (
                                     <div className="space-y-3">
@@ -197,6 +197,16 @@ export const KanbanColumn = React.memo(function KanbanColumn({
                                     <div className="h-4 w-full" />
                                 )}
                             </div>
+                        ) : (
+                            subTaskIds.length > 0 && (
+                                <div className="py-6 flex flex-col items-center justify-center gap-2 opacity-40 group/nomore select-none">
+                                    <div className="h-px w-8 bg-muted-foreground/30 group-hover/nomore:w-12 transition-all duration-500" />
+                                    <span className="text-[10px] uppercase font-bold tracking-[0.2em] text-muted-foreground whitespace-nowrap">
+                                        No more tasks
+                                    </span>
+                                    <div className="h-px w-8 bg-muted-foreground/30 group-hover/nomore:w-12 transition-all duration-500" />
+                                </div>
+                            )
                         )}
                     </div>
 

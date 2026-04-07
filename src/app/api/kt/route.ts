@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
             view_mode: view_mode as any,
             groupBy: "status",
             includeSubTasks: true,
-            excludeParents: true,
+            excludeParents: false,
             includeFacets: true,
             sorts: [{ field: "createdAt", direction: "desc" }]
         };

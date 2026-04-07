@@ -126,7 +126,7 @@ function buildSeekCondition(
             return {
                 AND: [
                     { [dbField]: null },
-                    { id: { [op]: lastId } },
+                    { id: { lt: lastId } },
                 ],
             };
         }
@@ -135,11 +135,11 @@ function buildSeekCondition(
         const conditions: any[] = [
             // 1. All rows strictly after this value (direction-dependent: lt for DESC, gt for ASC)
             { [dbField]: { [op]: lastFieldValue } },
-            // 2. Rows with SAME value but strictly after this ID (ALWAYS 'gt' because tiebreaker is ALWAYS 'asc')
+            // 2. Rows with SAME value but strictly after this ID (ALWAYS 'lt' because tiebreaker is ALWAYS 'desc')
             {
                 AND: [
                     { [dbField]: lastFieldValue },
-                    { id: { gt: lastId } },
+                    { id: { lt: lastId } },
                 ],
             },
         ];

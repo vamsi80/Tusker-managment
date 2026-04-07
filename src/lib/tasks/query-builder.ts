@@ -371,10 +371,11 @@ export function buildWorkspaceFilterWhere(
     if (opts.onlyParents) {
         where.isParent = true;
         where.parentTaskId = null;
-    } else if (opts.onlySubtasks) {
-        where.parentTaskId = { not: null };
-    } else if (opts.excludeParents || isKanban) {
+    } else if (opts.excludeParents) {
         where.isParent = false;
+    } else if (isKanban) {
+        // Show all tasks (parents or subtasks) in Kanban that match the status
+        // unless explicitly excluded
     } else if (isList || isGantt || isCalendar) {
         // Default to hierarchy only if NO filters are active
         if (!hasFilters) {
