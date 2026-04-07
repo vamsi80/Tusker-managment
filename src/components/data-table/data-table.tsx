@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ChevronLeft, ChevronRight, Columns, Search, Plus, X, Filter } from "lucide-react";
 import { ColumnDef, ColumnFiltersState, SortingState, VisibilityState, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, getFacetedRowModel, getFacetedUniqueValues, useReactTable } from "@tanstack/react-table";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { useMounted } from "@/hooks/use-mounted";
 
 export interface DataTableFilterField<TData> {
     label: string;
@@ -67,6 +68,7 @@ export function DataTable<TData, TValue>({
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
     const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
     const [internalRowSelection, setInternalRowSelection] = React.useState({});
+    const mounted = useMounted();
 
     const rowSelection = controlledRowSelection ?? internalRowSelection;
     const setRowSelection = controlledOnRowSelectionChange ?? setInternalRowSelection;
@@ -124,7 +126,7 @@ export function DataTable<TData, TValue>({
 
                     <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
 
-                        {filterDisplay === "menu" ? (
+                        {filterDisplay === "menu" && mounted ? (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="outline" size="sm" className="h-8 border-dashed">
@@ -195,7 +197,7 @@ export function DataTable<TData, TValue>({
                             </DropdownMenu>
                         ) : (
                             <>
-                                {filterFields.map((field) => {
+                                {mounted && filterFields.map((field) => {
                                     const column = table.getColumn(field.value);
                                     return (
                                         column && (
@@ -224,7 +226,7 @@ export function DataTable<TData, TValue>({
                         {extraToolbarContent}
 
                         {/* Column Toggle */}
-                        {showColumnToggle && (
+                        {showColumnToggle && mounted && (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="outline" size="sm" className="ml-auto">

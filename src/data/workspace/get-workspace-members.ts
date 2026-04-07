@@ -21,7 +21,8 @@ export type WorkspaceMemberRow = {
     surname?: string | null;
     email: string;
     image?: string | null;
-    contactNumber?: string | null
+    contactNumber?: string | null; // This will be deprecated soon, mapping to phoneNumber
+    phoneNumber?: string | null;
   };
 };
 
@@ -51,7 +52,7 @@ async function _fetchWorkspaceMembersInternal(workspaceId: string): Promise<Work
           id: true,
           name: true,
           surname: true,
-          contactNumber: true,
+          phoneNumber: true,
           email: true,
           image: true,
         },

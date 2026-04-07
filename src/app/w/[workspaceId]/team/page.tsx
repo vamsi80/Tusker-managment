@@ -4,7 +4,7 @@ import { TeamMembers } from "./_components/team-members-table";
 import { AppLoader } from "@/components/shared/app-loader";
 import { getWorkspaceMembers } from "@/data/workspace";
 
-export const revalidate = 300; // 5 minute ISR cache
+export const revalidate = 60;
 
 interface TeamPageProps {
     params: Promise<{ workspaceId: string }>;

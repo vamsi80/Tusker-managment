@@ -14,6 +14,7 @@ import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { checkUserExistsByPhone } from "@/app/actions/user";
 import { Phone, Mail } from "lucide-react";
 
 const GoogleIcon = ({ className }: { className?: string }) => (
@@ -146,6 +147,15 @@ export const LoginForm = () => {
 
     startPhoneTransition(async () => {
       try {
+        // Check if user exists before sending OTP
+        const { exists } = await checkUserExistsByPhone(phoneNumber);
+        if (!exists) {
+          toast.error("This phone number is not registered. Please contact your administrator.", {
+            duration: 5000,
+          });
+          return;
+        }
+
         await authClient.phoneNumber.sendOtp({
           phoneNumber,
           fetchOptions: {

@@ -31,7 +31,7 @@ export interface FullProjectData {
     address?: string | null;
     gstNumber?: string | null;
     contactPerson?: string | null;
-    contactNumber?: string | null;
+    phoneNumber?: string | null;
 }
 
 /**
@@ -114,7 +114,7 @@ async function _getFullProjectDataInternal(projectId: string, userId: string): P
         address: project.clint[0]?.address || null,
         gstNumber: project.clint[0]?.gstNumber || null,
         contactPerson: project.clint[0]?.clintMembers[0]?.name || null,
-        contactNumber: project.clint[0]?.clintMembers[0]?.contactNumber || null,
+        phoneNumber: project.clint[0]?.clintMembers[0]?.phoneNumber || null,
     };
 }
 

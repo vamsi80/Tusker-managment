@@ -73,7 +73,7 @@ export const EditProjectForm = ({
             address: project.address || "",
             gstNumber: project.gstNumber || "",
             contactPerson: project.contactPerson || "",
-            contactNumber: project.contactNumber || "",
+            phoneNumber: project.phoneNumber || "",
             projectLead: project.projectLead || "",
             memberAccess: project.memberAccess || [],
         },
@@ -276,10 +276,10 @@ export const EditProjectForm = ({
 
                                 <FormField
                                     control={form.control}
-                                    name="contactNumber"
+                                    name="phoneNumber"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Contact Number</FormLabel>
+                                            <FormLabel>Phone Number</FormLabel>
                                             <FormControl>
                                                 <Input
                                                     placeholder="e.g. +91 98765 43210"
