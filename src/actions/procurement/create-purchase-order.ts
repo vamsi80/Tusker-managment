@@ -111,7 +111,7 @@ export async function createPurchaseOrder(
                     totalTaxAmount: Math.round(totalTaxAmount * 100) / 100,
                     totalAmount: Math.round(totalAmount * 100) / 100,
                     currency: 'INR',
-                    createdById: permissions.workspaceMember.userId,
+                    createdById: permissions.workspaceMemberId,
                     deliveryAddressLine1: validated.data.deliveryAddress,
                     deliveryingAt: validated.data.deliveryDate,
                     deliveryCountry: validated.data.deliveryCountry,
@@ -140,8 +140,12 @@ export async function createPurchaseOrder(
                     project: true,
                     createdBy: {
                         select: {
-                            name: true,
-                            email: true,
+                            user: {
+                                select: {
+                                    name: true,
+                                    email: true,
+                                }
+                            }
                         },
                     },
                 },

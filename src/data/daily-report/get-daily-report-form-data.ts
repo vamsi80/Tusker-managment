@@ -27,8 +27,10 @@ export async function getDailyReportFormData(workspaceId: string) {
         }),
         prisma.projectMember.findMany({
             where: {
-                userId,
-                project: { workspaceId },
+                workspaceMember: {
+                    userId,
+                    workspaceId,
+                },
                 projectRole: { in: ["LEAD", "PROJECT_MANAGER"] }
             },
             select: { projectId: true }
@@ -43,7 +45,7 @@ export async function getDailyReportFormData(workspaceId: string) {
             workspaceId,
             status: { notIn: ["COMPLETED", "CANCELLED"] },
             OR: isWorkspaceAdmin ? undefined : [
-                { assigneeTo: userId },
+                { assigneeId: userId },
                 { projectId: { in: managedProjectIds } }
             ]
         },

@@ -61,7 +61,7 @@ export const getPODetails = cache(async (poId: string) => {
                     name: true,
                     companyName: true,
                     contactPerson: true,
-                    contactNumber: true,
+                    phoneNumber: true,
                     email: true,
                     address: true,
                     gstNumber: true,

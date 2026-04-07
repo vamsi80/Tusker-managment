@@ -3,22 +3,22 @@ import "server-only";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { env } from "./env";
-import { emailOTP } from "better-auth/plugins"
-import { admin } from "better-auth/plugins";
+import { emailOTP, admin, phoneNumber } from "better-auth/plugins"
 import prisma from "./db";
 import { sendEmail } from "./email";
-
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),
+  user: {
+  },
   session: {
-    expiresIn: 60 * 60 * 24 * 7, // 7 days
-    updateAge: 60 * 60 * 24, // 1 day
+    expiresIn: 60 * 60 * 24 * 7,
+    updateAge: 60 * 60 * 24,
     cookieCache: {
       enabled: true,
-      maxAge: 5 * 60, // 5 minutes
+      maxAge: 5 * 60,
     },
   },
   emailAndPassword: {
@@ -80,12 +80,37 @@ export const auth = betterAuth({
   plugins: [
     emailOTP({
       async sendVerificationOTP({ email, otp }) {
+        // For development, log the OTP to the console
+        console.log('\n==============================================');
+        console.log('📧 EMAIL OTP');
+        console.log('==============================================');
+        console.log('Email:', email);
+        console.log('OTP:', otp);
+        console.log('==============================================\n');
+
         await sendEmail({
           to: email,
           subject: 'Tusker Management - Verify your email',
           html: `<p>Your OTP is <strong>${otp}</strong></p>`,
         });
       }
+    }),
+    phoneNumber({
+      signUpOnVerification: {
+        getTempEmail: (phoneNumber: string) => `${phoneNumber.replace("+", "")}@tusker.temp`,
+        getTempName: (phoneNumber: string) => `User ${phoneNumber}`,
+      },
+      async sendOTP({ phoneNumber, code }, request) {
+        // For development, log the OTP to the console
+        console.log('\n==============================================');
+        console.log('📱 PHONE OTP');
+        console.log('==============================================');
+        console.log('Phone:', phoneNumber);
+        console.log('OTP:', code);
+        console.log('==============================================\n');
+
+        // In production, you would use an SMS service like Twilio here
+      },
     }),
     admin()
   ]

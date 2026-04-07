@@ -6,6 +6,7 @@ import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
 import { TaskSchemaType, taskSchema } from "@/lib/zodSchemas";
 import { syncTaskToProcurement } from "@/lib/procurement/logic";
+import { resolveProjectMemberId } from "@/lib/auth/resolve-member-chain";
 
 export async function editTask(
     data: TaskSchemaType,
@@ -34,6 +35,14 @@ export async function editTask(
                         workspaceId: true,
                         slug: true,
                         id: true
+                    }
+                },
+                // Include createdBy chain for permission check
+                createdBy: {
+                    include: {
+                        workspaceMember: {
+                            select: { userId: true }
+                        }
                     }
                 }
             }
@@ -69,7 +78,7 @@ export async function editTask(
         // - PROJECT_MANAGER: Can edit all tasks in their project
         // - LEAD: Can edit only tasks they created
         const canEditAllTasks = permissions.isWorkspaceAdmin || permissions.isProjectManager;
-        const canEditOwnTasks = permissions.isProjectLead && existingTask.createdById === user.id;
+        const canEditOwnTasks = permissions.isProjectLead && existingTask.createdBy.workspaceMember.userId === user.id;
 
         if (!canEditAllTasks && !canEditOwnTasks) {
             return {
@@ -94,13 +103,27 @@ export async function editTask(
             }
         }
 
+        // Resolve reviewerId to ProjectMember.id if provided
+        let reviewerPMId: string | null | undefined = undefined;
+        if (validation.data.reviewerId !== undefined) {
+            if (validation.data.reviewerId) {
+                reviewerPMId = await resolveProjectMemberId(
+                    validation.data.reviewerId,
+                    existingTask.project.id,
+                    existingTask.project.workspaceId
+                );
+            } else {
+                reviewerPMId = null;
+            }
+        }
+
         // Update the task
         await prisma.task.update({
             where: { id: taskId },
             data: {
                 name: validation.data.name,
                 taskSlug: validation.data.taskSlug,
-                reviewerId: validation.data.reviewerId,
+                reviewerId: reviewerPMId,
             },
         });
 

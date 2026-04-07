@@ -5,6 +5,7 @@ import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
 import { TaskSchemaType, taskSchema } from "@/lib/zodSchemas";
 import { syncTaskToProcurement } from "@/lib/procurement/logic";
+import { resolveProjectMemberId } from "@/lib/auth/resolve-member-chain";
 
 export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
     try {
@@ -47,33 +48,40 @@ export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
             };
         }
 
+        // Resolve current user's ProjectMember.id
+        const projectMember = permissions.projectMember;
+        if (!projectMember) {
+            return {
+                status: "error",
+                message: "You are not a member of this project",
+            };
+        }
+
         // Generate unique slug using optimized generator
         const slug = await (import("@/lib/slug-generator").then(m => m.generateUniqueSlug(
             validation.data.name,
             "task"
         )));
 
-        // For parent tasks, the default reviewer should be null if not provided
-        const reviewerId = validation.data.reviewerId ?? null;
-
-        // Fetch reviewer name if present
-        let reviewerDisplayName: string | null = null;
-        if (reviewerId) {
-            const revMember = await prisma.user.findUnique({
-                where: { id: reviewerId },
-                select: { surname: true }
-            });
-            reviewerDisplayName = revMember ? revMember.surname : null;
+        // Resolve reviewerId to ProjectMember.id if provided
+        let reviewerPMId: string | null = null;
+        if (validation.data.reviewerId) {
+            reviewerPMId = await resolveProjectMemberId(
+                validation.data.reviewerId,
+                values.projectId,
+                project.workspaceId
+            );
         }
 
-        // 3. Create the task
+        // 3. Create the task — createdById and reviewerId are now ProjectMember IDs
         const newTask = await prisma.task.create({
             data: {
                 name: validation.data.name,
                 taskSlug: slug,
                 projectId: validation.data.projectId,
                 workspaceId: project.workspaceId,
-                createdById: permissions.workspaceMember.userId,
+                createdById: projectMember.id,
+                reviewerId: reviewerPMId,
             },
             include: {
                 _count: {
@@ -86,7 +94,6 @@ export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
         await syncTaskToProcurement(newTask.id);
 
         // 4. OPTIMIZED: Use comprehensive cache invalidation
-        // Removed revalidatePath (slow) - using invalidateTaskMutation instead
         await invalidateTaskMutation({
             taskId: newTask.id,
             projectId: values.projectId,

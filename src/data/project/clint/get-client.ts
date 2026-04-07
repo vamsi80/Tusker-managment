@@ -17,7 +17,7 @@ export interface ProjectClientData {
     address: string | null;
     gstNumber: string | null;
     contactPerson: string | null;
-    contactNumber: string | null;
+    phoneNumber: string | null;
 }
 
 /**
@@ -50,7 +50,7 @@ async function _getProjectClientInternal(projectId: string): Promise<ProjectClie
         address: clientRecord?.address || null,
         gstNumber: clientRecord?.gstNumber || null,
         contactPerson: clientMember?.name || null,
-        contactNumber: clientMember?.contactNumber || null,
+        phoneNumber: clientMember?.phoneNumber || null,
     };
 }
 

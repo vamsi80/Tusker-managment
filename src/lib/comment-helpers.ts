@@ -23,7 +23,7 @@ export async function canUserCommentOnTask(
                     },
                     projectMembers: {
                         where: {
-                            userId: userId
+                            workspaceMember: { userId: userId }
                         },
                         select: { projectRole: true }
                     }
@@ -44,7 +44,7 @@ export async function canUserCommentOnTask(
     if (projectMember?.projectRole === 'LEAD') return true;
 
     // Check if user is assigned to the task
-    if (task.assigneeTo === userId) return true;
+    if (task.assigneeId === userId) return true;
 
     return false;
 }

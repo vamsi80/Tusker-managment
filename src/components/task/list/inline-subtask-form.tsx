@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import slugify from "slugify";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { ProjectMembersType, getProjectMembers } from "@/data/project/get-project-members";
-import { SubTaskStatus, STATUS_OPTIONS } from "@/lib/zodSchemas";
+import { SubTaskStatus, STATUS_OPTIONS, subTaskSchema } from "@/lib/zodSchemas";
 import { ColumnVisibility } from "../shared/column-visibility";
 import { SubTaskType } from "@/data/task";
 import { ApiResponse } from "@/lib/types";
@@ -105,6 +105,7 @@ export function InlineSubTaskForm({
         })()
     );
     const [tag, setTag] = useState(subTask?.tag?.id || "");
+    const [days, setDays] = useState<number>(subTask?.days || 1);
 
     const [availableMembers, setAvailableMembers] = useState<ProjectMembersType>(members);
 
@@ -149,6 +150,42 @@ export function InlineSubTaskForm({
         fetchData();
     }, [projectId, mode, reviewer, userId]);
 
+    // Handle date synchronization: When days or startDate changes, update dueDate
+    useEffect(() => {
+        if (startDate && days && !pending) {
+            const start = parseIST(startDate);
+            if (start) {
+                const due = new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
+                const year = due.getFullYear();
+                const month = String(due.getMonth() + 1).padStart(2, '0');
+                const day = String(due.getDate()).padStart(2, '0');
+                const hours = String(due.getHours()).padStart(2, '0');
+                const minutes = String(due.getMinutes()).padStart(2, '0');
+                const formattedDue = `${year}-${month}-${day}T${hours}:${minutes}`;
+
+                // Only update if it's actually different to avoid infinite loops
+                if (formattedDue !== dueDate) {
+                    setDueDate(formattedDue);
+                }
+            }
+        }
+    }, [startDate, days]);
+
+    // Handle date synchronization: When dueDate changes, update days
+    useEffect(() => {
+        if (startDate && dueDate && !pending) {
+            const start = parseIST(startDate);
+            const due = parseIST(dueDate);
+            if (start && due) {
+                const diffTime = due.getTime() - start.getTime();
+                const calculatedDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+                if (calculatedDays !== days) {
+                    setDays(calculatedDays);
+                }
+            }
+        }
+    }, [dueDate]);
+
     // Helper function to get role shortcuts
     const getRoleShortcut = (role: string): string => {
         const shortcuts: Record<string, string> = {
@@ -164,15 +201,37 @@ export function InlineSubTaskForm({
         e.preventDefault();
         if (pending) return;
 
-        if (!subTaskName.trim()) {
-            toast.error("SubTask name is required");
+        const taskSlug = mode === "create"
+            ? slugify(subTaskName.trim(), { lower: true, strict: true })
+            : (subTask?.taskSlug || "");
+
+        // Collect form data for validation
+        const formData = {
+            name: subTaskName.trim(),
+            description: description.trim() || undefined,
+            taskSlug,
+            status,
+            projectId,
+            parentTaskId,
+            assignee: assignee,
+            reviewerId: reviewer,
+            tag: tag,
+            startDate: startDate || undefined,
+            dueDate: dueDate,
+            days: days,
+        };
+
+        // Use zod for robust validation
+        const validation = subTaskSchema.safeParse(formData);
+
+        if (!validation.success) {
+            // Display only the first validation error message
+            const errorMessage = validation.error.issues[0]?.message || "Validation failed";
+            toast.error(errorMessage);
             return;
         }
 
-        if (subTaskName.trim().length < 3) {
-            toast.error("SubTask name must be at least 3 characters long");
-            return;
-        }
+        const validData = validation.data;
 
         // Helper to get full objects for optimistic UI
         const selectedMember = members.find(m => m.userId === assignee);
@@ -180,22 +239,16 @@ export function InlineSubTaskForm({
 
         if (mode === "create") {
             // CREATE MODE
-            const taskSlug = slugify(subTaskName.trim(), { lower: true, strict: true });
-
-            if (taskSlug.length < 3) {
-                toast.error("SubTask name must generate a valid slug (at least 3 characters)");
-                return;
-            }
-
             // LEVEL 1: Optimistic UI Update for Creation
             const tempId = `temp-${Date.now()}`;
             const optimisticSubTask = {
                 id: tempId,
-                name: subTaskName.trim(),
-                description: description.trim() || undefined,
-                status,
-                startDate: startDate ? parseIST(startDate) : null,
-                dueDate: dueDate ? parseIST(dueDate) : null,
+                name: validData.name,
+                description: validData.description,
+                status: validData.status,
+                startDate: validData.startDate ? parseIST(validData.startDate) : null,
+                dueDate: validData.dueDate ? parseIST(validData.dueDate) : null,
+                days: validData.days,
                 projectId,
                 parentTaskId,
                 createdAt: new Date(),
@@ -218,19 +271,7 @@ export function InlineSubTaskForm({
 
             startTransition(async () => {
                 const { data: result, error } = await tryCatch(
-                    createSubTask({
-                        name: subTaskName.trim(),
-                        taskSlug,
-                        description: description.trim() || undefined,
-                        status,
-                        projectId,
-                        parentTaskId,
-                        assignee: assignee || undefined,
-                        reviewerId: reviewer || undefined,
-                        tag: tag || undefined,
-                        startDate: startDate || undefined,
-                        dueDate: dueDate || undefined,
-                    })
+                    createSubTask(validData)
                 );
 
                 if (error || (result as ApiResponse).status !== "success") {
@@ -256,11 +297,12 @@ export function InlineSubTaskForm({
 
             // LEVEL 1: Optimistic UI Update
             const updatedData: Partial<SubTaskType> = {
-                name: subTaskName.trim(),
-                description: description.trim() || undefined,
-                status,
-                startDate: startDate ? parseIST(startDate) : null,
-                dueDate: dueDate ? parseIST(dueDate) : null,
+                name: validData.name,
+                description: validData.description,
+                status: validData.status,
+                startDate: validData.startDate ? parseIST(validData.startDate) : null,
+                dueDate: validData.dueDate ? parseIST(validData.dueDate) : null,
+                days: validData.days,
                 // Include full objects for UI
                 assignee: selectedMember ? {
                     id: selectedMember.userId,
@@ -276,18 +318,7 @@ export function InlineSubTaskForm({
 
             startTransition(async () => {
                 const { data: result, error } = await tryCatch(
-                    editSubTask({
-                        name: subTaskName.trim(),
-                        description: description.trim() || undefined,
-                        taskSlug: subTask.taskSlug,
-                        projectId: subTask.projectId,
-                        parentTaskId: subTask.parentTaskId || "",
-                        status,
-                        assignee: assignee || undefined,
-                        startDate: startDate || undefined,
-                        dueDate: dueDate || undefined,
-                        tag: tag || undefined,
-                    }, subTask.id)
+                    editSubTask(validData, subTask.id)
                 );
 
                 if (error || result.status !== "success") {
@@ -459,9 +490,25 @@ export function InlineSubTaskForm({
                 </TableCell>
             )}
 
-            {/* Progress - Empty (calculated field) */}
+            {/* Days Column (Replaces Progress for better UX) */}
             {columnVisibility.progress && (
-                <TableCell className="w-[120px]"></TableCell>
+                <TableCell className="w-[80px] px-2">
+                    <Input
+                        type="number"
+                        min={1}
+                        max={365}
+                        value={days}
+                        onChange={(e) => {
+                            const val = parseInt(e.target.value);
+                            if (!isNaN(val)) {
+                                setDays(Math.max(1, Math.min(365, val)));
+                            }
+                        }}
+                        disabled={pending}
+                        className="h-8 border-primary/30"
+                        placeholder="Days"
+                    />
+                </TableCell>
             )}
 
             {/* Tag */}

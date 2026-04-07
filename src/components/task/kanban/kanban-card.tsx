@@ -40,7 +40,7 @@ export const KanbanCard = React.memo(function KanbanCard({ subTask, columnColor,
         transition,
     };
 
-    const assignee = subTask.assignee;
+    const assigneeUser = (subTask.assignee as any)?.workspaceMember?.user;
     const reviewCount = (subTask as any)._count?.reviewComments || 0;
     const project = subTask.project;
 
@@ -124,7 +124,6 @@ export const KanbanCard = React.memo(function KanbanCard({ subTask, columnColor,
                                         <TooltipTrigger asChild>
                                             <div className="flex items-center rounded-full bg-blue-50/50 dark:bg-blue-950/30 border border-blue-100/50 dark:border-blue-900/50 hover:bg-blue-100 transition-colors cursor-default">
                                                 <Avatar className="h-4 w-4 border border-blue-200 dark:border-blue-800 shadow-sm">
-                                                    <AvatarImage src={subTask.parentTask.reviewer.image || ""} />
                                                     <AvatarFallback className="text-[8px] bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
                                                         {(subTask.parentTask.reviewer.surname?.[0] || subTask.parentTask.reviewer.name?.[0])}
                                                     </AvatarFallback>
@@ -147,7 +146,6 @@ export const KanbanCard = React.memo(function KanbanCard({ subTask, columnColor,
                                         <TooltipTrigger asChild>
                                             <div className="flex items-center rounded-full bg-amber-50/50 dark:bg-amber-950/30 border border-amber-100/50 dark:border-amber-900/50 hover:bg-amber-100 transition-colors cursor-default">
                                                 <Avatar className="h-4 w-4 border border-amber-200 dark:border-amber-800 shadow-sm">
-                                                    <AvatarImage src={projectManager.image || ""} />
                                                     <AvatarFallback className="text-[8px] bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
                                                         {(projectManager.surname?.[0] || projectManager.name?.[0])}
                                                     </AvatarFallback>
@@ -244,17 +242,16 @@ export const KanbanCard = React.memo(function KanbanCard({ subTask, columnColor,
                         )}
                     </div>
 
-                    {assignee && (
+                    {assigneeUser && (
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <Avatar className="h-6 w-6 cursor-pointer border-2 border-background">
-                                        <AvatarImage src={assignee.image || ""} />
-                                        <AvatarFallback className="text-[10px]">{assignee.surname?.[0] || assignee.name?.[0]}</AvatarFallback>
+                                        <AvatarFallback className="text-[10px]">{assigneeUser.surname?.[0] || assigneeUser.name?.[0]}</AvatarFallback>
                                     </Avatar>
                                 </TooltipTrigger>
                                 <TooltipContent side="left">
-                                    <p>Assignee: {assignee.surname || assignee.name}</p>
+                                    <p>Assignee: {assigneeUser.surname || assigneeUser.name}</p>
                                 </TooltipContent>
                             </Tooltip>
                         </TooltipProvider>

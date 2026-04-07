@@ -5,9 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { workSpaceSchema, WorkSpaceSchemaType } from '@/lib/zodSchemas'
-import { Loader2, PlusIcon, SparkleIcon } from 'lucide-react'
+import { Loader2, PlusIcon } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Suspense, useEffect, useTransition } from 'react'
+import { Suspense, useEffect, useTransition, useRef } from 'react'
 import { toast } from 'sonner'
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, Resolver, useWatch } from 'react-hook-form';
@@ -26,6 +26,7 @@ function CreateWorkspaceContent() {
     const params = useSearchParams();
     const noWorkspace = params.get("noWorkspace");
     const { triggerConfetti } = useConfetti();
+    const hasToasted = useRef(false);
 
     const form = useForm<WorkSpaceSchemaType>({
         resolver: zodResolver(workSpaceSchema) as unknown as Resolver<WorkSpaceSchemaType>,
@@ -69,15 +70,16 @@ function CreateWorkspaceContent() {
                 triggerConfetti();
                 form.reset();
                 router.push("/w");
-            } else (
+            } else {
                 toast.error(result.message)
-            )
+            }
         });
     }
 
     useEffect(() => {
-        if (noWorkspace) {
+        if (noWorkspace && !hasToasted.current) {
             toast.error("You don't have any workspace. Please create one to continue.");
+            hasToasted.current = true;
         }
     }, [noWorkspace]);
 
@@ -123,10 +125,10 @@ function CreateWorkspaceContent() {
                                 name="description"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Descreption</FormLabel>
+                                        <FormLabel>Description</FormLabel>
                                         <FormControl>
                                             <Textarea
-                                                placeholder="Small Descreption"
+                                                placeholder="Small Description"
                                                 className="min-h-[20px]"{...field}
                                             />
                                         </FormControl>

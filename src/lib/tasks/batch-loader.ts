@@ -52,9 +52,13 @@ export async function batchLoadProjects(ids: (string | null | undefined)[]) {
                 take: 2,
                 select: {
                     projectRole: true,
-                    user: {
+                    workspaceMember: {
                         select: {
-                            surname: true,
+                            user: {
+                                select: {
+                                    surname: true,
+                                }
+                            }
                         }
                     }
                 }
@@ -67,25 +71,83 @@ export async function batchLoadProjects(ids: (string | null | undefined)[]) {
 
 // ============================================================
 //  HYDRATOR: Attach batch-loaded entities to raw tasks
+//  Now resolves user info through ProjectMember → WorkspaceMember → User
 // ============================================================
-export function hydrateTasks<T extends {
+export async function hydrateTasks<T extends {
     id: string;
-    assigneeTo: string | null;
+    assigneeId: string | null;
     reviewerId: string | null;
     createdById: string;
     tagId: string | null;
     projectId: string;
 }>(
-    rawTasks: T[],
-    userMap: Map<string, any>,
+    tasks: T[],
+    _userMap: Map<string, any>,
     tagMap: Map<string, any>,
     projectMap: Map<string, any>
 ) {
-    return rawTasks.map(task => ({
+    // Collect unique ProjectMember IDs from all three fields
+    const memberIds = new Set<string>();
+    tasks.forEach(task => {
+        if (task.assigneeId) memberIds.add(task.assigneeId);
+        if (task.createdById) memberIds.add(task.createdById);
+        if (task.reviewerId) memberIds.add(task.reviewerId);
+    });
+
+    if (memberIds.size === 0) {
+        return tasks.map(task => ({
+            ...task,
+            assignee: null,
+            reviewer: null,
+            createdBy: null,
+            tag: task.tagId ? tagMap.get(task.tagId) ?? null : null,
+            project: projectMap.get(task.projectId) ?? null,
+        }));
+    }
+
+    // Batch load all ProjectMembers with their WorkspaceMember → User chain
+    const projectMembers = await prisma.projectMember.findMany({
+        where: { id: { in: Array.from(memberIds) } },
+        include: {
+            workspaceMember: {
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            name: true,
+                            surname: true,
+                            image: true,
+                        },
+                    },
+                },
+            },
+        },
+    });
+
+    // Build a map: ProjectMember.id → { user info }
+    const memberMap = new Map<string, {
+        id: string;
+        name: string;
+        surname: string | null;
+        image: string | null;
+    }>();
+
+    projectMembers.forEach(pm => {
+        const user = pm.workspaceMember.user;
+        memberMap.set(pm.id, {
+            id: user.id,
+            name: user.name,
+            surname: user.surname,
+            image: user.image,
+        });
+    });
+
+    // Hydrate tasks with user info from the member chain
+    return tasks.map(task => ({
         ...task,
-        assignee: task.assigneeTo ? userMap.get(task.assigneeTo) ?? null : null,
-        reviewer: task.reviewerId ? userMap.get(task.reviewerId) ?? null : null,
-        createdBy: userMap.get(task.createdById) ?? null,
+        assignee: task.assigneeId ? memberMap.get(task.assigneeId) ?? null : null,
+        reviewer: task.reviewerId ? memberMap.get(task.reviewerId) ?? null : null,
+        createdBy: memberMap.get(task.createdById) ?? null,
         tag: task.tagId ? tagMap.get(task.tagId) ?? null : null,
         project: projectMap.get(task.projectId) ?? null,
     }));

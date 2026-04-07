@@ -9,6 +9,7 @@ import { ApiResponse } from "@/lib/types";
 import { SubTaskSchemaType, subTaskSchema } from "@/lib/zodSchemas";
 import { syncTaskToProcurement } from "@/lib/procurement/logic";
 import { parseIST } from "@/lib/utils";
+import { resolveProjectMemberId } from "@/lib/auth/resolve-member-chain";
 
 export async function createSubTask(values: SubTaskSchemaType): Promise<ApiResponse> {
     const user = await requireUser();
@@ -52,30 +53,24 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
             };
         }
 
-        let assigneeId: string | null = null;
-        let assigneeDisplayName: string | null = null;
+        // Resolve current user's ProjectMember.id
+        const creatorProjectMember = permissions.projectMember;
+        if (!creatorProjectMember) {
+            return {
+                status: "error",
+                message: "You are not a member of this project",
+            };
+        }
+
+        // Resolve assignee to ProjectMember.id
+        let assigneeProjectMemberId: string | null = null;
         if (validation.data.assignee) {
-            // Find the project member for the assignee. The assignee value could be a userId or workspaceMemberId.
-            const assigneeProjectMember = await prisma.projectMember.findFirst({
-                where: {
-                    projectId: values.projectId,
-                    user: {
-                        OR: [
-                            { id: validation.data.assignee },
-                            { workspaces: { some: { id: validation.data.assignee } } }
-                        ]
-                    }
-                },
-                include: {
-                    user: {
-                        select: { id: true, surname: true, name: true }
-                    }
-                }
-            });
-            if (assigneeProjectMember) {
-                assigneeId = assigneeProjectMember.userId;
-                assigneeDisplayName = assigneeProjectMember.user.surname || assigneeProjectMember.user.name;
-            }
+            // The assignee value is a userId — resolve to ProjectMember.id
+            assigneeProjectMemberId = await resolveProjectMemberId(
+                validation.data.assignee,
+                values.projectId,
+                project.workspaceId
+            );
         }
 
         // Get parent task to create unique slug
@@ -91,83 +86,93 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
             };
         }
 
-        // Default reviewer to creator
-        const providedReviewerId = validation.data.reviewerId || null;
-        const reviewerId = providedReviewerId ?? permissions.workspaceMember.userId;
-
-        // Calculate dueDate and days (UTC safe)
-        let dueDate: Date | null = null;
-        let days: number | null = null;
-        
-        if (validation.data.dueDate) {
-            dueDate = parseIST(validation.data.dueDate);
-            
-            if (validation.data.startDate && dueDate) {
-                const start = parseIST(validation.data.startDate);
-                if (start) {
-                    const diffTime = Math.abs(dueDate.getTime() - start.getTime());
-                    days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                    // If they are the same day but different times, this might return 0 if < 24h.
-                    // Usually developers prefer at least 1 day if it's on the same day.
-                    if (days === 0) days = 1;
-                }
-            }
+        // Default reviewer to creator's ProjectMember.id
+        let reviewerProjectMemberId: string | null = null;
+        if (validation.data.reviewerId) {
+            reviewerProjectMemberId = await resolveProjectMemberId(
+                validation.data.reviewerId,
+                values.projectId,
+                project.workspaceId
+            );
+        }
+        if (!reviewerProjectMemberId) {
+            // Default: the creator reviews
+            reviewerProjectMemberId = creatorProjectMember.id;
         }
 
-        // Create unique slug for subtask using helper to prevent collisions
-        // We use validation.data.name because generateUniqueSlug slugifies it internally
+        // Use validated data from schema
+        const dueDate = parseIST(validation.data.dueDate);
+        const days = validation.data.days;
+
+        // Create unique slug for subtask
         const uniqueSubtaskSlug = await generateUniqueSlug(validation.data.name, 'task', parentTask.taskSlug);
 
-        // Fetch reviewer name if present
-        let reviewerDisplayName: string | null = null;
-        if (reviewerId) {
-            const revMember = await prisma.user.findUnique({
-                where: { id: reviewerId },
-                select: { surname: true }
+        // Use transaction to ensure counters stay in sync
+        let newSubTask;
+        try {
+            newSubTask = await prisma.$transaction(async (tx) => {
+                const task = await tx.task.create({
+                    data: {
+                        name: validation.data.name,
+                        taskSlug: uniqueSubtaskSlug,
+                        description: validation.data.description,
+                        status: validation.data.status,
+                        projectId: validation.data.projectId,
+                        workspaceId: project.workspaceId,
+                        parentTaskId: validation.data.parentTaskId,
+                        createdById: creatorProjectMember.id,
+                        assigneeId: assigneeProjectMemberId,
+                        reviewerId: reviewerProjectMemberId,
+                        tagId: validation.data.tag || null,
+                        startDate: parseIST(validation.data.startDate),
+                        dueDate: dueDate,
+                        days: days,
+                        isParent: false,
+                    },
+                    include: {
+                        assignee: {
+                            include: {
+                                workspaceMember: {
+                                    include: {
+                                        user: { select: { id: true, surname: true } }
+                                    }
+                                }
+                            }
+                        },
+                        tag: { select: { id: true, name: true } },
+                        reviewer: {
+                            include: {
+                                workspaceMember: {
+                                    include: {
+                                        user: { select: { id: true, surname: true } }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // Increment parent counters
+                await tx.task.update({
+                    where: { id: validation.data.parentTaskId },
+                    data: {
+                        subtaskCount: { increment: 1 },
+                        completedSubtaskCount: validation.data.status === "COMPLETED" ? { increment: 1 } : undefined,
+                    }
+                });
+
+                return task;
             });
-            reviewerDisplayName = revMember ? (revMember.surname) : null;
+        } catch (error: any) {
+            console.error("❌ [PRISMA_ERROR] Subtask creation failed:", error);
+            if (error.code === 'P2011') {
+                console.error("🔍 [PRISMA_META] Null constraint violation details:", error.meta);
+            }
+            return {
+                status: "error",
+                message: `Failed to create subtask: ${error.message || "Unknown database error"}`,
+            };
         }
-
-        // Use transaction to ensure counters and display names stay in sync
-        const newSubTask = await prisma.$transaction(async (tx) => {
-            const task = await tx.task.create({
-                data: {
-                    name: validation.data.name,
-                    taskSlug: uniqueSubtaskSlug,
-                    description: validation.data.description,
-                    status: validation.data.status,
-                    projectId: validation.data.projectId,
-                    workspaceId: project.workspaceId,
-                    parentTaskId: validation.data.parentTaskId,
-                    createdById: permissions.workspaceMember!.userId,
-                    assigneeTo: assigneeId,
-                    assigneeDisplayName: assigneeDisplayName,
-                    reviewerId: reviewerId,
-                    reviewerDisplayName: reviewerDisplayName,
-                    tagId: validation.data.tag || null,
-                    startDate: parseIST(validation.data.startDate),
-                    dueDate: dueDate,
-                    days: days,
-                    isParent: false,
-                },
-                include: {
-                    assignee: { select: { id: true, surname: true } },
-                    tag: { select: { id: true, name: true } },
-                    reviewer: { select: { id: true, surname: true } }
-                }
-            });
-
-            // Increment parent counters
-            await tx.task.update({
-                where: { id: validation.data.parentTaskId },
-                data: {
-                    subtaskCount: { increment: 1 },
-                    completedSubtaskCount: validation.data.status === "COMPLETED" ? { increment: 1 } : undefined,
-                }
-            });
-
-            return task;
-        });
 
         // Sync to procurement
         await syncTaskToProcurement(newSubTask.id);

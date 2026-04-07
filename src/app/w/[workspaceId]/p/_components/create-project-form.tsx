@@ -55,7 +55,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
             registeredCompanyName: "",
             gstNumber: "",
             contactPerson: "",
-            contactNumber: "",
+            phoneNumber: "",
             workspaceId: workspaceId as string,
             // Auto-assign MANAGER as project lead
             projectLead: isManager ? currentUserId : "",
@@ -277,10 +277,10 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
 
                                     <FormField
                                         control={form.control}
-                                        name="contactNumber"
+                                        name="phoneNumber"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Contact Number</FormLabel>
+                                                <FormLabel>Phone Number</FormLabel>
                                                 <FormControl>
                                                     <Input
                                                         placeholder="e.g. +91 98765 43210"
