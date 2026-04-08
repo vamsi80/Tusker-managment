@@ -308,20 +308,13 @@ async function _fetchProjectRoot(
     const status = toArray(opts.status);
     const assigneeIds = toArray(opts.assigneeId);
 
-    // Admins and leads with full access to this project see everything;
-    // restricted members only see assigned tasks.
-    const hasFullAccess = isAdmin || fullAccessProjectIds.includes(projectId);
-
-    const assigneeFilter = !hasFullAccess
-        ? userId  // member: always restrict to their own tasks
-        : assigneeIds && assigneeIds.length > 0
-            ? assigneeIds // pass full set of filters (admin/lead)
-            : undefined;
-
     const where = buildProjectRootWhere(projectId, {
         status,
-        assigneeId: assigneeFilter,
+        assigneeId: toArray(opts.assigneeId),
         cursor: opts.cursor,
+        userId,
+        isAdmin,
+        fullAccessProjectIds,
     });
 
     const [rawTasks, totalCount] = await Promise.all([
@@ -366,7 +359,7 @@ async function _fetchSubtasks(
     const status = toArray(opts.status);
 
     // Resolve the parent's projectId so we can apply the correct per-project scope.
-    let assigneeId: string | undefined = undefined;
+    let isRestrictedMember = false;
     if (!isAdmin) {
         const parent = await prisma.task.findUnique({
             where: { id: parentTaskId },
@@ -376,7 +369,7 @@ async function _fetchSubtasks(
         if (parentProjectId) {
             if (restrictedProjectIds.includes(parentProjectId)) {
                 // Member-only project: restrict to own subtasks
-                assigneeId = userId;
+                isRestrictedMember = true;
             }
         }
     }
@@ -386,12 +379,15 @@ async function _fetchSubtasks(
 
     const where = buildSubtaskExpansionWhere(parentTaskId, {
         status: status,
-        assigneeId: assigneeId ? [assigneeId] : toArray(opts.assigneeId),
+        assigneeId: toArray(opts.assigneeId),
         tagId: toArray(opts.tagId),
         search: opts.search,
         dueAfter: toUTCDateOnly(opts.dueAfter),
         dueBefore: opts.dueBefore ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!) : undefined,
         cursor: opts.cursor,
+        userId,
+        isAdmin,
+        isRestrictedMember,
     });
 
     console.log(`🔍 [EXPAND_API] Final WHERE structure for expansion:`, JSON.stringify(where, null, 2));
@@ -817,15 +813,17 @@ async function _getTasksInternal(
                 const parentIds = result.tasks.filter(t => t.isParent).map(t => t.id);
                 if (parentIds.length > 0) {
                     const hasFullAccess = isAdmin || (projectId ? fullAccessProjectIds.includes(projectId) : false);
-                    const assigneeFilter = !hasFullAccess ? [userId] : toArray(opts.assigneeId);
 
                     const subtasks = await prisma.task.findMany({
                         where: buildSubtaskExpansionWhere(undefined, {
                             parentIds,
                             status: toArray(opts.status),
-                            assigneeId: assigneeFilter,
+                            assigneeId: toArray(opts.assigneeId),
                             tagId: toArray(opts.tagId),
                             search: opts.search,
+                            userId,
+                            isAdmin,
+                            isRestrictedMember: !hasFullAccess
                         }),
                         select: getTaskSelect(opts.view_mode),
                         orderBy: buildOrderBy(opts.sorts)
@@ -921,6 +919,9 @@ async function _getTasksInternal(
                             search: opts.search,
                             dueAfter: toUTCDateOnly(opts.dueAfter),
                             dueBefore: opts.dueBefore ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!) : undefined,
+                            userId,
+                            isAdmin,
+                            isRestrictedMember: !isAdmin && restrictedProjectIds.length > 0 && restrictedProjectIds.includes(opts.projectId || "")
                         }),
                         select: getTaskSelect(opts.view_mode),
                         orderBy: buildOrderBy(opts.sorts)
