@@ -459,7 +459,7 @@ async function _fetchFilteredHierarchy(
             includeSubTasks: opts.includeSubTasks,
             onlyParents: opts.hierarchyMode === "parents",
             onlySubtasks: opts.hierarchyMode === "children",
-            viewMode: opts.view_mode,
+            view_mode: opts.view_mode,
         },
         userId
     );
@@ -487,7 +487,7 @@ async function _fetchFilteredHierarchy(
                 includeSubTasks: opts.includeSubTasks,
                 onlyParents: opts.hierarchyMode === "parents",
                 onlySubtasks: opts.hierarchyMode === "children",
-                viewMode: opts.view_mode,
+                view_mode: opts.view_mode,
                 cursor: opts.cursor,
             },
             userId
@@ -667,7 +667,7 @@ async function _fetchWorkspaceFilter(
         onlyParents: isSorting ? false : opts.onlyParents,
         excludeParents: opts.excludeParents,
         onlySubtasks: isSorting ? true : opts.onlySubtasks,
-        viewMode: opts.view_mode,
+        view_mode: opts.view_mode,
     };
 
     let where = buildWorkspaceFilterWhere(filterOpts, userId);
@@ -875,7 +875,7 @@ async function _getTasksInternal(
                 onlySubtasks: opts.hierarchyMode === "children",
                 excludeParents: opts.excludeParents,
                 includeSubTasks: opts.includeSubTasks,
-                viewMode: opts.view_mode,
+                view_mode: opts.view_mode,
             }, userId);
 
             const countWhere = JSON.parse(JSON.stringify(baseWhere));

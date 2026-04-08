@@ -1,12 +1,12 @@
 import { Prisma } from "@/generated/prisma";
 
-export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
-    const isList = viewMode === "list" || viewMode === "default" || !viewMode;
-    const isKanban = viewMode === "kanban";
-    const isGantt = viewMode === "gantt";
-    const isCalendar = viewMode === "calendar";
-    const isSearch = viewMode === "search";
-    const isSubtask = viewMode === "subtask";
+export function getTaskSelect(view_mode: string = "list"): Prisma.TaskSelect {
+    const isList = view_mode === "list" || view_mode === "default" || !view_mode;
+    const isKanban = view_mode === "kanban";
+    const isGantt = view_mode === "gantt";
+    const isCalendar = view_mode === "calendar";
+    const isSearch = view_mode === "search";
+    const isSubtask = view_mode === "subtask";
 
     // 1. Core fields required everywhere
     const select: Prisma.TaskSelect = {
@@ -275,19 +275,19 @@ export interface WorkspaceFilterOpts {
     excludeParents?: boolean;
     onlySubtasks?: boolean;
     includeSubTasks?: boolean;
-    viewMode?: string;
+    view_mode?: string;
 }
 
 export function buildWorkspaceFilterWhere(
     opts: WorkspaceFilterOpts,
     userId: string
 ): Prisma.TaskWhereInput {
-    const viewMode = opts.viewMode || "list";
-    const isList = viewMode === "list" || viewMode === "default";
-    const isKanban = viewMode === "kanban";
-    const isGantt = viewMode === "gantt";
-    const isSearch = viewMode === "search";
-    const isCalendar = viewMode === "calendar";
+    const view_mode = opts.view_mode || "list";
+    const isList = view_mode === "list" || view_mode === "default";
+    const isKanban = view_mode === "kanban";
+    const isGantt = view_mode === "gantt";
+    const isSearch = view_mode === "search";
+    const isCalendar = view_mode === "calendar";
 
     const where: Prisma.TaskWhereInput = {};
 
@@ -425,10 +425,11 @@ export function buildWorkspaceFilterWhere(
     if (opts.onlyParents) {
         where.isParent = true;
         where.parentTaskId = null;
-    } else if (opts.excludeParents) {
+    } else if (opts.excludeParents || opts.onlySubtasks) {
         where.parentTaskId = { not: null };
     } else if (isList || isGantt || isCalendar) {
-        if (!hasFilters) {
+        // Default to hierarchy only if NO filters are active AND not explicitly excluding parents
+        if (!hasFilters && !opts.excludeParents && !opts.onlySubtasks) {
             where.isParent = true;
             where.parentTaskId = null;
         }
