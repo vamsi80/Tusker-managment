@@ -8,7 +8,7 @@ import { CacheTags } from "@/data/cache-tags";
 
 // 🚀 Emergency Performance Cache (Bypasses even next-cache overhead for 30s)
 const PERMISSION_MEMORY_CACHE = new Map<string, { data: any, timestamp: number }>();
-const MEMORY_TTL = 30000; // 30 seconds
+const MEMORY_TTL = 15000; // 15 seconds
 
 function getMemoryCached<T>(key: string): T | null {
     const cached = PERMISSION_MEMORY_CACHE.get(key);
@@ -133,7 +133,7 @@ export const getWorkspacePermissions = cache(async (workspaceId: string, provide
         [`workspace-perms-${workspaceId}-${userId}`],
         {
             tags: CacheTags.userPermissions(userId, workspaceId),
-            revalidate: 300, // 5 minutes
+            revalidate: 60, // 1 minute
         }
     );
 
@@ -231,7 +231,7 @@ export const getUserPermissions = cache(async (workspaceId: string, projectId: s
         [`project-perms-${projectId}-${userId}`],
         {
             tags: CacheTags.userPermissions(userId, workspaceId),
-            revalidate: 300, // 5 minutes
+            revalidate: 60, // 1 minute
         }
     );
 

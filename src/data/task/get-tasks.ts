@@ -884,8 +884,14 @@ async function _getTasksInternal(
                 viewMode: opts.view_mode,
             }, userId);
 
-            const countWhere = { ...baseWhere };
-            delete countWhere.AND;
+            const countWhere = JSON.parse(JSON.stringify(baseWhere));
+            // Only remove cursor conditions from AND, NOT permission scoping
+            if (Array.isArray(countWhere.AND)) {
+                countWhere.AND = countWhere.AND.filter((cond: any) =>
+                    !cond.OR || !cond.OR.some((c: any) => c.createdAt && (c.createdAt.lt || c.createdAt.gt))
+                );
+                if (countWhere.AND.length === 0) delete countWhere.AND;
+            }
 
             const countsResult = await prisma.task.groupBy({
                 by: ['status'],
@@ -1004,6 +1010,10 @@ export const getTasks = cache(async (opts: GetTasksOptions, providedUserId?: str
         fullAccessProjectIds,
         restrictedProjectIds
     } = await resolveTaskPermissions(workspaceId, projectId, providedUserId);
+
+    if (process.env.NODE_ENV === "production" || true) {
+        console.log(`🛡️ [GET_TASKS] User: ${providedUserId || 'current'}, WS: ${workspaceId}, Admin: ${isWorkspaceAdmin}, FullAccess: ${fullAccessProjectIds.length}, Restricted: ${restrictedProjectIds.length}`);
+    }
 
     if (!permissions.workspaceMemberId || (!isWorkspaceAdmin && authorizedProjectIds.length === 0)) {
         return {
