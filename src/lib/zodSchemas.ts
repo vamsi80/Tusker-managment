@@ -134,11 +134,13 @@ export const projectSchema = z.object({
     companyName: z
         .string()
         .min(3, { message: "Company Name must be at least 3 charcters long" })
-        .max(100, { message: "Company Name must be at most 100 character long" }),
+        .max(100, { message: "Company Name must be at most 100 character long" })
+        .optional(),
     registeredCompanyName: z
         .string()
         .min(3, { message: "Registered Company Name must be at least 3 charcters long" })
-        .max(100, { message: "Registered Company Name must be at most 100 character long" }),
+        .max(100, { message: "Registered Company Name must be at most 100 character long" })
+        .optional(),
     directorName: z
         .string()
         .min(3, { message: "Location must be at least 3 charcters long" })
@@ -152,15 +154,18 @@ export const projectSchema = z.object({
     gstNumber: z
         .string()
         .max(15, { message: "GST is usually 15 characters — alphanumeric." })
-        .max(15, { message: "GST is usually 15 characters — alphanumeric." }),
+        .max(15, { message: "GST is usually 15 characters — alphanumeric." })
+        .optional(),
     contactPerson: z
         .string()
         .min(3, { message: "Contact Person must be at least 3 charcters long" })
-        .max(100, { message: "Contact Person must be at most 100 character long" }),
+        .max(100, { message: "Contact Person must be at most 100 character long" })
+        .optional(),
     phoneNumber: z
         .string()
         .min(10, { message: "Phone Number must be at least 10 characters long" })
-        .max(15, { message: "Phone Number must be at most 15 characters long" }),
+        .max(15, { message: "Phone Number must be at most 15 characters long" })
+        .optional(),
     workspaceId: z
         .string().optional(),
     projectLead: z.string().optional(),
@@ -226,6 +231,7 @@ export const editProjectSchema = z.object({
         .optional(),
     // Team fields
     projectLead: z.string().optional(),
+    projectManagers: z.array(z.string()).optional(),
     memberAccess: z.array(z.string()).optional(),
 });
 

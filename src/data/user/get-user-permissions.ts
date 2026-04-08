@@ -75,10 +75,11 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
         const leadProjectIds = projectRoles.filter(p => p.projectRole === "LEAD").map(p => p.projectId);
         const managedProjectIds = projectRoles.filter(p => p.projectRole === "PROJECT_MANAGER").map(p => p.projectId);
         const memberProjectIds = projectRoles.filter(p => p.projectRole === "MEMBER").map(p => p.projectId);
+        const viewerProjectIds = projectRoles.filter(p => p.projectRole === "VIEWER").map(p => p.projectId);
 
         const isProjectLead = leadProjectIds.length > 0;
         const isProjectManager = managedProjectIds.length > 0;
-        const hasAccess = isWorkspaceAdmin || isProjectLead || isProjectManager || memberProjectIds.length > 0;
+        const hasAccess = isWorkspaceAdmin || isProjectManager || isProjectLead || memberProjectIds.length > 0 || viewerProjectIds.length > 0;
 
         return {
             isWorkspaceAdmin,
@@ -89,6 +90,7 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
             leadProjectIds,
             managedProjectIds,
             memberProjectIds,
+            viewerProjectIds,
             workspaceMemberId: workspaceMember.id,
             workspaceMember,
         };

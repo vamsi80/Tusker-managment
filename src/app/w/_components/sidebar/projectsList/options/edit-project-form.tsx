@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useTransition, useEffect } from "react";
 import { Resolver, useForm, useWatch } from "react-hook-form";
 import { Check, Loader2, Save, SparkleIcon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
 import {
     Dialog,
@@ -74,7 +75,7 @@ export const EditProjectForm = ({
             gstNumber: project.gstNumber || "",
             contactPerson: project.contactPerson || "",
             phoneNumber: project.phoneNumber || "",
-            projectLead: project.projectLead || "",
+            projectManagers: project.projectMembers?.filter(m => m.projectRole === "PROJECT_MANAGER").map(m => m.userId) || [],
             memberAccess: project.memberAccess || [],
         },
     });
@@ -296,75 +297,73 @@ export const EditProjectForm = ({
                                     )}
                                 />
                             </div>
-
-                            {/* Project Manager Selection */}
+                            {/* Project Managers Selection */}
                             <FormField
                                 control={form.control}
-                                name="projectLead"
+                                name="projectManagers"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Project Manager</FormLabel>
+                                        <FormLabel>Project Managers</FormLabel>
                                         <FormDescription className="text-xs text-muted-foreground mb-2">
-                                            Select the project manager who will have full project access.
+                                            Select project managers who will have full project access. (Managers only)
                                         </FormDescription>
                                         <div className="space-y-2">
                                             <Popover>
                                                 <PopoverTrigger asChild>
                                                     <Button
                                                         variant="outline"
-                                                        className="w-full justify-between font-normal"
+                                                        className="w-full justify-between font-normal h-auto min-h-[40px] py-2"
                                                     >
-                                                        {field.value
-                                                            ? (() => {
-                                                                const m = members?.find(
-                                                                    (m) => m.userId === field.value
-                                                                );
-                                                                return `${m?.user?.surname}`;
-                                                            })()
-                                                            : "Select a project manager"}
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {field.value && field.value.length > 0 ? (
+                                                                field.value.map((userId) => {
+                                                                    const m = members?.find(
+                                                                        (m) => m.userId === userId
+                                                                    );
+                                                                    return (
+                                                                        <Badge key={userId} variant="secondary" className="px-1 font-normal">
+                                                                            {m?.user?.surname}
+                                                                        </Badge>
+                                                                    );
+                                                                })
+                                                            ) : (
+                                                                <span className="text-muted-foreground">Select project managers</span>
+                                                            )}
+                                                        </div>
                                                     </Button>
                                                 </PopoverTrigger>
 
-                                                <PopoverContent className="p-0 w-64">
+                                                <PopoverContent className="p-0 w-64" align="start">
                                                     <Command>
-                                                        <CommandInput placeholder="Search members…" />
-                                                        <CommandEmpty>No members found.</CommandEmpty>
+                                                        <CommandInput placeholder="Search managers…" />
+                                                        <CommandEmpty>No workspace managers found.</CommandEmpty>
 
-                                                        <CommandGroup>
+                                                        <CommandGroup className="max-h-64 overflow-y-auto">
                                                             {members
-                                                                ?.filter((m) => m.workspaceRole === "MEMBER")
+                                                                ?.filter((m) => m.workspaceRole === "MANAGER")
                                                                 .map((member) => {
                                                                     const userName = `${member.user?.surname}`;
-                                                                    const accessLevelRaw =
-                                                                        (member as any)?.accessLevel ??
-                                                                        (member as any)?.role ??
-                                                                        "Manager";
-
-                                                                    const accessLevel =
-                                                                        typeof accessLevelRaw === "string"
-                                                                            ? accessLevelRaw.toLowerCase()
-                                                                            : "member";
-
-                                                                    const isSelected =
-                                                                        field.value === member.userId;
+                                                                    const isSelected = field.value?.includes(member.userId);
 
                                                                     return (
                                                                         <CommandItem
                                                                             key={member.userId}
-                                                                            value={userName}
                                                                             onSelect={() => {
-                                                                                field.onChange(member.userId);
+                                                                                const current = field.value || [];
+                                                                                if (isSelected) {
+                                                                                    field.onChange(current.filter(id => id !== member.userId));
+                                                                                } else {
+                                                                                    field.onChange([...current, member.userId]);
+                                                                                }
                                                                             }}
                                                                         >
-                                                                            <Check
-                                                                                className={cn(
-                                                                                    "mr-2 h-4 w-4",
-                                                                                    isSelected
-                                                                                        ? "opacity-100"
-                                                                                        : "opacity-0"
-                                                                                )}
-                                                                            />
-                                                                            {userName} ({accessLevel})
+                                                                            <div className={cn(
+                                                                                "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                                                                isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
+                                                                            )}>
+                                                                                <Check className="h-4 w-4" />
+                                                                            </div>
+                                                                            {userName}
                                                                         </CommandItem>
                                                                     );
                                                                 })}

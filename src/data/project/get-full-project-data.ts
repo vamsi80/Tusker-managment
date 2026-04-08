@@ -15,6 +15,7 @@ export interface FullProjectData {
     workspaceId: string;
     // Team data
     projectLead: string | null;
+    projectManagers: string[];
     memberAccess: string[];
     // Project members with full details
     projectMembers?: Array<{
@@ -97,7 +98,15 @@ async function _getFullProjectDataInternal(projectId: string, userId: string): P
         hasAccess: pm.hasAccess,
     }));
 
-    const projectLead = project.projectMembers.find(pm => pm.projectRole === "LEAD");
+    // Map project managers (support multiple)
+    const projectManagers = project.projectMembers
+        .filter(pm => 
+            pm.projectRole === "PROJECT_MANAGER" && 
+            !["OWNER", "ADMIN"].includes(pm.workspaceMember.workspaceRole)
+        )
+        .map(pm => pm.workspaceMember.userId);
+
+    const projectLead = projectManagers[0] || null;
 
     return {
         id: project.id,
@@ -105,7 +114,8 @@ async function _getFullProjectDataInternal(projectId: string, userId: string): P
         description: project.description,
         slug: project.slug,
         workspaceId: project.workspaceId,
-        projectLead: projectLead ? projectLead.workspaceMember.userId : null,
+        projectLead,
+        projectManagers,
         memberAccess: project.projectMembers.map(pm => pm.workspaceMember.userId),
         projectMembers: projectMembersData,
         companyName: project.clint[0]?.name || null,

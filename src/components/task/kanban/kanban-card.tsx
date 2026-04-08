@@ -44,8 +44,9 @@ export const KanbanCard = React.memo(function KanbanCard({ subTask, columnColor,
     const reviewCount = (subTask as any)._count?.reviewComments || 0;
     const project = subTask.project;
 
-    // Get Project Manager from the hoisted map (effective way)
-    const projectManager = projectManagers && subTask.projectId ? projectManagers[subTask.projectId] : null;
+    // Get Project Managers from the hoisted map (effective way)
+    const assignedManagers = (projectManagers && subTask.projectId ? projectManagers[subTask.projectId] : []) as any[];
+    const firstManager = assignedManagers?.[0] || null;
 
     // 🚀 Speculative Pre-fetching for "Instant" feel
     const handlePrefetch = () => {
@@ -116,7 +117,7 @@ export const KanbanCard = React.memo(function KanbanCard({ subTask, columnColor,
                         )}
                     </div>
 
-                    {(projectManager || subTask.parentTask?.reviewer) && (
+                    {(assignedManagers.length > 0 || subTask.parentTask?.reviewer) && (
                         <div className="flex items-center gap-1.5 ml-auto">
                             {subTask.parentTask?.reviewer && (
                                 <TooltipProvider>
@@ -140,16 +141,19 @@ export const KanbanCard = React.memo(function KanbanCard({ subTask, columnColor,
                                 </TooltipProvider>
                             )}
 
-                            {projectManager && (
+                            {assignedManagers.length > 0 && (
                                 <TooltipProvider>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
                                             <div className="flex items-center rounded-full bg-amber-50/50 dark:bg-amber-950/30 border border-amber-100/50 dark:border-amber-900/50 hover:bg-amber-100 transition-colors cursor-default">
                                                 <Avatar className="h-4 w-4 border border-amber-200 dark:border-amber-800 shadow-sm">
                                                     <AvatarFallback className="text-[8px] bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
-                                                        {(projectManager.surname?.[0] || projectManager.name?.[0])}
+                                                        {(firstManager?.surname?.[0])}
                                                     </AvatarFallback>
                                                 </Avatar>
+                                                {assignedManagers.length > 1 && (
+                                                    <span className="text-[8px] pr-1.5 font-bold">+{assignedManagers.length - 1}</span>
+                                                )}
                                             </div>
                                         </TooltipTrigger>
                                         <TooltipContent side="left" className="text-xs p-2 space-y-0.5">
@@ -164,8 +168,14 @@ export const KanbanCard = React.memo(function KanbanCard({ subTask, columnColor,
                                                 </div>
                                             )}
                                             <div>
-                                                <p className="font-semibold text-[10px] uppercase tracking-wider">Project Manager</p>
-                                                <p className="font-medium text-[11px] text-primary">{projectManager.surname || projectManager.name}</p>
+                                                <p className="font-semibold text-[10px] uppercase tracking-wider">
+                                                    {assignedManagers.length > 1 ? "Project Managers" : "Project Manager"}
+                                                </p>
+                                                {assignedManagers.map((pm, idx) => (
+                                                    <p key={idx} className="font-medium text-[11px] text-primary">
+                                                        {pm.surname}
+                                                    </p>
+                                                ))}
                                             </div>
                                         </TooltipContent>
                                     </Tooltip>
