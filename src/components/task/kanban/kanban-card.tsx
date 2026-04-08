@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Folder, Crown, MoreHorizontal, Edit, Trash2 } from "lucide-react";
+import { Folder, Crown, MoreHorizontal, Edit, Trash2, MessageSquare, Calendar, AlertCircle, Tag } from "lucide-react";
 import type { KanbanSubTaskType } from "@/data/task";
 import { cn } from "@/lib/utils";
 import { getColorFromString } from "@/lib/colors/project-colors";
@@ -28,9 +28,10 @@ interface KanbanCardProps {
     permissions?: UserPermissionsType;
     userId?: string;
     onUpdateInPlace?: (subTaskId: string, data: any) => void;
+    projectMembers?: any[];
 }
 
-export const KanbanCard = React.memo(function KanbanCard({ subTask, columnColor, isDragging = false, onSubTaskClick, projectManagers, isUpdating, permissions, userId, onUpdateInPlace }: KanbanCardProps) {
+export const KanbanCard = React.memo(function KanbanCard({ subTask, columnColor, isDragging = false, onSubTaskClick, projectManagers, isUpdating, permissions, userId, onUpdateInPlace, projectMembers = [] }: KanbanCardProps) {
     const {
         attributes,
         listeners,
@@ -63,11 +64,11 @@ export const KanbanCard = React.memo(function KanbanCard({ subTask, columnColor,
 
     const canEdit = () => {
         const creatorId = subTask.createdBy?.workspaceMember?.user?.id || (subTask as any).createdById;
-        
+
         if (permissions) {
-            return permissions.isWorkspaceAdmin || 
-                   permissions.isProjectManager || 
-                   (permissions.isProjectLead && creatorId === userId);
+            return permissions.isWorkspaceAdmin ||
+                permissions.isProjectManager ||
+                (permissions.isProjectLead && creatorId === userId);
         }
         return false;
     };
@@ -229,10 +230,11 @@ export const KanbanCard = React.memo(function KanbanCard({ subTask, columnColor,
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" className="w-40">
                                         <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
-                                            <EditSubTaskForm 
+                                            <EditSubTaskForm
                                                 subTask={subTask as any}
                                                 projectId={subTask.projectId}
                                                 parentTaskId={subTask.parentTaskId!}
+                                                members={projectMembers}
                                                 onSubTaskUpdated={(data) => onUpdateInPlace?.(subTask.id, data)}
                                                 trigger={
                                                     <div className="flex items-center gap-2 w-full px-2 py-1.5 cursor-pointer hover:bg-accent rounded-sm transition-colors text-xs">
@@ -243,12 +245,12 @@ export const KanbanCard = React.memo(function KanbanCard({ subTask, columnColor,
                                             />
                                         </DropdownMenuItem>
                                         <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
-                                            <DeleteSubTaskForm 
+                                            <DeleteSubTaskForm
                                                 subTask={subTask as any}
                                                 onSubTaskDeleted={() => {
                                                     // In Kanban, board state usually handles this via cache invalidation
                                                     // but we might want a local filter if we're feeling optimistic
-                                                    window.location.reload(); 
+                                                    window.location.reload();
                                                 }}
                                                 trigger={
                                                     <div className="flex items-center gap-2 w-full px-2 py-1.5 cursor-pointer hover:bg-destructive/10 text-destructive rounded-sm transition-colors text-xs">

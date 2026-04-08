@@ -39,6 +39,7 @@ interface KanbanColumnProps {
     isOverColumn?: boolean;
     permissions?: UserPermissionsType;
     userId?: string;
+    projectMembers?: any[];
 }
 
 /**
@@ -60,7 +61,8 @@ export const KanbanColumn = React.memo(function KanbanColumn({
     overCardId,
     isOverColumn = false,
     permissions,
-    userId
+    userId,
+    projectMembers = []
 }: KanbanColumnProps) {
     const { setNodeRef, isOver } = useDroppable({
         id: column.id,
@@ -182,6 +184,7 @@ export const KanbanColumn = React.memo(function KanbanColumn({
                                             isDimmed={isDragging && subTaskId === activeTaskId}
                                             permissions={permissions}
                                             userId={userId}
+                                            projectMembers={projectMembers}
                                         />
                                     </div>
                                 </React.Fragment>
@@ -287,6 +290,7 @@ const KanbanCardWrapper = React.memo(function KanbanCardWrapper({
     isDimmed?: boolean;
     permissions?: UserPermissionsType;
     userId?: string;
+    projectMembers?: any[];
 }) {
     const subTask = useTaskCacheStore(state => state.entities[id]);
     if (!subTask) return null;

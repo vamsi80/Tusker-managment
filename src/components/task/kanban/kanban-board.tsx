@@ -954,6 +954,7 @@ export function KanbanBoard({
                                     onSubTaskClick={handleSubTaskClick}
                                     onLoadMore={() => handleLoadMore(column.id)}
                                     projectManagers={projectManagers}
+                                    projectMembers={projectMembers}
                                     updatingTaskIds={updatingTaskIds}
                                     activeTaskId={activeSubTask?.id ?? null}
                                     overCardId={overInfo.columnId === column.id ? overInfo.overId : null}

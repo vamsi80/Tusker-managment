@@ -27,9 +27,14 @@ type SubTaskBase = {
 interface DeleteSubTaskFormProps<T extends SubTaskBase> {
     subTask: T;
     onSubTaskDeleted?: (subTaskId: string) => void;
+    trigger?: React.ReactNode;
 }
 
-export function DeleteSubTaskForm<T extends SubTaskBase>({ subTask, onSubTaskDeleted }: DeleteSubTaskFormProps<T>) {
+export function DeleteSubTaskForm<T extends SubTaskBase>({ 
+    subTask, 
+    onSubTaskDeleted,
+    trigger 
+}: DeleteSubTaskFormProps<T>) {
     const [open, setOpen] = useState(false);
     const [pending, startTransition] = useTransition();
 
@@ -62,14 +67,16 @@ export function DeleteSubTaskForm<T extends SubTaskBase>({ subTask, onSubTaskDel
     return (
         <AlertDialog open={open} onOpenChange={setOpen}>
             <AlertDialogTrigger asChild>
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
-                >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete SubTask
-                </Button>
+                {trigger || (
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
+                    >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete SubTask
+                    </Button>
+                )}
             </AlertDialogTrigger>
             <AlertDialogContent>
                 <AlertDialogHeader>
