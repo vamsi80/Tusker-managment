@@ -315,7 +315,7 @@ async function _fetchProjectRoot(
     const assigneeFilter = !hasFullAccess
         ? userId  // member: always restrict to their own tasks
         : assigneeIds && assigneeIds.length > 0
-            ? assigneeIds[0] // single-assignee fast path for admin/lead
+            ? assigneeIds // pass full set of filters (admin/lead)
             : undefined;
 
     const where = buildProjectRootWhere(projectId, {
@@ -323,12 +323,6 @@ async function _fetchProjectRoot(
         assigneeId: assigneeFilter,
         cursor: opts.cursor,
     });
-
-    // For multi-assignee filter (admin/lead) override the single fast-path
-    if (hasFullAccess && assigneeIds && assigneeIds.length > 1) {
-        where.assigneeId = { in: assigneeIds };
-        delete where.OR;
-    }
 
     const [rawTasks, totalCount] = await Promise.all([
         prisma.task.findMany({
