@@ -112,6 +112,9 @@ export function buildProjectRootWhere(
         status?: string[];
         assigneeId?: string | string[];   // null = unfiltered (admin/lead sees all)
         cursor?: TaskCursor;
+        userId?: string;
+        isAdmin?: boolean;
+        fullAccessProjectIds?: string[];
     }
 ): Prisma.TaskWhereInput {
     const where: Prisma.TaskWhereInput = {
@@ -125,21 +128,42 @@ export function buildProjectRootWhere(
         where.status = { in: opts.status as any };
     }
 
-    // Visibility scope for restricted users or specific filter
-    if (opts.assigneeId) {
-        const assigneeVal = Array.isArray(opts.assigneeId) ? { in: opts.assigneeId } : opts.assigneeId;
-        const subtaskAssigneeFilter: Prisma.TaskWhereInput = {
-            OR: [
-                { assigneeId: assigneeVal },
-                { assignee: { workspaceMember: { userId: assigneeVal as any } } }
-            ]
-        };
+    const assigneeClauses: Prisma.TaskWhereInput[] = [];
 
-        where.OR = [
-            { assigneeId: assigneeVal },
-            { assignee: { workspaceMember: { userId: assigneeVal as any } } },
-            { subTasks: { some: subtaskAssigneeFilter } }
-        ];
+    const isRestricted = opts.userId && !opts.isAdmin && (!opts.fullAccessProjectIds || !opts.fullAccessProjectIds.includes(projectId));
+
+    if (isRestricted && opts.userId) {
+        assigneeClauses.push({
+            OR: [
+                { assigneeId: opts.userId as any },
+                { assignee: { workspaceMember: { userId: opts.userId } } },
+                { subTasks: { some: { OR: [ { assigneeId: opts.userId as any }, { assignee: { workspaceMember: { userId: opts.userId } } } ] } } }
+            ]
+        });
+    }
+
+    if (opts.assigneeId) {
+        const aVal = Array.isArray(opts.assigneeId) ? { in: opts.assigneeId } : opts.assigneeId;
+        const aValRel = (Array.isArray(opts.assigneeId) ? { in: opts.assigneeId } : opts.assigneeId) as any;
+
+        assigneeClauses.push({
+            OR: [
+                { assigneeId: aVal },
+                { assignee: { workspaceMember: { userId: aValRel } } },
+                { subTasks: { some: { OR: [ { assigneeId: aVal }, { assignee: { workspaceMember: { userId: aValRel } } } ] } } }
+            ]
+        });
+    }
+
+    if (assigneeClauses.length > 0) {
+        if (where.AND) {
+            where.AND = [
+                ...(Array.isArray(where.AND) ? where.AND : [where.AND]),
+                ...assigneeClauses
+            ];
+        } else {
+            where.AND = assigneeClauses;
+        }
     }
 
     // Cursor pagination: keyed on (createdAt DESC, id)
@@ -176,6 +200,9 @@ export function buildSubtaskExpansionWhere(
         dueAfter?: Date;
         dueBefore?: Date;
         cursor?: TaskCursor;
+        userId?: string;
+        isAdmin?: boolean;
+        isRestrictedMember?: boolean; // explicitly pass this for subtasks
     }
 ): Prisma.TaskWhereInput {
     const where: Prisma.TaskWhereInput = {};
@@ -196,23 +223,38 @@ export function buildSubtaskExpansionWhere(
         where.tagId = { in: opts.tagId };
     }
 
-    // Assignee filter: Support both ProjectMemberId and User ID (relational)
-    if (opts.assigneeId) {
-        const assigneeVal = Array.isArray(opts.assigneeId) ? { in: opts.assigneeId } : opts.assigneeId;
-        const assigneeFilter: Prisma.TaskWhereInput = {
-            OR: [
-                { assigneeId: assigneeVal },
-                { assignee: { workspaceMember: { userId: (Array.isArray(opts.assigneeId) ? { in: opts.assigneeId } : opts.assigneeId) as any } } }
-            ]
-        };
+    const assigneeClauses: Prisma.TaskWhereInput[] = [];
 
+    // Assignee filter: Support both ProjectMemberId and User ID (relational)
+    if (opts.isRestrictedMember && opts.userId) {
+        assigneeClauses.push({
+            OR: [
+                { assigneeId: opts.userId as any },
+                { assignee: { workspaceMember: { userId: opts.userId } } }
+            ]
+        });
+    }
+
+    if (opts.assigneeId) {
+        const aVal = Array.isArray(opts.assigneeId) ? { in: opts.assigneeId } : opts.assigneeId;
+        const aValRel = (Array.isArray(opts.assigneeId) ? { in: opts.assigneeId } : opts.assigneeId) as any;
+
+        assigneeClauses.push({
+            OR: [
+                { assigneeId: aVal },
+                { assignee: { workspaceMember: { userId: aValRel } } }
+            ]
+        });
+    }
+
+    if (assigneeClauses.length > 0) {
         if (where.AND) {
             where.AND = [
                 ...(Array.isArray(where.AND) ? where.AND : [where.AND]),
-                assigneeFilter
+                ...assigneeClauses
             ];
         } else {
-            where.AND = [assigneeFilter];
+            where.AND = assigneeClauses;
         }
     }
 
