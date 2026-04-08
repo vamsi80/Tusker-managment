@@ -10,6 +10,7 @@ import { KanbanCardSkeleton } from "./kanban-skeleton";
 import { useInView } from "react-intersection-observer";
 import React, { useEffect } from "react";
 import { Plus } from "lucide-react";
+import { UserPermissionsType } from "@/data/user/get-user-permissions";
 
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "REVIEW" | "HOLD" | "COMPLETED" | "CANCELLED";
@@ -36,6 +37,8 @@ interface KanbanColumnProps {
     overCardId?: string | null;
     /** Whether the dragged item is over this column at all */
     isOverColumn?: boolean;
+    permissions?: UserPermissionsType;
+    userId?: string;
 }
 
 /**
@@ -56,6 +59,8 @@ export const KanbanColumn = React.memo(function KanbanColumn({
     activeTaskId,
     overCardId,
     isOverColumn = false,
+    permissions,
+    userId
 }: KanbanColumnProps) {
     const { setNodeRef, isOver } = useDroppable({
         id: column.id,
@@ -175,6 +180,8 @@ export const KanbanColumn = React.memo(function KanbanColumn({
                                             projectManagers={projectManagers}
                                             isUpdating={updatingTaskIds.has(subTaskId)}
                                             isDimmed={isDragging && subTaskId === activeTaskId}
+                                            permissions={permissions}
+                                            userId={userId}
                                         />
                                     </div>
                                 </React.Fragment>
@@ -278,6 +285,8 @@ const KanbanCardWrapper = React.memo(function KanbanCardWrapper({
     projectManagers?: Record<string, any>;
     isUpdating: boolean;
     isDimmed?: boolean;
+    permissions?: UserPermissionsType;
+    userId?: string;
 }) {
     const subTask = useTaskCacheStore(state => state.entities[id]);
     if (!subTask) return null;

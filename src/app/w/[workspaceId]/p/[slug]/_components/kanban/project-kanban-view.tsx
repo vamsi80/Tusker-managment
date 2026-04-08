@@ -19,11 +19,13 @@ export async function ProjectKanbanView({
 }: ProjectKanbanViewProps) {
     const userPromise = requireUser();
     const membersPromise = getProjectMembers(projectId);
-
+    
     const user = await userPromise;
+    const permissionsPromise = import("@/data/user/get-user-permissions").then(m => m.getUserPermissions(workspaceId, projectId, user.id));
+
     const COLUMNS = ["TO_DO", "IN_PROGRESS", "REVIEW", "HOLD", "COMPLETED", "CANCELLED"] as const;
 
-    const [statusResponses, projectMembers, pmMap] = await Promise.all([
+    const [statusResponses, projectMembers, pmMap, permissions] = await Promise.all([
         Promise.all(COLUMNS.map(status =>
             getTasks({
                 workspaceId,
@@ -37,7 +39,8 @@ export async function ProjectKanbanView({
             }, user.id)
         )),
         membersPromise,
-        import("@/data/workspace/get-workspace-kanban-data").then(m => m.getWorkspaceProjectManagersMap(workspaceId))
+        import("@/data/workspace/get-workspace-kanban-data").then(m => m.getWorkspaceProjectManagersMap(workspaceId)),
+        permissionsPromise
     ]);
 
     // Construct the group mapping from parallel responses
@@ -66,6 +69,8 @@ export async function ProjectKanbanView({
             workspaceId={workspaceId}
             projectId={projectId}
             projectManagers={pmMap}
+            permissions={permissions}
+            userId={user.id}
         />
     );
 }

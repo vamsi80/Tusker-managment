@@ -16,8 +16,9 @@ import { GlobalFilterToolbar, ParentTaskOption } from "../shared/global-filter-t
 import { ReviewCommentDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/review-comment-form";
 import { DndContext, DragEndEvent, DragOverEvent, DragOverlay, DragStartEvent, closestCorners, pointerWithin, PointerSensor, MouseSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { useTaskCacheStore } from "@/lib/store/task-cache-store";
-import { Loader2 } from "lucide-react";
+import { Loader2, MoreHorizontal } from "lucide-react";
 import { logger } from "@/lib/logger";
+import { UserPermissionsType } from "@/data/user/get-user-permissions";
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "CANCELLED" | "REVIEW" | "HOLD" | "COMPLETED";
 
@@ -30,6 +31,8 @@ interface KanbanBoardProps {
     tags?: TagOption[];
     level?: "project" | "workspace"; // Optional, defaults to "project"
     projectManagers?: Record<string, any>;
+    permissions?: UserPermissionsType;
+    userId?: string;
 }
 
 const COLUMNS: { id: TaskStatus; title: string; color: string; bgColor: string; borderColor: string }[] = [
@@ -73,7 +76,9 @@ export function KanbanBoard({
     projects,
     tags,
     level = "project",
-    projectManagers
+    projectManagers,
+    permissions,
+    userId
 }: KanbanBoardProps) {
     const setKanbanTasksCache = useTaskCacheStore(state => state.setKanbanTasksCache);
     const invalidateSubTaskCache = useTaskCacheStore(state => state.invalidateSubTaskCache);

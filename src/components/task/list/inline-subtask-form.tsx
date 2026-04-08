@@ -60,8 +60,8 @@ export function InlineSubTaskForm({
     const [pending, startTransition] = useTransition();
     const [subTaskName, setSubTaskName] = useState(subTask?.name || "");
     const [description, setDescription] = useState(subTask?.description || "");
-    const [assignee, setAssignee] = useState(subTask?.assignee?.id || "");
-    const [reviewer, setReviewer] = useState(subTask?.reviewerId || "");
+    const [assignee, setAssignee] = useState(subTask?.assignee?.workspaceMember?.user?.id || "");
+    const [reviewer, setReviewer] = useState(subTask?.reviewer?.workspaceMember?.user?.id || "");
     const [reviewers, setReviewers] = useState<ProjectReviewer[]>([]);
     const [status, setStatus] = useState<typeof SubTaskStatus[number]>(
         (subTask?.status as typeof SubTaskStatus[number]) || "TO_DO"
@@ -137,8 +137,8 @@ export function InlineSubTaskForm({
 
                 // For create mode, set current user as default reviewer if they're eligible
                 if (mode === "create" && !reviewer && userId) {
-                    const isReviewer = fetchedReviewers.find(r => r.id === userId);
-                    if (isReviewer) {
+                    const isReviewerEligible = fetchedReviewers.some(r => r.id === userId);
+                    if (isReviewerEligible) {
                         setReviewer(userId);
                     }
                 }
@@ -214,7 +214,7 @@ export function InlineSubTaskForm({
             projectId,
             parentTaskId,
             assignee: assignee,
-            reviewerId: reviewer,
+            reviewerId: reviewer || undefined,
             tag: tag,
             startDate: startDate || undefined,
             dueDate: dueDate,
@@ -261,6 +261,7 @@ export function InlineSubTaskForm({
                 assignee: selectedMember ? {
                     id: selectedMember.userId,
                     surname: selectedMember.user.surname,
+                    workspaceMember: { user: { id: selectedMember.userId, surname: selectedMember.user.surname } }
                 } : null,
                 tag: selectedTag ? { id: selectedTag.id, name: selectedTag.name } : null
             };

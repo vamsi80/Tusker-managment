@@ -15,8 +15,10 @@ export type NormalMember = {
     id: string; // userId
     userId: string;
     projectRole?: ProjectRole;
+    projectMemberId: string;
     user: {
         id: string;
+        name: string | null;
         surname: string | null;
         email?: string;
         image?: string | null;
@@ -37,6 +39,7 @@ async function _getProjectMembersInternal(params: { projectId?: string; workspac
     const projectMembers = await prisma.projectMember.findMany({
         where: projectId ? { projectId } : { project: { workspaceId } },
         select: {
+            id: true,
             projectRole: true,
             workspaceMember: {
                 select: {
@@ -44,6 +47,7 @@ async function _getProjectMembersInternal(params: { projectId?: string; workspac
                     user: {
                         select: {
                             id: true,
+                            name: true,
                             surname: true,
                             email: true,
                             image: true
@@ -64,6 +68,7 @@ async function _getProjectMembersInternal(params: { projectId?: string; workspac
             uniqueMembers.set(userId, {
                 id: userId,
                 userId: userId,
+                projectMemberId: m.id,
                 projectRole: m.projectRole as ProjectRole,
                 user: user
             });
