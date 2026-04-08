@@ -86,13 +86,13 @@ async function _getSubTasksByParentIdsInternal(
         if (fullAccessProjectIds.length > 0 && restrictedProjectIds.length > 0) {
             countWhere.OR = [
                 { projectId: { in: fullAccessProjectIds } },
-                { projectId: { in: restrictedProjectIds }, assigneeId: userId }
+                { projectId: { in: restrictedProjectIds }, assignee: { workspaceMember: { userId } } }
             ];
         } else if (fullAccessProjectIds.length > 0) {
             countWhere.projectId = { in: fullAccessProjectIds };
         } else if (restrictedProjectIds.length > 0) {
             countWhere.projectId = { in: restrictedProjectIds };
-            countWhere.assigneeId = userId;
+            countWhere.assignee = { workspaceMember: { userId } };
         } else {
             // Short-circuit: no access to any requested project
             return parentTaskIds.map(parentTaskId => ({
@@ -143,13 +143,13 @@ async function _getSubTasksByParentIdsInternal(
             if (fullAccessProjectIds.length > 0 && restrictedProjectIds.length > 0) {
                 singleParentWhere.OR = [
                     { projectId: { in: fullAccessProjectIds } },
-                    { projectId: { in: restrictedProjectIds }, assigneeId: userId }
+                    { projectId: { in: restrictedProjectIds }, assignee: { workspaceMember: { userId } } }
                 ];
             } else if (fullAccessProjectIds.length > 0) {
                 singleParentWhere.projectId = { in: fullAccessProjectIds };
             } else if (restrictedProjectIds.length > 0) {
                 singleParentWhere.projectId = { in: restrictedProjectIds };
-                singleParentWhere.assigneeId = userId;
+                singleParentWhere.assignee = { workspaceMember: { userId } };
             }
         }
 
@@ -167,7 +167,6 @@ async function _getSubTasksByParentIdsInternal(
                     { id: 'desc' },
                 ]
             }),
-            // Single query for BOTH parent info AND project info
             prisma.task.findUnique({
                 where: { id: parentId },
                 select: {
@@ -182,6 +181,13 @@ async function _getSubTasksByParentIdsInternal(
             ? { id: parentAndProjectData.id, name: (parentAndProjectData as any).name }
             : null;
         const projectData = (parentAndProjectData as any)?.project || null;
+
+        console.log(`🔍 [BATCH_SUBTASKS_EXPAND] parent: ${parentId}, userId: ${userId}`);
+        console.log(`🔍 [BATCH_SUBTASKS_EXPAND] Project: ${projectData?.name || "Unknown"}`);
+        console.log(`🔍 [BATCH_SUBTASKS_EXPAND] Found ${rawTasks.length} raw subtasks.`);
+        if (rawTasks.length === 0) {
+            console.log(`⚠️ [BATCH_SUBTASKS_EXPAND] No subtasks found for where:`, JSON.stringify(singleParentWhere, null, 2));
+        }
 
         const hasMore = rawTasks.length > pageSize;
         const finalTasks = (hasMore ? rawTasks.slice(0, pageSize) : rawTasks).map(t => {

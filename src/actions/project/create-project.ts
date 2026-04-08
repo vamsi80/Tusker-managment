@@ -12,7 +12,7 @@ import { getUniqueRandomColor } from "@/lib/colors/project-colors";
  * Create a new project with strict RBAC enforcement
  * 
  * Rules:
- * - OWNER/ADMIN: Can assign multiple PROJECT_MANAGERs, optionally include themselves
+ * - OWNER/ADMIN: Can assign multiple PROJECT_MANAGERs from the selection
  * - MANAGER: Auto-assigned as PROJECT_MANAGER, cannot assign others
  * 
  * Chain: User → WorkspaceMember → ProjectMember (created via workspaceMemberId)
@@ -97,8 +97,6 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
             // OWNER/ADMIN: Use provided projectManagers array or fall back to projectLead
             if (values.projectManagers && values.projectManagers.length > 0) {
                 projectManagersToAdd = values.projectManagers;
-            } else if (values.projectLead) {
-                projectManagersToAdd = [values.projectLead];
             } else {
                 return {
                     status: "error",
@@ -160,21 +158,24 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
                             projectRole: "PROJECT_MANAGER" as ProjectRole,
                         })),
                     },
-                    clint: {
-                        create: {
-                            name: validation.data.companyName,
-                            registeredCompanyName: validation.data.registeredCompanyName,
-                            directorName: validation.data.directorName,
-                            address: validation.data.address,
-                            gstNumber: validation.data.gstNumber,
-                            clintMembers: {
-                                create: {
-                                    name: validation.data.contactPerson,
-                                    phoneNumber: validation.data.phoneNumber,
+                    // Conditionally create client if companyName is provided
+                    ...(validation.data.companyName ? {
+                        clint: {
+                            create: {
+                                name: validation.data.companyName,
+                                registeredCompanyName: validation.data.registeredCompanyName,
+                                directorName: validation.data.directorName,
+                                address: validation.data.address,
+                                gstNumber: validation.data.gstNumber,
+                                clintMembers: {
+                                    create: {
+                                        name: validation.data.contactPerson,
+                                        phoneNumber: validation.data.phoneNumber,
+                                    },
                                 },
                             },
                         },
-                    },
+                    } : {}),
                 },
             });
         } catch (error: any) {

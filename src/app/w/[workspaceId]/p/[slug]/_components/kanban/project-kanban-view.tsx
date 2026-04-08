@@ -21,24 +21,23 @@ export async function ProjectKanbanView({
     const membersPromise = getProjectMembers(projectId);
 
     const user = await userPromise;
-
     const COLUMNS = ["TO_DO", "IN_PROGRESS", "REVIEW", "HOLD", "COMPLETED", "CANCELLED"] as const;
 
-    // Fetch initial page (15 tasks) for EACH status in parallel for better debuggability and UX
-    const [statusResponses, projectMembers] = await Promise.all([
+    const [statusResponses, projectMembers, pmMap] = await Promise.all([
         Promise.all(COLUMNS.map(status =>
             getTasks({
                 workspaceId,
                 projectId,
                 status: [status],
                 excludeParents: true,
-                limit: 30, // Increased to 30 to better fill initial screen and prevent eager paging
+                limit: 30,
                 sorts: [{ field: "createdAt", direction: "desc" }],
                 view_mode: "kanban",
                 includeFacets: true
             }, user.id)
         )),
         membersPromise,
+        import("@/data/workspace/get-workspace-kanban-data").then(m => m.getWorkspaceProjectManagersMap(workspaceId))
     ]);
 
     // Construct the group mapping from parallel responses
@@ -63,10 +62,10 @@ export async function ProjectKanbanView({
     return (
         <KanbanBoard
             initialData={initialData}
-            projectMembers={projectMembers}
+            projectMembers={projectMembers as any}
             workspaceId={workspaceId}
             projectId={projectId}
-        // projectManagers={projectManagersMap}
+            projectManagers={pmMap}
         />
     );
 }

@@ -9,6 +9,7 @@ export async function GET(
     try {
         const { parentId } = await params;
         const session = await getSession();
+        console.log(`🌐 [API_EXPAND_ROUTE] Request for parentId: ${parentId}, userId: ${session?.user?.id}`);
         if (!session?.user?.id) {
             return new NextResponse("Unauthorized", { status: 401 });
         }

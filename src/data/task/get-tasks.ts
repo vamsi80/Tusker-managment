@@ -266,7 +266,8 @@ export const resolveTaskPermissions = cache(async (workspaceId: string, projectI
             authorizedProjectIds = [
                 ...(wsPerms.leadProjectIds || []),
                 ...(wsPerms.managedProjectIds || []),
-                ...(wsPerms.memberProjectIds || [])
+                ...(wsPerms.memberProjectIds || []),
+                ...(wsPerms.viewerProjectIds || [])
             ];
         }
 
@@ -386,6 +387,9 @@ async function _fetchSubtasks(
         }
     }
 
+    console.log(`🔍 [EXPAND_API] parentTaskId: ${parentTaskId}, userId: ${userId}, isAdmin: ${isAdmin}`);
+    console.log(`🔍 [EXPAND_API] restrictedProjectIds: ${restrictedProjectIds.join(', ')}`);
+
     const where = buildSubtaskExpansionWhere(parentTaskId, {
         status: status,
         assigneeId: assigneeId ? [assigneeId] : toArray(opts.assigneeId),
@@ -396,12 +400,16 @@ async function _fetchSubtasks(
         cursor: opts.cursor,
     });
 
+    console.log(`🔍 [EXPAND_API] Final WHERE structure for expansion:`, JSON.stringify(where, null, 2));
+
     const rawSubtasks = await prisma.task.findMany({
         where,
         select: getTaskSelect(opts.view_mode),
         orderBy: buildOrderBy(opts.sorts),
         take: limit + 1,
     });
+
+    console.log(`🔍 [EXPAND_API] Found ${rawSubtasks.length} raw subtasks.`);
 
     const hasMore = rawSubtasks.length > limit;
     if (hasMore) rawSubtasks.pop();
@@ -804,7 +812,7 @@ async function _getTasksInternal(
             return { ...result, totalCount: null, facets: emptyFacets };
         }
 
-        if (projectId && !hasExplicitFilters && (hierarchyMode === "parents" || !hierarchyMode)) {
+        if (projectId && !hasExplicitFilters && !opts.excludeParents && !opts.onlySubtasks && (hierarchyMode === "parents" || !hierarchyMode)) {
             strategy = opts.includeSubTasks ? "RECURSIVE_HIERARCHY" : "PROJECT_ROOT";
             const result = await _fetchProjectRoot(
                 projectId, workspaceId, userId, isAdmin,

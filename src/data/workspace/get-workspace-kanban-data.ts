@@ -51,7 +51,12 @@ async function _fetchWorkspaceProjectManagersInternal(workspaceId: string) {
         where: {
             project: { workspaceId },
             projectRole: "PROJECT_MANAGER",
-            hasAccess: true
+            hasAccess: true,
+            workspaceMember: {
+                workspaceRole: {
+                    notIn: ["OWNER", "ADMIN"]
+                }
+            }
         },
         select: {
             projectId: true,
@@ -65,11 +70,14 @@ async function _fetchWorkspaceProjectManagersInternal(workspaceId: string) {
         }
     });
 
-    const pmMap: Record<string, { id: string, surname: string | null }> = {};
+    const pmMap: Record<string, Array<{ id: string, surname: string | null }>> = {};
     managers.forEach(m => {
         const user = m.workspaceMember?.user;
         if (user) {
-            pmMap[m.projectId] = user;
+            if (!pmMap[m.projectId]) {
+                pmMap[m.projectId] = [];
+            }
+            pmMap[m.projectId].push(user);
         }
     });
 
@@ -82,7 +90,7 @@ export const getWorkspaceProjectManagersMap = cache(async (workspaceId: string) 
         [`workspace-pm-leaders-map-${workspaceId}`],
         {
             tags: [CacheTags.workspaceProjects(workspaceId)[0], `workspace-${workspaceId}-pms`],
-            revalidate: 300
+            revalidate: 300 // 5 minutes
         }
     )();
 });

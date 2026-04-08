@@ -10,28 +10,28 @@ datasource db {
 }
 
 model User {
-  id                     String                 @id
-  name                   String
-  surname                String?
-  email                  String                 @unique
-  emailVerified          Boolean                @default(false)
-  image                  String?
-  phoneNumber            String?                @unique
-  phoneNumberVerified    Boolean                @default(false)
-  createdAt              DateTime               @default(now())
-  updatedAt              DateTime               @default(now()) @updatedAt
-  role                   String?
-  banned                 Boolean?               @default(false)
-  banReason              String?
-  banExpires             DateTime?
-  reviewComments         ReviewComment[]
-  workspaceOwner         Workspace[]
-  workspaces             WorkspaceMember[]
-  accounts               Account[]
-  comments               Comment[]
-  sessions               Session[]
-  commentReads           CommentRead[]
-  dailyReports           DailyReport[]
+  id                  String            @id
+  name                String
+  surname             String?
+  email               String            @unique
+  emailVerified       Boolean           @default(false)
+  image               String?
+  phoneNumber         String?           @unique
+  phoneNumberVerified Boolean           @default(false)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @default(now()) @updatedAt
+  role                String?
+  banned              Boolean?          @default(false)
+  banReason           String?
+  banExpires          DateTime?
+  reviewComments      ReviewComment[]
+  workspaceOwner      Workspace[]
+  workspaces          WorkspaceMember[]
+  accounts            Account[]
+  comments            Comment[]
+  sessions            Session[]
+  commentReads        CommentRead[]
+  dailyReports        DailyReport[]
 
   @@map("user")
 }
@@ -170,20 +170,20 @@ model Project {
 }
 
 model ProjectMember {
-  id                String        @id @default(uuid())
-  projectRole       ProjectRole   @default(MEMBER)
+  id                String          @id @default(uuid())
+  projectRole       ProjectRole     @default(MEMBER)
   projectId         String
   workspaceMemberId String
-  hasAccess         Boolean       @default(false)
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  hasAccess         Boolean         @default(false)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
   workspaceMember   WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
-  project           Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project           Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   // Task back-relations (all three point to ProjectMember via named relations)
-  assignedTasks     Task[]         @relation("TaskAssignee")
-  createdTasks      Task[]         @relation("TaskCreator")
-  reviewingTasks    Task[]         @relation("TaskReviewer")
+  assignedTasks  Task[] @relation("TaskAssignee")
+  createdTasks   Task[] @relation("TaskCreator")
+  reviewingTasks Task[] @relation("TaskReviewer")
 
   @@unique([workspaceMemberId, projectId])
   @@index([projectId, projectRole])
@@ -193,7 +193,7 @@ model ProjectMember {
 
 model Clints {
   id                    String         @id @default(uuid())
-  name                  String
+  name                  String?
   registeredCompanyName String?
   gstNumber             String?
   directorName          String?
@@ -206,14 +206,14 @@ model Clints {
 }
 
 model ClintMembers {
-  id            String   @id @default(uuid())
-  name          String
-  email         String?
-  phoneNumber   String?
-  clintId       String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  clints        Clints?  @relation(fields: [clintId], references: [id], onDelete: Cascade)
+  id          String   @id @default(uuid())
+  name        String?
+  email       String?
+  phoneNumber String?
+  clintId     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  clints      Clints?  @relation(fields: [clintId], references: [id], onDelete: Cascade)
 
   @@index([clintId])
 }
@@ -355,18 +355,18 @@ model ProcurementTask {
 }
 
 model IndentDetails {
-  id               String          @id @default(uuid())
-  key              String          @unique
+  id               String           @id @default(uuid())
+  key              String           @unique
   name             String
   workspaceId      String
   projectId        String
   taskId           String?
   description      String?
   expectedDelivery DateTime?
-  requiresVendor   Boolean         @default(true)
-  requestedAt      DateTime        @default(now())
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  requiresVendor   Boolean          @default(true)
+  requestedAt      DateTime         @default(now())
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
   assignedTo       String?
   requestedBy      String
   assignee         WorkspaceMember? @relation("IndentAssignee", fields: [assignedTo], references: [id])
