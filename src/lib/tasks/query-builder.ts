@@ -125,12 +125,20 @@ export function buildProjectRootWhere(
         where.status = { in: opts.status as any };
     }
 
-    // Visibility scope for restricted users
+    // Visibility scope for restricted users or specific filter
     if (opts.assigneeId) {
         const assigneeVal = Array.isArray(opts.assigneeId) ? { in: opts.assigneeId } : opts.assigneeId;
+        const subtaskAssigneeFilter: Prisma.TaskWhereInput = {
+            OR: [
+                { assigneeId: assigneeVal },
+                { assignee: { workspaceMember: { userId: assigneeVal as any } } }
+            ]
+        };
+
         where.OR = [
-            { assignee: { workspaceMember: { userId: assigneeVal } } },
-            { subTasks: { some: { assignee: { workspaceMember: { userId: assigneeVal } } } } }
+            { assigneeId: assigneeVal },
+            { assignee: { workspaceMember: { userId: assigneeVal as any } } },
+            { subTasks: { some: subtaskAssigneeFilter } }
         ];
     }
 
@@ -301,47 +309,57 @@ export function buildWorkspaceFilterWhere(
 
         // Narrow authorized sets based on requested projectId or projectIds
         if (opts.projectId) {
-            // Already scoped to this project by the caller in resolveTaskPermissions
-            // but we ensure consistency here
             fullIds = fullIds.filter(id => id === opts.projectId);
             restrictedIds = restrictedIds.filter(id => id === opts.projectId);
         } else if (opts.projectIds && opts.projectIds.length > 0) {
-            // Filter global lists by requested project set
             fullIds = fullIds.filter(id => opts.projectIds!.includes(id));
             restrictedIds = restrictedIds.filter(id => opts.projectIds!.includes(id));
         }
 
         if (fullIds.length === 0 && restrictedIds.length === 0) {
-            // No access at all — return nothing
             where.id = { in: [] };
         } else if (restrictedIds.length === 0) {
-            // Only full-access projects (e.g. they are a lead everywhere they are member)
             where.projectId = { in: fullIds };
         } else if (fullIds.length === 0) {
-            // Only restricted projects
             where.projectId = { in: restrictedIds };
 
-            if (opts.onlyParents) {
-                // For hierarchy/gantt: see parent if assigned OR if any child is assigned
+            if (opts.onlyParents || isKanban || isList || isGantt || isSearch) {
+                // Parent visible if assigned OR if child is assigned
                 where.OR = [
+                    { assigneeId: userId as any },
                     { assignee: { workspaceMember: { userId: userId } } },
-                    { subTasks: { some: { assignee: { workspaceMember: { userId: userId } } } } }
+                    { subTasks: { some: { 
+                        OR: [
+                            { assignee: { workspaceMember: { userId: userId } } },
+                            { assigneeId: userId as any }
+                        ]
+                    } } }
                 ];
             } else {
-                // Flat list: only see directly assigned
-                where.assignee = { workspaceMember: { userId: userId } };
+                where.OR = [
+                    { assigneeId: userId as any },
+                    { assignee: { workspaceMember: { userId: userId } } }
+                ];
             }
         } else {
-            // Mixed: full-access OR (restricted AND assigned)
-            const restrictedCondition: Prisma.TaskWhereInput = opts.onlyParents
-                ? {
-                    projectId: { in: restrictedIds },
-                    OR: [
-                        { assignee: { workspaceMember: { userId: userId } } },
-                        { subTasks: { some: { assignee: { workspaceMember: { userId: userId } } } } }
-                    ]
-                }
-                : { projectId: { in: restrictedIds }, assignee: { workspaceMember: { userId: userId } } };
+            // Mixed access
+            const restrictedCondition: Prisma.TaskWhereInput = {
+                projectId: { in: restrictedIds },
+                OR: [
+                    { assignee: { workspaceMember: { userId: userId } } },
+                    { assigneeId: userId as any },
+                    {
+                        subTasks: {
+                            some: {
+                                OR: [
+                                    { assignee: { workspaceMember: { userId: userId } } },
+                                    { assigneeId: userId as any }
+                                ]
+                            }
+                        }
+                    }
+                ]
+            };
 
             where.AND = [
                 {
@@ -354,13 +372,12 @@ export function buildWorkspaceFilterWhere(
         }
     }
 
-    // ─── Apply User Filters (Safely merge with security scope) ────────
+    // ─── Apply User Filters ─────────────────────────────────────────────
     const applyFilter = (key: keyof Prisma.TaskWhereInput, values: any) => {
         if (!values || (Array.isArray(values) && values.length === 0)) return;
         const filterVal = Array.isArray(values) ? { in: values } : values;
 
         if (where[key]) {
-            // Merge into AND to avoid overwriting restricted scope
             where.AND = [
                 ...(Array.isArray(where.AND) ? where.AND : (where.AND ? [where.AND] : [])),
                 { [key]: filterVal }
@@ -368,20 +385,21 @@ export function buildWorkspaceFilterWhere(
         } else {
             (where as any)[key] = filterVal;
         }
-
     };
 
     applyFilter('status', opts.status);
     applyFilter('tagId', opts.tagId);
 
-    // Filter by assignee: handle both direct ProjectMemberId (if selected from list) 
-    // and userId (if passed as restricted scope)
+    // Filter by assignee: handle both direct ProjectMemberId and relational UserId
     if (opts.assigneeId) {
-        const assigneeVal = Array.isArray(opts.assigneeId) ? { in: opts.assigneeId } : opts.assigneeId;
+        const aVal = Array.isArray(opts.assigneeId) ? { in: opts.assigneeId } : opts.assigneeId;
+        const aValRel = (Array.isArray(opts.assigneeId) ? { in: opts.assigneeId } : opts.assigneeId) as any;
+
         const assigneeFilter: Prisma.TaskWhereInput = {
             OR: [
-                { assigneeId: assigneeVal },
-                { assignee: { workspaceMember: { userId: (Array.isArray(opts.assigneeId) ? { in: opts.assigneeId } : opts.assigneeId) as any } } }
+                { assigneeId: aVal },
+                { assignee: { workspaceMember: { userId: aValRel } } },
+                { subTasks: { some: { OR: [ { assigneeId: aVal }, { assignee: { workspaceMember: { userId: aValRel } } } ] } } }
             ]
         };
 
@@ -409,19 +427,13 @@ export function buildWorkspaceFilterWhere(
         where.parentTaskId = null;
     } else if (opts.excludeParents) {
         where.parentTaskId = { not: null };
-    } else if (isKanban) {
-        // Show all tasks (parents or subtasks) in Kanban that match the status
-        // unless explicitly excluded
     } else if (isList || isGantt || isCalendar) {
-        // Default to hierarchy only if NO filters are active
         if (!hasFilters) {
             where.isParent = true;
             where.parentTaskId = null;
         }
     }
 
-
-    // ─── Due date ───────────────────────────────────────────────────────
     if (opts.dueAfter || opts.dueBefore) {
         where.dueDate = {
             ...(opts.dueAfter ? { gte: opts.dueAfter } : {}),
@@ -429,7 +441,6 @@ export function buildWorkspaceFilterWhere(
         };
     }
 
-    // ─── Full-text search ───────────────────────────────────────────────
     if (opts.search && opts.search.trim().length > 0) {
         const q = opts.search.trim();
         const searchClause = [
@@ -437,9 +448,7 @@ export function buildWorkspaceFilterWhere(
             { taskSlug: { contains: q, mode: "insensitive" as const } },
             { description: { contains: q, mode: "insensitive" as const } },
         ];
-        // Merge with any existing AND to avoid overwriting scope clauses
         if (where.OR) {
-            // Search conflicts with existing OR — wrap in AND 
             where.AND = [
                 ...(where.AND ? (Array.isArray(where.AND) ? where.AND : [where.AND]) : []),
                 { OR: searchClause }
@@ -449,9 +458,8 @@ export function buildWorkspaceFilterWhere(
         }
     }
 
-    // ─── Cursor pagination ──────────────────────────────────────────────
     if (opts.cursor) {
-        const cursorCondition = {
+        const cur = {
             OR: [
                 { createdAt: { lt: opts.cursor.createdAt } },
                 { createdAt: opts.cursor.createdAt, id: { lt: opts.cursor.id } },
@@ -459,9 +467,10 @@ export function buildWorkspaceFilterWhere(
         };
         where.AND = [
             ...(where.AND ? (Array.isArray(where.AND) ? where.AND : [where.AND]) : []),
-            cursorCondition
+            cur
         ];
     }
 
     return where;
 }
+
