@@ -18,12 +18,15 @@ export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
         subtaskCount: true,
         completedSubtaskCount: true,
         tagId: true,
+        description: true,
+        startDate: true,
+        days: true,
 
         // Always include basic assignee info
         assignee: {
             select: {
                 id: true,
-                workspaceMember: { select: { user: { select: { name: true, surname: true } } } }
+                workspaceMember: { select: { userId: true, user: { select: { id: true, name: true, surname: true } } } }
             }
         },
 
@@ -33,6 +36,12 @@ export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
         parentTaskId: true,
         isParent: true,
         assigneeId: true,
+        createdBy: {
+            select: {
+                id: true,
+                workspaceMember: { select: { userId: true, user: { select: { id: true, name: true, surname: true } } } }
+            }
+        },
     };
 
     // 2. Metadata: Tags & Comment Counts
@@ -62,28 +71,20 @@ export function getTaskSelect(viewMode: string = "list"): Prisma.TaskSelect {
     // Uniformly included for better context across all views except minimal kanban nodes if needed
     // But per user request to "make everything unique/consistent", we include them broadly.
     if (isList || isSearch || isSubtask || isGantt || isCalendar) {
-        select.description = true;
         select.reviewer = {
             select: {
                 id: true,
-                workspaceMember: { select: { user: { select: { name: true, surname: true } } } }
+                workspaceMember: { select: { userId: true, user: { select: { id: true, name: true, surname: true } } } }
             }
         };
     }
 
     // 5. specialized view fields
     if (isList || isGantt || isCalendar || isSubtask) {
-        select.startDate = true;
-        select.days = true;
     }
 
     if (isSearch) {
-        select.createdBy = {
-            select: {
-                id: true,
-                workspaceMember: { select: { user: { select: { name: true, surname: true, image: true, email: true } } } }
-            }
-        };
+        // createdBy is now part of common select
     }
 
     return select;

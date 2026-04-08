@@ -37,18 +37,39 @@ export type WorkspaceTaskType = {
         name: string | null;
         surname: string | null;
         image: string | null;
+        workspaceMember?: {
+            user: {
+                id: string;
+                name: string | null;
+                surname: string | null;
+            }
+        }
     } | null;
     reviewer?: {
         id: string;
         name: string | null;
         surname: string | null;
         image: string | null;
+        workspaceMember?: {
+            user: {
+                id: string;
+                name: string | null;
+                surname: string | null;
+            }
+        }
     } | null;
     createdBy?: {
         id: string;
         name: string | null;
         surname: string | null;
         image: string | null;
+        workspaceMember?: {
+            user: {
+                id: string;
+                name: string | null;
+                surname: string | null;
+            }
+        }
     } | null;
     parentTask?: {
         id: string;

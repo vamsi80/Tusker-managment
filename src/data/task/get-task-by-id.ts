@@ -33,6 +33,7 @@ async function _getTaskByIdInternal(
             description: true,
             status: true,
             startDate: true,
+            dueDate: true,
             days: true,
             tag: {
                 select: {
@@ -42,18 +43,25 @@ async function _getTaskByIdInternal(
             },
             projectId: true,
             parentTaskId: true,
+            reviewerId: true,
+            reviewer: {
+                select: {
+                    id: true,
+                    workspaceMember: { select: { userId: true, user: { select: { id: true, name: true, surname: true } } } }
+                },
+            },
             createdAt: true,
             updatedAt: true,
             createdBy: {
                 select: {
                     id: true,
-                    workspaceMember: { select: { userId: true, user: { select: { surname: true } } } }
+                    workspaceMember: { select: { userId: true, user: { select: { id: true, name: true, surname: true } } } }
                 },
             },
             assignee: {
                 select: {
                     id: true,
-                    workspaceMember: { select: { userId: true, user: { select: { surname: true } } } }
+                    workspaceMember: { select: { userId: true, user: { select: { id: true, name: true, surname: true } } } }
                 },
             },
             project: {

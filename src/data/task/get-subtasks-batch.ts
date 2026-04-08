@@ -197,10 +197,6 @@ async function _getSubTasksByParentIdsInternal(
                 project: projectData,
                 _count: { reviewComments: 0 },
             } as any;
-            if (entry.isParent) {
-                delete entry.reviewer;
-                delete entry.reviewerId;
-            }
             return entry;
         });
 
@@ -261,15 +257,6 @@ async function _getSubTasksByParentIdsInternal(
 
     return parentTaskIds.map(parentTaskId => {
         const subTasks = subTasksMap.get(parentTaskId) || [];
-
-        // Strip reviewer from any parent tasks in this subtask set
-        subTasks.forEach((t: any) => {
-            if (t.isParent) {
-                delete t.reviewer;
-                delete t.reviewerId;
-            }
-        });
-
         const totalCount = totalCountMap.get(parentTaskId) || 0;
         return {
             parentTaskId,

@@ -63,7 +63,7 @@ export const SubTaskRow = memo(function SubTaskRow({
     // Determine if user can edit/delete this subtask
     const canEditSubTask = () => {
         // Get the creator ID - handle both direct field and relation object
-        const subTaskCreatorId = (subTask as any).createdById || (subTask as any).createdBy?.userId;
+        const subTaskCreatorId = subTask.createdBy?.workspaceMember?.user?.id || (subTask as any).createdById;
 
         // Project view (has permissions object)
         if (permissions) {
@@ -413,8 +413,8 @@ export const SubTaskRow = memo(function SubTaskRow({
                                     subTask={subTask as any}
                                     tags={tags}
                                     members={members}
-                                    projectId={projectId}
-                                    parentTaskId={parentTaskId}
+                                    projectId={(subTask as any).projectId || projectId}
+                                    parentTaskId={subTask.parentTaskId || parentTaskId}
                                     onSubTaskUpdated={handleSubTaskUpdated}
                                 />
                             </DropdownMenuItem>

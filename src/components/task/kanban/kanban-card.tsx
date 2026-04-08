@@ -7,11 +7,16 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Calendar, Tag, GripVertical, MessageSquare, AlertCircle, Folder, Crown } from "lucide-react";
+import { Folder, Crown, MoreHorizontal, Edit, Trash2 } from "lucide-react";
 import type { KanbanSubTaskType } from "@/data/task";
 import { cn } from "@/lib/utils";
 import { getColorFromString } from "@/lib/colors/project-colors";
 import { commentCache, reviewCommentCache, pendingPrefetches } from "@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/subtask-details-sheet";
+import { UserPermissionsType } from "@/data/user/get-user-permissions";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { EditSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/edit-subtask-form";
+import { DeleteSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/delete-subtask-form";
 
 interface KanbanCardProps {
     subTask: KanbanSubTaskType;
@@ -20,9 +25,12 @@ interface KanbanCardProps {
     onSubTaskClick?: (subTask: KanbanSubTaskType) => void;
     projectManagers?: Record<string, any>;
     isUpdating?: boolean;
+    permissions?: UserPermissionsType;
+    userId?: string;
+    onUpdateInPlace?: (subTaskId: string, data: any) => void;
 }
 
-export const KanbanCard = React.memo(function KanbanCard({ subTask, columnColor, isDragging = false, onSubTaskClick, projectManagers, isUpdating }: KanbanCardProps) {
+export const KanbanCard = React.memo(function KanbanCard({ subTask, columnColor, isDragging = false, onSubTaskClick, projectManagers, isUpdating, permissions, userId, onUpdateInPlace }: KanbanCardProps) {
     const {
         attributes,
         listeners,
@@ -51,6 +59,17 @@ export const KanbanCard = React.memo(function KanbanCard({ subTask, columnColor,
     // 🚀 Speculative Pre-fetching for "Instant" feel
     const handlePrefetch = () => {
         if (!subTask?.id) return;
+    };
+
+    const canEdit = () => {
+        const creatorId = subTask.createdBy?.workspaceMember?.user?.id || (subTask as any).createdById;
+        
+        if (permissions) {
+            return permissions.isWorkspaceAdmin || 
+                   permissions.isProjectManager || 
+                   (permissions.isProjectLead && creatorId === userId);
+        }
+        return false;
     };
 
     const dueDate = subTask.dueDate ? new Date(subTask.dueDate) : (() => {
@@ -199,6 +218,50 @@ export const KanbanCard = React.memo(function KanbanCard({ subTask, columnColor,
                         >
                             {subTask.name}
                         </h5>
+
+                        {canEdit() && (
+                            <div onClick={(e) => e.stopPropagation()}>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6 -mr-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-40">
+                                        <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
+                                            <EditSubTaskForm 
+                                                subTask={subTask as any}
+                                                projectId={subTask.projectId}
+                                                parentTaskId={subTask.parentTaskId!}
+                                                onSubTaskUpdated={(data) => onUpdateInPlace?.(subTask.id, data)}
+                                                trigger={
+                                                    <div className="flex items-center gap-2 w-full px-2 py-1.5 cursor-pointer hover:bg-accent rounded-sm transition-colors text-xs">
+                                                        <Edit className="h-3.5 w-3.5" />
+                                                        <span>Edit</span>
+                                                    </div>
+                                                }
+                                            />
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
+                                            <DeleteSubTaskForm 
+                                                subTask={subTask as any}
+                                                onSubTaskDeleted={() => {
+                                                    // In Kanban, board state usually handles this via cache invalidation
+                                                    // but we might want a local filter if we're feeling optimistic
+                                                    window.location.reload(); 
+                                                }}
+                                                trigger={
+                                                    <div className="flex items-center gap-2 w-full px-2 py-1.5 cursor-pointer hover:bg-destructive/10 text-destructive rounded-sm transition-colors text-xs">
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                        <span>Delete</span>
+                                                    </div>
+                                                }
+                                            />
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
+                        )}
                     </div>
                 </div>
 

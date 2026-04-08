@@ -38,12 +38,21 @@ type SubTaskBase = {
     days: number | null;
     assignee?: {
         id: string;
+        workspaceMember?: {
+            userId: string;
+        };
+    } | null;
+    reviewer?: {
+        id: string;
+        workspaceMember?: {
+            userId: string;
+        };
     } | null;
 };
 
 interface EditSubTaskFormProps<T extends SubTaskBase> {
     subTask: T;
-    members: ProjectMembersType;
+    members?: ProjectMembersType;
     projectId?: string; // Optional for workspace level
     parentTaskId?: string; // Optional for workspace level
     onSubTaskUpdated?: (updatedData: Partial<T>) => void;
@@ -52,11 +61,12 @@ interface EditSubTaskFormProps<T extends SubTaskBase> {
     projects?: { id: string; name: string; }[]; // For workspace-level project selection
     parentTasks?: { id: string; name: string; projectId: string; }[]; // For workspace-level parent task selection
     reviewerId?: string | null;
+    trigger?: React.ReactNode;
 }
 
 export function EditSubTaskForm<T extends SubTaskBase>({
     subTask,
-    members,
+    members = [],
     projectId,
     parentTaskId,
     onSubTaskUpdated,
@@ -64,6 +74,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
     tags = [], // Default to empty array
     projects = [], // Default to empty array
     parentTasks = [], // Default to empty array
+    trigger,
 }: EditSubTaskFormProps<T>) {
     const [pending, startTransition] = useTransition();
     const [open, setOpen] = useState(false);
@@ -80,39 +91,61 @@ export function EditSubTaskForm<T extends SubTaskBase>({
         return parentTasks;
     }, [level, selectedProjectId, parentTasks]);
 
+    const getFormattedDate = (date: Date | string | null | undefined) => {
+        if (!date) return "";
+        try {
+            const d = new Date(date);
+            if (isNaN(d.getTime())) return "";
+            
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const hours = String(d.getHours()).padStart(2, '0');
+            const minutes = String(d.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        } catch (e) {
+            return "";
+        }
+    };
+
     const form = useForm<SubTaskSchemaType>({
         resolver: zodResolver(subTaskSchema) as unknown as Resolver<SubTaskSchemaType>,
         defaultValues: {
-            name: subTask.name,
+            name: subTask.name || "",
             description: subTask.description || "",
-            taskSlug: subTask.taskSlug || "placeholder-slug",
-            projectId: projectId,
-            parentTaskId: parentTaskId,
-            assignee: subTask.assignee?.id || "",
-            tag: subTask.tag?.id || tags[0]?.id || "",
-            status: (subTask.status || "TO_DO") as "TO_DO" | "IN_PROGRESS" | "CANCELLED" | "REVIEW" | "HOLD" | "COMPLETED",
-            startDate: subTask.startDate ? (() => {
-                const d = new Date(subTask.startDate);
-                const year = d.getFullYear();
-                const month = String(d.getMonth() + 1).padStart(2, '0');
-                const day = String(d.getDate()).padStart(2, '0');
-                const hours = String(d.getHours()).padStart(2, '0');
-                const minutes = String(d.getMinutes()).padStart(2, '0');
-                return `${year}-${month}-${day}T${hours}:${minutes}`;
-            })() : "",
-            dueDate: (subTask as any).dueDate ? (() => {
-                const d = new Date((subTask as any).dueDate);
-                const year = d.getFullYear();
-                const month = String(d.getMonth() + 1).padStart(2, '0');
-                const day = String(d.getDate()).padStart(2, '0');
-                const hours = String(d.getHours()).padStart(2, '0');
-                const minutes = String(d.getMinutes()).padStart(2, '0');
-                return `${year}-${month}-${day}T${hours}:${minutes}`;
-            })() : "",
-            reviewerId: (subTask as any).reviewerId || "",
+            taskSlug: subTask.taskSlug || "",
+            projectId: projectId || (subTask as any).projectId || "",
+            parentTaskId: parentTaskId || (subTask as any).parentTaskId || "",
+            assignee: (subTask.assignee as any)?.workspaceMember?.userId || (subTask as any).assigneeId || "",
+            tag: subTask.tag?.id || (subTask as any).tagId || "",
+            status: (subTask.status || "TO_DO") as any,
+            startDate: getFormattedDate(subTask.startDate),
+            dueDate: getFormattedDate(subTask.dueDate),
+            reviewerId: (subTask.reviewer as any)?.workspaceMember?.userId || (subTask as any).reviewerId || "",
             days: (subTask as any).days || 1,
         },
     });
+
+    // CRITICAL: Reset the form when subTask changes or dialog opens
+    useEffect(() => {
+        if (open) {
+            console.log("🛠️ [EditSubTaskForm] Initializing with subtask data:", subTask);
+            form.reset({
+                name: subTask.name || "",
+                description: subTask.description || "",
+                taskSlug: subTask.taskSlug || "",
+                projectId: projectId || (subTask as any).projectId || "",
+                parentTaskId: parentTaskId || (subTask as any).parentTaskId || "",
+                assignee: (subTask.assignee as any)?.workspaceMember?.user?.id || (subTask.assignee as any)?.workspaceMember?.userId || (subTask as any).assigneeId || "",
+                tag: subTask.tag?.id || (subTask as any).tagId || "",
+                status: (subTask.status || "TO_DO") as any,
+                startDate: getFormattedDate(subTask.startDate),
+                dueDate: getFormattedDate(subTask.dueDate),
+                reviewerId: (subTask.reviewer as any)?.workspaceMember?.user?.id || (subTask.reviewer as any)?.workspaceMember?.userId || (subTask as any).reviewerId || "",
+                days: (subTask as any).days || 1,
+            });
+        }
+    }, [subTask, open, form, projectId, parentTaskId]);
 
     const watchedStartDate = useWatch({ control: form.control, name: "startDate" });
     const watchedDueDate = useWatch({ control: form.control, name: "dueDate" });
@@ -255,10 +288,12 @@ export function EditSubTaskForm<T extends SubTaskBase>({
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="w-full justify-start">
-                    <Pencil className="mr-2 h-4 w-4" />
-                    Edit SubTask
-                </Button>
+                {trigger || (
+                    <Button variant="ghost" size="sm" className="w-full justify-start">
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Edit SubTask
+                    </Button>
+                )}
             </DialogTrigger>
             <DialogContent className="max-h-[98vh] w-[min(900px,95vw)] overflow-hidden">
                 <DialogHeader>
@@ -515,8 +550,8 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                                     <Button variant="outline" className="w-full justify-between font-normal">
                                                         {field.value
                                                             ? (() => {
-                                                                const m = members?.find((m) => m.userId === field.value);
-                                                                return `${m?.user.surname}`;
+                                                                const m = members?.find((m) => m.userId === field.value || m.projectMemberId === field.value);
+                                                                return m ? (m.user.surname || m.user.name || "Unknown") : "Unknown User";
                                                             })()
                                                             : "Select assignee"}
                                                     </Button>
@@ -582,8 +617,13 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                                     <Button variant="outline" className="w-full justify-between font-normal">
                                                         {field.value
                                                             ? (() => {
+                                                                // Use User.id or ProjectMember.id for lookup
                                                                 const r = reviewers.find((r) => r.id === field.value);
-                                                                return `${r?.surname || ''}`;
+                                                                if (r) return r.surname || "Unknown Reviewer";
+                                                                
+                                                                // Fallback to members list if reviewer list lookup fails
+                                                                const m = members?.find((m) => m.userId === field.value || m.projectMemberId === field.value);
+                                                                return m ? (m.user.surname || m.user.name || "Unknown") : "Reviewer not found";
                                                             })()
                                                             : "Select reviewer"}
                                                     </Button>

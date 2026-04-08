@@ -150,7 +150,7 @@ export const TaskRow = memo(function TaskRow({
     };
 
     const canEditTask = () => {
-        const taskCreatorId = (task as any).createdById || (task as any).createdBy?.userId;
+        const taskCreatorId = task.createdBy?.workspaceMember?.user?.id || (task as any).createdById;
 
         if (permissions) {
             return permissions.isWorkspaceAdmin ||

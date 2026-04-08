@@ -11,6 +11,7 @@ import { fetchCommentsAction, fetchReviewCommentsAction } from "@/actions/commen
 // Import modular components
 import { SubtaskSheetHeader } from "./subtask-sheet-header";
 import { SubtaskSheetNavBar } from "./subtask-sheet-navbar";
+import { getProjectMembers, ProjectMembersType } from "@/data/project/get-project-members";
 import dynamic from "next/dynamic";
 const MessagesTab = dynamic(() => import("./messages-tab").then(mod => mod.MessagesTab), { ssr: false });
 const ReviewTab = dynamic(() => import("./review-tab").then(mod => mod.ReviewTab), { ssr: false });
@@ -97,6 +98,7 @@ export function SubTaskDetailsSheet({
     const [isLoading, setIsLoading] = useState(false);
     const [isLoadingReview, setIsLoadingReview] = useState(false);
     const [currentUserId, setCurrentUserId] = useState<string | null>(initialCurrentUserId);
+    const [members, setMembers] = useState<ProjectMembersType>([]);
 
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -224,6 +226,13 @@ export function SubTaskDetailsSheet({
             reviewCommentsLoadedRef.current = false;
         }
     }, [activeTab, subTask?.id, isLoadingReview, loadReviewComments]);
+    
+    // Fetch members when projectId changes or sheet opens
+    useEffect(() => {
+        if (subTask?.projectId && isOpen) {
+            getProjectMembers(subTask.projectId).then(setMembers);
+        }
+    }, [subTask?.projectId, isOpen]);
 
     return (
         <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -235,7 +244,11 @@ export function SubTaskDetailsSheet({
                             Details and activity for subtask {subTask.name}
                         </SheetDescription>
                         {/* Header Component */}
-                        <SubtaskSheetHeader subTask={subTask} />
+                        <SubtaskSheetHeader 
+                            subTask={subTask} 
+                            currentUserId={currentUserId} 
+                            members={members}
+                        />
 
                         {/* Tabbed Section - Takes Remaining Space */}
                         <div className="border-t flex-1 flex flex-col min-h-0">

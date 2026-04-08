@@ -4,13 +4,17 @@ import { TaskByIdType } from "@/data/task/get-task-by-id";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Calendar, Tag, User, FileCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Calendar, Tag, User, FileCheck, Edit } from "lucide-react";
 import { cn, formatIST } from "@/lib/utils";
 import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { memo } from "react";
+import { EditSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/edit-subtask-form";
 
 interface SubtaskSheetHeaderProps {
     subTask: TaskByIdType;
+    currentUserId?: string | null;
+    members?: any[];
 }
 
 /**
@@ -23,7 +27,7 @@ interface SubtaskSheetHeaderProps {
  * - Tag
  * - Status badge
  */
-export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({ subTask }: SubtaskSheetHeaderProps) {
+export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({ subTask, currentUserId, members = [] }: SubtaskSheetHeaderProps) {
     // Assignee is directly on the task object (user fields) in both SubTaskType and TaskByIdType
     // But we handle potential workspaceMember nesting just in case legacy types are passed
     const assignee = (subTask.assignee as any)?.workspaceMember?.user || subTask.assignee;
@@ -46,6 +50,24 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({ subTask }: 
                         {subTask.name}
                     </h2>
                 </div>
+
+                {/* Edit Button for authorized users */}
+                {subTask && (subTask.createdBy?.workspaceMember?.user?.id === currentUserId || (subTask as any).createdById === currentUserId) && (
+                    <div className="ml-4 flex-shrink-0">
+                        <EditSubTaskForm 
+                            subTask={subTask as any}
+                            projectId={subTask.projectId}
+                            parentTaskId={subTask.parentTaskId!}
+                            members={members}
+                            trigger={
+                                <Button variant="outline" size="sm" className="h-8 gap-2">
+                                    <Edit className="h-4 w-4" />
+                                    <span>Edit</span>
+                                </Button>
+                            }
+                        />
+                    </div>
+                )}
             </div>
 
             {/* Details Section */}
