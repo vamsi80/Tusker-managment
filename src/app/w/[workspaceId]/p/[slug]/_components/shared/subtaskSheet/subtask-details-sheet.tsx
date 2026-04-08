@@ -237,12 +237,12 @@ export function SubTaskDetailsSheet({
     return (
         <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <SheetContent className="w-full sm:max-w-2xl p-0 flex flex-col h-full bg-background border-l">
+                <SheetTitle className="sr-only">{subTask?.name || "SubTask Details"}</SheetTitle>
+                <SheetDescription className="sr-only">
+                    {subTask ? `Details and activity for subtask ${subTask.name}` : "Loading subtask details..."}
+                </SheetDescription>
                 {subTask ? (
                     <>
-                        <SheetTitle className="sr-only">{subTask.name}</SheetTitle>
-                        <SheetDescription className="sr-only">
-                            Details and activity for subtask {subTask.name}
-                        </SheetDescription>
                         {/* Header Component */}
                         <SubtaskSheetHeader 
                             subTask={subTask} 
