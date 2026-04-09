@@ -30,11 +30,20 @@ export async function AppSidebar({ data, workspaceId, ...props }: React.Componen
       { title: "Tasks", url: `/w/${workspaceId}/tasks`, icon: "CheckSquare" },
     ];
 
+  // Determine if the user is the owner of the current workspace
+  const currentWorkspace = data.workspaces.find((ws) => ws.id === workspaceId);
+  const isOwner = currentWorkspace?.workspaceRole === "OWNER";
+
   const footerNavItems: Array<{
     title: string;
     url: string;
-    icon: "Settings" | "BarChart3";
+    icon: "Settings" | "BarChart3" | "LayoutDashboard";
   }> = [
+      {
+        title: isOwner ? "Member Board" : "My Board",
+        url: `/w/${workspaceId}/my-board`,
+        icon: "LayoutDashboard"
+      },
       { title: "Reports", url: `/w/${workspaceId}/reports`, icon: "BarChart3" },
       { title: "Settings", url: `/w/${workspaceId}/settings`, icon: "Settings" },
     ];

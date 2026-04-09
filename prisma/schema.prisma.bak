@@ -12,26 +12,26 @@ datasource db {
 model User {
   id                  String            @id
   name                String
+  surname             String?
   email               String            @unique
   emailVerified       Boolean           @default(false)
   image               String?
+  phoneNumber         String?           @unique
+  phoneNumberVerified Boolean           @default(false)
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @default(now()) @updatedAt
   role                String?
   banned              Boolean?          @default(false)
   banReason           String?
   banExpires          DateTime?
-  surname             String?
-  phoneNumber         String?           @unique
-  phoneNumberVerified Boolean           @default(false)
   reviewComments      ReviewComment[]
   workspaceOwner      Workspace[]
   workspaces          WorkspaceMember[]
   accounts            Account[]
   comments            Comment[]
+  sessions            Session[]
   commentReads        CommentRead[]
   dailyReports        DailyReport[]
-  sessions            Session[]
 
   @@map("user")
 }
@@ -84,13 +84,13 @@ model Verification {
 model Workspace {
   id               String            @id @default(uuid())
   name             String
-  slug             String            @unique
   description      String?
+  slug             String            @unique
   ownerId          String
-  createdAt        DateTime          @default(now())
-  image_url        String            @default("")
-  updatedAt        DateTime          @updatedAt
   inviteCode       String            @unique
+  image_url        String            @default("")
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
   addressLine1     String?
   addressLine2     String?
   city             String?
@@ -100,37 +100,37 @@ model Workspace {
   gstNumber        String?
   industry         String?
   legalName        String?
-  msmeNumber       String?
   panNumber        String?
   phone            String?
   pincode          String?
   state            String?
   website          String?
+  msmeNumber       String?
   projects         Project[]
   tags             Tag[]
   owner            User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   members          WorkspaceMember[]
-  attendance       attendance[]
-  dailyReports     DailyReport[]
   materials        Material[]
   procurementTasks ProcurementTask[]
   purchaseOrders   PurchaseOrder[]
   units            Unit[]
   vendors          Vendor[]
+  dailyReports     DailyReport[]
   boardItems       Board[]
 }
 
 model WorkspaceMember {
-  id                     String                 @id @default(uuid())
-  userId                 String
-  workspaceId            String
-  createdAt              DateTime               @default(now())
-  updatedAt              DateTime               @updatedAt
-  workspaceRole          WorkspaceRole          @default(MEMBER)
-  projectMembers         ProjectMember[]
-  user                   User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspace              Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  attendance             attendance[]
+  id             String          @id @default(uuid())
+  userId         String
+  workspaceId    String
+  workspaceRole  WorkspaceRole   @default(MEMBER)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projectMembers ProjectMember[]
+
+  // Workspace-scoped back-relations for models that reference WorkspaceMember
   assignedIndents        IndentDetails[]        @relation("IndentAssignee")
   requestedIndents       IndentDetails[]        @relation("IndentRequestor")
   finalApprovedItems     IndentItem[]           @relation("FinalApprover")
@@ -153,10 +153,10 @@ model Project {
   id               String            @id @default(uuid())
   name             String
   description      String?
+  slug             String            @unique
   workspaceId      String
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
-  slug             String            @unique
   color            String
   createdBy        String?
   clint            Clints[]
@@ -174,17 +174,19 @@ model Project {
 
 model ProjectMember {
   id                String          @id @default(uuid())
-  projectId         String
-  createdAt         DateTime        @default(now())
-  hasAccess         Boolean         @default(false)
   projectRole       ProjectRole     @default(MEMBER)
-  updatedAt         DateTime        @updatedAt
+  projectId         String
   workspaceMemberId String
-  project           Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  hasAccess         Boolean         @default(false)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
   workspaceMember   WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
-  assignedTasks     Task[]          @relation("TaskAssignee")
-  createdTasks      Task[]          @relation("TaskCreator")
-  reviewingTasks    Task[]          @relation("TaskReviewer")
+  project           Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // Task back-relations (all three point to ProjectMember via named relations)
+  assignedTasks  Task[] @relation("TaskAssignee")
+  createdTasks   Task[] @relation("TaskCreator")
+  reviewingTasks Task[] @relation("TaskReviewer")
 
   @@unique([workspaceMemberId, projectId])
   @@index([projectId, projectRole])
@@ -210,22 +212,47 @@ model ClintMembers {
   id          String   @id @default(uuid())
   name        String?
   email       String?
+  phoneNumber String?
   clintId     String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  phoneNumber String?
   clints      Clints?  @relation(fields: [clintId], references: [id], onDelete: Cascade)
 
   @@index([clintId])
 }
 
+model Board {
+  id           String      @id @default(uuid())
+  workspaceId  String
+  memberId     String // The member whose board this item appears on
+  assignedById String // The member who assigned this note
+  note         String      @db.Text
+  status       BoardStatus @default(NOT_DONE)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  workspace  Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  member     WorkspaceMember @relation("BoardMember", fields: [memberId], references: [id], onDelete: Cascade)
+  assignedBy WorkspaceMember @relation("BoardAssigner", fields: [assignedById], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([memberId])
+  @@index([assignedById])
+  @@map("board_items")
+}
+
+enum BoardStatus {
+  DONE
+  NOT_DONE
+}
+
 model Tag {
   id              String    @id @default(uuid())
   name            String
+  requirePurchase Boolean?  @default(false)
   workspaceId     String
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
-  requirePurchase Boolean?  @default(false)
   workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   tasks           Task[]
 
@@ -234,26 +261,26 @@ model Tag {
 
 model Task {
   id                    String             @id @default(uuid())
-  projectId             String
+  name                  String
+  taskSlug              String             @unique
   description           String?
   status                TaskStatus?        @default(TO_DO)
-  createdAt             DateTime           @default(now())
-  updatedAt             DateTime           @updatedAt
-  createdById           String
-  days                  Int?
-  name                  String
   parentTaskId          String?
   startDate             DateTime?
-  taskSlug              String             @unique
+  days                  Int?
   tagId                 String?
+  workspaceId           String
+  projectId             String
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
   assigneeId            String?
-  completedSubtaskCount Int                @default(0)
+  createdById           String
+  reviewerId            String?
   dueDate               DateTime?
   isParent              Boolean            @default(true)
   path                  String?
-  reviewerId            String?
   subtaskCount          Int                @default(0)
-  workspaceId           String
+  completedSubtaskCount Int                @default(0)
   reviewComments        ReviewComment[]
   assignee              ProjectMember?     @relation("TaskAssignee", fields: [assigneeId], references: [id])
   createdBy             ProjectMember      @relation("TaskCreator", fields: [createdById], references: [id])
@@ -263,11 +290,11 @@ model Task {
   reviewer              ProjectMember?     @relation("TaskReviewer", fields: [reviewerId], references: [id])
   tag                   Tag?               @relation(fields: [tagId], references: [id])
   comments              Comment[]
-  dailyReportEntries    DailyReportEntry[]
   indentDetails         IndentDetails[]
   procurementTask       ProcurementTask?
   Task_TaskDependency_A Task[]             @relation("TaskDependency")
   Task_TaskDependency_B Task[]             @relation("TaskDependency")
+  dailyReportEntries    DailyReportEntry[]
 
   @@index([projectId, status, isParent, createdAt(sort: Desc)])
   @@index([workspaceId, tagId, status, isParent])
@@ -286,12 +313,12 @@ model Task {
 model ReviewComment {
   id          String   @id @default(uuid())
   subTaskId   String
-  authorId    String
+  workspaceId String
   text        String
   attachment  Json?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  workspaceId String
+  authorId    String
   author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
   subTask     Task     @relation(fields: [subTaskId], references: [id], onDelete: Cascade)
 
@@ -329,9 +356,9 @@ model CommentRead {
   id        String   @id @default(uuid())
   userId    String
   commentId String
-  createdAt DateTime @default(now())
-  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
 
   @@unique([userId, commentId])
   @@index([userId])
@@ -472,6 +499,7 @@ model Vendor {
   name           String
   companyName    String?
   contactPerson  String?
+  phoneNumber    String?
   email          String?
   address        String?
   gstNumber      String?
@@ -479,7 +507,6 @@ model Vendor {
   isActive       Boolean         @default(true)
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
-  phoneNumber    String?
   indentItems    IndentItem[]
   purchaseOrders PurchaseOrder[]
   workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -593,62 +620,6 @@ model PurchaseOrderPayment {
   @@map("purchase_order_payment")
 }
 
-model DailyReport {
-  id              String             @id @default(uuid())
-  workspaceId     String
-  userId          String
-  date            DateTime           @db.Date
-  status          ReportStatus
-  submittedAt     DateTime?
-  isAutoGenerated Boolean            @default(false)
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-  entries         DailyReportEntry[]
-  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspace       Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-
-  @@unique([workspaceId, userId, date])
-  @@index([workspaceId, date])
-  @@map("daily_reports")
-}
-
-model DailyReportEntry {
-  id          String          @id @default(uuid())
-  reportId    String
-  taskId      String?
-  type        ReportEntryType
-  description String?
-  createdAt   DateTime        @default(now())
-  report      DailyReport     @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  task        Task?           @relation(fields: [taskId], references: [id])
-
-  @@index([reportId])
-  @@index([taskId])
-  @@map("daily_report_entries")
-}
-
-model attendance {
-  id                String           @id
-  workspaceId       String
-  workspaceMemberId String
-  date              DateTime         @db.Date
-  checkIn           DateTime?
-  checkOut          DateTime?
-  checkInLatitude   Float?
-  checkInLongitude  Float?
-  checkOutLatitude  Float?
-  checkOutLongitude Float?
-  status            AttendanceStatus @default(PRESENT)
-  notes             String?
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime
-  Workspace         Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  WorkspaceMember   WorkspaceMember  @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
-
-  @@unique([workspaceMemberId, date])
-  @@index([workspaceId, date])
-}
-
 enum IndentItemStatus {
   PENDING
   QUANTITY_APPROVED
@@ -672,9 +643,9 @@ enum POStatus {
 }
 
 enum WorkspaceRole {
+  OWNER
   ADMIN
   MEMBER
-  OWNER
   VIEWER
   MANAGER
 }
@@ -706,35 +677,36 @@ enum ReportEntryType {
   OTHER
 }
 
-enum AttendanceStatus {
-  PRESENT
-  ABSENT
-  HALF_DAY
-  ON_LEAVE
-  LATE
+model DailyReport {
+  id              String             @id @default(uuid())
+  workspaceId     String
+  userId          String
+  date            DateTime           @db.Date
+  status          ReportStatus
+  submittedAt     DateTime?
+  isAutoGenerated Boolean            @default(false)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace       Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  entries         DailyReportEntry[]
+
+  @@unique([workspaceId, userId, date])
+  @@index([workspaceId, date])
+  @@map("daily_reports")
 }
 
-model Board {
-  id           String      @id @default(uuid())
-  workspaceId  String
-  memberId     String
-  assignedById String
-  note         String      @db.Text
-  status       BoardStatus @default(NOT_DONE)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+model DailyReportEntry {
+  id          String          @id @default(uuid())
+  reportId    String
+  taskId      String?
+  type        ReportEntryType
+  description String?
+  createdAt   DateTime        @default(now())
+  report      DailyReport     @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  task        Task?           @relation(fields: [taskId], references: [id], onDelete: SetNull)
 
-  workspace  Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  member     WorkspaceMember @relation("BoardMember", fields: [memberId], references: [id], onDelete: Cascade)
-  assignedBy WorkspaceMember @relation("BoardAssigner", fields: [assignedById], references: [id], onDelete: Cascade)
-
-  @@index([workspaceId])
-  @@index([memberId])
-  @@index([assignedById])
-  @@map("board_items")
-}
-
-enum BoardStatus {
-  DONE
-  NOT_DONE
+  @@index([reportId])
+  @@index([taskId])
+  @@map("daily_report_entries")
 }
