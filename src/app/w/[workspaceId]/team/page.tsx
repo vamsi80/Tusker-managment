@@ -4,7 +4,7 @@ import { TeamMembers } from "./_components/team-members-table";
 import { AppLoader } from "@/components/shared/app-loader";
 import { getWorkspaceMembers } from "@/data/workspace";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 interface TeamPageProps {
     params: Promise<{ workspaceId: string }>;
