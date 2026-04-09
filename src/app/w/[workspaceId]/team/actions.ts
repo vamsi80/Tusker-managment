@@ -6,8 +6,8 @@ import prisma from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { inviteUserSchema, InviteUserSchemaType } from "@/lib/zodSchemas";
 import { ApiResponse } from "@/lib/types";
-import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { requireUser } from "@/lib/auth/require-user";
+import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 
 /**
  * Invite a user: create auth user, upsert app user, upsert workspace membership.
@@ -19,7 +19,10 @@ export async function inviteUserToWorkspace(
     values: InviteUserSchemaType
 ): Promise<ApiResponse> {
 
-    await requireAdmin(values.workspaceId);
+    const permissions = await getWorkspacePermissions(values.workspaceId);
+    if (!permissions.isWorkspaceAdmin) {
+        return { status: "error", message: "Only workspace admins can invite members." };
+    }
 
     const parsed = inviteUserSchema.safeParse(values);
     if (!parsed.success) {

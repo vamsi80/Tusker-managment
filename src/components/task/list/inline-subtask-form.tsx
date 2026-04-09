@@ -169,7 +169,7 @@ export function InlineSubTaskForm({
                 }
             }
         }
-    }, [startDate, days]);
+    }, [startDate, days, dueDate, pending]);
 
     // Handle date synchronization: When dueDate changes, update days
     useEffect(() => {
@@ -178,13 +178,13 @@ export function InlineSubTaskForm({
             const due = parseIST(dueDate);
             if (start && due) {
                 const diffTime = due.getTime() - start.getTime();
-                const calculatedDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+                const calculatedDays = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)));
                 if (calculatedDays !== days) {
                     setDays(calculatedDays);
                 }
             }
         }
-    }, [dueDate]);
+    }, [dueDate, startDate, days, pending]);
 
     // Helper function to get role shortcuts
     const getRoleShortcut = (role: string): string => {

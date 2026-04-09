@@ -122,7 +122,7 @@ export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onO
             {!hideTrigger && isAdmin && (
                 <DialogTrigger asChild>
                     <Button>
-                        Invite User
+                        Invite New Member
                         <Plus className="ml-2" size={16} />
                     </Button>
                 </DialogTrigger>
