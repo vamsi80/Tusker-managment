@@ -96,7 +96,11 @@ export async function invalidateProject(projectId: string) {
  * Call this when project members are added, removed, or updated
  */
 export async function invalidateProjectMembers(projectId: string) {
-    const tags = CacheTags.projectMembers(projectId);
+    const tags = [
+        ...CacheTags.projectMembers(projectId),
+        ...CacheTags.fullProject(projectId),
+        ...CacheTags.project(projectId)
+    ];
     tags.forEach(tag => revalidateTag(tag));
 }
 

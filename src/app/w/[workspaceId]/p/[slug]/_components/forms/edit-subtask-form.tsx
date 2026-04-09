@@ -24,7 +24,7 @@ import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { Badge } from "@/components/ui/badge";
 import { useReloadView } from "@/hooks/use-reload-view";
 import { parseIST } from "@/lib/utils";
-import { getProjectReviewers, ProjectReviewer } from "@/actions/project/get-project-reviewers";
+import { ProjectReviewer } from "@/actions/project/get-project-reviewers";
 
 type SubTaskBase = {
     id: string;
@@ -158,13 +158,19 @@ export function EditSubTaskForm<T extends SubTaskBase>({
     const watchedDueDate = useWatch({ control: form.control, name: "dueDate" });
     const watchedDays = useWatch({ control: form.control, name: "days" });
 
-    // Fetch reviewers
+    // Fetch reviewers via API route to avoid the "Action Refresh" loop
     useEffect(() => {
         if (!open) return;
         const fetchReviewers = async () => {
             try {
-                const fetched = await getProjectReviewers(selectedProjectId || projectId || "");
-                setReviewers(fetched);
+                const targetId = selectedProjectId || projectId || "";
+                if (!targetId) return;
+
+                const response = await fetch(`/api/projects/${targetId}/reviewers`);
+                if (response.ok) {
+                    const fetched = await response.json();
+                    setReviewers(fetched);
+                }
             } catch (err) {
                 console.error("Failed to fetch reviewers", err);
             }
@@ -172,40 +178,51 @@ export function EditSubTaskForm<T extends SubTaskBase>({
         fetchReviewers();
     }, [open, selectedProjectId, projectId]);
 
-    // Sync: days/startDate -> dueDate
+    // Consolidated Sync: Handles both days <-> dueDate relations with stability guards
     useEffect(() => {
-        if (watchedStartDate && watchedDays && open) {
-            const start = parseIST(watchedStartDate);
-            if (start) {
-                const due = new Date(start.getTime() + watchedDays * 24 * 60 * 60 * 1000);
-                const year = due.getFullYear();
-                const month = String(due.getMonth() + 1).padStart(2, '0');
-                const day = String(due.getDate()).padStart(2, '0');
-                const hours = String(due.getHours()).padStart(2, '0');
-                const minutes = String(due.getMinutes()).padStart(2, '0');
-                const formattedDue = `${year}-${month}-${day}T${hours}:${minutes}`;
-                
-                if (formattedDue !== watchedDueDate) {
-                    form.setValue("dueDate", formattedDue, { shouldValidate: true });
-                }
-            }
-        }
-    }, [watchedStartDate, watchedDays, form, open, watchedDueDate]);
+        if (!open || !watchedStartDate) return;
 
-    // Sync: dueDate -> days
-    useEffect(() => {
-        if (watchedStartDate && watchedDueDate && open) {
-            const start = parseIST(watchedStartDate);
-            const due = parseIST(watchedDueDate);
-            if (start && due) {
-                const diffTime = due.getTime() - start.getTime();
-                const calculatedDays = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)));
-                if (calculatedDays !== watchedDays) {
-                    form.setValue("days", calculatedDays, { shouldValidate: true });
+        const start = parseIST(watchedStartDate);
+        if (!start) return;
+
+        // Mode 1: days -> dueDate (runs when days or startDate changes)
+        // We only update if the current dueDate matches the 'wrong' duration
+        const calculatedDue = new Date(start.getTime() + watchedDays * 24 * 60 * 60 * 1000);
+        const year = calculatedDue.getFullYear();
+        const month = String(calculatedDue.getMonth() + 1).padStart(2, '0');
+        const day = String(calculatedDue.getDate()).padStart(2, '0');
+        const hours = String(calculatedDue.getHours()).padStart(2, '0');
+        const minutes = String(calculatedDue.getMinutes()).padStart(2, '0');
+        const formattedDue = `${year}-${month}-${day}T${hours}:${minutes}`;
+
+        if (watchedDueDate && watchedDueDate !== formattedDue) {
+            // Check if we should update dueDate based on days change
+            // To avoid loops, we only update if the duration was the driver
+            const currentDue = parseIST(watchedDueDate);
+            if (currentDue) {
+                const currentDiff = Math.abs(currentDue.getTime() - calculatedDue.getTime());
+                // Only sync if the difference is more than a minute (to avoid precision loops)
+                if (currentDiff > 60000) {
+                     form.setValue("dueDate", formattedDue, { shouldValidate: true, shouldDirty: true });
                 }
             }
         }
-    }, [watchedDueDate, watchedStartDate, form, open, watchedDays]);
+    }, [watchedStartDate, watchedDays, open, form]);
+
+    // Mode 2: dueDate -> days (runs only when dueDate changes)
+    useEffect(() => {
+        if (!open || !watchedStartDate || !watchedDueDate) return;
+
+        const start = parseIST(watchedStartDate);
+        const due = parseIST(watchedDueDate);
+        if (start && due) {
+            const diffTime = due.getTime() - start.getTime();
+            const calculatedDays = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)));
+            if (calculatedDays !== watchedDays) {
+                form.setValue("days", calculatedDays, { shouldValidate: true, shouldDirty: true });
+            }
+        }
+    }, [watchedDueDate, open, form]);
 
     const watchedName = useWatch({
         control: form.control,
@@ -515,29 +532,31 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                 />
                             </div>
 
-                            {/* Status (Read-only) */}
+                            {/* Status */}
                             <FormField
                                 control={form.control}
                                 name="status"
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Status</FormLabel>
-                                        <div className="flex items-center gap-2">
-                                            <Badge
-                                                variant="outline"
-                                                className={cn(
-                                                    "text-sm font-medium px-3 py-1",
-                                                    getStatusColors(field.value).color,
-                                                    getStatusColors(field.value).bgColor,
-                                                    getStatusColors(field.value).borderColor
-                                                )}
-                                            >
-                                                {getStatusLabel(field.value)}
-                                            </Badge>
-                                            <span className="text-xs text-muted-foreground">
-                                                (Change status in Kanban view)
-                                            </span>
-                                        </div>
+                                        <Select
+                                            onValueChange={field.onChange}
+                                            defaultValue={field.value}
+                                        >
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select status" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                <SelectItem value="TO_DO">To Do</SelectItem>
+                                                <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                                                <SelectItem value="REVIEW">Review</SelectItem>
+                                                <SelectItem value="HOLD">Hold</SelectItem>
+                                                <SelectItem value="COMPLETED">Completed</SelectItem>
+                                                <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                                            </SelectContent>
+                                        </Select>
                                         <FormMessage />
                                     </FormItem>
                                 )}

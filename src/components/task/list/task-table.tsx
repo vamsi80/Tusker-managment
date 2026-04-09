@@ -1209,7 +1209,7 @@ export default function TaskTable({
                                     )}
                                     {columnVisibility.progress && (
                                         <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] sm:w-[150px] bg-background">
-                                            Urgency
+                                            Deadline
                                         </th>
                                     )}
                                     {columnVisibility.tag && (

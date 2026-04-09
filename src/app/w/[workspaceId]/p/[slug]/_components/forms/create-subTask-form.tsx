@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { createSubTask } from "@/actions/task/create-subTask";
 import { useReloadView } from "@/hooks/use-reload-view";
-import { getProjectReviewers, ProjectReviewer } from "@/actions/project/get-project-reviewers";
+import { ProjectReviewer } from "@/actions/project/get-project-reviewers";
 import { parseIST } from "@/lib/utils";
 
 interface iAppProps {
@@ -124,8 +124,14 @@ export const CreateSubTaskForm = ({
         if (!open) return;
         const fetchReviewers = async () => {
             try {
-                const fetched = await getProjectReviewers(selectedProjectId || projectId || "");
-                setReviewers(fetched);
+                const targetId = selectedProjectId || projectId || "";
+                if (!targetId) return;
+
+                const response = await fetch(`/api/projects/${targetId}/reviewers`);
+                if (response.ok) {
+                    const fetched = await response.json();
+                    setReviewers(fetched);
+                }
             } catch (err) {
                 console.error("Failed to fetch reviewers", err);
             }

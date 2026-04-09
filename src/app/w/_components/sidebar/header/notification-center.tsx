@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useState, useEffect } from "react";
-import { usePathname, useSearchParams, useParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Bell, User, MessageSquare } from "lucide-react";
 import {
     Popover,
@@ -37,7 +37,6 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
     const [activeTab, setActiveTab] = useState("new");
     const [hasMore, setHasMore] = useState(false);
     const [offset, setOffset] = useState(0);
-
     const LIMIT = 15;
 
     const loadNotifications = async (isInitial = true) => {
