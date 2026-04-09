@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DataTable } from "@/components/data-table/data-table";
 import { createTeamMemberColumns } from "./team-member-columns";
 import {
@@ -35,6 +35,15 @@ interface TeamMembersProps {
 
 export function TeamMembers({ data, isAdmin, workspaceId }: TeamMembersProps) {
     const router = useRouter();
+
+    // Fast response auto-polling to reflect changes made by other users immediately
+    useEffect(() => {
+        const interval = setInterval(() => {
+            router.refresh();
+        }, 90000); // 1.5 minutes polling
+        
+        return () => clearInterval(interval);
+    }, [router]);
 
     // View member dialog state
     const [viewDialogOpen, setViewDialogOpen] = useState(false);

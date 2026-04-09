@@ -37,18 +37,18 @@ export function QuickCreateSubTask({ workspaceId }: QuickCreateSubTaskProps) {
 
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogTrigger asChild>
-                <SidebarMenuButton
-                    tooltip="Quick Create SubTask"
-                    className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground min-w-8 duration-200 ease-linear shadow-sm cursor-pointer"
-                    asChild
-                >
+            <SidebarMenuButton
+                tooltip="Quick Create SubTask"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground min-w-8 duration-200 ease-linear shadow-sm cursor-pointer"
+                asChild
+            >
+                <DialogTrigger asChild>
                     <Button className="w-full justify-start h-auto p-2 bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground border-0">
                         <PlusCircle size={20} />
                         <span className="font-semibold">Quick Create SubTask</span>
                     </Button>
-                </SidebarMenuButton>
-            </DialogTrigger>
+                </DialogTrigger>
+            </SidebarMenuButton>
             <DialogContent className="max-h-[98vh] w-[min(900px,95vw)] overflow-hidden">
                 {isLoading ? (
                     <div className="flex flex-col items-center justify-center py-12 gap-3">

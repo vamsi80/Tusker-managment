@@ -108,17 +108,13 @@ export async function inviteUserToWorkspace(
         const { invalidateUserWorkspaces, invalidateWorkspaceMembers } = await import('@/lib/cache/invalidation');
         await invalidateUserWorkspaces(authUserId);
         await invalidateWorkspaceMembers(workspaceId);
-        
-        // Match the project's revalidateTag pattern (needs 2 arguments in this env)
-        const { revalidateTag } = await import("next/cache");
-        (revalidateTag as any)(`workspace-members-${workspaceId}`, 'layout');
 
         return {
             status: "success",
             message: "Invitation sent successfully. User must verify their email before signing in.",
         };
     } catch (err: any) {
-        console.error("inviteUserTransactional error:", err);
+        console.error("inviteUserTransactional error:", err)
 
         // If auth user was created but DB work failed, try to delete the created auth user to avoid orphan accounts
         if (createdAuthUserId) {
@@ -279,9 +275,9 @@ export async function deleteWorkspaceMember(
         }
 
         // 10. Invalidate caches
-        const { revalidateTag, revalidatePath } = await import("next/cache");
-        (revalidateTag as any)(`workspace-members-${workspaceId}`, "layout");
-        (revalidateTag as any)(`user-workspaces-${userIdToDelete}`, "layout");
+        const { invalidateUserWorkspaces, invalidateWorkspaceMembers } = await import('@/lib/cache/invalidation');
+        await invalidateUserWorkspaces(userIdToDelete);
+        await invalidateWorkspaceMembers(workspaceId);
         revalidatePath(`/w/${workspaceId}/team`);
 
         return {

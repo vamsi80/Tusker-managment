@@ -103,10 +103,11 @@ export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onO
                 toast.success(result.message);
                 triggerConfetti();
                 form.reset();
+                setOpen(false);
                 router.refresh();
-            } else (
+            } else {
                 toast.error(result.message)
-            )
+            }
         });
     }
 
