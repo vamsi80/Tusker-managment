@@ -151,7 +151,7 @@ export const CreateSubTaskForm = ({
                 }
             }
         }
-    }, [watchedStartDate, watchedDays, form, open]);
+    }, [watchedStartDate, watchedDays, form, open, watchedDueDate]);
 
     // Sync: dueDate -> days
     useEffect(() => {
@@ -160,13 +160,13 @@ export const CreateSubTaskForm = ({
             const due = parseIST(watchedDueDate);
             if (start && due) {
                 const diffTime = due.getTime() - start.getTime();
-                const calculatedDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+                const calculatedDays = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)));
                 if (calculatedDays !== watchedDays) {
                     form.setValue("days", calculatedDays, { shouldValidate: true });
                 }
             }
         }
-    }, [watchedDueDate, watchedStartDate, form, open]);
+    }, [watchedDueDate, watchedStartDate, form, open, watchedDays]);
 
     const watchedName = useWatch({
         control: form.control,

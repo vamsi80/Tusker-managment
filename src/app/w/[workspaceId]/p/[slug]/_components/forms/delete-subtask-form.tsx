@@ -28,14 +28,22 @@ interface DeleteSubTaskFormProps<T extends SubTaskBase> {
     subTask: T;
     onSubTaskDeleted?: (subTaskId: string) => void;
     trigger?: React.ReactNode;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
 }
 
 export function DeleteSubTaskForm<T extends SubTaskBase>({ 
     subTask, 
     onSubTaskDeleted,
-    trigger 
+    trigger,
+    open: controlledOpen,
+    onOpenChange: controlledOnOpenChange
 }: DeleteSubTaskFormProps<T>) {
-    const [open, setOpen] = useState(false);
+    const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+    const isControlled = controlledOpen !== undefined;
+    const open = isControlled ? controlledOpen : uncontrolledOpen;
+    const setOpen = controlledOnOpenChange || setUncontrolledOpen;
+
     const [pending, startTransition] = useTransition();
 
     const handleDelete = () => {
@@ -66,18 +74,20 @@ export function DeleteSubTaskForm<T extends SubTaskBase>({
 
     return (
         <AlertDialog open={open} onOpenChange={setOpen}>
-            <AlertDialogTrigger asChild>
-                {trigger || (
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
-                    >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete SubTask
-                    </Button>
-                )}
-            </AlertDialogTrigger>
+            {!isControlled && (
+                <AlertDialogTrigger asChild>
+                    {trigger || (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete SubTask
+                        </Button>
+                    )}
+                </AlertDialogTrigger>
+            )}
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <div className="flex items-center gap-2">

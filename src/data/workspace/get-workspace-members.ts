@@ -75,6 +75,9 @@ async function _fetchWorkspaceMembersInternal(workspaceId: string): Promise<Work
 
 /**
  * Cached version with Next.js unstable_cache
+ * - Cache persists across refreshes to save Database load.
+ * - Revalidates instantly when a Server Action uses revalidateTag(CacheTags.workspaceMembers(workspaceId)).
+ * - Also has a fallback 30-second revalidation in case an Admin modifies the DB directly.
  */
 const getCachedWorkspaceMembers = (workspaceId: string) =>
   unstable_cache(
@@ -82,7 +85,7 @@ const getCachedWorkspaceMembers = (workspaceId: string) =>
     [`workspace-members-${workspaceId}`],
     {
       tags: CacheTags.workspaceMembers(workspaceId),
-      revalidate: 60 * 60 * 12, // 12 hours
+      revalidate: 30, // 30 seconds fallback instead of 12 hours
     }
   )();
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { DataTable } from "@/components/data-table/data-table";
 import { createTeamMemberColumns } from "./team-member-columns";
 import {
@@ -25,7 +25,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { deleteWorkspaceMember } from "../actions";
 import { WorkspaceMemberRow } from "@/data/workspace";
-import { InviteUserForm } from "./create-user";
+
 
 interface TeamMembersProps {
     data: WorkspaceMemberRow[];
@@ -36,14 +36,6 @@ interface TeamMembersProps {
 export function TeamMembers({ data, isAdmin, workspaceId }: TeamMembersProps) {
     const router = useRouter();
 
-    // Fast response auto-polling to reflect changes made by other users immediately
-    useEffect(() => {
-        const interval = setInterval(() => {
-            router.refresh();
-        }, 90000); // 1.5 minutes polling
-        
-        return () => clearInterval(interval);
-    }, [router]);
 
     // View member dialog state
     const [viewDialogOpen, setViewDialogOpen] = useState(false);
@@ -58,23 +50,23 @@ export function TeamMembers({ data, isAdmin, workspaceId }: TeamMembersProps) {
     const [memberToDelete, setMemberToDelete] = useState<WorkspaceMemberRow | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
-    const [inviteUserOpen, setInviteUserOpen] = useState(false);
 
-    const handleViewMember = (member: WorkspaceMemberRow) => {
+
+    const handleViewMember = React.useCallback((member: WorkspaceMemberRow) => {
         setMemberToView(member);
         setViewDialogOpen(true);
-    };
+    }, []);
 
-    const handleEditMember = (member: WorkspaceMemberRow) => {
+    const handleEditMember = React.useCallback((member: WorkspaceMemberRow) => {
         setMemberToEdit(member);
         setEditDialogOpen(true);
         toast.info("Edit member functionality coming soon!");
-    };
+    }, []);
 
-    const handleDeleteMember = (member: WorkspaceMemberRow) => {
+    const handleDeleteMember = React.useCallback((member: WorkspaceMemberRow) => {
         setMemberToDelete(member);
         setDeleteDialogOpen(true);
-    };
+    }, []);
 
     const handleDeleteConfirm = async () => {
         if (!memberToDelete) return;
@@ -98,11 +90,14 @@ export function TeamMembers({ data, isAdmin, workspaceId }: TeamMembersProps) {
         }
     };
 
-    const columns = createTeamMemberColumns(
-        isAdmin,
-        handleViewMember,
-        handleEditMember,
-        handleDeleteMember
+    const columns = React.useMemo(() =>
+        createTeamMemberColumns(
+            isAdmin,
+            handleViewMember,
+            handleEditMember,
+            handleDeleteMember
+        ),
+        [isAdmin, handleViewMember, handleEditMember, handleDeleteMember]
     );
 
     return (
@@ -116,17 +111,8 @@ export function TeamMembers({ data, isAdmin, workspaceId }: TeamMembersProps) {
                 showPagination={true}
                 showColumnToggle={true}
                 pageSize={10}
-                onAdd={isAdmin ? () => setInviteUserOpen(true) : undefined}
-                addButtonLabel="Invite New Member"
             />
 
-            <InviteUserForm
-                workspaceId={workspaceId}
-                isAdmin={isAdmin}
-                open={inviteUserOpen}
-                onOpenChange={setInviteUserOpen}
-                hideTrigger={true}
-            />
 
             {/* View Member Dialog */}
             <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>

@@ -62,6 +62,8 @@ interface EditSubTaskFormProps<T extends SubTaskBase> {
     parentTasks?: { id: string; name: string; projectId: string; }[]; // For workspace-level parent task selection
     reviewerId?: string | null;
     trigger?: React.ReactNode;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
 }
 
 export function EditSubTaskForm<T extends SubTaskBase>({
@@ -75,9 +77,14 @@ export function EditSubTaskForm<T extends SubTaskBase>({
     projects = [], // Default to empty array
     parentTasks = [], // Default to empty array
     trigger,
+    open: controlledOpen,
+    onOpenChange: controlledOnOpenChange,
 }: EditSubTaskFormProps<T>) {
     const [pending, startTransition] = useTransition();
-    const [open, setOpen] = useState(false);
+    const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+    const isControlled = controlledOpen !== undefined;
+    const open = isControlled ? controlledOpen : uncontrolledOpen;
+    const setOpen = controlledOnOpenChange || setUncontrolledOpen;
     const [selectedProjectId, setSelectedProjectId] = useState<string>(projectId || "");
     const router = useRouter();
     const reloadView = useReloadView();
@@ -183,7 +190,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                 }
             }
         }
-    }, [watchedStartDate, watchedDays, form, open]);
+    }, [watchedStartDate, watchedDays, form, open, watchedDueDate]);
 
     // Sync: dueDate -> days
     useEffect(() => {
@@ -192,13 +199,13 @@ export function EditSubTaskForm<T extends SubTaskBase>({
             const due = parseIST(watchedDueDate);
             if (start && due) {
                 const diffTime = due.getTime() - start.getTime();
-                const calculatedDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+                const calculatedDays = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)));
                 if (calculatedDays !== watchedDays) {
                     form.setValue("days", calculatedDays, { shouldValidate: true });
                 }
             }
         }
-    }, [watchedDueDate, watchedStartDate, form, open]);
+    }, [watchedDueDate, watchedStartDate, form, open, watchedDays]);
 
     const watchedName = useWatch({
         control: form.control,
@@ -287,14 +294,16 @@ export function EditSubTaskForm<T extends SubTaskBase>({
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                {trigger || (
-                    <Button variant="ghost" size="sm" className="w-full justify-start">
-                        <Pencil className="mr-2 h-4 w-4" />
-                        Edit SubTask
-                    </Button>
-                )}
-            </DialogTrigger>
+            {!isControlled && (
+                <DialogTrigger asChild>
+                    {trigger || (
+                        <Button variant="ghost" size="sm" className="w-full justify-start">
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Edit SubTask
+                        </Button>
+                    )}
+                </DialogTrigger>
+            )}
             <DialogContent className="max-h-[98vh] w-[min(900px,95vw)] overflow-hidden">
                 <DialogHeader>
                     <DialogTitle>Edit SubTask</DialogTitle>

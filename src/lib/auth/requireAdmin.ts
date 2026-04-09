@@ -1,9 +1,9 @@
-// src/app/data/workspace/require-admin.ts
+// @deprecated — Use `getWorkspacePermissions` from "@/data/user/get-user-permissions" instead.
+// This file is kept only for backward compatibility and will be removed in a future cleanup.
 import "server-only";
 import { cache } from "react";
-import { unstable_cache } from "next/cache";
 import { requireUser } from "@/lib/auth/require-user";
-import { getWorkspaces } from "../../data/workspace/get-workspaces";
+import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 
 export class ForbiddenError extends Error {
   constructor(message: string) {
@@ -13,114 +13,39 @@ export class ForbiddenError extends Error {
 }
 
 /**
- * Internal function that checks admin status
- */
-async function _checkAdminInternal(userId: string, workspaceId: string) {
-  // Load workspaces from cache-backed fetcher
-  const { workspaces } = await getWorkspaces();
-
-  // Find their membership entry
-  const ws = workspaces.find(
-    (w) => w.id === workspaceId
-  );
-
-  if (!ws) {
-    return { isAdmin: false, workspace: null, error: "not_member" };
-  }
-
-  // Check OWNER or ADMIN role
-  if (ws.workspaceRole !== "OWNER" && ws.workspaceRole !== "ADMIN") {
-    return { isAdmin: false, workspace: ws, error: "not_admin" };
-  }
-
-  // Valid admin
-  return { isAdmin: true, workspace: ws, error: null };
-}
-
-/**
- * Cached version with Next.js unstable_cache
- */
-const getCachedAdminCheck = (userId: string, workspaceId: string) =>
-  unstable_cache(
-    async () => _checkAdminInternal(userId, workspaceId),
-    [`admin-check-${userId}-${workspaceId}`],
-    {
-      tags: [`admin-check-${userId}`, `workspace-admin-${workspaceId}`],
-      revalidate: 60, // 1 minute
-    }
-  )();
-
-/**
+ * @deprecated Use `getWorkspacePermissions(workspaceId).then(p => p.isWorkspaceAdmin)` instead.
+ *
  * Ensures the authenticated user is an ADMIN in the given workspace.
  * Throws ForbiddenError if not admin or not a member.
- * 
- * Caching Strategy:
- * 1. React cache() - Deduplicates identical requests within the same render
- * 2. unstable_cache() - Persists data across requests for 1 minute
- * 
- * Cache Invalidation:
- * - Use revalidateTag(`admin-check-${userId}`) to invalidate for specific user
- * - Use revalidateTag(`workspace-admin-${workspaceId}`) to invalidate for workspace
- * 
- * @param workspaceId - The workspace to check admin status for
- * @returns { sessionUser, workspace }
- * @throws {ForbiddenError} When user is not admin or not a member
- * 
- * @example
- * // For server actions that require admin
- * const { sessionUser, workspace } = await requireAdmin(workspaceId);
  */
 export const requireAdmin = cache(async (workspaceId: string) => {
   if (!workspaceId) {
     throw new ForbiddenError("workspaceId is required");
   }
 
-  // 1) Ensure user is logged in
   const sessionUser = await requireUser();
+  const permissions = await getWorkspacePermissions(workspaceId, sessionUser.id);
 
-  // 2) Check admin status (cached)
-  const result = await getCachedAdminCheck(sessionUser.id, workspaceId);
-
-  // 3) Handle errors
-  if (!result.isAdmin) {
-    if (result.error === "not_member") {
-      throw new ForbiddenError("You are not a member of this workspace");
-    }
-    if (result.error === "not_admin") {
-      throw new ForbiddenError("You must be an admin to perform this action");
-    }
+  if (!permissions.isWorkspaceAdmin) {
+    throw new ForbiddenError("You must be an admin to perform this action");
   }
 
-  // ✓ Valid admin
-  return {
-    sessionUser,
-    workspace: result.workspace!,
-  };
+  return { sessionUser };
 });
 
 /**
+ * @deprecated Use `getWorkspacePermissions(workspaceId).then(p => p.isWorkspaceAdmin)` instead.
+ *
  * Check if the current user is an admin of the workspace.
  * Returns boolean instead of throwing errors.
- * 
- * @param workspaceId - The workspace to check admin status for
- * @returns true if user is admin, false otherwise
- * 
- * @example
- * // For conditional rendering
- * const isAdmin = await isAdminServer(workspaceId);
- * if (isAdmin) {
- *   // Show admin UI
- * }
  */
 export const isAdminServer = cache(async (workspaceId: string): Promise<boolean> => {
-  if (!workspaceId) {
-    return false;
-  }
+  if (!workspaceId) return false;
 
   try {
     const sessionUser = await requireUser();
-    const result = await getCachedAdminCheck(sessionUser.id, workspaceId);
-    return result.isAdmin;
+    const permissions = await getWorkspacePermissions(workspaceId, sessionUser.id);
+    return permissions.isWorkspaceAdmin;
   } catch {
     return false;
   }
