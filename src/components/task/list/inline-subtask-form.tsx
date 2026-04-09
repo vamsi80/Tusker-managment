@@ -18,7 +18,7 @@ import { SubTaskStatus, STATUS_OPTIONS, subTaskSchema } from "@/lib/zodSchemas";
 import { ColumnVisibility } from "../shared/column-visibility";
 import { SubTaskType } from "@/data/task";
 import { ApiResponse } from "@/lib/types";
-import { getProjectReviewers, ProjectReviewer } from "@/actions/project/get-project-reviewers";
+import { ProjectReviewer } from "@/actions/project/get-project-reviewers";
 import { cn, parseIST } from "@/lib/utils";
 
 interface InlineSubTaskFormProps {
@@ -132,12 +132,16 @@ export function InlineSubTaskForm({
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const fetchedReviewers = await getProjectReviewers(projectId);
+                if (!projectId) return;
+                const response = await fetch(`/api/projects/${projectId}/reviewers`);
+                if (!response.ok) throw new Error("Failed to fetch");
+                
+                const fetchedReviewers = await response.json();
                 setReviewers(fetchedReviewers);
 
                 // For create mode, set current user as default reviewer if they're eligible
                 if (mode === "create" && !reviewer && userId) {
-                    const isReviewerEligible = fetchedReviewers.some(r => r.id === userId);
+                    const isReviewerEligible = (fetchedReviewers as ProjectReviewer[]).some(r => r.id === userId);
                     if (isReviewerEligible) {
                         setReviewer(userId);
                     }

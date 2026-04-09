@@ -14,7 +14,7 @@ import { tryCatch } from "@/hooks/try-catch";
 import { toast } from "sonner";
 import slugify from "slugify";
 import { editTask } from "@/actions/task/update-task";
-import { getProjectReviewers, ProjectReviewer } from "@/actions/project/get-project-reviewers";
+import { ProjectReviewer } from "@/actions/project/get-project-reviewers";
 import { TaskWithSubTasks } from "../list/types";
 import { useReloadView } from "@/hooks/use-reload-view";
 
@@ -60,8 +60,9 @@ export function EditTaskDialog({
 
     useEffect(() => {
         if (open) {
-            getProjectReviewers(task.projectId)
-                .then((fetchedReviewers) => {
+            fetch(`/api/projects/${task.projectId}/reviewers`)
+                .then(res => res.json())
+                .then((fetchedReviewers: ProjectReviewer[]) => {
 
                     // Default to Task Creator if no reviewer set
                     if (!form.getValues("reviewerId")) {
@@ -75,7 +76,7 @@ export function EditTaskDialog({
                 })
                 .catch(err => console.error("Failed to fetch reviewers", err));
         }
-    }, [open, form]);
+    }, [open, form, task]);
 
     const watchedName = useWatch({
         control: form.control,
