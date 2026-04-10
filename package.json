@@ -12,6 +12,7 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
+    "test": "vitest",
     "analyze": "cross-env ANALYZE=true next build"
   },
   "dependencies": {

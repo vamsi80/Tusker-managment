@@ -50,6 +50,46 @@ export function TeamMembers({ data, isAdmin, workspaceId }: TeamMembersProps) {
     const [memberToDelete, setMemberToDelete] = useState<WorkspaceMemberRow | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
+    // Real-time updates via SSE
+    useEffect(() => {
+        const eventSource = new EventSource(`/api/w/${workspaceId}/team/events`);
+
+        eventSource.onmessage = (event) => {
+            if (event.data === "connected") {
+                console.log("Team real-time connected");
+                return;
+            }
+
+            if (event.data === "ping") return;
+
+            try {
+                const data = JSON.parse(event.data);
+                console.log("Team event received:", data);
+                
+                // Refresh the data using router.refresh()
+                // This will re-fetch the server component and push new data to this component
+                router.refresh();
+                
+                if (data.type === "INVITE") {
+                    toast.info(`New member invited: ${data.payload.email}`);
+                } else if (data.type === "DELETE") {
+                    toast.info(`A member was removed from the team`);
+                }
+            } catch (err) {
+                console.error("Failed to parse team event", err);
+            }
+        };
+
+        eventSource.onerror = (error) => {
+            console.error("Team real-time error:", error);
+            eventSource.close();
+        };
+
+        return () => {
+            eventSource.close();
+        };
+    }, [workspaceId, router]);
+
 
 
     const handleViewMember = React.useCallback((member: WorkspaceMemberRow) => {
