@@ -10,15 +10,6 @@ interface WorkspaceTasksPageProps {
     searchParams: Promise<{ view?: string }>;
 }
 
-// Header skeleton logic removed as it's now in the layout
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
-/**
- * Workspace Tasks Page — fully streaming.
- * Header and view content each load independently via their own Suspense.
- * Skeleton appears instantly via loading.tsx, then pieces stream in.
- */
 export default async function WorkspaceTasksPage({
     params,
     searchParams,
