@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Context, Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { getProjectReviewers } from "@/actions/project/get-project-reviewers";
@@ -14,7 +14,7 @@ app.use("*", logger());
 app.use("*", cors());
 
 // Error Handling
-app.onError((err, c) => {
+app.onError((err: Error, c: Context) => {
     console.error(`[API_ERROR] ${err.message}`);
     return c.json({ error: "Internal Server Error", message: err.message }, 500);
 });
@@ -24,7 +24,7 @@ app.onError((err, c) => {
  */
 
 // Project Reviewers
-app.get("/projects/:projectId/reviewers", async (c) => {
+app.get("/projects/:projectId/reviewers", async (c: Context) => {
     const projectId = c.req.param("projectId");
 
     if (!projectId) {
