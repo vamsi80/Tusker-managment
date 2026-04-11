@@ -154,14 +154,7 @@ export async function editTask(
         // Sync to procurement
         await syncTaskToProcurement(taskId);
 
-        // OPTIMIZED: Use comprehensive cache invalidation
-        await invalidateTaskMutation({
-            taskId: taskId,
-            projectId: existingTask.projectId,
-            workspaceId: existingTask.project.workspaceId,
-            userId: user.id
-        });
-
+        // Return success (Surgical client sync is handled by recordActivity)
         return {
             status: "success",
             message: "Task updated successfully",

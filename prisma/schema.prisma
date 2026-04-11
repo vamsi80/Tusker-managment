@@ -238,7 +238,7 @@ model Task {
   id                    String             @id @default(uuid())
   projectId             String
   description           String?
-  status                TaskStatus?        @default(TO_DO)
+  status                TaskStatus?
   createdAt             DateTime           @default(now())
   updatedAt             DateTime           @updatedAt
   createdById           String

@@ -120,13 +120,14 @@ export async function createReviewCommentAction(
             action: "COMMENT_CREATED",
             entityType: "SUBTASK",
             entityId: subTaskId,
-            newData: { text },
-            targetUserIds, // Limit broadcast to involved people
+            newData: { 
+                id: reviewComment.id,
+                text: text.trim(),
+                createdAt: new Date().toISOString()
+            },
+            broadcastEvent: "team_update", // Triggers surgical client-side sync
+            targetUserIds, 
         });
-
-        // 7. Invalidate caches using cache tags (faster than revalidatePath)
-        await invalidateReviewComments(subTaskId);
-        await invalidateProjectTasks(projectId);
 
         return {
             success: true,

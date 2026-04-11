@@ -41,7 +41,9 @@ export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
         }
 
         // Check if user has permission to create tasks (workspace admin or project lead)
-        if (!permissions.canCreateSubTask) {
+        const canSucceed = permissions.isWorkspaceAdmin || permissions.canCreateSubTask;
+        
+        if (!canSucceed) {
             return {
                 status: "error",
                 message: "You don't have permission to create tasks. Only workspace admins and project leads can create tasks.",
@@ -49,7 +51,28 @@ export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
         }
 
         // Resolve current user's ProjectMember.id
-        const projectMember = permissions.projectMember;
+        let projectMember = permissions.projectMember;
+
+        // 🚀 ADMIN AUTO-PROVISION: If admin/owner is missing from the project, auto-join them
+        if (!projectMember && permissions.isWorkspaceAdmin) {
+            try {
+                projectMember = await prisma.projectMember.create({
+                    data: {
+                        projectId: values.projectId,
+                        workspaceMemberId: permissions.workspaceMemberId!,
+                        projectRole: "PROJECT_MANAGER", // Admins get Manager rights by default
+                        hasAccess: true,
+                    }
+                }) as any;
+            } catch (e) {
+                console.error("[ADMIN_AUTO_JOIN_ERROR]", e);
+                return {
+                    status: "error",
+                    message: "Failed to auto-join project. Please contact support.",
+                };
+            }
+        }
+
         if (!projectMember) {
             return {
                 status: "error",
@@ -84,6 +107,9 @@ export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
                 reviewerId: reviewerPMId,
             },
             include: {
+                assignee: true,
+                tag: true,
+                reviewer: true,
                 _count: {
                     select: { subTasks: true }
                 },
@@ -93,13 +119,30 @@ export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
         // Sync to procurement
         await syncTaskToProcurement(newTask.id);
 
-        // 4. OPTIMIZED: Use comprehensive cache invalidation
-        await invalidateTaskMutation({
-            taskId: newTask.id,
-            projectId: values.projectId,
-            workspaceId: project.workspaceId,
-            userId: permissions.workspaceMember.userId
-        });
+        // 4. RECORD ACTIVITY & BROADCAST (Structural Pinpoint Sync)
+        try {
+            const { recordActivity } = await import("@/lib/audit");
+            const { getTaskInvolvedUserIds } = await import("@/lib/involved-users");
+            const targetUserIds = await getTaskInvolvedUserIds(newTask.id);
+            
+            await recordActivity({
+                userId: permissions.workspaceMember.userId,
+                userName: (permissions.workspaceMember as any).surname || (permissions.workspaceMember as any).name || "Someone",
+                workspaceId: project.workspaceId,
+                action: "TASK_CREATED",
+                entityType: "TASK",
+                entityId: newTask.id,
+                newData: {
+                    ...newTask,
+                    projectSlug: project.slug,
+                    _count: { ...newTask._count, reviewComments: 0 } // Ensure full stats for zero-weight rendering
+                },
+                broadcastEvent: "team_update", // Triggers structural sync
+                targetUserIds, 
+            });
+        } catch (e) {
+            console.error("[PINPOINT_SYNC_ERROR] recordActivity failed:", e);
+        }
 
         return {
             status: "success",
@@ -107,7 +150,8 @@ export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
             data: newTask,
         };
 
-    } catch {
+    } catch (err) {
+        console.error("[CREATE_TASK_ERROR]", err);
         return {
             status: "error",
             message: "We couldn't create the task. Please try again.",

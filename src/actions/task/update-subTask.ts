@@ -180,14 +180,7 @@ export async function editSubTask(
         // Sync with procurement
         await syncTaskToProcurement(subTaskId);
 
-        await invalidateTaskMutation({
-            taskId: subTaskId,
-            projectId: existingSubTask.projectId,
-            workspaceId: existingSubTask.project.workspaceId,
-            userId: user.id,
-            parentTaskId: existingSubTask.parentTaskId || undefined
-        });
-
+        // 6. Return success (Surgical client sync is handled by recordActivity)
         return {
             status: "success",
             message: "Subtask updated successfully",

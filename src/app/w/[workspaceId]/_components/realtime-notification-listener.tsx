@@ -16,6 +16,8 @@ export function RealtimeNotificationListener() {
     const projectId = params?.projectId as string;
     const upsertTasks = useTaskCacheStore((state) => state.upsertTasks);
     const moveTask = useTaskCacheStore((state) => state.moveTaskBetweenKanbanColumns);
+    const addTask = useTaskCacheStore((state) => state.addTaskToKanbanList);
+    const removeTask = useTaskCacheStore((state) => state.removeTaskFromKanbanList);
 
     useEffect(() => {
         if (!workspaceId) return;
@@ -26,26 +28,51 @@ export function RealtimeNotificationListener() {
         // 2. Listen to internal events for UI updates (Toasts & Refreshes)
         const unsubscribeActivity = pubsub.subscribe(EVENTS.APP_ACTIVITY_LOG, (data: any) => {
             const isActor = data.userId === session?.user?.id;
-            const isUpdate = data.action === "TASK_UPDATED" || data.action === "SUBTASK_UPDATED";
+            const isUpdate = data.action === "TASK_UPDATED" ||
+                data.action === "SUBTASK_UPDATED" ||
+                data.action === "COMMENT_CREATED";
 
-            // 🚀 SURGICAL SYNC: If it's an update, push data to store instead of full refresh
-            if (!isActor && isUpdate && data.entityId && data.metadata) {
-                // If it's a status change (move), handle it surgically in the store
-                if (data.metadata.status && data.metadata.previousStatus) {
-                    moveTask(
-                        data.entityId,
-                        data.metadata.previousStatus,
-                        data.metadata.status,
-                        workspaceId,
-                        projectId
-                    );
+            const isStructural = data.action === "SUBTASK_CREATED" ||
+                data.action === "TASK_CREATED" ||
+                data.action === "SUBTASK_DELETED" ||
+                data.action === "TASK_DELETED";
+
+            // 🚀 SURGICAL SYNC: Protect structural integrity with pinpoint updates
+            if (!isActor && (isUpdate || isStructural) && data.entityId) {
+                const payload = data.newData || data.metadata?.payload || data.metadata;
+                
+                if (!payload) return;
+
+                // 1. Handle Structural Changes
+                if (data.action.includes("CREATED")) {
+                    addTask(payload, workspaceId, payload.projectId || projectId);
+                } else if (data.action.includes("DELETED")) {
+                    removeTask(data.entityId, payload.status, workspaceId, payload.projectId || projectId);
                 }
 
-                upsertTasks([{
-                    id: data.entityId,
-                    ...data.metadata,
-                    updatedAt: new Date().toISOString()
-                }]);
+                // 2. Handle Property Updates
+                if (isUpdate) {
+                    if (payload.status && payload.previousStatus) {
+                        moveTask(data.entityId, payload.previousStatus, payload.status, workspaceId, projectId);
+                    }
+
+                    upsertTasks([{
+                        id: data.entityId,
+                        ...payload,
+                        updatedAt: new Date().toISOString()
+                    }]);
+
+                    // Comment counter increment
+                    if (data.action === "COMMENT_CREATED") {
+                        const currentTask = useTaskCacheStore.getState().entities[data.entityId];
+                        if (currentTask) {
+                            upsertTasks([{
+                                id: data.entityId,
+                                _count: { ...currentTask._count, reviewComments: (currentTask._count?.reviewComments || 0) + 1 }
+                            }]);
+                        }
+                    }
+                }
             } else if (!isActor) {
                 // For structural changes (DELETE, CREATE) or other users' actions,
                 // we still do a full refresh to ensure list integrity.
@@ -86,8 +113,23 @@ export function RealtimeNotificationListener() {
                     ...data.payload,
                     updatedAt: new Date().toISOString()
                 }]);
+            } else if (data.type === "CREATE" && data.payload?.id) {
+                // SURGICAL CREATE: Prepend to the matching status column
+                addTask(
+                    data.payload,
+                    workspaceId,
+                    data.payload.projectId || projectId
+                );
+            } else if (data.type === "DELETE" && data.payload?.id) {
+                // SURGICAL DELETE: Pluck from the matching status column
+                removeTask(
+                    data.payload.id,
+                    data.payload.status,
+                    workspaceId,
+                    data.payload.projectId || projectId
+                );
             } else {
-                // For other types (CREATE, DELETE, etc.), do a full refresh
+                // For other types (Generic team updates, etc.), do a full refresh
                 startTransition(() => {
                     router.refresh();
                 });
@@ -99,7 +141,7 @@ export function RealtimeNotificationListener() {
             unsubscribeTeam();
             pubsub.cleanup();
         };
-    }, [workspaceId, session?.user?.id, router]);
+    }, [workspaceId, projectId, session?.user?.id, router, upsertTasks, moveTask, addTask, removeTask]);
 
     return null; // This component doesn't render anything
 }
