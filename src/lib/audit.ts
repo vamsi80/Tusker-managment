@@ -146,6 +146,8 @@ export async function recordActivity(options: RecordActivityOptions) {
       if (action === "TASK_CREATED") actionLabel = "created a new task";
       if (action === "TASK_UPDATED") actionLabel = "updated a task";
       if (action === "TASK_DELETED") actionLabel = "deleted a task";
+      if (action === "SUBTASK_CREATED") actionLabel = "created a subtask";
+      if (action === "SUBTASK_DELETED") actionLabel = "deleted a subtask";
       if (action === "SUBTASK_UPDATED") {
         const delta = oldData && newData ? calculateDelta(oldData, newData) : null;
 
@@ -174,6 +176,8 @@ export async function recordActivity(options: RecordActivityOptions) {
         entityType,
         entityId,
         metadata,
+        newData, // Direct access for surgical sync
+        oldData, // Direct access for surgical sync
         message,
       };
 
@@ -201,7 +205,8 @@ export async function recordActivity(options: RecordActivityOptions) {
         let normalizedType = action.replace("MEMBER_", "").replace("TASK_", "").replace("SUBTASK_", "");
         if (normalizedType === "INVITED") normalizedType = "INVITE";
         if (normalizedType === "REMOVED") normalizedType = "DELETE";
-        if (normalizedType === "CREATED" || normalizedType === "UPDATED") normalizedType = "UPDATE";
+        if (normalizedType === "CREATED") normalizedType = "CREATE";
+        if (normalizedType === "UPDATED") normalizedType = "UPDATE";
 
         const payload = newData || metadata || {};
         // Ensure the ID is present in the payload for surgical client-side updates

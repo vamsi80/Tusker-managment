@@ -66,35 +66,28 @@ export async function deleteTask(
             where: { id: taskId },
         });
 
-        // 5. Record Activity & Broadcast
-        const { recordActivity } = await import("@/lib/audit");
-        await recordActivity({
-            userId: user.id,
-            userName: (user as any).surname || user.name || "Someone",
-            workspaceId: existingTask.project.workspaceId,
-            action: "TASK_DELETED",
-            entityType: "TASK",
-            entityId: taskId,
-            oldData: { name: existingTask.name, slug: existingTask.taskSlug },
-            broadcastEvent: "task_update",
-            targetUserIds, // Target involved people only
-        });
-
-        // 4. OPTIMIZED: Use comprehensive cache invalidation
-        await invalidateTaskMutation({
-            taskId: taskId,
-            projectId: existingTask.projectId,
-            workspaceId: existingTask.project.workspaceId,
-            userId: user.id
-        });
-
-        // 5. MANUAL REVALIDATION: Explicitly clear the fetch tags for the whole workspace/project
-        // This ensures the getTasks cache is purged immediately for everyone.
-        (revalidateTag as any)(`workspace-tasks-${existingTask.project.workspaceId}`, "layout");
-        if (existingTask.projectId) {
-            (revalidateTag as any)(`project-tasks-${existingTask.projectId}`, "layout");
+        // 5. RECORD ACTIVITY & BROADCAST (Structural Pinpoint Sync)
+        try {
+            const { recordActivity } = await import("@/lib/audit");
+            
+            await recordActivity({
+                userId: user.id,
+                userName: (user as any).surname || user.name || "Someone",
+                workspaceId: existingTask.project.workspaceId,
+                action: "TASK_DELETED",
+                entityType: "TASK",
+                entityId: taskId,
+                oldData: { 
+                    name: existingTask.name, 
+                    status: existingTask.status,
+                    projectId: existingTask.projectId // Essential for pinpoint removal
+                },
+                broadcastEvent: "team_update", // Triggers structural sync
+                targetUserIds, 
+            });
+        } catch (e) {
+            console.error("[PINPOINT_SYNC_ERROR] recordActivity failed:", e);
         }
-
 
         return {
             status: "success",

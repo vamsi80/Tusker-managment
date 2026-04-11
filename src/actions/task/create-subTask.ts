@@ -10,6 +10,7 @@ import { SubTaskSchemaType, subTaskSchema } from "@/lib/zodSchemas";
 import { syncTaskToProcurement } from "@/lib/procurement/logic";
 import { parseIST } from "@/lib/utils";
 import { resolveProjectMemberId } from "@/lib/auth/resolve-member-chain";
+import { getTaskInvolvedUserIds } from "@/lib/involved-users";
 
 export async function createSubTask(values: SubTaskSchemaType): Promise<ApiResponse> {
     const user = await requireUser();
@@ -46,7 +47,9 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
         }
 
         // Check if user has permission to create subtasks (workspace admin or project lead)
-        if (!permissions.canCreateSubTask) {
+        const canSucceed = permissions.isWorkspaceAdmin || permissions.canCreateSubTask;
+
+        if (!canSucceed) {
             return {
                 status: "error",
                 message: "You don't have permission to create subtasks. Only workspace admins and project leads can create subtasks.",
@@ -54,7 +57,28 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
         }
 
         // Resolve current user's ProjectMember.id
-        const creatorProjectMember = permissions.projectMember;
+        let creatorProjectMember = permissions.projectMember;
+        
+        // 🚀 ADMIN AUTO-PROVISION: If admin/owner is missing from the project, auto-join them
+        if (!creatorProjectMember && permissions.isWorkspaceAdmin) {
+            try {
+                creatorProjectMember = await prisma.projectMember.create({
+                    data: {
+                        projectId: values.projectId,
+                        workspaceMemberId: permissions.workspaceMemberId!,
+                        projectRole: "PROJECT_MANAGER", // Admins get Manager rights by default
+                        hasAccess: true,
+                    }
+                }) as any;
+            } catch (e) {
+                console.error("[ADMIN_AUTO_JOIN_ERROR]", e);
+                return {
+                    status: "error",
+                    message: "Failed to auto-join project. Please contact support.",
+                };
+            }
+        }
+
         if (!creatorProjectMember) {
             return {
                 status: "error",
@@ -116,7 +140,7 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
                         name: validation.data.name,
                         taskSlug: uniqueSubtaskSlug,
                         description: validation.data.description,
-                        status: validation.data.status,
+                        status: validation.data.status || "TO_DO",
                         projectId: validation.data.projectId,
                         workspaceId: project.workspaceId,
                         parentTaskId: validation.data.parentTaskId,
@@ -177,14 +201,29 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
         // Sync to procurement
         await syncTaskToProcurement(newSubTask.id);
 
-        // OPTIMIZED: Use comprehensive cache invalidation
-        await invalidateTaskMutation({
-            taskId: newSubTask.id,
-            projectId: values.projectId,
-            workspaceId: project.workspaceId,
-            userId: user.id,
-            parentTaskId: values.parentTaskId
-        });
+        // 5. RECORD ACTIVITY & BROADCAST (Structural Pinpoint Sync)
+        try {
+            const { recordActivity } = await import("@/lib/audit");
+            const targetUserIds = await getTaskInvolvedUserIds(newSubTask.id);
+
+            await recordActivity({
+                userId: user.id,
+                userName: (user as any).surname || user.name || "Someone",
+                workspaceId: project.workspaceId,
+                action: "SUBTASK_CREATED",
+                entityType: "SUBTASK",
+                entityId: newSubTask.id,
+                newData: {
+                    ...newSubTask,
+                    projectSlug: project.slug, // Essential context for pinpoint sync
+                    _count: { reviewComments: 0 } // Ensures secondary devices render full card stats
+                },
+                broadcastEvent: "team_update", // Triggers structural sync
+                targetUserIds,
+            });
+        } catch (e) {
+            console.error("[PINPOINT_SYNC_ERROR] recordActivity failed:", e);
+        }
 
         return {
             status: "success",
