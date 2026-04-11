@@ -4,6 +4,7 @@ import { invalidateTaskMutation } from "@/lib/cache/invalidation";
 import { requireUser } from "@/lib/auth/require-user";
 import { revalidateTag } from "next/cache";
 import prisma from "@/lib/db";
+import { getTaskInvolvedUserIds } from "@/lib/involved-users";
 import { ApiResponse } from "@/lib/types";
 
 export async function deleteTask(
@@ -57,21 +58,26 @@ export async function deleteTask(
             };
         }
 
-        // 3. Delete the task
+        // 3. Fetch involved users BEFORE deletion
+        const targetUserIds = await getTaskInvolvedUserIds(taskId);
+
+        // 4. Delete the task
         await prisma.task.delete({
             where: { id: taskId },
         });
 
-        // 4. Record Activity & Broadcast
+        // 5. Record Activity & Broadcast
         const { recordActivity } = await import("@/lib/audit");
         await recordActivity({
             userId: user.id,
+            userName: (user as any).surname || user.name || "Someone",
             workspaceId: existingTask.project.workspaceId,
             action: "TASK_DELETED",
             entityType: "TASK",
             entityId: taskId,
             oldData: { name: existingTask.name, slug: existingTask.taskSlug },
-            broadcastEvent: "task_update"
+            broadcastEvent: "task_update",
+            targetUserIds, // Target involved people only
         });
 
         // 4. OPTIMIZED: Use comprehensive cache invalidation

@@ -1,6 +1,7 @@
 "use server";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
 import { invalidateTaskMutation } from "@/lib/cache/invalidation";
+import { getTaskInvolvedUserIds } from "@/lib/involved-users";
 import { requireUser } from "@/lib/auth/require-user";
 import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
@@ -129,8 +130,10 @@ export async function editTask(
 
         // 4. Record Activity & Broadcast
         const { recordActivity } = await import("@/lib/audit");
+        const targetUserIds = await getTaskInvolvedUserIds(taskId);
         await recordActivity({
             userId: user.id,
+            userName: (user as any).surname || user.name || "Someone",
             workspaceId: existingTask.project.workspaceId,
             action: "TASK_UPDATED",
             entityType: "TASK",

@@ -1007,7 +1007,7 @@ export const getTasks = cache(async (opts: GetTasksOptions, providedUserId?: str
     } = await resolveTaskPermissions(workspaceId, projectId, providedUserId);
 
     if (process.env.NODE_ENV === "production" || true) {
-        console.log(`🛡️ [GET_TASKS] User: ${providedUserId || 'current'}, WS: ${workspaceId}, Admin: ${isWorkspaceAdmin}, FullAccess: ${fullAccessProjectIds.length}, Restricted: ${restrictedProjectIds.length}`);
+        // console.log(`🛡️ [GET_TASKS] User: ${providedUserId || 'current'}, WS: ${workspaceId}, Admin: ${isWorkspaceAdmin}, FullAccess: ${fullAccessProjectIds.length}, Restricted: ${restrictedProjectIds.length}`);
     }
 
     if (!permissions.workspaceMemberId || (!isWorkspaceAdmin && authorizedProjectIds.length === 0)) {

@@ -4,6 +4,7 @@ import { getUserPermissions } from "@/data/user/get-user-permissions";
 import { invalidateTaskMutation } from "@/lib/cache/invalidation";
 import { requireUser } from "@/lib/auth/require-user";
 import prisma from "@/lib/db";
+import { getTaskInvolvedUserIds } from "@/lib/involved-users";
 import { ApiResponse } from "@/lib/types";
 
 export async function deleteSubTask(
@@ -56,7 +57,10 @@ export async function deleteSubTask(
             };
         }
 
-        // Delete the subtask and update parent counters in a transaction
+        // 3. Fetch involved users BEFORE deletion
+        const targetUserIds = await getTaskInvolvedUserIds(subTaskId);
+
+        // 4. Delete the subtask and update parent counters in a transaction
         await prisma.$transaction(async (tx) => {
             await tx.task.delete({
                 where: { id: subTaskId },
@@ -72,6 +76,21 @@ export async function deleteSubTask(
                 });
             }
         });
+
+        // 5. Record Activity & Broadcast
+        const { recordActivity } = await import("@/lib/audit");
+        await recordActivity({
+            userId: user.id,
+            userName: (user as any).surname || user.name || "Someone",
+            workspaceId: existingSubTask.project.workspaceId,
+            action: "SUBTASK_DELETED",
+            entityType: "SUBTASK",
+            entityId: subTaskId,
+            oldData: { name: existingSubTask.name, status: existingSubTask.status },
+            broadcastEvent: "task_update",
+            targetUserIds, // Target involved people only
+        });
+
 
         // OPTIMIZED: Use comprehensive cache invalidation
         await invalidateTaskMutation({

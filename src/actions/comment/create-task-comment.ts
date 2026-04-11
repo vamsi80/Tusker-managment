@@ -157,6 +157,7 @@ export async function createTaskCommentAction(
         const { recordActivity } = await import("@/lib/audit");
         await recordActivity({
             userId: user.id,
+            userName: (user as any).surname || user.name || "Someone",
             workspaceId: workspaceId,
             action: "COMMENT_CREATED",
             entityType: "TASK",
