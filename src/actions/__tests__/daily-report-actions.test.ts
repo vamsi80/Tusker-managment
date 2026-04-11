@@ -17,7 +17,7 @@ describe("Daily Report Actions", () => {
             date: "2024-03-20",
             entries: [
                 { taskId: validTaskId, description: "Worked on UI implementation for several hours" },
-                { taskId: "other", description: "Internal team meeting regarding sprint planning" }
+                { taskId: "846e17c7-d85f-4453-9ca0-0acc7bfce49e", description: "Internal team meeting regarding sprint planning" }
             ]
         };
 

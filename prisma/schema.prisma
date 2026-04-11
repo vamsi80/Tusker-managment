@@ -32,6 +32,7 @@ model User {
   commentReads        CommentRead[]
   dailyReports        DailyReport[]
   sessions            Session[]
+  auditLogs           AuditLog[]
 
   @@map("user")
 }
@@ -118,6 +119,7 @@ model Workspace {
   units            Unit[]
   vendors          Vendor[]
   boardItems       Board[]
+  auditLogs        AuditLog[]
 }
 
 model WorkspaceMember {
@@ -737,4 +739,25 @@ model Board {
 enum BoardStatus {
   DONE
   NOT_DONE
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  workspaceId String?
+  userId      String
+  action      String   // e.g., "USER_LOGIN", "TASK_UPDATED", "MEMBER_INVITED"
+  entityType  String?  // e.g., "TASK", "MEMBER", "PROJECT"
+  entityId    String?
+  metadata    Json?    // Stores deltas: { "field": { "from": "...", "to": "..." } }
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_log")
 }

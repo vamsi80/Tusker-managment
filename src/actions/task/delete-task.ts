@@ -57,9 +57,21 @@ export async function deleteTask(
             };
         }
 
-        // 3. Delete the task (this will cascade delete all subtasks due to onDelete: Cascade in schema)
+        // 3. Delete the task
         await prisma.task.delete({
             where: { id: taskId },
+        });
+
+        // 4. Record Activity & Broadcast
+        const { recordActivity } = await import("@/lib/audit");
+        await recordActivity({
+            userId: user.id,
+            workspaceId: existingTask.project.workspaceId,
+            action: "TASK_DELETED",
+            entityType: "TASK",
+            entityId: taskId,
+            oldData: { name: existingTask.name, slug: existingTask.taskSlug },
+            broadcastEvent: "task_update"
         });
 
         // 4. OPTIMIZED: Use comprehensive cache invalidation

@@ -108,6 +108,17 @@ export async function createReviewCommentAction(
             },
         });
 
+        // 6.5 Record Activity (Broadcasts to header real-time)
+        const { recordActivity } = await import("@/lib/audit");
+        await recordActivity({
+            userId: user.id,
+            workspaceId: workspaceId,
+            action: "COMMENT_CREATED",
+            entityType: "SUBTASK",
+            entityId: subTaskId,
+            newData: { text },
+        });
+
         // 7. Invalidate caches using cache tags (faster than revalidatePath)
         await invalidateReviewComments(subTaskId);
         await invalidateProjectTasks(projectId);
