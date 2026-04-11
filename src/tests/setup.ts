@@ -2,92 +2,47 @@ import { vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-// Define shared mock functions
-const sharedMocks = {
-    user: {
-        upsert: vi.fn(),
-        delete: vi.fn(),
-        count: vi.fn(),
-    },
-    workspaceMember: {
-        upsert: vi.fn(),
-        deleteMany: vi.fn(),
-    },
-    workspace: {
+// Mock Prisma models explicitly within the factory to avoid hoisting issues
+vi.mock("@/lib/db", () => {
+    const mockModel = (name: string) => ({
         count: vi.fn(),
         findUnique: vi.fn(),
-        create: vi.fn(),
-        update: vi.fn(),
-        delete: vi.fn(),
-        findMany: vi.fn(),
-    },
-    project: {
-        create: vi.fn(),
-        update: vi.fn(),
-        delete: vi.fn(),
-        findUnique: vi.fn(),
+        create: vi.fn(async (args) => ({ id: `mock-${name}-id`, ...args?.data })),
+        update: vi.fn(async (args) => ({ id: args?.where?.id || `mock-${name}-id`, ...args?.data })),
+        delete: vi.fn(async (args) => ({ id: args?.where?.id || `mock-${name}-id` })),
         findFirst: vi.fn(),
-        findMany: vi.fn(),
-    },
-    projectMember: {
-        create: vi.fn(),
-        update: vi.fn(),
-        findFirst: vi.fn(),
-        findMany: vi.fn(),
-    },
-    task: {
-        create: vi.fn(() => ({ id: "mock-task-id" })),
-        update: vi.fn(),
-        delete: vi.fn(),
-        findUnique: vi.fn(),
-        findFirst: vi.fn(),
-        findMany: vi.fn(),
-    },
-    tag: {
-        create: vi.fn(),
-        update: vi.fn(),
-        delete: vi.fn(),
-        findMany: vi.fn(),
-    },
-    procurementTask: {
-        create: vi.fn(() => ({ id: "mock-pt-id" })),
-    },
-    board: {
-        create: vi.fn(),
-        update: vi.fn(),
-        delete: vi.fn(),
-        findUnique: vi.fn(),
-        findMany: vi.fn(),
-    },
-    dailyReport: {
-        create: vi.fn(),
-        update: vi.fn(),
-        findUnique: vi.fn(),
-    },
-    dailyReportEntry: {
-        createMany: vi.fn(),
-    },
-    comment: {
-        create: vi.fn(),
-        update: vi.fn(),
-        delete: vi.fn(),
-        findUnique: vi.fn(),
-    },
-};
+        findMany: vi.fn(() => []),
+        upsert: vi.fn(async (args) => ({ id: args?.where?.id || `mock-${name}-id`, ...args?.create })),
+        deleteMany: vi.fn(() => ({ count: 0 })),
+    });
 
-// Mock Prisma
-vi.mock("@/lib/db", () => ({
-    default: {
-        ...sharedMocks,
+    const prismaMock = {
+        user: mockModel("user"),
+        workspaceMember: mockModel("workspaceMember"),
+        workspace: mockModel("workspace"),
+        project: mockModel("project"),
+        projectMember: mockModel("projectMember"),
+        task: mockModel("task"),
+        tag: mockModel("tag"),
+        procurementTask: mockModel("procurementTask"),
+        board: mockModel("board"),
+        dailyReport: mockModel("dailyReport"),
+        dailyReportEntry: {
+            createMany: vi.fn(() => ({ count: 0 })),
+        },
+        comment: mockModel("comment"),
         $transaction: vi.fn(async (cb) => {
             if (typeof cb === 'function') {
-                return await cb(sharedMocks);
+                return await cb(prismaMock);
             }
-            // Handle array of promises
             return Array.isArray(cb) ? await Promise.all(cb) : cb;
         }),
-    },
-}));
+    };
+
+    return {
+        default: prismaMock,
+    };
+});
 
 // Mock Better Auth
 vi.mock("@/lib/auth", () => ({
