@@ -127,11 +127,31 @@ export async function editTask(
             },
         });
 
+        // 4. Record Activity & Broadcast
+        const { recordActivity } = await import("@/lib/audit");
+        await recordActivity({
+            userId: user.id,
+            workspaceId: existingTask.project.workspaceId,
+            action: "TASK_UPDATED",
+            entityType: "TASK",
+            entityId: taskId,
+            oldData: {
+                name: existingTask.name,
+                taskSlug: existingTask.taskSlug,
+                reviewerId: existingTask.reviewerId,
+            },
+            newData: {
+                name: validation.data.name,
+                taskSlug: validation.data.taskSlug,
+                reviewerId: reviewerPMId,
+            },
+            broadcastEvent: "task_update"
+        });
+
         // Sync to procurement
         await syncTaskToProcurement(taskId);
 
         // OPTIMIZED: Use comprehensive cache invalidation
-        // Removed revalidatePath (slow) - using invalidateTaskMutation instead
         await invalidateTaskMutation({
             taskId: taskId,
             projectId: existingTask.projectId,

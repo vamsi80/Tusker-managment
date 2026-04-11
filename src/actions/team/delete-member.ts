@@ -3,7 +3,6 @@
 import prisma from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { broadcastTeamUpdate } from "@/lib/realtime";
-import { getWorkspaceById } from "@/data/workspace/get-workspace-by-id";
 import { ApiResponse } from "@/lib/types";
 import { revalidatePath } from "next/cache";
 
@@ -17,14 +16,22 @@ export async function deleteMemberAction(
     currentUserId: string
 ): Promise<ApiResponse> {
     try {
-        const workspace = await getWorkspaceById(workspaceId);
+        // Fetch workspace and members directly to avoid cache-lag during deletions
+        const workspace = await prisma.workspace.findUnique({
+            where: { id: workspaceId },
+            include: {
+                members: {
+                    include: {
+                        user: {
+                            select: { name: true }
+                        }
+                    }
+                }
+            }
+        });
 
         if (!workspace) {
             return { status: "error", message: "Workspace not found." };
-        }
-
-        if (!workspace.members || workspace.members.length === 0) {
-            return { status: "error", message: "Workspace has no members." };
         }
 
         const currentMember = workspace.members.find((m) => m.userId === currentUserId);
@@ -78,10 +85,11 @@ export async function deleteMemberAction(
 
         // Delete from Better Auth
         try {
-            if ((auth.api as any).deleteUser) {
-                await (auth.api as any).deleteUser({ userId: userIdToDelete });
-            } else if ((auth.api as any).admin?.deleteUser) {
-                await (auth.api as any).admin.deleteUser({ userId: userIdToDelete });
+            // Using removeUser from the admin plugin is the correct way for forced deletion
+            if ((auth.api as any).removeUser) {
+                await (auth.api as any).removeUser({ 
+                    body: { userId: userIdToDelete } 
+                });
             }
         } catch (authDeleteErr) {
             console.error("Failed to delete auth user:", authDeleteErr);
@@ -93,11 +101,16 @@ export async function deleteMemberAction(
         await invalidateWorkspaceMembers(workspaceId);
         revalidatePath(`/w/${workspaceId}/team`);
 
-        // Broadcast real-time update
-        broadcastTeamUpdate({
+        // 4. Record Activity & Broadcast
+        const { recordActivity } = await import("@/lib/audit");
+        await recordActivity({
+            userId: currentUserId, // Person who clicked delete
             workspaceId,
-            type: "DELETE",
-            payload: { memberId: workspaceMemberId },
+            action: "MEMBER_REMOVED",
+            entityType: "MEMBER",
+            entityId: workspaceMemberId,
+            oldData: { memberId: workspaceMemberId, name: userName },
+            broadcastEvent: "team_update"
         });
 
         return {

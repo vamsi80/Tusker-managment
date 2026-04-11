@@ -3,7 +3,7 @@ import { TeamMembers } from "./_components/team-members-table";
 import { AppLoader } from "@/components/shared/app-loader";
 import { getWorkspaceMembers } from "@/data/workspace";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
-import { InviteUserForm } from "./_components/create-user";
+import { AdminActions } from "./_components/admin-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -13,13 +13,17 @@ interface TeamPageProps {
 
 // ─── Streaming components ────────────────────────────────────────────────────
 
-async function TeamMembersList({ workspaceId, isAdmin }: { workspaceId: string; isAdmin: boolean }) {
-    const data = await getWorkspaceMembers(workspaceId);
+async function TeamMembersList({ workspaceId }: { workspaceId: string }) {
+    // Parallelize permission check and members fetch to reduce waterfall
+    const [permissions, data] = await Promise.all([
+        getWorkspacePermissions(workspaceId),
+        getWorkspaceMembers(workspaceId)
+    ]);
 
     return (
         <TeamMembers
             data={data.workspaceMembers}
-            isAdmin={isAdmin}
+            isAdmin={permissions.isWorkspaceAdmin}
             workspaceId={workspaceId}
         />
     );
@@ -27,13 +31,8 @@ async function TeamMembersList({ workspaceId, isAdmin }: { workspaceId: string; 
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
-/**
- * Team Page — AppLoader shows while streaming members.
- */
 export default async function TeamPage({ params }: TeamPageProps) {
     const { workspaceId } = await params;
-    const permissions = await getWorkspacePermissions(workspaceId);
-    const isAdmin = permissions.isWorkspaceAdmin;
 
     return (
         <div className="flex flex-col gap-4 sm:gap-5">
@@ -42,16 +41,16 @@ export default async function TeamPage({ params }: TeamPageProps) {
                 <h1 className="text-2xl font-bold leading-tight tracking-tighter md:text-3xl">
                     Team Members
                 </h1>
-                {isAdmin && (
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
-                        <InviteUserForm workspaceId={workspaceId} isAdmin={isAdmin} />
-                    </div>
-                )}
+                
+                {/* Admin actions (Invite button) stream in separately */}
+                <Suspense fallback={<div className="h-10 w-32 bg-muted/20 animate-pulse rounded-md" />}>
+                    <AdminActions workspaceId={workspaceId} />
+                </Suspense>
             </div>
 
             {/* Members table streams in */}
             <Suspense fallback={<AppLoader />}>
-                <TeamMembersList workspaceId={workspaceId} isAdmin={isAdmin} />
+                <TeamMembersList workspaceId={workspaceId} />
             </Suspense>
         </div>
     );
