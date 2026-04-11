@@ -144,6 +144,17 @@ export async function createCommentAction(
             },
         });
 
+        // 6.5 Record Activity (Broadcasts to header real-time)
+        const { recordActivity } = await import("@/lib/audit");
+        await recordActivity({
+            userId: user.id,
+            workspaceId: workspaceId,
+            action: "COMMENT_CREATED",
+            entityType: "TASK",
+            entityId: taskId,
+            newData: { text: content },
+        });
+
         // 7. Invalidate comment cache using cache tags
         await invalidateTaskComments(taskId);
 

@@ -3,7 +3,6 @@
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
-import { headers } from "next/headers";
 import { revalidateTag } from "next/cache";
 import { CacheTags } from "@/data/cache-tags";
 
@@ -258,11 +257,24 @@ export async function updateSubTaskStatus(
         // FIRE AND FORGET (Next.js will attempt these in the background)
         (async () => {
             try {
+                // Record Activity
+                const { recordActivity } = await import("@/lib/audit");
+                await recordActivity({
+                    userId: user.id,
+                    workspaceId,
+                    action: "SUBTASK_UPDATED",
+                    entityType: "SUBTASK",
+                    entityId: subTaskId,
+                    oldData: { status: subTask.status },
+                    newData: { status: newStatus },
+                    broadcastEvent: "team_update", // Triggers silent refresh
+                });
+
                 for (const tag of broadTags) {
                     revalidateTag(tag, "layout");
                 }
             } catch (e) {
-                console.error("Background revalidation failed:", e);
+                console.error("Background tasks failed:", e);
             }
         })();
 

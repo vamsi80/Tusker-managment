@@ -130,19 +130,45 @@ export async function editSubTask(
             );
         }
 
+        const oldData = {
+            name: existingSubTask.name,
+            description: existingSubTask.description,
+            assigneeId: existingSubTask.assigneeId,
+            reviewerId: existingSubTask.reviewerId,
+            tagId: existingSubTask.tagId,
+            startDate: existingSubTask.startDate,
+            dueDate: existingSubTask.dueDate,
+            days: existingSubTask.days,
+        };
+
+        const newData = {
+            name: validation.data.name,
+            description: validation.data.description,
+            assigneeId: assigneeProjectMemberId || null,
+            reviewerId: reviewerProjectMemberId || null,
+            tagId: validation.data.tag || null,
+            startDate: parseIST(validation.data.startDate),
+            dueDate: parseIST(validation.data.dueDate),
+            days: validation.data.days,
+        };
+
         // Perform the update — all references now use ProjectMember.id
         await prisma.task.update({
             where: { id: subTaskId },
-            data: {
-                name: validation.data.name,
-                description: validation.data.description,
-                assigneeId: assigneeProjectMemberId || null,
-                reviewerId: reviewerProjectMemberId || null,
-                tagId: validation.data.tag || null,
-                startDate: parseIST(validation.data.startDate),
-                dueDate: parseIST(validation.data.dueDate),
-                days: validation.data.days,
-            },
+            data: newData,
+        });
+
+        // 4. Record Activity & Broadcast
+        const { recordActivity } = await import("@/lib/audit");
+        await recordActivity({
+            userId: user.id,
+            workspaceId: existingSubTask.project.workspaceId,
+            action: "SUBTASK_UPDATED",
+            entityType: "SUBTASK",
+            entityId: subTaskId,
+            oldData,
+            newData,
+            broadcastEvent: "team_update"
         });
 
         // Sync with procurement

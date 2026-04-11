@@ -28,7 +28,10 @@ export async function invalidateUserWorkspaces(userId: string) {
  * Invalidate workspace members cache
  */
 export async function invalidateWorkspaceMembers(workspaceId: string) {
-    const tags = CacheTags.workspaceMembers(workspaceId);
+    const tags = [
+        ...CacheTags.workspaceMembers(workspaceId),
+        ...CacheTags.workspace(workspaceId), // Ensure full workspace data is also updated
+    ];
     tags.forEach(tag => revalidateTag(tag));
 }
 
@@ -153,10 +156,6 @@ export async function invalidateAllWorkspaceTasks() {
 /**
  * Invalidate both project and workspace task caches
  * Call this on any task mutation to ensure both views are updated
- * 
- * @param projectId - The project ID
- * @param workspaceId - The workspace ID
- * @param userId - Optional user ID for user-specific caches
  */
 export async function invalidateTaskCaches(projectId: string, workspaceId: string, userId?: string) {
     await invalidateProjectTasks(projectId, userId);
@@ -327,5 +326,3 @@ export async function invalidateTaskMutation(params: {
 
     await Promise.all(invalidations);
 }
-
-
