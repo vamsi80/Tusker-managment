@@ -98,11 +98,20 @@ export async function inviteMemberAction(
         await invalidateUserWorkspaces(authUserId);
         await invalidateWorkspaceMembers(workspaceId);
 
-        // Broadcast real-time update
-        broadcastTeamUpdate({
+        // 4. Record Activity & Broadcast
+        const { recordActivity } = await import("@/lib/audit");
+        const currentUser = await auth.api.getSession({
+            headers: await import("next/headers").then(h => h.headers())
+        });
+
+        await recordActivity({
+            userId: currentUser?.user?.id || authUserId, // ID of the person who invited
             workspaceId,
-            type: "INVITE",
-            payload: { email, name, role },
+            action: "MEMBER_INVITED",
+            entityType: "MEMBER",
+            entityId: authUserId,
+            newData: { email, name, role },
+            broadcastEvent: "team_update"
         });
 
         return {
@@ -115,10 +124,10 @@ export async function inviteMemberAction(
         // Cleanup auth user on failure
         if (createdAuthUserId) {
             try {
-                if ((auth.api as any).deleteUser) {
-                    await (auth.api as any).deleteUser({ userId: createdAuthUserId });
-                } else if ((auth.api as any).admin?.deleteUser) {
-                    await (auth.api as any).admin.deleteUser({ userId: createdAuthUserId });
+                if ((auth.api as any).removeUser) {
+                    await (auth.api as any).removeUser({ 
+                        body: { userId: createdAuthUserId } 
+                    });
                 }
             } catch (cleanupErr) {
                 console.error("Failed to delete auth user after DB error:", cleanupErr);

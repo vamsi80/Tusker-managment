@@ -23,6 +23,9 @@ import {
     TabsList,
     TabsTrigger
 } from "@/components/ui/tabs";
+import { pusherClient } from "@/lib/pusher";
+import { authClient } from "@/lib/auth-clint";
+import { cn } from "@/lib/utils";
 
 export function NotificationCenter({ workspaceId, initialUnread = [], initialRead = [], initialPeopleCount = 0 }: { workspaceId: string, initialUnread?: any[], initialRead?: any[], initialPeopleCount?: number }) {
     const pathname = usePathname();
@@ -37,7 +40,53 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
     const [activeTab, setActiveTab] = useState("new");
     const [hasMore, setHasMore] = useState(false);
     const [offset, setOffset] = useState(0);
+    const [isPulsing, setIsPulsing] = useState(false);
     const LIMIT = 15;
+
+    const { data: session } = authClient.useSession();
+
+    // Listen for Real-time Notifications
+    useEffect(() => {
+        if (!pusherClient || !workspaceId) return;
+
+        console.log(`[NOTIF_CENTER] Subscribing to workspace: ${workspaceId}`);
+        
+        // Log connection state
+        console.log("[PUSHER] Current connection state:", pusherClient.connection.state);
+        pusherClient.connection.bind('state_change', (states: any) => {
+            console.log(`[PUSHER] Connection state changed from ${states.previous} to ${states.current}`);
+        });
+
+        const channel = pusherClient.subscribe(`team-${workspaceId}`);
+
+        channel.bind("activity_log", (data: any) => {
+            console.log("[NOTIF_CENTER] Activity log received:", data.action, data);
+            console.log("[NOTIF_CENTER] Comparing IDs:", { eventUserId: data.userId, currentUserId: session?.user?.id });
+            
+            // If it's a comment
+            if (data.action === "COMMENT_CREATED") {
+                // Only alert if NOT from current user
+                if (data.userId !== session?.user?.id) {
+                    console.log("[NOTIF_CENTER] NEW COMMENT DETECTED! Updating count.");
+                    setPeopleCount(prev => prev + 1);
+                    
+                    // Trigger visual alert pulse
+                    setIsPulsing(true);
+                    setTimeout(() => setIsPulsing(false), 2000);
+
+                    // If menu is open, refresh list
+                    if (isOpen) loadNotifications();
+                } else {
+                    console.log("[NOTIF_CENTER] Self-comment detected. Ignoring toast but might refresh.");
+                    if (isOpen) loadNotifications();
+                }
+            }
+        });
+
+        return () => {
+            pusherClient.unsubscribe(`team-${workspaceId}`);
+        };
+    }, [workspaceId, session?.user?.id, isOpen]);
 
     const loadNotifications = async (isInitial = true) => {
         if (!workspaceId) return;
@@ -117,12 +166,25 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
             if (open) loadNotifications();
         }}>
             <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative h-9 w-9 rounded-full">
-                    <Bell className="h-[18px] w-[18px]" />
+                <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className={cn(
+                        "relative h-9 w-9 rounded-full transition-all",
+                        isPulsing && "ring-2 ring-primary ring-offset-2 bg-primary/10"
+                    )}
+                >
+                    <Bell className={cn(
+                        "h-[18px] w-[18px] transition-transform",
+                        isPulsing && "scale-110 text-primary"
+                    )} />
                     {peopleCount > 0 && (
                         <Badge
                             variant="destructive"
-                            className="absolute -top-1 -right-1 h-4 min-w-4 p-0 flex items-center justify-center text-[10px] border-2 border-background"
+                            className={cn(
+                                "absolute -top-1 -right-1 h-4 min-w-4 p-0 flex items-center justify-center text-[10px] border-2 border-background",
+                                isPulsing && "animate-pulse"
+                            )}
                         >
                             {peopleCount}
                         </Badge>

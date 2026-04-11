@@ -46,13 +46,15 @@ export async function getNotificationsAction(workspaceId: string, limit: number 
         where.userId = {
             not: user.id
         };
+        // 1. Fetch general comments
         const comments = await prisma.comment.findMany({
             where,
             include: {
                 user: {
                     select: {
                         name: true,
-                        surname: true
+                        surname: true,
+                        image: true,
                     }
                 },
                 readBy: {
@@ -82,13 +84,53 @@ export async function getNotificationsAction(workspaceId: string, limit: number 
             orderBy: {
                 createdAt: 'desc'
             },
-            take: limit,
-            skip: offset
+            take: limit
+        });
+
+        // 2. Fetch review comments (Note: ReviewComment table doesn't have readBy, so we treat recent ones as new)
+        // We'll treat review comments created in last 24h as "New" if not by current user
+        // In a future update, we should add a separate read-tracking table for ReviewComments
+        const reviewComments = await prisma.reviewComment.findMany({
+            where: {
+                workspaceId: workspaceId,
+                authorId: { not: user.id },
+                createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } // Last 24h
+            },
+            include: {
+                author: {
+                    select: {
+                        name: true,
+                        image: true,
+                    }
+                },
+                subTask: {
+                    select: {
+                        id: true,
+                        name: true,
+                        taskSlug: true,
+                        project: {
+                            select: {
+                                name: true,
+                            }
+                        },
+                        parentTask: {
+                            select: {
+                                name: true
+                            }
+                        }
+                    }
+                }
+            },
+            orderBy: {
+                createdAt: 'desc'
+            },
+            take: 10
         });
 
         // Group comments by task
         const groupedMap = new Map();
 
+        // Process general comments
         comments.forEach(comment => {
             const isRead = comment.readBy.length > 0;
 
@@ -99,22 +141,64 @@ export async function getNotificationsAction(workspaceId: string, limit: number 
                     taskSlug: comment.task.taskSlug,
                     projectName: comment.task.project.name,
                     parentTaskName: comment.task.parentTask?.name || null,
-                    latestComment: comment,
+                    latestComment: {
+                        content: comment.content,
+                        createdAt: comment.createdAt,
+                        user: {
+                            name: `${comment.user.name ?? ''} ${comment.user.surname ?? ''}`.trim(),
+                            image: (comment.user as any).image
+                        }
+                    },
                     count: 0,
-                    isNew: false // Assume read, then check if any comment is unread
+                    isNew: false
                 });
             }
 
             const group = groupedMap.get(comment.taskId);
             group.count++;
+            if (!isRead) group.isNew = true;
+        });
 
-            // If even one comment is unread, the group is "New"
-            if (!isRead) {
-                group.isNew = true;
+        // Process review comments (Merge into existing groups or create new)
+        reviewComments.forEach(rc => {
+            if (!groupedMap.has(rc.subTaskId)) {
+                groupedMap.set(rc.subTaskId, {
+                    taskId: rc.subTaskId,
+                    taskName: rc.subTask.name,
+                    taskSlug: rc.subTask.taskSlug,
+                    projectName: rc.subTask.project.name,
+                    parentTaskName: rc.subTask.parentTask?.name || null,
+                    latestComment: {
+                        content: rc.text,
+                        createdAt: rc.createdAt,
+                        user: {
+                            name: rc.author.name,
+                            image: (rc.author as any).image
+                        }
+                    },
+                    count: 0,
+                    isNew: true // Recent review comments are treated as new
+                });
+            }
+
+            const group = groupedMap.get(rc.subTaskId);
+            group.count++;
+            
+            // If this review comment is newer than what we have, update latest
+            if (new Date(rc.createdAt) > new Date(group.latestComment.createdAt)) {
+                group.latestComment = {
+                    content: rc.text,
+                    createdAt: rc.createdAt,
+                    user: {
+                        name: rc.author.name,
+                        image: (rc.author as any).image
+                    }
+                };
             }
         });
 
-        const allNotifications = Array.from(groupedMap.values());
+        const allNotifications = Array.from(groupedMap.values())
+            .sort((a, b) => new Date(b.latestComment.createdAt).getTime() - new Date(a.latestComment.createdAt).getTime());
 
         // Split into two sections
         const unreadNotifications = allNotifications.filter(n => n.isNew);
@@ -134,12 +218,15 @@ export async function getNotificationsAction(workspaceId: string, limit: number 
             }
         });
 
+        // Add review commenters to the count (approximate based on recipients)
+        const unreadReviewCount = reviewComments.length > 0 ? 1 : 0;
+
         return {
             success: true,
             unreadNotifications,
             readNotifications,
-            peopleCount: unreadCommenters.length,
-            totalCount: comments.length,
+            peopleCount: unreadCommenters.length + unreadReviewCount,
+            totalCount: allNotifications.length,
             hasMore: comments.length === limit
         };
 

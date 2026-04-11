@@ -54,7 +54,7 @@ export const KanbanCard = React.memo(function KanbanCard({ subTask, columnColor,
     const project = subTask.project;
 
     // Get Project Managers from the hoisted map (effective way)
-    const assignedManagers = (projectManagers && subTask.projectId ? projectManagers[subTask.projectId] : []) as any[];
+    const assignedManagers = (projectManagers && subTask.projectId ? (projectManagers[subTask.projectId] || []) : []) as any[];
     const firstManager = assignedManagers?.[0] || null;
 
     // 🚀 Speculative Pre-fetching for "Instant" feel
