@@ -1,6 +1,9 @@
-import { EventEmitter } from "events";
+import { pusherServer } from "./pusher";
 
-export const teamEvents = new EventEmitter();
+/**
+ * Team Realtime Events using Pusher.
+ * This works perfectly in serverless environments like Vercel.
+ */
 
 export const TEAM_UPDATE = "team_update";
 
@@ -10,6 +13,17 @@ export type TeamEventData = {
     payload: any;
 };
 
-export const broadcastTeamUpdate = (data: TeamEventData) => {
-    teamEvents.emit(TEAM_UPDATE, data);
+/**
+ * Broadcast a team event to all connected clients via Pusher.
+ */
+export const broadcastTeamUpdate = async (data: TeamEventData) => {
+    try {
+        await pusherServer.trigger(
+            `team-${data.workspaceId}`, // Channel name
+            TEAM_UPDATE,                // Event name
+            data                        // Data payload
+        );
+    } catch (error) {
+        console.error("[REALTIME_PUSHER_ERROR]", error);
+    }
 };

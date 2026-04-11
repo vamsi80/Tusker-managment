@@ -5,9 +5,12 @@ const globalForPrisma = global as unknown as {
 }
 
 const prisma = globalForPrisma.prisma || new PrismaClient({
-    // Disable prepared statements to fix "prepared statement does not exist" errors
-    // This is required when using connection poolers like PgBouncer or Supabase Pooler
-    datasourceUrl: process.env.DATABASE_URL,
+    // Explicitly define the datasource to match the schema.prisma "db" name
+    datasources: {
+        db: {
+            url: process.env.DATABASE_URL,
+        },
+    },
     log: process.env.NODE_ENV === "development"
         ? [
             { level: "query", emit: "event" },
