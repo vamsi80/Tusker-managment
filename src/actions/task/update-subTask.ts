@@ -4,6 +4,7 @@ import { getUserPermissions } from "@/data/user/get-user-permissions";
 import { invalidateTaskMutation } from "@/lib/cache/invalidation";
 import { requireUser } from "@/lib/auth/require-user";
 import prisma from "@/lib/db";
+import { getTaskInvolvedUserIds } from "@/lib/involved-users";
 import { ApiResponse } from "@/lib/types";
 import { SubTaskSchemaType, subTaskSchema } from "@/lib/zodSchemas";
 import { syncTaskToProcurement } from "@/lib/procurement/logic";
@@ -158,17 +159,22 @@ export async function editSubTask(
             data: newData,
         });
 
-        // 4. Record Activity & Broadcast
+        // 4. Record Activity (Targeted real-time notifications)
         const { recordActivity } = await import("@/lib/audit");
+        const targetUserIds = await getTaskInvolvedUserIds(subTaskId);
+
         await recordActivity({
             userId: user.id,
+            userName: (user as any).surname || user.name || "Someone",
+
             workspaceId: existingSubTask.project.workspaceId,
             action: "SUBTASK_UPDATED",
             entityType: "SUBTASK",
             entityId: subTaskId,
             oldData,
             newData,
-            broadcastEvent: "team_update"
+            broadcastEvent: "team_update",
+            targetUserIds, // Limit broadcast to involved people
         });
 
         // Sync with procurement

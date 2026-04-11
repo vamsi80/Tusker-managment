@@ -43,6 +43,16 @@ interface TaskCacheState {
     invalidateSubTaskCache: (taskId: string) => void;
     invalidateProjectCache: (projectId: string) => void;
     invalidateWorkspaceCache: (workspaceId: string) => void;
+    
+    // Surgical Kanban API
+    moveTaskBetweenKanbanColumns: (
+        subTaskId: string, 
+        fromStatus: string, 
+        toStatus: string, 
+        workspaceId: string, 
+        projectId?: string
+    ) => void;
+
     clearCache: () => void;
     ensureUser: (userId: string) => void;
 }
@@ -106,6 +116,52 @@ export const useTaskCacheStore = create<TaskCacheState>()(
                 }
                 return { entities: newEntities };
             }),
+
+            moveTaskBetweenKanbanColumns: (subTaskId, fromStatus, toStatus, workspaceId, projectId) => {
+                const state = get();
+                const contextId = projectId || "";
+                const fromKey = `${workspaceId}-${contextId}-${fromStatus}`;
+                const toKey = `${workspaceId}-${contextId}-${toStatus}`;
+
+                const fromList = state.kanbanLists[fromKey];
+                const toList = state.kanbanLists[toKey];
+
+                if (!fromList || !fromList.ids.includes(subTaskId)) return;
+
+                // 1. Prepare new lists
+                const newFromIds = fromList.ids.filter(id => id !== subTaskId);
+                const newToIds = toList ? [subTaskId, ...toList.ids.filter(id => id !== subTaskId)] : [subTaskId];
+
+                // 2. Update entities (status property)
+                const task = state.entities[subTaskId];
+                const updatedEntities = task ? {
+                    ...state.entities,
+                    [subTaskId]: { ...task, status: toStatus, updatedAt: new Date().toISOString() }
+                } : state.entities;
+
+                // 3. Update Lists
+                const newKanbanLists = { ...state.kanbanLists };
+                newKanbanLists[fromKey] = {
+                    ...fromList,
+                    ids: newFromIds,
+                    totalCount: Math.max(0, (fromList.totalCount || 0) - 1),
+                    timestamp: Date.now()
+                };
+
+                if (toList) {
+                    newKanbanLists[toKey] = {
+                        ...toList,
+                        ids: newToIds,
+                        totalCount: (toList.totalCount || 0) + 1,
+                        timestamp: Date.now()
+                    };
+                }
+
+                set({
+                    entities: updatedEntities,
+                    kanbanLists: newKanbanLists
+                });
+            },
 
             setCachedSubTasks: (taskId, data) => {
                 get().upsertTasks(data.subTasks);

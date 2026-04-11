@@ -4,6 +4,7 @@ import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
 import { invalidateReviewComments, invalidateProjectTasks } from "@/lib/cache/invalidation";
+import { getTaskInvolvedUserIds } from "@/lib/involved-users";
 
 export interface CreateReviewCommentResult {
     success: boolean;
@@ -108,15 +109,19 @@ export async function createReviewCommentAction(
             },
         });
 
-        // 6.5 Record Activity (Broadcasts to header real-time)
+        // 6.5 Record Activity (Targeted real-time notifications)
         const { recordActivity } = await import("@/lib/audit");
+        const targetUserIds = await getTaskInvolvedUserIds(subTaskId);
+        
         await recordActivity({
             userId: user.id,
+            userName: (user as any).surname || user.name || "Someone",
             workspaceId: workspaceId,
             action: "COMMENT_CREATED",
             entityType: "SUBTASK",
             entityId: subTaskId,
             newData: { text },
+            targetUserIds, // Limit broadcast to involved people
         });
 
         // 7. Invalidate caches using cache tags (faster than revalidatePath)

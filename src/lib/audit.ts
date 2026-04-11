@@ -1,7 +1,7 @@
 import prisma from "./db";
 import { pusherServer } from "./pusher";
 
-export type AuditAction = 
+export type AuditAction =
   | "USER_LOGIN"
   | "MEMBER_INVITED"
   | "MEMBER_REMOVED"
@@ -15,6 +15,7 @@ export type AuditAction =
 
 interface RecordActivityOptions {
   userId: string;
+  userName?: string; // Pass from caller to avoid DB join
   workspaceId?: string;
   action: AuditAction;
   entityType?: string;
@@ -24,62 +25,121 @@ interface RecordActivityOptions {
   ipAddress?: string;
   userAgent?: string;
   broadcastEvent?: string;
+  targetUserIds?: string[]; // New: list of specific users to notify
 }
 
+// ─── In-Memory Audit Buffer ───────────────────────────────
+// Accumulates audit log entries and flushes them to the DB in batches,
+// reducing per-event DB round-trips from 1-2 down to 0.
+
+interface BufferedLog {
+  userId: string;
+  workspaceId?: string;
+  action: string;
+  entityType?: string;
+  entityId?: string;
+  metadata?: any;
+  ipAddress?: string;
+  userAgent?: string;
+}
+
+const auditBuffer: BufferedLog[] = [];
+const FLUSH_INTERVAL_MS = 5_000; // Flush every 5 seconds
+const MAX_BUFFER_SIZE = 25; // Or flush when buffer reaches this size
+let flushTimer: ReturnType<typeof setInterval> | null = null;
+
+/** Start the background flush timer (idempotent) */
+function ensureFlushTimer() {
+  if (flushTimer) return;
+  flushTimer = setInterval(() => {
+    flushBuffer().catch(() => {});
+  }, FLUSH_INTERVAL_MS);
+
+  // Don't block Node.js shutdown
+  if (flushTimer && typeof flushTimer === "object" && "unref" in flushTimer) {
+    flushTimer.unref();
+  }
+}
+
+/** Flush all buffered logs to the database in a single batch insert */
+async function flushBuffer() {
+  if (auditBuffer.length === 0) return;
+
+  // Drain the buffer atomically
+  const batch = auditBuffer.splice(0, auditBuffer.length);
+
+  try {
+    await prisma.auditLog.createMany({ data: batch });
+  } catch (error) {
+    console.error("[AUDIT_FLUSH_ERROR] Failed to flush audit buffer:", error);
+    // Re-queue failed items (at the front so order is preserved)
+    auditBuffer.unshift(...batch);
+  }
+}
+
+/** Force-flush (useful for graceful shutdown or testing) */
+export async function flushAuditBuffer() {
+  return flushBuffer();
+}
+
+// ─── Main Entry Point ─────────────────────────────────────
+
 /**
- * Utility to record an audit log and broadcast the activity in real-time.
+ * Record an audit log and broadcast in real-time.
+ *
+ * Optimized for performance:
+ * 1. Pusher broadcast happens IMMEDIATELY (no DB dependency)
+ * 2. DB write is BUFFERED and flushed in batches
+ * 3. No `include` join — userName is passed by the caller
  */
 export async function recordActivity(options: RecordActivityOptions) {
-  const { 
-    userId, 
-    workspaceId, 
-    action, 
-    entityType, 
-    entityId, 
-    oldData, 
-    newData, 
-    ipAddress, 
-    userAgent 
+  const {
+    userId,
+    userName: providedName,
+    workspaceId,
+    action,
+    entityType,
+    entityId,
+    oldData,
+    newData,
+    ipAddress,
+    userAgent
   } = options;
 
   try {
-    // 1. Calculate the delta/metadata if both old and new data are provided
+    // 1. Calculate delta/metadata
     let metadata: any = null;
     if (oldData && newData) {
       metadata = calculateDelta(oldData, newData);
-      // If no changes detected on a micro-update, we might skip logging, 
-      // but usually we log the attempt or just the specific fields.
     } else if (newData) {
       metadata = { payload: newData };
     }
 
-    // 2. Save to Database
-    const log = await prisma.auditLog.create({
-      data: {
-        userId,
-        workspaceId,
-        action,
-        entityType,
-        entityId,
-        metadata,
-        ipAddress,
-        userAgent,
-      },
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-            image: true,
-          }
-        }
-      }
+    // 2. BUFFER the DB write (non-blocking)
+    auditBuffer.push({
+      userId,
+      workspaceId,
+      action,
+      entityType,
+      entityId,
+      metadata,
+      ipAddress,
+      userAgent,
     });
 
-    // 3. Broadcast in Real-time via Pusher
+    // Start the flush timer if not already running
+    ensureFlushTimer();
+
+    // Flush immediately if buffer is full
+    if (auditBuffer.length >= MAX_BUFFER_SIZE) {
+      flushBuffer().catch(() => {});
+    }
+
+    // 3. BROADCAST via Pusher IMMEDIATELY (no DB round-trip needed)
     if (workspaceId) {
-      const userName = log.user?.name || "Someone";
+      const userName = providedName || "Someone";
       let actionLabel = action.replace(/_/g, " ").toLowerCase();
+
       // Refine label
       if (action === "MEMBER_INVITED") actionLabel = "invited a new member";
       if (action === "MEMBER_REMOVED") actionLabel = "removed a member";
@@ -87,44 +147,77 @@ export async function recordActivity(options: RecordActivityOptions) {
       if (action === "TASK_UPDATED") actionLabel = "updated a task";
       if (action === "TASK_DELETED") actionLabel = "deleted a task";
       if (action === "SUBTASK_UPDATED") {
-        if (oldData?.status !== newData?.status && newData?.status) {
-          actionLabel = `updated status to ${newData.status.replace(/_/g, " ")}`;
+        const delta = oldData && newData ? calculateDelta(oldData, newData) : null;
+
+        if (delta?.status) {
+          const statusLabel = delta.status.to.replace(/_/g, " ");
+          actionLabel = `updated status to ${statusLabel}`;
+        } else if (delta?.startDate || delta?.dueDate) {
+          actionLabel = "updated task dates";
+        } else if (delta?.assigneeId) {
+          actionLabel = "reassigned the task";
+        } else if (delta?.name) {
+          actionLabel = "renamed the task";
+        } else if (delta?.reviewerId) {
+          actionLabel = "updated the reviewer";
         } else {
-          actionLabel = "updated a task";
+          actionLabel = "updated the task";
         }
       }
       if (action === "COMMENT_CREATED") actionLabel = "added a comment";
-      
+
       const message = `${userName} ${actionLabel}`;
-
-      console.log(`[AUDIT_LOG] Triggering activity_log for workspace ${workspaceId}: ${message}`);
-      
-      // General activity log for admins and global toasts
-      await pusherServer.trigger(`team-${workspaceId}`, "activity_log", {
-        ...log,
+      const eventPayload = {
+        userId,
         userName,
+        action,
+        entityType,
+        entityId,
+        metadata,
         message,
-      }).catch((err: any) => console.error("[PUSHER_TRIGGER_ERROR] activity_log:", err));
+      };
 
-      // Targeted UI update events (e.g., "team_update")
+      // 3a. Targeted Activity Log (Individual Channels)
+      if (options.targetUserIds && options.targetUserIds.length > 0) {
+        // Broadcast only to involved users (except the actor if they are already in the UI)
+        const channels = options.targetUserIds
+          .filter(tid => tid !== userId) // Still send to actor if they want toast, but usually they don't
+          .map(tid => `user-${tid}`);
+
+        if (channels.length > 0) {
+          await pusherServer.trigger(channels, "activity_log", eventPayload)
+            .catch((err: any) => console.error("[PUSHER_TRIGGER_ERROR] targeted activity_log:", err));
+        }
+      } else {
+        // Fallback: General activity log for the whole team
+        await pusherServer.trigger(`team-${workspaceId}`, "activity_log", eventPayload)
+          .catch((err: any) => console.error("[PUSHER_TRIGGER_ERROR] team activity_log:", err));
+      }
+
+      // 3b. Targeted UI update events (e.g., "team_update")
+      // These still usually go to the whole team channel to ensure everyone's data is synced,
+      // but the UI refresh is silent and non-intrusive.
       if (options.broadcastEvent) {
-        // Normalize action strings to match INVITE/DELETE/UPDATE patterns used in TeamEventData
         let normalizedType = action.replace("MEMBER_", "").replace("TASK_", "").replace("SUBTASK_", "");
         if (normalizedType === "INVITED") normalizedType = "INVITE";
         if (normalizedType === "REMOVED") normalizedType = "DELETE";
         if (normalizedType === "CREATED" || normalizedType === "UPDATED") normalizedType = "UPDATE";
 
-        console.log(`[AUDIT_LOG] Triggering targeted event ${options.broadcastEvent} with type ${normalizedType}`);
+        const payload = newData || metadata || {};
+        // Ensure the ID is present in the payload for surgical client-side updates
+        if (entityId && !payload.id) {
+          (payload as any).id = entityId;
+        }
+
         await pusherServer.trigger(`team-${workspaceId}`, options.broadcastEvent, {
           workspaceId,
+          userId,
           type: normalizedType,
           message,
-          payload: newData || metadata || {},
+          payload,
         }).catch((err: any) => console.error(`[PUSHER_TRIGGER_ERROR] ${options.broadcastEvent}:`, err));
       }
     }
-
-    return log;
   } catch (error) {
     console.error("[AUDIT_LOG_ERROR]", error);
   }
@@ -135,7 +228,7 @@ export async function recordActivity(options: RecordActivityOptions) {
  */
 function calculateDelta(oldObj: any, newObj: any) {
   const delta: any = {};
-  
+
   // We only care about keys present in the new set (the update payload)
   Object.keys(newObj).forEach(key => {
     if (JSON.stringify(oldObj[key]) !== JSON.stringify(newObj[key])) {

@@ -3,8 +3,9 @@
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
-import { revalidateTag } from "next/cache";
+
 import { CacheTags } from "@/data/cache-tags";
+import { getTaskInvolvedUserIds } from "@/lib/involved-users";
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "CANCELLED" | "REVIEW" | "HOLD" | "COMPLETED";
 
@@ -233,50 +234,29 @@ export async function updateSubTaskStatus(
             });
         });
 
-        // 13. SURGICAL INVALIDATION (Targeted to the card, not the whole board)
-        // We only revalidate the specific subtask and generic task tags synchronously.
-        // This ensures the Action returns in <400ms and doesn't trigger a full 10s board re-fetch.
-        const tagsToRevalidate = new Set<string>();
-        CacheTags.subtask(subTaskId).forEach((t: string) => tagsToRevalidate.add(t));
-        CacheTags.task(subTaskId).forEach((t: string) => tagsToRevalidate.add(t));
-
-        // Revalidate synchronously (fast)
-        for (const tag of tagsToRevalidate) {
-            revalidateTag(tag, "layout");
+        // 13. RECORD ACTIVITY & BROADCAST (Surgical Sync)
+        // We do NOT call updateTag/revalidateTag here.
+        // This is THE KEY to preventing the 118KB RSC payload. 
+        // Real-time surgical sync handles the UI update instantly for everyone.
+        try {
+            const { recordActivity } = await import("@/lib/audit");
+            const targetUserIds = await getTaskInvolvedUserIds(subTaskId);
+            
+            await recordActivity({
+                userId: user.id,
+                userName: (user as any).surname || user.name || "Someone",
+                workspaceId,
+                action: "SUBTASK_UPDATED",
+                entityType: "SUBTASK",
+                entityId: subTaskId,
+                oldData: { status: subTask.status },
+                newData: { status: newStatus },
+                broadcastEvent: "team_update", // Triggers surgical client-side sync
+                targetUserIds, 
+            });
+        } catch (e) {
+            console.error("[SURGICAL_SYNC_ERROR] recordActivity failed:", e);
         }
-
-        // 14. BACKGROUND REVALIDATION: Broad tags are hit without 'await' to allow server-side
-        // cache to eventually update without blocking the current request's return.
-        const broadTags = new Set<string>();
-        CacheTags.projectSubTasks(projectId).forEach((t: string) => broadTags.add(t));
-        if (subTask.status) {
-            CacheTags.subtasksByStatus(projectId, subTask.status as string).forEach((t: string) => broadTags.add(t));
-        }
-        CacheTags.subtasksByStatus(projectId, newStatus as string).forEach((t: string) => broadTags.add(t));
-
-        // FIRE AND FORGET (Next.js will attempt these in the background)
-        (async () => {
-            try {
-                // Record Activity
-                const { recordActivity } = await import("@/lib/audit");
-                await recordActivity({
-                    userId: user.id,
-                    workspaceId,
-                    action: "SUBTASK_UPDATED",
-                    entityType: "SUBTASK",
-                    entityId: subTaskId,
-                    oldData: { status: subTask.status },
-                    newData: { status: newStatus },
-                    broadcastEvent: "team_update", // Triggers silent refresh
-                });
-
-                for (const tag of broadTags) {
-                    revalidateTag(tag, "layout");
-                }
-            } catch (e) {
-                console.error("Background tasks failed:", e);
-            }
-        })();
 
         const duration = performance.now() - startTime;
         console.log(`[PERF] updateSubTaskStatus (ATOMIC) took ${duration.toFixed(2)}ms`, { subTaskId, newStatus });

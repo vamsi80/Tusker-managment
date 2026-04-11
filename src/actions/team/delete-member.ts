@@ -105,6 +105,7 @@ export async function deleteMemberAction(
         const { recordActivity } = await import("@/lib/audit");
         await recordActivity({
             userId: currentUserId, // Person who clicked delete
+            userName: currentMember?.user?.name || "Someone",
             workspaceId,
             action: "MEMBER_REMOVED",
             entityType: "MEMBER",

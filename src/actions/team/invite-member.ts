@@ -106,6 +106,7 @@ export async function inviteMemberAction(
 
         await recordActivity({
             userId: currentUser?.user?.id || authUserId, // ID of the person who invited
+            userName: (currentUser?.user as any)?.surname || currentUser?.user?.name || "Someone",
             workspaceId,
             action: "MEMBER_INVITED",
             entityType: "MEMBER",

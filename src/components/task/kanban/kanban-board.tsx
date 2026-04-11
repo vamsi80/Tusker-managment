@@ -83,6 +83,8 @@ export function KanbanBoard({
     const setKanbanTasksCache = useTaskCacheStore(state => state.setKanbanTasksCache);
     const invalidateSubTaskCache = useTaskCacheStore(state => state.invalidateSubTaskCache);
     const invalidateProjectCache = useTaskCacheStore(state => state.invalidateProjectCache);
+    const kanbanLists = useTaskCacheStore(state => state.kanbanLists);
+    const lastSyncRef = useRef<Record<string, number>>({});
 
     const renderCount = useRef(0);
     renderCount.current++;
@@ -107,6 +109,41 @@ export function KanbanBoard({
         });
         return map;
     });
+
+    // -------------------------------------------------------------------------
+    // 🚀 SURGICAL SYNC: Listen for store updates (moves/surgical sync)
+    // -------------------------------------------------------------------------
+    useEffect(() => {
+        const contextId = projectId || "";
+        let hasChanges = false;
+        const nextState = { ...columnData };
+
+        COLUMNS.forEach(col => {
+            const cacheKey = `${workspaceId}-${contextId}-${col.id}`;
+            const cachedList = kanbanLists[cacheKey];
+
+            if (cachedList && cachedList.timestamp > (lastSyncRef.current[cacheKey] || 0)) {
+                // Determine if the ID set actually changed or if it just arrived
+                const currentIds = columnData[col.id].subTaskIds;
+                const matches = cachedList.ids.length === currentIds.length &&
+                    cachedList.ids.every((id, i) => id === currentIds[i]);
+
+                if (!matches) {
+                    nextState[col.id] = {
+                        ...nextState[col.id],
+                        subTaskIds: cachedList.ids,
+                        totalCount: cachedList.totalCount ?? nextState[col.id].totalCount
+                    };
+                    hasChanges = true;
+                }
+                lastSyncRef.current[cacheKey] = cachedList.timestamp;
+            }
+        });
+
+        if (hasChanges) {
+            setColumnData(nextState);
+        }
+    }, [kanbanLists, workspaceId, projectId]);
 
     // Hydrate state from cache after mount
     useEffect(() => {
@@ -149,6 +186,16 @@ export function KanbanBoard({
                     tasks = cached.tasks;
                 }
             }
+
+            // Sync these IDs into the global store immediately so the listener can find them
+            setKanbanTasksCache(cacheKey, {
+                tasks: tasks,
+                hasMore: initialData[col.id].hasMore,
+                nextCursor: cached?.nextCursor || initialData[col.id].nextCursor,
+                totalCount: initialData[col.id].totalCount
+            });
+            // Mark as synced so the surgical effect doesn't immediately overwrite with itself
+            lastSyncRef.current[cacheKey] = Date.now();
 
             let totalCount = initialData[col.id].totalCount;
             let hasMore = initialData[col.id].hasMore;
@@ -227,7 +274,7 @@ export function KanbanBoard({
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
-                distance: 3, // Very small distance to trigger drag easily from the handle
+                distance: 3,
             },
         })
     );
