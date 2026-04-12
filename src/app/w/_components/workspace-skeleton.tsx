@@ -123,14 +123,16 @@ export function WorkspaceContentSkeleton() {
 
 export function WorkspaceFullSkeleton() {
     return (
-        <div className="flex flex-1 flex-col h-screen overflow-hidden">
-            <div className="flex flex-1 overflow-hidden">
-                 <WorkspaceSidebarSkeleton />
-                 <SidebarInset className="m-0 rounded-none bg-background overflow-hidden flex flex-col">
-                    <WorkspaceHeaderSkeleton />
-                    <WorkspaceContentSkeleton />
-                 </SidebarInset>
+        <SidebarProvider>
+            <div className="flex flex-1 flex-col h-screen overflow-hidden">
+                <div className="flex flex-1 overflow-hidden">
+                    <WorkspaceSidebarSkeleton />
+                    <SidebarInset className="m-0 rounded-none bg-background overflow-hidden flex flex-col">
+                        <WorkspaceHeaderSkeleton />
+                        <WorkspaceContentSkeleton />
+                    </SidebarInset>
+                </div>
             </div>
-        </div>
+        </SidebarProvider>
     );
 }
