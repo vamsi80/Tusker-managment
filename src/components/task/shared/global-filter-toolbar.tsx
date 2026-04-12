@@ -339,12 +339,12 @@ export function GlobalFilterToolbar({
                                                         <span className="truncate">
                                                             {filters.startDate && filters.endDate ? (
                                                                 <>
-                                                                    {formatIST(filters.startDate, "dd MMM")} - {formatIST(filters.endDate, "dd MMM")}
+                                                                    {formatIST(filters.startDate)} - {formatIST(filters.endDate)}
                                                                 </>
                                                             ) : filters.startDate ? (
-                                                                <>From: {formatIST(filters.startDate, "dd MMM")}</>
+                                                                <>From: {formatIST(filters.startDate)}</>
                                                             ) : filters.endDate ? (
-                                                                <>To: {formatIST(filters.endDate, "dd MMM")}</>
+                                                                <>To: {formatIST(filters.endDate)}</>
                                                             ) : (
                                                                 "Pick dates"
                                                             )}

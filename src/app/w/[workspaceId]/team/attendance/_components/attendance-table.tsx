@@ -89,7 +89,7 @@ export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
                 if (!mounted) return "...";
                 return (
                     <div className="text-center font-medium">
-                        {format(new Date(row.original.date), "MMM d, yyyy")}
+                        {format(new Date(row.original.date), "dd/MM/yyyy")}
                     </div>
                 );
             },

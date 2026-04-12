@@ -66,7 +66,7 @@ export function formatDateUTC(date: string | Date | null | undefined, includeTim
 /**
  * Formats a date in Indian Standard Time (IST)
  */
-export function formatIST(date: string | Date | null | undefined, formatStr: string = "PPP"): string {
+export function formatIST(date: string | Date | null | undefined, formatStr: string = "dd/MM/yyyy"): string {
   if (!date) return "-";
   const d = new Date(date);
   if (isNaN(d.getTime())) return "-";

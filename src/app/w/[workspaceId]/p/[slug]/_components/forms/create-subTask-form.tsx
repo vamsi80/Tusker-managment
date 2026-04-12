@@ -24,6 +24,7 @@ import { createSubTask } from "@/actions/task/create-subTask";
 import { useReloadView } from "@/hooks/use-reload-view";
 import { ProjectReviewer } from "@/actions/project/get-project-reviewers";
 import { parseIST } from "@/lib/utils";
+import { DateTimePicker } from "@/components/ui/date-picker";
 
 interface iAppProps {
     members: ProjectMembersType;
@@ -139,40 +140,31 @@ export const CreateSubTaskForm = ({
         fetchReviewers();
     }, [open, selectedProjectId, projectId]);
 
-    // Sync: days/startDate -> dueDate
-    useEffect(() => {
-        if (watchedStartDate && watchedDays && open) {
-            const start = parseIST(watchedStartDate);
-            if (start) {
-                const due = new Date(start.getTime() + watchedDays * 24 * 60 * 60 * 1000);
-                const year = due.getFullYear();
-                const month = String(due.getMonth() + 1).padStart(2, '0');
-                const day = String(due.getDate()).padStart(2, '0');
-                const hours = String(due.getHours()).padStart(2, '0');
-                const minutes = String(due.getMinutes()).padStart(2, '0');
-                const formattedDue = `${year}-${month}-${day}T${hours}:${minutes}`;
-                
-                if (formattedDue !== watchedDueDate) {
-                    form.setValue("dueDate", formattedDue, { shouldValidate: true });
-                }
-            }
+    const syncDueDate = (startDate: string, days: number) => {
+        if (!startDate) return;
+        const start = parseIST(startDate);
+        if (start) {
+            const due = new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
+            const year = due.getFullYear();
+            const month = String(due.getMonth() + 1).padStart(2, '0');
+            const day = String(due.getDate()).padStart(2, '0');
+            const hours = String(due.getHours()).padStart(2, '0');
+            const minutes = String(due.getMinutes()).padStart(2, '0');
+            form.setValue("dueDate", `${year}-${month}-${day}T${hours}:${minutes}`, { shouldDirty: true, shouldValidate: true });
         }
-    }, [watchedStartDate, watchedDays, form, open, watchedDueDate]);
+    };
 
-    // Sync: dueDate -> days
-    useEffect(() => {
-        if (watchedStartDate && watchedDueDate && open) {
-            const start = parseIST(watchedStartDate);
-            const due = parseIST(watchedDueDate);
-            if (start && due) {
-                const diffTime = due.getTime() - start.getTime();
-                const calculatedDays = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)));
-                if (calculatedDays !== watchedDays) {
-                    form.setValue("days", calculatedDays, { shouldValidate: true });
-                }
-            }
+    const syncDays = (startDate: string, dueDate: string) => {
+        if (!startDate || !dueDate) return;
+        const start = parseIST(startDate);
+        const due = parseIST(dueDate);
+        if (start && due) {
+            const diffTime = due.getTime() - start.getTime();
+            const calculatedDays = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)));
+            form.setValue("days", calculatedDays, { shouldDirty: true, shouldValidate: true });
         }
-    }, [watchedDueDate, watchedStartDate, form, open, watchedDays]);
+    };
+
 
     const watchedName = useWatch({
         control: form.control,
@@ -421,7 +413,13 @@ export const CreateSubTaskForm = ({
                                     <FormItem >
                                         <FormLabel>Start Date</FormLabel>
                                         <FormControl>
-                                            <Input type="datetime-local" {...field} />
+                                            <DateTimePicker
+                                                value={field.value}
+                                                onChange={(value) => {
+                                                    field.onChange(value);
+                                                    syncDueDate(value, form.getValues("days") || 1);
+                                                }}
+                                            />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -439,7 +437,11 @@ export const CreateSubTaskForm = ({
                                                 type="number" 
                                                 min={1} 
                                                 {...field} 
-                                                onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                                                onChange={(e) => {
+                                                    const val = parseInt(e.target.value) || 1;
+                                                    field.onChange(val);
+                                                    syncDueDate(form.getValues("startDate") || "", val);
+                                                }}
                                             />
                                         </FormControl>
                                         <FormMessage />
@@ -454,9 +456,12 @@ export const CreateSubTaskForm = ({
                                     <FormItem>
                                         <FormLabel>Due Date</FormLabel>
                                         <FormControl>
-                                            <Input
-                                                type="datetime-local"
-                                                {...field}
+                                            <DateTimePicker
+                                                value={field.value}
+                                                onChange={(value) => {
+                                                    field.onChange(value);
+                                                    syncDays(form.getValues("startDate") || "", value);
+                                                }}
                                             />
                                         </FormControl>
                                         <FormMessage />

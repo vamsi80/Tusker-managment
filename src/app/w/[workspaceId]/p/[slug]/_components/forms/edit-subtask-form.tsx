@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { useReloadView } from "@/hooks/use-reload-view";
 import { parseIST } from "@/lib/utils";
 import { ProjectReviewer } from "@/actions/project/get-project-reviewers";
+import { DateTimePicker } from "@/components/ui/date-picker";
 
 type SubTaskBase = {
     id: string;
@@ -178,51 +179,31 @@ export function EditSubTaskForm<T extends SubTaskBase>({
         fetchReviewers();
     }, [open, selectedProjectId, projectId]);
 
-    // Consolidated Sync: Handles both days <-> dueDate relations with stability guards
-    useEffect(() => {
-        if (!open || !watchedStartDate) return;
-
-        const start = parseIST(watchedStartDate);
-        if (!start) return;
-
-        // Mode 1: days -> dueDate (runs when days or startDate changes)
-        // We only update if the current dueDate matches the 'wrong' duration
-        const calculatedDue = new Date(start.getTime() + watchedDays * 24 * 60 * 60 * 1000);
-        const year = calculatedDue.getFullYear();
-        const month = String(calculatedDue.getMonth() + 1).padStart(2, '0');
-        const day = String(calculatedDue.getDate()).padStart(2, '0');
-        const hours = String(calculatedDue.getHours()).padStart(2, '0');
-        const minutes = String(calculatedDue.getMinutes()).padStart(2, '0');
-        const formattedDue = `${year}-${month}-${day}T${hours}:${minutes}`;
-
-        if (watchedDueDate && watchedDueDate !== formattedDue) {
-            // Check if we should update dueDate based on days change
-            // To avoid loops, we only update if the duration was the driver
-            const currentDue = parseIST(watchedDueDate);
-            if (currentDue) {
-                const currentDiff = Math.abs(currentDue.getTime() - calculatedDue.getTime());
-                // Only sync if the difference is more than a minute (to avoid precision loops)
-                if (currentDiff > 60000) {
-                     form.setValue("dueDate", formattedDue, { shouldValidate: true, shouldDirty: true });
-                }
-            }
+    const syncDueDate = (startDate: string, days: number) => {
+        if (!startDate) return;
+        const start = parseIST(startDate);
+        if (start) {
+            const due = new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
+            const year = due.getFullYear();
+            const month = String(due.getMonth() + 1).padStart(2, '0');
+            const day = String(due.getDate()).padStart(2, '0');
+            const hours = String(due.getHours()).padStart(2, '0');
+            const minutes = String(due.getMinutes()).padStart(2, '0');
+            form.setValue("dueDate", `${year}-${month}-${day}T${hours}:${minutes}`, { shouldDirty: true, shouldValidate: true });
         }
-    }, [watchedStartDate, watchedDays, open, form]);
+    };
 
-    // Mode 2: dueDate -> days (runs only when dueDate changes)
-    useEffect(() => {
-        if (!open || !watchedStartDate || !watchedDueDate) return;
-
-        const start = parseIST(watchedStartDate);
-        const due = parseIST(watchedDueDate);
+    const syncDays = (startDate: string, dueDate: string) => {
+        if (!startDate || !dueDate) return;
+        const start = parseIST(startDate);
+        const due = parseIST(dueDate);
         if (start && due) {
             const diffTime = due.getTime() - start.getTime();
             const calculatedDays = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)));
-            if (calculatedDays !== watchedDays) {
-                form.setValue("days", calculatedDays, { shouldValidate: true, shouldDirty: true });
-            }
+            form.setValue("days", calculatedDays, { shouldDirty: true, shouldValidate: true });
         }
-    }, [watchedDueDate, open, form]);
+    };
+
 
     const watchedName = useWatch({
         control: form.control,
@@ -489,12 +470,18 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                     name="startDate"
                                     render={({ field }) => (
                                         <FormItem >
-                                        <FormLabel>Start Date</FormLabel>
-                                        <FormControl>
-                                            <Input type="datetime-local" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
+                                            <FormLabel>Start Date</FormLabel>
+                                            <FormControl>
+                                                <DateTimePicker
+                                                    value={field.value}
+                                                    onChange={(value) => {
+                                                        field.onChange(value);
+                                                        syncDueDate(value, form.getValues("days") || 1);
+                                                    }}
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
                                     )}
                                 />
 
@@ -509,7 +496,11 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                                     type="number" 
                                                     min={1} 
                                                     {...field} 
-                                                    onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                                                    onChange={(e) => {
+                                                        const val = parseInt(e.target.value) || 1;
+                                                        field.onChange(val);
+                                                        syncDueDate(form.getValues("startDate") || "", val);
+                                                    }}
                                                 />
                                             </FormControl>
                                             <FormMessage />
@@ -524,7 +515,13 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                         <FormItem>
                                             <FormLabel>Due Date</FormLabel>
                                             <FormControl>
-                                                <Input type="datetime-local" {...field} />
+                                                <DateTimePicker
+                                                    value={field.value}
+                                                    onChange={(value) => {
+                                                        field.onChange(value);
+                                                        syncDays(form.getValues("startDate") || "", value);
+                                                    }}
+                                                />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
