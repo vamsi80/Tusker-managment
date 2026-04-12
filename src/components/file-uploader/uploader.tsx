@@ -6,7 +6,6 @@ import { FileRejection, useDropzone } from "react-dropzone";
 import { CardContent } from "../ui/card";
 import { RenderEmptyState, RenderErrorState, RenderUplodedState, RenderUplodingState } from "./renderState";
 import { toast } from "sonner";
-import { v4 as uuidv4 } from 'uuid';
 import { useConstructUrl } from "@/hooks/use-constract-url";
 import { file } from "zod";
 
@@ -145,7 +144,7 @@ export function Uploader({ value, onChange, fileTypeAcepted }: iAppProps) {
                     progress: 0,
                     objectURL: URL.createObjectURL(file),
                     error: false,
-                    id: uuidv4(),
+                    id: crypto.randomUUID(),
                     isDeleting: false,
                     fileType: fileTypeAcepted,
                 });
