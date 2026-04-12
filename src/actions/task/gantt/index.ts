@@ -5,5 +5,4 @@
 
 // Subtask dates (drag/resize in timeline)
 export { updateSubtaskDates } from "./update-subtask-dates";
-export type { UpdateSubtaskDatesResult } from "./update-subtask-dates";
 
