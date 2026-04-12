@@ -81,7 +81,7 @@ export function ReviewTab({ reviewComments, isLoadingReview }: ReviewTabProps) {
                                                 {author?.surname || ""}
                                             </p>
                                             <p className="text-xs text-muted-foreground">
-                                                {formatIST(review.createdAt, "MMM d, yyyy h:mm a")}
+                                                {formatIST(review.createdAt, "dd/MM/yyyy h:mm a")}
                                             </p>
                                         </div>
                                         <div className="flex flex-col items-end gap-1.5">

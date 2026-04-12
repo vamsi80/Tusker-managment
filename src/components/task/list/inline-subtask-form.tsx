@@ -20,6 +20,7 @@ import { SubTaskType } from "@/data/task";
 import { ApiResponse } from "@/lib/types";
 import { ProjectReviewer } from "@/actions/project/get-project-reviewers";
 import { cn, parseIST } from "@/lib/utils";
+import { DateTimePicker } from "@/components/ui/date-picker";
 
 interface InlineSubTaskFormProps {
     workspaceId: string;
@@ -107,6 +108,51 @@ export function InlineSubTaskForm({
     const [tag, setTag] = useState(subTask?.tag?.id || "");
     const [days, setDays] = useState<number>(subTask?.days || 1);
 
+    const handleStartDateChange = (val: string) => {
+        setStartDate(val);
+        if (val && days) {
+            const start = parseIST(val);
+            if (start) {
+                const due = new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
+                const year = due.getFullYear();
+                const month = String(due.getMonth() + 1).padStart(2, '0');
+                const day = String(due.getDate()).padStart(2, '0');
+                const hours = String(due.getHours()).padStart(2, '0');
+                const minutes = String(due.getMinutes()).padStart(2, '0');
+                setDueDate(`${year}-${month}-${day}T${hours}:${minutes}`);
+            }
+        }
+    };
+
+    const handleDueDateChange = (val: string) => {
+        setDueDate(val);
+        if (startDate && val) {
+            const start = parseIST(startDate);
+            const due = parseIST(val);
+            if (start && due) {
+                const diffTime = due.getTime() - start.getTime();
+                const calculatedDays = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)));
+                setDays(calculatedDays);
+            }
+        }
+    };
+
+    const handleDaysChange = (val: number) => {
+        setDays(val);
+        if (startDate && val) {
+            const start = parseIST(startDate);
+            if (start) {
+                const due = new Date(start.getTime() + val * 24 * 60 * 60 * 1000);
+                const year = due.getFullYear();
+                const month = String(due.getMonth() + 1).padStart(2, '0');
+                const day = String(due.getDate()).padStart(2, '0');
+                const hours = String(due.getHours()).padStart(2, '0');
+                const minutes = String(due.getMinutes()).padStart(2, '0');
+                setDueDate(`${year}-${month}-${day}T${hours}:${minutes}`);
+            }
+        }
+    };
+
     const [availableMembers, setAvailableMembers] = useState<ProjectMembersType>(members);
 
     // Fetch project members for this specific project (to fix global view scope)
@@ -154,41 +200,6 @@ export function InlineSubTaskForm({
         fetchData();
     }, [projectId, mode, reviewer, userId]);
 
-    // Handle date synchronization: When days or startDate changes, update dueDate
-    useEffect(() => {
-        if (startDate && days && !pending) {
-            const start = parseIST(startDate);
-            if (start) {
-                const due = new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
-                const year = due.getFullYear();
-                const month = String(due.getMonth() + 1).padStart(2, '0');
-                const day = String(due.getDate()).padStart(2, '0');
-                const hours = String(due.getHours()).padStart(2, '0');
-                const minutes = String(due.getMinutes()).padStart(2, '0');
-                const formattedDue = `${year}-${month}-${day}T${hours}:${minutes}`;
-
-                // Only update if it's actually different to avoid infinite loops
-                if (formattedDue !== dueDate) {
-                    setDueDate(formattedDue);
-                }
-            }
-        }
-    }, [startDate, days, dueDate, pending]);
-
-    // Handle date synchronization: When dueDate changes, update days
-    useEffect(() => {
-        if (startDate && dueDate && !pending) {
-            const start = parseIST(startDate);
-            const due = parseIST(dueDate);
-            if (start && due) {
-                const diffTime = due.getTime() - start.getTime();
-                const calculatedDays = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)));
-                if (calculatedDays !== days) {
-                    setDays(calculatedDays);
-                }
-            }
-        }
-    }, [dueDate, startDate, days, pending]);
 
     // Helper function to get role shortcuts
     const getRoleShortcut = (role: string): string => {
@@ -472,12 +483,10 @@ export function InlineSubTaskForm({
             {/* Start Date */}
             {columnVisibility.startDate && (
                 <TableCell className="w-[120px]">
-                    <Input
-                        type="datetime-local"
+                    <DateTimePicker
                         value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
+                        onChange={handleStartDateChange}
                         disabled={pending}
-                        className="h-8"
                     />
                 </TableCell>
             )}
@@ -485,12 +494,10 @@ export function InlineSubTaskForm({
             {/* Due Date */}
             {columnVisibility.dueDate && (
                 <TableCell className="w-[120px]">
-                    <Input
-                        type="datetime-local"
+                    <DateTimePicker
                         value={dueDate}
-                        onChange={(e) => setDueDate(e.target.value)}
+                        onChange={handleDueDateChange}
                         disabled={pending}
-                        className="h-8"
                     />
                 </TableCell>
             )}
@@ -506,7 +513,7 @@ export function InlineSubTaskForm({
                         onChange={(e) => {
                             const val = parseInt(e.target.value);
                             if (!isNaN(val)) {
-                                setDays(Math.max(1, Math.min(365, val)));
+                                handleDaysChange(Math.max(1, Math.min(365, val)));
                             }
                         }}
                         disabled={pending}
