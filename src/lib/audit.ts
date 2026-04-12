@@ -11,7 +11,9 @@ export type AuditAction =
   | "SUBTASK_CREATED"
   | "SUBTASK_UPDATED"
   | "SUBTASK_DELETED"
-  | "COMMENT_CREATED";
+  | "COMMENT_CREATED"
+  | "CHECKED_IN"
+  | "CHECKED_OUT";
 
 interface RecordActivityOptions {
   userId: string;
