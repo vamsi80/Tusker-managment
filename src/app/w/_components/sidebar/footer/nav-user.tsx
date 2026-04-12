@@ -4,7 +4,7 @@ import { LayoutDashboard, MoreVertical, LogOut, HomeIcon, Tv2 } from "lucide-rea
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar"
-import { authClient } from "@/lib/auth-clint"
+import { authClient } from "@/lib/auth-client"
 import Link from "next/link"
 import { useSignout } from "@/hooks/use-signout"
 import { useMounted } from "@/hooks/use-mounted"

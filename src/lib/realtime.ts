@@ -18,6 +18,10 @@ export type TeamEventData = {
  */
 export const broadcastTeamUpdate = async (data: TeamEventData) => {
     try {
+        if (!pusherServer) {
+            console.warn("[REALTIME] Pusher not configured, skipping broadcast.");
+            return;
+        }
         await pusherServer.trigger(
             `team-${data.workspaceId}`, // Channel name
             TEAM_UPDATE,                // Event name

@@ -23,7 +23,7 @@ import {
     TabsList,
     TabsTrigger
 } from "@/components/ui/tabs";
-import { authClient } from "@/lib/auth-clint";
+import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
 import { pubsub, EVENTS } from "@/lib/pubsub";
