@@ -28,11 +28,11 @@ model User {
   workspaceOwner      Workspace[]
   workspaces          WorkspaceMember[]
   accounts            Account[]
+  auditLogs           AuditLog[]
   comments            Comment[]
   commentReads        CommentRead[]
   dailyReports        DailyReport[]
   sessions            Session[]
-  auditLogs           AuditLog[]
 
   @@map("user")
 }
@@ -112,14 +112,14 @@ model Workspace {
   owner            User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   members          WorkspaceMember[]
   attendance       attendance[]
+  auditLogs        AuditLog[]
+  boardItems       Board[]
   dailyReports     DailyReport[]
   materials        Material[]
   procurementTasks ProcurementTask[]
   purchaseOrders   PurchaseOrder[]
   units            Unit[]
   vendors          Vendor[]
-  boardItems       Board[]
-  auditLogs        AuditLog[]
 }
 
 model WorkspaceMember {
@@ -133,6 +133,8 @@ model WorkspaceMember {
   user                   User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspace              Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   attendance             attendance[]
+  assignedBoardItems     Board[]                @relation("BoardAssigner")
+  boardItems             Board[]                @relation("BoardMember")
   assignedIndents        IndentDetails[]        @relation("IndentAssignee")
   requestedIndents       IndentDetails[]        @relation("IndentRequestor")
   finalApprovedItems     IndentItem[]           @relation("FinalApprover")
@@ -141,8 +143,6 @@ model WorkspaceMember {
   createdPurchaseOrders  PurchaseOrder[]        @relation("POCreator")
   recordedPayments       PurchaseOrderPayment[] @relation("PaymentRecorder")
   createdUnits           Unit[]
-  boardItems             Board[]                @relation("BoardMember")
-  assignedBoardItems     Board[]                @relation("BoardAssigner")
 
   @@unique([userId, workspaceId])
   @@index([workspaceId, workspaceRole])
@@ -651,6 +651,45 @@ model attendance {
   @@index([workspaceId, date])
 }
 
+model Board {
+  id           String          @id @default(uuid())
+  workspaceId  String
+  memberId     String
+  assignedById String
+  note         String
+  status       BoardStatus     @default(NOT_DONE)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  assignedBy   WorkspaceMember @relation("BoardAssigner", fields: [assignedById], references: [id], onDelete: Cascade)
+  member       WorkspaceMember @relation("BoardMember", fields: [memberId], references: [id], onDelete: Cascade)
+  workspace    Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([memberId])
+  @@index([assignedById])
+  @@map("board_items")
+}
+
+model AuditLog {
+  id          String     @id @default(uuid())
+  workspaceId String?
+  userId      String
+  action      String
+  entityType  String?
+  entityId    String?
+  metadata    Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime   @default(now())
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_log")
+}
+
 enum IndentItemStatus {
   PENDING
   QUANTITY_APPROVED
@@ -716,48 +755,7 @@ enum AttendanceStatus {
   LATE
 }
 
-model Board {
-  id           String      @id @default(uuid())
-  workspaceId  String
-  memberId     String
-  assignedById String
-  note         String      @db.Text
-  status       BoardStatus @default(NOT_DONE)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-
-  workspace  Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  member     WorkspaceMember @relation("BoardMember", fields: [memberId], references: [id], onDelete: Cascade)
-  assignedBy WorkspaceMember @relation("BoardAssigner", fields: [assignedById], references: [id], onDelete: Cascade)
-
-  @@index([workspaceId])
-  @@index([memberId])
-  @@index([assignedById])
-  @@map("board_items")
-}
-
 enum BoardStatus {
   DONE
   NOT_DONE
-}
-
-model AuditLog {
-  id          String   @id @default(uuid())
-  workspaceId String?
-  userId      String
-  action      String   // e.g., "USER_LOGIN", "TASK_UPDATED", "MEMBER_INVITED"
-  entityType  String?  // e.g., "TASK", "MEMBER", "PROJECT"
-  entityId    String?
-  metadata    Json?    // Stores deltas: { "field": { "from": "...", "to": "..." } }
-  ipAddress   String?
-  userAgent   String?
-  createdAt   DateTime @default(now())
-
-  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([workspaceId])
-  @@index([userId])
-  @@index([createdAt])
-  @@map("audit_log")
 }

@@ -1,5 +1,5 @@
 import { toast } from "sonner";
-import { authClient } from "@/lib/auth-clint";
+import { authClient } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 
 export function useSignout() {

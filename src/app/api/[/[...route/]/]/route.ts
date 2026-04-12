@@ -1,5 +1,5 @@
 import { handle } from "hono/vercel";
-import app from "@/server";
+import app from "@/hono";
 
 export const runtime = "nodejs";
 

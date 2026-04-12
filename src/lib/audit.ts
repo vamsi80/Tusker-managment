@@ -44,7 +44,7 @@ interface BufferedLog {
 }
 
 const auditBuffer: BufferedLog[] = [];
-const FLUSH_INTERVAL_MS = 5_000; // Flush every 5 seconds
+const FLUSH_INTERVAL_MS = 5_000; // Flush logs every 5 seconds
 const MAX_BUFFER_SIZE = 25; // Or flush when buffer reaches this size
 let flushTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -65,10 +65,14 @@ function ensureFlushTimer() {
 async function flushBuffer() {
   if (auditBuffer.length === 0) return;
 
+  const count = auditBuffer.length;
   // Drain the buffer atomically
   const batch = auditBuffer.splice(0, auditBuffer.length);
 
   try {
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[AUDIT] Flushing ${count} logs...`);
+    }
     await prisma.auditLog.createMany({ data: batch });
   } catch (error) {
     console.error("[AUDIT_FLUSH_ERROR] Failed to flush audit buffer:", error);
@@ -79,6 +83,7 @@ async function flushBuffer() {
 
 /** Force-flush (useful for graceful shutdown or testing) */
 export async function flushAuditBuffer() {
+  console.log("[AUDIT] Force-flushing buffer...");
   return flushBuffer();
 }
 
@@ -182,45 +187,49 @@ export async function recordActivity(options: RecordActivityOptions) {
       };
 
       // 3a. Targeted Activity Log (Individual Channels)
-      if (options.targetUserIds && options.targetUserIds.length > 0) {
-        // Broadcast only to involved users (except the actor if they are already in the UI)
-        const channels = options.targetUserIds
-          .filter(tid => tid !== userId) // Still send to actor if they want toast, but usually they don't
-          .map(tid => `user-${tid}`);
+      if (pusherServer) {
+        if (options.targetUserIds && options.targetUserIds.length > 0) {
+          // Broadcast only to involved users (except the actor if they are already in the UI)
+          const channels = options.targetUserIds
+            .filter(tid => tid !== userId) // Still send to actor if they want toast, but usually they don't
+            .map(tid => `user-${tid}`);
 
-        if (channels.length > 0) {
-          await pusherServer.trigger(channels, "activity_log", eventPayload)
-            .catch((err: any) => console.error("[PUSHER_TRIGGER_ERROR] targeted activity_log:", err));
+          if (channels.length > 0) {
+            await pusherServer.trigger(channels, "activity_log", eventPayload)
+              .catch((err: any) => console.error("[PUSHER_TRIGGER_ERROR] targeted activity_log:", err));
+          }
+        } else {
+          // Fallback: General activity log for the whole team
+          await pusherServer.trigger(`team-${workspaceId}`, "activity_log", eventPayload)
+            .catch((err: any) => console.error("[PUSHER_TRIGGER_ERROR] team activity_log:", err));
+        }
+
+        // 3b. Targeted UI update events (e.g., "team_update")
+        // These still usually go to the whole team channel to ensure everyone's data is synced,
+        // but the UI refresh is silent and non-intrusive.
+        if (options.broadcastEvent) {
+          let normalizedType = action.replace("MEMBER_", "").replace("TASK_", "").replace("SUBTASK_", "");
+          if (normalizedType === "INVITED") normalizedType = "INVITE";
+          if (normalizedType === "REMOVED") normalizedType = "DELETE";
+          if (normalizedType === "CREATED") normalizedType = "CREATE";
+          if (normalizedType === "UPDATED") normalizedType = "UPDATE";
+
+          const payload = newData || metadata || {};
+          // Ensure the ID is present in the payload for surgical client-side updates
+          if (entityId && !payload.id) {
+            (payload as any).id = entityId;
+          }
+
+          await pusherServer.trigger(`team-${workspaceId}`, options.broadcastEvent, {
+            workspaceId,
+            userId,
+            type: normalizedType,
+            message,
+            payload,
+          }).catch((err: any) => console.error(`[PUSHER_TRIGGER_ERROR] ${options.broadcastEvent}:`, err));
         }
       } else {
-        // Fallback: General activity log for the whole team
-        await pusherServer.trigger(`team-${workspaceId}`, "activity_log", eventPayload)
-          .catch((err: any) => console.error("[PUSHER_TRIGGER_ERROR] team activity_log:", err));
-      }
-
-      // 3b. Targeted UI update events (e.g., "team_update")
-      // These still usually go to the whole team channel to ensure everyone's data is synced,
-      // but the UI refresh is silent and non-intrusive.
-      if (options.broadcastEvent) {
-        let normalizedType = action.replace("MEMBER_", "").replace("TASK_", "").replace("SUBTASK_", "");
-        if (normalizedType === "INVITED") normalizedType = "INVITE";
-        if (normalizedType === "REMOVED") normalizedType = "DELETE";
-        if (normalizedType === "CREATED") normalizedType = "CREATE";
-        if (normalizedType === "UPDATED") normalizedType = "UPDATE";
-
-        const payload = newData || metadata || {};
-        // Ensure the ID is present in the payload for surgical client-side updates
-        if (entityId && !payload.id) {
-          (payload as any).id = entityId;
-        }
-
-        await pusherServer.trigger(`team-${workspaceId}`, options.broadcastEvent, {
-          workspaceId,
-          userId,
-          type: normalizedType,
-          message,
-          payload,
-        }).catch((err: any) => console.error(`[PUSHER_TRIGGER_ERROR] ${options.broadcastEvent}:`, err));
+        console.warn("[AUDIT] Pusher not configured, skipping real-time broadcast.");
       }
     }
   } catch (error) {
