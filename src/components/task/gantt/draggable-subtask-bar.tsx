@@ -242,7 +242,7 @@ export function DraggableSubtaskBar({
                         workspaceId
                     );
 
-                    if (!result.success) {
+                    if (result.status !== "success") {
                         toast.error(result.message, { id: toastId });
                         setOptimisticSubtask(subtask);
                         setIsPendingUpdate(false);
@@ -278,7 +278,7 @@ export function DraggableSubtaskBar({
                                 workspaceId
                             );
 
-                            if (!result.success) {
+                            if (result.status !== "success") {
                                 toast.error(result.message, { id: toastId });
                                 setOptimisticSubtask(subtask);
                                 setIsPendingUpdate(false);
@@ -314,7 +314,7 @@ export function DraggableSubtaskBar({
                                 workspaceId
                             );
 
-                            if (!result.success) {
+                            if (result.status !== "success") {
                                 toast.error(result.message, { id: toastId });
                                 setOptimisticSubtask(subtask);
                                 setIsPendingUpdate(false);
