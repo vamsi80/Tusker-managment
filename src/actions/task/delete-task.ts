@@ -1,104 +1,65 @@
 "use server";
+
 import { getUserPermissions } from "@/data/user/get-user-permissions";
 import { invalidateTaskMutation } from "@/lib/cache/invalidation";
 import { requireUser } from "@/lib/auth/require-user";
-import { revalidateTag } from "next/cache";
 import prisma from "@/lib/db";
-import { getTaskInvolvedUserIds } from "@/lib/involved-users";
 import { ApiResponse } from "@/lib/types";
+import { TasksService } from "@/server/services/tasks.service";
 
-export async function deleteTask(
-    taskId: string
-): Promise<ApiResponse> {
-
+/**
+ * Server Action to delete a parent task.
+ * Delegated to TasksService for core logic.
+ */
+export async function deleteTask(taskId: string): Promise<ApiResponse> {
     try {
-        // Authenticate user
         const user = await requireUser();
 
-        // 1. Get the task with project and workspace info
-        const existingTask = await prisma.task.findUnique({
+        // 1. Get task context for permission checking
+        const task = await prisma.task.findUnique({
             where: { id: taskId },
-            include: {
-                project: {
-                    select: {
-                        id: true,
-                        workspaceId: true,
-                        slug: true,
-                    }
-                }
-            }
+            include: { project: { select: { id: true, workspaceId: true } } }
         });
 
-        if (!existingTask) {
+        if (!task) {
             return {
                 status: "error",
                 message: "Task not found",
             };
         }
 
-        // 2. Check permissions
         const permissions = await getUserPermissions(
-            existingTask.project.workspaceId,
-            existingTask.project.id
+            task.project.workspaceId,
+            task.project.id
         );
 
-        // Permission logic:
-        // - Workspace ADMIN: Can delete all tasks
-        // - PROJECT_MANAGER: Can delete all tasks in their project
-        // - LEAD: Can delete only tasks they created
-        const canDeleteAllTasks = permissions.isWorkspaceAdmin || permissions.isProjectManager;
-        const canDeleteOwnTasks = permissions.isProjectLead && permissions.projectMember && existingTask.createdById === permissions.projectMember.id;
-
-        if (!canDeleteAllTasks && !canDeleteOwnTasks) {
-            return {
-                status: "error",
-                message: permissions.isProjectLead
-                    ? "You can only delete tasks you created"
-                    : "You don't have permission to delete this task",
-            };
-        }
-
-        // 3. Fetch involved users BEFORE deletion
-        const targetUserIds = await getTaskInvolvedUserIds(taskId);
-
-        // 4. Delete the task
-        await prisma.task.delete({
-            where: { id: taskId },
+        // 2. Call service
+        await TasksService.deleteTask({
+            taskId,
+            workspaceId: task.project.workspaceId,
+            projectId: task.project.id,
+            userId: user.id,
+            permissions
         });
 
-        // 5. RECORD ACTIVITY & BROADCAST (Structural Pinpoint Sync)
-        try {
-            const { recordActivity } = await import("@/lib/audit");
-            
-            await recordActivity({
-                userId: user.id,
-                userName: (user as any).surname || user.name || "Someone",
-                workspaceId: existingTask.project.workspaceId,
-                action: "TASK_DELETED",
-                entityType: "TASK",
-                entityId: taskId,
-                oldData: { 
-                    name: existingTask.name, 
-                    status: existingTask.status,
-                    projectId: existingTask.projectId // Essential for pinpoint removal
-                },
-                broadcastEvent: "team_update", // Triggers structural sync
-                targetUserIds, 
-            });
-        } catch (e) {
-            console.error("[PINPOINT_SYNC_ERROR] recordActivity failed:", e);
-        }
+        // 3. Invalidate cache
+        await invalidateTaskMutation({
+            projectId: task.project.id,
+            workspaceId: task.project.workspaceId,
+            userId: user.id,
+            taskId
+        });
 
         return {
             status: "success",
             message: "Task deleted successfully",
         };
 
-    } catch (err) {
-        console.error("Error deleting task:", err);
+    } catch (err: any) {
+        console.error("[ACTION_DELETE_TASK_ERROR]", err);
         return {
             status: "error",
-            message: "We couldn't delete the task. Please try again.",
-        }
+            message: err.message || "We couldn't delete the task. Please try again.",
+        };
     }
 }
