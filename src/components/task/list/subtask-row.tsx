@@ -18,6 +18,7 @@ import { EditSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/form
 import { DeleteSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/delete-subtask-form";
 import { InlineSubTaskForm } from "./inline-subtask-form";
 import { ColumnVisibility } from "../shared/column-visibility";
+import { InlineAssigneePicker } from "../shared/inline-assignee-picker";
 import type { UserPermissionsType } from "@/data/user/get-user-permissions";
 
 interface SubTaskRowProps {
@@ -38,7 +39,7 @@ interface SubTaskRowProps {
     userId?: string;
     isWorkspaceAdmin?: boolean; // For workspace view
     leadProjectIds?: string[]; // For workspace view
-    projects?: Array<{ id: string; canManageMembers?: boolean }>; // For workspace view
+    projects?: Array<{ id: string; canManageMembers?: boolean; memberIds?: string[] }>; // For workspace view
 }
 
 export const SubTaskRow = memo(function SubTaskRow({
@@ -280,7 +281,27 @@ export const SubTaskRow = memo(function SubTaskRow({
                                 </span>
                             </div>
                         ) : (
-                            <span className="text-[10px] sm:text-xs text-red-600 dark:text-red-400 font-bold bg-red-100 dark:bg-red-900/30 px-2 py-0.5 rounded-md animate-pulse">Unassigned</span>
+                            <InlineAssigneePicker
+                                subTask={subTask as any}
+                                members={members}
+                                allowedUserIds={projects?.find(p => p.id === ((subTask as any).projectId || projectId))?.memberIds}
+                                projectId={(subTask as any).projectId || projectId}
+                                parentTaskId={subTask.parentTaskId || parentTaskId}
+                                canEdit={canEditSubTask()}
+                                onAssigned={(_userId, member) => {
+                                    handleSubTaskUpdated({
+                                        assignee: {
+                                            workspaceMember: {
+                                                user: {
+                                                    id: member.userId,
+                                                    name: member.user.name,
+                                                    surname: member.user.surname,
+                                                }
+                                            }
+                                        } as any,
+                                    });
+                                }}
+                            />
                         )}
                     </TableCell>
                 )}

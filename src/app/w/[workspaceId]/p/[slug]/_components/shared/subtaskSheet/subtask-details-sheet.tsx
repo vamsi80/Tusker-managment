@@ -25,6 +25,10 @@ interface SubTaskDetailsSheetProps {
     initialComments?: any[];
     initialReviewComments?: any[];
     currentUserId?: string | null;
+    /** Called when the assignee is updated inline from within the sheet */
+    onSubTaskAssigned?: (subTaskId: string, updatedData: any) => void;
+    isAdmin?: boolean;
+    isProjectManager?: boolean;
 }
 
 interface Comment {
@@ -91,6 +95,9 @@ export function SubTaskDetailsSheet({
     initialComments = [],
     initialReviewComments = [],
     currentUserId: initialCurrentUserId = null,
+    onSubTaskAssigned,
+    isAdmin = false,
+    isProjectManager = false,
 }: SubTaskDetailsSheetProps) {
     const [activeTab, setActiveTab] = useState<"messages" | "review">("messages");
     const [comments, setComments] = useState<Comment[]>([]);
@@ -248,6 +255,17 @@ export function SubTaskDetailsSheet({
                             subTask={subTask} 
                             currentUserId={currentUserId} 
                             members={members}
+                            isAdmin={isAdmin || members.find(m => m.userId === currentUserId)?.workspaceRole === 'ADMIN' || members.find(m => m.userId === currentUserId)?.workspaceRole === 'OWNER'}
+                            isProjectManager={isProjectManager || members.find(m => m.userId === currentUserId)?.projectRole === 'PROJECT_MANAGER'}
+                            onSubTaskAssigned={(memberObj) => {
+                                onSubTaskAssigned?.(subTask.id, {
+                                    assignee: {
+                                        workspaceMember: {
+                                            user: memberObj
+                                        }
+                                    }
+                                });
+                            }}
                         />
 
                         {/* Tabbed Section - Takes Remaining Space */}

@@ -10,11 +10,16 @@ import { cn, formatIST } from "@/lib/utils";
 import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { memo } from "react";
 import { EditSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/edit-subtask-form";
+import { InlineAssigneePicker } from "@/components/task/shared/inline-assignee-picker";
 
 interface SubtaskSheetHeaderProps {
     subTask: TaskByIdType;
     currentUserId?: string | null;
     members?: any[];
+    /** Called when the assignee is updated inline from the sheet */
+    onSubTaskAssigned?: (memberObj: { id: string; name: string | null; surname: string | null }) => void;
+    isAdmin?: boolean;
+    isProjectManager?: boolean;
 }
 
 /**
@@ -27,7 +32,7 @@ interface SubtaskSheetHeaderProps {
  * - Tag
  * - Status badge
  */
-export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({ subTask, currentUserId, members = [] }: SubtaskSheetHeaderProps) {
+export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({ subTask, currentUserId, members = [], onSubTaskAssigned, isAdmin, isProjectManager }: SubtaskSheetHeaderProps) {
     // Assignee is directly on the task object (user fields) in both SubTaskType and TaskByIdType
     // But we handle potential workspaceMember nesting just in case legacy types are passed
     const assignee = (subTask.assignee as any)?.workspaceMember?.user || subTask.assignee;
@@ -54,7 +59,7 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({ subTask, cu
                 {/* Edit Button for authorized users */}
                 {subTask && (subTask.createdBy?.workspaceMember?.user?.id === currentUserId || (subTask as any).createdById === currentUserId) && (
                     <div className="ml-4 flex-shrink-0">
-                        <EditSubTaskForm 
+                        <EditSubTaskForm
                             subTask={subTask as any}
                             projectId={subTask.projectId}
                             parentTaskId={subTask.parentTaskId!}
@@ -90,7 +95,20 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({ subTask, cu
                                 <span className="text-xs sm:text-sm truncate">{assignee.surname || ""}</span>
                             </div>
                         ) : (
-                            <span className="text-xs sm:text-sm text-muted-foreground">Unassigned</span>
+                            <InlineAssigneePicker
+                                subTask={subTask as any}
+                                members={members}
+                                projectId={subTask.projectId || ""}
+                                parentTaskId={subTask.parentTaskId || ""}
+                                canEdit={!!(isAdmin || isProjectManager || subTask.createdBy?.workspaceMember?.user?.id === currentUserId || (subTask as any).createdById === currentUserId)}
+                                onAssigned={(_userId, member) => {
+                                    onSubTaskAssigned?.({
+                                        id: member.userId,
+                                        name: member.user.name,
+                                        surname: member.user.surname,
+                                    });
+                                }}
+                            />
                         )}
                     </div>
 

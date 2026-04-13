@@ -11,6 +11,7 @@ import { useInView } from "react-intersection-observer";
 import React, { useEffect } from "react";
 import { Plus } from "lucide-react";
 import { UserPermissionsType } from "@/data/user/get-user-permissions";
+import { ProjectOption } from "../shared/types";
 
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "REVIEW" | "HOLD" | "COMPLETED" | "CANCELLED";
@@ -40,6 +41,7 @@ interface KanbanColumnProps {
     permissions?: UserPermissionsType;
     userId?: string;
     projectMembers?: any[];
+    projects?: ProjectOption[];
 }
 
 /**
@@ -62,7 +64,8 @@ export const KanbanColumn = React.memo(function KanbanColumn({
     isOverColumn = false,
     permissions,
     userId,
-    projectMembers = []
+    projectMembers = [],
+    projects,
 }: KanbanColumnProps) {
     const { setNodeRef, isOver } = useDroppable({
         id: column.id,
@@ -185,6 +188,7 @@ export const KanbanColumn = React.memo(function KanbanColumn({
                                             permissions={permissions}
                                             userId={userId}
                                             projectMembers={projectMembers}
+                                            projects={projects}
                                         />
                                     </div>
                                 </React.Fragment>
@@ -291,6 +295,7 @@ const KanbanCardWrapper = React.memo(function KanbanCardWrapper({
     permissions?: UserPermissionsType;
     userId?: string;
     projectMembers?: any[];
+    projects?: ProjectOption[];
 }) {
     const subTask = useTaskCacheStore(state => state.entities[id]);
     if (!subTask) return null;

@@ -22,7 +22,8 @@ export type NormalMember = {
         surname: string | null;
         email?: string;
         image?: string | null;
-    }
+    };
+    workspaceRole?: string;
 };
 
 /**
@@ -44,6 +45,7 @@ async function _getProjectMembersInternal(params: { projectId?: string; workspac
             workspaceMember: {
                 select: {
                     userId: true,
+                    workspaceRole: true,
                     user: {
                         select: {
                             id: true,
@@ -70,7 +72,8 @@ async function _getProjectMembersInternal(params: { projectId?: string; workspac
                 userId: userId,
                 projectMemberId: m.id,
                 projectRole: m.projectRole as ProjectRole,
-                user: user
+                user: user,
+                workspaceRole: m.workspaceMember?.workspaceRole
             });
         }
     });
