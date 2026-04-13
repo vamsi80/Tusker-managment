@@ -96,6 +96,8 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
             level="workspace"
             tags={tags.map(tag => ({ id: tag.id, name: tag.name }))}
             projectManagers={pmMap}
+            permissions={permissions}
+            userId={user.id}
         />
     );
 }

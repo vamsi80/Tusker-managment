@@ -37,7 +37,7 @@ interface SubTaskListProps {
     userId?: string;
     isWorkspaceAdmin?: boolean; // For workspace view
     leadProjectIds?: string[]; // For workspace view
-    projects?: Array<{ id: string; canManageMembers?: boolean }>; // For workspace view
+    projects?: Array<{ id: string; canManageMembers?: boolean; memberIds?: string[] }>; // For workspace view
     scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
 }
 

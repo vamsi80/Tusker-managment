@@ -11,6 +11,7 @@ interface SubTaskSheetActions {
     openSubTaskSheet: (subTask: any) => void;
     openSubTaskSheetLoading: () => void;
     closeSubTaskSheet: () => void;
+    patchSubTask: (updatedData: any) => void;
 }
 
 const SubTaskSheetStateContext = createContext<SubTaskSheetState | undefined>(undefined);
@@ -37,14 +38,23 @@ export function SubTaskSheetProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const closeSubTaskSheet = useCallback(() => {
-        setIsOpen(false);
         setTimeout(() => {
             setSubTask(null);
         }, 250);
     }, []);
 
+    const patchSubTask = useCallback((updatedData: any) => {
+        setSubTask((prev: any) => {
+            if (!prev) return prev;
+            return {
+                ...prev,
+                ...updatedData
+            };
+        });
+    }, []);
+
     const state = useMemo(() => ({ subTask, isOpen }), [subTask, isOpen]);
-    const actions = useMemo(() => ({ openSubTaskSheet, openSubTaskSheetLoading, closeSubTaskSheet }), [openSubTaskSheet, openSubTaskSheetLoading, closeSubTaskSheet]);
+    const actions = useMemo(() => ({ openSubTaskSheet, openSubTaskSheetLoading, closeSubTaskSheet, patchSubTask }), [openSubTaskSheet, openSubTaskSheetLoading, closeSubTaskSheet, patchSubTask]);
 
     return (
         <SubTaskSheetStateContext.Provider value={state}>
@@ -111,5 +121,5 @@ export function useSubTaskSheetActions() {
         originalClose();
     }, [originalClose, pathname, searchParams]);
 
-    return { ...context, openSubTaskSheet, openSubTaskSheetLoading, closeSubTaskSheet };
+    return { ...context, openSubTaskSheet, openSubTaskSheetLoading, closeSubTaskSheet, patchSubTask: context.patchSubTask };
 }

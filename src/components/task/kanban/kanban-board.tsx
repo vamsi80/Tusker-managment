@@ -1188,6 +1188,9 @@ export function KanbanBoard({
                     overInfo.columnId === column.id ? overInfo.overId : null
                   }
                   isOverColumn={overInfo.columnId === column.id}
+                  permissions={permissions}
+                  userId={userId}
+                  projects={projects}
                 />
               );
             })}

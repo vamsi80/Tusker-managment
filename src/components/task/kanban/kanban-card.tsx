@@ -41,6 +41,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { EditSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/edit-subtask-form";
 import { DeleteSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/delete-subtask-form";
+import { InlineAssigneePicker } from "@/components/task/shared/inline-assignee-picker";
+import { ProjectOption } from "../shared/types";
 
 interface KanbanCardProps {
   subTask: KanbanSubTaskType;
@@ -53,6 +55,7 @@ interface KanbanCardProps {
   userId?: string;
   onUpdateInPlace?: (subTaskId: string, data: any) => void;
   projectMembers?: any[];
+  projects?: ProjectOption[];
 }
 
 export const KanbanCard = React.memo(function KanbanCard({
@@ -66,6 +69,7 @@ export const KanbanCard = React.memo(function KanbanCard({
   userId,
   onUpdateInPlace,
   projectMembers = [],
+  projects,
 }: KanbanCardProps) {
   const {
     attributes,
@@ -435,7 +439,30 @@ export const KanbanCard = React.memo(function KanbanCard({
               </Tooltip>
             </TooltipProvider>
           ) : (
-            <span className="text-[10px] text-red-600 dark:text-red-400 font-bold bg-red-100 dark:bg-red-900/30 px-1.5 py-0.5 rounded animate-pulse whitespace-nowrap">Unassigned</span>
+            <div onClick={(e) => e.stopPropagation()}>
+              <InlineAssigneePicker
+                subTask={subTask as any}
+                members={projectMembers}
+                allowedUserIds={projects?.find(p => p.id === subTask.projectId)?.memberIds}
+                projectId={subTask.projectId}
+                parentTaskId={subTask.parentTaskId!}
+                canEdit={canEdit()}
+                onAssigned={(_userId, member) => {
+                  onUpdateInPlace?.(subTask.id, {
+                    assignee: {
+                      workspaceMember: {
+                        user: {
+                          id: member.userId,
+                          name: member.user.name,
+                          surname: member.user.surname,
+                        },
+                      },
+                    },
+                  });
+                }}
+                className="whitespace-nowrap"
+              />
+            </div>
           )}
         </div>
       </CardContent>
