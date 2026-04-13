@@ -104,7 +104,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
         try {
             const d = new Date(date);
             if (isNaN(d.getTime())) return "";
-            
+
             const year = d.getFullYear();
             const month = String(d.getMonth() + 1).padStart(2, '0');
             const day = String(d.getDate()).padStart(2, '0');
@@ -492,10 +492,10 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                         <FormItem>
                                             <FormLabel>Days</FormLabel>
                                             <FormControl>
-                                                <Input 
-                                                    type="number" 
-                                                    min={1} 
-                                                    {...field} 
+                                                <Input
+                                                    type="number"
+                                                    min={1}
+                                                    {...field}
                                                     onChange={(e) => {
                                                         const val = parseInt(e.target.value) || 1;
                                                         field.onChange(val);
@@ -588,9 +588,9 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                                         <CommandList>
                                                             <CommandEmpty>No members found.</CommandEmpty>
                                                             <CommandGroup>
-                                                            {members?.filter((member) => {
+                                                                {members?.filter((member) => {
                                                                     const role = member.projectRole;
-                                                                    return role !== "VIEWER" && role !== "PROJECT_MANAGER";
+                                                                    return role !== "VIEWER";
                                                                 }).map((member) => {
                                                                     const user = member.user;
                                                                     const userName = `${user.surname}`;
@@ -645,10 +645,10 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                                                 // Use User.id or ProjectMember.id for lookup
                                                                 const r = reviewers.find((r) => r.id === field.value);
                                                                 if (r) return r.surname || "Unknown Reviewer";
-                                                                
+
                                                                 // Fallback to members list if reviewer list lookup fails
                                                                 const m = members?.find((m) => m.userId === field.value || m.projectMemberId === field.value);
-                                                                return m ? (m.user.surname || m.user.name || "Unknown") : "Reviewer not found";
+                                                                return m ? (m.user.surname || "Unknown") : "Reviewer not found";
                                                             })()
                                                             : "Select reviewer"}
                                                     </Button>

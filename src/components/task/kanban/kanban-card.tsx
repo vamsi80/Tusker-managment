@@ -141,6 +141,7 @@ export const KanbanCard = React.memo(function KanbanCard({
         "h-auto py-0 transition-shadow duration-200 hover:shadow-lg dark:hover:shadow-primary/20",
         (isDragging || isSortableDragging) && "opacity-50 shadow-xl",
         "border-l-4 overflow-hidden",
+        !assigneeUser && "bg-red-50 dark:bg-red-950/20 shadow-[0_0_8px_rgba(239,68,68,0.2)] animate-[pulse_2s_infinite] border-red-400 dark:border-red-600",
         columnColor === "text-slate-700" &&
           "border-l-slate-500 dark:border-l-slate-400",
         columnColor === "text-blue-700" &&
@@ -418,7 +419,7 @@ export const KanbanCard = React.memo(function KanbanCard({
             )}
           </div>
 
-          {assigneeUser && (
+          {assigneeUser ? (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -433,6 +434,8 @@ export const KanbanCard = React.memo(function KanbanCard({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+          ) : (
+            <span className="text-[10px] text-red-600 dark:text-red-400 font-bold bg-red-100 dark:bg-red-900/30 px-1.5 py-0.5 rounded animate-pulse whitespace-nowrap">Unassigned</span>
           )}
         </div>
       </CardContent>

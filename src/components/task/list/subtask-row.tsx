@@ -212,7 +212,8 @@ export const SubTaskRow = memo(function SubTaskRow({
                 ref={setNodeRef}
                 style={style}
                 className={cn(
-                    "bg-muted/10 hover:bg-muted/20 h-8 [&_td]:py-2",
+                    "h-8 [&_td]:py-2 transition-colors",
+                    assigneeUser ? "bg-muted/10 hover:bg-muted/20" : "bg-red-500/10 hover:bg-red-500/20 animate-[pulse_2s_infinite] border-y border-red-500/40",
                     (subTask as any).isOptimistic && "opacity-60 grayscale-[0.5]"
                 )}
             >
@@ -279,7 +280,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                                 </span>
                             </div>
                         ) : (
-                            <span className="text-xs text-muted-foreground">Unassigned</span>
+                            <span className="text-[10px] sm:text-xs text-red-600 dark:text-red-400 font-bold bg-red-100 dark:bg-red-900/30 px-2 py-0.5 rounded-md animate-pulse">Unassigned</span>
                         )}
                     </TableCell>
                 )}
