@@ -52,6 +52,7 @@ export function GanttChart({
     const [granularity, setGranularity] = useState<TimelineGranularity>('days');
     const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
     const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
+    const [showDetails, setShowDetails] = useState(true);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     // Pagination State
@@ -259,7 +260,16 @@ export function GanttChart({
     }
 
     return (
-        <div className={cn("flex flex-col [--gantt-sidebar-width:140px] sm:[--gantt-sidebar-width:200px]", className)}>
+        <div className={cn(
+            "flex flex-col transition-all duration-300 ease-in-out",
+            showDetails ? "[--gantt-sidebar-width:650px]" : "[--gantt-sidebar-width:250px]",
+            "[--col-name:250px]",
+            showDetails ? "[--col-assignee:100px]" : "[--col-assignee:0px]",
+            showDetails ? "[--col-status:80px]" : "[--col-status:0px]",
+            showDetails ? "[--col-days:40px]" : "[--col-days:0px]",
+            showDetails ? "[--col-dates:180px]" : "[--col-dates:0px]",
+            className
+        )}>
             {/* Gantt Container */}
             <div
                 ref={scrollContainerRef}
@@ -293,6 +303,8 @@ export function GanttChart({
                     onCollapseAll={collapseAll}
                     onExport={handleExport}
                     onGranularityChange={setGranularity}
+                    showDetails={showDetails}
+                    onToggleDetails={() => setShowDetails(!showDetails)}
                     scrollX={scrollX}
                     viewportWidth={viewportWidth}
                 />
@@ -304,6 +316,7 @@ export function GanttChart({
                     granularity={granularity}
                     scrollX={scrollX}
                     viewportWidth={viewportWidth}
+                    showDetails={showDetails}
                     tasks={groupByProject && groupedTasks
                         ? groupedTasks.groups.flatMap(g => g.allTasks).concat(groupedTasks.noProjectTasks)
                         : tasks
@@ -324,6 +337,7 @@ export function GanttChart({
                                     onToggle={() => toggleProject(group.id)}
                                     color={group.color}
                                     hasMore={group.hasMoreTasks}
+                                    showDetails={showDetails}
                                     onLoadMore={() => handleLoadMoreTasksForProject(group.id)}
                                     totalTasksCount={projectCounts ? (projectCounts[group.id] || 0) : group.totalTasks}
                                 >
@@ -342,6 +356,7 @@ export function GanttChart({
                                             currentUser={currentUser}
                                             permissions={permissions}
                                             isNestedInProject={true}
+                                            showDetails={showDetails}
                                         />
                                     ))}
                                 </ProjectRow>
@@ -361,13 +376,14 @@ export function GanttChart({
                                     projectId={projectId || task.projectId}
                                     currentUser={currentUser}
                                     permissions={permissions}
+                                    showDetails={showDetails}
                                 />
                             ))}
 
                             {/* Load More Projects Row */}
                             {groupedTasks.hasMoreProjects && (
                                 <>
-                                    <div ref={projectsLoaderRef} className="sticky left-0 z-30 w-[200px] min-w-[200px] flex items-center justify-center p-2 bg-white dark:bg-neutral-900 border-b border-r border-neutral-200 dark:border-neutral-700">
+                                    <div ref={projectsLoaderRef} className="sticky left-0 z-30 w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] flex items-center justify-center p-2 bg-white dark:bg-neutral-900 border-b border-r border-neutral-200 dark:border-neutral-700">
                                         <span className="text-xs text-muted-foreground">Loading more projects...</span>
                                     </div>
                                     <div className="bg-neutral-50/30 dark:bg-neutral-900/10 border-b border-neutral-200 dark:border-neutral-700" />
@@ -390,13 +406,14 @@ export function GanttChart({
                                     projectId={projectId || task.projectId}
                                     currentUser={currentUser}
                                     permissions={permissions}
+                                    showDetails={showDetails}
                                 />
                             ))}
 
                             {/* Load More Flat Tasks Row */}
                             {!groupByProject && (tasks.length > visibleFlatCount) && (
                                 <>
-                                    <div ref={flatTasksLoaderRef} className="sticky left-0 z-30 w-[200px] min-w-[200px] flex items-center justify-center p-2 bg-white dark:bg-neutral-900 border-b border-r border-neutral-200 dark:border-neutral-700">
+                                    <div ref={flatTasksLoaderRef} className="sticky left-0 z-30 w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] flex items-center justify-center p-2 bg-white dark:bg-neutral-900 border-b border-r border-neutral-200 dark:border-neutral-700">
                                         <span className="text-xs text-muted-foreground">Loading more tasks...</span>
                                     </div>
                                     <div className="bg-neutral-50/30 dark:bg-neutral-900/10 border-b border-neutral-200 dark:border-neutral-700" />
