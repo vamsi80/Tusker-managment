@@ -352,6 +352,7 @@ export function GanttChart({
                                             task={task}
                                             timelineStart={timelineRange.start}
                                             totalDays={totalDays}
+                                            granularity={granularity}
                                             isExpanded={expandedTasks.has(task.id)}
                                             onToggle={() => toggleTask(task.id)}
                                             onSubtaskClick={onSubtaskClick}
@@ -376,6 +377,7 @@ export function GanttChart({
                                     task={task}
                                     timelineStart={timelineRange.start}
                                     totalDays={totalDays}
+                                    granularity={granularity}
                                     isExpanded={expandedTasks.has(task.id)}
                                     onToggle={() => toggleTask(task.id)}
                                     onSubtaskClick={onSubtaskClick}
@@ -409,6 +411,7 @@ export function GanttChart({
                                     task={task}
                                     timelineStart={timelineRange.start}
                                     totalDays={totalDays}
+                                    granularity={granularity}
                                     isExpanded={expandedTasks.has(task.id)}
                                     onToggle={() => toggleTask(task.id)}
                                     onSubtaskClick={onSubtaskClick}

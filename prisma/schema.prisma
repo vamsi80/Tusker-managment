@@ -256,6 +256,7 @@ model Task {
   reviewerId            String?
   subtaskCount          Int                @default(0)
   workspaceId           String
+  position              Int                 @default(0)
   reviewComments        ReviewComment[]
   assignee              ProjectMember?     @relation("TaskAssignee", fields: [assigneeId], references: [id])
   createdBy             ProjectMember      @relation("TaskCreator", fields: [createdById], references: [id])

@@ -43,6 +43,7 @@ interface TaskRowProps {
     };
     showDetails: boolean;
     projects?: { id: string; memberIds?: string[] }[];
+    granularity: 'days' | 'weeks' | 'months';
 }
 
 export function TaskRow({
@@ -61,7 +62,8 @@ export function TaskRow({
     currentUser,
     permissions,
     showDetails,
-    projects
+    projects,
+    granularity
 }: TaskRowProps) {
 
     const [visibleSubtaskCount, setVisibleSubtaskCount] = useState(SUBTASKS_PER_PAGE);
@@ -226,12 +228,14 @@ export function TaskRow({
                         showDetails={showDetails}
                         onSubtaskClick={onSubtaskClick}
                         onSubTaskUpdate={onSubTaskUpdate}
-                        workspaceId={workspaceId}
+                        workspaceId={workspaceId || ""}
                         projectId={projectId || task.projectId}
                         members={members}
                         currentUser={currentUser}
                         permissions={permissions}
                         allowedUserIds={allowedUserIds}
+                        allTasks={allTasks}
+                        granularity={granularity}
                     />
 
                     {hasMoreSubtasks && (

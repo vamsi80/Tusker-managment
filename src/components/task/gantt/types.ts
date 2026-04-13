@@ -38,6 +38,9 @@ export interface GanttSubtask {
     assignee?: { id: string; name: string; image?: string | null };
     assigneeId?: string | null;
     assigneeRole?: string;
+    
+    position: number;
+    dependsOnIds?: string[];
 }
 
 // ============================================================================

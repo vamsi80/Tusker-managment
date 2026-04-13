@@ -84,6 +84,13 @@ export function getTaskSelect(view_mode: string = "list"): Prisma.TaskSelect {
 
     // 5. specialized view fields
     if (isList || isGantt || isCalendar || isSubtask) {
+        select.position = true;
+    }
+
+    if (isGantt) {
+        select.Task_TaskDependency_A = {
+            select: { id: true }
+        };
     }
 
     if (isSearch) {
