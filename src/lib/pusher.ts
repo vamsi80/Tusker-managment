@@ -2,13 +2,6 @@ import PusherServer from "pusher";
 import PusherClient from "pusher-js";
 import { env } from "./env";
 
-const isServerConfigured = !!(
-  env.PUSHER_APP_ID &&
-  env.NEXT_PUBLIC_PUSHER_KEY &&
-  env.PUSHER_SECRET &&
-  env.NEXT_PUBLIC_PUSHER_CLUSTER
-);
-
 const isClientConfigured = !!(
   env.NEXT_PUBLIC_PUSHER_KEY &&
   env.NEXT_PUBLIC_PUSHER_CLUSTER
@@ -16,6 +9,13 @@ const isClientConfigured = !!(
 
 export const pusherServer = (() => {
   if (typeof window !== "undefined") return null;
+
+  const isServerConfigured = !!(
+    env.PUSHER_APP_ID &&
+    env.NEXT_PUBLIC_PUSHER_KEY &&
+    env.PUSHER_SECRET &&
+    env.NEXT_PUBLIC_PUSHER_CLUSTER
+  );
 
   if (!isServerConfigured) {
     if (process.env.NODE_ENV === "development") {
