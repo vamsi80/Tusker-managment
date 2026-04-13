@@ -26,7 +26,11 @@ export async function editSubTask(data: SubTaskSchemaType, subTaskId: string): P
 
         const subTaskContext = await prisma.task.findUnique({
             where: { id: subTaskId },
-            include: { project: { select: { id: true, workspaceId: true } } }
+            include: { 
+                project: { select: { id: true, workspaceId: true } },
+                assignee: { select: { workspaceMember: { select: { userId: true } } } },
+                reviewer: { select: { workspaceMember: { select: { userId: true } } } }
+            }
         });
 
         if (!subTaskContext) {
@@ -61,14 +65,26 @@ export async function editSubTask(data: SubTaskSchemaType, subTaskId: string): P
             }
         });
 
+        // Collect all involved users for cache invalidation
+        const involvedUserIds = Array.from(new Set([
+            subTaskContext.assignee?.workspaceMember?.userId,
+            subTaskContext.reviewer?.workspaceMember?.userId,
+            validation.data.assignee,
+            validation.data.reviewerId,
+            user.id
+        ])).filter(Boolean) as string[];
+        
         // Invalidate cache
         await invalidateTaskMutation({
             projectId: subTaskContext.project.id,
             workspaceId: subTaskContext.project.workspaceId,
             userId: user.id,
             taskId: subTaskId,
-            parentTaskId: subTaskContext.parentTaskId || undefined
+            parentTaskId: subTaskContext.parentTaskId || undefined,
+            involvedUserIds
         });
+
+        console.log(`✅ [editSubTask] Subtask ${subTaskId} updated. Invalidated caches for involved users:`, involvedUserIds);
 
         return {
             status: "success",

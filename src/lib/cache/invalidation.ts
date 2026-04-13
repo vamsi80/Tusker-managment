@@ -1,7 +1,7 @@
 // @ts-nocheck
 "use server";
 
-import { revalidateTag } from "next/cache";
+import { updateTag } from "next/cache";
 import { CacheTags } from "@/data/cache-tags";
 
 // ============================================
@@ -13,7 +13,7 @@ import { CacheTags } from "@/data/cache-tags";
  */
 export async function invalidateWorkspace(workspaceId: string) {
     const tags = CacheTags.workspace(workspaceId);
-    tags.forEach(tag => revalidateTag(tag));
+    tags.forEach(tag => updateTag(tag));
 }
 
 /**
@@ -21,7 +21,7 @@ export async function invalidateWorkspace(workspaceId: string) {
  */
 export async function invalidateUserWorkspaces(userId: string) {
     const tags = CacheTags.userWorkspaces(userId);
-    tags.forEach(tag => revalidateTag(tag));
+    tags.forEach(tag => updateTag(tag));
 }
 
 /**
@@ -32,7 +32,7 @@ export async function invalidateWorkspaceMembers(workspaceId: string) {
         ...CacheTags.workspaceMembers(workspaceId),
         ...CacheTags.workspace(workspaceId), // Ensure full workspace data is also updated
     ];
-    tags.forEach(tag => revalidateTag(tag));
+    tags.forEach(tag => updateTag(tag));
 }
 
 /**
@@ -40,7 +40,7 @@ export async function invalidateWorkspaceMembers(workspaceId: string) {
  */
 export async function invalidateAdminCheck(userId: string) {
     const tags = CacheTags.adminCheck(userId);
-    tags.forEach(tag => revalidateTag(tag));
+    tags.forEach(tag => updateTag(tag));
 }
 
 /**
@@ -48,7 +48,7 @@ export async function invalidateAdminCheck(userId: string) {
  */
 export async function invalidateWorkspaceAdminChecks(workspaceId: string) {
     const tags = CacheTags.workspaceAdmin(workspaceId);
-    tags.forEach(tag => revalidateTag(tag));
+    tags.forEach(tag => updateTag(tag));
 }
 
 /**
@@ -56,7 +56,7 @@ export async function invalidateWorkspaceAdminChecks(workspaceId: string) {
  */
 export async function invalidateWorkspaceTags(workspaceId: string) {
     const tags = CacheTags.workspaceTags(workspaceId);
-    tags.forEach(tag => revalidateTag(tag));
+    tags.forEach(tag => updateTag(tag));
 }
 
 // ============================================
@@ -68,14 +68,14 @@ export async function invalidateWorkspaceTags(workspaceId: string) {
  */
 export async function invalidateUserProjects(userId: string, workspaceId: string) {
     const tags = CacheTags.userProjects(userId, workspaceId);
-    tags.forEach(tag => revalidateTag(tag));
+    tags.forEach(tag => updateTag(tag));
 }
 
 /**
  * Invalidate all projects cache for a workspace
  */
 export async function invalidateWorkspaceProjects(workspaceId: string) {
-    revalidateTag(`workspace-projects-${workspaceId}`);
+    updateTag(`workspace-projects-${workspaceId}`);
 }
 
 /**
@@ -91,7 +91,7 @@ export async function invalidateProjectCaches(userId: string, workspaceId: strin
  */
 export async function invalidateProject(projectId: string) {
     const tags = CacheTags.project(projectId);
-    tags.forEach(tag => revalidateTag(tag));
+    tags.forEach(tag => updateTag(tag));
 }
 
 /**
@@ -104,7 +104,7 @@ export async function invalidateProjectMembers(projectId: string) {
         ...CacheTags.fullProject(projectId),
         ...CacheTags.project(projectId)
     ];
-    tags.forEach(tag => revalidateTag(tag));
+    tags.forEach(tag => updateTag(tag));
 }
 
 /**
@@ -112,7 +112,7 @@ export async function invalidateProjectMembers(projectId: string) {
  */
 export async function invalidateFullProject(projectId: string) {
     const tags = CacheTags.fullProject(projectId);
-    tags.forEach(tag => revalidateTag(tag));
+    tags.forEach(tag => updateTag(tag));
 }
 
 // ============================================
@@ -125,7 +125,7 @@ export async function invalidateFullProject(projectId: string) {
  */
 export async function invalidateProjectTasks(projectId: string, userId?: string) {
     const tags = CacheTags.projectTasks(projectId, userId);
-    tags.forEach(tag => revalidateTag(tag));
+    tags.forEach(tag => updateTag(tag));
 }
 
 /**
@@ -133,7 +133,7 @@ export async function invalidateProjectTasks(projectId: string, userId?: string)
  * Use sparingly - only when needed for global changes
  */
 export async function invalidateAllProjectTasks() {
-    revalidateTag('project-tasks-all');
+    updateTag('project-tasks-all');
 }
 
 /**
@@ -142,7 +142,7 @@ export async function invalidateAllProjectTasks() {
  */
 export async function invalidateWorkspaceTasks(workspaceId: string, userId?: string) {
     const tags = CacheTags.workspaceTasks(workspaceId, userId);
-    tags.forEach(tag => revalidateTag(tag));
+    tags.forEach(tag => updateTag(tag));
 }
 
 /**
@@ -150,7 +150,7 @@ export async function invalidateWorkspaceTasks(workspaceId: string, userId?: str
  * Use sparingly - only when needed for global changes
  */
 export async function invalidateAllWorkspaceTasks() {
-    revalidateTag('workspace-tasks-all');
+    updateTag('workspace-tasks-all');
 }
 
 /**
@@ -167,7 +167,7 @@ export async function invalidateTaskCaches(projectId: string, workspaceId: strin
  */
 export async function invalidateTask(taskId: string) {
     const tags = CacheTags.task(taskId);
-    tags.forEach(tag => revalidateTag(tag));
+    tags.forEach(tag => updateTag(tag));
 }
 
 /**
@@ -175,7 +175,7 @@ export async function invalidateTask(taskId: string) {
  */
 export async function invalidateTaskDetails(taskId: string, projectId: string) {
     const tags = CacheTags.taskDetails(taskId, projectId);
-    tags.forEach(tag => revalidateTag(tag));
+    tags.forEach(tag => updateTag(tag));
 }
 
 // ============================================
@@ -188,7 +188,7 @@ export async function invalidateTaskDetails(taskId: string, projectId: string) {
  */
 export async function invalidateTaskSubTasks(parentTaskId: string, workspaceMemberId?: string) {
     const tags = CacheTags.taskSubTasks(parentTaskId, workspaceMemberId);
-    tags.forEach(tag => revalidateTag(tag));
+    tags.forEach(tag => updateTag(tag));
 }
 
 /**
@@ -196,7 +196,7 @@ export async function invalidateTaskSubTasks(parentTaskId: string, workspaceMemb
  * Use sparingly - only when needed for global changes
  */
 export async function invalidateAllTaskSubTasks() {
-    revalidateTag('task-subtasks-all');
+    updateTag('task-subtasks-all');
 }
 
 /**
@@ -204,7 +204,7 @@ export async function invalidateAllTaskSubTasks() {
  */
 export async function invalidateProjectSubTasks(projectId: string) {
     const tags = CacheTags.projectSubTasks(projectId);
-    tags.forEach(tag => revalidateTag(tag));
+    tags.forEach(tag => updateTag(tag));
 }
 
 /**
@@ -212,7 +212,7 @@ export async function invalidateProjectSubTasks(projectId: string) {
  */
 export async function invalidateSubTask(subTaskId: string) {
     const tags = CacheTags.subtask(subTaskId);
-    tags.forEach(tag => revalidateTag(tag));
+    tags.forEach(tag => updateTag(tag));
 }
 
 /**
@@ -220,7 +220,7 @@ export async function invalidateSubTask(subTaskId: string) {
  */
 export async function invalidateSubTasksByStatus(projectId: string, status: string, parentTaskId?: string) {
     const tags = CacheTags.subtasksByStatus(projectId, status, parentTaskId);
-    tags.forEach(tag => revalidateTag(tag));
+    tags.forEach(tag => updateTag(tag));
 }
 
 // ============================================
@@ -233,7 +233,7 @@ export async function invalidateSubTasksByStatus(projectId: string, status: stri
  */
 export async function invalidateTaskComments(taskId: string) {
     const tags = CacheTags.taskComments(taskId);
-    tags.forEach(tag => revalidateTag(tag));
+    tags.forEach(tag => updateTag(tag));
 }
 
 /**
@@ -241,7 +241,7 @@ export async function invalidateTaskComments(taskId: string) {
  * Use sparingly - only when needed for global changes
  */
 export async function invalidateAllComments() {
-    revalidateTag('comments-all');
+    updateTag('comments-all');
 }
 
 /**
@@ -250,7 +250,7 @@ export async function invalidateAllComments() {
  */
 export async function invalidateReviewComments(subTaskId: string) {
     const tags = CacheTags.reviewComments(subTaskId);
-    tags.forEach(tag => revalidateTag(tag));
+    tags.forEach(tag => updateTag(tag));
 }
 
 /**
@@ -258,7 +258,7 @@ export async function invalidateReviewComments(subTaskId: string) {
  * Use sparingly - only when needed for global changes
  */
 export async function invalidateAllReviewComments() {
-    revalidateTag('review-comments-all');
+    updateTag('review-comments-all');
 }
 
 // ============================================
@@ -270,7 +270,7 @@ export async function invalidateAllReviewComments() {
  */
 export async function invalidateUserPermissions(userId: string, workspaceId: string, projectId?: string) {
     const tags = CacheTags.userPermissions(userId, workspaceId, projectId);
-    tags.forEach(tag => revalidateTag(tag));
+    tags.forEach(tag => updateTag(tag));
 }
 
 // ============================================
@@ -283,7 +283,7 @@ export async function invalidateUserPermissions(userId: string, workspaceId: str
  */
 export async function invalidateWorkspaceTaskCreationData(workspaceId: string, userId: string) {
     const tags = CacheTags.workspaceTaskCreationData(workspaceId, userId);
-    tags.forEach(tag => revalidateTag(tag));
+    tags.forEach(tag => updateTag(tag));
 }
 
 
@@ -297,8 +297,9 @@ export async function invalidateTaskMutation(params: {
     workspaceId: string;
     userId?: string;
     parentTaskId?: string;
+    involvedUserIds?: string[];
 }) {
-    const { taskId, projectId, workspaceId, userId, parentTaskId } = params;
+    const { taskId, projectId, workspaceId, userId, parentTaskId, involvedUserIds = [] } = params;
 
     const invalidations: Promise<void>[] = [];
 
@@ -308,18 +309,41 @@ export async function invalidateTaskMutation(params: {
         invalidations.push(invalidateTaskDetails(taskId, projectId));
     }
 
-    // Invalidate project and workspace caches
+    // Invalidate project and workspace caches for the mutator
     invalidations.push(invalidateTaskCaches(projectId, workspaceId, userId));
+
+    // Invalidate for all involved users (e.g., old/new assignees)
+    involvedUserIds.forEach(id => {
+        if (id && id !== userId) {
+            invalidations.push(invalidateTaskCaches(projectId, workspaceId, id));
+        }
+    });
 
     // Invalidate parent task subtasks if applicable
     if (parentTaskId) {
+        // Invalidate the generic tag
         invalidations.push(invalidateTaskSubTasks(parentTaskId));
+
+        // Invalidate user-specific tags for the subtask batch fetcher
+        if (userId) {
+            invalidations.push(invalidateTaskSubTasks(parentTaskId, userId));
+        }
+        involvedUserIds.forEach(id => {
+            if (id && id !== userId) {
+                invalidations.push(invalidateTaskSubTasks(parentTaskId, id));
+            }
+        });
     }
 
-    // Invalidate workspace task creation data
+    // Invalidate workspace task creation data for all involved users
     if (userId) {
         invalidations.push(invalidateWorkspaceTaskCreationData(workspaceId, userId));
     }
+    involvedUserIds.forEach(id => {
+        if (id && id !== userId) {
+            invalidations.push(invalidateWorkspaceTaskCreationData(workspaceId, id));
+        }
+    });
 
     // Invalidate workspace tags (since task counts might have changed)
     invalidations.push(invalidateWorkspaceTags(workspaceId));

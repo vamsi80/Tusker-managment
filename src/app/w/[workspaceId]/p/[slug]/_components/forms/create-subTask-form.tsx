@@ -517,7 +517,7 @@ export const CreateSubTaskForm = ({
                                                         <CommandGroup>
                                                             {members?.filter((member) => {
                                                                 const role = member.projectRole;
-                                                                return role !== "VIEWER" && role !== "PROJECT_MANAGER"; // Adjust logic if needed
+                                                                return role !== "VIEWER"; // Adjust logic if needed
                                                             }).map((member) => {
                                                                 const user = member.user;
                                                                 const userName = `${user.surname || ''}`;

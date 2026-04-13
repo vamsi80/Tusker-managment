@@ -72,7 +72,7 @@ export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
                         </Avatar>
                         <div className="flex flex-col">
                             <span className="text-sm font-medium leading-none mb-1">
-                                {user.name} {user.surname}
+                                {user.surname}
                             </span>
                             <span className="text-xs text-muted-foreground truncate max-w-[140px]">
                                 {user.email}
@@ -88,7 +88,7 @@ export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
             cell: ({ row }) => {
                 if (!mounted) return "...";
                 return (
-                    <div className="text-center font-medium">
+                    <div className="font-medium">
                         {format(new Date(row.original.date), "dd/MM/yyyy")}
                     </div>
                 );
@@ -100,7 +100,7 @@ export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
             cell: ({ row }) => {
                 if (!mounted) return "...";
                 return (
-                    <div className="flex flex-col items-center">
+                    <div className="flex flex-col items-start">
                         <div className="flex items-center gap-1.5 text-sm">
                             <Clock className="h-3 w-3 text-emerald-500" />
                             {format(new Date(row.original.checkIn), "hh:mm a")}
@@ -115,17 +115,18 @@ export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
             cell: ({ row }) => {
                 const lat = row.original.checkInLatitude;
                 const lng = row.original.checkInLongitude;
-                if (!lat || !lng) return <div className="text-center text-xs text-muted-foreground italic">None</div>;
+                if (!lat || !lng) return <div className="text-xs text-muted-foreground italic">None</div>;
                 return (
-                    <div className="flex justify-center">
-                        <a 
+                    <div className="flex justify-start">
+                        <a
                             href={`https://www.google.com/maps?q=${lat},${lng}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-1 text-[10px] text-primary hover:underline bg-primary/5 px-2 py-1 rounded"
+                            title={`Raw coordinates: ${lat}, ${lng}`}
                         >
                             <MapPin className="h-3 w-3" />
-                            {lat.toFixed(4)}, {lng.toFixed(4)}
+                            {lat.toFixed(6)}, {lng.toFixed(6)}
                         </a>
                     </div>
                 );
@@ -137,9 +138,9 @@ export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
             cell: ({ row }) => {
                 if (!mounted) return "...";
                 const checkOut = row.original.checkOut;
-                if (!checkOut) return <div className="text-center text-xs text-muted-foreground italic">—</div>;
+                if (!checkOut) return <div className="text-xs text-muted-foreground italic">—</div>;
                 return (
-                    <div className="flex flex-col items-center">
+                    <div className="flex flex-col items-start">
                         <div className="flex items-center gap-1.5 text-sm">
                             <Clock className="h-3 w-3 text-rose-500" />
                             {format(new Date(checkOut), "hh:mm a")}
@@ -154,17 +155,18 @@ export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
             cell: ({ row }) => {
                 const lat = row.original.checkOutLatitude;
                 const lng = row.original.checkOutLongitude;
-                if (!lat || !lng) return <div className="text-center text-xs text-muted-foreground italic">None</div>;
+                if (!lat || !lng) return <div className="text-xs text-muted-foreground italic">None</div>;
                 return (
-                    <div className="flex justify-center">
-                        <a 
+                    <div className="flex justify-start">
+                        <a
                             href={`https://www.google.com/maps?q=${lat},${lng}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-1 text-[10px] text-primary hover:underline bg-primary/5 px-2 py-1 rounded"
+                            title={`Raw coordinates: ${lat}, ${lng}`}
                         >
                             <MapPin className="h-3 w-3" />
-                            {lat.toFixed(4)}, {lng.toFixed(4)}
+                            {lat.toFixed(6)}, {lng.toFixed(6)}
                         </a>
                     </div>
                 );
@@ -175,16 +177,21 @@ export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
             header: "Status",
             cell: ({ row }) => {
                 const status = row.original.status;
+                let content;
                 switch (status) {
                     case "PRESENT":
-                        return <Badge className="bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 border-emerald-500/20">Present</Badge>;
+                        content = <Badge className="bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 border-emerald-500/20">Present</Badge>;
+                        break;
                     case "ABSENT":
-                        return <Badge variant="destructive">Absent</Badge>;
+                        content = <Badge variant="destructive">Absent</Badge>;
+                        break;
                     case "LATE":
-                        return <Badge className="bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 border-amber-500/20">Late</Badge>;
+                        content = <Badge className="bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 border-amber-500/20">Late</Badge>;
+                        break;
                     default:
-                        return <Badge variant="outline">{status}</Badge>;
+                        content = <Badge variant="outline">{status}</Badge>;
                 }
+                return <div className="flex justify-start">{content}</div>;
             },
         },
     ], [mounted]);
@@ -212,10 +219,10 @@ export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
                 </CardTitle>
             </CardHeader>
             <CardContent>
-                <DataTable 
-                    columns={columns} 
-                    data={records} 
-                    isLoading={loading} 
+                <DataTable
+                    columns={columns}
+                    data={records}
+                    isLoading={loading}
                     searchKey="userName"
                     searchPlaceholder="Search members..."
                     filterFields={filterFields}

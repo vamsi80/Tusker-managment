@@ -43,7 +43,7 @@ function SortableSubtaskRow({
             <div
                 className={cn(
                     "sticky left-0 z-30 flex items-center gap-1 px-2 py-1.5 pl-8 min-h-[32px]",
-                    "bg-neutral-50 dark:bg-neutral-800/30",
+                    subtask.assignee ? "bg-neutral-50 dark:bg-neutral-800/30" : "bg-red-50 dark:bg-red-950/20 animate-[pulse_2s_infinite]",
                     "border-b border-r border-neutral-200 dark:border-neutral-700",
                     "transition-colors duration-150 hover:bg-neutral-100 dark:hover:bg-neutral-800/50"
                 )}
@@ -56,14 +56,16 @@ function SortableSubtaskRow({
                 >
                     {subtask.name}
                 </span>
-
+                {!subtask.assignee && (
+                    <span className="text-[10px] text-red-600 dark:text-red-400 font-bold bg-red-100 dark:bg-red-900/30 px-1.5 py-0.5 rounded animate-pulse whitespace-nowrap ml-2 shrink-0">Unassigned</span>
+                )}
             </div>
 
             {/* Right Panel - Subtask Bar */}
             <div
                 className={cn(
                     "relative min-h-[32px] flex items-center w-full",
-                    "bg-neutral-50 dark:bg-neutral-800/30",
+                    subtask.assignee ? "bg-neutral-50 dark:bg-neutral-800/30" : "bg-red-50 dark:bg-red-950/20 animate-[pulse_2s_infinite]",
                     "border-b border-neutral-200 dark:border-neutral-700",
                     "transition-colors duration-150 hover:bg-neutral-100 dark:hover:bg-neutral-800/50"
                 )}

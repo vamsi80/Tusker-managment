@@ -12,6 +12,7 @@ import { ChevronDown, ChevronRight, MoreHorizontal } from "lucide-react";
 import { EditTaskDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/edit-task-form";
 import { DeleteTaskDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/delete-task-form";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 
 interface TaskRowProps {
     task: TaskWithSubTasks;
@@ -107,13 +108,20 @@ export const TaskRow = memo(function TaskRow({
     };
 
     const handleOptimisticSubTaskUpdated = (subTaskId: string, updatedData: any) => {
+        // Clear zustand cache so the next request actually hits the server
+        useTaskCacheStore.getState().invalidateSubTaskCache(task.id);
+        
+        // Clear local state so that if it is expanded, it triggers a refetch immediately.
+        // If it is collapsed, it will refetch on the next expand.
         setTask(prev => ({
             ...prev,
-            subTasks: prev.subTasks?.map((st: any) => st.id === subTaskId ? { ...st, ...updatedData } : st)
+            subTasks: undefined
         }));
     };
 
     const handleOptimisticSubTaskDeleted = (subTaskId: string) => {
+        useTaskCacheStore.getState().invalidateSubTaskCache(task.id);
+        
         const subTaskToDelete = task.subTasks?.find((st: any) => st.id === subTaskId);
         const wasCompleted = subTaskToDelete?.status === "COMPLETED";
 
@@ -128,6 +136,8 @@ export const TaskRow = memo(function TaskRow({
     };
 
     const handleOptimisticSubTaskCreated = (newSubTask: any, tempId?: string) => {
+        useTaskCacheStore.getState().invalidateSubTaskCache(task.id);
+        
         setTask(prev => {
             const currentSubTasks = prev.subTasks || [];
             if (tempId) {
