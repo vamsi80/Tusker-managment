@@ -5,9 +5,10 @@ import { DraggableSubtaskBar } from "./draggable-subtask-bar";
 import { cn } from "@/lib/utils";
 import { GanttSubtask } from "./types";
 import { getDaysBetween } from "./utils";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
+import { InlineAssigneePicker } from "../shared/inline-assignee-picker";
+import { ProjectMembersType } from "@/data/project/get-project-members";
 
 interface SortableSubtaskRowProps {
     subtask: GanttSubtask;
@@ -15,8 +16,10 @@ interface SortableSubtaskRowProps {
     totalDays: number;
 
     onSubtaskClick?: (subtaskId: string) => void;
+    onSubTaskUpdate?: (subTaskId: string, data: Partial<any>) => void;
     workspaceId?: string;
     projectId?: string;
+    members?: ProjectMembersType;
     currentUser?: { id: string };
     permissions?: {
         isWorkspaceAdmin: boolean;
@@ -24,6 +27,7 @@ interface SortableSubtaskRowProps {
         managedProjectIds: string[];
     };
     showDetails: boolean;
+    allowedUserIds?: string[];
 }
 
 function SortableSubtaskRow({
@@ -33,12 +37,15 @@ function SortableSubtaskRow({
 
     showDetails,
     onSubtaskClick,
+    onSubTaskUpdate,
     workspaceId,
     projectId,
+    members,
     currentUser,
-    permissions
+    permissions,
+    allowedUserIds
 }: SortableSubtaskRowProps) {
-    
+
     // Helper to get status colors
     const getStatusStyles = (status: string) => {
         switch (status) {
@@ -85,15 +92,34 @@ function SortableSubtaskRow({
                     <>
                         {/* 2. Assignee Column */}
                         <div className="w-[var(--col-assignee)] flex items-center px-2 shrink-0 border-r border-neutral-200 dark:border-neutral-700 h-full">
-                            <Avatar className="h-5 w-5 mr-1.5 shrink-0 border border-neutral-200 dark:border-neutral-700">
-                                <AvatarImage src={subtask.assignee?.image || undefined} />
-                                <AvatarFallback className="text-[10px]">
-                                    {subtask.assignee?.name?.charAt(0) || <User className="h-3 w-3" />}
-                                </AvatarFallback>
-                            </Avatar>
-                            <span className="text-[11px] truncate" title={subtask.assignee?.name}>
-                                {subtask.assignee?.name || "Unknown"}
-                            </span>
+                            {members ? (
+                                <InlineAssigneePicker
+                                    subTask={subtask as any}
+                                    members={members}
+                                    projectId={projectId || ""}
+                                    parentTaskId={subtask.parentTaskId || ""}
+                                    canEdit={
+                                        (permissions && currentUser) ? (
+                                            (permissions.isWorkspaceAdmin ||
+                                            permissions.managedProjectIds.includes(projectId || "") ||
+                                            subtask.createdById === currentUser.id) && !subtask.assigneeId
+                                        ) : false
+                                    }
+                                    onAssigned={(userId, member) => {
+                                        onSubTaskUpdate?.(subtask.id, {
+                                            assigneeId: member.projectMemberId,
+                                            assignee: {
+                                                id: member.userId,
+                                                name: member.user.surname || member.user.name,
+                                                image: member.user.image,
+                                            }
+                                        });
+                                    }}
+                                    allowedUserIds={allowedUserIds}
+                                />
+                            ) : (
+                                <span className="text-[11px] text-muted-foreground">No members</span>
+                            )}
                         </div>
 
                         {/* 3. Status Column */}
@@ -150,6 +176,7 @@ function SortableSubtaskRow({
                     projectId={projectId}
                     currentUser={currentUser}
                     permissions={permissions}
+                    onUpdate={(id, data) => onSubTaskUpdate?.(id, data)}
                 />
             </div>
         </div>
@@ -162,8 +189,10 @@ interface SortableSubtaskListProps {
     totalDays: number;
 
     onSubtaskClick?: (subtaskId: string) => void;
+    onSubTaskUpdate?: (subTaskId: string, data: Partial<any>) => void;
     workspaceId?: string;
     projectId?: string;
+    members?: ProjectMembersType;
     currentUser?: { id: string };
     permissions?: {
         isWorkspaceAdmin: boolean;
@@ -171,19 +200,22 @@ interface SortableSubtaskListProps {
         managedProjectIds: string[];
     };
     showDetails: boolean;
+    allowedUserIds?: string[];
 }
 
 export function SortableSubtaskList({
     subtasks,
     timelineStart,
     totalDays,
-
     onSubtaskClick,
+    onSubTaskUpdate,
     workspaceId,
     projectId,
+    members,
     currentUser,
     permissions,
-    showDetails
+    showDetails,
+    allowedUserIds
 }: SortableSubtaskListProps) {
     return (
         <div className="flex flex-col">
@@ -193,13 +225,15 @@ export function SortableSubtaskList({
                     subtask={subtask}
                     timelineStart={timelineStart}
                     totalDays={totalDays}
-
                     onSubtaskClick={onSubtaskClick}
+                    onSubTaskUpdate={onSubTaskUpdate}
                     workspaceId={workspaceId}
                     projectId={projectId}
+                    members={members}
                     currentUser={currentUser}
                     permissions={permissions}
                     showDetails={showDetails}
+                    allowedUserIds={allowedUserIds}
                 />
             ))}
         </div>

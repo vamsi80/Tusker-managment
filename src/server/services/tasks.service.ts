@@ -25,8 +25,8 @@ interface CreateSubTaskParams {
     parentTaskId: string;
     userId: string;
     permissions: any;
-    assigneeUserId?: string;
-    reviewerUserId?: string;
+    assigneeUserId?: string | null;
+    reviewerUserId?: string | null;
     tagId?: string;
     startDate?: string | null;
     dueDate?: string | null;
@@ -455,11 +455,15 @@ export class TasksService {
         if (data.startDate !== undefined) updateData.startDate = parseIST(data.startDate as any);
         if (data.dueDate !== undefined) updateData.dueDate = parseIST(data.dueDate as any);
 
-        if (data.assigneeUserId) {
-            updateData.assigneeId = await resolveProjectMemberId(data.assigneeUserId, projectId, workspaceId);
+        if (data.assigneeUserId !== undefined) {
+            updateData.assigneeId = data.assigneeUserId 
+                ? await resolveProjectMemberId(data.assigneeUserId, projectId, workspaceId)
+                : null;
         }
-        if (data.reviewerUserId) {
-            updateData.reviewerId = await resolveProjectMemberId(data.reviewerUserId, projectId, workspaceId);
+        if (data.reviewerUserId !== undefined) {
+            updateData.reviewerId = data.reviewerUserId
+                ? await resolveProjectMemberId(data.reviewerUserId, projectId, workspaceId)
+                : null;
         }
 
         const updated = await prisma.$transaction(async (tx) => {
@@ -485,8 +489,14 @@ export class TasksService {
             return result;
         });
 
-        // Record activity
+        // Record activity with surgical delta
         try {
+            // Prepare minimal oldData based on updated fields to ensure clean audit logs
+            const oldData: any = {};
+            if (data.name) oldData.name = task.name;
+            if (data.status) oldData.status = task.status;
+            if (data.assigneeUserId) oldData.assigneeId = task.assigneeId;
+
             await recordActivity({
                 userId,
                 userName: permissions.workspaceMember?.surname || permissions.workspaceMember?.name || "Someone",
@@ -494,7 +504,7 @@ export class TasksService {
                 action: task.parentTaskId ? "SUBTASK_UPDATED" : "TASK_UPDATED",
                 entityType: task.parentTaskId ? "SUBTASK" : "TASK",
                 entityId: taskId,
-                oldData: { name: task.name, status: task.status },
+                oldData,
                 newData: updateData,
                 broadcastEvent: "team_update",
                 targetUserIds: await getTaskInvolvedUserIds(taskId),

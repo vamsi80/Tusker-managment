@@ -4,6 +4,7 @@ import { useMemo, useState, useRef, useEffect } from "react";
 import { ChevronDown, ChevronRight, CornerDownRight } from "lucide-react";
 import { computeTaskDates, calculateBarPosition, formatDateRange, getDaysBetween } from "./utils";
 import { SortableSubtaskList } from "./sortable-subtask-list";
+import { ProjectMembersType } from "@/data/project/get-project-members";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import {
     TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { GanttSubtask, GanttTask } from "./types";
+import { InlineAssigneePicker } from "../shared/inline-assignee-picker";
 
 // ...
 // ... (imports)
@@ -27,9 +29,11 @@ interface TaskRowProps {
     isExpanded: boolean;
     onToggle: () => void;
     onSubtaskClick?: (subtaskId: string) => void;
+    onSubTaskUpdate?: (subTaskId: string, data: Partial<any>) => void;
     allTasks?: GanttTask[]; // All tasks for dependency picker
     workspaceId?: string;
     projectId?: string;
+    members?: ProjectMembersType;
     isNestedInProject?: boolean;
     currentUser?: { id: string };
     permissions?: {
@@ -38,6 +42,7 @@ interface TaskRowProps {
         managedProjectIds: string[];
     };
     showDetails: boolean;
+    projects?: { id: string; memberIds?: string[] }[];
 }
 
 export function TaskRow({
@@ -47,13 +52,16 @@ export function TaskRow({
     isExpanded,
     onToggle,
     onSubtaskClick,
+    onSubTaskUpdate,
     allTasks,
     workspaceId,
     projectId,
+    members,
     isNestedInProject = false,
     currentUser,
     permissions,
-    showDetails
+    showDetails,
+    projects
 }: TaskRowProps) {
 
     const [visibleSubtaskCount, setVisibleSubtaskCount] = useState(SUBTASKS_PER_PAGE);
@@ -90,6 +98,9 @@ export function TaskRow({
         observer.observe(subtaskLoaderRef.current);
         return () => observer.disconnect();
     }, [hasMoreSubtasks]);
+
+    const currentProject = projects?.find(p => p.id === (task.projectId || projectId));
+    const allowedUserIds = currentProject?.memberIds;
 
     return (
         <div className="flex flex-col">
@@ -134,10 +145,11 @@ export function TaskRow({
                         )}
                     </div>
 
-                    {/* 2-5. Empty Detail Columns for Parent Task (Visual Alignment) */}
+                    {/* 2-5. Detail Columns for Parent Task */}
                     {showDetails && (
                         <>
-                            <div className="w-[var(--col-assignee)] shrink-0 border-r border-neutral-200 dark:border-neutral-700 h-full px-2 bg-neutral-50/10 dark:bg-neutral-800/5" />
+                            {/* 2. Assignee Column */}
+                            <div className="w-[var(--col-assignee)] shrink-0 border-r border-neutral-200 dark:border-neutral-700 h-full px-2" />
                             <div className="w-[var(--col-status)] shrink-0 border-r border-neutral-200 dark:border-neutral-700 h-full px-2 bg-neutral-50/10 dark:bg-neutral-800/5" />
                             <div className="w-[var(--col-days)] shrink-0 border-r border-neutral-200 dark:border-neutral-700 h-full px-2 bg-neutral-50/10 dark:bg-neutral-800/5" />
                             <div className="w-[var(--col-dates)] shrink-0 h-full px-2 bg-neutral-50/10 dark:bg-neutral-800/5" />
@@ -213,10 +225,13 @@ export function TaskRow({
                         totalDays={totalDays}
                         showDetails={showDetails}
                         onSubtaskClick={onSubtaskClick}
+                        onSubTaskUpdate={onSubTaskUpdate}
                         workspaceId={workspaceId}
-                        projectId={projectId}
+                        projectId={projectId || task.projectId}
+                        members={members}
                         currentUser={currentUser}
                         permissions={permissions}
+                        allowedUserIds={allowedUserIds}
                     />
 
                     {hasMoreSubtasks && (

@@ -36,13 +36,17 @@ export function getTaskSelect(view_mode: string = "list"): Prisma.TaskSelect {
         parentTaskId: true,
         isParent: true,
         assigneeId: true,
-        createdBy: {
+    };
+
+    // Include detailed createdBy only if NOT in Gantt view to save on payload/joins
+    if (!isGantt) {
+        select.createdBy = {
             select: {
                 id: true,
-                workspaceMember: { select: { userId: true, user: { select: { id: true, name: true, surname: true } } } }
+                workspaceMember: { select: { userId: true, user: { select: { id: true, surname: true } } } }
             }
-        },
-    };
+        };
+    }
 
     // 2. Metadata: Tags & Comment Counts
     // Uniformly added to most views for UI consistency
@@ -68,13 +72,12 @@ export function getTaskSelect(view_mode: string = "list"): Prisma.TaskSelect {
     }
 
     // 4. Extended Info: Description & Reviewer
-    // Uniformly included for better context across all views except minimal kanban nodes if needed
-    // But per user request to "make everything unique/consistent", we include them broadly.
-    if (isList || isSearch || isSubtask || isGantt || isCalendar) {
+    // Omit Reviewer for Gantt view to save on joins and payload size
+    if (isList || isSearch || isSubtask || isCalendar) {
         select.reviewer = {
             select: {
                 id: true,
-                workspaceMember: { select: { userId: true, user: { select: { id: true, name: true, surname: true } } } }
+                workspaceMember: { select: { userId: true, user: { select: { id: true, surname: true } } } }
             }
         };
     }
@@ -137,7 +140,7 @@ export function buildProjectRootWhere(
             OR: [
                 { assigneeId: opts.userId as any },
                 { assignee: { workspaceMember: { userId: opts.userId } } },
-                { subTasks: { some: { OR: [ { assigneeId: opts.userId as any }, { assignee: { workspaceMember: { userId: opts.userId } } } ] } } }
+                { subTasks: { some: { OR: [{ assigneeId: opts.userId as any }, { assignee: { workspaceMember: { userId: opts.userId } } }] } } }
             ]
         });
     }
@@ -150,7 +153,7 @@ export function buildProjectRootWhere(
             OR: [
                 { assigneeId: aVal },
                 { assignee: { workspaceMember: { userId: aValRel } } },
-                { subTasks: { some: { OR: [ { assigneeId: aVal }, { assignee: { workspaceMember: { userId: aValRel } } } ] } } }
+                { subTasks: { some: { OR: [{ assigneeId: aVal }, { assignee: { workspaceMember: { userId: aValRel } } }] } } }
             ]
         });
     }
@@ -307,12 +310,10 @@ export interface WorkspaceFilterOpts {
     dueAfter?: Date;
     search?: string;
     cursor?: TaskCursor;
-    // Permission scopes — mutually exclusive flags
-    isAdmin?: boolean;             // workspace admin: no project restriction
-    fullAccessProjectIds?: string[];  // projects where user sees everything
-    restrictedProjectIds?: string[];  // projects where user only sees assigned tasks
-    projectIds?: string[];           // strictly narrow to these projects (e.g. expanded ones)
-    // Hierarchy
+    isAdmin?: boolean;
+    fullAccessProjectIds?: string[];
+    restrictedProjectIds?: string[];
+    projectIds?: string[];
     onlyParents?: boolean;
     excludeParents?: boolean;
     onlySubtasks?: boolean;
@@ -370,12 +371,16 @@ export function buildWorkspaceFilterWhere(
                 where.OR = [
                     { assigneeId: userId as any },
                     { assignee: { workspaceMember: { userId: userId } } },
-                    { subTasks: { some: { 
-                        OR: [
-                            { assignee: { workspaceMember: { userId: userId } } },
-                            { assigneeId: userId as any }
-                        ]
-                    } } }
+                    {
+                        subTasks: {
+                            some: {
+                                OR: [
+                                    { assignee: { workspaceMember: { userId: userId } } },
+                                    { assigneeId: userId as any }
+                                ]
+                            }
+                        }
+                    }
                 ];
             } else {
                 where.OR = [
@@ -441,7 +446,7 @@ export function buildWorkspaceFilterWhere(
             OR: [
                 { assigneeId: aVal },
                 { assignee: { workspaceMember: { userId: aValRel } } },
-                { subTasks: { some: { OR: [ { assigneeId: aVal }, { assignee: { workspaceMember: { userId: aValRel } } } ] } } }
+                { subTasks: { some: { OR: [{ assigneeId: aVal }, { assignee: { workspaceMember: { userId: aValRel } } }] } } }
             ]
         };
 

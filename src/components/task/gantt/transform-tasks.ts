@@ -61,13 +61,21 @@ export function transformToGanttTasks(allTasks: any[]): GanttTask[] {
                     return {
                         id: subtask.id,
                         name: subtask.name,
+                        taskSlug: subtask.taskSlug,
                         start: formatLocalDate(start),
                         end: formatLocalDate(end),
                         status: subtask.status || 'TO_DO',
+                        projectId: subtask.projectId,
+                        parentTaskId: subtask.parentTaskId,
+                        description: subtask.description,
+                        tagId: subtask.tagId,
+                        days: subtask.days,
 
+                        assigneeId: subtask.assigneeId,
                         assignee: subtask.assignee ? {
-                            id: subtask.assignee.workspaceMember?.userId,
-                            name: subtask.assignee.workspaceMember?.user?.surname || "Unknown",
+                            id: subtask.assignee.workspaceMember?.userId, // This is userId
+                            name: subtask.assignee.workspaceMember?.user?.surname || subtask.assignee.workspaceMember?.user?.name || "Unknown",
+                            image: subtask.assignee.workspaceMember?.user?.image,
                         } : undefined,
                         assigneeRole: subtask.projectRole || (subtask.assignee as any)?.projectRole,
                         createdById: subtask.createdById
@@ -79,15 +87,18 @@ export function transformToGanttTasks(allTasks: any[]): GanttTask[] {
             return {
                 id: parentTask.id,
                 name: parentTask.name,
+                taskSlug: parentTask.taskSlug,
                 projectId: parentTask.projectId || parentTask.project?.id,
                 projectName: parentTask.projectName || parentTask.project?.name,
                 projectColor: parentTask.projectColor || parentTask.project?.color,
                 start: parentTask.startDate ? formatLocalDate(new Date(parentTask.startDate)) : undefined,
                 end: parentTask.dueDate ? formatLocalDate(new Date(parentTask.dueDate)) : undefined,
                 subtasks: rawSubtasks,
+                assigneeId: parentTask.assigneeId,
                 assignee: parentTask.assignee ? {
                     id: parentTask.assignee.workspaceMember?.userId,
-                    name: parentTask.assignee.workspaceMember?.user?.surname || "Unknown",
+                    name: parentTask.assignee.workspaceMember?.user?.surname || parentTask.assignee.workspaceMember?.user?.name || "Unknown",
+                    image: parentTask.assignee.workspaceMember?.user?.image,
                 } : undefined,
             };
         });

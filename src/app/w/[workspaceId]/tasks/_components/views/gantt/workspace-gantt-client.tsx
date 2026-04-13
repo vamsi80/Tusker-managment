@@ -14,6 +14,7 @@ import {
 } from "@/components/task/shared/types";
 import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
+import type { ProjectMembersType } from "@/data/project/get-project-members";
 
 interface WorkspaceGanttClientProps {
   workspaceId: string;
@@ -21,7 +22,7 @@ interface WorkspaceGanttClientProps {
   allTasks: any[];
   subtaskDataMap: Record<string, any>;
   projects: ProjectOption[];
-  members: MemberOption[];
+  members: ProjectMembersType;
   tags: TagOption[];
   projectCounts?: Record<string, number>;
   currentUser: { id: string };
@@ -58,14 +59,25 @@ export function WorkspaceGanttClient({
     [projects, filters.assigneeId],
   );
 
+  // Convert full ProjectMembersType to flat MemberOption[] only for the toolbar
+  const toolbarMembers = useMemo<MemberOption[]>(
+    () => members.map(m => ({
+      id: m.userId,
+      name: m.user.name || "",
+      surname: m.user.surname || "",
+      email: m.user.email || "",
+    })),
+    [members]
+  );
+
   const filteredMembers = useMemo(
     () =>
-      members.filter((m) => {
+      toolbarMembers.filter((m) => {
         if (!filters.projectId) return true;
         const project = projects.find((p) => p.id === filters.projectId);
         return (project as any)?.memberIds?.includes(m.id);
       }),
-    [members, filters.projectId, projects],
+    [toolbarMembers, filters.projectId, projects],
   );
 
   const [tasks, setTasks] = useState<GanttTask[]>(initialTasks);
@@ -234,7 +246,22 @@ export function WorkspaceGanttClient({
           }}
           groupByProject={true}
           onSubtaskClick={handleSubtaskClick}
+          onSubTaskUpdate={(subTaskId, data) => {
+            setTasks(prev =>
+              prev.map(t =>
+                t.id === subTaskId
+                  ? { ...t, ...data }
+                  : {
+                      ...t,
+                      subtasks: t.subtasks?.map(s =>
+                        s.id === subTaskId ? { ...s, ...data } : s
+                      )
+                    }
+              )
+            );
+          }}
           projectCounts={projectCounts}
+          members={members}
           currentUser={currentUser}
           permissions={permissions}
         />

@@ -23,12 +23,20 @@ export interface TimelineConfig {
 export interface GanttSubtask {
     id: string;
     name: string;
+    taskSlug: string; 
     start: string; // YYYY-MM-DD format
     end: string;   // YYYY-MM-DD format
     status: string;
 
-    createdById?: string;
+    projectId: string;
+    parentTaskId: string | null;
+    description?: string | null;
+    tagId?: string | null;
+    days?: number | null;
+    
+    createdById: string | null;
     assignee?: { id: string; name: string; image?: string | null };
+    assigneeId?: string | null;
     assigneeRole?: string;
 }
 
@@ -39,13 +47,18 @@ export interface GanttSubtask {
 export interface GanttTask {
     id: string;
     name: string;
-    projectId?: string;
+    taskSlug: string;
+    projectId: string;
     projectName?: string;
     projectColor?: string;
+    status: string;
     start?: string; // Optional: DB provided
     end?: string;   // Optional: DB provided
     subtasks: GanttSubtask[];
     assignee?: { id: string; name: string; image?: string | null };
+    assigneeId?: string | null;
+    createdById: string | null;
+    parentTaskId: string | null;
 }
 
 // ============================================================================

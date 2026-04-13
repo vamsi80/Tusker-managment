@@ -52,7 +52,6 @@ async function _getProjectMembersInternal(params: { projectId?: string; workspac
                             name: true,
                             surname: true,
                             email: true,
-                            image: true
                         }
                     }
                 }
