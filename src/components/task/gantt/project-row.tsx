@@ -22,6 +22,7 @@ interface ProjectRowProps {
     onToggle: () => void;
     children?: React.ReactNode;
     color?: string;
+    showDetails: boolean;
     hasMore?: boolean;
     onLoadMore?: () => void;
     totalTasksCount?: number;
@@ -37,6 +38,7 @@ export function ProjectRow({
     onToggle,
     children,
     color = "#666",
+    showDetails,
     hasMore,
     onLoadMore,
     totalTasksCount
@@ -107,39 +109,45 @@ export function ProjectRow({
                     top: 'var(--gantt-header-height)'
                 }}
             >
-                {/* Left Panel - Project Name */}
+                {/* Left Panel - Project Name (Aligns with columns but hides details for project) */}
                 <div
-                    className={cn(
-                        "sticky left-0 z-[36] flex items-center gap-1 px-3 py-2 min-h-[32px]",
-                        "bg-white dark:bg-neutral-900",
-                        "border-b border-r border-neutral-200 dark:border-neutral-800",
-                        "hover:bg-neutral-50 dark:hover:bg-neutral-800/50",
-                        "transition-colors duration-150"
-                    )}
+                    className="sticky left-0 z-[36] flex items-center bg-white dark:bg-neutral-900 border-b border-r border-neutral-200 dark:border-neutral-800 h-full w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] shrink-0 transition-[width] duration-300 ease-in-out overflow-hidden"
                 >
-                    <button
-                        onClick={onToggle}
-                        className={cn(
-                            "p-0.5 rounded hover:bg-neutral-700 dark:hover:bg-neutral-800",
-                            "transition-colors duration-150"
-                        )}
-                        aria-expanded={isExpanded}
-                        aria-label={isExpanded ? "Collapse Project" : "Expand Project"}
-                    >
-                        {isExpanded ? (
-                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                        )}
-                    </button>
-                    <Folder
-                        className="h-4 w-4 shrink-0 transition-colors"
-                        style={{ color: color || 'currentColor' }}
-                    />
-                    <span className="font-semibold text-sm text-foreground truncate" title={name}>
-                        {name}
-                    </span>
+                    {/* 1. Name Column (Project) */}
+                    <div className="w-[var(--col-name)] flex items-center gap-1 px-3 py-2 min-h-[32px] shrink-0 border-r border-neutral-200 dark:border-neutral-800 h-full">
+                        <button
+                            onClick={onToggle}
+                            className={cn(
+                                "p-0.5 rounded hover:bg-neutral-700 dark:hover:bg-neutral-800",
+                                "transition-colors duration-150"
+                            )}
+                            aria-expanded={isExpanded}
+                            aria-label={isExpanded ? "Collapse Project" : "Expand Project"}
+                        >
+                            {isExpanded ? (
+                                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                            )}
+                        </button>
+                        <Folder
+                            className="h-4 w-4 shrink-0 transition-colors"
+                            style={{ color: color || 'currentColor' }}
+                        />
+                        <span className="font-semibold text-sm text-foreground truncate" title={name}>
+                            {name}
+                        </span>
+                    </div>
 
+                    {/* 2-5. Empty Detail Columns for Project (Visual Alignment) */}
+                    {showDetails && (
+                        <>
+                            <div className="w-[var(--col-assignee)] shrink-0 border-r border-neutral-200 dark:border-neutral-800 h-full px-2 bg-neutral-50/10 dark:bg-neutral-800/5" />
+                            <div className="w-[var(--col-status)] shrink-0 border-r border-neutral-200 dark:border-neutral-800 h-full px-2 bg-neutral-50/10 dark:bg-neutral-800/5" />
+                            <div className="w-[var(--col-days)] shrink-0 border-r border-neutral-200 dark:border-neutral-800 h-full px-2 bg-neutral-50/10 dark:bg-neutral-800/5" />
+                            <div className="w-[var(--col-dates)] shrink-0 h-full px-2 bg-neutral-50/10 dark:bg-neutral-800/5" />
+                        </>
+                    )}
                 </div>
 
                 {/* Right Panel - Project Bar */}
