@@ -11,6 +11,7 @@ import { GanttTask, TimelineGranularity } from "./types";
 import { TimelineHeader, TimelineGrid } from "./timeline-grid";
 import { calculateTimelineRange, getDaysBetween } from "./utils";
 import { useState, useMemo, useEffect, useRef } from "react";
+import { ProjectMembersType } from "@/data/project/get-project-members";
 
 interface GanttChartProps {
     tasks: GanttTask[];
@@ -18,6 +19,7 @@ interface GanttChartProps {
     projectId?: string;
     className?: string;
     onSubtaskClick?: (subtaskId: string) => void;
+    onSubTaskUpdate?: (subTaskId: string, data: Partial<any>) => void;
     showProjectFilter?: boolean;
     projects?: ProjectOption[];
     selectedProjectId?: string;
@@ -25,6 +27,7 @@ interface GanttChartProps {
     hasMore?: boolean;
     onLoadMore?: () => void;
     projectCounts?: Record<string, number>;
+    members?: ProjectMembersType;
     currentUser?: { id: string };
     permissions?: {
         isWorkspaceAdmin: boolean;
@@ -42,10 +45,12 @@ export function GanttChart({
     projectId,
     className,
     onSubtaskClick,
+    onSubTaskUpdate,
     showProjectFilter,
     projects,
     groupByProject = false,
     projectCounts,
+    members,
     currentUser,
     permissions
 }: GanttChartProps & { groupByProject?: boolean }) {
@@ -350,13 +355,16 @@ export function GanttChart({
                                             isExpanded={expandedTasks.has(task.id)}
                                             onToggle={() => toggleTask(task.id)}
                                             onSubtaskClick={onSubtaskClick}
+                                            onSubTaskUpdate={onSubTaskUpdate}
                                             allTasks={tasks}
                                             workspaceId={workspaceId}
                                             projectId={projectId || task.projectId}
+                                            members={members}
                                             currentUser={currentUser}
                                             permissions={permissions}
                                             isNestedInProject={true}
                                             showDetails={showDetails}
+                                            projects={projects}
                                         />
                                     ))}
                                 </ProjectRow>
@@ -371,12 +379,15 @@ export function GanttChart({
                                     isExpanded={expandedTasks.has(task.id)}
                                     onToggle={() => toggleTask(task.id)}
                                     onSubtaskClick={onSubtaskClick}
+                                    onSubTaskUpdate={onSubTaskUpdate}
                                     allTasks={tasks}
                                     workspaceId={workspaceId}
                                     projectId={projectId || task.projectId}
+                                    members={members}
                                     currentUser={currentUser}
                                     permissions={permissions}
                                     showDetails={showDetails}
+                                    projects={projects}
                                 />
                             ))}
 
@@ -401,12 +412,15 @@ export function GanttChart({
                                     isExpanded={expandedTasks.has(task.id)}
                                     onToggle={() => toggleTask(task.id)}
                                     onSubtaskClick={onSubtaskClick}
+                                    onSubTaskUpdate={onSubTaskUpdate}
                                     allTasks={tasks}
                                     workspaceId={workspaceId}
                                     projectId={projectId || task.projectId}
+                                    members={members}
                                     currentUser={currentUser}
                                     permissions={permissions}
                                     showDetails={showDetails}
+                                    projects={projects}
                                 />
                             ))}
 

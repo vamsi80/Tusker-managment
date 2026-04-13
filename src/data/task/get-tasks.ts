@@ -426,6 +426,7 @@ async function _fetchFilteredHierarchy(
     restrictedProjectIds: string[],
     opts: GetTasksOptions
 ) {
+    const overallStart = performance.now();
     const limit = opts.limit ?? 50;
 
     // Filter Detection
@@ -465,6 +466,7 @@ async function _fetchFilteredHierarchy(
     delete (expansionMatchWhere as any).parentTaskId;
 
     // 1. Fetch matches directly
+    const startMatches = performance.now();
     const rawMatches = await prisma.task.findMany({
         where: buildWorkspaceFilterWhere(
             {
@@ -492,6 +494,7 @@ async function _fetchFilteredHierarchy(
         take: limit + 1,
         orderBy: buildOrderBy(opts.sorts),
     });
+    console.log(`⏱️ [_fetchFilteredHierarchy] Initial matches fetch: ${(performance.now() - startMatches).toFixed(2)}ms`);
 
 
     const hasMore = rawMatches.length > limit;
@@ -559,6 +562,7 @@ async function _fetchFilteredHierarchy(
     }
 
     // 3. RE-NESTING
+    const startNesting = performance.now();
     const rootTasks: any[] = [];
     const nestedIds = new Set<string>();
     const allTasks = Array.from(taskMap.values());
@@ -579,6 +583,7 @@ async function _fetchFilteredHierarchy(
             rootTasks.push(task);
         }
     });
+    console.log(`⏱️ [_fetchFilteredHierarchy] Re-nesting: ${(performance.now() - startNesting).toFixed(2)}ms`);
 
     // 4. SORTING
     const sortedRoots = rootTasks.sort((a, b) => {
@@ -596,6 +601,8 @@ async function _fetchFilteredHierarchy(
     const nextCursor: TaskCursor | null = hasMore && matches.length > 0
         ? { id: matches[matches.length - 1].id, createdAt: matches[matches.length - 1].createdAt }
         : null;
+
+    console.log(`⏱️ [_fetchFilteredHierarchy] Overall completion: ${(performance.now() - overallStart).toFixed(2)}ms`);
 
     // 5. PROJECT FACETS
     const projectFacets: Record<string, number> = {};

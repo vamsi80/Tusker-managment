@@ -22,6 +22,7 @@ interface DraggableSubtaskBarProps {
         leadProjectIds: string[];
         managedProjectIds: string[];
     };
+    onUpdate?: (id: string, data: Partial<GanttSubtask>) => void;
 }
 
 export function DraggableSubtaskBar({
@@ -31,7 +32,8 @@ export function DraggableSubtaskBar({
     workspaceId,
     projectId,
     currentUser,
-    permissions
+    permissions,
+    onUpdate
 }: DraggableSubtaskBarProps) {
     const [isPending, startTransition] = useTransition();
     const [isDragging, setIsDragging] = useState(false);
@@ -231,6 +233,12 @@ export function DraggableSubtaskBar({
                     end: endStr
                 }));
 
+                // Inform parent about the update for sidebar sync
+                onUpdate?.(subtask.id, {
+                    start: startStr,
+                    end: endStr
+                });
+
                 setIsPendingUpdate(true);
                 const toastId = toast.loading("Updating task dates...");
                 startTransition(async () => {
@@ -267,6 +275,11 @@ export function DraggableSubtaskBar({
                             end: endStr
                         }));
 
+                        // Inform parent for sidebar sync
+                        onUpdate?.(subtask.id, {
+                            end: endStr
+                        });
+
                         setIsPendingUpdate(true);
                         const toastId = toast.loading("Updating task duration...");
                         startTransition(async () => {
@@ -302,6 +315,11 @@ export function DraggableSubtaskBar({
                             ...prev,
                             start: startStr
                         }));
+
+                        // Inform parent for sidebar sync
+                        onUpdate?.(subtask.id, {
+                            start: startStr
+                        });
 
                         setIsPendingUpdate(true);
                         const toastId = toast.loading("Updating task start date...");

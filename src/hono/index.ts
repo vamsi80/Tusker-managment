@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import cron from "./routes/cron";
 import units from "./routes/units";
+import tasks from "./routes/tasks";
 import { attendanceRouter } from "./routes/attendance";
 import { getProjectReviewers } from "@/actions/project/get-project-reviewers";
 import { HonoVariables } from "./types";
@@ -71,6 +72,9 @@ app.route("/units", units);
 
 // Attendance API
 app.route("/attendance", attendanceRouter);
+
+// Tasks API
+app.route("/tasks", tasks);
 
 // Project Reviewers (Legacy / Temporary - will be moved to service later)
 app.get("/projects/:projectId/reviewers", async (c) => {
