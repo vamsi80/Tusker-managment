@@ -18,6 +18,8 @@ export async function addSubtaskDependency(
     try {
         const permissions = await getUserPermissions(workspaceId, projectId);
 
+        const user = await requireUser();
+
         await TasksService.addDependency({
             subtaskId,
             dependsOnId,
@@ -27,7 +29,7 @@ export async function addSubtaskDependency(
         });
 
         // Invalidate cache for Gantt view
-        await invalidateProjectTasks(projectId);
+        await invalidateProjectTasks(projectId, user.id);
         await invalidateProjectSubTasks(projectId);
 
         return {
@@ -55,13 +57,15 @@ export async function removeSubtaskDependency(
     try {
         const permissions = await getUserPermissions(workspaceId, projectId);
 
+        const user = await requireUser();
+
         await TasksService.removeDependency({
             subtaskId,
             dependsOnId,
             permissions
         });
 
-        await invalidateProjectTasks(projectId);
+        await invalidateProjectTasks(projectId, user.id);
         await invalidateProjectSubTasks(projectId);
 
         return {

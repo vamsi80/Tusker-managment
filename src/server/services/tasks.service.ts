@@ -175,6 +175,11 @@ export class TasksService {
         const slug = await generateUniqueSlug(name, 'task', parentTask.taskSlug);
 
         const newSubTask = await prisma.$transaction(async (tx) => {
+            const parent = await tx.task.findUnique({
+                where: { id: parentTaskId },
+                select: { subtaskCount: true }
+            });
+
             const task = await tx.task.create({
                 data: {
                     name,
@@ -192,6 +197,7 @@ export class TasksService {
                     dueDate: parseIST(dueDate),
                     days,
                     isParent: false,
+                    position: parent?.subtaskCount || 0,
                 },
                 include: {
                     assignee: { include: { workspaceMember: { include: { user: { select: { id: true, surname: true } } } } } },
@@ -384,7 +390,8 @@ export class TasksService {
                 reviewer: { include: { workspaceMember: { include: { user: { select: { id: true, name: true, surname: true, image: true } } } } } },
                 tag: true,
                 project: { select: { id: true, name: true, slug: true, workspaceId: true } },
-                _count: { select: { subTasks: true } }
+                _count: { select: { subTasks: true } },
+                Task_TaskDependency_A: { select: { id: true } }
             }
         });
 
@@ -410,7 +417,7 @@ export class TasksService {
         permissions: any;
         data: Partial<CreateSubTaskParams>;
     }) {
-        const task = await prisma.task.findUnique({ 
+        const task = await prisma.task.findUnique({
             where: { id: taskId },
             select: { id: true, createdById: true, assigneeId: true, parentTaskId: true, name: true, status: true }
         });
@@ -422,9 +429,9 @@ export class TasksService {
         const isProjectManager = permissions.isProjectManager;
 
         // 1. Base Authorization
-        const isAuthorized = isWorkspaceAdmin || 
-                           isProjectManager || 
-                           (currentProjectMemberId && (task.createdById === currentProjectMemberId || task.assigneeId === currentProjectMemberId));
+        const isAuthorized = isWorkspaceAdmin ||
+            isProjectManager ||
+            (currentProjectMemberId && (task.createdById === currentProjectMemberId || task.assigneeId === currentProjectMemberId));
 
         if (!isAuthorized) {
             throw AppError.Forbidden("You don't have permission to update this task.");
@@ -456,7 +463,7 @@ export class TasksService {
         if (data.dueDate !== undefined) updateData.dueDate = parseIST(data.dueDate as any);
 
         if (data.assigneeUserId !== undefined) {
-            updateData.assigneeId = data.assigneeUserId 
+            updateData.assigneeId = data.assigneeUserId
                 ? await resolveProjectMemberId(data.assigneeUserId, projectId, workspaceId)
                 : null;
         }
@@ -540,9 +547,9 @@ export class TasksService {
         if (!task) throw AppError.NotFound("Task not found");
 
         const currentProjectMemberId = permissions.projectMember?.id;
-        const isAuthorized = permissions.isWorkspaceAdmin || 
-                           permissions.isProjectManager || 
-                           (currentProjectMemberId && task.createdById === currentProjectMemberId);
+        const isAuthorized = permissions.isWorkspaceAdmin ||
+            permissions.isProjectManager ||
+            (currentProjectMemberId && task.createdById === currentProjectMemberId);
 
         if (!isAuthorized) {
             throw AppError.Forbidden("You don't have permission to delete this task.");
@@ -594,7 +601,6 @@ export class TasksService {
         startDate,
         dueDate,
         workspaceId,
-        projectId,
         userId,
         permissions
     }: {
@@ -624,8 +630,8 @@ export class TasksService {
         const currentProjectMemberId = permissions.projectMember?.id;
 
         // 1. Permission Check
-        const isAuthorized = isWorkspaceAdmin || isProjectManager || 
-                           (permissions.isProjectLead && currentProjectMemberId && task.createdById === currentProjectMemberId);
+        const isAuthorized = isWorkspaceAdmin || isProjectManager ||
+            (permissions.isProjectLead && currentProjectMemberId && task.createdById === currentProjectMemberId);
 
         if (!isAuthorized) {
             throw AppError.Forbidden("Only Project Managers or the Task Creator can manage the timeline.");
@@ -698,8 +704,8 @@ export class TasksService {
 
         if (!subtask || !dependsOnTask) throw AppError.NotFound("One or both tasks not found");
 
-        const isAuthorized = permissions.isWorkspaceAdmin || permissions.isProjectLead || 
-                           (permissions.projectMember && subtask.createdById === permissions.projectMember.id);
+        const isAuthorized = permissions.isWorkspaceAdmin || permissions.isProjectLead ||
+            (permissions.projectMember && subtask.createdById === permissions.projectMember.id);
 
         if (!isAuthorized) {
             throw AppError.Forbidden("Only project admin, lead, or task creator can add dependencies.");
@@ -747,8 +753,8 @@ export class TasksService {
         const subtask = await prisma.task.findUnique({ where: { id: subtaskId }, select: { createdById: true } });
         if (!subtask) throw AppError.NotFound("Subtask not found");
 
-        const isAuthorized = permissions.isWorkspaceAdmin || permissions.isProjectLead || 
-                           (permissions.projectMember && subtask.createdById === permissions.projectMember.id);
+        const isAuthorized = permissions.isWorkspaceAdmin || permissions.isProjectLead ||
+            (permissions.projectMember && subtask.createdById === permissions.projectMember.id);
 
         if (!isAuthorized) {
             throw AppError.Forbidden("Only project admin, lead, or task creator can remove dependencies.");
@@ -789,5 +795,21 @@ export class TasksService {
             if (visited.size > 1000) break;
         }
         return false;
+    }
+
+    /**
+     * Update the order of subtasks
+     */
+    static async updateSubtasksOrder(subtaskIds: string[]) {
+        if (!subtaskIds.length) return;
+
+        await prisma.$transaction(
+            subtaskIds.map((id, index) =>
+                prisma.task.update({
+                    where: { id },
+                    data: { position: index }
+                })
+            )
+        );
     }
 }

@@ -78,7 +78,9 @@ export function transformToGanttTasks(allTasks: any[]): GanttTask[] {
                             image: subtask.assignee.workspaceMember?.user?.image,
                         } : undefined,
                         assigneeRole: subtask.projectRole || (subtask.assignee as any)?.projectRole,
-                        createdById: subtask.createdById
+                        createdById: subtask.createdById,
+                        position: subtask.position || 0,
+                        dependsOnIds: (subtask.Task_TaskDependency_A?.map((d: any) => d.id) || []),
                     };
                 });
 
@@ -95,6 +97,9 @@ export function transformToGanttTasks(allTasks: any[]): GanttTask[] {
                 end: parentTask.dueDate ? formatLocalDate(new Date(parentTask.dueDate)) : undefined,
                 subtasks: rawSubtasks,
                 assigneeId: parentTask.assigneeId,
+                status: parentTask.status || "TO_DO",
+                createdById: parentTask.createdById,
+                parentTaskId: parentTask.parentTaskId || null,
                 assignee: parentTask.assignee ? {
                     id: parentTask.assignee.workspaceMember?.userId,
                     name: parentTask.assignee.workspaceMember?.user?.surname || parentTask.assignee.workspaceMember?.user?.name || "Unknown",
