@@ -115,7 +115,7 @@ async function _getSubTasksByParentIdsInternal(
         const parentRelationSelect = baseSelect.parentTask as any;
         delete subtaskSelect.parentTask;
 
-        // 🚀 PERF: Remove _count entirely — reviewComments generates a correlated
+        // 🚀 PERF: Remove _count entirely — activities generates a correlated
         // COUNT(*) subquery PER ROW which is the single biggest query cost.
         // subTasks count is also removed. Both default to 0 in the response.
         delete subtaskSelect._count;
@@ -195,7 +195,7 @@ async function _getSubTasksByParentIdsInternal(
                 ...t,
                 parentTask: parentData,
                 project: projectData,
-                _count: { reviewComments: 0 },
+                _count: { activities: 0 },
             } as any;
             return entry;
         });
@@ -246,7 +246,7 @@ async function _getSubTasksByParentIdsInternal(
 
         if (currentCount < pageSize) {
             if (!subTasksMap.has(pId)) subTasksMap.set(pId, []);
-            subTasksMap.get(pId)!.push({ ...task, _count: { reviewComments: 0 } });
+            subTasksMap.get(pId)!.push({ ...task, _count: { activities: 0 } });
         }
     });
 

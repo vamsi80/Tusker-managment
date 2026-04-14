@@ -108,7 +108,7 @@ async function _getTaskByIdInternal(
                         },
                         _count: {
                             select: {
-                                reviewComments: true,
+                                activities: true,
                             },
                         },
                     },
@@ -136,7 +136,7 @@ async function _getTaskByIdInternal(
                         },
                         _count: {
                             select: {
-                                reviewComments: true,
+                                activities: true,
                             },
                         },
                     },
@@ -154,7 +154,7 @@ async function _getTaskByIdInternal(
                             },
                         }
                         : true,
-                    reviewComments: true,
+                    activities: true,
                 },
             },
         },

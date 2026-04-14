@@ -16,7 +16,7 @@ import {
   GlobalFilterToolbar,
   ParentTaskOption,
 } from "../shared/global-filter-toolbar";
-import { ReviewCommentDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/review-comment-form";
+import { ActivityDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/activity-form";
 import {
   DndContext,
   DragEndEvent,
@@ -345,7 +345,7 @@ export function KanbanBoard({
   const { openSubTaskSheet } = useSubTaskSheetActions();
   // const reloadView = useReloadView();
 
-  const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
+  const [isActivityDialogOpen, setIsActivityDialogOpen] = useState(false);
   const [pendingReviewMove, setPendingReviewMove] = useState<{
     subTaskId: string;
     previousStatus: TaskStatus;
@@ -757,7 +757,7 @@ export function KanbanBoard({
         previousStatus,
         targetStatus: newStatus,
       });
-      setIsReviewDialogOpen(true);
+      setIsActivityDialogOpen(true);
       return;
     }
 
@@ -926,7 +926,7 @@ export function KanbanBoard({
     subTaskId: string,
     newStatus: TaskStatus,
     previousStatus: TaskStatus,
-    reviewCommentId?: string,
+    activityId?: string,
     comment?: string,
     attachmentData?: any,
   ) => {
@@ -945,7 +945,7 @@ export function KanbanBoard({
         newStatus,
         workspaceId,
         targetProjectId,
-        reviewCommentId,
+        activityId,
         comment,
         attachmentData,
       );
@@ -965,8 +965,8 @@ export function KanbanBoard({
       }
     } catch (error) {
       moveSubTaskBetweenColumns(subTaskId, newStatus, previousStatus);
-      toast.error("An unexpected error occurred. Please try again.", {
-        id: toastId,
+      toast.error("Failed to add activity. Let's try again.", {
+        id: "activity_error",
       });
       console.error("Error updating subtask status:", error);
     } finally {
@@ -987,8 +987,8 @@ export function KanbanBoard({
     openSubTaskSheet(subTask);
   };
 
-  const handleReviewCommentSubmit = async (
-    comment: string,
+  const handleActivitySubmit = async (
+    commentStr: string,
     attachment?: File,
   ) => {
     if (!pendingReviewMove) return;
@@ -1031,14 +1031,15 @@ export function KanbanBoard({
         pendingReviewMove.subTaskId,
         pendingReviewMove.targetStatus,
         pendingReviewMove.previousStatus,
-        undefined, // reviewCommentId not needed if we pass comment text
-        comment,
+        undefined, // activityId not needed if we pass comment text
+        commentStr,
         attachmentData,
       );
 
       setPendingReviewMove(null);
+      setIsActivityDialogOpen(false);
     } catch (error) {
-      console.error("Error submitting review comment:", error);
+      console.error("Error submitting activity:", error);
       if (pendingReviewMove) {
         moveSubTaskBetweenColumns(
           pendingReviewMove.subTaskId,
@@ -1046,21 +1047,10 @@ export function KanbanBoard({
           pendingReviewMove.previousStatus,
         );
       }
-      toast.error("Failed to submit review comment");
+      toast.error("Failed to submit activity");
       setPendingReviewMove(null);
+      setIsActivityDialogOpen(false);
     }
-  };
-
-  const handleReviewCommentCancel = () => {
-    if (pendingReviewMove) {
-      moveSubTaskBetweenColumns(
-        pendingReviewMove.subTaskId,
-        pendingReviewMove.targetStatus,
-        pendingReviewMove.previousStatus,
-      );
-      setPendingReviewMove(null);
-    }
-    setIsReviewDialogOpen(false);
   };
 
   const getFilteredSubTaskIds = (status: TaskStatus) => {
@@ -1210,10 +1200,10 @@ export function KanbanBoard({
           ) : null}
         </DragOverlay>
       </DndContext>
-      <ReviewCommentDialog
-        isOpen={isReviewDialogOpen}
-        onClose={handleReviewCommentCancel}
-        onSubmit={handleReviewCommentSubmit}
+      <ActivityDialog
+        isOpen={isActivityDialogOpen}
+        onClose={() => setIsActivityDialogOpen(false)}
+        onSubmit={handleActivitySubmit}
         subTaskName={
           pendingReviewMove
             ? useTaskCacheStore.getState().entities[pendingReviewMove.subTaskId]

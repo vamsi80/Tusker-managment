@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils";
 import { getColorFromString } from "@/lib/colors/project-colors";
 import {
   commentCache,
-  reviewCommentCache,
+  activityCache,
   pendingPrefetches,
 } from "@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/subtask-details-sheet";
 import { UserPermissionsType } from "@/data/user/get-user-permissions";
@@ -89,7 +89,7 @@ export const KanbanCard = React.memo(function KanbanCard({
   };
 
   const assigneeUser = (subTask.assignee as any)?.workspaceMember?.user;
-  const reviewCount = (subTask as any)._count?.reviewComments || 0;
+  const activityCount = (subTask as any)._count?.activities || 0;
   const project = subTask.project;
 
   // Get Project Managers from the hoisted map (effective way)
@@ -145,7 +145,7 @@ export const KanbanCard = React.memo(function KanbanCard({
         "h-auto py-0 transition-shadow duration-200 hover:shadow-lg dark:hover:shadow-primary/20",
         (isDragging || isSortableDragging) && "opacity-50 shadow-xl",
         "border-l-4 overflow-hidden",
-        !assigneeUser && "bg-red-50 dark:bg-red-950/20 shadow-[0_0_8px_rgba(239,68,68,0.2)] animate-[pulse_2s_infinite] border-red-400 dark:border-red-600",
+        (!assigneeUser && subTask.status !== "COMPLETED" && subTask.status !== "CANCELLED") && "bg-red-50 dark:bg-red-950/20 shadow-[0_0_8px_rgba(239,68,68,0.2)] animate-[pulse_2s_infinite] border-red-400 dark:border-red-600",
         columnColor === "text-slate-700" &&
           "border-l-slate-500 dark:border-l-slate-400",
         columnColor === "text-blue-700" &&
@@ -377,7 +377,7 @@ export const KanbanCard = React.memo(function KanbanCard({
               title="Reviews"
             >
               <MessageSquare className="h-3.5 w-3.5" />
-              <span className="text-xs font-medium">{reviewCount}</span>
+              <span className="text-xs font-medium">{activityCount}</span>
             </div>
 
             {dueDate && (

@@ -6,7 +6,7 @@ import { TaskRow } from "./task-row";
 import { Calendar } from "lucide-react";
 import { ProjectRow } from "./project-row";
 import { ProjectOption } from "../shared/types";
-import { exportGanttToExcel } from "./export-utils";
+import { exportGanttToExcel, exportGanttToPDF } from "./export-utils";
 import { GanttTask, TimelineGranularity } from "./types";
 import { TimelineHeader, TimelineGrid } from "./timeline-grid";
 import { calculateTimelineRange, getDaysBetween } from "./utils";
@@ -247,9 +247,14 @@ export function GanttChart({
         setExpandedProjects(new Set());
     };
 
-    const handleExport = async () => {
-        await exportGanttToExcel(tasks, `gantt-export-${new Date().toISOString().split('T')[0]}.xlsx`);
-        toast.success("Gantt chart exported! Upload this file to spreadsheet to see dynamic chart.");
+    const handleExport = async (type: 'pdf' | 'excel') => {
+        if (type === 'excel') {
+            await exportGanttToExcel(tasks, `gantt-export-${new Date().toISOString().split('T')[0]}.xlsx`);
+            toast.success("Gantt chart exported! Upload this file to spreadsheet to see dynamic chart.");
+        } else if (type === 'pdf') {
+            await exportGanttToPDF(tasks, `gantt-export-${new Date().toISOString().split('T')[0]}.pdf`);
+            toast.success("Gantt chart exported to PDF successfully.");
+        }
     };
 
     if (tasks.length === 0) {

@@ -391,6 +391,7 @@ export function DraggableSubtaskBar({
                                 "absolute top-1 h-3 rounded-md transition-all duration-200 ease-out",
                                 "shadow-sm hover:shadow-md",
                                 "focus:outline-none focus:ring-2 focus:ring-offset-1",
+                                (!optimisticSubtask.assignee?.id && optimisticSubtask.status !== "COMPLETED" && optimisticSubtask.status !== "CANCELLED") && "animate-[pulse_2s_infinite] ring-2 ring-red-500/50 shadow-[0_0_8px_rgba(239,68,68,0.4)]",
                                 canEdit && "cursor-grab active:cursor-grabbing",
                                 isDragging && "opacity-70 scale-105",
                                 // Status-based colors
@@ -436,13 +437,6 @@ export function DraggableSubtaskBar({
                                     </div>
                                 </>
                             )}
-
-                            {/* Icons */}
-                            {/* Empty spacing for potential badges */}
-
-
-                            {/* Dependency Management Button */}
-
                         </div>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="bg-popover text-popover-foreground border shadow-lg max-w-xs">

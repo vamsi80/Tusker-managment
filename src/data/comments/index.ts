@@ -5,7 +5,7 @@
 
 export {
     getTaskComments,
-    getReviewComments,
+    getActivities,
     type TaskCommentsType,
-    type ReviewCommentsType
+    type ActivitiesType
 } from "./get-comments";
