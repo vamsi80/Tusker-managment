@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import slugify from "slugify";
 import { useRouter } from "next/navigation";
 import { useTaskContext } from "@/app/w/[workspaceId]/_components/shared/task-context";
-import { createTask } from "@/actions/task/create-task";
+import { apiClient } from "@/lib/api-client";
 import { useReloadView } from "@/hooks/use-reload-view";
 import { getColorFromString } from "@/lib/colors/project-colors";
 
@@ -99,7 +99,7 @@ export const CreateTaskForm = ({
 
         startTransition(async () => {
             // setIsAddingTask(true); // Maybe not needed if we are optimistic?
-            const { data: result, error } = await tryCatch(createTask(values));
+            const { data: result, error } = await tryCatch(apiClient.tasks.createTask(values));
 
             if (error) {
                 toast.error(error.message);

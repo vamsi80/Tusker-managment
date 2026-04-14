@@ -13,7 +13,7 @@ import { taskSchema, TaskSchemaType } from "@/lib/zodSchemas";
 import { tryCatch } from "@/hooks/try-catch";
 import { toast } from "sonner";
 import slugify from "slugify";
-import { editTask } from "@/actions/task/update-task";
+import { apiClient } from "@/lib/api-client";
 import { ProjectReviewer } from "@/actions/project/get-project-reviewers";
 import { TaskWithSubTasks } from "../list/types";
 import { useReloadView } from "@/hooks/use-reload-view";
@@ -111,14 +111,21 @@ export function EditTaskDialog({
 
         startTransition(async () => {
             if (onUpdateStart) onUpdateStart();
-            const { data: result, error } = await tryCatch(editTask(values, task.id));
+            const res = await tryCatch(apiClient.tasks.updateTask(
+                task.id,
+                task.workspaceId || "",
+                values.projectId,
+                values
+            ));
             if (onUpdateEnd) onUpdateEnd();
 
-            if (error) {
-                toast.error(error.message);
-                console.error(error);
+            if (res.error) {
+                toast.error(res.error.message);
+                console.error(res.error);
                 return;
             }
+
+            const result = res.data;
 
             if (result.status === "success") {
                 toast.success(result.message);

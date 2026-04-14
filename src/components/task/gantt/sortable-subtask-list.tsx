@@ -15,7 +15,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { restrictToVerticalAxis, restrictToWindowEdges } from "@dnd-kit/modifiers";
 import { useState } from "react";
-import { reorderSubtasks } from "@/actions/task/gantt";
+import { apiClient } from "@/lib/api-client";
 import { toast } from "sonner";
 import { DependencyPicker } from "./dependency-picker";
 import { DependencyLines } from "./dependency-lines";
@@ -282,12 +282,12 @@ export function SortableSubtaskList({
             const newItems = arrayMove(items, oldIndex, newIndex);
             setItems(newItems);
 
-            // Call server action
+            // Call Hono API via apiClient
             try {
-                const result = await reorderSubtasks(
-                    newItems.map(item => item.id),
+                const result = await apiClient.tasks.reorderTasks(
+                    props.workspaceId,
                     props.projectId,
-                    props.workspaceId
+                    newItems.map(item => item.id)
                 );
                 if (result.status === "error") {
                     toast.error(result.message);

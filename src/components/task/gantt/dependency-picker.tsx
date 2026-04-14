@@ -10,7 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { addSubtaskDependency, removeSubtaskDependency } from "@/actions/task/gantt";
+import { apiClient } from "@/lib/api-client";
 
 interface DependencyPickerProps {
     open: boolean;
@@ -131,11 +131,11 @@ export function DependencyPicker({
 
             // Add new dependencies
             for (const depId of toAdd) {
-                const result = await addSubtaskDependency(
+                const result = await apiClient.tasks.addDependency(
                     subtask.id,
-                    depId,
+                    workspaceId,
                     projectId,
-                    workspaceId
+                    depId
                 );
                 if (result.status === "error") {
                     toast.error(result.message);
@@ -145,11 +145,11 @@ export function DependencyPicker({
 
             // Remove old dependencies
             for (const depId of toRemove) {
-                const result = await removeSubtaskDependency(
+                const result = await apiClient.tasks.removeDependency(
                     subtask.id,
-                    depId,
+                    workspaceId,
                     projectId,
-                    workspaceId
+                    depId
                 );
                 if (result.status === "error") {
                     toast.error(result.message);

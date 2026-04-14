@@ -6,7 +6,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { tryCatch } from "@/hooks/try-catch";
-import { deleteTask } from "@/actions/task/delete-task";
+import { apiClient, type ApiResponse } from "@/lib/api-client";
 import { TaskWithSubTasks } from "../list/types";
 import { useReloadView } from "@/hooks/use-reload-view";
 
@@ -30,16 +30,24 @@ export function DeleteTaskDialog({ task, onTaskDeleted }: DeleteTaskDialogProps)
     const handleDelete = () => {
         if (pending) return;
         startTransition(async () => {
-            const { data: result, error } = await tryCatch(deleteTask(task.id));
+            const res = await tryCatch(apiClient.tasks.deleteTask(
+                task.id, 
+                task.workspaceId || "", 
+                task.projectId
+            ));
 
-            if (error) {
-                toast.error(error.message);
-                console.error(error);
+            if (res.error) {
+                toast.error(res.error.message);
+                console.error(res.error);
                 return;
             }
 
-            if (result.status === "success") {
-                toast.success(result.message);
+            // Defensive casting to overcome module resolution issues
+            const response = res.data as ApiResponse;
+            const { status: responseStatus, message: responseMessage } = response;
+
+            if (responseStatus === "success") {
+                toast.success(responseMessage);
                 setOpen(false);
 
                 // Call the callback to remove task from UI
@@ -50,7 +58,7 @@ export function DeleteTaskDialog({ task, onTaskDeleted }: DeleteTaskDialogProps)
                 // Reload all views to reflect deletion
                 reloadView();
             } else {
-                toast.error(result.message);
+                toast.error(responseMessage);
             }
         });
     };

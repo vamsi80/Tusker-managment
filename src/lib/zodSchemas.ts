@@ -271,7 +271,7 @@ export const subTaskSchema = z.object({
     assignee: z
         .string()
         .min(1, { message: "Assignee is required" }),
-    reviewerId: z.string().optional(),
+    reviewerId: z.string().uuid({ message: "Invalid reviewer id" }).optional().nullable(),
     startDate: z
         .string()
         .optional(),

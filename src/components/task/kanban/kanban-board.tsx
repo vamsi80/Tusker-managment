@@ -10,7 +10,7 @@ import { KanbanCard } from "./kanban-card";
 import { KanbanColumn } from "./kanban-column";
 import type { TaskFilters, ProjectOption, TagOption } from "../shared/types";
 import { STATUS_COLORS, STATUS_LABELS } from "@/lib/colors/status-colors";
-import { updateSubTaskStatus } from "@/actions/task/kanban/update-subtask-status";
+import { apiClient } from "@/lib/api-client";
 import { loadTasksAction } from "@/actions/task/list-actions";
 import {
   GlobalFilterToolbar,
@@ -933,24 +933,24 @@ export function KanbanBoard({
     try {
       const targetProjectId = getTaskProjectId(subTaskId) || projectId;
 
-      const result = await updateSubTaskStatus(
+      const result = await apiClient.tasks.updateStatus(
         subTaskId,
-        newStatus,
         workspaceId,
         targetProjectId,
+        newStatus,
         comment,
       );
 
-      if (result.success) {
-        if (result.subTask) {
-          updateSubTaskInPlace(subTaskId, result.subTask);
+      if (result.status === "success") {
+        if (result.data?.subTask) {
+          updateSubTaskInPlace(subTaskId, result.data.subTask);
         }
         toast.success("Subtask status updated successfully", {
           id: toastId,
         });
       } else {
         moveSubTaskBetweenColumns(subTaskId, newStatus, previousStatus);
-        toast.error(result.error || "Failed to update subtask status", {
+        toast.error(result.message || "Failed to update subtask status", {
           id: toastId,
         });
       }

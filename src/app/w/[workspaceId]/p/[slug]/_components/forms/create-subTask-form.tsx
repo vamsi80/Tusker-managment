@@ -20,7 +20,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
-import { createSubTask } from "@/actions/task/create-subTask";
+import { apiClient, type ApiResponse } from "@/lib/api-client";
 import { useReloadView } from "@/hooks/use-reload-view";
 import { ProjectReviewer } from "@/actions/project/get-project-reviewers";
 import { parseIST } from "@/lib/utils";
@@ -211,31 +211,34 @@ export const CreateSubTaskForm = ({
 
     function onSubmit(data: SubTaskSchemaType) {
         startTransition(async () => {
-            const { data: result, error } = await tryCatch(createSubTask(data));
-            console.log("results", { result });
+            const res = await tryCatch(apiClient.tasks.createSubTask(data));
 
-            if (error) {
-                toast.error(error.message);
-                console.error(error);
+            if (res.error) {
+                toast.error(res.error.message);
+                console.error(res.error);
                 return;
             }
 
-            if (result.status === "success") {
-                toast.success(result.message);
+            // Using defensive casting as a circuit-breaker for IDE resolution bugs
+            const responseData = res.data as ApiResponse;
+            const { status, message, data: createdData } = responseData;
+
+            if (status === "success") {
+                toast.success(message);
                 triggerConfetti();
                 form.reset();
                 setOpen(false);
 
                 // Notify parent to add subtask to state immediately
-                if (onSubTaskCreated && result.data) {
-                    onSubTaskCreated(result.data);
+                if (onSubTaskCreated && createdData) {
+                    onSubTaskCreated(createdData);
                 }
 
                 // Reload all views to show the new subtask
                 reloadView();
-            } else (
-                toast.error(result.message)
-            )
+            } else {
+                toast.error(message);
+            }
         });
     }
 

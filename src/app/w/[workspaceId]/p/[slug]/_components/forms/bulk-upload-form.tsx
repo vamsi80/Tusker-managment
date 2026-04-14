@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useTaskContext } from "@/app/w/[workspaceId]/_components/shared/task-context";
 import { ApiResponse } from "@/lib/types";
-import { bulkUploadTasksAndSubtasks } from "@/actions/task/bulk-create-taskAndSubTask";
+import { apiClient } from "@/lib/api-client";
 import { useDropzone, FileRejection } from "react-dropzone";
 import { cn } from "@/lib/utils";
 
@@ -329,10 +329,10 @@ Project Kickoff,,,,,,,,`;
         startTransition(async () => {
             setIsAddingTask(true);
             const { data: result, error } = await tryCatch<ApiResponse>(
-                bulkUploadTasksAndSubtasks({
+                apiClient.tasks.bulkUpload(
                     projectId,
-                    tasks: parsedData,
-                })
+                    parsedData,
+                )
             );
 
             if (error) {
