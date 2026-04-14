@@ -290,3 +290,55 @@ export const exportGanttToExcel = async (tasks: GanttTask[], fileName: string = 
         cellStyles: true
     });
 };
+
+export const exportGanttToPDF = async (tasks: GanttTask[], fileName: string = "gantt-export.pdf") => {
+    const { jsPDF } = await import("jspdf");
+    const autoTable = (await import("jspdf-autotable")).default;
+
+    const doc = new jsPDF();
+    
+    // Title
+    doc.setFontSize(16);
+    doc.text("Gantt Chart Export", 14, 15);
+    
+    const tableData: any[][] = [];
+    
+    tasks.forEach(task => {
+        tableData.push([
+            task.name,
+            task.assignee?.name || "",
+            "",
+            "",
+            ""
+        ]);
+        
+        task.subtasks.forEach(subtask => {
+            const startDateStr = subtask.start ? format(parseISO(subtask.start), 'dd/MM/yyyy') : 'N/A';
+            const endDateStr = subtask.end ? format(parseISO(subtask.end), 'dd/MM/yyyy') : 'N/A';
+            
+            tableData.push([
+                `   ${subtask.name}`,
+                subtask.assignee?.name || "Unassigned",
+                subtask.status?.replace(/_/g, ' ') || "TO DO",
+                subtask.days?.toString() || "-",
+                `${startDateStr} - ${endDateStr}`
+            ]);
+        });
+    });
+
+    autoTable(doc, {
+        head: [['Task Name', 'Assignee', 'Status', 'Days', 'Dates']],
+        body: tableData,
+        startY: 20,
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [243, 244, 246], textColor: [0, 0, 0] },
+        didParseCell: function(data) {
+            // @ts-ignore
+            if (data.row.raw[2] === "" && data.row.raw[3] === "" && data.row.raw[4] === "") {
+                data.cell.styles.fontStyle = 'bold';
+            }
+        }
+    });
+
+    doc.save(fileName);
+};

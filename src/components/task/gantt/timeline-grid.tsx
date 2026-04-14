@@ -21,7 +21,7 @@ interface TimelineHeaderProps {
     groupByProject: boolean;
     onExpandAll: () => void;
     onCollapseAll: () => void;
-    onExport: () => void;
+    onExport: (type: 'pdf' | 'excel') => void;
     onGranularityChange: (g: TimelineGranularity) => void;
     showDetails: boolean;
     onToggleDetails: () => void;
@@ -139,21 +139,32 @@ export function TimelineHeader({
 
                     {/* Export */}
                     <div className="flex items-center gap-1">
-                        <TooltipProvider delayDuration={200}>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={onExport}
-                                        className="h-6 w-6"
-                                    >
-                                        <Download className="h-3.5 w-3.5" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent side="bottom">Export to Sheets</TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
+                        <DropdownMenu>
+                            <TooltipProvider delayDuration={200}>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-6 w-6"
+                                            >
+                                                <Download className="h-3.5 w-3.5" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom">Export options</TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                            <DropdownMenuContent align="start">
+                                <DropdownMenuItem onClick={() => onExport('pdf')}>
+                                    Download PDF
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => onExport('excel')}>
+                                    Download Sheet
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
 
                     <div className="h-3 w-[1px] bg-neutral-300 dark:bg-neutral-700 mx-0.5" />

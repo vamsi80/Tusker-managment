@@ -24,7 +24,7 @@ model User {
   surname             String?
   phoneNumber         String?           @unique
   phoneNumberVerified Boolean           @default(false)
-  reviewComments      ReviewComment[]
+  activities          Activity[]
   workspaceOwner      Workspace[]
   workspaces          WorkspaceMember[]
   accounts            Account[]
@@ -256,8 +256,8 @@ model Task {
   reviewerId            String?
   subtaskCount          Int                @default(0)
   workspaceId           String
-  position              Int                 @default(0)
-  reviewComments        ReviewComment[]
+  position              Int                @default(0)
+  activities            Activity[]
   assignee              ProjectMember?     @relation("TaskAssignee", fields: [assigneeId], references: [id])
   createdBy             ProjectMember      @relation("TaskCreator", fields: [createdById], references: [id])
   parentTask            Task?              @relation("Task_subTasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
@@ -286,7 +286,7 @@ model Task {
   @@index([workspaceId, assigneeId, updatedAt(sort: Desc)])
 }
 
-model ReviewComment {
+model Activity {
   id          String   @id @default(uuid())
   subTaskId   String
   authorId    String

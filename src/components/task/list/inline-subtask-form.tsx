@@ -271,7 +271,7 @@ export function InlineSubTaskForm({
                 isOptimistic: true,
                 subtaskCount: 0,
                 completedSubtaskCount: 0,
-                _count: { reviewComments: 0 },
+                _count: { activities: 0 },
                 // Include full objects for UI
                 assignee: selectedMember ? {
                     id: selectedMember.userId,
