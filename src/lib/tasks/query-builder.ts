@@ -53,7 +53,7 @@ export function getTaskSelect(view_mode: string = "list"): Prisma.TaskSelect {
     if (isKanban || isList || isSearch || isGantt || isCalendar || isSubtask) {
         select._count = {
             select: {
-                reviewComments: true,
+                activities: true,
                 subTasks: true
             }
         };
@@ -91,10 +91,6 @@ export function getTaskSelect(view_mode: string = "list"): Prisma.TaskSelect {
         select.Task_TaskDependency_A = {
             select: { id: true }
         };
-    }
-
-    if (isSearch) {
-        // createdBy is now part of common select
     }
 
     return select;
@@ -528,4 +524,3 @@ export function buildWorkspaceFilterWhere(
 
     return where;
 }
-

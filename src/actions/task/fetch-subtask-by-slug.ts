@@ -62,7 +62,7 @@ export async function fetchSubTaskBySlugAction(workspaceId: string, slugOrId: st
                 },
                 _count: {
                     select: {
-                        reviewComments: true
+                        activities: true
                     }
                 }
             }

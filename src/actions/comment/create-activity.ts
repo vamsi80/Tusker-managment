@@ -3,17 +3,16 @@
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
-import { invalidateReviewComments, invalidateProjectTasks } from "@/lib/cache/invalidation";
 import { getTaskInvolvedUserIds } from "@/lib/involved-users";
 
-export interface CreateReviewCommentResult {
+export interface CreateActivityResult {
     success: boolean;
     error?: string;
-    reviewCommentId?: string;
+    activityId?: string;
 }
 
 /**
- * Server action to create a review comment for a subtask when moving to REVIEW status
+ * Server action to create an activity for a subtask when moving to REVIEW status
  * 
  * @param subTaskId - ID of the subtask
  * @param text - Comment text
@@ -21,7 +20,7 @@ export interface CreateReviewCommentResult {
  * @param projectId - Project ID for permission check
  * @param attachmentData - Optional attachment data (base64 encoded)
  */
-export async function createReviewCommentAction(
+export async function createActivityAction(
     subTaskId: string,
     text: string,
     workspaceId: string,
@@ -34,10 +33,9 @@ export async function createReviewCommentAction(
     },
     previousStatus?: string,
     targetStatus?: string
-): Promise<CreateReviewCommentResult> {
+): Promise<CreateActivityResult> {
     try {
         // 1. Start parallel fetch
-        const authStart = performance.now();
         const user = await requireUser();
 
         const [permissions, subTask] = await Promise.all([
@@ -95,8 +93,8 @@ export async function createReviewCommentAction(
             };
         }
 
-        // 6. Create review comment
-        const reviewComment = await prisma.reviewComment.create({
+        // 6. Create activity
+        const activity = await prisma.activity.create({
             data: {
                 subTaskId: subTaskId,
                 authorId: user.id,
@@ -112,7 +110,7 @@ export async function createReviewCommentAction(
         // 6.5 Record Activity (Targeted real-time notifications)
         const { recordActivity } = await import("@/lib/audit");
         const targetUserIds = await getTaskInvolvedUserIds(subTaskId);
-        
+
         await recordActivity({
             userId: user.id,
             userName: (user as any).surname || user.name || "Someone",
@@ -120,24 +118,24 @@ export async function createReviewCommentAction(
             action: "COMMENT_CREATED",
             entityType: "SUBTASK",
             entityId: subTaskId,
-            newData: { 
-                id: reviewComment.id,
+            newData: {
+                id: activity.id,
                 text: text.trim(),
                 createdAt: new Date().toISOString()
             },
             broadcastEvent: "team_update", // Triggers surgical client-side sync
-            targetUserIds, 
+            targetUserIds,
         });
 
         return {
             success: true,
-            reviewCommentId: reviewComment.id,
+            activityId: activity.id,
         };
     } catch (error) {
-        console.error("Error creating review comment:", error);
+        console.error("Error creating activity:", error);
         return {
             success: false,
-            error: "An unexpected error occurred while creating the review comment",
+            error: "An unexpected error occurred while creating the activity",
         };
     }
 }

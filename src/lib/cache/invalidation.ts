@@ -245,20 +245,20 @@ export async function invalidateAllComments() {
 }
 
 /**
- * Invalidate review comments cache for a specific subtask
- * Call this when review comments are created or updated
+ * Invalidate activities cache for a specific subtask
+ * Call this when activities are created or updated
  */
-export async function invalidateReviewComments(subTaskId: string) {
-    const tags = CacheTags.reviewComments(subTaskId);
+export async function invalidateActivities(subTaskId: string) {
+    const tags = CacheTags.activities ? CacheTags.activities(subTaskId) : [`activities-${subTaskId}`];
     tags.forEach(tag => updateTag(tag));
 }
 
 /**
- * Invalidate all review comments cache
+ * Invalidate all activities cache
  * Use sparingly - only when needed for global changes
  */
-export async function invalidateAllReviewComments() {
-    updateTag('review-comments-all');
+export async function invalidateAllActivities() {
+    updateTag('activities-all');
 }
 
 // ============================================

@@ -213,11 +213,11 @@ export const CacheTags = {
     ],
 
     /**
-     * Tag for review comments
-     * Use when: Review comments change
+     * Tag for activities
+     * Use when: Activities change
      */
-    reviewComments: (subTaskId: string) => [
-        `review-comments-${subTaskId}`,
+    activities: (subTaskId: string) => [
+        `activities-${subTaskId}`,
         `subtask-${subTaskId}`,
     ],
 

@@ -313,16 +313,16 @@ export class TasksService {
             return subTask; // No change needed
         }
 
-        const needsReviewComment = (subTask.status === "REVIEW" && newStatus !== "COMPLETED") || newStatus === "REVIEW";
-        if (needsReviewComment && !comment && !attachmentData) {
+        const needsActivity = (subTask.status === "REVIEW" && newStatus !== "COMPLETED") || newStatus === "REVIEW";
+        if (needsActivity && !comment && !attachmentData) {
             throw AppError.ValidationError("A comment or attachment is required for this status transition.");
         }
 
         // 4. Atomic Database Update
         const updated = await prisma.$transaction(async (tx) => {
-            // Create review comment if provided
-            if (comment && needsReviewComment) {
-                await tx.reviewComment.create({
+            // Create activity if provided
+            if (comment && needsActivity) {
+                await tx.activity.create({
                     data: {
                         subTaskId: subTaskId,
                         authorId: userId,

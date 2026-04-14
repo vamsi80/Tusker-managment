@@ -107,6 +107,6 @@ export type WorkspaceTaskType = {
     completedSubtaskCount: number;
     _count: {
         subTasks?: number;
-        reviewComments: number;
+        activities: number;
     };
 };
