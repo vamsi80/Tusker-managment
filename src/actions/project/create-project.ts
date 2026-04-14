@@ -96,11 +96,17 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
         if (isOwnerOrAdmin) {
             // OWNER/ADMIN: Use provided projectManagers array or fall back to projectLead
             if (values.projectManagers && values.projectManagers.length > 0) {
+                if (values.projectManagers.length > 1) {
+                    return {
+                        status: "error",
+                        message: "A project can only have exactly one Project Manager.",
+                    };
+                }
                 projectManagersToAdd = values.projectManagers;
             } else {
                 return {
                     status: "error",
-                    message: "At least one project manager must be assigned.",
+                    message: "Exactly one project manager must be assigned.",
                 };
             }
 

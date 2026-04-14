@@ -8,7 +8,7 @@ interface MoveCardRequest {
     newStatus: TaskStatus;
     workspaceId: string;
     projectId: string;
-    reviewCommentId?: string;
+    activityId?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
             body.newStatus,
             body.workspaceId,
             body.projectId,
-            body.reviewCommentId
+            body.activityId
         );
 
         if (!result.success) {

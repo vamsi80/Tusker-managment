@@ -22,7 +22,7 @@ export async function updateSubTaskStatus(
     newStatus: TaskStatus,
     workspaceId: string,
     projectId: string,
-    reviewCommentId?: string, // Legacy param for compatibility
+    activityId?: string, // Legacy param for compatibility
     comment?: string,
     attachmentData?: any
 ): Promise<UpdateSubTaskStatusResult> {

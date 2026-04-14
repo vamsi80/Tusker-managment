@@ -127,8 +127,8 @@ export function RealtimeNotificationListener() {
                     id: data.entityId,
                     _count: {
                       ...currentTask._count,
-                      reviewComments:
-                        (currentTask._count?.reviewComments || 0) + 1,
+                      activities:
+                        (currentTask._count?.activities || 0) + 1,
                     },
                   },
                 ]);
@@ -166,8 +166,8 @@ export function RealtimeNotificationListener() {
                     id: data.entityId,
                     _count: {
                       ...currentTask._count,
-                      reviewComments:
-                        (currentTask._count?.reviewComments || 0) + 1,
+                      activities:
+                        (currentTask._count?.activities || 0) + 1,
                     },
                   },
                 ]);

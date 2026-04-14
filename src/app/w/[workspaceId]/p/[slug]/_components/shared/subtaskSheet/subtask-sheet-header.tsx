@@ -143,17 +143,27 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({ subTask, cu
                         <FileCheck className="h-4 w-4 text-muted-foreground shrink-0" />
                         <span className="text-xs sm:text-sm font-medium w-20 sm:w-24 shrink-0">Status</span>
                         {subTask.status ? (
-                            <Badge
-                                variant="outline"
-                                className={cn(
-                                    "text-[10px] sm:text-xs font-medium",
-                                    getStatusColors(subTask.status).color,
-                                    getStatusColors(subTask.status).bgColor,
-                                    getStatusColors(subTask.status).borderColor
-                                )}
-                            >
-                                {getStatusLabel(subTask.status)}
-                            </Badge>
+                            (() => {
+                                // Defensive check for corrupted status data (e.g., DateRange object)
+                                if (typeof subTask.status !== 'string') {
+                                    console.warn("⚠️ [SubtaskSheetHeader] Corrupted status data detected:", subTask.status, "for subtask:", subTask.id);
+                                    return <span className="text-xs text-red-500 font-mono">[Invalid Status]</span>;
+                                }
+
+                                return (
+                                    <Badge
+                                        variant="outline"
+                                        className={cn(
+                                            "text-[10px] sm:text-xs font-medium",
+                                            getStatusColors(subTask.status).color,
+                                            getStatusColors(subTask.status).bgColor,
+                                            getStatusColors(subTask.status).borderColor
+                                        )}
+                                    >
+                                        {getStatusLabel(subTask.status)}
+                                    </Badge>
+                                );
+                            })()
                         ) : (
                             <span className="text-xs sm:text-sm text-muted-foreground">No status</span>
                         )}

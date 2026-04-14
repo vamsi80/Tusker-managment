@@ -87,10 +87,10 @@ export async function getNotificationsAction(workspaceId: string, limit: number 
             take: limit
         });
 
-        // 2. Fetch review comments (Note: ReviewComment table doesn't have readBy, so we treat recent ones as new)
-        // We'll treat review comments created in last 24h as "New" if not by current user
-        // In a future update, we should add a separate read-tracking table for ReviewComments
-        const reviewComments = await prisma.reviewComment.findMany({
+        // 2. Fetch activities (Note: Activity table doesn't have readBy, so we treat recent ones as new)
+        // We'll treat activities created in last 24h as "New" if not by current user
+        // In a future update, we should add a separate read-tracking table for Activities
+        const activities = await prisma.activity.findMany({
             where: {
                 workspaceId: workspaceId,
                 authorId: { not: user.id },
@@ -159,8 +159,8 @@ export async function getNotificationsAction(workspaceId: string, limit: number 
             if (!isRead) group.isNew = true;
         });
 
-        // Process review comments (Merge into existing groups or create new)
-        reviewComments.forEach(rc => {
+        // Process activities (Merge into existing groups or create new)
+        activities.forEach(rc => {
             if (!groupedMap.has(rc.subTaskId)) {
                 groupedMap.set(rc.subTaskId, {
                     taskId: rc.subTaskId,
@@ -177,14 +177,14 @@ export async function getNotificationsAction(workspaceId: string, limit: number 
                         }
                     },
                     count: 0,
-                    isNew: true // Recent review comments are treated as new
+                    isNew: true // Recent activities are treated as new
                 });
             }
 
             const group = groupedMap.get(rc.subTaskId);
             group.count++;
             
-            // If this review comment is newer than what we have, update latest
+            // If this activity is newer than what we have, update latest
             if (new Date(rc.createdAt) > new Date(group.latestComment.createdAt)) {
                 group.latestComment = {
                     content: rc.text,
@@ -218,14 +218,14 @@ export async function getNotificationsAction(workspaceId: string, limit: number 
             }
         });
 
-        // Add review commenters to the count (approximate based on recipients)
-        const unreadReviewCount = reviewComments.length > 0 ? 1 : 0;
+        // Add activity authors to the count (approximate based on recipients)
+        const unreadActivityCount = activities.length > 0 ? 1 : 0;
 
         return {
             success: true,
             unreadNotifications,
             readNotifications,
-            peopleCount: unreadCommenters.length + unreadReviewCount,
+            peopleCount: unreadCommenters.length + unreadActivityCount,
             totalCount: allNotifications.length,
             hasMore: comments.length === limit
         };

@@ -8,14 +8,14 @@ import { Label } from "@/components/ui/label";
 import { Upload, X } from "lucide-react";
 import { toast } from "sonner";
 
-interface ReviewCommentDialogProps {
+interface ActivityDialogProps {
     isOpen: boolean;
     onClose: () => void;
     onSubmit: (comment: string, attachment?: File) => void;
     subTaskName: string;
 }
 
-export function ReviewCommentDialog({ isOpen, onClose, onSubmit, subTaskName }: ReviewCommentDialogProps) {
+export function ActivityDialog({ isOpen, onClose, onSubmit, subTaskName }: ActivityDialogProps) {
     const [comment, setComment] = useState("");
     const [attachment, setAttachment] = useState<File | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -51,7 +51,7 @@ export function ReviewCommentDialog({ isOpen, onClose, onSubmit, subTaskName }: 
             setAttachment(null);
             onClose();
         } catch (error) {
-            console.error("Error submitting review comment:", error);
+            console.error("Error submitting activity:", error);
         } finally {
             setIsSubmitting(false);
         }
@@ -67,18 +67,18 @@ export function ReviewCommentDialog({ isOpen, onClose, onSubmit, subTaskName }: 
         <Dialog open={isOpen} onOpenChange={(open) => !open && handleCancel()}>
             <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
-                    <DialogTitle>Add Review Comment</DialogTitle>
+                    <DialogTitle>Add Activity</DialogTitle>
                     <DialogDescription>
-                        Moving <span className="font-semibold text-foreground">{subTaskName}</span> to Review requires a comment or attachment.
+                        Moving <span className="font-semibold text-foreground">{subTaskName}</span> requires an activity note or attachment.
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                        <Label htmlFor="comment">Comment</Label>
+                        <Label htmlFor="comment">Activity Note</Label>
                         <Textarea
                             id="comment"
-                            placeholder="Add your review comment here..."
+                            placeholder="Add your activity note here..."
                             value={comment}
                             onChange={(e) => setComment(e.target.value)}
                             rows={4}
