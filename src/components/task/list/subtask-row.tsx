@@ -2,7 +2,6 @@
 
 import { useState, memo } from "react";
 import { useRemainingDays } from "@/hooks/use-due-date";
-import { useSortable } from "@dnd-kit/sortable";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -28,17 +27,16 @@ interface SubTaskRowProps {
     members: ProjectMembersType;
     projectId: string;
     parentTaskId: string;
-    parentTaskProject?: { id: string; name: string; color?: string; } | null; // Parent task's project info
+    parentTaskProject?: { id: string; name: string; color?: string; } | null;
     onSubTaskUpdated?: (subTaskId: string, updatedData: Partial<SubTaskType>) => void;
     onSubTaskDeleted?: (subTaskId: string) => void;
-    tags?: { id: string; name: string; }[]; // Dynamic tags
+    tags?: { id: string; name: string; }[];
     isSelected?: boolean;
     onSelectChange?: (checked: boolean) => void;
-    // Permission props
-    permissions?: UserPermissionsType; // For project view
+    permissions?: UserPermissionsType;
     userId?: string;
-    isWorkspaceAdmin?: boolean; // For workspace view
-    leadProjectIds?: string[]; // For workspace view
+    isWorkspaceAdmin?: boolean;
+    leadProjectIds?: string[];
     projects?: Array<{ id: string; canManageMembers?: boolean; memberIds?: string[] }>; // For workspace view
 }
 
@@ -51,7 +49,7 @@ export const SubTaskRow = memo(function SubTaskRow({
     parentTaskId,
     onSubTaskUpdated,
     onSubTaskDeleted,
-    tags = [], // Default to empty array
+    tags = [],
     permissions,
     userId,
     isWorkspaceAdmin,
@@ -85,24 +83,6 @@ export const SubTaskRow = memo(function SubTaskRow({
         }
 
         return false;
-    };
-
-    const {
-        attributes,
-        listeners,
-        setNodeRef,
-        transform,
-        transition,
-        isDragging,
-    } = useSortable({
-        id: subTask.id,
-    });
-
-    const style = {
-        transform: transform ? `translate3d(0, ${transform.y}px, 0)` : undefined,
-        transition,
-        zIndex: isDragging ? 10 : "auto",
-        opacity: isDragging ? 0.5 : 1,
     };
 
     const handleSubTaskUpdated = (updatedData: Partial<SubTaskType>) => {
@@ -210,27 +190,20 @@ export const SubTaskRow = memo(function SubTaskRow({
     return (
         <>
             <TableRow
-                ref={setNodeRef}
-                style={style}
                 className={cn(
                     "h-8 [&_td]:py-2 transition-colors",
-                    assigneeUser ? "bg-muted/10 hover:bg-muted/20" : "bg-red-500/10 hover:bg-red-500/20 animate-[pulse_2s_infinite] border-y border-red-500/40",
+                    (!assigneeUser && subTask.status !== "COMPLETED" && subTask.status !== "CANCELLED") 
+                        ? "bg-red-500/10 hover:bg-red-500/20 animate-[pulse_2s_infinite] border-y border-red-500/40" 
+                        : "bg-muted/10 hover:bg-muted/20",
                     (subTask as any).isOptimistic && "opacity-60 grayscale-[0.5]"
                 )}
             >
                 <TableCell className="pl-4 sm:pl-4 w-[60px] md:w-[80px]">
                     <div className="flex items-center">
                         <div className="w-3 shrink-0" />
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 cursor-grab active:cursor-grabbing shrink-0"
-                            {...attributes}
-                            {...listeners}
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <CornerDownRight className="h-3.5 w-3.5 text-muted-foreground" />
-                        </Button>
+                        <div className="h-6 w-6 flex items-center justify-center shrink-0">
+                            <CornerDownRight className="h-3.5 w-3.5 text-muted-foreground/50" />
+                        </div>
                     </div>
                 </TableCell>
 
@@ -274,10 +247,10 @@ export const SubTaskRow = memo(function SubTaskRow({
                         {assigneeUser ? (
                             <div className="flex items-center gap-2 min-w-0">
                                 <Avatar className="h-5 w-5 flex-shrink-0">
-                                    <AvatarFallback className="text-[10px]">{assigneeUser.surname?.[0] || assigneeUser.name?.[0]}</AvatarFallback>
+                                    <AvatarFallback className="text-[10px]">{assigneeUser.surname?.[0]}</AvatarFallback>
                                 </Avatar>
                                 <span className="text-xs text-muted-foreground truncate">
-                                    {assigneeUser.surname || assigneeUser.name}
+                                    {assigneeUser.surname}
                                 </span>
                             </div>
                         ) : (
@@ -294,7 +267,6 @@ export const SubTaskRow = memo(function SubTaskRow({
                                             workspaceMember: {
                                                 user: {
                                                     id: member.userId,
-                                                    name: member.user.name,
                                                     surname: member.user.surname,
                                                 }
                                             }

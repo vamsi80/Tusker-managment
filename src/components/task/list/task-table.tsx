@@ -24,7 +24,6 @@ const debounce = (func: Function, wait: number) => {
 };
 import type { ProjectMembersType } from "@/data/project/get-project-members";
 import type { SubTaskType } from "@/data/task";
-import { DndContext, closestCenter } from "@dnd-kit/core";
 import {
   type TaskWithSubTasks,
   type SortConfig,
@@ -1288,8 +1287,7 @@ function TaskTable({
             "[&::-webkit-scrollbar-thumb]:hover:bg-slate-400",
           )}
         >
-          <DndContext collisionDetection={closestCenter}>
-            <table className="w-full caption-bottom text-sm table-fixed">
+          <table className="w-full caption-bottom text-sm table-fixed">
               <thead className="[&_tr]:border-b">
                 <tr className="sticky top-0 z-10 bg-background border-b shadow-sm hover:bg-muted/50">
                   <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[40px] md:w-[50px] bg-background">
@@ -1552,7 +1550,6 @@ function TaskTable({
                   )}
               </tbody>
             </table>
-          </DndContext>
         </div>
       </div>
     </div>

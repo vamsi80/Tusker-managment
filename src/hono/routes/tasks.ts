@@ -4,6 +4,8 @@ import { AppError } from "@/lib/errors/app-error";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
 import { TasksService } from "@/server/services/tasks.service";
 import prisma from "@/lib/db";
+import { recordActivity } from "@/lib/audit";
+import { getTaskInvolvedUserIds } from "@/lib/involved-users";
 
 const tasks = new Hono<{ Variables: HonoVariables }>();
 
@@ -22,7 +24,7 @@ tasks.patch("/:taskId/assignee", async (c) => {
     const taskId = c.req.param("taskId");
 
     const body = await c.req.json();
-    const { assigneeUserId } = body as { assigneeUserId: string | null };
+    const { assigneeUserId, explanation } = body as { assigneeUserId: string | null; explanation?: string };
 
     // 1. Fetch context + permissions in parallel
     const [subTaskContext, _] = await Promise.all([
@@ -58,6 +60,35 @@ tasks.patch("/:taskId/assignee", async (c) => {
             assigneeUserId: assigneeUserId,
         }
     });
+
+    if (explanation && explanation.trim()) {
+        const activity = await prisma.activity.create({
+            data: {
+                subTaskId: taskId,
+                authorId: user.id,
+                workspaceId: subTaskContext.project.workspaceId,
+                text: explanation.trim(),
+            },
+            select: { id: true, createdAt: true },
+        });
+
+        const targetUserIds = await getTaskInvolvedUserIds(taskId);
+        await recordActivity({
+            userId: user.id,
+            userName: (user as any).surname || user.name || "Someone",
+            workspaceId: subTaskContext.project.workspaceId,
+            action: "COMMENT_CREATED",
+            entityType: "SUBTASK",
+            entityId: taskId,
+            newData: {
+                id: activity.id,
+                text: explanation.trim(),
+                createdAt: activity.createdAt.toISOString()
+            },
+            broadcastEvent: "team_update",
+            targetUserIds,
+        });
+    }
 
     return c.json({ success: true });
 });

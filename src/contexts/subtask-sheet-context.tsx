@@ -25,6 +25,13 @@ export function SubTaskSheetProvider({ children }: { children: ReactNode }) {
         if (typeof window !== 'undefined') {
             (window as any).lastSheetOpenClick = performance.now();
         }
+
+        // Defensive check: Ensure status is not an object (DateRange corruption)
+        if (task && task.status && typeof task.status !== 'string') {
+            console.warn("🚨 [SubTaskSheetContext] Sanitizing corrupted status (object -> string):", task.status);
+            task = { ...task, status: 'TO_DO' };
+        }
+
         setSubTask(task);
         setIsOpen(true);
     }, []);
@@ -38,6 +45,7 @@ export function SubTaskSheetProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const closeSubTaskSheet = useCallback(() => {
+        setIsOpen(false);
         setTimeout(() => {
             setSubTask(null);
         }, 250);
@@ -46,9 +54,18 @@ export function SubTaskSheetProvider({ children }: { children: ReactNode }) {
     const patchSubTask = useCallback((updatedData: any) => {
         setSubTask((prev: any) => {
             if (!prev) return prev;
+
+            let sanitizedData = updatedData;
+            // Defensive check: Ensure incoming patch doesn't corrupt the status
+            if (updatedData && updatedData.status && typeof updatedData.status !== 'string') {
+                console.warn("🚨 [SubTaskSheetContext] Rejecting corrupted status patch:", updatedData.status);
+                const { status, ...rest } = updatedData;
+                sanitizedData = rest;
+            }
+
             return {
                 ...prev,
-                ...updatedData
+                ...sanitizedData
             };
         });
     }, []);
