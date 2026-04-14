@@ -26,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 import type { ProjectMembersType } from "@/data/project/get-project-members";
+import { apiClient } from "@/lib/api-client";
 
 // ─────────────────────────────────────────────────────────────────
 // Minimal shape of a subtask that the picker needs.
@@ -98,7 +99,7 @@ export function InlineAssigneePicker({
     const [pending, startTransition] = useTransition();
     const { workspaceId: paramWorkspaceId } = useParams();
     const workspaceId = (paramWorkspaceId as string) || "";
-    
+
     const upsertTasks = useTaskCacheStore(state => state.upsertTasks);
 
     // 1. Filter by project membership if allowedUserIds is provided
@@ -139,27 +140,23 @@ export function InlineAssigneePicker({
         setExplanationDialogOpen(false);
 
         startTransition(async () => {
-            // 1. SURGICAL REST API UPDATE (no RSC re-render triggered)
-            const res = await fetch(`/api/v1/tasks/${subTask.id}/assignee`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ 
-                    assigneeUserId: member.userId, 
-                    explanation,
-                    workspaceId,
-                    projectId: subTask.projectId || projectId
-                }),
-            });
+            // 1. SURGICAL REST API UPDATE via apiClient
+            const response = await apiClient.tasks.updateAssignee(
+                subTask.id,
+                workspaceId,
+                subTask.projectId || projectId,
+                member.userId,
+            );
 
-            if (res.ok) {
+            if (response.success) {
                 toast.success(`Assigned to ${member.user.surname || member.user.name}`);
 
-                // 2. IN-MEMORY GLOBAL SYNC (fully optimistic — no data needed from server)
+                // 2. IN-MEMORY GLOBAL SYNC (fully optimistic)
                 const updatedTaskData = {
                     ...subTask,
                     assigneeId: member.projectMemberId,
                     assignee: {
-                        id: member.userId, // Keep userId as ID for flattened views
+                        id: member.userId,
                         name: member.user.surname,
                         workspaceMember: {
                             userId: member.userId,
@@ -176,13 +173,12 @@ export function InlineAssigneePicker({
 
                 // 3. VIEW-SPECIFIC CALLBACK
                 onAssigned(member.userId, member);
-                
+
                 // Reset state
                 setExplanation("");
                 setPendingMember(null);
             } else {
-                const err = await res.json().catch(() => ({}));
-                toast.error(err?.error || "Failed to update assignee");
+                toast.error("Failed to update assignee");
                 setExplanation("");
                 setPendingMember(null);
             }
@@ -210,119 +206,119 @@ export function InlineAssigneePicker({
     // ── Editable: clickable popover ───────────────────────────────
     return (
         <>
-        <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-                <button
-                    type="button"
-                    disabled={pending}
-                    className={cn(
-                        "inline-flex items-center gap-1 text-[10px] sm:text-xs font-medium",
-                        displayInfo.isAssigned
-                            ? "text-blue-600 dark:text-blue-400 bg-blue-100/50 dark:bg-blue-900/30 hover:bg-blue-200/50 dark:hover:bg-blue-900/50"
-                            : "text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 font-bold animate-pulse",
-                        "px-2 py-0.5 rounded-md",
-                        "transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
-                        className
-                    )}
-                    title={displayInfo.isAssigned ? `Assigned to ${displayInfo.name}` : "Click to assign a member"}
+            <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                    <button
+                        type="button"
+                        disabled={pending}
+                        className={cn(
+                            "inline-flex items-center gap-1 text-[10px] sm:text-xs font-medium",
+                            displayInfo.isAssigned
+                                ? "text-blue-600 dark:text-blue-400 bg-blue-100/50 dark:bg-blue-900/30 hover:bg-blue-200/50 dark:hover:bg-blue-900/50"
+                                : "text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 font-bold animate-pulse",
+                            "px-2 py-0.5 rounded-md",
+                            "transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+                            className
+                        )}
+                        title={displayInfo.isAssigned ? `Assigned to ${displayInfo.name}` : "Click to assign a member"}
+                    >
+                        {pending ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                            <UserPlus className="h-3 w-3 shrink-0" />
+                        )}
+                        {(pending || displayInfo.isAssigned) && (
+                            <span className="truncate max-w-[80px] sm:max-w-[120px]">
+                                {pending ? "Saving…" : displayInfo.name}
+                            </span>
+                        )}
+                    </button>
+                </PopoverTrigger>
+
+                <PopoverContent
+                    className="p-0 w-56"
+                    align="start"
+                    side="bottom"
+                    onClick={(e) => e.stopPropagation()}
                 >
-                    {pending ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                        <UserPlus className="h-3 w-3 shrink-0" />
-                    )}
-                    {(pending || displayInfo.isAssigned) && (
-                        <span className="truncate max-w-[80px] sm:max-w-[120px]">
-                            {pending ? "Saving…" : displayInfo.name}
-                        </span>
-                    )}
-                </button>
-            </PopoverTrigger>
+                    <Command>
+                        <CommandInput placeholder="Search member…" className="h-8 text-xs" />
+                        <CommandList>
+                            <CommandEmpty className="py-4 text-center text-xs text-muted-foreground">
+                                No members found.
+                            </CommandEmpty>
+                            <CommandGroup>
+                                {assignableMembers.map((member) => {
+                                    const displayName =
+                                        member.user.surname || member.user.name || "Unknown";
+                                    const roleLabel =
+                                        member.projectRole === "PROJECT_MANAGER"
+                                            ? "PM"
+                                            : member.projectRole === "LEAD"
+                                                ? "Lead"
+                                                : member.projectRole || "";
 
-            <PopoverContent
-                className="p-0 w-56"
-                align="start"
-                side="bottom"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <Command>
-                    <CommandInput placeholder="Search member…" className="h-8 text-xs" />
-                    <CommandList>
-                        <CommandEmpty className="py-4 text-center text-xs text-muted-foreground">
-                            No members found.
-                        </CommandEmpty>
-                        <CommandGroup>
-                            {assignableMembers.map((member) => {
-                                const displayName =
-                                    member.user.surname || member.user.name || "Unknown";
-                                const roleLabel =
-                                    member.projectRole === "PROJECT_MANAGER"
-                                        ? "PM"
-                                        : member.projectRole === "LEAD"
-                                            ? "Lead"
-                                            : member.projectRole || "";
+                                    return (
+                                        <CommandItem
+                                            key={member.userId}
+                                            value={displayName}
+                                            onSelect={() => handleSelect(member)}
+                                            className="flex items-center gap-2 cursor-pointer text-xs"
+                                        >
+                                            <Check className="h-3.5 w-3.5 opacity-0" />
+                                            <span className="flex-1 truncate">{displayName}</span>
+                                            {roleLabel && (
+                                                <span className="text-[10px] text-muted-foreground shrink-0">
+                                                    {roleLabel}
+                                                </span>
+                                            )}
+                                        </CommandItem>
+                                    );
+                                })}
+                            </CommandGroup>
+                        </CommandList>
+                    </Command>
+                </PopoverContent>
+            </Popover>
 
-                                return (
-                                    <CommandItem
-                                        key={member.userId}
-                                        value={displayName}
-                                        onSelect={() => handleSelect(member)}
-                                        className="flex items-center gap-2 cursor-pointer text-xs"
-                                    >
-                                        <Check className="h-3.5 w-3.5 opacity-0" />
-                                        <span className="flex-1 truncate">{displayName}</span>
-                                        {roleLabel && (
-                                            <span className="text-[10px] text-muted-foreground shrink-0">
-                                                {roleLabel}
-                                            </span>
-                                        )}
-                                    </CommandItem>
-                                );
-                            })}
-                        </CommandGroup>
-                    </CommandList>
-                </Command>
-            </PopoverContent>
-        </Popover>
-
-        <Dialog open={explanationDialogOpen} onOpenChange={setExplanationDialogOpen}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Assignment Explanation</DialogTitle>
-                    <DialogDescription>
-                        Please provide a reason or note for this assignment change. This will be logged as an activity.
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="py-4">
-                    <Textarea
-                        placeholder="Enter your explanation here..."
-                        value={explanation}
-                        onChange={(e) => setExplanation(e.target.value)}
-                        className="w-full text-sm"
-                        autoFocus
-                    />
-                </div>
-                <DialogFooter>
-                    <Button
-                        variant="outline"
-                        onClick={() => {
-                            setExplanationDialogOpen(false);
-                            setPendingMember(null);
-                            setExplanation("");
-                        }}
-                        disabled={pending}
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        onClick={handleConfirmAssign}
-                        disabled={pending}
-                    >
-                        Confirm Assignment
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+            <Dialog open={explanationDialogOpen} onOpenChange={setExplanationDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Assignment Explanation</DialogTitle>
+                        <DialogDescription>
+                            Please provide a reason or note for this assignment change. This will be logged as an activity.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <Textarea
+                            placeholder="Enter your explanation here..."
+                            value={explanation}
+                            onChange={(e) => setExplanation(e.target.value)}
+                            className="w-full text-sm"
+                            autoFocus
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setExplanationDialogOpen(false);
+                                setPendingMember(null);
+                                setExplanation("");
+                            }}
+                            disabled={pending}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleConfirmAssign}
+                            disabled={pending}
+                        >
+                            Confirm Assignment
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }

@@ -16,7 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { tryCatch } from "@/hooks/try-catch";
-import { deleteSubTask } from "@/actions/task/delete-subTask";
+import { apiClient, type ApiResponse } from "@/lib/api-client";
 
 // Generic subtask type that works with any subtask structure
 type SubTaskBase = {
@@ -53,20 +53,28 @@ export function DeleteSubTaskForm<T extends SubTaskBase>({
                 onSubTaskDeleted(subTask.id);
             }
 
-            const { data: result, error } = await tryCatch(deleteSubTask(subTask.id));
+            const res = await tryCatch(apiClient.tasks.deleteTask(
+                subTask.id, 
+                (subTask as any).workspaceId || "", // We might need to ensure workspaceId is passed
+                (subTask as any).projectId || ""
+            ));
 
-            if (error) {
-                toast.error(error.message);
-                console.error(error);
+            if (res.error) {
+                toast.error(res.error.message);
+                console.error(res.error);
                 return;
             }
 
-            if (result.status === "success") {
-                toast.success(result.message);
+            // Defensive casting to overcome module resolution issues
+            const response = res.data as ApiResponse;
+            const { status: responseStatus, message: responseMessage } = response;
+
+            if (responseStatus === "success") {
+                toast.success(responseMessage);
                 setOpen(false);
-                // No need to reload view - optimistic update already done
             } else {
-                toast.error(result.message);
+                // If it failed on server, we might want to reload to sync UI
+                toast.error(responseMessage);
                 // TODO: Revert optimistic update on error
             }
         });

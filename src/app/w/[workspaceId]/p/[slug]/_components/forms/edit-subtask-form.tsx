@@ -19,7 +19,7 @@ import slugify from "slugify";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import { editSubTask } from "@/actions/task/update-subTask";
+import { apiClient, type ApiResponse } from "@/lib/api-client";
 import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { Badge } from "@/components/ui/badge";
 import { useReloadView } from "@/hooks/use-reload-view";
@@ -259,16 +259,24 @@ export function EditSubTaskForm<T extends SubTaskBase>({
         }
 
         startTransition(async () => {
-            const { data: result, error } = await tryCatch(editSubTask(values, subTask.id));
+            const res = await tryCatch(apiClient.tasks.updateTask(
+                subTask.id, 
+                (subTask as any).workspaceId || "", // We might need to ensure workspaceId is passed
+                values.projectId, 
+                values
+            ));
 
-            if (error) {
-                toast.error(error.message);
-                console.error(error);
+            if (res.error) {
+                toast.error(res.error.message);
+                console.error(res.error);
                 return;
             }
+            // Defensive casting to overcome module resolution issues
+            const response = res.data as ApiResponse;
+            const { status: responseStatus, message: responseMessage, data: updatedData } = response;
 
-            if (result.status === "success") {
-                toast.success(result.message);
+            if (responseStatus === "success") {
+                toast.success(responseMessage);
 
                 if (onSubTaskUpdated) {
                     onSubTaskUpdated({
@@ -277,15 +285,14 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                         tag: values.tag ? { id: values.tag } : null,
                         startDate: values.startDate ? parseIST(values.startDate) : null,
                         dueDate: values.dueDate ? parseIST(values.dueDate) : null,
-                    } as Partial<T>);
+                        ...updatedData
+                    } as any);
                 }
 
                 setOpen(false);
-
-                // Reload all views to show the updated subtask
                 reloadView();
             } else {
-                toast.error(result.message);
+                toast.error(responseMessage || "Failed to update subtask");
             }
         });
     }

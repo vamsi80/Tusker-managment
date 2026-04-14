@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { GanttSubtask } from "./types";
-import { updateSubtaskDates } from "@/actions/task/gantt";
+import { apiClient } from "@/lib/api-client";
 
 interface DraggableSubtaskBarProps {
     subtask: GanttSubtask;
@@ -263,12 +263,12 @@ export function DraggableSubtaskBar({
                 setIsPendingUpdate(true);
                 const toastId = toast.loading("Updating task dates...");
                 startTransition(async () => {
-                    const result = await updateSubtaskDates(
+                    const result = await apiClient.tasks.updateDates(
                         subtask.id,
+                        workspaceId!,
+                        projectId!,
                         startStr,
-                        endStr,
-                        projectId,
-                        workspaceId
+                        endStr
                     );
 
                     if (result.status !== "success") {
@@ -304,12 +304,12 @@ export function DraggableSubtaskBar({
                         setIsPendingUpdate(true);
                         const toastId = toast.loading("Updating task duration...");
                         startTransition(async () => {
-                            const result = await updateSubtaskDates(
+                            const result = await apiClient.tasks.updateDates(
                                 subtask.id,
+                                workspaceId!,
+                                projectId!,
                                 startStr,
-                                endStr,
-                                projectId,
-                                workspaceId
+                                endStr
                             );
 
                             if (result.status !== "success") {
@@ -345,12 +345,12 @@ export function DraggableSubtaskBar({
                         setIsPendingUpdate(true);
                         const toastId = toast.loading("Updating task start date...");
                         startTransition(async () => {
-                            const result = await updateSubtaskDates(
+                            const result = await apiClient.tasks.updateDates(
                                 subtask.id,
+                                workspaceId!,
+                                projectId!,
                                 startStr,
-                                endStr,
-                                projectId,
-                                workspaceId
+                                endStr
                             );
 
                             if (result.status !== "success") {

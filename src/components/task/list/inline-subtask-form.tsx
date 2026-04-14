@@ -7,8 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { X, Check, Loader2 } from "lucide-react";
-import { createSubTask } from "@/actions/task/create-subTask";
-import { editSubTask } from "@/actions/task/update-subTask";
+import { apiClient, type ApiResponse } from "@/lib/api-client";
 import { tryCatch } from "@/hooks/try-catch";
 import { toast } from "sonner";
 import slugify from "slugify";
@@ -17,7 +16,6 @@ import { ProjectMembersType, getProjectMembers } from "@/data/project/get-projec
 import { SubTaskStatus, STATUS_OPTIONS, subTaskSchema } from "@/lib/zodSchemas";
 import { ColumnVisibility } from "../shared/column-visibility";
 import { SubTaskType } from "@/data/task";
-import { ApiResponse } from "@/lib/types";
 import { ProjectReviewer } from "@/actions/project/get-project-reviewers";
 import { cn, parseIST } from "@/lib/utils";
 import { DateTimePicker } from "@/components/ui/date-picker";
@@ -181,7 +179,7 @@ export function InlineSubTaskForm({
                 if (!projectId) return;
                 const response = await fetch(`/api/projects/${projectId}/reviewers`);
                 if (!response.ok) throw new Error("Failed to fetch");
-                
+
                 const fetchedReviewers = await response.json();
                 setReviewers(fetchedReviewers);
 
@@ -287,7 +285,7 @@ export function InlineSubTaskForm({
 
             startTransition(async () => {
                 const { data: result, error } = await tryCatch(
-                    createSubTask(validData)
+                    apiClient.tasks.createSubTask(validData)
                 );
 
                 if (error || (result as ApiResponse).status !== "success") {
@@ -333,12 +331,21 @@ export function InlineSubTaskForm({
             onCancel();
 
             startTransition(async () => {
-                const { data: result, error } = await tryCatch(
-                    editSubTask(validData, subTask.id)
+                const res = await tryCatch(
+                    apiClient.tasks.updateTask(subTask.id, workspaceId, projectId, validData)
                 );
 
-                if (error || result.status !== "success") {
-                    toast.error(error?.message || result?.message || "Failed to update subtask");
+                if (res.error) {
+                    toast.error(res.error.message || "Failed to update subtask");
+                    return;
+                }
+
+                // Defensive casting to overcome module resolution issues
+                const response = res.data as ApiResponse;
+                const { status: responseStatus, message: responseMessage } = response;
+
+                if (responseStatus !== "success") {
+                    toast.error(responseMessage || "Failed to update subtask");
                     return;
                 }
 
