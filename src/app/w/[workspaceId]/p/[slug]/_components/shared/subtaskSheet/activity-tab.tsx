@@ -2,10 +2,9 @@
 import { formatIST } from "@/lib/utils";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { TabsContent } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, Download, ArrowRight } from "lucide-react";
+import { Loader2, ArrowRight, Link as LinkIcon } from "lucide-react";
 
 interface Activity {
     id: string;
@@ -42,12 +41,6 @@ interface ActivityTabProps {
  * - Download functionality
  */
 export function ActivityTab({ activities, isLoadingActivity }: ActivityTabProps) {
-    const formatFileSize = (bytes: number) => {
-        if (bytes < 1024) return bytes + ' B';
-        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-    };
-
     return (
         <TabsContent value="review" className="flex-1 flex flex-col m-0 data-[state=inactive]:hidden overflow-hidden">
             <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 bg-muted/20 min-h-0">
@@ -98,29 +91,21 @@ export function ActivityTab({ activities, isLoadingActivity }: ActivityTabProps)
                                         </div>
                                     </div>
 
-                                    {/* Activity Text with Download Icon */}
-                                    <div className="flex items-start gap-2 mb-2">
-                                        {activity.attachment?.fileName && activity.attachment?.url ? (
-                                            <Button
-                                                size="icon"
-                                                variant="ghost"
-                                                className="flex-shrink-0 mt-0.5 h-6 w-6 text-primary hover:text-primary hover:bg-primary/10"
-                                                onClick={() => window.open(activity.attachment!.url, '_blank')}
-                                                title={`Download ${activity.attachment.fileName}`}
-                                            >
-                                                <Download className="h-4 w-4" />
-                                            </Button>
-                                        ) : (
-                                            <div
-                                                title="no file uploaded"
-                                                className="flex-shrink-0 mt-0.5 h-6 w-6 flex items-center justify-center text-muted-foreground/30 cursor-help"
-                                            >
-                                                <Download className="h-4 w-4" />
+                                    {/* Activity Text and Attachment Link */}
+                                    <div className="flex flex-col items-start gap-2 mb-2 w-full">
+                                        {activity.text && (
+                                            <p className="text-sm leading-relaxed break-words w-full">
+                                                {activity.text}
+                                            </p>
+                                        )}
+                                        {activity.attachment?.url && (
+                                            <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50/50 px-2.5 py-1.5 rounded-md border border-blue-100 max-w-full overflow-hidden hover:bg-blue-50 transition-colors w-max">
+                                                <LinkIcon className="h-3.5 w-3.5 flex-shrink-0" />
+                                                <a href={activity.attachment.url} target="_blank" rel="noopener noreferrer" className="truncate hover:underline">
+                                                    {activity.attachment.url}
+                                                </a>
                                             </div>
                                         )}
-                                        <p className="text-sm leading-relaxed flex-1 break-words">
-                                            {activity.text}
-                                        </p>
                                     </div>
                                 </div>
                             );

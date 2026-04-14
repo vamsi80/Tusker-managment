@@ -1,6 +1,11 @@
 import { z } from 'zod'
 import { parseIST } from './utils'
 
+export const activitySchema = z.object({
+    comment: z.string().min(1, { message: "A reason (comment) is required for this move." }),
+    attachmentLink: z.string().url({ message: "Invalid URL" }).optional().nullable().or(z.literal("")),
+});
+
 export const SubTaskStatus = ["TO_DO", "IN_PROGRESS", "REVIEW", "HOLD", "COMPLETED", "CANCELLED"] as const
 
 // Status labels - single source of truth
@@ -527,3 +532,4 @@ export const dailyReportSchema = z.object({
 
 export type DailyReportEntryType = z.infer<typeof dailyReportEntrySchema>;
 export type DailyReportFormType = z.infer<typeof dailyReportSchema>;
+export type ActivityFormType = z.infer<typeof activitySchema>;

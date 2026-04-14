@@ -111,7 +111,7 @@ export function SubTaskDetailsSheet({
     const searchParams = useSearchParams();
 
     const loadedSubTaskIdRef = useRef<string>("");
-    const activitiesLoadedRef = useRef<boolean>(false);
+    const activitiesLoadedAtRef = useRef<number>(0);
 
     // Initial cache sync
     useEffect(() => {
@@ -223,16 +223,21 @@ export function SubTaskDetailsSheet({
 
     // Load activities when switching to activity tab
     useEffect(() => {
-        if (activeTab === "review" && subTask && !activitiesLoadedRef.current && !isLoadingActivity) {
-            activitiesLoadedRef.current = true;
-            loadActivities();
+        if (activeTab === "review" && subTask && !isLoadingActivity) {
+            const lastUpdated = subTask.updatedAt ? new Date(subTask.updatedAt).getTime() : 0;
+            
+            // Re-fetch ONLY if we haven't loaded yet OR if the task was updated since we last loaded
+            if (activitiesLoadedAtRef.current < lastUpdated || activitiesLoadedAtRef.current === 0) {
+                activitiesLoadedAtRef.current = Date.now();
+                loadActivities();
+            }
         }
 
         // Reset when subtask changes
         if (subTask?.id !== loadedSubTaskIdRef.current) {
-            activitiesLoadedRef.current = false;
+            activitiesLoadedAtRef.current = 0;
         }
-    }, [activeTab, subTask?.id, isLoadingActivity, loadActivities]);
+    }, [activeTab, subTask?.id, subTask?.updatedAt, isLoadingActivity, loadActivities]);
 
     // Fetch members when projectId changes or sheet opens
     useEffect(() => {

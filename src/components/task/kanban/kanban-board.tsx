@@ -746,22 +746,15 @@ export function KanbanBoard({
 
     const previousStatus = currentStatus;
 
-    if (
-      newStatus === "REVIEW" ||
-      (previousStatus === "REVIEW" && newStatus !== "COMPLETED")
-    ) {
-      moveSubTaskBetweenColumns(subTaskId, previousStatus, newStatus);
+    moveSubTaskBetweenColumns(subTaskId, previousStatus, newStatus);
 
-      setPendingReviewMove({
-        subTaskId,
-        previousStatus,
-        targetStatus: newStatus,
-      });
-      setIsActivityDialogOpen(true);
-      return;
-    }
-
-    await performStatusUpdate(subTaskId, newStatus, previousStatus);
+    setPendingReviewMove({
+      subTaskId,
+      previousStatus,
+      targetStatus: newStatus,
+    });
+    setIsActivityDialogOpen(true);
+    return;
   };
 
   const moveSubTaskBetweenColumns = (
@@ -945,9 +938,7 @@ export function KanbanBoard({
         newStatus,
         workspaceId,
         targetProjectId,
-        activityId,
         comment,
-        attachmentData,
       );
 
       if (result.success) {
@@ -989,37 +980,15 @@ export function KanbanBoard({
 
   const handleActivitySubmit = async (
     commentStr: string,
-    attachment?: File,
+    attachmentLink?: string,
   ) => {
     if (!pendingReviewMove) return;
 
     try {
-      let attachmentData:
-        | {
-          fileName: string;
-          fileType: string;
-          fileSize: number;
-          base64Data: string;
-        }
-        | undefined;
-
-      if (attachment) {
-        const base64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const result = reader.result as string;
-            const base64Data = result.split(",")[1];
-            resolve(base64Data);
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(attachment);
-        });
-
+      let attachmentData = null;
+      if (attachmentLink) {
         attachmentData = {
-          fileName: attachment.name,
-          fileType: attachment.type,
-          fileSize: attachment.size,
-          base64Data: base64,
+          url: attachmentLink,
         };
       }
 

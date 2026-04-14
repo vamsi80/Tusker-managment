@@ -1,4 +1,5 @@
 "use server";
+import { updateTag } from "next/cache";
 
 import { requireUser } from "@/lib/auth/require-user";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
@@ -22,7 +23,6 @@ export async function updateSubTaskStatus(
     newStatus: TaskStatus,
     workspaceId: string,
     projectId: string,
-    activityId?: string, // Legacy param for compatibility
     comment?: string,
     attachmentData?: any
 ): Promise<UpdateSubTaskStatusResult> {
@@ -47,6 +47,9 @@ export async function updateSubTaskStatus(
             comment,
             attachmentData
         });
+
+        // REVALIDATE activities for this subtask to ensure immediate visibility
+        updateTag(`activities-${subTaskId}`);
 
         return {
             success: true,

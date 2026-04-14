@@ -218,7 +218,6 @@ export const CacheTags = {
      */
     activities: (subTaskId: string) => [
         `activities-${subTaskId}`,
-        `subtask-${subTaskId}`,
     ],
 
     // ============================================

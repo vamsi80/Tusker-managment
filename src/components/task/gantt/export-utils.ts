@@ -39,6 +39,23 @@ export const exportGanttToExcel = async (tasks: GanttTask[], fileName: string = 
         return days > 0 ? days : 1;
     };
 
+    const getDelayedDays = (end: string | null, status: string): number => {
+        if (!end || status === "COMPLETED" || status === "CANCELLED") return 0;
+        const e = parseISO(end);
+        if (isNaN(e.getTime())) return 0;
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const eDate = new Date(e);
+        eDate.setHours(0, 0, 0, 0);
+
+        if (eDate < today) {
+            const timeDiff = today.getTime() - eDate.getTime();
+            return Math.floor(timeDiff / (1000 * 3600 * 24));
+        }
+        return 0;
+    };
+
     // 2. Prepare Data Rows (Cols A-K)
     const rows: any[] = [];
 
@@ -53,6 +70,7 @@ export const exportGanttToExcel = async (tasks: GanttTask[], fileName: string = 
             start: null,
             end: null,
             duration: null,
+            delayedDays: null,
             deps: "",
             tag: "",
             desc: ""
@@ -69,6 +87,10 @@ export const exportGanttToExcel = async (tasks: GanttTask[], fileName: string = 
                 start: subtask.start ? parseISO(subtask.start) : null,
                 end: subtask.end ? parseISO(subtask.end) : null,
                 duration: getDuration(subtask.start, subtask.end),
+                delayedDays: getDelayedDays(subtask.end, subtask.status),
+                deps: subtask.dependsOnIds?.join(", ") || "",
+                tag: subtask.tagId || "",
+                desc: subtask.description || ""
             });
         });
     });
@@ -78,7 +100,11 @@ export const exportGanttToExcel = async (tasks: GanttTask[], fileName: string = 
     XLSX.utils.sheet_add_json(worksheet, rows, { skipHeader: true, origin: "A2" });
 
     // 4. Write Headers
-    const staticHeaders = ["Task Name", "Type", "Project", "Assigned To", "Status", "Start Date", "End Date", "Duration"];
+    const staticHeaders = [
+        "Task Name", "Type", "Project", "Assigned To", "Status",
+        "Start Date", "End Date", "Duration", "Delayed Days",
+        "Dependencies", "Tag", "Description"
+    ];
 
     // Write Static Headers (A1:K1)
     staticHeaders.forEach((h, i) => {
@@ -98,9 +124,8 @@ export const exportGanttToExcel = async (tasks: GanttTask[], fileName: string = 
         };
     });
 
-    // Write Timeline Headers (L1+)
     timelineDates.forEach((date, i) => {
-        const colIndex = 11 + i; // L is 11
+        const colIndex = 12 + i;
         const cellRef = XLSX.utils.encode_cell({ c: colIndex, r: 0 });
         worksheet[cellRef] = {
             t: 'd',
@@ -118,18 +143,16 @@ export const exportGanttToExcel = async (tasks: GanttTask[], fileName: string = 
         };
     });
 
-    // 5. Add Timeline Bars with Formulas and Styling
     const rowCount = rows.length;
-    const colStart = 11; // L
-    const colEnd = 11 + timelineDates.length - 1;
+    const colStart = 12;
+    const colEnd = 12 + timelineDates.length - 1;
 
     for (let r = 0; r < rowCount; r++) {
         const worksheetRowIndex = r + 1;
         const excelRowNumber = r + 2;
         const rowData = rows[r];
 
-        // Add borders to all data cells (A-K columns)
-        for (let c = 0; c < 11; c++) {
+        for (let c = 0; c < 12; c++) {
             const cellRef = XLSX.utils.encode_cell({ c: c, r: worksheetRowIndex });
             if (worksheet[cellRef]) {
                 worksheet[cellRef].s = {
@@ -142,15 +165,12 @@ export const exportGanttToExcel = async (tasks: GanttTask[], fileName: string = 
             }
         }
 
-        // Format Start Date (Col F = index 5)
         const startCellRef = XLSX.utils.encode_cell({ c: 5, r: worksheetRowIndex });
         if (worksheet[startCellRef]) {
             worksheet[startCellRef].z = "dd/mm/yyyy";
         }
 
-        // Only apply formulas if we have start/end data (Subtasks)
         if (rowData.start && rowData.end) {
-            // Overwrite End Date (Col G = index 6) with Formula: =F + H - 1
             const endCellRef = XLSX.utils.encode_cell({ c: 6, r: worksheetRowIndex });
             const startRef = `F${excelRowNumber}`;
             const durRef = `H${excelRowNumber}`;
@@ -167,29 +187,22 @@ export const exportGanttToExcel = async (tasks: GanttTask[], fileName: string = 
                 }
             };
 
-            // Determine Color based on Status
             const normalizedStatus = (rowData.status || "").toUpperCase().trim();
-            const rowColor = statusColors[normalizedStatus] || "93C5FD"; // Default to blue
+            const rowColor = statusColors[normalizedStatus] || "93C5FD";
 
-            // Calculate which dates fall within the task range
             const taskStart = rowData.start;
             const taskEnd = rowData.end;
 
-            // Add Timeline Bars with FORMULAS - will update when duration changes
             for (let c = colStart; c <= colEnd; c++) {
                 const cellRef = XLSX.utils.encode_cell({ c: c, r: worksheetRowIndex });
                 const colLetter = XLSX.utils.encode_col(c);
                 const timelineDate = timelineDates[c - colStart];
 
-                // Check if this timeline date is within the task's date range
                 const isWithinRange = timelineDate >= taskStart && timelineDate <= taskEnd;
 
-                // Formula: IF(AND(timeline_date >= start_date, timeline_date <= start_date + duration - 1), " ", "")
-                // Using F (Start Date) and H (Duration) so it updates when you change Duration
                 const formula = `IF(AND(${colLetter}$1>=$F${excelRowNumber},${colLetter}$1<=$F${excelRowNumber}+$H${excelRowNumber}-1)," ","")`;
 
                 if (isWithinRange) {
-                    // Cell is within range - add formula with colored background
                     worksheet[cellRef] = {
                         t: 's',
                         f: formula,
@@ -254,6 +267,7 @@ export const exportGanttToExcel = async (tasks: GanttTask[], fileName: string = 
         { wch: 12 }, // Start Date
         { wch: 12 }, // End Date
         { wch: 15 }, // Duration
+        { wch: 15 }, // Delayed Days
         { wch: 30 }, // Dependencies
         { wch: 15 }, // Tag
         { wch: 40 }, // Description
@@ -296,13 +310,13 @@ export const exportGanttToPDF = async (tasks: GanttTask[], fileName: string = "g
     const autoTable = (await import("jspdf-autotable")).default;
 
     const doc = new jsPDF();
-    
+
     // Title
     doc.setFontSize(16);
     doc.text("Gantt Chart Export", 14, 15);
-    
+
     const tableData: any[][] = [];
-    
+
     tasks.forEach(task => {
         tableData.push([
             task.name,
@@ -311,28 +325,38 @@ export const exportGanttToPDF = async (tasks: GanttTask[], fileName: string = "g
             "",
             ""
         ]);
-        
+
         task.subtasks.forEach(subtask => {
             const startDateStr = subtask.start ? format(parseISO(subtask.start), 'dd/MM/yyyy') : 'N/A';
             const endDateStr = subtask.end ? format(parseISO(subtask.end), 'dd/MM/yyyy') : 'N/A';
-            
+            const delayVal = subtask.end && subtask.status !== "COMPLETED" && subtask.status !== "CANCELLED"
+                ? (() => {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const e = new Date(parseISO(subtask.end));
+                    e.setHours(0, 0, 0, 0);
+                    return e < today ? Math.floor((today.getTime() - e.getTime()) / (1000 * 3600 * 24)) : 0;
+                })()
+                : 0;
+
             tableData.push([
                 `   ${subtask.name}`,
                 subtask.assignee?.name || "Unassigned",
                 subtask.status?.replace(/_/g, ' ') || "TO DO",
                 subtask.days?.toString() || "-",
+                delayVal > 0 ? `${delayVal}d` : "-",
                 `${startDateStr} - ${endDateStr}`
             ]);
         });
     });
 
     autoTable(doc, {
-        head: [['Task Name', 'Assignee', 'Status', 'Days', 'Dates']],
+        head: [['Task Name', 'Assignee', 'Status', 'Days', 'Delay', 'Dates']],
         body: tableData,
         startY: 20,
         styles: { fontSize: 9 },
         headStyles: { fillColor: [243, 244, 246], textColor: [0, 0, 0] },
-        didParseCell: function(data) {
+        didParseCell: function (data) {
             // @ts-ignore
             if (data.row.raw[2] === "" && data.row.raw[3] === "" && data.row.raw[4] === "") {
                 data.cell.styles.fontStyle = 'bold';
