@@ -76,6 +76,10 @@ app.route("/attendance", attendanceRouter);
 // Tasks API
 app.route("/tasks", tasks);
 
+// Workspaces API
+import workspaces from "./routes/workspaces";
+app.route("/workspaces", workspaces);
+
 // Project Reviewers (Legacy / Temporary - will be moved to service later)
 app.get("/projects/:projectId/reviewers", async (c) => {
     const projectId = c.req.param("projectId");

@@ -5,6 +5,8 @@ export type AuditAction =
   | "USER_LOGIN"
   | "MEMBER_INVITED"
   | "MEMBER_REMOVED"
+  | "MEMBER_UPDATED"
+  | "WORKSPACE_UPDATED"
   | "TASK_CREATED"
   | "TASK_UPDATED"
   | "TASK_DELETED"
@@ -150,6 +152,8 @@ export async function recordActivity(options: RecordActivityOptions) {
       // Refine label
       if (action === "MEMBER_INVITED") actionLabel = "invited a new member";
       if (action === "MEMBER_REMOVED") actionLabel = "removed a member";
+      if (action === "MEMBER_UPDATED") actionLabel = "updated a member's role";
+      if (action === "WORKSPACE_UPDATED") actionLabel = "updated workspace info";
       if (action === "TASK_CREATED") actionLabel = "created a new task";
       if (action === "TASK_UPDATED") actionLabel = "updated a task";
       if (action === "TASK_DELETED") actionLabel = "deleted a task";

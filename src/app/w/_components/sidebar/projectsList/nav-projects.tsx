@@ -11,7 +11,7 @@ import { deleteProject } from "@/actions/project/delete-project";
 import type { UserProjectsType } from "@/data/project/get-projects";
 import type { WorkspaceMembersResult } from "@/data/workspace/get-workspace-members";
 import type { FullProjectData } from "@/data/project/get-full-project-data";
-import { getWorkspaceMembersAction } from "@/actions/workspace/get-members";
+import { apiClient } from "@/lib/api-client";
 import { Building2Icon, MoreHorizontal, Eye, Pencil, Trash2, Loader2, Users } from "lucide-react";
 import { getFullProjectDataAction } from "@/actions/project/get-full-data";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -78,7 +78,7 @@ export function NavProjects({ projects, workspaceId, isAdmin, canCreateProject, 
     if (members.length > 0 || isLoadingMembers) return;
     setIsLoadingMembers(true);
     try {
-      const result = await getWorkspaceMembersAction(workspaceId);
+      const result = await apiClient.workspaces.getMembers(workspaceId);
       if (result.success && result.data?.workspaceMembers) {
         setMembers(result.data.workspaceMembers);
       } else {
