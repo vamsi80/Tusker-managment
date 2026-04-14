@@ -1039,7 +1039,7 @@ function TaskTable({
           queryParams.set("db", new Date(filters.endDate).toISOString());
 
         const res = await fetch(
-          `/api/expand/${taskId}?${queryParams.toString()}`,
+          `/api/v1/tasks/${taskId}/expand?${queryParams.toString()}`,
         );
         if (!res.ok) throw new Error("Failed to fetch subtasks");
         const response = await res.json();

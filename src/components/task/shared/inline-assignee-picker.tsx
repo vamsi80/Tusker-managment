@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useParams } from "next/navigation";
 import { Loader2, UserPlus, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -95,6 +96,9 @@ export function InlineAssigneePicker({
     const [pendingMember, setPendingMember] = useState<ProjectMembersType[number] | null>(null);
     const [explanation, setExplanation] = useState("");
     const [pending, startTransition] = useTransition();
+    const { workspaceId: paramWorkspaceId } = useParams();
+    const workspaceId = (paramWorkspaceId as string) || "";
+    
     const upsertTasks = useTaskCacheStore(state => state.upsertTasks);
 
     // 1. Filter by project membership if allowedUserIds is provided
@@ -139,7 +143,12 @@ export function InlineAssigneePicker({
             const res = await fetch(`/api/v1/tasks/${subTask.id}/assignee`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ assigneeUserId: member.userId, explanation }),
+                body: JSON.stringify({ 
+                    assigneeUserId: member.userId, 
+                    explanation,
+                    workspaceId,
+                    projectId: subTask.projectId || projectId
+                }),
             });
 
             if (res.ok) {

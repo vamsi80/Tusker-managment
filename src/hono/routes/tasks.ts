@@ -1,11 +1,7 @@
 import { Hono } from "hono";
 import { HonoVariables } from "../types";
 import { AppError } from "@/lib/errors/app-error";
-import { getUserPermissions } from "@/data/user/get-user-permissions";
 import { TasksService } from "@/server/services/tasks.service";
-import prisma from "@/lib/db";
-import { recordActivity } from "@/lib/audit";
-import { getTaskInvolvedUserIds } from "@/lib/involved-users";
 
 const tasks = new Hono<{ Variables: HonoVariables }>();
 
@@ -24,73 +20,81 @@ tasks.patch("/:taskId/assignee", async (c) => {
     const taskId = c.req.param("taskId");
 
     const body = await c.req.json();
-    const { assigneeUserId, explanation } = body as { assigneeUserId: string | null; explanation?: string };
+    const { assigneeUserId, explanation, workspaceId, projectId } = body as {
+        assigneeUserId: string | null;
+        explanation?: string;
+        workspaceId: string;
+        projectId: string;
+    };
 
-    // 1. Fetch context + permissions in parallel
-    const [subTaskContext, _] = await Promise.all([
-        prisma.task.findUnique({
-            where: { id: taskId },
-            select: {
-                id: true,
-                parentTaskId: true,
-                project: { select: { id: true, workspaceId: true } },
-            }
-        }),
-        Promise.resolve() // placeholder for future parallel work
-    ]);
-
-    if (!subTaskContext) {
-        throw AppError.NotFound("Subtask not found");
+    if (!workspaceId || !projectId) {
+        throw AppError.ValidationError("Missing workspaceId or projectId in request body");
     }
 
-    const permissions = await getUserPermissions(
-        subTaskContext.project.workspaceId,
-        subTaskContext.project.id,
-        user.id
-    );
-
-    // 2. Update only the assigneeId via the service (handles permission checks)
-    await TasksService.updateTask({
+    const result = await TasksService.updateTaskAssignee({
         taskId,
-        workspaceId: subTaskContext.project.workspaceId,
-        projectId: subTaskContext.project.id,
+        assigneeUserId,
+        explanation,
+        workspaceId,
+        projectId,
         userId: user.id,
-        permissions,
-        data: {
-            assigneeUserId: assigneeUserId,
-        }
+        userName: (user as any).surname
     });
 
-    if (explanation && explanation.trim()) {
-        const activity = await prisma.activity.create({
-            data: {
-                subTaskId: taskId,
-                authorId: user.id,
-                workspaceId: subTaskContext.project.workspaceId,
-                text: explanation.trim(),
-            },
-            select: { id: true, createdAt: true },
-        });
+    return c.json(result);
+});
 
-        const targetUserIds = await getTaskInvolvedUserIds(taskId);
-        await recordActivity({
-            userId: user.id,
-            userName: (user as any).surname || user.name || "Someone",
-            workspaceId: subTaskContext.project.workspaceId,
-            action: "COMMENT_CREATED",
-            entityType: "SUBTASK",
-            entityId: taskId,
-            newData: {
-                id: activity.id,
-                text: explanation.trim(),
-                createdAt: activity.createdAt.toISOString()
-            },
-            broadcastEvent: "team_update",
-            targetUserIds,
-        });
-    }
+/**
+ * GET /api/v1/tasks/:parentId/expand
+ * 
+ * Expands a parent task to fetch its subtasks with filtering and pagination.
+ */
+tasks.get("/:parentId/expand", async (c) => {
+    const user = c.get("user");
+    const parentId = c.req.param("parentId");
+    const q = c.req.query();
 
-    return c.json({ success: true });
+    const workspaceId = q.w || q.workspaceId;
+    if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+
+    const projectId = q.p || q.projectId;
+    const viewMode = q.vm || q.viewMode || "list";
+    const pageSize = parseInt(q.ps || q.pageSize || "30", 10);
+
+    const parseParam = (key: string, shortKey: string) => {
+        const val = q[shortKey] || q[key];
+        if (!val) return undefined;
+        try {
+            return JSON.parse(val);
+        } catch {
+            return val.split(',');
+        }
+    };
+
+    const filters: any = {
+        status: parseParam("status", "s"),
+        assigneeId: parseParam("assigneeId", "a"),
+        tagId: parseParam("tagId", "t"),
+        search: q.q || q.search,
+    };
+
+    const da = q.da || q.dueAfter;
+    if (da && da !== "undefined" && da !== "null") filters.dueAfter = new Date(da);
+
+    const db = q.db || q.dueBefore;
+    if (db && db !== "undefined" && db !== "null") filters.dueBefore = new Date(db);
+
+    const data = await TasksService.expandSubtasks({
+        parentId,
+        workspaceId,
+        projectId,
+        filters,
+        pageSize,
+        viewMode,
+        userId: user.id
+    });
+
+    return c.json({ success: true, ...data });
 });
 
 export default tasks;

@@ -6,6 +6,7 @@ import { getTaskInvolvedUserIds } from "@/lib/involved-users";
 import { recordActivity } from "@/lib/audit";
 import { resolveProjectMemberId } from "@/lib/auth/resolve-member-chain";
 import { parseIST } from "@/lib/utils";
+import { getSubTasksByParentIds } from "@/data/task/get-subtasks-batch";
 
 export type TaskStatus = "TO_DO" | "IN_PROGRESS" | "CANCELLED" | "REVIEW" | "HOLD" | "COMPLETED";
 
@@ -811,5 +812,170 @@ export class TasksService {
                 })
             )
         );
+    }
+
+    /**
+     * Expand subtasks for a parent task with full filtering and pagination support.
+     * Migrated from legacy /api/expand endpoint for unified Hono service access.
+     */
+    static async expandSubtasks({
+        parentId,
+        workspaceId,
+        projectId,
+        filters,
+        pageSize,
+        viewMode,
+        userId
+    }: {
+        parentId: string;
+        workspaceId: string;
+        projectId?: string;
+        filters: any;
+        pageSize: number;
+        viewMode: string;
+        userId: string;
+    }) {
+        const results = await getSubTasksByParentIds(
+            [parentId],
+            workspaceId,
+            projectId,
+            filters,
+            pageSize,
+            viewMode,
+            userId,
+            true // skipPermissionsCheck for service-level access
+        );
+
+        if (!results || results.length === 0) {
+            return {
+                subTasks: [],
+                totalCount: 0,
+                hasMore: false,
+                nextCursor: null
+            };
+        }
+
+        return {
+            subTasks: results[0].subTasks,
+            totalCount: results[0].totalCount,
+            hasMore: results[0].hasMore,
+            nextCursor: results[0].nextCursor
+        };
+    }
+
+    /**
+     * Surgically update a task's assignee with optional explanation comment.
+     * Optimized for high-performance Hono API routes.
+     */
+    static async updateTaskAssignee({
+        taskId,
+        assigneeUserId,
+        explanation,
+        workspaceId,
+        projectId,
+        userId,
+        userName
+    }: {
+        taskId: string;
+        assigneeUserId: string | null;
+        explanation?: string;
+        workspaceId: string;
+        projectId: string;
+        userId: string;
+        userName: string;
+    }) {
+        const { getUserPermissions } = await import("@/data/user/get-user-permissions");
+
+        // 1. Parallel fetch context
+        const [task, permissions] = await Promise.all([
+            prisma.task.findUnique({
+                where: { id: taskId },
+                select: { id: true, createdById: true, assigneeId: true, parentTaskId: true, name: true, status: true }
+            }),
+            getUserPermissions(workspaceId, projectId, userId)
+        ]);
+
+        if (!task) throw AppError.NotFound("Task not found");
+
+        // 2. Permission Check
+        const currentProjectMemberId = permissions.projectMember?.id;
+        const isAuthorized = permissions.isWorkspaceAdmin ||
+            permissions.isProjectManager ||
+            (currentProjectMemberId && (task.createdById === currentProjectMemberId || task.assigneeId === currentProjectMemberId));
+
+        if (!isAuthorized) throw AppError.Forbidden("You don't have permission to update this task.");
+
+        // 3. Resolve New Assignee
+        let newAssigneeId: string | null = null;
+        if (assigneeUserId) {
+            newAssigneeId = await resolveProjectMemberId(assigneeUserId, projectId, workspaceId);
+        }
+
+        if (task.assigneeId === newAssigneeId && (!explanation || !explanation.trim())) {
+            return { success: true };
+        }
+
+        // 4. Atomic Update + Activity (Comment)
+        const result = await prisma.$transaction(async (tx) => {
+            const updated = await tx.task.update({
+                where: { id: taskId },
+                data: { assigneeId: newAssigneeId },
+                select: { id: true, name: true }
+            });
+
+            let commentActivity = null;
+            if (explanation && explanation.trim()) {
+                commentActivity = await tx.activity.create({
+                    data: {
+                        subTaskId: taskId,
+                        authorId: userId,
+                        workspaceId,
+                        text: explanation.trim(),
+                    },
+                    select: { id: true, createdAt: true }
+                });
+            }
+
+            return { updated, commentActivity };
+        });
+
+        // 5. Broadcast (Minimize await if possible, but keep consistent)
+        const targetUserIds = await getTaskInvolvedUserIds(taskId);
+        
+        const broadcastPromise = Promise.all([
+            recordActivity({
+                userId,
+                userName,
+                workspaceId,
+                action: task.parentTaskId ? "SUBTASK_UPDATED" : "TASK_UPDATED",
+                entityType: task.parentTaskId ? "SUBTASK" : "TASK",
+                entityId: taskId,
+                oldData: { assigneeId: task.assigneeId },
+                newData: { assigneeId: newAssigneeId },
+                broadcastEvent: "team_update",
+                targetUserIds,
+            }),
+            result.commentActivity ? recordActivity({
+                userId,
+                userName,
+                workspaceId,
+                action: "COMMENT_CREATED",
+                entityType: "SUBTASK",
+                entityId: taskId,
+                newData: {
+                    id: result.commentActivity.id,
+                    text: explanation?.trim(),
+                    createdAt: result.commentActivity.createdAt.toISOString()
+                },
+                broadcastEvent: "team_update",
+                targetUserIds,
+            }) : Promise.resolve()
+        ]);
+
+        // We await the broadcasts to ensure data consistency in audits, 
+        // but the core DB work is already committed.
+        await broadcastPromise;
+
+        return { success: true };
     }
 }

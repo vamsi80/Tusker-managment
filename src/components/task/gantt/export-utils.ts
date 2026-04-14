@@ -222,7 +222,6 @@ export const exportGanttToExcel = async (tasks: GanttTask[], fileName: string = 
                         }
                     };
                 } else {
-                    // Cell is outside range - add formula without colored background
                     worksheet[cellRef] = {
                         t: 's',
                         f: formula,
