@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
+import { updateTag } from "next/cache";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
 import { getTaskInvolvedUserIds } from "@/lib/involved-users";
 
@@ -126,6 +127,9 @@ export async function createActivityAction(
             broadcastEvent: "team_update", // Triggers surgical client-side sync
             targetUserIds,
         });
+
+        // Revalidate activity cache for the UI
+        updateTag(`activities-${subTaskId}`);
 
         return {
             success: true,

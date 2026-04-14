@@ -88,9 +88,9 @@ async function _getActivitiesInternal(subTaskId: string) {
             author: {
                 select: {
                     id: true,
-                    // name: true,
+                    name: true,
                     surname: true,
-                    // image: true,
+                    image: true,
                 },
             },
         },

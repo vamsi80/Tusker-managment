@@ -90,6 +90,27 @@ export function DraggableSubtaskBar({
     const widthPercent = livePosition ? livePosition.width : (duration / totalDays) * 100;
 
     const isCompleted = optimisticSubtask.status === 'COMPLETED';
+    const isCancelled = optimisticSubtask.status === 'CANCELLED';
+    
+    const isDelayed = useMemo(() => {
+        if (isCompleted || isCancelled || !endDate) return false;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const taskEnd = new Date(endDate);
+        taskEnd.setHours(0, 0, 0, 0);
+        return taskEnd < today;
+    }, [isCompleted, isCancelled, endDate]);
+
+    const delayWidthPercent = useMemo(() => {
+        if (!isDelayed || !endDate) return 0;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const taskEnd = new Date(endDate);
+        taskEnd.setHours(0, 0, 0, 0);
+        
+        const delayDays = getDaysBetween(taskEnd, today);
+        return (delayDays / totalDays) * 100;
+    }, [isDelayed, endDate, totalDays]);
 
 
     const canEdit = useMemo(() => {
@@ -385,57 +406,81 @@ export function DraggableSubtaskBar({
             <TooltipProvider delayDuration={100}>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <div
-                            ref={barRef}
-                            className={cn(
-                                "absolute top-1 h-3 rounded-md transition-all duration-200 ease-out",
-                                "shadow-sm hover:shadow-md",
-                                "focus:outline-none focus:ring-2 focus:ring-offset-1",
-                                (!optimisticSubtask.assignee?.id && optimisticSubtask.status !== "COMPLETED" && optimisticSubtask.status !== "CANCELLED") && "animate-[pulse_2s_infinite] ring-2 ring-red-500/50 shadow-[0_0_8px_rgba(239,68,68,0.4)]",
-                                canEdit && "cursor-grab active:cursor-grabbing",
-                                isDragging && "opacity-70 scale-105",
-                                // Status-based colors
-                                ({
-                                    'TO_DO': "bg-slate-400 dark:bg-slate-500 hover:bg-slate-500 dark:hover:bg-slate-600 focus:ring-slate-500",
-                                    'IN_PROGRESS': "bg-blue-400 dark:bg-blue-500 hover:bg-blue-500 dark:hover:bg-blue-600 focus:ring-blue-500",
-                                    'CANCELLED': "bg-red-400 dark:bg-red-500 hover:bg-red-500 dark:hover:bg-red-600 focus:ring-red-500",
-                                    'REVIEW': "bg-amber-400 dark:bg-amber-500 hover:bg-amber-500 dark:hover:bg-amber-600 focus:ring-amber-500",
-                                    'HOLD': "bg-purple-400 dark:bg-purple-500 hover:bg-purple-500 dark:hover:bg-purple-600 focus:ring-purple-500",
-                                    'COMPLETED': "bg-green-400 dark:bg-green-500 hover:bg-green-500 dark:hover:bg-green-600 focus:ring-green-500"
-                                }[optimisticSubtask.status || 'TO_DO'] || "bg-slate-400 dark:bg-slate-500 hover:bg-slate-500 dark:hover:bg-slate-600 focus:ring-slate-500"
-                                )
-                            )}
-                            style={{
-                                left: `${leftPercent}%`,
-                                width: `${widthPercent}%`,
-                                minWidth: '20px'
-                            }}
-                            onMouseDown={handleBarMouseDown}
-                            tabIndex={0}
-                            role="button"
-                            aria-label={`${optimisticSubtask.name}: ${startDate ? formatDate(startDate) : 'N/A'} to ${endDate ? formatDate(endDate) : 'N/A'}`}
-                        >
-                            {/* Resize handles */}
-                            {canEdit && (
-                                <>
-                                    {/* Left resize handle */}
-                                    <div
-                                        className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize opacity-0 group-hover/bar:opacity-100 hover:bg-white/30 rounded-l-md"
-                                        onMouseDown={handleResizeLeftMouseDown}
-                                        title="Drag to change start date"
-                                    >
-                                        <GripHorizontal className="h-full w-full text-white/50" />
-                                    </div>
+                        {/* Bar Container for Tooltip */}
+                        <div className="relative h-full w-full">
+                            <div
+                                ref={barRef}
+                                className={cn(
+                                    "absolute top-1 h-3 rounded-md transition-all duration-200 ease-out",
+                                    "shadow-sm hover:shadow-md",
+                                    "focus:outline-none focus:ring-2 focus:ring-offset-1",
+                                    (!optimisticSubtask.assignee?.id && optimisticSubtask.status !== "COMPLETED" && optimisticSubtask.status !== "CANCELLED") && "animate-[pulse_2s_infinite] ring-2 ring-red-500/50 shadow-[0_0_8px_rgba(239,68,68,0.4)]",
+                                    canEdit && "cursor-grab active:cursor-grabbing",
+                                    isDragging && "opacity-70 scale-105",
+                                    // Status-based colors
+                                    ({
+                                        'TO_DO': "bg-slate-400 dark:bg-slate-500 hover:bg-slate-500 dark:hover:bg-slate-600 focus:ring-slate-500",
+                                        'IN_PROGRESS': "bg-blue-400 dark:bg-blue-500 hover:bg-blue-500 dark:hover:bg-blue-600 focus:ring-blue-500",
+                                        'CANCELLED': "bg-red-400 dark:bg-red-500 hover:bg-red-500 dark:hover:bg-red-600 focus:ring-red-500",
+                                        'REVIEW': "bg-amber-400 dark:bg-amber-500 hover:bg-amber-500 dark:hover:bg-amber-600 focus:ring-amber-500",
+                                        'HOLD': "bg-purple-400 dark:bg-purple-500 hover:bg-purple-500 dark:hover:bg-purple-600 focus:ring-purple-500",
+                                        'COMPLETED': "bg-green-400 dark:bg-green-500 hover:bg-green-500 dark:hover:bg-green-600 focus:ring-green-500"
+                                    }[optimisticSubtask.status || 'TO_DO'] || "bg-slate-400 dark:bg-slate-500 hover:bg-slate-500 dark:hover:bg-slate-600 focus:ring-slate-500"
+                                    )
+                                )}
+                                style={{
+                                    left: `${leftPercent}%`,
+                                    width: `${widthPercent}%`,
+                                    minWidth: '20px'
+                                }}
+                                onMouseDown={handleBarMouseDown}
+                                tabIndex={0}
+                                role="button"
+                                aria-label={`${optimisticSubtask.name}: ${startDate ? formatDate(startDate) : 'N/A'} to ${endDate ? formatDate(endDate) : 'N/A'}`}
+                            >
+                                {/* Resize handles */}
+                                {canEdit && (
+                                    <>
+                                        {/* Left resize handle */}
+                                        <div
+                                            className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize opacity-0 group-hover/bar:opacity-100 hover:bg-white/30 rounded-l-md"
+                                            onMouseDown={handleResizeLeftMouseDown}
+                                            title="Drag to change start date"
+                                        >
+                                            <GripHorizontal className="h-full w-full text-white/50" />
+                                        </div>
 
-                                    {/* Right resize handle */}
-                                    <div
-                                        className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize opacity-0 group-hover/bar:opacity-100 hover:bg-white/30 rounded-r-md"
-                                        onMouseDown={handleResizeRightMouseDown}
-                                        title="Drag to change end date"
-                                    >
-                                        <GripHorizontal className="h-full w-full text-white/50" />
-                                    </div>
-                                </>
+                                        {/* Right resize handle */}
+                                        <div
+                                            className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize opacity-0 group-hover/bar:opacity-100 hover:bg-white/30 rounded-r-md"
+                                            onMouseDown={handleResizeRightMouseDown}
+                                            title="Drag to change end date"
+                                        >
+                                            <GripHorizontal className="h-full w-full text-white/50" />
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+
+                            {/* Delay Extension Bar */}
+                            {delayWidthPercent > 0 && (
+                                <div 
+                                    className="absolute top-1.5 h-2 rounded-r-md opacity-60 z-0"
+                                    style={{
+                                        left: `${leftPercent + widthPercent}%`,
+                                        width: `${delayWidthPercent}%`,
+                                        backgroundImage: `repeating-linear-gradient(
+                                            15deg,
+                                            transparent,
+                                            transparent 4px,
+                                            rgba(239, 68, 68, 0.4) 1px,
+                                            rgba(239, 68, 68, 0.4) 6px
+                                        )`,
+                                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                                        borderLeft: 'none'
+                                    }}
+                                    title={`Delayed by ${Math.round((delayWidthPercent / 100) * totalDays)} days`}
+                                />
                             )}
                         </div>
                     </TooltipTrigger>
@@ -446,6 +491,12 @@ export function DraggableSubtaskBar({
                                 {isCompleted && (
                                     <span className="px-1.5 py-0.5 text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded">
                                         DONE
+                                    </span>
+                                )}
+                                {isDelayed && (
+                                    <span className="px-1.5 py-0.5 text-xs bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded flex items-center gap-1 font-bold animate-pulse">
+                                        <AlertCircle className="h-3 w-3" />
+                                        OVERDUE
                                     </span>
                                 )}
                             </div>

@@ -468,6 +468,16 @@ export function GanttChart({
                     <div className="w-0.5 h-4 bg-red-500 dark:bg-red-400" />
                     <span>Today</span>
                 </div>
+                <div className="flex items-center gap-2">
+                    <div 
+                        className="w-4 h-3 rounded border border-red-500/50" 
+                        style={{
+                            backgroundImage: `repeating-linear-gradient(15deg, transparent, transparent 2px, rgba(0,0,0,0.1) 2px, rgba(0,0,0,0.1) 4px)`,
+                            backgroundColor: '#e5e7eb'
+                        }}
+                    />
+                    <span>Overdue Duration</span>
+                </div>
 
             </div>
         </div>
