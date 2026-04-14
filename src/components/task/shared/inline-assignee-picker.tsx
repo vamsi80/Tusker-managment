@@ -12,6 +12,16 @@ import {
     CommandItem,
     CommandList,
 } from "@/components/ui/command";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 import type { ProjectMembersType } from "@/data/project/get-project-members";
@@ -81,6 +91,9 @@ export function InlineAssigneePicker({
     className,
 }: InlineAssigneePickerProps) {
     const [open, setOpen] = useState(false);
+    const [explanationDialogOpen, setExplanationDialogOpen] = useState(false);
+    const [pendingMember, setPendingMember] = useState<ProjectMembersType[number] | null>(null);
+    const [explanation, setExplanation] = useState("");
     const [pending, startTransition] = useTransition();
     const upsertTasks = useTaskCacheStore(state => state.upsertTasks);
 
@@ -112,13 +125,21 @@ export function InlineAssigneePicker({
 
     const handleSelect = (member: ProjectMembersType[number]) => {
         setOpen(false);
+        setPendingMember(member);
+        setExplanationDialogOpen(true);
+    };
+
+    const handleConfirmAssign = () => {
+        if (!pendingMember) return;
+        const member = pendingMember;
+        setExplanationDialogOpen(false);
 
         startTransition(async () => {
             // 1. SURGICAL REST API UPDATE (no RSC re-render triggered)
             const res = await fetch(`/api/v1/tasks/${subTask.id}/assignee`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ assigneeUserId: member.userId }),
+                body: JSON.stringify({ assigneeUserId: member.userId, explanation }),
             });
 
             if (res.ok) {
@@ -146,9 +167,15 @@ export function InlineAssigneePicker({
 
                 // 3. VIEW-SPECIFIC CALLBACK
                 onAssigned(member.userId, member);
+                
+                // Reset state
+                setExplanation("");
+                setPendingMember(null);
             } else {
                 const err = await res.json().catch(() => ({}));
                 toast.error(err?.error || "Failed to update assignee");
+                setExplanation("");
+                setPendingMember(null);
             }
         });
     };
@@ -173,6 +200,7 @@ export function InlineAssigneePicker({
 
     // ── Editable: clickable popover ───────────────────────────────
     return (
+        <>
         <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
                 <button
@@ -247,5 +275,45 @@ export function InlineAssigneePicker({
                 </Command>
             </PopoverContent>
         </Popover>
+
+        <Dialog open={explanationDialogOpen} onOpenChange={setExplanationDialogOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Assignment Explanation</DialogTitle>
+                    <DialogDescription>
+                        Please provide a reason or note for this assignment change. This will be logged as an activity.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                    <Textarea
+                        placeholder="Enter your explanation here..."
+                        value={explanation}
+                        onChange={(e) => setExplanation(e.target.value)}
+                        className="w-full text-sm"
+                        autoFocus
+                    />
+                </div>
+                <DialogFooter>
+                    <Button
+                        variant="outline"
+                        onClick={() => {
+                            setExplanationDialogOpen(false);
+                            setPendingMember(null);
+                            setExplanation("");
+                        }}
+                        disabled={pending}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={handleConfirmAssign}
+                        disabled={pending}
+                    >
+                        Confirm Assignment
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+        </>
     );
 }

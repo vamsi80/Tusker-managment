@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Plus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -67,10 +66,7 @@ export function SubTaskList({
     scrollContainerRef,
 }: SubTaskListProps) {
     const [showInlineSubTaskForm, setShowInlineSubTaskForm] = useState(false);
-
-    // Infinite Scroll Implementation for Subtasks - MUST be at top level (Rules of Hooks)
     const bottomRef = useRef<HTMLTableRowElement>(null);
-
     useEffect(() => {
         if (!task.subTasksHasMore || isLoadingMore) return;
 
@@ -80,9 +76,9 @@ export function SubTaskList({
                     onLoadMore();
                 }
             },
-            { 
+            {
                 root: scrollContainerRef?.current || null,
-                rootMargin: "20px" 
+                rootMargin: "20px"
             }
         );
 
@@ -98,7 +94,6 @@ export function SubTaskList({
         };
     }, [task.subTasksHasMore, isLoadingMore, onLoadMore]);
 
-    // Calculate total columns: drag + name + visible columns + actions (no checkbox anymore)
     const visibleColumnsCount = 2 + Object.values(columnVisibility).filter(Boolean).length + 1;
 
     if (isLoading) {
@@ -151,33 +146,28 @@ export function SubTaskList({
 
     return (
         <>
-            <SortableContext
-                items={sortedSubTasks.map((sub) => sub.id)}
-                strategy={verticalListSortingStrategy}
-            >
-                {sortedSubTasks.map((subTask) => (
-                    <SubTaskRow
-                        key={subTask.id}
-                        subTask={subTask as any}
-                        columnVisibility={columnVisibility}
-                        onClick={onSubTaskClick}
-                        members={members}
-                        projectId={projectId}
-                        parentTaskId={task.id}
-                        parentTaskProject={task.project}
-                        isSelected={selectedSubTasks.has(subTask.id)}
-                        onSelectChange={(checked) => onSelectSubTask?.(subTask.id, checked)}
-                        onSubTaskUpdated={onSubTaskUpdated}
-                        onSubTaskDeleted={onSubTaskDeleted}
-                        tags={tags}
-                        permissions={permissions}
-                        userId={userId}
-                        isWorkspaceAdmin={isWorkspaceAdmin}
-                        leadProjectIds={leadProjectIds}
-                        projects={projects}
-                    />
-                ))}
-            </SortableContext>
+            {sortedSubTasks.map((subTask) => (
+                <SubTaskRow
+                    key={subTask.id}
+                    subTask={subTask as any}
+                    columnVisibility={columnVisibility}
+                    onClick={onSubTaskClick}
+                    members={members}
+                    projectId={projectId}
+                    parentTaskId={task.id}
+                    parentTaskProject={task.project}
+                    isSelected={selectedSubTasks.has(subTask.id)}
+                    onSelectChange={(checked: boolean) => onSelectSubTask?.(subTask.id, checked)}
+                    onSubTaskUpdated={onSubTaskUpdated}
+                    onSubTaskDeleted={onSubTaskDeleted}
+                    tags={tags}
+                    permissions={permissions}
+                    userId={userId}
+                    isWorkspaceAdmin={isWorkspaceAdmin}
+                    leadProjectIds={leadProjectIds}
+                    projects={projects}
+                />
+            ))}
 
             {task.subTasksHasMore && (
                 <TableRow ref={bottomRef} className="bg-muted/10 animate-pulse">

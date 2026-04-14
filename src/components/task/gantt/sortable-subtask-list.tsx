@@ -103,7 +103,7 @@ function SortableSubtaskRow({
             <div
                 className={cn(
                     "sticky left-0 z-30 flex items-center bg-white dark:bg-neutral-900 border-b border-r border-neutral-200 dark:border-neutral-700 h-[32px] w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] shrink-0 transition-colors duration-200 overflow-hidden",
-                    isDragging && "bg-blue-50/50 dark:bg-blue-900/10"
+                    isDragging ? "bg-blue-50/50 dark:bg-blue-900/10" : (!subtask.assigneeId && subtask.status !== "COMPLETED" && subtask.status !== "CANCELLED") && "bg-red-500/10 animate-[pulse_2s_infinite]"
                 )}
             >
                 {/* Drag Handle & Name */}
