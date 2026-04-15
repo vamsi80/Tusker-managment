@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
-import { authClient } from "@/lib/auth-clint"
+import { authClient } from "@/lib/auth-client"
 import { Loader2 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useTransition } from "react"

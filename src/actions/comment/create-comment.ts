@@ -4,6 +4,7 @@ import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
 import { invalidateTaskComments } from "@/lib/cache/invalidation";
+import { getTaskInvolvedUserIds } from "@/lib/involved-users";
 
 export interface CreateCommentResult {
     success: boolean;
@@ -142,6 +143,21 @@ export async function createCommentAction(
                     },
                 },
             },
+        });
+
+        // 6.5 Record Activity (Targeted real-time notifications)
+        const { recordActivity } = await import("@/lib/audit");
+        const targetUserIds = await getTaskInvolvedUserIds(taskId);
+
+        await recordActivity({
+            userId: user.id,
+            userName: (user as any).surname || user.name || "Someone",
+            workspaceId: workspaceId,
+            action: "COMMENT_CREATED",
+            entityType: "TASK",
+            entityId: taskId,
+            newData: { text: content },
+            targetUserIds, // Limit broadcast to involved people
         });
 
         // 7. Invalidate comment cache using cache tags

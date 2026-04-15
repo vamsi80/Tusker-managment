@@ -4,6 +4,7 @@ import { useMemo, useState, useRef, useEffect } from "react";
 import { ChevronDown, ChevronRight, CornerDownRight } from "lucide-react";
 import { computeTaskDates, calculateBarPosition, formatDateRange, getDaysBetween } from "./utils";
 import { SortableSubtaskList } from "./sortable-subtask-list";
+import { ProjectMembersType } from "@/data/project/get-project-members";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import {
     TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { GanttSubtask, GanttTask } from "./types";
+import { InlineAssigneePicker } from "../shared/inline-assignee-picker";
 
 // ...
 // ... (imports)
@@ -27,9 +29,11 @@ interface TaskRowProps {
     isExpanded: boolean;
     onToggle: () => void;
     onSubtaskClick?: (subtaskId: string) => void;
+    onSubTaskUpdate?: (subTaskId: string, data: Partial<any>) => void;
     allTasks?: GanttTask[]; // All tasks for dependency picker
     workspaceId?: string;
     projectId?: string;
+    members?: ProjectMembersType;
     isNestedInProject?: boolean;
     currentUser?: { id: string };
     permissions?: {
@@ -37,6 +41,9 @@ interface TaskRowProps {
         leadProjectIds: string[];
         managedProjectIds: string[];
     };
+    showDetails: boolean;
+    projects?: { id: string; memberIds?: string[] }[];
+    granularity: 'days' | 'weeks' | 'months';
 }
 
 export function TaskRow({
@@ -46,12 +53,17 @@ export function TaskRow({
     isExpanded,
     onToggle,
     onSubtaskClick,
+    onSubTaskUpdate,
     allTasks,
     workspaceId,
     projectId,
+    members,
     isNestedInProject = false,
     currentUser,
-    permissions
+    permissions,
+    showDetails,
+    projects,
+    granularity
 }: TaskRowProps) {
 
     const [visibleSubtaskCount, setVisibleSubtaskCount] = useState(SUBTASKS_PER_PAGE);
@@ -89,6 +101,9 @@ export function TaskRow({
         return () => observer.disconnect();
     }, [hasMoreSubtasks]);
 
+    const currentProject = projects?.find(p => p.id === (task.projectId || projectId));
+    const allowedUserIds = currentProject?.memberIds;
+
     return (
         <div className="flex flex-col">
             {/* Task Row Header */}
@@ -96,40 +111,51 @@ export function TaskRow({
                 className="grid"
                 style={{ gridTemplateColumns: 'var(--gantt-sidebar-width) var(--gantt-total-width)' }}
             >
-                {/* Left Panel - Task Name */}
+                {/* Left Panel - Task Name (Aligns with columns but hides details for parent) */}
+                {/* 1-2. Sidebar + Metadata (Transitioned width) */}
                 <div
-                    className={cn(
-                        "sticky left-0 z-30 flex items-center gap-1 px-3 py-2 min-h-[36px]",
-                        "bg-white dark:bg-neutral-900",
-                        "border-b border-r border-neutral-200 dark:border-neutral-700",
-                        "hover:bg-neutral-50 dark:hover:bg-neutral-800/50",
-                        "transition-colors duration-150",
-                        isNestedInProject && "pl-6"
-                    )}
+                    className="sticky left-0 z-30 flex items-center bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-700 h-full w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] shrink-0 transition-[width] duration-300 ease-in-out overflow-hidden"
                 >
-                    <button
-                        onClick={onToggle}
-                        className={cn(
-                            "p-0.5 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700",
-                            "transition-colors duration-150",
-                            !hasSubtasks && "invisible"
-                        )}
-                        aria-expanded={isExpanded}
-                        aria-label={isExpanded ? "Collapse" : "Expand"}
-                    >
-                        {isExpanded ? (
-                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                        )}
-                    </button>
-                    <span className="font-semibold text-sm text-foreground truncate">
-                        {task.name}
-                    </span>
-                    {hasSubtasks && (
-                        <span className="text-xs text-muted-foreground ml-auto">
-                            {task.subtasks.length}
+                    {/* 1. Task Name Column */}
+                    <div className={cn(
+                        "w-[var(--col-name)] flex items-center gap-1 px-3 py-2 min-h-[36px] shrink-0 border-r border-neutral-200 dark:border-neutral-700 h-full",
+                        isNestedInProject && "pl-6"
+                    )}>
+                        <button
+                            onClick={onToggle}
+                            className={cn(
+                                "p-0.5 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700",
+                                "transition-colors duration-150",
+                                !hasSubtasks && "invisible"
+                            )}
+                            aria-expanded={isExpanded}
+                            aria-label={isExpanded ? "Collapse" : "Expand"}
+                        >
+                            {isExpanded ? (
+                                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                            )}
+                        </button>
+                        <span className="font-semibold text-sm text-foreground truncate">
+                            {task.name}
                         </span>
+                        {hasSubtasks && (
+                            <span className="text-xs text-muted-foreground ml-auto bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded-full">
+                                {task.subtasks.length}
+                            </span>
+                        )}
+                    </div>
+
+                    {/* 2-5. Detail Columns for Parent Task */}
+                    {showDetails && (
+                        <>
+                            {/* 2. Assignee Column */}
+                            <div className="w-[var(--col-assignee)] shrink-0 border-r border-neutral-200 dark:border-neutral-700 h-full px-2" />
+                            <div className="w-[var(--col-status)] shrink-0 border-r border-neutral-200 dark:border-neutral-700 h-full px-2 bg-neutral-50/10 dark:bg-neutral-800/5" />
+                            <div className="w-[var(--col-days)] shrink-0 border-r border-neutral-200 dark:border-neutral-700 h-full px-2 bg-neutral-50/10 dark:bg-neutral-800/5" />
+                            <div className="w-[var(--col-dates)] shrink-0 h-full px-2 bg-neutral-50/10 dark:bg-neutral-800/5" />
+                        </>
                     )}
                 </div>
 
@@ -199,12 +225,17 @@ export function TaskRow({
                         subtasks={visibleSubtasks}
                         timelineStart={timelineStart}
                         totalDays={totalDays}
-
+                        showDetails={showDetails}
                         onSubtaskClick={onSubtaskClick}
-                        workspaceId={workspaceId}
-                        projectId={projectId}
+                        onSubTaskUpdate={onSubTaskUpdate}
+                        workspaceId={workspaceId || ""}
+                        projectId={projectId || task.projectId}
+                        members={members}
                         currentUser={currentUser}
                         permissions={permissions}
+                        allowedUserIds={allowedUserIds}
+                        allTasks={allTasks}
+                        granularity={granularity}
                     />
 
                     {hasMoreSubtasks && (

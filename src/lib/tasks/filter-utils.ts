@@ -86,7 +86,7 @@ export function buildTaskFilter(
             // Enforce via AND to avoid overwriting existing UI filters in 'where'
             where.AND = [
                 ...(Array.isArray(where.AND) ? where.AND : []),
-                { assigneeId: userId }
+                { assignee: { workspaceMember: { userId } } }
             ];
         } else if (isHybrid) {
             // Hybrid: Full access to some, personal access to others
@@ -98,7 +98,7 @@ export function buildTaskFilter(
                         { projectId: { in: fullAccessIds } },
                         {
                             projectId: { in: memberOnlyIds },
-                            assigneeId: userId
+                            assignee: { workspaceMember: { userId } }
                         }
                     ]
                 }
@@ -133,18 +133,14 @@ export function buildSubTaskConditions(filters: TaskFilters): any {
     }
 
     // ============================================================
-    // ASSIGNEE FILTER
+    // ASSIGNEE FILTER: Support both ProjectMemberId and User ID (relational)
     // ============================================================
     if (filters.assigneeId) {
-        const assigneeIds = Array.isArray(filters.assigneeId) && filters.assigneeId.length > 0
-            ? filters.assigneeId
-            : !Array.isArray(filters.assigneeId)
-                ? [filters.assigneeId]
-                : [];
-
-        if (assigneeIds.length > 0) {
-            conditions.assigneeId = { in: assigneeIds };
-        }
+        const assigneeVal = Array.isArray(filters.assigneeId) ? { in: filters.assigneeId } : filters.assigneeId;
+        conditions.OR = [
+            { assigneeId: assigneeVal },
+            { assignee: { workspaceMember: { userId: (Array.isArray(filters.assigneeId) ? { in: filters.assigneeId } : filters.assigneeId) as any } } }
+        ];
     }
 
     // ============================================================

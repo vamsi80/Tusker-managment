@@ -50,7 +50,7 @@ export function ReportDetailModal({ isOpen, onOpenChange, report }: ReportDetail
                         <span>Work Report Details</span>
                     </SheetTitle>
                     <SheetDescription className="text-sm">
-                        For {report.date ? formatIST(report.date, "MMMM d, yyyy") : "-"}
+                        For {report.date ? formatIST(report.date) : "-"}
                     </SheetDescription>
                 </SheetHeader>
 

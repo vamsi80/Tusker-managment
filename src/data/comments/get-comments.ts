@@ -19,10 +19,7 @@ async function _getTaskCommentsInternal(taskId: string) {
             user: {
                 select: {
                     id: true,
-                    // name: true,
                     surname: true,
-                    // email: true,
-                    // image: true,
                 },
             },
             replies: {
@@ -33,10 +30,7 @@ async function _getTaskCommentsInternal(taskId: string) {
                     user: {
                         select: {
                             id: true,
-                            // name: true,
                             surname: true,
-                            // email: true,
-                            // image: true,
                         },
                     },
                 },
@@ -83,10 +77,10 @@ export const getTaskComments = cache(async (taskId: string) => {
 });
 
 /**
- * Internal function to fetch review comments for a subtask
+ * Internal function to fetch activities for a subtask
  */
-async function _getReviewCommentsInternal(subTaskId: string) {
-    return prisma.reviewComment.findMany({
+async function _getActivitiesInternal(subTaskId: string) {
+    return prisma.activity.findMany({
         where: {
             subTaskId,
         },
@@ -94,9 +88,9 @@ async function _getReviewCommentsInternal(subTaskId: string) {
             author: {
                 select: {
                     id: true,
-                    // name: true,
+                    name: true,
                     surname: true,
-                    // image: true,
+                    image: true,
                 },
             },
         },
@@ -107,34 +101,34 @@ async function _getReviewCommentsInternal(subTaskId: string) {
 }
 
 /**
- * Cached version of review comments
+ * Cached version of activities
  */
-const getCachedReviewComments = (subTaskId: string) =>
+const getCachedActivities = (subTaskId: string) =>
     unstable_cache(
-        async () => _getReviewCommentsInternal(subTaskId),
-        [`review-comments-${subTaskId}`],
+        async () => _getActivitiesInternal(subTaskId),
+        [`activities-${subTaskId}`],
         {
-            tags: CacheTags.reviewComments(subTaskId),
-            revalidate: 30, // 30 seconds - review comments change frequently
+            tags: CacheTags.activities ? CacheTags.activities(subTaskId) : [`activities-${subTaskId}`], // fallback if CacheTags not updated yet
+            revalidate: 30, // 30 seconds - activities change frequently
         }
     )();
 
 /**
- * Get all review comments for a subtask with caching
+ * Get all activities for a subtask with caching
  * Uses dual cache layer (React cache + Next.js unstable_cache)
  * 
- * @param subTaskId - ID of the subtask to fetch review comments for
- * @returns Array of review comments with author information
+ * @param subTaskId - ID of the subtask to fetch activities for
+ * @returns Array of activities with author information
  */
-export const getReviewComments = cache(async (subTaskId: string) => {
+export const getActivities = cache(async (subTaskId: string) => {
     try {
-        return await getCachedReviewComments(subTaskId);
+        return await getCachedActivities(subTaskId);
     } catch (error) {
-        console.error("Error fetching review comments:", error);
+        console.error("Error fetching activities:", error);
         return [];
     }
 });
 
 // Type exports
 export type TaskCommentsType = Awaited<ReturnType<typeof getTaskComments>>;
-export type ReviewCommentsType = Awaited<ReturnType<typeof getReviewComments>>;
+export type ActivitiesType = Awaited<ReturnType<typeof getActivities>>;

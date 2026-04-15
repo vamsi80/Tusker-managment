@@ -11,6 +11,7 @@ interface SubTaskSheetActions {
     openSubTaskSheet: (subTask: any) => void;
     openSubTaskSheetLoading: () => void;
     closeSubTaskSheet: () => void;
+    patchSubTask: (updatedData: any) => void;
 }
 
 const SubTaskSheetStateContext = createContext<SubTaskSheetState | undefined>(undefined);
@@ -24,6 +25,13 @@ export function SubTaskSheetProvider({ children }: { children: ReactNode }) {
         if (typeof window !== 'undefined') {
             (window as any).lastSheetOpenClick = performance.now();
         }
+
+        // Defensive check: Ensure status is not an object (DateRange corruption)
+        if (task && task.status && typeof task.status !== 'string') {
+            console.warn("🚨 [SubTaskSheetContext] Sanitizing corrupted status (object -> string):", task.status);
+            task = { ...task, status: 'TO_DO' };
+        }
+
         setSubTask(task);
         setIsOpen(true);
     }, []);
@@ -43,8 +51,27 @@ export function SubTaskSheetProvider({ children }: { children: ReactNode }) {
         }, 250);
     }, []);
 
+    const patchSubTask = useCallback((updatedData: any) => {
+        setSubTask((prev: any) => {
+            if (!prev) return prev;
+
+            let sanitizedData = updatedData;
+            // Defensive check: Ensure incoming patch doesn't corrupt the status
+            if (updatedData && updatedData.status && typeof updatedData.status !== 'string') {
+                console.warn("🚨 [SubTaskSheetContext] Rejecting corrupted status patch:", updatedData.status);
+                const { status, ...rest } = updatedData;
+                sanitizedData = rest;
+            }
+
+            return {
+                ...prev,
+                ...sanitizedData
+            };
+        });
+    }, []);
+
     const state = useMemo(() => ({ subTask, isOpen }), [subTask, isOpen]);
-    const actions = useMemo(() => ({ openSubTaskSheet, openSubTaskSheetLoading, closeSubTaskSheet }), [openSubTaskSheet, openSubTaskSheetLoading, closeSubTaskSheet]);
+    const actions = useMemo(() => ({ openSubTaskSheet, openSubTaskSheetLoading, closeSubTaskSheet, patchSubTask }), [openSubTaskSheet, openSubTaskSheetLoading, closeSubTaskSheet, patchSubTask]);
 
     return (
         <SubTaskSheetStateContext.Provider value={state}>
@@ -111,5 +138,5 @@ export function useSubTaskSheetActions() {
         originalClose();
     }, [originalClose, pathname, searchParams]);
 
-    return { ...context, openSubTaskSheet, openSubTaskSheetLoading, closeSubTaskSheet };
+    return { ...context, openSubTaskSheet, openSubTaskSheetLoading, closeSubTaskSheet, patchSubTask: context.patchSubTask };
 }

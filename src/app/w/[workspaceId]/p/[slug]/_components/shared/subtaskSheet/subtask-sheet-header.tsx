@@ -4,13 +4,22 @@ import { TaskByIdType } from "@/data/task/get-task-by-id";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Calendar, Tag, User, FileCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Calendar, Tag, User, FileCheck, Edit } from "lucide-react";
 import { cn, formatIST } from "@/lib/utils";
 import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { memo } from "react";
+import { EditSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/edit-subtask-form";
+import { InlineAssigneePicker } from "@/components/task/shared/inline-assignee-picker";
 
 interface SubtaskSheetHeaderProps {
     subTask: TaskByIdType;
+    currentUserId?: string | null;
+    members?: any[];
+    /** Called when the assignee is updated inline from the sheet */
+    onSubTaskAssigned?: (memberObj: { id: string; name: string | null; surname: string | null }) => void;
+    isAdmin?: boolean;
+    isProjectManager?: boolean;
 }
 
 /**
@@ -23,7 +32,7 @@ interface SubtaskSheetHeaderProps {
  * - Tag
  * - Status badge
  */
-export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({ subTask }: SubtaskSheetHeaderProps) {
+export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({ subTask, currentUserId, members = [], onSubTaskAssigned, isAdmin, isProjectManager }: SubtaskSheetHeaderProps) {
     // Assignee is directly on the task object (user fields) in both SubTaskType and TaskByIdType
     // But we handle potential workspaceMember nesting just in case legacy types are passed
     const assignee = (subTask.assignee as any)?.workspaceMember?.user || subTask.assignee;
@@ -46,6 +55,24 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({ subTask }: 
                         {subTask.name}
                     </h2>
                 </div>
+
+                {/* Edit Button for authorized users */}
+                {subTask && (subTask.createdBy?.workspaceMember?.user?.id === currentUserId || (subTask as any).createdById === currentUserId) && (
+                    <div className="ml-4 flex-shrink-0">
+                        <EditSubTaskForm
+                            subTask={subTask as any}
+                            projectId={subTask.projectId}
+                            parentTaskId={subTask.parentTaskId!}
+                            members={members}
+                            trigger={
+                                <Button variant="outline" size="sm" className="h-8 gap-2">
+                                    <Edit className="h-4 w-4" />
+                                    <span>Edit</span>
+                                </Button>
+                            }
+                        />
+                    </div>
+                )}
             </div>
 
             {/* Details Section */}
@@ -68,7 +95,20 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({ subTask }: 
                                 <span className="text-xs sm:text-sm truncate">{assignee.surname || ""}</span>
                             </div>
                         ) : (
-                            <span className="text-xs sm:text-sm text-muted-foreground">Unassigned</span>
+                            <InlineAssigneePicker
+                                subTask={subTask as any}
+                                members={members}
+                                projectId={subTask.projectId || ""}
+                                parentTaskId={subTask.parentTaskId || ""}
+                                canEdit={!!(isAdmin || isProjectManager || subTask.createdBy?.workspaceMember?.user?.id === currentUserId || (subTask as any).createdById === currentUserId)}
+                                onAssigned={(_userId, member) => {
+                                    onSubTaskAssigned?.({
+                                        id: member.userId,
+                                        name: member.user.name,
+                                        surname: member.user.surname,
+                                    });
+                                }}
+                            />
                         )}
                     </div>
 
@@ -78,7 +118,7 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({ subTask }: 
                         <span className="text-xs sm:text-sm font-medium w-20 sm:w-24 shrink-0">Due Date</span>
                         {subTask.startDate ? (
                             <span className="text-xs sm:text-sm">
-                                {formatIST(subTask.startDate, "dd/MM/yyyy")}
+                                {formatIST(subTask.startDate)}
                             </span>
                         ) : (
                             <span className="text-xs sm:text-sm text-muted-foreground">No due date</span>
@@ -103,17 +143,27 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({ subTask }: 
                         <FileCheck className="h-4 w-4 text-muted-foreground shrink-0" />
                         <span className="text-xs sm:text-sm font-medium w-20 sm:w-24 shrink-0">Status</span>
                         {subTask.status ? (
-                            <Badge
-                                variant="outline"
-                                className={cn(
-                                    "text-[10px] sm:text-xs font-medium",
-                                    getStatusColors(subTask.status).color,
-                                    getStatusColors(subTask.status).bgColor,
-                                    getStatusColors(subTask.status).borderColor
-                                )}
-                            >
-                                {getStatusLabel(subTask.status)}
-                            </Badge>
+                            (() => {
+                                // Defensive check for corrupted status data (e.g., DateRange object)
+                                if (typeof subTask.status !== 'string') {
+                                    console.warn("⚠️ [SubtaskSheetHeader] Corrupted status data detected:", subTask.status, "for subtask:", subTask.id);
+                                    return <span className="text-xs text-red-500 font-mono">[Invalid Status]</span>;
+                                }
+
+                                return (
+                                    <Badge
+                                        variant="outline"
+                                        className={cn(
+                                            "text-[10px] sm:text-xs font-medium",
+                                            getStatusColors(subTask.status).color,
+                                            getStatusColors(subTask.status).bgColor,
+                                            getStatusColors(subTask.status).borderColor
+                                        )}
+                                    >
+                                        {getStatusLabel(subTask.status)}
+                                    </Badge>
+                                );
+                            })()
                         ) : (
                             <span className="text-xs sm:text-sm text-muted-foreground">No status</span>
                         )}

@@ -1,292 +1,420 @@
 import { GanttTask } from "./types";
-import { format, eachDayOfInterval, parseISO, min, max } from "date-fns";
+import { format, eachDayOfInterval, parseISO, min, max, parse } from "date-fns";
 
 const statusColors: Record<string, string> = {
-    "TO_DO": "CBD5E1",      // slate-300
-    "IN_PROGRESS": "93C5FD", // blue-300
-    "REVIEW": "FCD34D",     // amber-300
-    "HOLD": "FBBF24",       // amber-400
-    "COMPLETED": "86EFAC",  // green-300
-    "CANCELLED": "FCA5A5",  // red-300
+  TO_DO: "CBD5E1", // slate-300
+  IN_PROGRESS: "93C5FD", // blue-300
+  REVIEW: "FCD34D", // amber-300
+  HOLD: "FBBF24", // amber-400
+  COMPLETED: "86EFAC", // green-300
+  CANCELLED: "FCA5A5", // red-300
 };
 
-export const exportGanttToExcel = async (tasks: GanttTask[], fileName: string = "gantt-export.xlsx") => {
-    const XLSX = await import("xlsx-js-style");
-    // 1. Calculate Date Range for Timeline
-    const allDates: Date[] = [];
-    tasks.forEach(t => {
-        t.subtasks.forEach(st => {
-            if (st.start) allDates.push(parseISO(st.start));
-            if (st.end) allDates.push(parseISO(st.end));
-        });
+// Parse "dd MMM yyyy" format (e.g., "15 Apr 2026") back to Date
+const parseDisplayDate = (dateStr: string | null): Date | null => {
+  if (!dateStr) return null;
+  try {
+    const parsed = parse(dateStr, "d MMM yyyy", new Date());
+    if (isNaN(parsed.getTime())) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
+export const exportGanttToExcel = async (
+  tasks: GanttTask[],
+  fileName: string = "gantt-export.xlsx",
+) => {
+  const XLSX = await import("xlsx-js-style");
+  // 1. Calculate Date Range for Timeline
+  const allDates: Date[] = [];
+  tasks.forEach((t) => {
+    t.subtasks.forEach((st) => {
+      const startDate = parseDisplayDate(st.start);
+      const endDate = parseDisplayDate(st.end);
+      if (startDate) allDates.push(startDate);
+      if (endDate) allDates.push(endDate);
+    });
+  });
+
+  let timelineDates: Date[] = [];
+  if (allDates.length > 0) {
+    const minDate = min(allDates);
+    const maxDate = max(allDates);
+    timelineDates = eachDayOfInterval({ start: minDate, end: maxDate });
+  }
+
+  // Helper to calculate duration
+  const getDuration = (
+    start: string | null,
+    end: string | null,
+  ): number | null => {
+    if (!start || !end) return null;
+    const s = parseDisplayDate(start);
+    const e = parseDisplayDate(end);
+    if (!s || !e) return null;
+    const timeDiff = e.getTime() - s.getTime();
+    const days = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1; // Inclusive
+    return days > 0 ? days : 1;
+  };
+
+  const getDelayedDays = (end: string | null, status: string): number => {
+    if (!end || status === "COMPLETED" || status === "CANCELLED") return 0;
+    const e = parseDisplayDate(end);
+    if (!e) return 0;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const eDate = new Date(e);
+    eDate.setHours(0, 0, 0, 0);
+
+    if (eDate < today) {
+      const timeDiff = today.getTime() - eDate.getTime();
+      return Math.floor(timeDiff / (1000 * 3600 * 24));
+    }
+    return 0;
+  };
+
+  // 2. Prepare Data Rows (Cols A-K)
+  const rows: any[] = [];
+
+  tasks.forEach((task) => {
+    // Add Parent Task
+    rows.push({
+      name: task.name,
+      type: "Task",
+      project: task.projectName || "Unknown",
+      assignee: task.assignee?.name || "",
+      status: "",
+      start: null,
+      end: null,
+      duration: null,
+      delayedDays: null,
+      deps: "",
+      tag: "",
+      desc: "",
     });
 
-    let timelineDates: Date[] = [];
-    if (allDates.length > 0) {
-        const minDate = min(allDates);
-        const maxDate = max(allDates);
-        timelineDates = eachDayOfInterval({ start: minDate, end: maxDate });
+    // Add Subtasks
+    task.subtasks.forEach((subtask) => {
+      rows.push({
+        name: `    ${subtask.name}`,
+        type: "Subtask",
+        project: task.projectName || "Unknown",
+        assignee: subtask.assignee?.name || "Unassigned",
+        status: subtask.status?.toUpperCase() || "",
+        start: parseDisplayDate(subtask.start),
+        end: parseDisplayDate(subtask.end),
+        duration: getDuration(subtask.start, subtask.end),
+        delayedDays: getDelayedDays(subtask.end, subtask.status),
+        deps: subtask.dependsOnIds?.join(", ") || "",
+        tag: subtask.tagId || "",
+        desc: subtask.description || "",
+      });
+    });
+  });
+
+  // 3. Create Sheet
+  const worksheet = XLSX.utils.json_to_sheet([]);
+  XLSX.utils.sheet_add_json(worksheet, rows, {
+    skipHeader: true,
+    origin: "A2",
+  });
+
+  // 4. Write Headers
+  const staticHeaders = [
+    "Task Name",
+    "Type",
+    "Project",
+    "Assigned To",
+    "Status",
+    "Start Date",
+    "End Date",
+    "Duration",
+    "Delayed Days",
+    "Dependencies",
+    "Tag",
+    "Description",
+  ];
+
+  // Write Static Headers (A1:K1)
+  staticHeaders.forEach((h, i) => {
+    const cellRef = XLSX.utils.encode_cell({ c: i, r: 0 });
+    worksheet[cellRef] = {
+      t: "s",
+      v: h,
+      s: {
+        font: { bold: true },
+        fill: { fgColor: { rgb: "F3F4F6" } },
+        border: {
+          top: { style: "thin", color: { rgb: "D1D5DB" } },
+          bottom: { style: "thin", color: { rgb: "D1D5DB" } },
+        },
+        alignment: { horizontal: "center", vertical: "center" },
+      },
+    };
+  });
+
+  timelineDates.forEach((date, i) => {
+    const colIndex = 12 + i;
+    const cellRef = XLSX.utils.encode_cell({ c: colIndex, r: 0 });
+    worksheet[cellRef] = {
+      t: "d",
+      v: date,
+      z: "d mmm yyyy",
+      s: {
+        font: { bold: true, sz: 9 },
+        fill: { fgColor: { rgb: "F3F4F6" } },
+        alignment: {
+          horizontal: "center",
+          vertical: "center",
+          textRotation: 90,
+        },
+        border: {
+          top: { style: "thin", color: { rgb: "D1D5DB" } },
+          bottom: { style: "thin", color: { rgb: "D1D5DB" } },
+        },
+      },
+    };
+  });
+
+  const rowCount = rows.length;
+  const colStart = 12;
+  const colEnd = 12 + timelineDates.length - 1;
+
+  for (let r = 0; r < rowCount; r++) {
+    const worksheetRowIndex = r + 1;
+    const excelRowNumber = r + 2;
+    const rowData = rows[r];
+
+    for (let c = 0; c < 12; c++) {
+      const cellRef = XLSX.utils.encode_cell({ c: c, r: worksheetRowIndex });
+      if (worksheet[cellRef]) {
+        worksheet[cellRef].s = {
+          ...worksheet[cellRef].s,
+          border: {
+            top: { style: "thin", color: { rgb: "E5E7EB" } },
+            bottom: { style: "thin", color: { rgb: "E5E7EB" } },
+          },
+        };
+      }
     }
 
-    // Helper to calculate duration
-    const getDuration = (start: string | null, end: string | null): number | null => {
-        if (!start || !end) return null;
-        const s = parseISO(start);
-        const e = parseISO(end);
-        if (isNaN(s.getTime()) || isNaN(e.getTime())) return null;
-        const timeDiff = e.getTime() - s.getTime();
-        const days = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1; // Inclusive
-        return days > 0 ? days : 1;
-    };
+    const startCellRef = XLSX.utils.encode_cell({ c: 5, r: worksheetRowIndex });
+    if (worksheet[startCellRef]) {
+      worksheet[startCellRef].z = "d mmm yyyy";
+    }
 
-    // 2. Prepare Data Rows (Cols A-K)
-    const rows: any[] = [];
+    if (rowData.start && rowData.end) {
+      const endCellRef = XLSX.utils.encode_cell({ c: 6, r: worksheetRowIndex });
+      const startRef = `F${excelRowNumber}`;
+      const durRef = `H${excelRowNumber}`;
 
-    tasks.forEach(task => {
-        // Add Parent Task
-        rows.push({
-            name: task.name,
-            type: "Task",
-            project: task.projectName || "Unknown",
-            assignee: task.assignee?.name || "",
-            status: "",
-            start: null,
-            end: null,
-            duration: null,
-            deps: "",
-            tag: "",
-            desc: ""
-        });
+      worksheet[endCellRef] = {
+        t: "n",
+        f: `${startRef}+${durRef}-1`,
+        z: "d mmm yyyy",
+        s: {
+          border: {
+            top: { style: "thin", color: { rgb: "E5E7EB" } },
+            bottom: { style: "thin", color: { rgb: "E5E7EB" } },
+          },
+        },
+      };
 
-        // Add Subtasks
-        task.subtasks.forEach(subtask => {
-            rows.push({
-                name: `    ${subtask.name}`,
-                type: "Subtask",
-                project: task.projectName || "Unknown",
-                assignee: subtask.assignee?.name || "Unassigned",
-                status: subtask.status?.toUpperCase() || "",
-                start: subtask.start ? parseISO(subtask.start) : null,
-                end: subtask.end ? parseISO(subtask.end) : null,
-                duration: getDuration(subtask.start, subtask.end),
-            });
-        });
-    });
+      const normalizedStatus = (rowData.status || "").toUpperCase().trim();
+      const rowColor = statusColors[normalizedStatus] || "93C5FD";
 
-    // 3. Create Sheet
-    const worksheet = XLSX.utils.json_to_sheet([]);
-    XLSX.utils.sheet_add_json(worksheet, rows, { skipHeader: true, origin: "A2" });
+      const taskStart = rowData.start;
+      const taskEnd = rowData.end;
 
-    // 4. Write Headers
-    const staticHeaders = ["Task Name", "Type", "Project", "Assigned To", "Status", "Start Date", "End Date", "Duration"];
+      for (let c = colStart; c <= colEnd; c++) {
+        const cellRef = XLSX.utils.encode_cell({ c: c, r: worksheetRowIndex });
+        const colLetter = XLSX.utils.encode_col(c);
+        const timelineDate = timelineDates[c - colStart];
 
-    // Write Static Headers (A1:K1)
-    staticHeaders.forEach((h, i) => {
-        const cellRef = XLSX.utils.encode_cell({ c: i, r: 0 });
-        worksheet[cellRef] = {
-            t: 's',
-            v: h,
+        const isWithinRange =
+          timelineDate >= taskStart && timelineDate <= taskEnd;
+
+        const formula = `IF(AND(${colLetter}$1>=$F${excelRowNumber},${colLetter}$1<=$F${excelRowNumber}+$H${excelRowNumber}-1)," ","")`;
+
+        if (isWithinRange) {
+          worksheet[cellRef] = {
+            t: "s",
+            f: formula,
             s: {
-                font: { bold: true },
-                fill: { fgColor: { rgb: "F3F4F6" } },
-                border: {
-                    top: { style: "thin", color: { rgb: "D1D5DB" } },
-                    bottom: { style: "thin", color: { rgb: "D1D5DB" } }
-                },
-                alignment: { horizontal: "center", vertical: "center" }
-            }
-        };
-    });
-
-    // Write Timeline Headers (L1+)
-    timelineDates.forEach((date, i) => {
-        const colIndex = 11 + i; // L is 11
-        const cellRef = XLSX.utils.encode_cell({ c: colIndex, r: 0 });
-        worksheet[cellRef] = {
-            t: 'd',
-            v: date,
-            z: 'mmm dd',
-            s: {
-                font: { bold: true, sz: 9 },
-                fill: { fgColor: { rgb: "F3F4F6" } },
-                alignment: { horizontal: "center", vertical: "center", textRotation: 90 },
-                border: {
-                    top: { style: "thin", color: { rgb: "D1D5DB" } },
-                    bottom: { style: "thin", color: { rgb: "D1D5DB" } }
-                }
-            }
-        };
-    });
-
-    // 5. Add Timeline Bars with Formulas and Styling
-    const rowCount = rows.length;
-    const colStart = 11; // L
-    const colEnd = 11 + timelineDates.length - 1;
-
-    for (let r = 0; r < rowCount; r++) {
-        const worksheetRowIndex = r + 1;
-        const excelRowNumber = r + 2;
-        const rowData = rows[r];
-
-        // Add borders to all data cells (A-K columns)
-        for (let c = 0; c < 11; c++) {
-            const cellRef = XLSX.utils.encode_cell({ c: c, r: worksheetRowIndex });
-            if (worksheet[cellRef]) {
-                worksheet[cellRef].s = {
-                    ...worksheet[cellRef].s,
-                    border: {
-                        top: { style: "thin", color: { rgb: "E5E7EB" } },
-                        bottom: { style: "thin", color: { rgb: "E5E7EB" } }
-                    }
-                };
-            }
-        }
-
-        // Format Start Date (Col F = index 5)
-        const startCellRef = XLSX.utils.encode_cell({ c: 5, r: worksheetRowIndex });
-        if (worksheet[startCellRef]) {
-            worksheet[startCellRef].z = "dd/mm/yyyy";
-        }
-
-        // Only apply formulas if we have start/end data (Subtasks)
-        if (rowData.start && rowData.end) {
-            // Overwrite End Date (Col G = index 6) with Formula: =F + H - 1
-            const endCellRef = XLSX.utils.encode_cell({ c: 6, r: worksheetRowIndex });
-            const startRef = `F${excelRowNumber}`;
-            const durRef = `H${excelRowNumber}`;
-
-            worksheet[endCellRef] = {
-                t: 'n',
-                f: `${startRef}+${durRef}-1`,
-                z: "dd/mm/yyyy",
-                s: {
-                    border: {
-                        top: { style: "thin", color: { rgb: "E5E7EB" } },
-                        bottom: { style: "thin", color: { rgb: "E5E7EB" } }
-                    }
-                }
-            };
-
-            // Determine Color based on Status
-            const normalizedStatus = (rowData.status || "").toUpperCase().trim();
-            const rowColor = statusColors[normalizedStatus] || "93C5FD"; // Default to blue
-
-            // Calculate which dates fall within the task range
-            const taskStart = rowData.start;
-            const taskEnd = rowData.end;
-
-            // Add Timeline Bars with FORMULAS - will update when duration changes
-            for (let c = colStart; c <= colEnd; c++) {
-                const cellRef = XLSX.utils.encode_cell({ c: c, r: worksheetRowIndex });
-                const colLetter = XLSX.utils.encode_col(c);
-                const timelineDate = timelineDates[c - colStart];
-
-                // Check if this timeline date is within the task's date range
-                const isWithinRange = timelineDate >= taskStart && timelineDate <= taskEnd;
-
-                // Formula: IF(AND(timeline_date >= start_date, timeline_date <= start_date + duration - 1), " ", "")
-                // Using F (Start Date) and H (Duration) so it updates when you change Duration
-                const formula = `IF(AND(${colLetter}$1>=$F${excelRowNumber},${colLetter}$1<=$F${excelRowNumber}+$H${excelRowNumber}-1)," ","")`;
-
-                if (isWithinRange) {
-                    // Cell is within range - add formula with colored background
-                    worksheet[cellRef] = {
-                        t: 's',
-                        f: formula,
-                        s: {
-                            fill: {
-                                patternType: "solid",
-                                fgColor: { rgb: rowColor }
-                            },
-                            alignment: {
-                                horizontal: "center",
-                                vertical: "center"
-                            },
-                            border: {
-                                top: { style: "thin", color: { rgb: "FFFFFF" } },
-                                bottom: { style: "thin", color: { rgb: "FFFFFF" } }
-                            }
-                        }
-                    };
-                } else {
-                    // Cell is outside range - add formula without colored background
-                    worksheet[cellRef] = {
-                        t: 's',
-                        f: formula,
-                        s: {
-                            alignment: {
-                                horizontal: "center",
-                                vertical: "center"
-                            },
-                            border: {
-                                top: { style: "thin", color: { rgb: "E5E7EB" } },
-                                bottom: { style: "thin", color: { rgb: "E5E7EB" } }
-                            }
-                        }
-                    };
-                }
-            }
+              fill: {
+                patternType: "solid",
+                fgColor: { rgb: rowColor },
+              },
+              alignment: {
+                horizontal: "center",
+                vertical: "center",
+              },
+              border: {
+                top: { style: "thin", color: { rgb: "FFFFFF" } },
+                bottom: { style: "thin", color: { rgb: "FFFFFF" } },
+              },
+            },
+          };
         } else {
-            // For parent tasks (no dates), add borders to timeline cells
-            for (let c = colStart; c <= colEnd; c++) {
-                const cellRef = XLSX.utils.encode_cell({ c: c, r: worksheetRowIndex });
-                worksheet[cellRef] = {
-                    t: 's',
-                    v: "",
-                    s: {
-                        border: {
-                            top: { style: "thin", color: { rgb: "E5E7EB" } },
-                            bottom: { style: "thin", color: { rgb: "E5E7EB" } }
-                        }
-                    }
-                };
-            }
+          worksheet[cellRef] = {
+            t: "s",
+            f: formula,
+            s: {
+              alignment: {
+                horizontal: "center",
+                vertical: "center",
+              },
+              border: {
+                top: { style: "thin", color: { rgb: "E5E7EB" } },
+                bottom: { style: "thin", color: { rgb: "E5E7EB" } },
+              },
+            },
+          };
         }
+      }
+    } else {
+      // For parent tasks (no dates), add borders to timeline cells
+      for (let c = colStart; c <= colEnd; c++) {
+        const cellRef = XLSX.utils.encode_cell({ c: c, r: worksheetRowIndex });
+        worksheet[cellRef] = {
+          t: "s",
+          v: "",
+          s: {
+            border: {
+              top: { style: "thin", color: { rgb: "E5E7EB" } },
+              bottom: { style: "thin", color: { rgb: "E5E7EB" } },
+            },
+          },
+        };
+      }
     }
+  }
 
-    // 6. Set Column Widths
-    const wscols = [
-        { wch: 40 }, // Task Name
-        { wch: 10 }, // Type
-        { wch: 20 }, // Project
-        { wch: 20 }, // Assigned To
-        { wch: 15 }, // Status
-        { wch: 12 }, // Start Date
-        { wch: 12 }, // End Date
-        { wch: 15 }, // Duration
-        { wch: 30 }, // Dependencies
-        { wch: 15 }, // Tag
-        { wch: 40 }, // Description
-    ];
+  // 6. Set Column Widths
+  const wscols = [
+    { wch: 40 }, // Task Name
+    { wch: 10 }, // Type
+    { wch: 20 }, // Project
+    { wch: 20 }, // Assigned To
+    { wch: 15 }, // Status
+    { wch: 12 }, // Start Date
+    { wch: 12 }, // End Date
+    { wch: 15 }, // Duration
+    { wch: 15 }, // Delayed Days
+    { wch: 30 }, // Dependencies
+    { wch: 15 }, // Tag
+    { wch: 40 }, // Description
+  ];
 
-    const timelineCols = timelineDates.map(() => ({ wch: 3 }));
-    worksheet["!cols"] = [...wscols, ...timelineCols];
+  const timelineCols = timelineDates.map(() => ({ wch: 3 }));
+  worksheet["!cols"] = [...wscols, ...timelineCols];
 
-    // Set the range for the worksheet
-    const lastRow = rowCount + 1;
-    const lastCol = colEnd;
-    worksheet['!ref'] = `A1:${XLSX.utils.encode_col(lastCol)}${lastRow}`;
+  // Set the range for the worksheet
+  const lastRow = rowCount + 1;
+  const lastCol = colEnd;
+  worksheet["!ref"] = `A1:${XLSX.utils.encode_col(lastCol)}${lastRow}`;
 
-    // 7. Create workbook
-    const workbook = XLSX.utils.book_new();
-    workbook.Props = {
-        Title: "Gantt Chart Export",
-        Subject: "Task Timeline",
-        Author: "Tusker Management",
-        CreatedDate: new Date()
-    };
+  // 7. Create workbook
+  const workbook = XLSX.utils.book_new();
+  workbook.Props = {
+    Title: "Gantt Chart Export",
+    Subject: "Task Timeline",
+    Author: "Tusker Management",
+    CreatedDate: new Date(),
+  };
 
-    workbook.Workbook = {
-        Views: [{
-            RTL: false
-        }]
-    };
+  workbook.Workbook = {
+    Views: [
+      {
+        RTL: false,
+      },
+    ],
+  };
 
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Gantt Tasks");
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Gantt Tasks");
 
-    // 8. Write file with styling support
-    XLSX.writeFile(workbook, fileName, {
-        bookType: 'xlsx',
-        cellStyles: true
+  // 8. Write file with styling support
+  XLSX.writeFile(workbook, fileName, {
+    bookType: "xlsx",
+    cellStyles: true,
+  });
+};
+
+export const exportGanttToPDF = async (
+  tasks: GanttTask[],
+  fileName: string = "gantt-export.pdf",
+) => {
+  const { jsPDF } = await import("jspdf");
+  const autoTable = (await import("jspdf-autotable")).default;
+
+  const doc = new jsPDF();
+
+  // Title
+  doc.setFontSize(16);
+  doc.text("Gantt Chart Export", 14, 15);
+
+  const tableData: any[][] = [];
+
+  tasks.forEach((task) => {
+    tableData.push([task.name, task.assignee?.name || "", "", "", ""]);
+
+    task.subtasks.forEach((subtask) => {
+      const startDateStr = subtask.start
+        ? format(parseDisplayDate(subtask.start) || new Date(), "d MMM yyyy")
+        : "N/A";
+      const endDateStr = subtask.end
+        ? format(parseDisplayDate(subtask.end) || new Date(), "d MMM yyyy")
+        : "N/A";
+      const delayVal =
+        subtask.end &&
+        subtask.status !== "COMPLETED" &&
+        subtask.status !== "CANCELLED"
+          ? (() => {
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              const e = parseDisplayDate(subtask.end);
+              if (!e) return 0;
+              e.setHours(0, 0, 0, 0);
+              return e < today
+                ? Math.floor(
+                    (today.getTime() - e.getTime()) / (1000 * 3600 * 24),
+                  )
+                : 0;
+            })()
+          : 0;
+
+      tableData.push([
+        `   ${subtask.name}`,
+        subtask.assignee?.name || "Unassigned",
+        subtask.status?.replace(/_/g, " ") || "TO DO",
+        subtask.days?.toString() || "-",
+        delayVal > 0 ? `${delayVal}d` : "-",
+        `${startDateStr} - ${endDateStr}`,
+      ]);
     });
+  });
+
+  autoTable(doc, {
+    head: [["Task Name", "Assignee", "Status", "Days", "Delay", "Dates"]],
+    body: tableData,
+    startY: 20,
+    styles: { fontSize: 9 },
+    headStyles: { fillColor: [243, 244, 246], textColor: [0, 0, 0] },
+    didParseCell: function (data) {
+      const raw = data.row.raw as any[];
+      if (
+        raw &&
+        raw[2] === "" &&
+        raw[3] === "" &&
+        raw[4] === ""
+      ) {
+        data.cell.styles.fontStyle = "bold";
+      }
+    },
+  });
+
+  doc.save(fileName);
 };

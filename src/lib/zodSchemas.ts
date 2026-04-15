@@ -1,6 +1,11 @@
 import { z } from 'zod'
 import { parseIST } from './utils'
 
+export const activitySchema = z.object({
+    comment: z.string().min(1, { message: "A reason (comment) is required for this move." }),
+    attachmentLink: z.string().url({ message: "Invalid URL" }).optional().nullable().or(z.literal("")),
+});
+
 export const SubTaskStatus = ["TO_DO", "IN_PROGRESS", "REVIEW", "HOLD", "COMPLETED", "CANCELLED"] as const
 
 // Status labels - single source of truth
@@ -134,11 +139,13 @@ export const projectSchema = z.object({
     companyName: z
         .string()
         .min(3, { message: "Company Name must be at least 3 charcters long" })
-        .max(100, { message: "Company Name must be at most 100 character long" }),
+        .max(100, { message: "Company Name must be at most 100 character long" })
+        .optional(),
     registeredCompanyName: z
         .string()
         .min(3, { message: "Registered Company Name must be at least 3 charcters long" })
-        .max(100, { message: "Registered Company Name must be at most 100 character long" }),
+        .max(100, { message: "Registered Company Name must be at most 100 character long" })
+        .optional(),
     directorName: z
         .string()
         .min(3, { message: "Location must be at least 3 charcters long" })
@@ -152,15 +159,18 @@ export const projectSchema = z.object({
     gstNumber: z
         .string()
         .max(15, { message: "GST is usually 15 characters — alphanumeric." })
-        .max(15, { message: "GST is usually 15 characters — alphanumeric." }),
+        .max(15, { message: "GST is usually 15 characters — alphanumeric." })
+        .optional(),
     contactPerson: z
         .string()
         .min(3, { message: "Contact Person must be at least 3 charcters long" })
-        .max(100, { message: "Contact Person must be at most 100 character long" }),
+        .max(100, { message: "Contact Person must be at most 100 character long" })
+        .optional(),
     phoneNumber: z
         .string()
         .min(10, { message: "Phone Number must be at least 10 characters long" })
-        .max(15, { message: "Phone Number must be at most 15 characters long" }),
+        .max(15, { message: "Phone Number must be at most 15 characters long" })
+        .optional(),
     workspaceId: z
         .string().optional(),
     projectLead: z.string().optional(),
@@ -226,6 +236,7 @@ export const editProjectSchema = z.object({
         .optional(),
     // Team fields
     projectLead: z.string().optional(),
+    projectManagers: z.array(z.string()).optional(),
     memberAccess: z.array(z.string()).optional(),
 });
 
@@ -239,7 +250,7 @@ export const taskSchema = z.object({
         .min(3, { message: "Title must be at least 3 charcters long" })
         .max(100, { message: "Title must be at most 100 character long" }),
     projectId: z.string().uuid({ message: "Invalid project id" }),
-    reviewerId: z.string().uuid({ message: "Invalid reviewer id" }).optional().nullable(),
+    reviewerId: z.string().optional().nullable().or(z.literal("")),
 });
 
 export const subTaskSchema = z.object({
@@ -260,7 +271,7 @@ export const subTaskSchema = z.object({
     assignee: z
         .string()
         .min(1, { message: "Assignee is required" }),
-    reviewerId: z.string().uuid({ message: "Reviewer is required" }),
+    reviewerId: z.string().optional().nullable().or(z.literal("")),
     startDate: z
         .string()
         .optional(),
@@ -273,34 +284,6 @@ export const subTaskSchema = z.object({
         .uuid({ message: "Tag is required" }),
     projectId: z.string().uuid({ message: "Invalid project id" }),
     parentTaskId: z.string().uuid({ message: "Invalid parent task id" }),
-}).refine((data) => {
-    if (data.startDate) {
-        const start = parseIST(data.startDate);
-        if (start) {
-            // Allow 2 minute buffer
-            if (start.getTime() < Date.now() - 120000) {
-                return false;
-            }
-        }
-    }
-    return true;
-}, {
-    message: "Start date must be in the future",
-    path: ["startDate"],
-}).refine((data) => {
-    if (data.dueDate) {
-        const due = parseIST(data.dueDate);
-        if (due) {
-            // Allow 2 minute buffer
-            if (due.getTime() < Date.now() - 120000) {
-                return false;
-            }
-        }
-    }
-    return true;
-}, {
-    message: "Due date must be in the future",
-    path: ["dueDate"],
 }).refine((data) => {
     if (data.startDate && data.dueDate) {
         const start = parseIST(data.startDate);
@@ -549,3 +532,4 @@ export const dailyReportSchema = z.object({
 
 export type DailyReportEntryType = z.infer<typeof dailyReportEntrySchema>;
 export type DailyReportFormType = z.infer<typeof dailyReportSchema>;
+export type ActivityFormType = z.infer<typeof activitySchema>;

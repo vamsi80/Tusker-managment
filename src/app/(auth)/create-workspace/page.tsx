@@ -15,7 +15,7 @@ import { useConfetti } from '@/hooks/use-confetti'
 import { tryCatch } from '@/hooks/try-catch'
 import { Textarea } from '@/components/ui/textarea'
 import slugify from "slugify";
-import { createWorkSpace } from '@/actions/workspace/create-workspace'
+import { apiClient } from '@/lib/api-client'
 
 import { AppLoader } from '@/components/shared/app-loader'
 
@@ -56,7 +56,7 @@ function CreateWorkspaceContent() {
     function onSubmit(values: WorkSpaceSchemaType) {
 
         startTransition(async () => {
-            const { data: result, error } = await tryCatch(createWorkSpace(values));
+            const { data: result, error } = await tryCatch(apiClient.workspaces.create(values));
             console.log("results", { result });
 
             if (error) {

@@ -134,13 +134,7 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
             name: project.name,
             slug: project.slug,
             color: project.color,
-            description: project.description,
-            createdBy: project.createdBy,
             canManageMembers: isOwnerOrAdmin || isProjectManager || isCreator,
-            memberCount: project._count.projectMembers,
-            memberIds: project.projectMembers.map(m => m.workspaceMember.userId),
-            // We only need basic status for the list, detail views fetch more
-            isLead: isProjectLead,
         };
     });
 }

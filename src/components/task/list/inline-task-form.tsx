@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { X, Check, Loader2 } from "lucide-react";
-import { createTask } from "@/actions/task/create-task";
+import { apiClient } from "@/lib/api-client";
 import { tryCatch } from "@/hooks/try-catch";
 import { toast } from "sonner";
 import slugify from "slugify";
@@ -93,20 +93,24 @@ export function InlineTaskForm({
         onCancel();
 
         startTransition(async () => {
-            const { data: result, error } = await tryCatch(
-                createTask({
+            const res = await tryCatch(
+                apiClient.tasks.createTask({
                     name: taskName.trim(),
                     taskSlug: taskSlug,
                     projectId: level === "workspace" ? selectedProjectId : initialProjectId,
                 })
             );
 
-            if (error || result.status !== "success") {
-                toast.error(error?.message || result?.message || "Failed to create task");
-                // ROLLBACK: Remove the optimistic item from TaskTable
-                if (onTaskDeleted) {
-                    onTaskDeleted(tempId);
-                }
+            if (res.error) {
+                toast.error(res.error.message || "Failed to create task");
+                if (onTaskDeleted) onTaskDeleted(tempId);
+                return;
+            }
+
+            const result = res.data;
+            if (result.status !== "success") {
+                toast.error(result.message || "Failed to create task");
+                if (onTaskDeleted) onTaskDeleted(tempId);
                 return;
             }
 

@@ -1,6 +1,8 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { format } from "date-fns"
+ 
+export const APP_DATE_FORMAT = "d MMM yyyy";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -11,16 +13,24 @@ export function cn(...inputs: ClassValue[]) {
  * This prevents 1-day shifts caused by local timezone offsets.
  */
 /**
- * Parses a local date-time string (YYYY-MM-DDTHH:mm) as Indian Standard Time (IST)
+ * Parses a local date-time string (YYYY-MM-DDTHH:mm or YYYY-MM-DD) as Indian Standard Time (IST)
  */
 export function parseIST(dateStr: string | null | undefined): Date | null {
   if (!dateStr) return null;
   // If it's already an ISO string with timezone, parse it directly
-  if (dateStr.includes('Z') || dateStr.includes('+')) return new Date(dateStr);
+  if (dateStr.includes('Z') || dateStr.includes('+')) {
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? null : d;
+  }
   
-  // datetime-local gives YYYY-MM-DDTHH:mm
-  // We append the IST offset +05:30
-  return new Date(`${dateStr}:00+05:30`);
+  // If it's just YYYY-MM-DD (date only), add default time
+  let finalStr = dateStr;
+  if (!dateStr.includes('T') && dateStr.includes('-')) {
+    finalStr = `${dateStr}T00:00`;
+  }
+  
+  const d = new Date(`${finalStr}:00+05:30`);
+  return isNaN(d.getTime()) ? null : d;
 }
 
 /**
@@ -34,8 +44,8 @@ export function formatDateUTC(date: string | Date | null | undefined, includeTim
   // Using Intl.DateTimeFormat to reliably get IST components regardless of local environment
   const formatter = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Asia/Kolkata',
-    day: '2-digit',
-    month: '2-digit',
+    day: 'numeric',
+    month: 'short',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
@@ -51,14 +61,14 @@ export function formatDateUTC(date: string | Date | null | undefined, includeTim
   const hours = getPart('hour');
   const minutes = getPart('minute');
 
-  const dateStr = `${day}/${month}/${year}`;
+  const dateStr = `${day} ${month} ${year}`;
   return includeTime ? `${dateStr} ${hours}:${minutes}` : dateStr;
 }
 
 /**
  * Formats a date in Indian Standard Time (IST)
  */
-export function formatIST(date: string | Date | null | undefined, formatStr: string = "PPP"): string {
+export function formatIST(date: string | Date | null | undefined, formatStr: string = APP_DATE_FORMAT): string {
   if (!date) return "-";
   const d = new Date(date);
   if (isNaN(d.getTime())) return "-";

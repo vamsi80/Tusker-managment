@@ -11,7 +11,7 @@ import { useSearchParams, useParams } from "next/navigation";
 import { fetchSubTaskBySlugAction } from "@/actions/task/fetch-subtask-by-slug";
 
 export function GlobalSubTaskSheet() {
-    const { isOpen, subTask, openSubTaskSheet, openSubTaskSheetLoading, closeSubTaskSheet } = useSubTaskSheet();
+    const { isOpen, subTask, openSubTaskSheet, openSubTaskSheetLoading, closeSubTaskSheet, patchSubTask } = useSubTaskSheet();
     const searchParams = useSearchParams();
     const params = useParams();
     const workspaceId = params.workspaceId as string;
@@ -55,6 +55,7 @@ export function GlobalSubTaskSheet() {
             subTask={subTask}
             isOpen={isOpen}
             onClose={closeSubTaskSheet}
+            onSubTaskAssigned={patchSubTask}
         />
     );
 }

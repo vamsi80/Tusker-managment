@@ -32,7 +32,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { inviteUserToWorkspace } from "../actions";
+import { apiClient } from "@/lib/api-client";
 import { inviteUserSchema, InviteUserSchemaType, workspaceMemberRole } from "@/lib/zodSchemas";
 import { tryCatch } from "@/hooks/try-catch";
 import { useConfetti } from "@/hooks/use-confetti";
@@ -90,7 +90,7 @@ export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onO
 
     function onSubmit(data: InviteUserSchemaType) {
         startTransition(async () => {
-            const { data: result, error } = await tryCatch(inviteUserToWorkspace(data));
+            const { data: result, error } = await tryCatch(apiClient.workspaces.invite(workspaceId, data));
             console.log("results", { result });
 
             if (error) {
@@ -103,10 +103,11 @@ export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onO
                 toast.success(result.message);
                 triggerConfetti();
                 form.reset();
+                setOpen(false);
                 router.refresh();
-            } else (
+            } else {
                 toast.error(result.message)
-            )
+            }
         });
     }
 
@@ -121,7 +122,7 @@ export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onO
             {!hideTrigger && isAdmin && (
                 <DialogTrigger asChild>
                     <Button>
-                        Invite User
+                        Invite New Member
                         <Plus className="ml-2" size={16} />
                     </Button>
                 </DialogTrigger>

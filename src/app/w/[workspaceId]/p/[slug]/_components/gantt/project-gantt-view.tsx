@@ -9,8 +9,10 @@ const ProjectGanttClient = dynamic(
 );
 import { requireUser } from "@/lib/auth/require-user";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
-import { getWorkspaceTags } from "@/data/tag/get-tags";
 import prisma from "@/lib/db";
+import { getProjectMembers } from "@/data/project/get-project-members";
+import { getWorkspaceTags } from "@/data/tag/get-tags";
+import { MemberOption, TagOption } from "@/components/task/shared/types";
 
 interface GanttServerWrapperProps {
     workspaceId: string;
@@ -24,26 +26,7 @@ interface GanttServerWrapperProps {
 export async function GanttServerWrapper({ workspaceId, projectId }: GanttServerWrapperProps) {
     // 1. Kick off all independent queries immediately!
     const userPromise = requireUser();
-    const pmMatchesPromise = prisma.projectMember.findMany({
-        where: { projectId },
-        select: {
-            id: true,
-            projectRole: true,
-            workspaceMember: {
-                select: {
-                    userId: true,
-                    user: {
-                        select: {
-                            id: true,
-                            name: true,
-                            surname: true,
-                            email: true
-                        }
-                    }
-                }
-            }
-        }
-    });
+    const membersPromise = getProjectMembers(projectId);
     const tagsPromise = getWorkspaceTags(workspaceId);
 
     // 2. Wait for user safely
@@ -60,7 +43,7 @@ export async function GanttServerWrapper({ workspaceId, projectId }: GanttServer
             view_mode: "gantt"
         }, user.id),
         getWorkspacePermissions(workspaceId, user.id),
-        pmMatchesPromise,
+        membersPromise,
         tagsPromise
     ]);
 
@@ -81,23 +64,19 @@ export async function GanttServerWrapper({ workspaceId, projectId }: GanttServer
         }
     });
 
-    // 4. Enrich tasks with assignee roles & build member options
+    // 4. Transform roles Mapping
     const roleMap: Record<string, string> = {};
-    const memberOptions = projectMembers.map((pm: any) => {
-        const userId = pm.workspaceMember.userId;
-        const user = pm.workspaceMember.user;
-        roleMap[pm.id] = pm.projectRole;
-        return {
-            id: userId,
-            name: user?.name || '',
-            surname: user?.surname || undefined,
-            email: user?.email || undefined
-        };
+    projectMembers.forEach((pm: any) => {
+        roleMap[pm.projectMemberId] = pm.projectRole;
     });
 
     allTasks.forEach(t => {
         if (t.assigneeId) {
-            t.projectRole = roleMap[t.assigneeId];
+            // Find the member in projectMembers to get the role
+            const member = projectMembers.find((pm: any) => pm.projectMemberId === t.assigneeId);
+            if (member) {
+                t.projectRole = member.projectRole;
+            }
         }
     });
 
@@ -107,7 +86,7 @@ export async function GanttServerWrapper({ workspaceId, projectId }: GanttServer
     // 6. Get Project Counts
     const projectCounts = (tasksData as any)?.facets?.projects;
 
-    const tagOptions = tags.map(t => ({ id: t.id, name: t.name }));
+    const tagOptions = tags.map((t: any) => ({ id: t.id, name: t.name }));
 
     return (
         <ProjectGanttClient
@@ -116,7 +95,7 @@ export async function GanttServerWrapper({ workspaceId, projectId }: GanttServer
             initialTasks={ganttTasks}
             allTasks={allTasks}
             subtaskDataMap={subtaskDataMap}
-            members={memberOptions}
+            members={projectMembers}
             tags={tagOptions}
             projectCounts={projectCounts}
             currentUser={{ id: user.id }}

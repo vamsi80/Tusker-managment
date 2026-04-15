@@ -13,6 +13,7 @@ import { Check, ChevronsUpDown, Loader2, Plus } from "lucide-react";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "../../../../../components/ui/sidebar";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useMounted } from "@/hooks/use-mounted";
 import type { WorkspacesType } from "@/data/workspace/get-workspaces";
 
 interface Props {
@@ -25,6 +26,7 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const navigatingTo = useRef<string | null>(null);
+  const mounted = useMounted();
 
   const workspaces = data?.workspaces ?? []; // array of workspace items
   // find current workspace item from workspaceId or default to first item
@@ -53,66 +55,68 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <SidebarMenuButton
-              size="lg"
-              className={`data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground ${isPending ? 'opacity-60' : ''}`}
-            >
-              {isPending ? (
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-              ) : (
-                <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
-                    {(selected?.name ?? selected?.id ?? "W").charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-              )}
+        {mounted && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <SidebarMenuButton
+                size="lg"
+                className={`data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground ${isPending ? 'opacity-60' : ''}`}
+              >
+                {isPending ? (
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                ) : (
+                  <Avatar className="h-8 w-8 rounded-lg">
+                    <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
+                      {(selected?.name ?? selected?.id ?? "W").charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                )}
 
-              <div className="flex flex-col ml-2">
-                <div className="font-semibold text-muted-foreground">
-                  {isPending ? "Switching..." : (selected?.name ?? "No Workspaces")}
+                <div className="flex flex-col ml-2">
+                  <div className="font-semibold text-muted-foreground">
+                    {isPending ? "Switching..." : (selected?.name ?? "No Workspaces")}
+                  </div>
                 </div>
-              </div>
-              <ChevronsUpDown className="ml-auto" />
-            </SidebarMenuButton>
-          </DropdownMenuTrigger>
+                <ChevronsUpDown className="ml-auto" />
+              </SidebarMenuButton>
+            </DropdownMenuTrigger>
 
-          <DropdownMenuContent
-            className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
-            align="start"
-            sideOffset={5}
-          >
-            {!workspaces.length && <DropdownMenuItem>No workspaces</DropdownMenuItem>}
+            <DropdownMenuContent
+              className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+              align="start"
+              sideOffset={5}
+            >
+              {!workspaces.length && <DropdownMenuItem>No workspaces</DropdownMenuItem>}
 
-            {workspaces.map((ws) => {
-              const routeKey = ws.id;
-              return (
-                <DropdownMenuItem
-                  key={ws.id}
-                  onClick={() => onWorkspaceSelect(routeKey)}
-                  disabled={isPending}
-                >
-                  <div className="flex flex-row items-center gap-2">
-                    <Avatar className="h-8 w-8 rounded-lg">
-                      {/* No external avatar, fallback to initials using Tailwind CSS */}
-                      <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
-                        {(ws.name ?? ws.id ?? "W").charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col ml-2">
-                      <div className="font-semibold text-muted-foreground">
-                        {ws.name ?? ws.id}
+              {workspaces.map((ws) => {
+                const routeKey = ws.id;
+                return (
+                  <DropdownMenuItem
+                    key={ws.id}
+                    onClick={() => onWorkspaceSelect(routeKey)}
+                    disabled={isPending}
+                  >
+                    <div className="flex flex-row items-center gap-2">
+                      <Avatar className="h-8 w-8 rounded-lg">
+                        {/* No external avatar, fallback to initials using Tailwind CSS */}
+                        <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
+                          {(ws.name ?? ws.id ?? "W").charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col ml-2">
+                        <div className="font-semibold text-muted-foreground">
+                          {ws.name ?? ws.id}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  {routeKey === workspaceId && <Check className="ml-auto" />}
-                </DropdownMenuItem>
-              );
-            })}
+                    {routeKey === workspaceId && <Check className="ml-auto" />}
+                  </DropdownMenuItem>
+                );
+              })}
 
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </SidebarMenuItem>
     </SidebarMenu>
   );

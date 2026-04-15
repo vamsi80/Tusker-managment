@@ -1,266 +1,85 @@
 "use server";
 
-import prisma from "@/lib/db";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
 import {
-    invalidateProjectTasks,
-    invalidateProjectSubTasks
+  invalidateProjectTasks,
+  invalidateProjectSubTasks,
 } from "@/lib/cache/invalidation";
-
-export interface DependencyResult {
-    success: boolean;
-    message: string;
-}
+import { requireUser } from "@/lib/auth/require-user";
+import { ApiResponse } from "@/lib/types";
+import { TasksService } from "@/server/services/tasks.service";
 
 /**
- * Add a dependency between two subtasks
- * 
- * Permission Rules:
- * - Project admin/lead can add dependencies
- * - Task creator can add dependencies to their tasks
- * - Prevents circular dependencies
- * - Auto-adjusts dependent task dates (Finish-to-Start)
- * 
- * @param subtaskId - The subtask that depends on another
- * @param dependsOnId - The subtask that must be completed first
- * @param projectId - Project ID for permission check
- * @param workspaceId - Workspace ID for permission check
+ * Server Action to add dependencies between subtasks (supports multiple).
  */
 export async function addSubtaskDependency(
-    subtaskId: string,
-    dependsOnId: string,
-    projectId: string,
-    workspaceId: string
-): Promise<DependencyResult> {
-    try {
-        // 2. Get user permissions
-        const permissions = await getUserPermissions(workspaceId, projectId);
+  subtaskId: string,
+  dependsOnIds: string[],
+  projectId: string,
+  workspaceId: string,
+): Promise<ApiResponse> {
+  try {
+    const permissions = await getUserPermissions(workspaceId, projectId);
 
-        if (!permissions.workspaceMemberId) {
-            return { success: false, message: "You do not have access to this project" };
-        }
+    const user = await requireUser();
 
-        // 3. Prevent self-dependency
-        if (subtaskId === dependsOnId) {
-            return { success: false, message: "A task cannot depend on itself" };
-        }
+    await TasksService.addDependency({
+      subtaskId,
+      dependsOnIds,
+      projectId,
+      workspaceId,
+      permissions,
+    });
 
-        // 4. Validate that both tasks exist and belong to the same project
-        const [subtask, dependsOnTask] = await Promise.all([
-            prisma.task.findUnique({
-                where: { id: subtaskId },
-                select: {
-                    id: true,
-                    parentTask: {
-                        select: {
-                            projectId: true,
-                            createdById: true,
-                        },
-                    },
-                    startDate: true,
-                    days: true,
-                },
-            }),
-            prisma.task.findUnique({
-                where: { id: dependsOnId },
-                select: {
-                    id: true,
-                    parentTask: {
-                        select: {
-                            projectId: true,
-                        },
-                    },
-                    startDate: true,
-                    days: true,
-                },
-            }),
-        ]);
+    // Invalidate cache for Gantt view
+    await invalidateProjectTasks(projectId, user.id);
+    await invalidateProjectSubTasks(projectId);
 
-        if (!subtask || !dependsOnTask) {
-            return { success: false, message: "One or both tasks not found" };
-        }
-
-        if (subtask.parentTask?.projectId !== projectId || dependsOnTask.parentTask?.projectId !== projectId) {
-            return { success: false, message: "Tasks must belong to the same project" };
-        }
-
-        // 5. Check permissions
-        const isAdminOrLead = permissions.isWorkspaceAdmin || permissions.isProjectLead;
-        const isTaskCreator = subtask.parentTask?.createdById === permissions.workspaceMemberId;
-
-        if (!isAdminOrLead && !isTaskCreator) {
-            return {
-                success: false,
-                message: "You are not authorized to add dependencies. Only project admin, lead, or task creator can add dependencies.",
-            };
-        }
-
-        // 6. Check for circular dependencies
-        const hasCircularDependency = await checkCircularDependency(subtaskId, dependsOnId);
-        if (hasCircularDependency) {
-            return { success: false, message: "This would create a circular dependency" };
-        }
-
-        // 7. Add the dependency
-        await prisma.task.update({
-            where: { id: subtaskId },
-            data: {
-                Task_TaskDependency_A: {
-                    connect: { id: dependsOnId },
-                },
-            },
-        });
-
-        // 8. Auto-adjust the dependent task's start date (Finish-to-Start)
-        if (dependsOnTask.startDate && dependsOnTask.days && subtask.startDate) {
-            const dependsOnEndDate = new Date(dependsOnTask.startDate);
-            dependsOnEndDate.setDate(dependsOnEndDate.getDate() + dependsOnTask.days - 1);
-
-            const newSubtaskStartDate = new Date(dependsOnEndDate);
-            newSubtaskStartDate.setDate(newSubtaskStartDate.getDate() + 1);
-
-            // Only update if the dependent task would start before the predecessor ends
-            if (subtask.startDate < newSubtaskStartDate) {
-                await prisma.task.update({
-                    where: { id: subtaskId },
-                    data: {
-                        startDate: newSubtaskStartDate,
-                    },
-                });
-            }
-        }
-
-        // 9. OPTIMIZED: Use comprehensive cache invalidation
-        // Invalidates project tasks and subtasks for Gantt view
-        await invalidateProjectTasks(projectId);
-        await invalidateProjectSubTasks(projectId);
-
-        return { success: true, message: "Dependency added successfully" };
-    } catch (error) {
-        console.error("Error adding dependency:", error);
-        return { success: false, message: "Failed to add dependency" };
-    }
+    return {
+      status: "success",
+      message: "Dependencies added successfully",
+    };
+  } catch (err: any) {
+    console.error("[ACTION_ADD_DEPENDENCY_ERROR]", err);
+    return {
+      status: "error",
+      message: err.message || "Failed to add dependencies",
+    };
+  }
 }
 
 /**
- * Remove a dependency between two subtasks
- * 
- * Permission Rules:
- * - Project admin/lead can remove dependencies
- * - Task creator can remove dependencies from their tasks
+ * Server Action to remove a dependency between subtasks.
  */
 export async function removeSubtaskDependency(
-    subtaskId: string,
-    dependsOnId: string,
-    projectId: string,
-    workspaceId: string
-): Promise<DependencyResult> {
-    try {
-        // 2. Get user permissions
-        const permissions = await getUserPermissions(workspaceId, projectId);
+  subtaskId: string,
+  dependsOnId: string,
+  projectId: string,
+  workspaceId: string,
+): Promise<ApiResponse> {
+  try {
+    const permissions = await getUserPermissions(workspaceId, projectId);
 
-        if (!permissions.workspaceMemberId) {
-            return { success: false, message: "You do not have access to this project" };
-        }
+    const user = await requireUser();
 
-        // 3. Fetch the subtask to check permissions
-        const subtask = await prisma.task.findUnique({
-            where: { id: subtaskId },
-            select: {
-                id: true,
-                parentTask: {
-                    select: {
-                        projectId: true,
-                        createdById: true,
-                    },
-                },
-            },
-        });
+    await TasksService.removeDependency({
+      subtaskId,
+      dependsOnId,
+      permissions,
+    });
 
-        if (!subtask) {
-            return { success: false, message: "Subtask not found" };
-        }
+    await invalidateProjectTasks(projectId, user.id);
+    await invalidateProjectSubTasks(projectId);
 
-        if (subtask.parentTask?.projectId !== projectId) {
-            return { success: false, message: "Subtask does not belong to this project" };
-        }
-
-        // 4. Check permissions
-        const isAdminOrLead = permissions.isWorkspaceAdmin || permissions.isProjectLead;
-        const isTaskCreator = subtask.parentTask?.createdById === permissions.workspaceMemberId;
-
-        if (!isAdminOrLead && !isTaskCreator) {
-            return {
-                success: false,
-                message: "You are not authorized to remove dependencies. Only project admin, lead, or task creator can remove dependencies.",
-            };
-        }
-
-        // 5. Remove the dependency
-        await prisma.task.update({
-            where: { id: subtaskId },
-            data: {
-                Task_TaskDependency_A: {
-                    disconnect: { id: dependsOnId },
-                },
-            },
-        });
-
-        // 6. OPTIMIZED: Use comprehensive cache invalidation
-        // Invalidates project tasks and subtasks for Gantt view
-        await invalidateProjectTasks(projectId);
-        await invalidateProjectSubTasks(projectId);
-
-        return { success: true, message: "Dependency removed successfully" };
-    } catch (error) {
-        console.error("Error removing dependency:", error);
-        return { success: false, message: "Failed to remove dependency" };
-    }
-}
-
-/**
- * Check if adding a dependency would create a circular reference
- */
-async function checkCircularDependency(subtaskId: string, dependsOnId: string): Promise<boolean> {
-    const visited = new Set<string>();
-    let currentLevel = [dependsOnId];
-
-    while (currentLevel.length > 0) {
-        // If we find the original subtask in the dependency chain, it's circular
-        if (currentLevel.includes(subtaskId)) {
-            return true;
-        }
-
-        // Add current level to visited
-        currentLevel.forEach(id => visited.add(id));
-
-        // Get dependencies for ALL tasks in the current level in ONE query
-        const tasks = await prisma.task.findMany({
-            where: { id: { in: currentLevel } },
-            select: {
-                Task_TaskDependency_A: {
-                    select: { id: true },
-                },
-            },
-        });
-
-        // Collect next level IDs
-        const nextLevel: string[] = [];
-        tasks.forEach(task => {
-            if (task.Task_TaskDependency_A) {
-                task.Task_TaskDependency_A.forEach((dep: { id: string }) => {
-                    if (!visited.has(dep.id)) {
-                        nextLevel.push(dep.id);
-                    }
-                });
-            }
-        });
-
-        currentLevel = Array.from(new Set(nextLevel));
-
-        // Safety break for extremely deep/corrupt chains
-        if (visited.size > 1000) break;
-    }
-
-    return false;
+    return {
+      status: "success",
+      message: "Dependency removed successfully",
+    };
+  } catch (err: any) {
+    console.error("[ACTION_REMOVE_DEPENDENCY_ERROR]", err);
+    return {
+      status: "error",
+      message: err.message || "Failed to remove dependency",
+    };
+  }
 }

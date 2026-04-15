@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useTaskContext } from "@/app/w/[workspaceId]/_components/shared/task-context";
 import { ApiResponse } from "@/lib/types";
-import { bulkUploadTasksAndSubtasks } from "@/actions/task/bulk-create-taskAndSubTask";
+import { apiClient } from "@/lib/api-client";
 import { useDropzone, FileRejection } from "react-dropzone";
 import { cn } from "@/lib/utils";
 
@@ -134,13 +134,13 @@ Project Kickoff,,,,,,,,`;
             EXAMPLE STRUCTURE:
             -----------------
 
-            Task Name          | Subtask Name      | Description                    | Assignee Email      | Start Date | Days | Status      | Tag
-            -------------------|-------------------|--------------------------------|---------------------|------------|------|-------------|-------------
-            Design Homepage    |                   |                                |                     |            |      |             |
-            Design Homepage    | Create wireframe  | Design wireframe mockup        | john@example.com    | 2024-01-15 | 3    | COMPLETED   | DESIGN
-            Design Homepage    | Design components | Create reusable UI components  | jane@example.com    | 2024-01-18 | 4    | IN_PROGRESS | DESIGN
-            Procurement        |                   |                                |                     |            |      |             |
-            Procurement        | Get quotes        | Collect vendor quotes          | vendor@example.com  | 2024-01-20 | 2    | TO_DO       | PROCUREMENT
+            Task Name          | Subtask Name      | Description                    | Assignee Email      | Reviewer Email      | Start Date | Days | Status      | Tag
+            -------------------|-------------------|--------------------------------|---------------------|---------------------|------------|------|-------------|-------------
+            Design Homepage    |                   |                                |                     |                     |            |      |             |
+            Design Homepage    | Create wireframe  | Design wireframe mockup        | john@example.com    | admin@example.com   | 2024-01-15 | 3    | COMPLETED   | DESIGN
+            Design Homepage    | Design components | Create reusable UI components  | jane@example.com    |                     | 2024-01-18 | 4    | IN_PROGRESS | DESIGN
+            Procurement        |                   |                                |                     |                     |            |      |             |
+            Procurement        | Get quotes        | Collect vendor quotes          | vendor@example.com  | admin@example.com   | 2024-01-20 | 2    | TO_DO       | PROCUREMENT
 
             TIPS:
             -----
@@ -329,10 +329,10 @@ Project Kickoff,,,,,,,,`;
         startTransition(async () => {
             setIsAddingTask(true);
             const { data: result, error } = await tryCatch<ApiResponse>(
-                bulkUploadTasksAndSubtasks({
+                apiClient.tasks.bulkUpload(
                     projectId,
-                    tasks: parsedData,
-                })
+                    parsedData,
+                )
             );
 
             if (error) {

@@ -6,14 +6,15 @@ import { useSearchParams, usePathname } from "next/navigation";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Tabs } from "@/components/ui/tabs";
-import { fetchCommentsAction, fetchReviewCommentsAction } from "@/actions/comment";
+import { fetchCommentsAction, fetchActivitiesAction } from "@/actions/comment";
 
 // Import modular components
 import { SubtaskSheetHeader } from "./subtask-sheet-header";
 import { SubtaskSheetNavBar } from "./subtask-sheet-navbar";
+import { getProjectMembers, ProjectMembersType } from "@/data/project/get-project-members";
 import dynamic from "next/dynamic";
 const MessagesTab = dynamic(() => import("./messages-tab").then(mod => mod.MessagesTab), { ssr: false });
-const ReviewTab = dynamic(() => import("./review-tab").then(mod => mod.ReviewTab), { ssr: false });
+const ActivityTab = dynamic(() => import("./activity-tab").then(mod => mod.ActivityTab), { ssr: false });
 
 interface SubTaskDetailsSheetProps {
     subTask: TaskByIdType | null;
@@ -22,8 +23,12 @@ interface SubTaskDetailsSheetProps {
     disableUrlSync?: boolean;
     // Pre-fetched data from server component
     initialComments?: any[];
-    initialReviewComments?: any[];
+    initialActivities?: any[];
     currentUserId?: string | null;
+    /** Called when the assignee is updated inline from within the sheet */
+    onSubTaskAssigned?: (subTaskId: string, updatedData: any) => void;
+    isAdmin?: boolean;
+    isProjectManager?: boolean;
 }
 
 interface Comment {
@@ -44,7 +49,7 @@ interface Comment {
     replies?: Comment[];
 }
 
-interface ReviewComment {
+interface Activity {
     id: string;
     text: string;
     attachment: {
@@ -66,7 +71,7 @@ interface ReviewComment {
 
 // Client-side cache for instant re-opening
 export const commentCache = new Map<string, any[]>();
-export const reviewCommentCache = new Map<string, any[]>();
+export const activityCache = new Map<string, any[]>();
 export const pendingPrefetches = new Set<string>(); // LOCK: Prevents redundant DB queries
 
 /**
@@ -88,21 +93,25 @@ export function SubTaskDetailsSheet({
     onClose = () => { },
     disableUrlSync = false,
     initialComments = [],
-    initialReviewComments = [],
+    initialActivities = [],
     currentUserId: initialCurrentUserId = null,
+    onSubTaskAssigned,
+    isAdmin = false,
+    isProjectManager = false,
 }: SubTaskDetailsSheetProps) {
     const [activeTab, setActiveTab] = useState<"messages" | "review">("messages");
     const [comments, setComments] = useState<Comment[]>([]);
-    const [reviewComments, setReviewComments] = useState<ReviewComment[]>([]);
+    const [activities, setActivities] = useState<Activity[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [isLoadingReview, setIsLoadingReview] = useState(false);
+    const [isLoadingActivity, setIsLoadingActivity] = useState(false);
     const [currentUserId, setCurrentUserId] = useState<string | null>(initialCurrentUserId);
+    const [members, setMembers] = useState<ProjectMembersType>([]);
 
     const pathname = usePathname();
     const searchParams = useSearchParams();
 
     const loadedSubTaskIdRef = useRef<string>("");
-    const reviewCommentsLoadedRef = useRef<boolean>(false);
+    const activitiesLoadedAtRef = useRef<number>(0);
 
     // Initial cache sync
     useEffect(() => {
@@ -115,10 +124,10 @@ export function SubTaskDetailsSheet({
                 setComments(initialComments as Comment[]);
             }
 
-            if (reviewCommentCache.has(subTask.id)) {
-                setReviewComments(reviewCommentCache.get(subTask.id)!);
+            if (activityCache.has(subTask.id)) {
+                setActivities(activityCache.get(subTask.id)!);
             } else {
-                setReviewComments(initialReviewComments as ReviewComment[]);
+                setActivities(initialActivities as Activity[]);
             }
         }
     }, [subTask?.id]);
@@ -175,27 +184,27 @@ export function SubTaskDetailsSheet({
         }
     }, [subTask?.id]);
 
-    const loadReviewComments = useCallback(async () => {
+    const loadActivities = useCallback(async () => {
         if (!subTask) return;
 
-        if (pendingPrefetches.has(`reviews-${subTask.id}`)) return;
-        pendingPrefetches.add(`reviews-${subTask.id}`);
-        setIsLoadingReview(true);
+        if (pendingPrefetches.has(`activities-${subTask.id}`)) return;
+        pendingPrefetches.add(`activities-${subTask.id}`);
+        setIsLoadingActivity(true);
         try {
-            const result = await fetchReviewCommentsAction(subTask.id);
-            if (result.success && result.reviewComments) {
-                const fetchedReviewComments = result.reviewComments as ReviewComment[];
-                setReviewComments(fetchedReviewComments);
-                reviewCommentCache.set(subTask.id, fetchedReviewComments); // Update cache
+            const result = await fetchActivitiesAction(subTask.id);
+            if (result.success && result.activities) {
+                const fetchedActivities = result.activities as Activity[];
+                setActivities(fetchedActivities);
+                activityCache.set(subTask.id, fetchedActivities); // Update cache
             } else {
-                toast.error(result.error || "Failed to load review comments");
+                toast.error(result.error || "Failed to load activities");
             }
         } catch (error) {
-            console.error("Error loading review comments:", error);
-            toast.error("Failed to load review comments");
+            console.error("Error loading activities:", error);
+            toast.error("Failed to load activities");
         } finally {
-            setIsLoadingReview(false);
-            pendingPrefetches.delete(`reviews-${subTask.id}`);
+            setIsLoadingActivity(false);
+            pendingPrefetches.delete(`activities-${subTask.id}`);
         }
     }, [subTask?.id]);
 
@@ -212,30 +221,57 @@ export function SubTaskDetailsSheet({
         }
     }, [subTask?.id, isOpen, loadComments]);
 
-    // Load review comments when switching to review tab
+    // Load activities when switching to activity tab
     useEffect(() => {
-        if (activeTab === "review" && subTask && !reviewCommentsLoadedRef.current && !isLoadingReview) {
-            reviewCommentsLoadedRef.current = true;
-            loadReviewComments();
+        if (activeTab === "review" && subTask && !isLoadingActivity) {
+            const lastUpdated = subTask.updatedAt ? new Date(subTask.updatedAt).getTime() : 0;
+            
+            // Re-fetch ONLY if we haven't loaded yet OR if the task was updated since we last loaded
+            if (activitiesLoadedAtRef.current < lastUpdated || activitiesLoadedAtRef.current === 0) {
+                activitiesLoadedAtRef.current = Date.now();
+                loadActivities();
+            }
         }
 
         // Reset when subtask changes
         if (subTask?.id !== loadedSubTaskIdRef.current) {
-            reviewCommentsLoadedRef.current = false;
+            activitiesLoadedAtRef.current = 0;
         }
-    }, [activeTab, subTask?.id, isLoadingReview, loadReviewComments]);
+    }, [activeTab, subTask?.id, subTask?.updatedAt, isLoadingActivity, loadActivities]);
+
+    // Fetch members when projectId changes or sheet opens
+    useEffect(() => {
+        if (subTask?.projectId && isOpen) {
+            getProjectMembers(subTask.projectId).then(setMembers);
+        }
+    }, [subTask?.projectId, isOpen]);
 
     return (
         <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <SheetContent className="w-full sm:max-w-2xl p-0 flex flex-col h-full bg-background border-l">
+                <SheetTitle className="sr-only">{subTask?.name || "SubTask Details"}</SheetTitle>
+                <SheetDescription className="sr-only">
+                    {subTask ? `Details and activity for subtask ${subTask.name}` : "Loading subtask details..."}
+                </SheetDescription>
                 {subTask ? (
                     <>
-                        <SheetTitle className="sr-only">{subTask.name}</SheetTitle>
-                        <SheetDescription className="sr-only">
-                            Details and activity for subtask {subTask.name}
-                        </SheetDescription>
                         {/* Header Component */}
-                        <SubtaskSheetHeader subTask={subTask} />
+                        <SubtaskSheetHeader
+                            subTask={subTask}
+                            currentUserId={currentUserId}
+                            members={members}
+                            isAdmin={isAdmin || members.find(m => m.userId === currentUserId)?.workspaceRole === 'ADMIN' || members.find(m => m.userId === currentUserId)?.workspaceRole === 'OWNER'}
+                            isProjectManager={isProjectManager || members.find(m => m.userId === currentUserId)?.projectRole === 'PROJECT_MANAGER'}
+                            onSubTaskAssigned={(memberObj) => {
+                                onSubTaskAssigned?.(subTask.id, {
+                                    assignee: {
+                                        workspaceMember: {
+                                            user: memberObj
+                                        }
+                                    }
+                                });
+                            }}
+                        />
 
                         {/* Tabbed Section - Takes Remaining Space */}
                         <div className="border-t flex-1 flex flex-col min-h-0">
@@ -245,7 +281,7 @@ export function SubTaskDetailsSheet({
                                     activeTab={activeTab}
                                     onTabChange={setActiveTab}
                                     messagesCount={comments.length}
-                                    reviewCount={reviewComments.length}
+                                    activityCount={activities.length}
                                 />
 
                                 {/* Tab Content */}
@@ -260,9 +296,9 @@ export function SubTaskDetailsSheet({
                                 )}
 
                                 {activeTab === "review" && (
-                                    <ReviewTab
-                                        reviewComments={reviewComments}
-                                        isLoadingReview={isLoadingReview}
+                                    <ActivityTab
+                                        activities={activities}
+                                        isLoadingActivity={isLoadingActivity}
                                     />
                                 )}
                             </Tabs>

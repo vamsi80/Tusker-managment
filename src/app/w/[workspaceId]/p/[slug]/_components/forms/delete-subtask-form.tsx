@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Trash2, Loader2, AlertTriangle } from "lucide-react";
+import { useParams } from "next/navigation";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -16,7 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { tryCatch } from "@/hooks/try-catch";
-import { deleteSubTask } from "@/actions/task/delete-subTask";
+import { apiClient, type ApiResponse } from "@/lib/api-client";
 
 // Generic subtask type that works with any subtask structure
 type SubTaskBase = {
@@ -27,11 +28,27 @@ type SubTaskBase = {
 interface DeleteSubTaskFormProps<T extends SubTaskBase> {
     subTask: T;
     onSubTaskDeleted?: (subTaskId: string) => void;
+    trigger?: React.ReactNode;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
 }
 
-export function DeleteSubTaskForm<T extends SubTaskBase>({ subTask, onSubTaskDeleted }: DeleteSubTaskFormProps<T>) {
-    const [open, setOpen] = useState(false);
+export function DeleteSubTaskForm<T extends SubTaskBase>({ 
+    subTask, 
+    onSubTaskDeleted,
+    trigger,
+    open: controlledOpen,
+    onOpenChange: controlledOnOpenChange
+}: DeleteSubTaskFormProps<T>) {
+    const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+    const isControlled = controlledOpen !== undefined;
+    const open = isControlled ? controlledOpen : uncontrolledOpen;
+    const setOpen = controlledOnOpenChange || setUncontrolledOpen;
+
     const [pending, startTransition] = useTransition();
+    const params = useParams();
+    const workspaceId = (params.workspaceId as string) || (subTask as any).workspaceId || "";
+    const projectId = (subTask as any).projectId || "";
 
     const handleDelete = () => {
         startTransition(async () => {
@@ -40,20 +57,28 @@ export function DeleteSubTaskForm<T extends SubTaskBase>({ subTask, onSubTaskDel
                 onSubTaskDeleted(subTask.id);
             }
 
-            const { data: result, error } = await tryCatch(deleteSubTask(subTask.id));
+            const res = await tryCatch(apiClient.tasks.deleteTask(
+                subTask.id, 
+                workspaceId,
+                projectId
+            ));
 
-            if (error) {
-                toast.error(error.message);
-                console.error(error);
+            if (res.error) {
+                toast.error(res.error.message);
+                console.error(res.error);
                 return;
             }
 
-            if (result.status === "success") {
-                toast.success(result.message);
+            // Defensive casting to overcome module resolution issues
+            const response = res.data as ApiResponse;
+            const { status: responseStatus, message: responseMessage } = response;
+
+            if (responseStatus === "success") {
+                toast.success(responseMessage);
                 setOpen(false);
-                // No need to reload view - optimistic update already done
             } else {
-                toast.error(result.message);
+                // If it failed on server, we might want to reload to sync UI
+                toast.error(responseMessage);
                 // TODO: Revert optimistic update on error
             }
         });
@@ -61,16 +86,20 @@ export function DeleteSubTaskForm<T extends SubTaskBase>({ subTask, onSubTaskDel
 
     return (
         <AlertDialog open={open} onOpenChange={setOpen}>
-            <AlertDialogTrigger asChild>
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
-                >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete SubTask
-                </Button>
-            </AlertDialogTrigger>
+            {!isControlled && (
+                <AlertDialogTrigger asChild>
+                    {trigger || (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete SubTask
+                        </Button>
+                    )}
+                </AlertDialogTrigger>
+            )}
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <div className="flex items-center gap-2">

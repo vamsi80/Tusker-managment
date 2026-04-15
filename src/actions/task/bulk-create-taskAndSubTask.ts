@@ -79,27 +79,41 @@ export async function bulkUploadTasksAndSubtasks(data: {
         const emailToSurname = new Map<string, string>();
         const pmIdToSurname = new Map<string, string>();
 
-        // Find current user's ProjectMember.id
-        let creatorProjectMemberId: string | null = null;
-
         for (const pm of projectMembers) {
             const email = pm.workspaceMember.user.email.toLowerCase();
             const surname = pm.workspaceMember.user.surname || "";
-            const userId = pm.workspaceMember.userId;
 
             emailToProjectMemberId.set(email, pm.id);
             emailToSurname.set(email, surname);
             pmIdToSurname.set(pm.id, surname);
+        }
 
-            if (userId === user.id) {
-                creatorProjectMemberId = pm.id;
-            }
+        // Find or create current user's ProjectMember.id
+        let creatorProjectMemberId = permissions.projectMember?.id;
+
+        // If not found by direct ID (permissions), try resolving by email from the fetched project members
+        if (!creatorProjectMemberId && user.email) {
+            creatorProjectMemberId = emailToProjectMemberId.get(user.email.toLowerCase());
+        }
+
+        // If STILL not found but user is Workspace Admin/Owner/Manager, automatically join them
+        if (!creatorProjectMemberId && (permissions.isWorkspaceAdmin || permissions.isProjectManager)) {
+            // Self-join the admin to the project so they can be the creator
+            const newMember = await prisma.projectMember.create({
+                data: {
+                    projectId: data.projectId,
+                    workspaceMemberId: permissions.workspaceMemberId!,
+                    projectRole: permissions.isWorkspaceAdmin ? "PROJECT_MANAGER" : "MEMBER",
+                    hasAccess: true,
+                }
+            });
+            creatorProjectMemberId = newMember.id;
         }
 
         if (!creatorProjectMemberId) {
             return {
                 status: "error",
-                message: "You are not a member of this project",
+                message: "You are not a member of this project and don't have permission to join automatically.",
             };
         }
 
@@ -154,8 +168,8 @@ export async function bulkUploadTasksAndSubtasks(data: {
 
             // Check for invalid dates
             if (task.startDate && task.startDate.trim()) {
-                const date = new Date(task.startDate);
-                if (isNaN(date.getTime())) {
+                const date = parseIST(task.startDate);
+                if (!date || isNaN(date.getTime())) {
                     invalidDates.push(`Row ${rowNum}: "${task.startDate}" (Task: ${task.taskName}${task.subtaskName ? ` - ${task.subtaskName}` : ''})`);
                 }
             }
@@ -244,10 +258,7 @@ export async function bulkUploadTasksAndSubtasks(data: {
                     : creatorProjectMemberId;
 
                 const parentStartDate = firstRow.startDate
-                    ? (() => {
-                        const d = new Date(firstRow.startDate);
-                        return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-                    })()
+                    ? parseIST(firstRow.startDate) || undefined
                     : undefined;
 
                 let parentTagId: string | undefined = undefined;

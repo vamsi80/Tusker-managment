@@ -38,7 +38,6 @@ const nextConfig: NextConfig = {
     'prisma',
     'xlsx-js-style',
     'nodemailer',
-    'resend',
     '@aws-sdk/client-s3',
     '@aws-sdk/s3-request-presigner'
   ],

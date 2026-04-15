@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useState, useEffect } from "react";
-import { usePathname, useSearchParams, useParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Bell, User, MessageSquare } from "lucide-react";
 import {
     Popover,
@@ -23,6 +23,11 @@ import {
     TabsList,
     TabsTrigger
 } from "@/components/ui/tabs";
+import { authClient } from "@/lib/auth-client";
+import { cn } from "@/lib/utils";
+import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
+import { pubsub, EVENTS } from "@/lib/pubsub";
+import { useRouter } from "next/navigation";
 
 export function NotificationCenter({ workspaceId, initialUnread = [], initialRead = [], initialPeopleCount = 0 }: { workspaceId: string, initialUnread?: any[], initialRead?: any[], initialPeopleCount?: number }) {
     const pathname = usePathname();
@@ -37,8 +42,59 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
     const [activeTab, setActiveTab] = useState("new");
     const [hasMore, setHasMore] = useState(false);
     const [offset, setOffset] = useState(0);
-
+    const [isPulsing, setIsPulsing] = useState(false);
     const LIMIT = 15;
+
+    const { data: session } = authClient.useSession();
+
+    const { openSubTaskSheetLoading } = useSubTaskSheet();
+    const router = useRouter();
+
+    // Listen for Real-time Notifications via PubSub
+    useEffect(() => {
+        if (!workspaceId) return;
+
+        console.log(`[NOTIF_CENTER] Listening to PubSub for workspace: ${workspaceId}`);
+        
+        const unsubscribe = pubsub.subscribe(EVENTS.APP_ACTIVITY_LOG, (data: any) => {
+            console.log("[NOTIF_CENTER] PubSub message received:", data.action, data);
+            
+            // Only handle targeted actions
+            if (data.action === "COMMENT_CREATED") {
+                // Pulse and update if NOT the current user
+                if (data.userId !== session?.user?.id) {
+                    setPeopleCount(prev => prev + 1);
+                    setIsPulsing(true);
+                    setTimeout(() => setIsPulsing(false), 2000);
+                    if (isOpen) loadNotifications();
+                } else {
+                    // Self-update: just refresh list if open
+                    if (isOpen) loadNotifications();
+                }
+            }
+        });
+
+        return () => {
+            unsubscribe();
+        };
+    }, [workspaceId, session?.user?.id, isOpen]);
+
+    const handleNotificationClick = async (notif: any) => {
+        // 1. Instant UI Feedback: Open the sheet in loading state
+        openSubTaskSheetLoading();
+
+        // 2. Synchronize URL programmatically
+        const params = new URLSearchParams(currentSearchParams.toString());
+        params.set("subtask", notif.taskSlug);
+        router.push(`${pathname}?${params.toString()}`);
+
+        // 3. Mark as read and close popover
+        if (notif.isNew !== false) {
+            handleMarkRead(notif.taskId);
+        } else {
+            setIsOpen(false);
+        }
+    };
 
     const loadNotifications = async (isInitial = true) => {
         if (!workspaceId) return;
@@ -96,19 +152,18 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
         setIsOpen(false);
     };
 
-    // Sync server-provided data if it changes (e.g., after a revalidatePath)
-    // We stringify to prevent unnecessary updates if the array reference changes but the content is the same
+    // Sync server-provided data if it changes
     useEffect(() => {
-        setUnreadNotifications(initialUnread);
-        setReadNotifications(initialRead);
+        // Only override if we have actual data in initial props
+        // Otherwise we risk wiping out our on-demand fetch
+        if (initialUnread && initialUnread.length > 0) {
+            setUnreadNotifications(initialUnread);
+        }
+        if (initialRead && initialRead.length > 0) {
+            setReadNotifications(initialRead);
+        }
         setPeopleCount(initialPeopleCount);
     }, [JSON.stringify(initialUnread), JSON.stringify(initialRead), initialPeopleCount]);
-
-    const getNotificationHref = (slug: string) => {
-        const newParams = new URLSearchParams(currentSearchParams.toString());
-        newParams.set("subtask", slug);
-        return `${pathname}?${newParams.toString()}`;
-    };
 
     const hasAnyNotifications = unreadNotifications.length > 0 || readNotifications.length > 0;
 
@@ -118,12 +173,25 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
             if (open) loadNotifications();
         }}>
             <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative h-9 w-9 rounded-full">
-                    <Bell className="h-[18px] w-[18px]" />
+                <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className={cn(
+                        "relative h-9 w-9 rounded-full transition-all",
+                        isPulsing && "ring-2 ring-primary ring-offset-2 bg-primary/10"
+                    )}
+                >
+                    <Bell className={cn(
+                        "h-[18px] w-[18px] transition-transform",
+                        isPulsing && "scale-110 text-primary"
+                    )} />
                     {peopleCount > 0 && (
                         <Badge
                             variant="destructive"
-                            className="absolute -top-1 -right-1 h-4 min-w-4 p-0 flex items-center justify-center text-[10px] border-2 border-background"
+                            className={cn(
+                                "absolute -top-1 -right-1 h-4 min-w-4 p-0 flex items-center justify-center text-[10px] border-2 border-background",
+                                isPulsing && "animate-pulse"
+                            )}
                         >
                             {peopleCount}
                         </Badge>
@@ -174,15 +242,14 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
                                 ) : (
                                     <div className="flex flex-col">
                                         {unreadNotifications.map((notif) => (
-                                            <Link
+                                            <div
                                                 key={notif.taskId}
-                                                href={getNotificationHref(notif.taskSlug)}
-                                                className="flex gap-3 p-4 hover:bg-muted/50 transition-colors border-b last:border-0 relative overflow-hidden group"
-                                                onClick={() => handleMarkRead(notif.taskId)}
+                                                className="flex gap-3 p-4 hover:bg-muted/50 transition-colors border-b last:border-0 relative overflow-hidden group cursor-pointer"
+                                                onClick={() => handleNotificationClick(notif)}
                                             >
                                                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary transform -translate-x-full group-hover:translate-x-0 transition-transform" />
                                                 <NotificationItem notif={notif} />
-                                            </Link>
+                                            </div>
                                         ))}
                                         {!hasMore && unreadNotifications.length > 0 && (
                                             <div className="p-6 text-center border-t border-dashed">
@@ -207,14 +274,13 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
                                 ) : (
                                     <div className="flex flex-col">
                                         {readNotifications.map((notif) => (
-                                            <Link
+                                            <div
                                                 key={notif.taskId}
-                                                href={getNotificationHref(notif.taskSlug)}
-                                                className="flex gap-3 p-4 hover:bg-muted/50 transition-colors border-b last:border-0 opacity-80"
-                                                onClick={() => setIsOpen(false)}
+                                                className="flex gap-3 p-4 hover:bg-muted/50 transition-colors border-b last:border-0 opacity-80 cursor-pointer"
+                                                onClick={() => handleNotificationClick({ ...notif, isNew: false })}
                                             >
                                                 <NotificationItem notif={notif} isRead />
-                                            </Link>
+                                            </div>
                                         ))}
                                         {!hasMore && readNotifications.length > 0 && (
                                             <div className="p-6 text-center border-t border-dashed">

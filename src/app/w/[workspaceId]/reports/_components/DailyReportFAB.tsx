@@ -10,7 +10,11 @@ const DailyReportModal = dynamic(() => import("./DailyReportModal").then(mod => 
     ssr: false,
 });
 
-export function DailyReportFAB({ workspaceId, initialStatus = "LOADING" }: { workspaceId: string, initialStatus?: "SUBMITTED" | "ABSENT" | "NOT_SUBMITTED" | "LOADING" }) {
+import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
+
+export function DailyReportFAB() {
+    const { data, workspaceId } = useWorkspaceLayout();
+    const initialStatus = data.reportStatus?.status ?? "NOT_SUBMITTED";
     const [isOpen, setIsOpen] = useState(false);
     const [status, setStatus] = useState<"SUBMITTED" | "ABSENT" | "NOT_SUBMITTED" | "LOADING">(initialStatus);
 

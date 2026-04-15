@@ -89,7 +89,7 @@ export function ColumnVisibility({
                     checked={columnVisibility.progress}
                     onCheckedChange={() => setColumnVisibility((prev) => ({ ...prev, progress: !prev.progress }))}
                 >
-                    Urgency
+                    Deadline
                 </DropdownMenuCheckboxItem>
                 <DropdownMenuCheckboxItem
                     checked={columnVisibility.tag}

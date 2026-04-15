@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { DataTable } from "@/components/data-table/data-table";
 import { createTeamMemberColumns } from "./team-member-columns";
 import {
@@ -18,14 +18,25 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogFooter,
 } from "@/components/ui/dialog";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { deleteWorkspaceMember } from "../actions";
+import { apiClient } from "@/lib/api-client";
 import { WorkspaceMemberRow } from "@/data/workspace";
-import { InviteUserForm } from "./create-user";
+import { pusherClient } from "@/lib/pusher";
+import { TEAM_UPDATE, TeamEventData } from "@/lib/realtime";
+
 
 interface TeamMembersProps {
     data: WorkspaceMemberRow[];
@@ -35,6 +46,7 @@ interface TeamMembersProps {
 
 export function TeamMembers({ data, isAdmin, workspaceId }: TeamMembersProps) {
     const router = useRouter();
+
 
     // View member dialog state
     const [viewDialogOpen, setViewDialogOpen] = useState(false);
@@ -48,31 +60,57 @@ export function TeamMembers({ data, isAdmin, workspaceId }: TeamMembersProps) {
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [memberToDelete, setMemberToDelete] = useState<WorkspaceMemberRow | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isUpdating, setIsUpdating] = useState(false);
+    const [newRole, setNewRole] = useState<string>("");
 
-    const [inviteUserOpen, setInviteUserOpen] = useState(false);
+    // Refresh logic is now handled globally via RealtimeNotificationListener
 
-    const handleViewMember = (member: WorkspaceMemberRow) => {
+
+
+    const handleViewMember = React.useCallback((member: WorkspaceMemberRow) => {
         setMemberToView(member);
         setViewDialogOpen(true);
-    };
+    }, []);
 
-    const handleEditMember = (member: WorkspaceMemberRow) => {
+    const handleEditMember = React.useCallback((member: WorkspaceMemberRow) => {
         setMemberToEdit(member);
+        setNewRole(member.workspaceRole);
         setEditDialogOpen(true);
-        toast.info("Edit member functionality coming soon!");
+    }, []);
+
+    const handleEditConfirm = async () => {
+        if (!memberToEdit || !newRole) return;
+
+        setIsUpdating(true);
+        try {
+            const result = await apiClient.workspaces.updateMemberRole(workspaceId, memberToEdit.id, newRole);
+
+            if (result.status === "success") {
+                toast.success(result.message);
+                setEditDialogOpen(false);
+                setMemberToEdit(null);
+                router.refresh();
+            } else {
+                toast.error(result.message);
+            }
+        } catch (error) {
+            toast.error("Failed to update member role");
+        } finally {
+            setIsUpdating(false);
+        }
     };
 
-    const handleDeleteMember = (member: WorkspaceMemberRow) => {
+    const handleDeleteMember = React.useCallback((member: WorkspaceMemberRow) => {
         setMemberToDelete(member);
         setDeleteDialogOpen(true);
-    };
+    }, []);
 
     const handleDeleteConfirm = async () => {
         if (!memberToDelete) return;
 
         setIsDeleting(true);
         try {
-            const result = await deleteWorkspaceMember(memberToDelete.id, workspaceId);
+            const result = await apiClient.workspaces.removeMember(workspaceId, memberToDelete.id);
 
             if (result.status === "success") {
                 toast.success(result.message);
@@ -89,11 +127,14 @@ export function TeamMembers({ data, isAdmin, workspaceId }: TeamMembersProps) {
         }
     };
 
-    const columns = createTeamMemberColumns(
-        isAdmin,
-        handleViewMember,
-        handleEditMember,
-        handleDeleteMember
+    const columns = React.useMemo(() =>
+        createTeamMemberColumns(
+            isAdmin,
+            handleViewMember,
+            handleEditMember,
+            handleDeleteMember
+        ),
+        [isAdmin, handleViewMember, handleEditMember, handleDeleteMember]
     );
 
     return (
@@ -107,17 +148,8 @@ export function TeamMembers({ data, isAdmin, workspaceId }: TeamMembersProps) {
                 showPagination={true}
                 showColumnToggle={true}
                 pageSize={10}
-                onAdd={isAdmin ? () => setInviteUserOpen(true) : undefined}
-                addButtonLabel="Invite New Member"
             />
 
-            <InviteUserForm
-                workspaceId={workspaceId}
-                isAdmin={isAdmin}
-                open={inviteUserOpen}
-                onOpenChange={setInviteUserOpen}
-                hideTrigger={true}
-            />
 
             {/* View Member Dialog */}
             <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
@@ -174,6 +206,53 @@ export function TeamMembers({ data, isAdmin, workspaceId }: TeamMembersProps) {
                             </div>
                         </div>
                     )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Edit Member Dialog */}
+            <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Update Member Role</DialogTitle>
+                    </DialogHeader>
+                    {memberToEdit && (
+                        <div className="space-y-6 py-4">
+                            <div className="flex items-center gap-3">
+                                <Avatar className="h-10 w-10">
+                                    <AvatarImage src={memberToEdit.user?.image || ""} />
+                                    <AvatarFallback>{memberToEdit.user?.name?.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                    <p className="text-sm font-medium">{memberToEdit.user?.name}</p>
+                                    <p className="text-xs text-muted-foreground">{memberToEdit.user?.email}</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Role</label>
+                                <Select value={newRole} onValueChange={setNewRole}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select a role" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="ADMIN">Admin</SelectItem>
+                                        <SelectItem value="MEMBER">Member</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <p className="text-[0.8rem] text-muted-foreground">
+                                    Admins can invite and remove members, and edit workspace settings.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setEditDialogOpen(false)} disabled={isUpdating}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleEditConfirm} disabled={isUpdating || newRole === memberToEdit?.workspaceRole}>
+                            {isUpdating ? "Updating..." : "Save Changes"}
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
 

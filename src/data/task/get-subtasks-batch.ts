@@ -6,7 +6,7 @@ import { unstable_cache } from "next/cache";
 import { CacheTags } from "@/data/cache-tags";
 import { TaskFilters } from "@/types/task-filters";
 import { buildSubTaskConditions } from "@/lib/tasks/filter-utils";
-import { resolveTaskPermissions } from "./get-tasks";
+import { TasksService } from "@/server/services/tasks.service";
 import { getTaskSelect } from "@/lib/tasks/query-builder";
 
 /**
@@ -86,13 +86,13 @@ async function _getSubTasksByParentIdsInternal(
         if (fullAccessProjectIds.length > 0 && restrictedProjectIds.length > 0) {
             countWhere.OR = [
                 { projectId: { in: fullAccessProjectIds } },
-                { projectId: { in: restrictedProjectIds }, assigneeId: userId }
+                { projectId: { in: restrictedProjectIds }, assignee: { workspaceMember: { userId } } }
             ];
         } else if (fullAccessProjectIds.length > 0) {
             countWhere.projectId = { in: fullAccessProjectIds };
         } else if (restrictedProjectIds.length > 0) {
             countWhere.projectId = { in: restrictedProjectIds };
-            countWhere.assigneeId = userId;
+            countWhere.assignee = { workspaceMember: { userId } };
         } else {
             // Short-circuit: no access to any requested project
             return parentTaskIds.map(parentTaskId => ({
@@ -115,7 +115,7 @@ async function _getSubTasksByParentIdsInternal(
         const parentRelationSelect = baseSelect.parentTask as any;
         delete subtaskSelect.parentTask;
 
-        // 🚀 PERF: Remove _count entirely — reviewComments generates a correlated
+        // 🚀 PERF: Remove _count entirely — activities generates a correlated
         // COUNT(*) subquery PER ROW which is the single biggest query cost.
         // subTasks count is also removed. Both default to 0 in the response.
         delete subtaskSelect._count;
@@ -143,13 +143,13 @@ async function _getSubTasksByParentIdsInternal(
             if (fullAccessProjectIds.length > 0 && restrictedProjectIds.length > 0) {
                 singleParentWhere.OR = [
                     { projectId: { in: fullAccessProjectIds } },
-                    { projectId: { in: restrictedProjectIds }, assigneeId: userId }
+                    { projectId: { in: restrictedProjectIds }, assignee: { workspaceMember: { userId } } }
                 ];
             } else if (fullAccessProjectIds.length > 0) {
                 singleParentWhere.projectId = { in: fullAccessProjectIds };
             } else if (restrictedProjectIds.length > 0) {
                 singleParentWhere.projectId = { in: restrictedProjectIds };
-                singleParentWhere.assigneeId = userId;
+                singleParentWhere.assignee = { workspaceMember: { userId } };
             }
         }
 
@@ -167,7 +167,6 @@ async function _getSubTasksByParentIdsInternal(
                     { id: 'desc' },
                 ]
             }),
-            // Single query for BOTH parent info AND project info
             prisma.task.findUnique({
                 where: { id: parentId },
                 select: {
@@ -183,20 +182,15 @@ async function _getSubTasksByParentIdsInternal(
             : null;
         const projectData = (parentAndProjectData as any)?.project || null;
 
+        console.log(`🔍 [BATCH_SUBTASKS_EXPAND] parent: ${parentId}, userId: ${userId}`);
+        console.log(`🔍 [BATCH_SUBTASKS_EXPAND] Project: ${projectData?.name || "Unknown"}`);
+        console.log(`🔍 [BATCH_SUBTASKS_EXPAND] Found ${rawTasks.length} raw subtasks.`);
+        if (rawTasks.length === 0) {
+            console.log(`⚠️ [BATCH_SUBTASKS_EXPAND] No subtasks found for where:`, JSON.stringify(singleParentWhere, null, 2));
+        }
+
         const hasMore = rawTasks.length > pageSize;
-        const finalTasks = (hasMore ? rawTasks.slice(0, pageSize) : rawTasks).map(t => {
-            const entry = {
-                ...t,
-                parentTask: parentData,
-                project: projectData,
-                _count: { reviewComments: 0 },
-            } as any;
-            if (entry.isParent) {
-                delete entry.reviewer;
-                delete entry.reviewerId;
-            }
-            return entry;
-        });
+        const finalTasks = (hasMore ? rawTasks.slice(0, pageSize) : rawTasks);
 
         const duration = performance.now() - startTime;
 
@@ -244,7 +238,7 @@ async function _getSubTasksByParentIdsInternal(
 
         if (currentCount < pageSize) {
             if (!subTasksMap.has(pId)) subTasksMap.set(pId, []);
-            subTasksMap.get(pId)!.push({ ...task, _count: { reviewComments: 0 } });
+            subTasksMap.get(pId)!.push(task);
         }
     });
 
@@ -255,15 +249,6 @@ async function _getSubTasksByParentIdsInternal(
 
     return parentTaskIds.map(parentTaskId => {
         const subTasks = subTasksMap.get(parentTaskId) || [];
-
-        // Strip reviewer from any parent tasks in this subtask set
-        subTasks.forEach((t: any) => {
-            if (t.isParent) {
-                delete t.reviewer;
-                delete t.reviewerId;
-            }
-        });
-
         const totalCount = totalCountMap.get(parentTaskId) || 0;
         return {
             parentTaskId,
@@ -355,7 +340,7 @@ export const getSubTasksByParentIds = cache(
                     isWorkspaceAdmin: isAdmin,
                     fullAccessProjectIds: fullAccess,
                     restrictedProjectIds: restricted,
-                } = await resolveTaskPermissions(workspaceId, projectId, userId);
+                } = await TasksService.resolveTaskPermissions(workspaceId, projectId, userId);
 
                 if (!permissions?.workspaceMember) {
                     throw new Error("User does not have access to this workspace");
@@ -363,7 +348,7 @@ export const getSubTasksByParentIds = cache(
                 isWorkspaceAdmin = isAdmin;
                 fullAccessProjectIds = fullAccess;
                 restrictedProjectIds = restricted;
-                workspaceMemberUserId = permissions.workspaceMember.userId;
+                workspaceMemberUserId = permissions.userId;
             } else if (userId) {
                 // We still resolve permissions to get the correct isAdmin status and security scopes
                 // for the database query, even if we are 'skipping' the strict existence check.
@@ -371,7 +356,7 @@ export const getSubTasksByParentIds = cache(
                     isWorkspaceAdmin: isAdmin,
                     fullAccessProjectIds: fullAccess,
                     restrictedProjectIds: restricted,
-                } = await resolveTaskPermissions(workspaceId, projectId, userId);
+                } = await TasksService.resolveTaskPermissions(workspaceId, projectId, userId);
 
                 isWorkspaceAdmin = isAdmin;
                 fullAccessProjectIds = fullAccess;

@@ -112,8 +112,25 @@ export const auth = betterAuth({
         // In production, you would use an SMS service like Twilio here
       },
     }),
-    admin()
-  ]
+    admin(),
+  ],
+  databaseHooks: {
+    session: {
+      create: {
+        after: async (session) => {
+          // We import recordActivity inside the hook to avoid circular dependency
+          const { recordActivity } = await import("./audit");
+          
+          await recordActivity({
+            userId: session.userId,
+            action: "USER_LOGIN",
+            ipAddress: session.ipAddress ?? undefined,
+            userAgent: session.userAgent ?? undefined,
+          });
+        }
+      }
+    }
+  }
 })
 
 /**

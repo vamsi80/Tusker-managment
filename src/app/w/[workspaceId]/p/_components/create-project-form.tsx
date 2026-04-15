@@ -3,7 +3,8 @@
 import slugify from "slugify";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { useTransition, useEffect } from "react";
+import { useTransition, useEffect, useState } from "react";
+import { useMounted } from "@/hooks/use-mounted";
 import { useRouter } from "next/navigation";
 import { tryCatch } from "@/hooks/try-catch";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { WorkspaceMembersResult } from "@/data/workspace";
 import { createProject } from "@/actions/project/create-project";
 import { projectSchema, ProjectSchemaType } from "@/lib/zodSchemas";
+import { Badge } from "@/components/ui/badge";
 import { Check, Loader2, Plus, PlusIcon, SparkleIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { generateRandomColor, getColorFromString } from "@/lib/colors/project-colors";
@@ -35,6 +37,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
     const [pending, startTransition] = useTransition();
     const router = useRouter();
     const { triggerConfetti } = useConfetti();
+    const mounted = useMounted();
 
     // Use explicit permission if provided, otherwise fallback to legacy isAdmin check
     const showCreateButton = canCreateProject ?? isAdmin;
@@ -58,7 +61,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
             phoneNumber: "",
             workspaceId: workspaceId as string,
             // Auto-assign MANAGER as project lead
-            projectLead: isManager ? currentUserId : "",
+            projectManagers: isManager ? [currentUserId as string] : [],
             memberAccess: [] as string[],
         },
     })
@@ -114,7 +117,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
     return (
         <>
             <Dialog>
-                {showCreateButton && (
+                {showCreateButton && mounted && (
                     <DialogTrigger asChild>
                         <button className="cursor-pointer">
                             <Plus size={16} />
@@ -300,14 +303,14 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
 
                                 <FormField
                                     control={form.control}
-                                    name="projectLead"
+                                    name="projectManagers"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Project Manager</FormLabel>
+                                            <FormLabel>Project Managers</FormLabel>
                                             <FormDescription className="text-xs text-muted-foreground mb-2">
                                                 {isManager
                                                     ? "As a workspace manager, you will be automatically assigned as the project manager."
-                                                    : "Select one project manager who will have full project access."
+                                                    : "Select project managers who will have full project access. (Managers only)"
                                                 }
                                             </FormDescription>
                                             <div className="space-y-2">
@@ -322,48 +325,56 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
                                                         className="bg-muted cursor-not-allowed"
                                                     />
                                                 ) : (
-                                                    // For OWNER/ADMIN: Show dropdown to select project manager
+                                                    // For OWNER/ADMIN: Show dropdown to select one or more project managers
                                                     <Popover>
                                                         <PopoverTrigger asChild>
-                                                            <Button variant="outline" className="w-full justify-between font-normal">
-                                                                {field.value
-                                                                    ? (() => {
-                                                                        const m = members?.find((m) => m.userId === field.value);
-                                                                        return `${m?.user?.surname}`;
-                                                                    })()
-                                                                    : "Select project manager"}
+                                                            <Button variant="outline" className="w-full justify-between font-normal h-auto min-h-[40px] py-2">
+                                                                <div className="flex flex-wrap gap-1">
+                                                                    {field.value && field.value.length > 0 ? (
+                                                                        field.value.map((userId) => {
+                                                                            const m = members?.find((m) => m.userId === userId);
+                                                                            return (
+                                                                                <Badge key={userId} variant="secondary" className="px-1 font-normal">
+                                                                                    {m?.user?.surname}
+                                                                                </Badge>
+                                                                            );
+                                                                        })
+                                                                    ) : (
+                                                                        <span className="text-muted-foreground">Select project managers</span>
+                                                                    )}
+                                                                </div>
                                                             </Button>
                                                         </PopoverTrigger>
 
-                                                        <PopoverContent className="p-0 w-64">
+                                                        <PopoverContent className="p-0 w-64" align="start">
                                                             <Command>
                                                                 <CommandInput placeholder="Search managers…" />
                                                                 <CommandEmpty>No workspace managers found.</CommandEmpty>
 
-                                                                <CommandGroup>
+                                                                <CommandGroup className="max-h-64 overflow-y-auto">
                                                                     {members?.filter(m => m.workspaceRole === "MANAGER").map((member) => {
                                                                         const userName = `${member.user?.surname}`;
-                                                                        const roleDisplay = "Manager";
-
-                                                                        // Check if this member is the one selected
-                                                                        const isSelected = field.value === member.userId;
+                                                                        const isSelected = field.value?.includes(member.userId);
 
                                                                         return (
                                                                             <CommandItem
                                                                                 key={member.userId}
-                                                                                value={userName}
                                                                                 onSelect={() => {
-                                                                                    // Single select: set the value to this user
-                                                                                    field.onChange(member.userId);
+                                                                                    const current = field.value || [];
+                                                                                    if (isSelected) {
+                                                                                        field.onChange(current.filter(id => id !== member.userId));
+                                                                                    } else {
+                                                                                        field.onChange([...current, member.userId]);
+                                                                                    }
                                                                                 }}
                                                                             >
-                                                                                <Check
-                                                                                    className={cn(
-                                                                                        "mr-2 h-4 w-4",
-                                                                                        isSelected ? "opacity-100" : "opacity-0"
-                                                                                    )}
-                                                                                />
-                                                                                {userName} ({roleDisplay})
+                                                                                <div className={cn(
+                                                                                    "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                                                                    isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
+                                                                                )}>
+                                                                                    <Check className="h-4 w-4" />
+                                                                                </div>
+                                                                                {userName}
                                                                             </CommandItem>
                                                                         );
                                                                     })}
