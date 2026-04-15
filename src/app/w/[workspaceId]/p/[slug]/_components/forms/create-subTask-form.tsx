@@ -20,10 +20,11 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
-import { createSubTask } from "@/actions/task/create-subTask";
+import { apiClient, type ApiResponse } from "@/lib/api-client";
 import { useReloadView } from "@/hooks/use-reload-view";
-import { getProjectReviewers, ProjectReviewer } from "@/actions/project/get-project-reviewers";
+import { ProjectReviewer } from "@/actions/project/get-project-reviewers";
 import { parseIST } from "@/lib/utils";
+import { DateTimePicker } from "@/components/ui/date-picker";
 
 interface iAppProps {
     members: ProjectMembersType;
@@ -124,8 +125,14 @@ export const CreateSubTaskForm = ({
         if (!open) return;
         const fetchReviewers = async () => {
             try {
-                const fetched = await getProjectReviewers(selectedProjectId || projectId || "");
-                setReviewers(fetched);
+                const targetId = selectedProjectId || projectId || "";
+                if (!targetId) return;
+
+                const response = await fetch(`/api/v1/projects/${targetId}/reviewers`);
+                if (response.ok) {
+                    const fetched = await response.json();
+                    setReviewers(fetched);
+                }
             } catch (err) {
                 console.error("Failed to fetch reviewers", err);
             }
@@ -133,40 +140,31 @@ export const CreateSubTaskForm = ({
         fetchReviewers();
     }, [open, selectedProjectId, projectId]);
 
-    // Sync: days/startDate -> dueDate
-    useEffect(() => {
-        if (watchedStartDate && watchedDays && open) {
-            const start = parseIST(watchedStartDate);
-            if (start) {
-                const due = new Date(start.getTime() + watchedDays * 24 * 60 * 60 * 1000);
-                const year = due.getFullYear();
-                const month = String(due.getMonth() + 1).padStart(2, '0');
-                const day = String(due.getDate()).padStart(2, '0');
-                const hours = String(due.getHours()).padStart(2, '0');
-                const minutes = String(due.getMinutes()).padStart(2, '0');
-                const formattedDue = `${year}-${month}-${day}T${hours}:${minutes}`;
-                
-                if (formattedDue !== watchedDueDate) {
-                    form.setValue("dueDate", formattedDue, { shouldValidate: true });
-                }
-            }
+    const syncDueDate = (startDate: string, days: number) => {
+        if (!startDate) return;
+        const start = parseIST(startDate);
+        if (start) {
+            const due = new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
+            const year = due.getFullYear();
+            const month = String(due.getMonth() + 1).padStart(2, '0');
+            const day = String(due.getDate()).padStart(2, '0');
+            const hours = String(due.getHours()).padStart(2, '0');
+            const minutes = String(due.getMinutes()).padStart(2, '0');
+            form.setValue("dueDate", `${year}-${month}-${day}T${hours}:${minutes}`, { shouldDirty: true, shouldValidate: true });
         }
-    }, [watchedStartDate, watchedDays, form, open]);
+    };
 
-    // Sync: dueDate -> days
-    useEffect(() => {
-        if (watchedStartDate && watchedDueDate && open) {
-            const start = parseIST(watchedStartDate);
-            const due = parseIST(watchedDueDate);
-            if (start && due) {
-                const diffTime = due.getTime() - start.getTime();
-                const calculatedDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-                if (calculatedDays !== watchedDays) {
-                    form.setValue("days", calculatedDays, { shouldValidate: true });
-                }
-            }
+    const syncDays = (startDate: string, dueDate: string) => {
+        if (!startDate || !dueDate) return;
+        const start = parseIST(startDate);
+        const due = parseIST(dueDate);
+        if (start && due) {
+            const diffTime = due.getTime() - start.getTime();
+            const calculatedDays = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)));
+            form.setValue("days", calculatedDays, { shouldDirty: true, shouldValidate: true });
         }
-    }, [watchedDueDate, watchedStartDate, form, open]);
+    };
+
 
     const watchedName = useWatch({
         control: form.control,
@@ -213,31 +211,34 @@ export const CreateSubTaskForm = ({
 
     function onSubmit(data: SubTaskSchemaType) {
         startTransition(async () => {
-            const { data: result, error } = await tryCatch(createSubTask(data));
-            console.log("results", { result });
+            const res = await tryCatch(apiClient.tasks.createSubTask(data));
 
-            if (error) {
-                toast.error(error.message);
-                console.error(error);
+            if (res.error) {
+                toast.error(res.error.message);
+                console.error(res.error);
                 return;
             }
 
-            if (result.status === "success") {
-                toast.success(result.message);
+            // Using defensive casting as a circuit-breaker for IDE resolution bugs
+            const responseData = res.data as ApiResponse;
+            const { status, message, data: createdData } = responseData;
+
+            if (status === "success") {
+                toast.success(message);
                 triggerConfetti();
                 form.reset();
                 setOpen(false);
 
                 // Notify parent to add subtask to state immediately
-                if (onSubTaskCreated && result.data) {
-                    onSubTaskCreated(result.data);
+                if (onSubTaskCreated && createdData) {
+                    onSubTaskCreated(createdData);
                 }
 
                 // Reload all views to show the new subtask
                 reloadView();
-            } else (
-                toast.error(result.message)
-            )
+            } else {
+                toast.error(message);
+            }
         });
     }
 
@@ -415,7 +416,13 @@ export const CreateSubTaskForm = ({
                                     <FormItem >
                                         <FormLabel>Start Date</FormLabel>
                                         <FormControl>
-                                            <Input type="datetime-local" {...field} />
+                                            <DateTimePicker
+                                                value={field.value}
+                                                onChange={(value) => {
+                                                    field.onChange(value);
+                                                    syncDueDate(value, form.getValues("days") || 1);
+                                                }}
+                                            />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -433,7 +440,11 @@ export const CreateSubTaskForm = ({
                                                 type="number" 
                                                 min={1} 
                                                 {...field} 
-                                                onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                                                onChange={(e) => {
+                                                    const val = parseInt(e.target.value) || 1;
+                                                    field.onChange(val);
+                                                    syncDueDate(form.getValues("startDate") || "", val);
+                                                }}
                                             />
                                         </FormControl>
                                         <FormMessage />
@@ -448,9 +459,12 @@ export const CreateSubTaskForm = ({
                                     <FormItem>
                                         <FormLabel>Due Date</FormLabel>
                                         <FormControl>
-                                            <Input
-                                                type="datetime-local"
-                                                {...field}
+                                            <DateTimePicker
+                                                value={field.value}
+                                                onChange={(value) => {
+                                                    field.onChange(value);
+                                                    syncDays(form.getValues("startDate") || "", value);
+                                                }}
                                             />
                                         </FormControl>
                                         <FormMessage />
@@ -506,7 +520,7 @@ export const CreateSubTaskForm = ({
                                                         <CommandGroup>
                                                             {members?.filter((member) => {
                                                                 const role = member.projectRole;
-                                                                return role !== "VIEWER" && role !== "PROJECT_MANAGER"; // Adjust logic if needed
+                                                                return role !== "VIEWER"; // Adjust logic if needed
                                                             }).map((member) => {
                                                                 const user = member.user;
                                                                 const userName = `${user.surname || ''}`;

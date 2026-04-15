@@ -13,7 +13,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChevronsUpDown, ArrowUp, ArrowDown, MoreVertical } from "lucide-react";
-import { cn, formatIST } from "@/lib/utils";
+import { cn, formatIST, APP_DATE_FORMAT } from "@/lib/utils";
 import { useMounted } from "@/hooks/use-mounted";
 
 /**
@@ -191,7 +191,7 @@ export function createDateColumn<T>(
             const dateObj = typeof date === "string" ? new Date(date) : date;
 
             if (format === "datetime") {
-                return formatIST(dateObj, "PPp");
+                return formatIST(dateObj, `${APP_DATE_FORMAT} HH:mm`);
             } else if (format === "relative") {
                 const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
                 const diff = dateObj.getTime() - Date.now();
@@ -199,7 +199,7 @@ export function createDateColumn<T>(
                 return rtf.format(days, "day");
             }
 
-            return formatIST(dateObj, "PP");
+            return formatIST(dateObj);
         },
     };
 }

@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import Logo from "@/assets/logo.png";
 import { buttonVariants } from "@/components/ui/button";
-import { authClient } from "@/lib/auth-clint";
+import { authClient } from "@/lib/auth-client";
 import ThemeToggle from "@/components/ui/theme-toggle";
 import { UserDropdown } from "./userDropdown";
 import { toast } from "sonner";

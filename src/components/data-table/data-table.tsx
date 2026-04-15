@@ -395,20 +395,9 @@ export function DataTable<TData, TValue>({
             {/* Pagination */}
             {
                 showPagination && (
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                        <div className="text-sm text-muted-foreground order-2 sm:order-1">
-                            {table.getFilteredSelectedRowModel().rows.length > 0 && (
-                                <span>
-                                    {table.getFilteredSelectedRowModel().rows.length} of{" "}
-                                    {table.getFilteredRowModel().rows.length} row(s) selected.
-                                </span>
-                            )}
-                        </div>
-                        <div className="flex items-center gap-4 sm:gap-6 order-1 sm:order-2 w-full sm:w-auto justify-between sm:justify-end">
-                            <div className="text-sm text-muted-foreground whitespace-nowrap">
-                                Page {table.getState().pagination.pageIndex + 1} of{" "}
-                                {table.getPageCount()}
-                            </div>
+                    <div className="flex flex-col sm:flex-row items-center justify-start gap-4 mt-2">
+                        {/* Pagination Controls - Moved to Left */}
+                        <div className="flex items-center gap-4 sm:gap-6 order-1 w-full sm:w-auto justify-between sm:justify-start">
                             <div className="flex items-center gap-2">
                                 <Button
                                     variant="outline"
@@ -431,6 +420,20 @@ export function DataTable<TData, TValue>({
                                     <ChevronRight className="h-4 w-4" />
                                 </Button>
                             </div>
+                            <div className="text-sm text-muted-foreground whitespace-nowrap">
+                                Page {table.getState().pagination.pageIndex + 1} of{" "}
+                                {table.getPageCount()}
+                            </div>
+                        </div>
+
+                        {/* Row Selection Info - Moved to Right */}
+                        <div className="text-sm text-muted-foreground order-2 ml-auto">
+                            {table.getFilteredSelectedRowModel().rows.length > 0 && (
+                                <span>
+                                    {table.getFilteredSelectedRowModel().rows.length} of{" "}
+                                    {table.getFilteredRowModel().rows.length} row(s) selected.
+                                </span>
+                            )}
                         </div>
                     </div>
                 )

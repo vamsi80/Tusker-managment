@@ -30,7 +30,6 @@ type IconName = keyof typeof iconMap;
 export function NavMain({
   items,
   workspaceId,
-  quickCreateButton,
 }: {
   items: {
     title: string
@@ -38,7 +37,6 @@ export function NavMain({
     icon?: IconName
   }[]
   workspaceId: string
-  quickCreateButton?: React.ReactNode
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -65,12 +63,6 @@ export function NavMain({
   return (
     <SidebarGroup className={isPending ? "opacity-70 pointer-events-none" : ""}>
       <SidebarGroupContent className="flex flex-col gap-2">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            {quickCreateButton}
-          </SidebarMenuItem>
-        </SidebarMenu>
-
         <div className="mt-4">
           <SidebarMenu>
             {items.map((item) => {

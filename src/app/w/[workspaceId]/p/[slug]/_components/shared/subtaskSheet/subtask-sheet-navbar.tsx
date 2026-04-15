@@ -7,14 +7,14 @@ interface SubtaskSheetNavBarProps {
     activeTab: "messages" | "review";
     onTabChange: (tab: "messages" | "review") => void;
     messagesCount: number;
-    reviewCount: number;
+    activityCount: number;
 }
 
 export function SubtaskSheetNavBar({
     activeTab,
     onTabChange,
     messagesCount,
-    reviewCount
+    activityCount
 }: SubtaskSheetNavBarProps) {
     const tabs = [
         {
@@ -24,10 +24,10 @@ export function SubtaskSheetNavBar({
             count: messagesCount,
         },
         {
-            name: "Review",
+            name: "Activity",
             value: "review" as const,
             icon: FileCheck,
-            count: reviewCount,
+            count: activityCount,
         },
     ];
 

@@ -7,8 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { X, Check, Loader2 } from "lucide-react";
-import { createSubTask } from "@/actions/task/create-subTask";
-import { editSubTask } from "@/actions/task/update-subTask";
+import { apiClient, type ApiResponse } from "@/lib/api-client";
 import { tryCatch } from "@/hooks/try-catch";
 import { toast } from "sonner";
 import slugify from "slugify";
@@ -17,9 +16,9 @@ import { ProjectMembersType, getProjectMembers } from "@/data/project/get-projec
 import { SubTaskStatus, STATUS_OPTIONS, subTaskSchema } from "@/lib/zodSchemas";
 import { ColumnVisibility } from "../shared/column-visibility";
 import { SubTaskType } from "@/data/task";
-import { ApiResponse } from "@/lib/types";
-import { getProjectReviewers, ProjectReviewer } from "@/actions/project/get-project-reviewers";
+import { ProjectReviewer } from "@/actions/project/get-project-reviewers";
 import { cn, parseIST } from "@/lib/utils";
+import { DateTimePicker } from "@/components/ui/date-picker";
 
 interface InlineSubTaskFormProps {
     workspaceId: string;
@@ -60,8 +59,8 @@ export function InlineSubTaskForm({
     const [pending, startTransition] = useTransition();
     const [subTaskName, setSubTaskName] = useState(subTask?.name || "");
     const [description, setDescription] = useState(subTask?.description || "");
-    const [assignee, setAssignee] = useState(subTask?.assignee?.id || "");
-    const [reviewer, setReviewer] = useState(subTask?.reviewerId || "");
+    const [assignee, setAssignee] = useState(subTask?.assignee?.workspaceMember?.user?.id || "");
+    const [reviewer, setReviewer] = useState(subTask?.reviewer?.workspaceMember?.user?.id || "");
     const [reviewers, setReviewers] = useState<ProjectReviewer[]>([]);
     const [status, setStatus] = useState<typeof SubTaskStatus[number]>(
         (subTask?.status as typeof SubTaskStatus[number]) || "TO_DO"
@@ -107,6 +106,51 @@ export function InlineSubTaskForm({
     const [tag, setTag] = useState(subTask?.tag?.id || "");
     const [days, setDays] = useState<number>(subTask?.days || 1);
 
+    const handleStartDateChange = (val: string) => {
+        setStartDate(val);
+        if (val && days) {
+            const start = parseIST(val);
+            if (start) {
+                const due = new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
+                const year = due.getFullYear();
+                const month = String(due.getMonth() + 1).padStart(2, '0');
+                const day = String(due.getDate()).padStart(2, '0');
+                const hours = String(due.getHours()).padStart(2, '0');
+                const minutes = String(due.getMinutes()).padStart(2, '0');
+                setDueDate(`${year}-${month}-${day}T${hours}:${minutes}`);
+            }
+        }
+    };
+
+    const handleDueDateChange = (val: string) => {
+        setDueDate(val);
+        if (startDate && val) {
+            const start = parseIST(startDate);
+            const due = parseIST(val);
+            if (start && due) {
+                const diffTime = due.getTime() - start.getTime();
+                const calculatedDays = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)));
+                setDays(calculatedDays);
+            }
+        }
+    };
+
+    const handleDaysChange = (val: number) => {
+        setDays(val);
+        if (startDate && val) {
+            const start = parseIST(startDate);
+            if (start) {
+                const due = new Date(start.getTime() + val * 24 * 60 * 60 * 1000);
+                const year = due.getFullYear();
+                const month = String(due.getMonth() + 1).padStart(2, '0');
+                const day = String(due.getDate()).padStart(2, '0');
+                const hours = String(due.getHours()).padStart(2, '0');
+                const minutes = String(due.getMinutes()).padStart(2, '0');
+                setDueDate(`${year}-${month}-${day}T${hours}:${minutes}`);
+            }
+        }
+    };
+
     const [availableMembers, setAvailableMembers] = useState<ProjectMembersType>(members);
 
     // Fetch project members for this specific project (to fix global view scope)
@@ -132,13 +176,17 @@ export function InlineSubTaskForm({
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const fetchedReviewers = await getProjectReviewers(projectId);
+                if (!projectId) return;
+                const response = await fetch(`/api/v1/projects/${projectId}/reviewers`);
+                if (!response.ok) throw new Error("Failed to fetch");
+
+                const fetchedReviewers = await response.json();
                 setReviewers(fetchedReviewers);
 
                 // For create mode, set current user as default reviewer if they're eligible
                 if (mode === "create" && !reviewer && userId) {
-                    const isReviewer = fetchedReviewers.find(r => r.id === userId);
-                    if (isReviewer) {
+                    const isReviewerEligible = (fetchedReviewers as ProjectReviewer[]).some(r => r.id === userId);
+                    if (isReviewerEligible) {
                         setReviewer(userId);
                     }
                 }
@@ -150,41 +198,6 @@ export function InlineSubTaskForm({
         fetchData();
     }, [projectId, mode, reviewer, userId]);
 
-    // Handle date synchronization: When days or startDate changes, update dueDate
-    useEffect(() => {
-        if (startDate && days && !pending) {
-            const start = parseIST(startDate);
-            if (start) {
-                const due = new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
-                const year = due.getFullYear();
-                const month = String(due.getMonth() + 1).padStart(2, '0');
-                const day = String(due.getDate()).padStart(2, '0');
-                const hours = String(due.getHours()).padStart(2, '0');
-                const minutes = String(due.getMinutes()).padStart(2, '0');
-                const formattedDue = `${year}-${month}-${day}T${hours}:${minutes}`;
-
-                // Only update if it's actually different to avoid infinite loops
-                if (formattedDue !== dueDate) {
-                    setDueDate(formattedDue);
-                }
-            }
-        }
-    }, [startDate, days]);
-
-    // Handle date synchronization: When dueDate changes, update days
-    useEffect(() => {
-        if (startDate && dueDate && !pending) {
-            const start = parseIST(startDate);
-            const due = parseIST(dueDate);
-            if (start && due) {
-                const diffTime = due.getTime() - start.getTime();
-                const calculatedDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-                if (calculatedDays !== days) {
-                    setDays(calculatedDays);
-                }
-            }
-        }
-    }, [dueDate]);
 
     // Helper function to get role shortcuts
     const getRoleShortcut = (role: string): string => {
@@ -214,7 +227,7 @@ export function InlineSubTaskForm({
             projectId,
             parentTaskId,
             assignee: assignee,
-            reviewerId: reviewer,
+            reviewerId: reviewer || undefined,
             tag: tag,
             startDate: startDate || undefined,
             dueDate: dueDate,
@@ -256,11 +269,12 @@ export function InlineSubTaskForm({
                 isOptimistic: true,
                 subtaskCount: 0,
                 completedSubtaskCount: 0,
-                _count: { reviewComments: 0 },
+                _count: { activities: 0 },
                 // Include full objects for UI
                 assignee: selectedMember ? {
                     id: selectedMember.userId,
                     surname: selectedMember.user.surname,
+                    workspaceMember: { user: { id: selectedMember.userId, surname: selectedMember.user.surname } }
                 } : null,
                 tag: selectedTag ? { id: selectedTag.id, name: selectedTag.name } : null
             };
@@ -271,7 +285,7 @@ export function InlineSubTaskForm({
 
             startTransition(async () => {
                 const { data: result, error } = await tryCatch(
-                    createSubTask(validData)
+                    apiClient.tasks.createSubTask(validData)
                 );
 
                 if (error || (result as ApiResponse).status !== "success") {
@@ -317,12 +331,21 @@ export function InlineSubTaskForm({
             onCancel();
 
             startTransition(async () => {
-                const { data: result, error } = await tryCatch(
-                    editSubTask(validData, subTask.id)
+                const res = await tryCatch(
+                    apiClient.tasks.updateTask(subTask.id, workspaceId, projectId, validData)
                 );
 
-                if (error || result.status !== "success") {
-                    toast.error(error?.message || result?.message || "Failed to update subtask");
+                if (res.error) {
+                    toast.error(res.error.message || "Failed to update subtask");
+                    return;
+                }
+
+                // Defensive casting to overcome module resolution issues
+                const response = res.data as ApiResponse;
+                const { status: responseStatus, message: responseMessage } = response;
+
+                if (responseStatus !== "success") {
+                    toast.error(responseMessage || "Failed to update subtask");
                     return;
                 }
 
@@ -467,12 +490,10 @@ export function InlineSubTaskForm({
             {/* Start Date */}
             {columnVisibility.startDate && (
                 <TableCell className="w-[120px]">
-                    <Input
-                        type="datetime-local"
+                    <DateTimePicker
                         value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
+                        onChange={handleStartDateChange}
                         disabled={pending}
-                        className="h-8"
                     />
                 </TableCell>
             )}
@@ -480,12 +501,10 @@ export function InlineSubTaskForm({
             {/* Due Date */}
             {columnVisibility.dueDate && (
                 <TableCell className="w-[120px]">
-                    <Input
-                        type="datetime-local"
+                    <DateTimePicker
                         value={dueDate}
-                        onChange={(e) => setDueDate(e.target.value)}
+                        onChange={handleDueDateChange}
                         disabled={pending}
-                        className="h-8"
                     />
                 </TableCell>
             )}
@@ -501,7 +520,7 @@ export function InlineSubTaskForm({
                         onChange={(e) => {
                             const val = parseInt(e.target.value);
                             if (!isNaN(val)) {
-                                setDays(Math.max(1, Math.min(365, val)));
+                                handleDaysChange(Math.max(1, Math.min(365, val)));
                             }
                         }}
                         disabled={pending}

@@ -25,18 +25,24 @@ async function SettingsContent({ workspaceId }: { workspaceId: string }) {
         _count: tag._count,
     }));
 
+    const isWorkspaceAdmin = permissions.isWorkspaceAdmin;
+
     return (
         <div className="space-y-2">
             <TagsManager
                 workspaceId={workspaceId}
                 tags={tags}
-                isWorkspaceAdmin={permissions.isWorkspaceAdmin}
+                isWorkspaceAdmin={isWorkspaceAdmin}
             />
         </div>
     );
 }
 
 // ─── Page ────────────────────────────────────────────────────────────────────
+
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ActivityPage from "./activity/page";
+import { History, Settings2 } from "lucide-react";
 
 /**
  * Settings Page — static heading renders immediately; content streams in via AppLoader.
@@ -54,10 +60,30 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
                 </p>
             </div>
 
-            {/* Content streams in */}
-            <Suspense fallback={<AppLoader />}>
-                <SettingsContent workspaceId={workspaceId} />
-            </Suspense>
+            <Tabs defaultValue="general" className="w-full">
+                <TabsList className="mb-4">
+                    <TabsTrigger value="general" className="flex items-center gap-2">
+                        <Settings2 className="h-4 w-4" />
+                        General
+                    </TabsTrigger>
+                    <TabsTrigger value="activity" className="flex items-center gap-2">
+                        <History className="h-4 w-4" />
+                        Activity Log
+                    </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="general">
+                    <Suspense fallback={<AppLoader />}>
+                        <SettingsContent workspaceId={workspaceId} />
+                    </Suspense>
+                </TabsContent>
+
+                <TabsContent value="activity">
+                    <Suspense fallback={<AppLoader />}>
+                        <ActivityPage params={params} />
+                    </Suspense>
+                </TabsContent>
+            </Tabs>
         </div>
     );
 }

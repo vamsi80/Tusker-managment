@@ -22,23 +22,10 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
     const projectsPromise = getUserProjects(workspaceId);
     const membersPromise = getProjectMembers({ workspaceId });
     const tagsPromise = getWorkspaceTags(workspaceId);
-    const pmMatchesPromise = prisma.projectMember.findMany({
-        where: { project: { workspaceId } },
-        select: {
-            id: true,
-            projectId: true,
-            projectRole: true,
-            workspaceMember: {
-                select: {
-                    userId: true,
-                }
-            }
-        }
-    });
 
     const user = await userPromise;
 
-    const [tasksData, projects, projectMembers, projectMemberMatches, tags, permissions] = await Promise.all([
+    const [tasksData, projects, projectMembers, tags, permissions] = await Promise.all([
         getTasks({
             workspaceId,
             hierarchyMode: "parents",
@@ -49,34 +36,57 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
         }, user.id),
         projectsPromise,
         membersPromise,
-        pmMatchesPromise,
         tagsPromise,
         getWorkspacePermissions(workspaceId, user.id),
     ]);
 
     const rawTasks = tasksData.tasks;
-    console.log("🟦 [GANTT SERVER] rawTasks count:", rawTasks.length);
-    if (rawTasks.length > 0) {
-        console.log("🟦 [GANTT SERVER] SAMPLE TASK (First):", JSON.stringify(rawTasks[0], (key, value) => key === 'subTasks' ? (value?.length || 0) : value, 2));
-    }
+    // console.log("🟦 [GANTT SERVER] rawTasks count:", rawTasks.length);
+    // if (rawTasks.length > 0) {
+    //     console.log("🟦 [GANTT SERVER] SAMPLE TASK (First):", JSON.stringify(rawTasks[0], (key, value) => key === 'subTasks' ? (value?.length || 0) : value, 2));
+    // }
     const allTasks: any[] = [];
     rawTasks.forEach((t: any) => {
         allTasks.push(t);
         if (t.subTasks && t.subTasks.length > 0) {
-            console.log(`   ✅ Task "${t.name}" (${t.id}) has ${t.subTasks.length} subTasks`);
+            // console.log(`   ✅ Task "${t.name}" (${t.id}) has ${t.subTasks.length} subTasks`);
             allTasks.push(...t.subTasks);
         }
     });
-    console.log("🟦 [GANTT SERVER] allTasks total count:", allTasks.length);
+    // console.log("🟦 [GANTT SERVER] allTasks total count:", allTasks.length);
 
     // Build map of project -> userIds and project-user role map
     const projectUserMap: Record<string, string[]> = {};
     const roleMap: Record<string, string> = {};
-    projectMemberMatches.forEach(pm => {
+
+    // We no longer have pmMatches separately, we use projectMembers
+    // Wait, getProjectMembers returns unique members by userId for the workspace.
+    // To get per-project user lists, we need the original projectMember records.
+    // BUT we already have projectMembers which is unique by user.
+    // Actually, I should check if getProjectMembers returns project context.
+    // Looking at get-project-members.ts, it returns unique members by userId.
+
+    // I need to reconsider: if I need per-project user lists (projectUserMap), 
+    // I might still need a query that returns the many-to-many project connections.
+    // However, for the roleMap (projectId-assigneeId), we need to know the specific ProjectMember record.
+
+    // Let's refine getProjectMembers to return what we need or fetch once efficiently.
+    // Actually, I'll fetch the project-member relations once and use them for both.
+
+    const projectMemberRelations = await prisma.projectMember.findMany({
+        where: { project: { workspaceId } },
+        select: {
+            id: true,
+            projectId: true,
+            projectRole: true,
+            workspaceMember: { select: { userId: true } }
+        }
+    });
+
+    projectMemberRelations.forEach(pm => {
         const userId = pm.workspaceMember.userId;
         if (!projectUserMap[pm.projectId]) projectUserMap[pm.projectId] = [];
         projectUserMap[pm.projectId].push(userId);
-        // Map by PM.id since assigneeId now stores ProjectMember.id
         roleMap[`${pm.projectId}-${pm.id}`] = pm.projectRole;
     });
 

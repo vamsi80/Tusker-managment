@@ -1,85 +1,54 @@
-"use server"
+"use server";
 
 import { getUserPermissions } from "@/data/user/get-user-permissions";
 import { invalidateTaskMutation } from "@/lib/cache/invalidation";
 import { requireUser } from "@/lib/auth/require-user";
 import prisma from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
+import { TasksService } from "@/server/services/tasks.service";
 
-export async function deleteSubTask(
-    subTaskId: string
-): Promise<ApiResponse> {
+/**
+ * Server Action to delete a subtask.
+ * Delegated to TasksService for core logic.
+ */
+export async function deleteSubTask(subTaskId: string): Promise<ApiResponse> {
     try {
-        // Authenticate user
         const user = await requireUser();
 
-        // Get the subtask with project and workspace info
-        const existingSubTask = await prisma.task.findUnique({
+        // 1. Get subtask context
+        const subTask = await prisma.task.findUnique({
             where: { id: subTaskId },
-            include: {
-                project: {
-                    select: {
-                        id: true,
-                        workspaceId: true,
-                        slug: true,
-                    }
-                }
-            }
+            include: { project: { select: { id: true, workspaceId: true } } }
         });
 
-        if (!existingSubTask) {
+        if (!subTask) {
             return {
                 status: "error",
                 message: "Subtask not found",
             };
         }
 
-        // Check permissions
         const permissions = await getUserPermissions(
-            existingSubTask.project.workspaceId,
-            existingSubTask.project.id
+            subTask.project.workspaceId,
+            subTask.project.id
         );
 
-        // Permission logic:
-        // - Workspace ADMIN: Can delete all subtasks
-        // - PROJECT_MANAGER: Can delete all subtasks in their project
-        // - LEAD: Can delete only subtasks they created
-        const canDeleteAllTasks = permissions.isWorkspaceAdmin || permissions.isProjectManager;
-        const canDeleteOwnTasks = permissions.isProjectLead && permissions.projectMember && existingSubTask.createdById === permissions.projectMember.id;
-
-        if (!canDeleteAllTasks && !canDeleteOwnTasks) {
-            return {
-                status: "error",
-                message: permissions.isProjectLead
-                    ? "You can only delete subtasks you created"
-                    : "You don't have permission to delete this subtask",
-            };
-        }
-
-        // Delete the subtask and update parent counters in a transaction
-        await prisma.$transaction(async (tx) => {
-            await tx.task.delete({
-                where: { id: subTaskId },
-            });
-
-            if (existingSubTask.parentTaskId) {
-                await tx.task.update({
-                    where: { id: existingSubTask.parentTaskId },
-                    data: {
-                        subtaskCount: { decrement: 1 },
-                        completedSubtaskCount: existingSubTask.status === "COMPLETED" ? { decrement: 1 } : undefined
-                    }
-                });
-            }
+        // 2. Call service (it handles parent counter decrement automatically)
+        await TasksService.deleteTask({
+            taskId: subTaskId,
+            workspaceId: subTask.project.workspaceId,
+            projectId: subTask.project.id,
+            userId: user.id,
+            permissions
         });
 
-        // OPTIMIZED: Use comprehensive cache invalidation
+        // 3. Invalidate cache
         await invalidateTaskMutation({
-            taskId: subTaskId,
-            projectId: existingSubTask.projectId,
-            workspaceId: existingSubTask.project.workspaceId,
+            projectId: subTask.project.id,
+            workspaceId: subTask.project.workspaceId,
             userId: user.id,
-            parentTaskId: existingSubTask.parentTaskId || undefined
+            taskId: subTaskId,
+            parentTaskId: subTask.parentTaskId || undefined
         });
 
         return {
@@ -87,11 +56,11 @@ export async function deleteSubTask(
             message: "Subtask deleted successfully",
         };
 
-    } catch (err) {
-        console.error("Error deleting subtask:", err);
+    } catch (err: any) {
+        console.error("[ACTION_DELETE_SUBTASK_ERROR]", err);
         return {
             status: "error",
-            message: "We couldn't delete the subtask. Please try again.",
-        }
+            message: err.message || "We couldn't delete the subtask. Please try again.",
+        };
     }
 }

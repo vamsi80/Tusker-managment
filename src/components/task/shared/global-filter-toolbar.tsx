@@ -8,16 +8,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { type TaskFilters, type ViewLevel, type ViewType, type ProjectOption, type MemberOption, type TagOption, getFilterConfig, getActiveFilters } from "./types";
 import { formatIST } from "@/lib/utils";
-import dynamic from "next/dynamic";
-import { RangeKeyDict } from "react-date-range";
-
-// Dynamically import date picker since it's heavy
-const DateRange = dynamic(
-    () => import("react-date-range").then((mod) => mod.DateRange),
-    { ssr: false, loading: () => <div className="h-[300px] w-[300px] animate-pulse bg-muted rounded-md" /> }
-);
-import "react-date-range/dist/styles.css"; // main style file
-import "react-date-range/dist/theme/default.css"; // theme css file
+import { Calendar as ShadcnCalendar } from "@/components/ui/calendar";
 import { TaskSearch } from "./task-search";
 import { ColumnVisibility } from "./column-visibility";
 import { KanbanColumnVisibility, type KanbanColumnVisibility as KanbanColumnVisibilityType } from "./kanban-column-visibility";
@@ -32,73 +23,15 @@ export interface ParentTaskOption {
 
 
 
-// Add custom theme overrides for react-date-range
+// Add custom theme overrides for the calendar range
 const DATE_RANGE_THEME_OVERRIDE = `
-  .rdrCalendarWrapper {
-    font-family: inherit;
-    color: var(--foreground);
-    background-color: transparent;
-  }
-  .rdrDateDisplayWrapper {
-    background-color: var(--muted);
-  }
-  .rdrDateInput {
-    background-color: var(--background);
-    border-color: var(--border);
-    color: var(--foreground);
-  }
-  .rdrDayToday .rdrDayNumber span:after {
-    background: var(--primary);
-  }
-  .rdrStartEdge, .rdrEndEdge, .rdrSelected, .rdrDayStartPreviewCustom, .rdrDayEndPreviewCustom {
-    background: var(--primary) !important;
-  }
-  .rdrInRange {
-    background: var(--primary) !important;
-    opacity: 0.1;
-  }
-  .rdrDaySelected {
-    background: transparent !important;
-  }
-  /* Fix text color for days in range */
-  .rdrDay {
-    background: transparent;
-  }
-  .rdrDayNumber span {
-    color: var(--foreground);
-  }
-  .rdrStartEdge ~ .rdrDayNumber span,
-  .rdrEndEdge ~ .rdrDayNumber span,
-  .rdrSelected ~ .rdrDayNumber span {
+  .rdp-day_range_start, .rdp-day_range_end {
+    background-color: var(--primary) !important;
     color: var(--primary-foreground) !important;
   }
-  /* Ensure range dates keep foreground color */
-  .rdrDayInRange .rdrDayNumber span {
-    color: var(--foreground) !important;
-  }
-  /* Start and End edges should have white/primary-foreground text */
-  .rdrDayStartEdge .rdrDayNumber span,
-  .rdrDayEndEdge .rdrDayNumber span {
-    color: var(--primary-foreground) !important;
-  }
-  .rdrDayInPreview {
-    border-color: var(--primary) !important;
-  }
-  .rdrMonthAndYearPickers select {
-    color: var(--foreground);
-    background: transparent;
-  }
-  .rdrNextPrevButton {
-    background: var(--secondary);
-  }
-  .rdrNextPrevButton:hover {
-    background: var(--accent);
-  }
-  .rdrMonthName {
-    color: var(--foreground);
-  }
-  .rdrWeekDay {
-    color: var(--muted-foreground);
+  .rdp-day_range_middle {
+    background-color: var(--accent) !important;
+    color: var(--accent-foreground) !important;
   }
 `;
 import {
@@ -339,12 +272,12 @@ export function GlobalFilterToolbar({
                                                         <span className="truncate">
                                                             {filters.startDate && filters.endDate ? (
                                                                 <>
-                                                                    {formatIST(filters.startDate, "dd MMM")} - {formatIST(filters.endDate, "dd MMM")}
+                                                                    {formatIST(filters.startDate)} - {formatIST(filters.endDate)}
                                                                 </>
                                                             ) : filters.startDate ? (
-                                                                <>From: {formatIST(filters.startDate, "dd MMM")}</>
+                                                                <>From: {formatIST(filters.startDate)}</>
                                                             ) : filters.endDate ? (
-                                                                <>To: {formatIST(filters.endDate, "dd MMM")}</>
+                                                                <>To: {formatIST(filters.endDate)}</>
                                                             ) : (
                                                                 "Pick dates"
                                                             )}
@@ -352,29 +285,22 @@ export function GlobalFilterToolbar({
                                                     </Button>
                                                 </PopoverTrigger>
                                                 <PopoverContent className="w-auto p-0 border-none shadow-2xl overflow-hidden rounded-xl" align="start">
-                                                    <div className="bg-background p-2">
-                                                        <DateRange
-                                                            editableDateInputs={true}
-                                                            onChange={(item: RangeKeyDict) => {
-                                                                const { selection } = item;
-                                                                // Batch updates to filters
+                                                    <div className="bg-background">
+                                                        <ShadcnCalendar
+                                                            mode="range"
+                                                            selected={{
+                                                                from: filters.startDate ? new Date(filters.startDate) : undefined,
+                                                                to: filters.endDate ? new Date(filters.endDate) : undefined,
+                                                            }}
+                                                            onSelect={(range) => {
                                                                 onFilterChange({
                                                                     ...filters,
-                                                                    startDate: selection.startDate ? selection.startDate.toISOString() : undefined,
-                                                                    endDate: selection.endDate ? selection.endDate.toISOString() : undefined,
+                                                                    startDate: range?.from ? range.from.toISOString() : undefined,
+                                                                    endDate: range?.to ? range.to.toISOString() : undefined,
                                                                 });
                                                             }}
-                                                            moveRangeOnFirstSelection={false}
-                                                            months={1}
-                                                            showMonthAndYearPickers={true}
-                                                            ranges={[{
-                                                                startDate: filters.startDate ? new Date(filters.startDate) : new Date(),
-                                                                endDate: filters.endDate ? new Date(filters.endDate) : new Date(),
-                                                                key: 'selection',
-                                                            }]}
-                                                            rangeColors={["#ad3f35"]} // A hex color that matches your theme's primary (oklch(0.6171 0.1375 39.0427))
-                                                            direction="horizontal"
-                                                            className="text-xs"
+                                                            numberOfMonths={1}
+                                                            initialFocus
                                                         />
                                                     </div>
                                                 </PopoverContent>

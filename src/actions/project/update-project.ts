@@ -43,7 +43,7 @@ export async function editProject(values: EditProjectSchemaType): Promise<ApiRes
         const permissions = await getUserPermissions(project.workspaceId, values.projectId);
 
         // Check if user has admin access (workspace admin or project lead)
-        const workspaceRole = permissions.workspaceMember?.workspaceRole;
+        const workspaceRole = permissions.workspaceRole;
         const projectRole = permissions.projectMember?.projectRole || null;
 
         if (!permissions.isWorkspaceAdmin && !isProjectAdmin(projectRole)) {
@@ -124,64 +124,70 @@ export async function editProject(values: EditProjectSchemaType): Promise<ApiRes
                 }
             }
 
-            // Update project lead if provided
-            if (validation.data.projectLead) {
-                const projectLeadUserId = String(validation.data.projectLead);
-                const isUserInWorkspace = workspaceMemberMap.has(projectLeadUserId);
-                const wmId = workspaceMemberMap.get(projectLeadUserId);
+            // Update project managers if provided
+            if (validation.data.projectManagers) {
+                const requestedPMUserIds = validation.data.projectManagers;
+                
+                // Get all current project members with PROJECT_MANAGER role
+                const currentPMs = await tx.projectMember.findMany({
+                    where: {
+                        projectId: values.projectId,
+                        projectRole: "PROJECT_MANAGER"
+                    },
+                    include: {
+                        workspaceMember: true
+                    }
+                });
 
-                if (isUserInWorkspace && wmId) {
-                    // Find existing lead
-                    const existingLead = await tx.projectMember.findFirst({
-                        where: {
-                            projectId: values.projectId,
-                            projectRole: "LEAD"
-                        }
-                    });
+                const currentPMUserIds = currentPMs.map(pm => pm.workspaceMember.userId);
+                
+                // IDs to add: requested but not current
+                const idsToAdd = requestedPMUserIds.filter(id => !currentPMUserIds.includes(id));
+                // IDs to remove: current but not requested
+                const idsToRemove = currentPMUserIds.filter(id => !requestedPMUserIds.includes(id));
 
-                    // If the lead is changing
-                    if (existingLead && wmId && existingLead.workspaceMemberId !== wmId) {
-                        // Demote old lead to MEMBER
-                        await tx.projectMember.update({
-                            where: { id: existingLead.id },
-                            data: { projectRole: "MEMBER" }
-                        });
-
-                        // Check if new lead already exists as a member
-                        const newLeadMember = await tx.projectMember.findFirst({
+                // Add new project managers
+                for (const userId of idsToAdd) {
+                    const wmId = workspaceMemberMap.get(userId);
+                    if (wmId) {
+                        // Check if they already exist as a member but with a different role
+                        const existingMember = await tx.projectMember.findFirst({
                             where: {
                                 projectId: values.projectId,
                                 workspaceMemberId: wmId
                             }
                         });
 
-                        if (newLeadMember) {
-                            // Promote existing member to LEAD
+                        if (existingMember) {
                             await tx.projectMember.update({
-                                where: { id: newLeadMember.id },
-                                data: { projectRole: "LEAD" }
+                                where: { id: existingMember.id },
+                                data: { projectRole: "PROJECT_MANAGER", hasAccess: true }
                             });
                         } else {
-                            // Create new lead member
                             await tx.projectMember.create({
                                 data: {
                                     projectId: values.projectId,
-                                    workspaceMemberId: wmId!,
-                                    hasAccess: true,
-                                    projectRole: "LEAD"
+                                    workspaceMemberId: wmId,
+                                    projectRole: "PROJECT_MANAGER",
+                                    hasAccess: true
                                 }
                             });
                         }
-                    } else if (!existingLead) {
-                         // Create new lead member if none exists
-                         await tx.projectMember.create({
-                                data: {
-                                    projectId: values.projectId,
-                                    workspaceMemberId: wmId!,
-                                    hasAccess: true,
-                                    projectRole: "LEAD"
-                                }
-                            });
+                    }
+                }
+
+                // Remove project managers (demote to MEMBER or delete? User said "only that person will be the pm")
+                // Usually we just demote them to MEMBER or remove their PM status.
+                // Let's demote them to MEMBER if we want them to stay in the project, 
+                // but the user said "ONLY that person will be the pm".
+                // I'll demote them to MEMBER.
+                for (const userId of idsToRemove) {
+                    const pm = currentPMs.find(pm => pm.workspaceMember.userId === userId);
+                    if (pm) {
+                        await tx.projectMember.update({
+                            where: { id: pm.id },
+                            data: { projectRole: "MEMBER" }
+                        });
                     }
                 }
             }

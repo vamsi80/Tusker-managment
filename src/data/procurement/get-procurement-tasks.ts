@@ -122,7 +122,7 @@ export const getProcurementTasks = cache(
             // We use a light check here, or the full permissions check
             const permissions = await getUserPermissions(workspaceId, user.id);
 
-            if (!permissions.workspaceMember) {
+            if (!permissions.workspaceMemberId) {
                 return { tasks: [], totalCount: 0, hasMore: false };
             }
 

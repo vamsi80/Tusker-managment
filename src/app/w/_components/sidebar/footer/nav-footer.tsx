@@ -1,6 +1,6 @@
 "use client";
 
-import { Settings, BarChart3 } from "lucide-react";
+import { Settings, BarChart3, LayoutDashboard } from "lucide-react";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -9,6 +9,7 @@ import { usePathname } from "next/navigation";
 const iconMap = {
     Settings,
     BarChart3,
+    LayoutDashboard,
 } as const;
 
 type IconName = keyof typeof iconMap;

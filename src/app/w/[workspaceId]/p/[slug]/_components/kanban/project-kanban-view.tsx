@@ -19,54 +19,40 @@ export async function ProjectKanbanView({
 }: ProjectKanbanViewProps) {
     const userPromise = requireUser();
     const membersPromise = getProjectMembers(projectId);
-
+    
     const user = await userPromise;
+    const permissionsPromise = import("@/data/user/get-user-permissions").then(m => m.getUserPermissions(workspaceId, projectId, user.id));
 
     const COLUMNS = ["TO_DO", "IN_PROGRESS", "REVIEW", "HOLD", "COMPLETED", "CANCELLED"] as const;
 
-    // Fetch initial page (15 tasks) for EACH status in parallel for better debuggability and UX
-    const [statusResponses, projectMembers] = await Promise.all([
-        Promise.all(COLUMNS.map(status =>
-            getTasks({
-                workspaceId,
-                projectId,
-                status: [status],
-                excludeParents: true,
-                limit: 30, // Increased to 30 to better fill initial screen and prevent eager paging
-                sorts: [{ field: "createdAt", direction: "desc" }],
-                view_mode: "kanban",
-                includeFacets: true
-            }, user.id)
-        )),
+    const [projectMembers, pmMap, permissions] = await Promise.all([
         membersPromise,
+        import("@/data/workspace/get-workspace-kanban-data").then(m => m.getWorkspaceProjectManagersMap(workspaceId)),
+        permissionsPromise
     ]);
 
-    // Construct the group mapping from parallel responses
-    const initialData: Record<string, any> = {};
-
-    COLUMNS.forEach((status, index) => {
-        const response = statusResponses[index];
-        const tasks = response.tasks;
-        const totalInDb = response.facets?.statusCounts?.[status] || tasks.length;
-
-        initialData[status] = {
-            subTasks: tasks,
-            totalCount: totalInDb,
-            hasMore: totalInDb > tasks.length,
-            nextCursor: totalInDb > tasks.length && tasks.length > 0
-                ? { id: tasks[tasks.length - 1].id, createdAt: tasks[tasks.length - 1].createdAt }
-                : null,
+    // 🚀 ZERO-WEIGHT SHELL: Tasks are no longer fetched server-side.
+    // KanbanBoard will fetch its own initial data on the client via Hono.
+    const initialData = COLUMNS.reduce((acc, status) => {
+        acc[status] = {
+            subTasks: [],
+            totalCount: 0,
+            hasMore: false,
+            nextCursor: null,
             currentPage: 1
         };
-    });
+        return acc;
+    }, {} as any);
 
     return (
         <KanbanBoard
             initialData={initialData}
-            projectMembers={projectMembers}
+            projectMembers={projectMembers as any}
             workspaceId={workspaceId}
             projectId={projectId}
-        // projectManagers={projectManagersMap}
+            projectManagers={pmMap || {}}
+            permissions={permissions}
+            userId={user.id}
         />
     );
 }

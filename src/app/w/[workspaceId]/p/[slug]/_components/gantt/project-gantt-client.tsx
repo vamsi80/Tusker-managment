@@ -9,6 +9,7 @@ import { GanttChart } from "@/components/task/gantt/gantt-chart";
 import { GlobalFilterToolbar } from "@/components/task/shared/global-filter-toolbar";
 import { MemberOption, TagOption, TaskFilters } from "@/components/task/shared/types";
 import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
+import { ProjectMembersType } from "@/data/project/get-project-members";
 
 interface ProjectGanttClientProps {
     workspaceId: string;
@@ -16,7 +17,7 @@ interface ProjectGanttClientProps {
     initialTasks: GanttTask[];
     allTasks: any[];
     subtaskDataMap: Record<string, WorkspaceTaskType>;
-    members: MemberOption[];
+    members: ProjectMembersType;
     tags: TagOption[];
     projectCounts?: Record<string, number>;
     currentUser?: { id: string };
@@ -88,15 +89,16 @@ export function ProjectGanttClient({
 
             startTransition(async () => {
                 try {
-                    const res = await fetch(`/api/gt?${params.toString()}`);
+                    params.append("vm", "gantt");
+                    const res = await fetch(`/api/v1/tasks?${params.toString()}`);
                     const json = await res.json();
                     if (json.success) {
+                        // The Hono API returns the tasks directly in json.data
                         const allFetchedTasks: any[] = [];
-                        json.data.tasks.forEach((t: any) => {
+                        json.data.forEach((t: any) => {
                             allFetchedTasks.push(t);
                             if (t.subTasks) allFetchedTasks.push(...t.subTasks);
                         });
-                        console.log("🟦 [GANTT CLIENT] Project fetched tasks (flattened):", allFetchedTasks.length);
                         setTasks(transformToGanttTasks(allFetchedTasks));
                     }
                 } catch (err) {
@@ -109,7 +111,42 @@ export function ProjectGanttClient({
         return () => clearTimeout(timer);
     }, [workspaceId, projectId, filters, searchQuery]);
 
+    // Surgical update for subtasks (e.g. assignee change)
+    const handleSubTaskUpdate = (subTaskId: string, updatedData: Partial<any>) => {
+        setTasks(prevTasks => {
+            return prevTasks.map(task => {
+                // If the updated task is a parent task
+                if (task.id === subTaskId) {
+                    return { ...task, ...updatedData };
+                }
+                
+                // If it's a subtask within a parent task
+                if (task.subtasks) {
+                    const hasSubtask = task.subtasks.find(s => s.id === subTaskId);
+                    if (hasSubtask) {
+                        return {
+                            ...task,
+                            subtasks: task.subtasks.map(s => 
+                                s.id === subTaskId ? { ...s, ...updatedData } : s
+                            )
+                        };
+                    }
+                }
+                return task;
+            });
+        });
+    };
+
     const ganttTasks = tasks;
+
+    // Transform full member objects for the toolbar dropdowns
+    const toolbarMembers = members.map(m => ({
+        id: m.userId,
+        name: m.user.name || '',
+        surname: m.user.surname || '',
+        email: m.user.email || '',
+        image: m.user.image || ''
+    }));
 
     return (
         <div className="space-y-4">
@@ -118,7 +155,7 @@ export function ProjectGanttClient({
                 view="gantt"
                 filters={filters}
                 searchQuery={searchQuery}
-                members={members}
+                members={toolbarMembers as any}
                 tags={tags}
                 onFilterChange={handleFilterChange}
                 onSearchChange={handleSearchChange}
@@ -144,7 +181,9 @@ export function ProjectGanttClient({
                     workspaceId={workspaceId}
                     projectId={projectId}
                     onSubtaskClick={handleSubtaskClick}
+                    onSubTaskUpdate={handleSubTaskUpdate}
                     projectCounts={projectCounts}
+                    members={members}
                     currentUser={currentUser}
                     permissions={permissions}
                 />

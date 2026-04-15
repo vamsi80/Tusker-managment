@@ -33,7 +33,7 @@ class PerformanceLogger {
         const metaStr = Object.keys(metadata).length > 0 ? ` | Meta: ${JSON.stringify(metadata)}` : '';
 
         // Server side doesn't support %c coloring in most logs
-        console.log(`[PERF:SERVER] ${timestamp} | ${label}: ${duration.toFixed(2)}ms${metaStr}`);
+        // console.log(`[PERF:SERVER] ${timestamp} | ${label}: ${duration.toFixed(2)}ms${metaStr}`);
     }
 }
 

@@ -406,12 +406,25 @@ export async function updateProjectMemberRole(
             if (currentManagers.length === 1) {
                 return {
                     status: "error",
-                    message: "Cannot demote the last project manager. Promote another member to manager first.",
+                    message: "Cannot demote the last project manager. Assign the Manager role to someone else to step down.",
                 };
             }
         }
 
-        // Update the member's role
+        // If promoting someone to project manager, demote any existing project managers
+        if (newRole === "PROJECT_MANAGER" && targetMember.projectRole !== "PROJECT_MANAGER") {
+            await prisma.projectMember.updateMany({
+                where: { 
+                    projectId: projectId, 
+                    projectRole: "PROJECT_MANAGER" 
+                },
+                data: {
+                    projectRole: "MEMBER",
+                },
+            });
+        }
+
+        // Update the target member's role
         await prisma.projectMember.update({
             where: { id: targetMember.id },
             data: {

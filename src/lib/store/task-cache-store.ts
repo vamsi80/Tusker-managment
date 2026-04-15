@@ -43,6 +43,20 @@ interface TaskCacheState {
     invalidateSubTaskCache: (taskId: string) => void;
     invalidateProjectCache: (projectId: string) => void;
     invalidateWorkspaceCache: (workspaceId: string) => void;
+    
+    // Surgical Kanban API
+    moveTaskBetweenKanbanColumns: (
+        subTaskId: string, 
+        fromStatus: string, 
+        toStatus: string, 
+        workspaceId: string, 
+        projectId?: string
+    ) => void;
+    
+    // Structural pinpoint sync API
+    addTaskToKanbanList: (task: any, workspaceId: string, projectId: string) => void;
+    removeTaskFromKanbanList: (taskId: string, status: string, workspaceId: string, projectId: string) => void;
+
     clearCache: () => void;
     ensureUser: (userId: string) => void;
 }
@@ -106,6 +120,105 @@ export const useTaskCacheStore = create<TaskCacheState>()(
                 }
                 return { entities: newEntities };
             }),
+
+            moveTaskBetweenKanbanColumns: (subTaskId, fromStatus, toStatus, workspaceId, projectId) => {
+                const state = get();
+                const contextId = projectId || "";
+                const fromKey = `${workspaceId}-${contextId}-${fromStatus}`;
+                const toKey = `${workspaceId}-${contextId}-${toStatus}`;
+
+                const fromList = state.kanbanLists[fromKey];
+                const toList = state.kanbanLists[toKey];
+
+                if (!fromList || !fromList.ids.includes(subTaskId)) return;
+
+                // 1. Prepare new lists
+                const newFromIds = fromList.ids.filter(id => id !== subTaskId);
+                const newToIds = toList ? [subTaskId, ...toList.ids.filter(id => id !== subTaskId)] : [subTaskId];
+
+                // 2. Update entities (status property)
+                const task = state.entities[subTaskId];
+                const updatedEntities = task ? {
+                    ...state.entities,
+                    [subTaskId]: { ...task, status: toStatus, updatedAt: new Date().toISOString() }
+                } : state.entities;
+
+                // 3. Update Lists
+                const newKanbanLists = { ...state.kanbanLists };
+                newKanbanLists[fromKey] = {
+                    ...fromList,
+                    ids: newFromIds,
+                    totalCount: Math.max(0, (fromList.totalCount || 0) - 1),
+                    timestamp: Date.now()
+                };
+
+                if (toList) {
+                    newKanbanLists[toKey] = {
+                        ...toList,
+                        ids: newToIds,
+                        totalCount: (toList.totalCount || 0) + 1,
+                        timestamp: Date.now()
+                    };
+                }
+
+                set({
+                    entities: updatedEntities,
+                    kanbanLists: newKanbanLists
+                });
+            },
+
+            addTaskToKanbanList: (task, workspaceId, projectId) => {
+                const state = get();
+                
+                // 🚀 STATUS PROTECTION: If a task has no status (e.g. Parent task), it doesn't belong in a status column
+                if (!task.status) return;
+
+                const status = task.status;
+                const cacheKey = `${workspaceId}-${projectId}-${status}`;
+                
+                // 1. Upsert entity
+                get().upsertTasks([task]);
+                
+                // 2. Add to list
+                const currentList = state.kanbanLists[cacheKey];
+                if (!currentList) return; // If list isn't cached, no need to surgically update
+
+                const newIds = [task.id, ...currentList.ids.filter(id => id !== task.id)];
+                
+                set(state => ({
+                    kanbanLists: {
+                        ...state.kanbanLists,
+                        [cacheKey]: {
+                            ...currentList,
+                            ids: newIds,
+                            totalCount: (currentList.totalCount || 0) + 1,
+                            timestamp: Date.now()
+                        }
+                    }
+                }));
+            },
+
+            removeTaskFromKanbanList: (taskId, status, workspaceId, projectId) => {
+                const state = get();
+                const cacheKey = `${workspaceId}-${projectId}-${status}`;
+                const currentList = state.kanbanLists[cacheKey];
+                
+                if (!currentList || !currentList.ids.includes(taskId)) return;
+
+                const newIds = currentList.ids.filter(id => id !== taskId);
+                
+                set(state => ({
+                    kanbanLists: {
+                        ...state.kanbanLists,
+                        [cacheKey]: {
+                            ...currentList,
+                            ids: newIds,
+                            totalCount: Math.max(0, (currentList.totalCount || 0) - 1),
+                            timestamp: Date.now()
+                        }
+                    }
+                }));
+            },
 
             setCachedSubTasks: (taskId, data) => {
                 get().upsertTasks(data.subTasks);

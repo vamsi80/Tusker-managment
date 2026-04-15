@@ -1,7 +1,6 @@
 import { Suspense } from "react";
-import { AppLoader } from "@/components/shared/app-loader";
-import { WorkspaceTasksHeader } from "./_components/workspace-tasks-header";
 import { TaskPageWrapper } from "../_components/shared/task-page-wrapper";
+import { WorkspaceTasksHeader } from "./_components/workspace-tasks-header";
 
 interface Props {
     children: React.ReactNode;

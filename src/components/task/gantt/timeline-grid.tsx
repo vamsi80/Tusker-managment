@@ -9,7 +9,7 @@ import { GanttTask, TimelineGranularity } from "./types";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { ChevronsDownUp, ChevronsUpDown, Download, Calendar, ChevronDown } from "lucide-react";
+import { ChevronsDownUp, ChevronsUpDown, Download, Calendar, ChevronDown, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 
 interface TimelineHeaderProps {
     startDate: Date;
@@ -21,8 +21,10 @@ interface TimelineHeaderProps {
     groupByProject: boolean;
     onExpandAll: () => void;
     onCollapseAll: () => void;
-    onExport: () => void;
+    onExport: (type: 'pdf' | 'excel') => void;
     onGranularityChange: (g: TimelineGranularity) => void;
+    showDetails: boolean;
+    onToggleDetails: () => void;
     scrollX: number;
     viewportWidth: number;
 }
@@ -39,6 +41,8 @@ export function TimelineHeader({
     onCollapseAll,
     onExport,
     onGranularityChange,
+    showDetails,
+    onToggleDetails,
     scrollX,
     viewportWidth
 }: TimelineHeaderProps) {
@@ -51,7 +55,7 @@ export function TimelineHeader({
     const headerHeight = granularity === 'days' ? 72 : 40;
 
     // 🚀 Horizontal Virtualization: Determine visible indices
-    const sidebarWidth = 200; // Match sidebar width
+    const sidebarWidth = showDetails ? 650 : 250; // Dynamic sidebar width
     const visibleStartIndex = Math.max(0, Math.floor((scrollX - sidebarWidth) / columnWidth));
     const visibleEndIndex = Math.min(columns.length, Math.ceil((scrollX + viewportWidth) / columnWidth));
 
@@ -95,107 +99,172 @@ export function TimelineHeader({
         <div
             className="sticky top-0 z-40 bg-white dark:bg-neutral-900 min-w-full w-fit"
             style={{
-                height: headerHeight,
+                height: granularity === 'days' ? 72 : 72, // Keep 72 for consistency if we use the top bar for controls
                 // @ts-ignore
-                "--gantt-header-height": `${headerHeight}px`
+                "--gantt-header-height": `${granularity === 'days' ? 72 : 72}px`
             }}
         >
-            {/* Month Row (for days view) */}
-            {granularity === 'days' && (
+            {/* Top Control Bar Row */}
+            <div
+                className="flex border-b border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 h-8"
+            >
                 <div
-                    className="flex border-b border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 h-8"
+                    className="sticky left-0 z-50 w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] shrink-0 px-3 py-1 bg-neutral-50 dark:bg-neutral-800/50 border-r border-neutral-200 dark:border-neutral-700 h-full flex items-center transition-[width] duration-300 ease-in-out overflow-hidden"
                 >
-                    <div
-                        className="sticky left-0 z-50 w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] shrink-0 px-3 py-1 bg-neutral-50 dark:bg-neutral-800/50 border-r border-neutral-200 dark:border-neutral-700 h-full"
-                    />
-                    <div className="flex relative items-stretch">
-                        {/* Leading Spacer to nudge columns to correct absolute position */}
-                        <div style={{ width: visibleStartIndex * columnWidth }} />
-                        {monthLabels.map((month, idx) => (
-                            <div
-                                key={idx}
-                                className="text-[10px] font-medium text-muted-foreground text-center border-r border-neutral-200 dark:border-neutral-700 h-full flex items-center justify-center truncate px-1"
-                                style={{
-                                    // Adjust width for clipped months at start/end
-                                    width: (Math.min(month.startIdx + month.span, visibleEndIndex) - Math.max(month.startIdx, visibleStartIndex)) * columnWidth
-                                }}
-                            >
-                                {month.label}
-                            </div>
-                        ))}
+                    {/* Expand / Collapse toggle */}
+                    <div className="flex items-center gap-1">
+                        <TooltipProvider delayDuration={200}>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={allExpanded ? onCollapseAll : onExpandAll}
+                                        className="h-6 w-6"
+                                    >
+                                        {allExpanded
+                                            ? <ChevronsDownUp className="h-3.5 w-3.5" />
+                                            : <ChevronsUpDown className="h-3.5 w-3.5" />
+                                        }
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom">
+                                    {allExpanded ? 'Collapse All' : 'Expand All'}
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                     </div>
+
+                    <div className="h-3 w-[1px] bg-neutral-300 dark:bg-neutral-700 mx-0.5" />
+
+                    {/* Export */}
+                    <div className="flex items-center gap-1">
+                        <DropdownMenu>
+                            <TooltipProvider delayDuration={200}>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-6 w-6"
+                                            >
+                                                <Download className="h-3.5 w-3.5" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom">Export options</TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                            <DropdownMenuContent align="start">
+                                <DropdownMenuItem onClick={() => onExport('pdf')}>
+                                    Download PDF
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => onExport('excel')}>
+                                    Download Sheet
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+
+                    <div className="h-3 w-[1px] bg-neutral-300 dark:bg-neutral-700 mx-0.5" />
+
+                    {/* Granularity picker */}
+                    <TooltipProvider delayDuration={200}>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6">
+                                            <Calendar className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="start">
+                                        <DropdownMenuItem onClick={() => onGranularityChange('days')}>
+                                            Days
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => onGranularityChange('weeks')}>
+                                            Weeks
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => onGranularityChange('months')}>
+                                            Months
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom">
+                                Change Timeline Granularity ({granularity})
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
                 </div>
-            )}
+                <div className="flex relative items-stretch">
+                    {granularity === 'days' ? (
+                        <>
+                            <div style={{ width: visibleStartIndex * columnWidth }} />
+                            {monthLabels.map((month, idx) => (
+                                <div
+                                    key={idx}
+                                    className="text-[10px] font-medium text-muted-foreground text-center border-r border-neutral-200 dark:border-neutral-700 h-full flex items-center justify-center truncate px-1"
+                                    style={{
+                                        width: (Math.min(month.startIdx + month.span, visibleEndIndex) - Math.max(month.startIdx, visibleStartIndex)) * columnWidth
+                                    }}
+                                >
+                                    {month.label}
+                                </div>
+                            ))}
+                        </>
+                    ) : (
+                        <div className="flex items-center px-4 text-[10px] font-medium text-muted-foreground">
+                            {granularity === 'weeks' ? 'Weekly Overview' : 'Monthly Overview'}
+                        </div>
+                    )}
+                </div>
+            </div>
 
             {/* Day/Week/Month Headers */}
             <div className="flex border-b border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 h-10">
                 <div
-                    className="sticky left-0 z-50 w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] shrink-0 px-3 py-2 bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-700 h-[100%] flex flex-col justify-between shadow-sm"
+                    className="sticky left-0 z-50 w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-700 h-full flex flex-col justify-between shadow-sm transition-[width] duration-300 ease-in-out overflow-hidden"
                 >
                     <div className="flex items-center justify-between w-full h-full">
-                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                            Tasks
-                        </span>
-
-                        <div className="flex items-center gap-1">
-                            {/* Expand / Collapse toggle */}
-                            <TooltipProvider delayDuration={200}>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={allExpanded ? onCollapseAll : onExpandAll}
-                                            className="h-6 w-6 p-0"
-                                        >
-                                            {allExpanded
-                                                ? <ChevronsDownUp className="h-3.5 w-3.5" />
-                                                : <ChevronsUpDown className="h-3.5 w-3.5" />
-                                            }
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="bottom">
-                                        {allExpanded ? 'Collapse All' : 'Expand All'}
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-
-                            {/* Export */}
-                            <TooltipProvider delayDuration={200}>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={onExport}
-                                            className="h-6 w-6 p-0"
-                                        >
-                                            <Download className="h-3.5 w-3.5" />
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="bottom">Export to Sheets</TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-
-                            {/* Granularity picker */}
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                                        <Calendar className="h-3.5 w-3.5" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => onGranularityChange('days')}>
+                        <div className="flex items-center h-full">
+                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-[var(--col-name)] px-3 border-r border-neutral-200 dark:border-neutral-700 h-full flex items-center justify-between group">
+                                <span>Task Name</span>
+                                <TooltipProvider delayDuration={200}>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={onToggleDetails}
+                                                className="h-5 w-5 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
+                                            >
+                                                {showDetails ? <PanelLeftClose className="h-3 w-3" /> : <PanelLeftOpen className="h-3 w-3" />}
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="right">
+                                            {showDetails ? 'Collapse extra details' : 'Expand extra details'}
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            </span>
+                            {showDetails && (
+                                <>
+                                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-[var(--col-assignee)] px-2 border-r border-neutral-200 dark:border-neutral-700 h-full flex items-center">
+                                        Assignee
+                                    </span>
+                                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-[var(--col-status)] px-2 border-r border-neutral-200 dark:border-neutral-700 h-full flex items-center">
+                                        Status
+                                    </span>
+                                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-[var(--col-days)] px-2 border-r border-neutral-200 dark:border-neutral-700 h-full flex items-center justify-center text-center">
                                         Days
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => onGranularityChange('weeks')}>
-                                        Weeks
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => onGranularityChange('months')}>
-                                        Months
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                                    </span>
+                                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-[var(--col-dates)] px-2 h-full flex items-center">
+                                        Dates
+                                    </span>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -230,11 +299,12 @@ interface TimelineGridProps {
     granularity: TimelineGranularity;
     tasks: GanttTask[];
     children: React.ReactNode;
+    showDetails: boolean;
     scrollX: number;
     viewportWidth: number;
 }
 
-export function TimelineGrid({ startDate, endDate, granularity, tasks, children, scrollX, viewportWidth }: TimelineGridProps) {
+export function TimelineGrid({ startDate, endDate, granularity, tasks, children, showDetails, scrollX, viewportWidth }: TimelineGridProps) {
     const columns = useMemo(
         () => generateTimelineColumns(startDate, endDate, granularity),
         [startDate, endDate, granularity]
@@ -244,7 +314,7 @@ export function TimelineGrid({ startDate, endDate, granularity, tasks, children,
     const totalWidth = columns.length * columnWidth;
 
     // 🚀 Horizontal Virtualization
-    const sidebarWidth = 200;
+    const sidebarWidth = showDetails ? 650 : 250;
     const visibleStartIndex = Math.max(0, Math.floor((scrollX - sidebarWidth) / columnWidth));
     const visibleEndIndex = Math.min(columns.length, Math.ceil((scrollX + viewportWidth) / columnWidth));
 
@@ -306,7 +376,7 @@ export function TimelineGrid({ startDate, endDate, granularity, tasks, children,
         >
             {/* Grid Background */}
             <div
-                className="absolute inset-x-0 inset-y-0 flex pointer-events-none"
+                className="absolute inset-x-0 inset-y-0 flex pointer-events-none transition-[margin] duration-300 ease-in-out"
                 style={{ marginLeft: 'var(--gantt-sidebar-width)' }}
             >
                 {/* Horizontal virtual spacer */}

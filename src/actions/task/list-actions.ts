@@ -1,12 +1,14 @@
 "use server";
 
+import { requireUser } from "@/lib/auth/require-user";
 import { getTasks, GetTasksOptions } from "@/data/task/get-tasks";
 import { revalidateTag } from "next/cache";
 import { CacheTags } from "@/data/cache-tags";
 
 export async function loadTasksAction(opts: GetTasksOptions) {
     try {
-        const result = await getTasks(opts);
+        const user = await requireUser();
+        const result = await getTasks(opts, user.id);
 
         const tasksByProject: Record<string, any[]> = {};
         const tasksByStatus: Record<string, any[]> = {};

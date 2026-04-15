@@ -2,11 +2,12 @@
 
 import { useState, useTransition } from "react";
 import { Trash2, Loader2, AlertTriangle } from "lucide-react";
+import { useParams } from "next/navigation";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { tryCatch } from "@/hooks/try-catch";
-import { deleteTask } from "@/actions/task/delete-task";
+import { apiClient, type ApiResponse } from "@/lib/api-client";
 import { TaskWithSubTasks } from "../list/types";
 import { useReloadView } from "@/hooks/use-reload-view";
 
@@ -26,20 +27,30 @@ export function DeleteTaskDialog({ task, onTaskDeleted }: DeleteTaskDialogProps)
     const [pending, startTransition] = useTransition();
     const subtaskCount = task._count?.subTasks || 0;
     const reloadView = useReloadView();
+    const params = useParams();
+    const workspaceId = (params.workspaceId as string) || task.workspaceId || "";
 
     const handleDelete = () => {
         if (pending) return;
         startTransition(async () => {
-            const { data: result, error } = await tryCatch(deleteTask(task.id));
+            const res = await tryCatch(apiClient.tasks.deleteTask(
+                task.id, 
+                workspaceId, 
+                task.projectId
+            ));
 
-            if (error) {
-                toast.error(error.message);
-                console.error(error);
+            if (res.error) {
+                toast.error(res.error.message);
+                console.error(res.error);
                 return;
             }
 
-            if (result.status === "success") {
-                toast.success(result.message);
+            // Defensive casting to overcome module resolution issues
+            const response = res.data as ApiResponse;
+            const { status: responseStatus, message: responseMessage } = response;
+
+            if (responseStatus === "success") {
+                toast.success(responseMessage);
                 setOpen(false);
 
                 // Call the callback to remove task from UI
@@ -50,7 +61,7 @@ export function DeleteTaskDialog({ task, onTaskDeleted }: DeleteTaskDialogProps)
                 // Reload all views to reflect deletion
                 reloadView();
             } else {
-                toast.error(result.message);
+                toast.error(responseMessage);
             }
         });
     };
