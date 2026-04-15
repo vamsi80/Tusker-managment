@@ -13,7 +13,7 @@ export async function GET() {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const result = await getWorkspaces(session.user.id);
+        const result = await getWorkspaces();
         
         return NextResponse.json({
             success: true,

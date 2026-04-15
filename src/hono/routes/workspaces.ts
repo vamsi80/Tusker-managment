@@ -154,4 +154,91 @@ workspaces.patch("/:workspaceId/members/:memberId", async (c) => {
     return c.json(result);
 });
 
+/**
+ * GET /api/v1/workspaces
+ * List all workspaces for the current user
+ */
+workspaces.get("/", async (c) => {
+    const user = c.get("user");
+    const result = await WorkspaceService.getWorkspaces(user.id);
+    return c.json({ success: true, data: result });
+});
+
+/**
+ * GET /api/v1/workspaces/:workspaceId
+ * Get workspace details by ID
+ */
+workspaces.get("/:workspaceId", async (c) => {
+    const user = c.get("user");
+    const workspaceId = c.req.param("workspaceId");
+    
+    const workspace = await WorkspaceService.getWorkspaceById(workspaceId, user.id);
+    if (!workspace) {
+        throw AppError.NotFound("Workspace not found or access denied");
+    }
+    
+    return c.json({ success: true, data: workspace });
+});
+
+/**
+ * GET /api/v1/workspaces/:workspaceId/metadata
+ * Get lightweight workspace metadata
+ */
+workspaces.get("/:workspaceId/metadata", async (c) => {
+    const user = c.get("user");
+    const workspaceId = c.req.param("workspaceId");
+    
+    const metadata = await WorkspaceService.getWorkspaceMetadata(workspaceId, user.id);
+    if (!metadata) {
+        throw AppError.NotFound("Workspace not found or access denied");
+    }
+    
+    return c.json({ success: true, data: metadata });
+});
+
+/**
+ * GET /api/v1/workspaces/:workspaceId/layout
+ * Get unified layout data
+ */
+workspaces.get("/:workspaceId/layout", async (c) => {
+    const user = c.get("user");
+    const workspaceId = c.req.param("workspaceId");
+    
+    const layoutData = await WorkspaceService.getWorkspaceLayoutData(workspaceId, user.id);
+    return c.json({ success: true, data: { ...layoutData, user } });
+});
+
+/**
+ * GET /api/v1/workspaces/:workspaceId/kanban
+ * Get project membership maps for Kanban
+ */
+workspaces.get("/:workspaceId/kanban", async (c) => {
+    const workspaceId = c.req.param("workspaceId");
+    
+    const [pmMap, leadersMap] = await Promise.all([
+        WorkspaceService.getWorkspaceProjectMembersMap(workspaceId),
+        WorkspaceService.getWorkspaceProjectManagersMap(workspaceId)
+    ]);
+    
+    return c.json({ 
+        success: true, 
+        data: { 
+            projectUserMap: pmMap,
+            projectLeadersMap: leadersMap
+        } 
+    });
+});
+
+/**
+ * GET /api/v1/workspaces/:workspaceId/task-creation-data
+ * Get all data needed for workspace-level task creation
+ */
+workspaces.get("/:workspaceId/task-creation-data", async (c) => {
+    const user = c.get("user");
+    const workspaceId = c.req.param("workspaceId");
+    
+    const data = await WorkspaceService.getWorkspaceTaskCreationData(workspaceId, user.id);
+    return c.json({ success: true, data });
+});
+
 export default workspaces;

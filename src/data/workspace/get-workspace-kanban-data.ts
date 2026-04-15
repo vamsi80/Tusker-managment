@@ -1,96 +1,29 @@
 import { cache } from "react";
-import { unstable_cache } from "next/cache";
-import prisma from "@/lib/db";
-import { CacheTags } from "@/data/cache-tags";
-
+import { WorkspaceService } from "@/server/services/workspace.service";
 
 /**
  * Fetches and groups all project members in a workspace.
- * Highly optimized for Kanban project filtering.
+ * Now calls WorkspaceService directly for server-side efficiency.
  */
-async function _fetchWorkspaceProjectMembersInternal(workspaceId: string) {
-    const projectMembers = await prisma.projectMember.findMany({
-        where: {
-            project: { workspaceId }
-        },
-        select: {
-            projectId: true,
-            workspaceMember: {
-                select: { userId: true }
-            }
-        }
-    });
-
-    const projectUserMap: Record<string, string[]> = {};
-    projectMembers.forEach(pm => {
-        if (!projectUserMap[pm.projectId]) {
-            projectUserMap[pm.projectId] = [];
-        }
-        projectUserMap[pm.projectId].push(pm.workspaceMember.userId);
-    });
-
-    return projectUserMap;
-}
-
 export const getWorkspaceProjectMembersMap = cache(async (workspaceId: string) => {
-    return await unstable_cache(
-        () => _fetchWorkspaceProjectMembersInternal(workspaceId),
-        [`workspace-pm-map-${workspaceId}`],
-        {
-            tags: [CacheTags.workspaceProjects(workspaceId)[0], `workspace-${workspaceId}-pm-map`],
-            revalidate: 300
-        }
-    )();
+    try {
+        const projectUserMap = await WorkspaceService.getWorkspaceProjectMembersMap(workspaceId);
+        return projectUserMap;
+    } catch (error) {
+        console.error("Error fetching project members map via Service:", error);
+        return {};
+    }
 });
 
 /**
  * Fetches all project managers in a workspace for Kanban attribution.
  */
-async function _fetchWorkspaceProjectManagersInternal(workspaceId: string) {
-    const managers = await prisma.projectMember.findMany({
-        where: {
-            project: { workspaceId },
-            projectRole: "PROJECT_MANAGER",
-            hasAccess: true,
-            workspaceMember: {
-                workspaceRole: {
-                    notIn: ["OWNER", "ADMIN"]
-                }
-            }
-        },
-        select: {
-            projectId: true,
-            workspaceMember: {
-                select: {
-                    user: {
-                        select: { id: true, surname: true }
-                    }
-                }
-            }
-        }
-    });
-
-    const pmMap: Record<string, Array<{ id: string, surname: string | null }>> = {};
-    managers.forEach(m => {
-        const user = m.workspaceMember?.user;
-        if (user) {
-            if (!pmMap[m.projectId]) {
-                pmMap[m.projectId] = [];
-            }
-            pmMap[m.projectId].push(user);
-        }
-    });
-
-    return pmMap;
-}
-
 export const getWorkspaceProjectManagersMap = cache(async (workspaceId: string) => {
-    return await unstable_cache(
-        () => _fetchWorkspaceProjectManagersInternal(workspaceId),
-        [`workspace-pm-leaders-map-${workspaceId}`],
-        {
-            tags: [CacheTags.workspaceProjects(workspaceId)[0], `workspace-${workspaceId}-pms`],
-            revalidate: 300 // 5 minutes
-        }
-    )();
+    try {
+        const projectLeadersMap = await WorkspaceService.getWorkspaceProjectManagersMap(workspaceId);
+        return projectLeadersMap;
+    } catch (error) {
+        console.error("Error fetching project managers map via Service:", error);
+        return {};
+    }
 });
