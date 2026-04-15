@@ -23,7 +23,7 @@ async function runBenchmark() {
         await Promise.all([
             getWorkspaceTags(workspaceId),
             getWorkspaceMembers(workspaceId),
-            getWorkspacePermissions(workspaceId),
+            getWorkspacePermissions(workspaceId, userId),
             getUserProjects(workspaceId),
             getTasks({
                 workspaceId,
@@ -32,7 +32,7 @@ async function runBenchmark() {
                 page: 1,
                 limit: 50,
                 includeFacets: true
-            })
+            }, userId)
         ]);
 
         const duration = performance.now() - start;

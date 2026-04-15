@@ -42,6 +42,7 @@ async function _getTaskByIdInternal(
                 },
             },
             projectId: true,
+            workspaceId: true,
             parentTaskId: true,
             reviewerId: true,
             reviewer: {

@@ -3,9 +3,11 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import cron from "./routes/cron";
 import units from "./routes/units";
-import tasks from "./routes/tasks";
 import { attendanceRouter } from "./routes/attendance";
-import { getProjectReviewers } from "@/actions/project/get-project-reviewers";
+import tasks from "./routes/tasks";
+import projects from "./routes/projects";
+import tags from "./routes/tags";
+import workspaces from "./routes/workspaces";
 import { HonoVariables } from "./types";
 import { authMiddleware } from "./middleware/auth";
 
@@ -76,22 +78,15 @@ app.route("/attendance", attendanceRouter);
 // Tasks API
 app.route("/tasks", tasks);
 
+// Projects API
+app.route("/projects", projects);
+
+// Tags API
+app.route("/tags", tags);
+
 // Workspaces API
-import workspaces from "./routes/workspaces";
 app.route("/workspaces", workspaces);
 
-// Project Reviewers (Legacy / Temporary - will be moved to service later)
-app.get("/projects/:projectId/reviewers", async (c) => {
-    const projectId = c.req.param("projectId");
-    if (!projectId) return c.json({ error: "Project ID is required" }, 400);
-
-    try {
-        const reviewers = await getProjectReviewers(projectId);
-        return c.json({ success: true, data: reviewers });
-    } catch (error) {
-        return c.json({ success: false, error: "Failed to fetch project reviewers" }, 500);
-    }
-});
 
 export default app;
 export type AppType = typeof app;
