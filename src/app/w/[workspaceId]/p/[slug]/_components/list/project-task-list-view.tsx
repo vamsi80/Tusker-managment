@@ -1,9 +1,8 @@
 import dynamic from "next/dynamic";
-import { getTasks } from "@/data/task/get-tasks";
-import type { ProjectMembersType } from "@/data/project/get-project-members";
-import { getWorkspaceTags } from "@/data/tag/get-tags";
-import type { UserPermissionsType } from "@/data/user/get-user-permissions";
-import type { TaskWithSubTasks } from "@/components/task/shared/types";
+import { useEffect } from "react";
+import { AppLoader } from "@/components/shared/app-loader";
+import { useProjectLayout } from "../project-layout-context";
+import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 
 const TaskTable = dynamic(() => import("@/components/task/list/task-table"), {
     loading: () => <div className="h-[60vh] w-full flex items-center justify-center text-muted-foreground animate-pulse">Loading Tasks...</div>
@@ -12,48 +11,46 @@ const TaskTable = dynamic(() => import("@/components/task/list/task-table"), {
 interface ProjectTaskListViewProps {
     workspaceId: string;
     projectId: string;
-    members: ProjectMembersType;
-    canCreateSubTask: boolean;
-    permissions: UserPermissionsType;
     userId: string;
 }
 
 /**
- * Server component that fetches initial task data and passes it to the client TaskTable component
- * Uses unified getTasks() function
+ * ProjectTaskListView
+ * Consumes shared metadata (members, permissions, tags) from contexts.
  */
-export async function ProjectTaskListView({
+export function ProjectTaskListView({
     workspaceId,
     projectId,
-    members,
-    canCreateSubTask,
-    permissions,
     userId,
 }: ProjectTaskListViewProps) {
-    // 🚀 ZERO-WEIGHT SHELL: Tasks are no longer fetched server-side to minimize response payload.
-    // TaskTable will fetch its own initial data on the client via Hono.
-    
-    // Fetch workspace tags for subtask creation/editing
-    const tagsData = await getWorkspaceTags(workspaceId);
+    const { tags, revalidate: revalidateWorkspace } = useWorkspaceLayout();
+    const { projectMembers, projectPermissions, isLoading: isProjectLoading, revalidate: revalidateProject } = useProjectLayout();
 
-    // Map tags to only include necessary fields (id, name)
-    const tags = tagsData.map(tag => ({
-        id: tag.id,
-        name: tag.name,
-    }));
+    useEffect(() => {
+        // Trigger background revalidation on mount
+        revalidateWorkspace();
+        revalidateProject();
+    }, [revalidateWorkspace, revalidateProject]);
+
+    if (isProjectLoading) {
+        return <AppLoader />;
+    }
 
     return (
         <TaskTable
             initialTasks={[]}
             initialHasMore={false}
             initialNextCursor={null}
-            members={members}
+            members={projectMembers}
             workspaceId={workspaceId}
             projectId={projectId}
-            canCreateSubTask={canCreateSubTask}
-            permissions={permissions}
+            canCreateSubTask={projectPermissions.canCreateSubTask}
+            permissions={projectPermissions}
             userId={userId}
-            tags={tags}
+            tags={tags.map((tag: any) => ({
+                id: tag.id,
+                name: tag.name,
+            }))}
         />
     );
 }

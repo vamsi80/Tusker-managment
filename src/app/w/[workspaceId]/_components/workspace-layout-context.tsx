@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, ReactNode, useState, useEffect } from "react";
+import React, { createContext, useContext, ReactNode, useState, useEffect, useCallback } from "react";
 import type { getWorkspaceLayoutData } from "@/data/workspace/get-workspace-layout-data";
 import { workspacesClient } from "@/lib/api-client/workspaces";
 
@@ -8,8 +8,11 @@ type LayoutData = Awaited<ReturnType<typeof getWorkspaceLayoutData>>;
 
 interface WorkspaceLayoutContextType {
   data: LayoutData;
+  tags: any[];
   workspaceId: string;
   isLoading: boolean;
+  kanbanMetadata: { projectLeadersMap: Record<string, any[]>; projectMembersMap: Record<string, any[]> } | null;
+  revalidate: () => Promise<void>;
 }
 
 const WorkspaceLayoutContext = createContext<WorkspaceLayoutContextType | null>(null);
@@ -24,31 +27,40 @@ export function WorkspaceLayoutProvider({
   workspaceId: string;
 }) {
   const [data, setData] = useState<LayoutData | null>(initialData || null);
+  const [tags, setTags] = useState<any[]>([]);
+  const [kanbanMetadata, setKanbanMetadata] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(!initialData);
 
+  const fetchLayout = useCallback(async (isSilent = false) => {
+    try {
+      if (!isSilent) setIsLoading(true);
+      const [fetchedData, fetchedTags, fetchedKanban] = await Promise.all([
+        workspacesClient.getLayoutData(workspaceId),
+        workspacesClient.getTags(workspaceId),
+        workspacesClient.getKanbanData(workspaceId)
+      ]);
+      setData(fetchedData);
+      setTags(fetchedTags || []);
+      setKanbanMetadata(fetchedKanban.data || null);
+    } catch (error) {
+      console.error("Failed to fetch workspace layout:", error);
+    } finally {
+      if (!isSilent) setIsLoading(false);
+    }
+  }, [workspaceId]);
+
+  const revalidate = useCallback(async () => {
+    await fetchLayout(true); // Silent revalidation
+  }, [fetchLayout]);
+
   useEffect(() => {
-    // If we have initial data (from RSC), don't fetch
     if (initialData) {
-        setData(initialData);
-        setIsLoading(false);
-        return;
+      setData(initialData);
+      setIsLoading(false);
+    } else {
+      fetchLayout();
     }
-
-    // Otherwise, fetch from Bootstrap API (Zero RSC Mode)
-    async function bootstrap() {
-      try {
-        setIsLoading(true);
-        const fetched = await workspacesClient.getLayoutData(workspaceId);
-        setData(fetched);
-      } catch (error) {
-        console.error("Failed to bootstrap workspace layout:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    bootstrap();
-  }, [workspaceId, initialData]);
+  }, [workspaceId, initialData, fetchLayout]);
 
   // Provide a safe default for when data is loading
   const contextValue: WorkspaceLayoutContextType = {
@@ -67,8 +79,11 @@ export function WorkspaceLayoutProvider({
             userId: null,
         }
     },
+    tags,
+    kanbanMetadata,
     workspaceId,
-    isLoading
+    isLoading,
+    revalidate
   };
 
   return (

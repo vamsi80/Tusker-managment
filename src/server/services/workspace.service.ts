@@ -626,23 +626,38 @@ export class WorkspaceService {
    * Optimized for zero-weight shell hydration.
    */
   static async getWorkspaceLayoutData(workspaceId: string, userId: string) {
-    const [workspaces, metadata, reportStatus, projects, permissions, unreadNotificationsCount] =
-      await Promise.all([
-        this.getWorkspaces(userId),
-        this.getWorkspaceMetadata(workspaceId, userId),
-        getDailyReportStatusForUser(workspaceId, userId),
-        getUserProjects(workspaceId),
-        getWorkspacePermissions(workspaceId),
-        this.getUnreadNotificationsCount(workspaceId, userId),
-      ]);
-
-    return { 
-      workspaces, 
-      metadata, 
-      reportStatus, 
-      projects, 
+    const [
+      workspaces,
+      metadata,
+      reportStatus,
+      projects,
       permissions,
-      unreadNotificationsCount 
+      unreadNotificationsCount,
+      tags,
+      projectUserMap,
+      projectLeadersMap,
+    ] = await Promise.all([
+      this.getWorkspaces(userId),
+      this.getWorkspaceMetadata(workspaceId, userId),
+      getDailyReportStatusForUser(workspaceId, userId),
+      getUserProjects(workspaceId),
+      getWorkspacePermissions(workspaceId),
+      this.getUnreadNotificationsCount(workspaceId, userId),
+      getWorkspaceTags(workspaceId),
+      this.getWorkspaceProjectMembersMap(workspaceId),
+      this.getWorkspaceProjectManagersMap(workspaceId),
+    ]);
+
+    return {
+      workspaces,
+      metadata,
+      reportStatus,
+      projects,
+      permissions,
+      unreadNotificationsCount,
+      tags,
+      projectUserMap,
+      projectLeadersMap,
     };
   }
 
@@ -768,5 +783,36 @@ export class WorkspaceService {
         canCreateSubTasks: true,
       },
     };
+  }
+  /**
+   * Verify an invitation and add the user to the workspace
+   */
+  static async verifyInvitation(workspaceId: string, role: string, userId: string) {
+    // Check if user already exists in workspace
+    const existingMember = await prisma.workspaceMember.findUnique({
+      where: {
+        userId_workspaceId: {
+          userId,
+          workspaceId,
+        },
+      },
+    });
+
+    if (!existingMember) {
+      // Add user to workspace
+      await prisma.workspaceMember.create({
+        data: {
+          workspaceId,
+          userId,
+          workspaceRole: role as any,
+        },
+      });
+    }
+
+    // Invalidate caches
+    await invalidateUserWorkspaces(userId);
+    await invalidateWorkspaceMembers(workspaceId);
+
+    return { success: true, workspaceId };
   }
 }

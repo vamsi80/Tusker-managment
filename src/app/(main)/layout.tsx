@@ -6,7 +6,7 @@ export default function LayoutMain({ children }: { children: React.ReactNode }) 
         <div>
             {/* The Navbar will fetch its own session on the client side */}
             <Navbar />
-            <main className="container mx-auto px-4 md:px-6 lg:px-8 mb-32">
+            <main className="w-full px-4 md:px-6 lg:px-8 mb-32">
                 {children}
             </main>
         </div>
