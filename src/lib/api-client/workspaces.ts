@@ -100,5 +100,53 @@ export const workspacesClient = {
             message: response.success ? "Role updated successfully" : "Failed to update role",
             data: response.data,
         };
+    },
+
+    /**
+     * Get all workspaces for the current user
+     */
+    getAll: async (): Promise<{ workspaces: any[]; totalCount: number }> => {
+        const response = await apiFetch<{ success: boolean; data: any }>("/workspaces");
+        return response.data;
+    },
+
+    /**
+     * Get workspace details by ID
+     */
+    getById: async (workspaceId: string): Promise<any> => {
+        const response = await apiFetch<{ success: boolean; data: any }>(`/workspaces/${workspaceId}`);
+        return response.data;
+    },
+
+    /**
+     * Get lightweight workspace metadata
+     */
+    getMetadata: async (workspaceId: string): Promise<any> => {
+        const response = await apiFetch<{ success: boolean; data: any }>(`/workspaces/${workspaceId}/metadata`);
+        return response.data;
+    },
+
+    /**
+     * Get unified layout data
+     */
+    getLayoutData: async (workspaceId: string): Promise<any> => {
+        const response = await apiFetch<{ success: boolean; data: any }>(`/workspaces/${workspaceId}/layout`);
+        return response.data;
+    },
+
+    /**
+     * Get Kanban membership maps
+     */
+    getKanbanData: async (workspaceId: string): Promise<any> => {
+        const response = await apiFetch<{ success: boolean; data: any }>(`/workspaces/${workspaceId}/kanban`);
+        return response.data;
+    },
+
+    /**
+     * Get workspace task creation data
+     */
+    getTaskCreationData: async (workspaceId: string): Promise<any> => {
+        const response = await apiFetch<{ success: boolean; data: any }>(`/workspaces/${workspaceId}/task-creation-data`);
+        return response.data;
     }
 };

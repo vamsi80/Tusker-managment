@@ -1,12 +1,15 @@
 import prisma from "@/lib/db";
 import { generateInviteCode } from "@/utils/get-invite-code";
-import { invalidateWorkspacesCache } from "@/data/workspace/get-workspaces";
 import { invalidateWorkspace, invalidateUserWorkspaces, invalidateWorkspaceMembers } from "@/lib/cache/invalidation";
 import { revalidateTag } from "next/cache";
 import { CacheTags } from "@/data/cache-tags";
 import { inviteUserSchema, InviteUserSchemaType } from "@/lib/zodSchemas";
 import { auth } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
+import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import { getDailyReportStatus } from "@/data/daily-report/get-daily-report-status";
+import { getUserProjects } from "@/data/project/get-projects";
+import { getWorkspaceTags } from "@/data/tag/get-tags";
 
 export class WorkspaceService {
     /**
@@ -33,7 +36,6 @@ export class WorkspaceService {
         });
 
         // Invalidate caches
-        invalidateWorkspacesCache(data.ownerId);
         (revalidateTag as any)(CacheTags.userWorkspaces(data.ownerId)[0], 'layout');
         (revalidateTag as any)('workspaces', 'layout');
 
@@ -397,5 +399,214 @@ export class WorkspaceService {
         });
 
         return { success: true, data: updated };
+    }
+
+    /**
+     * Get all workspaces for a user
+     */
+    static async getWorkspaces(userId: string) {
+        const workspacesData = await prisma.workspace.findMany({
+            where: {
+                members: { some: { userId } }
+            },
+            select: {
+                id: true,
+                name: true,
+                slug: true,
+                ownerId: true,
+                createdAt: true,
+                updatedAt: true,
+                _count: { select: { members: true } },
+                members: {
+                    where: { userId },
+                    select: { workspaceRole: true }
+                }
+            },
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }]
+        });
+
+        const workspaces = workspacesData.map(workspace => ({
+            id: workspace.id,
+            name: workspace.name,
+            slug: workspace.slug,
+            ownerId: workspace.ownerId,
+            createdAt: workspace.createdAt,
+            updatedAt: workspace.updatedAt,
+            workspaceRole: workspace.members[0]?.workspaceRole || "VIEWER",
+            memberCount: workspace._count.members
+        }));
+
+        return { workspaces, totalCount: workspaces.length };
+    }
+
+    /**
+     * Get workspace by ID with membership check
+     */
+    static async getWorkspaceById(workspaceId: string, userId: string) {
+        const workspace = await prisma.workspace.findUnique({
+            where: { id: workspaceId },
+            include: {
+                members: {
+                    select: {
+                        id: true,
+                        userId: true,
+                        workspaceId: true,
+                        workspaceRole: true,
+                        user: {
+                            select: {
+                                id: true,
+                                name: true,
+                                surname: true,
+                                email: true,
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        if (!workspace) return null;
+
+        const isMember = workspace.members.some(m => m.userId === userId);
+        if (!isMember) return null;
+
+        return workspace;
+    }
+
+    /**
+     * Get lightweight metadata for layout
+     */
+    static async getWorkspaceMetadata(workspaceId: string, userId: string) {
+        const [workspace, member] = await Promise.all([
+            prisma.workspace.findUnique({
+                where: { id: workspaceId },
+                select: { id: true, name: true }
+            }),
+            prisma.workspaceMember.findFirst({
+                where: { workspaceId, userId },
+                select: { id: true }
+            })
+        ]);
+
+        if (!workspace || !member) return null;
+
+        return { id: workspace.id, name: workspace.name };
+    }
+
+    /**
+     * Unified Layout Data Fetch
+     */
+    static async getWorkspaceLayoutData(workspaceId: string, userId: string) {
+        const [workspaces, metadata, reportStatus] = await Promise.all([
+            this.getWorkspaces(userId),
+            this.getWorkspaceMetadata(workspaceId, userId),
+            getDailyReportStatus(workspaceId)
+        ]);
+
+        return { workspaces, metadata, reportStatus };
+    }
+
+    /**
+     * Get Project Members Map for Kanban
+     */
+    static async getWorkspaceProjectMembersMap(workspaceId: string) {
+        const projectMembers = await prisma.projectMember.findMany({
+            where: { project: { workspaceId } },
+            select: {
+                projectId: true,
+                workspaceMember: { select: { userId: true } }
+            }
+        });
+
+        const projectUserMap: Record<string, string[]> = {};
+        projectMembers.forEach(pm => {
+            if (!projectUserMap[pm.projectId]) {
+                projectUserMap[pm.projectId] = [];
+            }
+            projectUserMap[pm.projectId].push(pm.workspaceMember.userId);
+        });
+
+        return projectUserMap;
+    }
+
+    /**
+     * Get Project Managers Map for Kanban
+     */
+    static async getWorkspaceProjectManagersMap(workspaceId: string) {
+        const managers = await prisma.projectMember.findMany({
+            where: {
+                project: { workspaceId },
+                projectRole: "PROJECT_MANAGER",
+                hasAccess: true,
+                workspaceMember: {
+                    workspaceRole: { notIn: ["OWNER", "ADMIN"] }
+                }
+            },
+            select: {
+                projectId: true,
+                workspaceMember: {
+                    select: {
+                        user: { select: { id: true, surname: true } }
+                    }
+                }
+            }
+        });
+
+        const pmMap: Record<string, Array<{ id: string, surname: string | null }>> = {};
+        managers.forEach(m => {
+            const user = m.workspaceMember?.user;
+            if (user) {
+                if (!pmMap[m.projectId]) pmMap[m.projectId] = [];
+                pmMap[m.projectId].push(user);
+            }
+        });
+
+        return pmMap;
+    }
+
+    /**
+     * Get data for task creation at workspace level
+     */
+    static async getWorkspaceTaskCreationData(workspaceId: string, userId: string) {
+        const permissions = await getWorkspacePermissions(workspaceId);
+        if (!permissions.workspaceMemberId) {
+            return { projects: [], members: [], tags: [], parentTasks: [], permissions: { isWorkspaceAdmin: false, canCreateTasks: false, canCreateSubTasks: false } };
+        }
+
+        const [projectsData, membersData, tagsData] = await Promise.all([
+            getUserProjects(workspaceId),
+            this.getMembers(workspaceId),
+            getWorkspaceTags(workspaceId)
+        ]);
+
+        const projectIds = projectsData.map(p => p.id);
+        const parentTasksData = await prisma.task.findMany({
+            where: {
+                workspaceId,
+                projectId: { in: projectIds },
+                parentTaskId: null
+            },
+            select: { id: true, name: true, projectId: true },
+            take: 500,
+            orderBy: { createdAt: 'desc' }
+        });
+
+        return {
+            projects: projectsData.map(p => ({ id: p.id, name: p.name })),
+            members: membersData.workspaceMembers.map(m => ({
+                id: m.id,
+                workspaceMember: {
+                    id: m.id,
+                    user: { id: m.user?.id || "", surname: m.user?.surname || null }
+                }
+            })),
+            tags: tagsData.map(tag => ({ id: tag.id, name: tag.name })),
+            parentTasks: parentTasksData.map(task => ({ id: task.id, name: task.name, projectId: task.projectId! })),
+            permissions: {
+                isWorkspaceAdmin: permissions.isWorkspaceAdmin,
+                canCreateTasks: permissions.isWorkspaceAdmin,
+                canCreateSubTasks: true
+            }
+        };
     }
 }

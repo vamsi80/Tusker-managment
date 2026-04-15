@@ -1,29 +1,23 @@
 import { cache } from "react";
-import { getWorkspaces } from "./get-workspaces";
-import { getWorkspaceMetadata } from "./get-workspace-metadata";
-import { getDailyReportStatus } from "@/data/daily-report/get-daily-report-status";
+import { WorkspaceService } from "@/server/services/workspace.service";
 import { requireUser } from "@/lib/auth/require-user";
 
 /**
  * UNIFIED LAYOUT DATA FETCH
- * 
- * Fetches Auth, Workspaces, Metadata, and Report Status in parallel.
- * This eliminates the sequential waterfall in the root layout.
+ * Now calls WorkspaceService directly for server-side efficiency.
  */
 export const getWorkspaceLayoutData = cache(async (workspaceId: string) => {
-    const user = await requireUser();
-    
-    // Kick off all data requirements in parallel
-    const [workspaces, metadata, reportStatus] = await Promise.all([
-        getWorkspaces(user.id),
-        getWorkspaceMetadata(workspaceId, user.id),
-        getDailyReportStatus(workspaceId)
-    ]);
-
-    return {
-        user,
-        workspaces,
-        metadata,
-        reportStatus
-    };
+    try {
+        const user = await requireUser();
+        const layoutData = await WorkspaceService.getWorkspaceLayoutData(workspaceId, user.id);
+        return layoutData;
+    } catch (error) {
+        console.error("Error fetching workspace layout data via Service:", error);
+        return {
+            user: null,
+            workspaces: { workspaces: [], totalCount: 0 },
+            metadata: null,
+            reportStatus: null
+        };
+    }
 });
