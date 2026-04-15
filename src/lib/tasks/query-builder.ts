@@ -25,8 +25,7 @@ export function getTaskSelect(view_mode: string = "list"): Prisma.TaskSelect {
         // Always include basic assignee info
         assignee: {
             select: {
-                id: true,
-                workspaceMember: { select: { userId: true, user: { select: { id: true, name: true, surname: true } } } }
+                workspaceMember: { select: { userId: true, user: { select: { id: true, surname: true } } } }
             }
         },
 
@@ -35,14 +34,13 @@ export function getTaskSelect(view_mode: string = "list"): Prisma.TaskSelect {
         projectId: true,
         parentTaskId: true,
         isParent: true,
-        assigneeId: true,
+        assigneeId: true
     };
 
     // Include detailed createdBy only if NOT in Gantt view to save on payload/joins
     if (!isGantt) {
         select.createdBy = {
             select: {
-                id: true,
                 workspaceMember: { select: { userId: true, user: { select: { id: true, surname: true } } } }
             }
         };
@@ -50,33 +48,33 @@ export function getTaskSelect(view_mode: string = "list"): Prisma.TaskSelect {
 
     // 2. Metadata: Tags & Comment Counts
     // Uniformly added to most views for UI consistency
-    if (isKanban || isList || isSearch || isGantt || isCalendar || isSubtask) {
+    // Omit for Gantt and Subtasks to reduce payload bloat
+    if (isList || isKanban || isSearch || isCalendar) {
         select._count = {
             select: {
                 activities: true,
                 subTasks: true
             }
         };
-        select.tag = { select: { id: true, name: true } };
+        select.tag = { select: { name: true } };
     }
 
     // 3. Project & Parent Context
     // Essential for workspace views and search results
-    if (isKanban || isSearch || isList || isGantt || isSubtask || isCalendar) {
+    // Omit for Gantt and Subtasks to reduce payload bloat
+    if (isKanban || isSearch || isList || isCalendar) {
         select.project = {
-            select: { id: true, name: true, color: true }
+            select: { name: true, color: true }
         };
         select.parentTask = {
-            select: { id: true, name: true }
+            select: { name: true }
         };
     }
 
     // 4. Extended Info: Description & Reviewer
-    // Omit Reviewer for Gantt view to save on joins and payload size
-    if (isList || isSearch || isSubtask || isCalendar) {
+    if (isList || isSearch || isCalendar || isGantt || isSubtask) {
         select.reviewer = {
             select: {
-                id: true,
                 workspaceMember: { select: { userId: true, user: { select: { id: true, surname: true } } } }
             }
         };
@@ -108,6 +106,146 @@ export interface TaskCursor {
     createdAt: Date;
 }
 
+/**
+ * Normalizes assignee filtering by checking both the dual keys (member PK and user UID).
+ */
+export function buildAssigneeFilter(memberIdOrUserId: string | string[]): Prisma.TaskWhereInput {
+    const isMany = Array.isArray(memberIdOrUserId);
+    const idFilter = isMany ? { in: memberIdOrUserId as string[] } : memberIdOrUserId;
+
+    return {
+        OR: [
+            { assigneeId: idFilter as any },
+            { assignee: { workspaceMember: { userId: idFilter as any } } },
+        ],
+    };
+}
+
+/**
+ * Checks if a user is an assignee of a task OR any of its subtasks.
+ */
+export function buildParentAssigneeFilter(memberIdOrUserId: string | string[]): Prisma.TaskWhereInput {
+    const leaf = buildAssigneeFilter(memberIdOrUserId);
+    return {
+        OR: [
+            leaf,
+            { subTasks: { some: leaf } }
+        ],
+    };
+}
+
+/**
+ * Safely merge conditions into where.AND without blowing away existing clauses.
+ */
+export function appendAnd(where: Prisma.TaskWhereInput, ...conditions: Prisma.TaskWhereInput[]): void {
+    const existing = where.AND
+        ? (Array.isArray(where.AND) ? where.AND : [where.AND])
+        : [];
+    where.AND = [...existing, ...conditions] as any;
+}
+
+/**
+ * Build a standard createdAt DESC cursor condition.
+ */
+export function buildCursorWhere(cursor: TaskCursor): Prisma.TaskWhereInput {
+    return {
+        OR: [
+            { createdAt: { lt: cursor.createdAt } },
+            { AND: [{ createdAt: cursor.createdAt }, { id: { lt: cursor.id } }] },
+        ],
+    };
+}
+
+// ============================================================
+//  SORTING CONTRACT
+// ============================================================
+export const SORT_MAP: Record<string, { dbField: string; nulls?: "last" | "first" }> = {
+    name: { dbField: "name" },
+    status: { dbField: "status", nulls: "last" },
+    dueDate: { dbField: "dueDate", nulls: "last" },
+    startDate: { dbField: "startDate", nulls: "last" },
+    createdAt: { dbField: "createdAt" },
+    assignee: { dbField: "assigneeId", nulls: "last" },
+    reviewer: { dbField: "reviewerId", nulls: "last" },
+};
+
+export function buildOrderBy(sorts?: Array<{ field: string; direction: "asc" | "desc" }>) {
+    if (!sorts || sorts.length === 0) {
+        return [{ createdAt: "desc" as const }, { id: "desc" as const }];
+    }
+
+    const { field, direction } = sorts[0];
+    const def = SORT_MAP[field];
+
+    if (!def) {
+        throw new Error(`[buildOrderBy] Invalid sort field: "${field}"`);
+    }
+
+    const primary: any = def.nulls
+        ? { [def.dbField]: { sort: direction, nulls: def.nulls } }
+        : { [def.dbField]: direction };
+
+    return [primary, { id: "desc" as const }];
+}
+
+export function buildSeekCondition(
+    sorts: Array<{ field: string; direction: "asc" | "desc" }>,
+    cursor: any
+): Prisma.TaskWhereInput {
+    try {
+        if (!sorts?.length || !cursor) return {};
+
+        const { field, direction } = sorts[0];
+        const def = SORT_MAP[field];
+        if (!def) return {};
+
+        const dbField = def.dbField;
+        const lastFieldValue = cursor[dbField];
+        const lastId = cursor.id;
+
+        if (lastId === undefined || lastId === null) return {};
+
+        const op = direction === "asc" ? "gt" : "lt";
+
+        if (lastFieldValue === null || lastFieldValue === undefined) {
+            return {
+                AND: [{ [dbField]: null }, { id: { lt: lastId } }],
+            };
+        }
+
+        const conditions: any[] = [
+            { [dbField]: { [op]: lastFieldValue } },
+            {
+                AND: [{ [dbField]: lastFieldValue }, { id: { lt: lastId } }],
+            },
+        ];
+
+        if (def.nulls === "last") {
+            conditions.push({ [dbField]: null });
+        }
+
+        return { OR: conditions };
+    } catch (err) {
+        console.error("[buildSeekCondition] Error:", err);
+        return {};
+    }
+}
+
+// ============================================================
+//  DATE UTILITIES
+// ============================================================
+
+export const toUTCDateOnly = (input: string | Date | undefined) => {
+    if (!input) return undefined;
+    const d = new Date(input);
+    if (typeof input !== "string") {
+        return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    }
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+};
+
+export const addOneDayUTC = (date: Date) => new Date(date.getTime() + 24 * 60 * 60 * 1000);
+
 // ============================================================
 //  QUERY BUILDER: Project Root (Parent Tasks Only)
 //  INDEX USED: (projectId, isParent, status, createdAt DESC)
@@ -129,63 +267,22 @@ export function buildProjectRootWhere(
         parentTaskId: null, // redundant safety guard
     };
 
-    // Index col 3: status — include only when provided to allow partial scan
     if (opts.status && opts.status.length > 0) {
         where.status = { in: opts.status as any };
     }
 
-    const assigneeClauses: Prisma.TaskWhereInput[] = [];
-
     const isRestricted = opts.userId && !opts.isAdmin && (!opts.fullAccessProjectIds || !opts.fullAccessProjectIds.includes(projectId));
 
     if (isRestricted && opts.userId) {
-        assigneeClauses.push({
-            OR: [
-                { assigneeId: opts.userId as any },
-                { assignee: { workspaceMember: { userId: opts.userId } } },
-                { subTasks: { some: { OR: [{ assigneeId: opts.userId as any }, { assignee: { workspaceMember: { userId: opts.userId } } }] } } }
-            ]
-        });
+        appendAnd(where, buildParentAssigneeFilter(opts.userId));
     }
 
     if (opts.assigneeId) {
-        const aVal = Array.isArray(opts.assigneeId) ? { in: opts.assigneeId } : opts.assigneeId;
-        const aValRel = (Array.isArray(opts.assigneeId) ? { in: opts.assigneeId } : opts.assigneeId) as any;
-
-        assigneeClauses.push({
-            OR: [
-                { assigneeId: aVal },
-                { assignee: { workspaceMember: { userId: aValRel } } },
-                { subTasks: { some: { OR: [{ assigneeId: aVal }, { assignee: { workspaceMember: { userId: aValRel } } }] } } }
-            ]
-        });
+        appendAnd(where, buildParentAssigneeFilter(opts.assigneeId));
     }
 
-    if (assigneeClauses.length > 0) {
-        if (where.AND) {
-            where.AND = [
-                ...(Array.isArray(where.AND) ? where.AND : [where.AND]),
-                ...assigneeClauses
-            ];
-        } else {
-            where.AND = assigneeClauses;
-        }
-    }
-
-    // Cursor pagination: keyed on (createdAt DESC, id)
     if (opts.cursor) {
-        const cursorCondition = {
-            OR: [
-                { createdAt: { lt: opts.cursor.createdAt } },
-                { createdAt: opts.cursor.createdAt, id: { lt: opts.cursor.id } },
-            ]
-        };
-
-        if (where.AND) {
-            (where.AND as any[]).push(cursorCondition);
-        } else {
-            where.AND = [cursorCondition];
-        }
+        appendAnd(where, buildCursorWhere(opts.cursor));
     }
 
     return where;
@@ -233,35 +330,20 @@ export function buildSubtaskExpansionWhere(
 
     // Assignee filter: Support both ProjectMemberId and User ID (relational)
     if (opts.isRestrictedMember && opts.userId) {
-        assigneeClauses.push({
-            OR: [
-                { assigneeId: opts.userId as any },
-                { assignee: { workspaceMember: { userId: opts.userId } } }
-            ]
-        });
+        appendAnd(where, buildAssigneeFilter(opts.userId));
     }
 
     if (opts.assigneeId) {
-        const aVal = Array.isArray(opts.assigneeId) ? { in: opts.assigneeId } : opts.assigneeId;
-        const aValRel = (Array.isArray(opts.assigneeId) ? { in: opts.assigneeId } : opts.assigneeId) as any;
-
-        assigneeClauses.push({
-            OR: [
-                { assigneeId: aVal },
-                { assignee: { workspaceMember: { userId: aValRel } } }
-            ]
-        });
+        appendAnd(where, buildAssigneeFilter(opts.assigneeId));
     }
 
-    if (assigneeClauses.length > 0) {
-        if (where.AND) {
-            where.AND = [
-                ...(Array.isArray(where.AND) ? where.AND : [where.AND]),
-                ...assigneeClauses
-            ];
-        } else {
-            where.AND = assigneeClauses;
-        }
+    if (opts.status && opts.status.length > 0) {
+        where.status = { in: opts.status as any };
+    }
+
+    if (opts.tagId) {
+        const tIds = Array.isArray(opts.tagId) ? opts.tagId : [opts.tagId];
+        where.tagId = { in: tIds };
     }
 
     // Date filters
@@ -283,16 +365,7 @@ export function buildSubtaskExpansionWhere(
     }
 
     if (opts.cursor) {
-        const cursorCondition = {
-            OR: [
-                { createdAt: { lt: opts.cursor.createdAt } },
-                { createdAt: opts.cursor.createdAt, id: { lt: opts.cursor.id } },
-            ]
-        };
-        where.AND = [
-            ...(where.AND ? (Array.isArray(where.AND) ? where.AND : [where.AND]) : []),
-            cursorCondition
-        ];
+        appendAnd(where, buildCursorWhere(opts.cursor));
     }
 
     return where;
@@ -324,165 +397,77 @@ export interface WorkspaceFilterOpts {
     view_mode?: string;
 }
 
+/**
+ * Isolates the permission-based filter logic.
+ */
+function buildAccessScopeWhere(opts: WorkspaceFilterOpts, userId: string): Prisma.TaskWhereInput {
+    let fullIds = opts.fullAccessProjectIds ?? [];
+    let restrictedIds = opts.restrictedProjectIds ?? [];
+
+    if (opts.projectId) {
+        fullIds = fullIds.filter(id => id === opts.projectId);
+        restrictedIds = restrictedIds.filter(id => id === opts.projectId);
+    } else if (opts.projectIds && opts.projectIds.length > 0) {
+        fullIds = fullIds.filter(id => opts.projectIds!.includes(id));
+        restrictedIds = restrictedIds.filter(id => opts.projectIds!.includes(id));
+    }
+
+    if (fullIds.length === 0 && restrictedIds.length === 0) {
+        return { id: { in: [] } };
+    }
+
+    if (restrictedIds.length === 0) {
+        return { projectId: { in: fullIds } };
+    }
+
+    if (fullIds.length === 0) {
+        return {
+            projectId: { in: restrictedIds },
+            ...buildParentAssigneeFilter(userId)
+        };
+    }
+
+    // Mixed access
+    return {
+        OR: [
+            { projectId: { in: fullIds } },
+            {
+                projectId: { in: restrictedIds },
+                ...buildParentAssigneeFilter(userId)
+            }
+        ]
+    };
+}
+
 export function buildWorkspaceFilterWhere(
     opts: WorkspaceFilterOpts,
     userId: string
 ): Prisma.TaskWhereInput {
-    const view_mode = opts.view_mode || "list";
-    const isList = view_mode === "list" || view_mode === "default";
-    const isKanban = view_mode === "kanban";
-    const isGantt = view_mode === "gantt";
-    const isSearch = view_mode === "search";
-    const isCalendar = view_mode === "calendar";
-
-    const where: Prisma.TaskWhereInput = {};
-
-    // ─── Scope: which projects can these results come from? ─────────────
-    if (opts.isAdmin) {
-        // Workspace admin: scope to workspace and optionally narrow to projectId or projectIds
-        where.workspaceId = opts.workspaceId;
-        if (opts.projectId) {
-            where.projectId = opts.projectId;
-        } else if (opts.projectIds && opts.projectIds.length > 0) {
-            where.projectId = { in: opts.projectIds };
-        }
-    } else {
-        // Non-admin: enforce the access model:
-        where.workspaceId = opts.workspaceId;
-
-        let fullIds = opts.fullAccessProjectIds ?? [];
-        let restrictedIds = opts.restrictedProjectIds ?? [];
-
-        // Narrow authorized sets based on requested projectId or projectIds
-        if (opts.projectId) {
-            fullIds = fullIds.filter(id => id === opts.projectId);
-            restrictedIds = restrictedIds.filter(id => id === opts.projectId);
-        } else if (opts.projectIds && opts.projectIds.length > 0) {
-            fullIds = fullIds.filter(id => opts.projectIds!.includes(id));
-            restrictedIds = restrictedIds.filter(id => opts.projectIds!.includes(id));
-        }
-
-        if (fullIds.length === 0 && restrictedIds.length === 0) {
-            where.id = { in: [] };
-        } else if (restrictedIds.length === 0) {
-            where.projectId = { in: fullIds };
-        } else if (fullIds.length === 0) {
-            where.projectId = { in: restrictedIds };
-
-            if (opts.onlyParents || isKanban || isList || isGantt || isSearch) {
-                // Parent visible if assigned OR if child is assigned
-                where.OR = [
-                    { assigneeId: userId as any },
-                    { assignee: { workspaceMember: { userId: userId } } },
-                    {
-                        subTasks: {
-                            some: {
-                                OR: [
-                                    { assignee: { workspaceMember: { userId: userId } } },
-                                    { assigneeId: userId as any }
-                                ]
-                            }
-                        }
-                    }
-                ];
-            } else {
-                where.OR = [
-                    { assigneeId: userId as any },
-                    { assignee: { workspaceMember: { userId: userId } } }
-                ];
-            }
-        } else {
-            // Mixed access
-            const restrictedCondition: Prisma.TaskWhereInput = {
-                projectId: { in: restrictedIds },
-                OR: [
-                    { assignee: { workspaceMember: { userId: userId } } },
-                    { assigneeId: userId as any },
-                    {
-                        subTasks: {
-                            some: {
-                                OR: [
-                                    { assignee: { workspaceMember: { userId: userId } } },
-                                    { assigneeId: userId as any }
-                                ]
-                            }
-                        }
-                    }
-                ]
-            };
-
-            where.AND = [
-                {
-                    OR: [
-                        { projectId: { in: fullIds } },
-                        restrictedCondition
-                    ]
-                }
-            ];
-        }
-    }
-
-    // ─── Apply User Filters ─────────────────────────────────────────────
-    const applyFilter = (key: keyof Prisma.TaskWhereInput, values: any) => {
-        if (!values || (Array.isArray(values) && values.length === 0)) return;
-        const filterVal = Array.isArray(values) ? { in: values } : values;
-
-        if (where[key]) {
-            where.AND = [
-                ...(Array.isArray(where.AND) ? where.AND : (where.AND ? [where.AND] : [])),
-                { [key]: filterVal }
-            ];
-        } else {
-            (where as any)[key] = filterVal;
-        }
+    const where: Prisma.TaskWhereInput = {
+        workspaceId: opts.workspaceId,
     };
 
-    applyFilter('status', opts.status);
-    applyFilter('tagId', opts.tagId);
-
-    // Filter by assignee: handle both direct ProjectMemberId and relational UserId
-    if (opts.assigneeId) {
-        const aVal = Array.isArray(opts.assigneeId) ? { in: opts.assigneeId } : opts.assigneeId;
-        const aValRel = (Array.isArray(opts.assigneeId) ? { in: opts.assigneeId } : opts.assigneeId) as any;
-
-        const assigneeFilter: Prisma.TaskWhereInput = {
-            OR: [
-                { assigneeId: aVal },
-                { assignee: { workspaceMember: { userId: aValRel } } },
-                { subTasks: { some: { OR: [{ assigneeId: aVal }, { assignee: { workspaceMember: { userId: aValRel } } }] } } }
-            ]
-        };
-
-        if (where.AND) {
-            where.AND = [
-                ...(Array.isArray(where.AND) ? where.AND : [where.AND]),
-                assigneeFilter
-            ];
-        } else {
-            where.AND = [assigneeFilter];
-        }
+    // 1. Apply Access Control
+    if (!opts.isAdmin) {
+        appendAnd(where, buildAccessScopeWhere(opts, userId));
+    } else if (opts.projectId) {
+        where.projectId = opts.projectId;
+    } else if (opts.projectIds && opts.projectIds.length > 0) {
+        where.projectId = { in: opts.projectIds };
     }
 
-    const hasFilters = !!(
-        (opts.status && opts.status.length > 0) ||
-        (opts.assigneeId) ||
-        (opts.tagId) ||
-        (opts.search && opts.search.trim().length > 0) ||
-        opts.dueAfter ||
-        opts.dueBefore
-    );
+    // 2. Apply Filters
+    if (opts.status && opts.status.length > 0) {
+        where.status = { in: opts.status as any };
+    }
 
-    if (opts.onlyParents) {
-        where.isParent = true;
-        where.parentTaskId = null;
-    } else if (opts.excludeParents || opts.onlySubtasks) {
-        where.parentTaskId = { not: null };
-    } else if (isList || isGantt || isCalendar) {
-        // Default to hierarchy only if NO filters are active AND not explicitly excluding parents
-        if (!hasFilters && !opts.excludeParents && !opts.onlySubtasks) {
-            where.isParent = true;
-            where.parentTaskId = null;
-        }
+    if (opts.tagId) {
+        const tIds = Array.isArray(opts.tagId) ? opts.tagId : [opts.tagId];
+        where.tagId = { in: tIds };
+    }
+
+    if (opts.assigneeId) {
+        appendAnd(where, buildParentAssigneeFilter(opts.assigneeId));
     }
 
     if (opts.dueAfter || opts.dueBefore) {
@@ -494,32 +479,26 @@ export function buildWorkspaceFilterWhere(
 
     if (opts.search && opts.search.trim().length > 0) {
         const q = opts.search.trim();
-        const searchClause = [
-            { name: { contains: q, mode: "insensitive" as const } },
-            { taskSlug: { contains: q, mode: "insensitive" as const } },
-            { description: { contains: q, mode: "insensitive" as const } },
-        ];
-        if (where.OR) {
-            where.AND = [
-                ...(where.AND ? (Array.isArray(where.AND) ? where.AND : [where.AND]) : []),
-                { OR: searchClause }
-            ];
-        } else {
-            where.OR = searchClause;
-        }
+        appendAnd(where, {
+            OR: [
+                { name: { contains: q, mode: "insensitive" } },
+                { taskSlug: { contains: q, mode: "insensitive" } },
+                { description: { contains: q, mode: "insensitive" } },
+            ]
+        });
     }
 
+    // 3. Apply Hierarchy/View Logic
+    if (opts.onlyParents) {
+        where.isParent = true;
+        where.parentTaskId = null;
+    } else if (opts.excludeParents || opts.onlySubtasks) {
+        where.parentTaskId = { not: null };
+    }
+
+    // 4. Pagination
     if (opts.cursor) {
-        const cur = {
-            OR: [
-                { createdAt: { lt: opts.cursor.createdAt } },
-                { createdAt: opts.cursor.createdAt, id: { lt: opts.cursor.id } },
-            ]
-        };
-        where.AND = [
-            ...(where.AND ? (Array.isArray(where.AND) ? where.AND : [where.AND]) : []),
-            cur
-        ];
+        appendAnd(where, buildCursorWhere(opts.cursor));
     }
 
     return where;

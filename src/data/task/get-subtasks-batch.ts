@@ -6,7 +6,7 @@ import { unstable_cache } from "next/cache";
 import { CacheTags } from "@/data/cache-tags";
 import { TaskFilters } from "@/types/task-filters";
 import { buildSubTaskConditions } from "@/lib/tasks/filter-utils";
-import { resolveTaskPermissions } from "./get-tasks";
+import { TasksService } from "@/server/services/tasks.service";
 import { getTaskSelect } from "@/lib/tasks/query-builder";
 
 /**
@@ -190,15 +190,7 @@ async function _getSubTasksByParentIdsInternal(
         }
 
         const hasMore = rawTasks.length > pageSize;
-        const finalTasks = (hasMore ? rawTasks.slice(0, pageSize) : rawTasks).map(t => {
-            const entry = {
-                ...t,
-                parentTask: parentData,
-                project: projectData,
-                _count: { activities: 0 },
-            } as any;
-            return entry;
-        });
+        const finalTasks = (hasMore ? rawTasks.slice(0, pageSize) : rawTasks);
 
         const duration = performance.now() - startTime;
 
@@ -246,7 +238,7 @@ async function _getSubTasksByParentIdsInternal(
 
         if (currentCount < pageSize) {
             if (!subTasksMap.has(pId)) subTasksMap.set(pId, []);
-            subTasksMap.get(pId)!.push({ ...task, _count: { activities: 0 } });
+            subTasksMap.get(pId)!.push(task);
         }
     });
 
@@ -348,7 +340,7 @@ export const getSubTasksByParentIds = cache(
                     isWorkspaceAdmin: isAdmin,
                     fullAccessProjectIds: fullAccess,
                     restrictedProjectIds: restricted,
-                } = await resolveTaskPermissions(workspaceId, projectId, userId);
+                } = await TasksService.resolveTaskPermissions(workspaceId, projectId, userId);
 
                 if (!permissions?.workspaceMember) {
                     throw new Error("User does not have access to this workspace");
@@ -356,7 +348,7 @@ export const getSubTasksByParentIds = cache(
                 isWorkspaceAdmin = isAdmin;
                 fullAccessProjectIds = fullAccess;
                 restrictedProjectIds = restricted;
-                workspaceMemberUserId = permissions.workspaceMember.userId;
+                workspaceMemberUserId = permissions.userId;
             } else if (userId) {
                 // We still resolve permissions to get the correct isAdmin status and security scopes
                 // for the database query, even if we are 'skipping' the strict existence check.
@@ -364,7 +356,7 @@ export const getSubTasksByParentIds = cache(
                     isWorkspaceAdmin: isAdmin,
                     fullAccessProjectIds: fullAccess,
                     restrictedProjectIds: restricted,
-                } = await resolveTaskPermissions(workspaceId, projectId, userId);
+                } = await TasksService.resolveTaskPermissions(workspaceId, projectId, userId);
 
                 isWorkspaceAdmin = isAdmin;
                 fullAccessProjectIds = fullAccess;

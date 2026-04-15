@@ -39,6 +39,15 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
                     workspaceId: workspaceId,
                     userId: userId,
                 },
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            name: true,
+                            surname: true,
+                        }
+                    }
+                }
             }),
             prisma.projectMember.findMany({
                 where: {
@@ -61,7 +70,8 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
                 isProjectLead: false,
                 hasAccess: false,
                 workspaceMemberId: null,
-                workspaceMember: null,
+                workspaceRole: null,
+                userId: null,
                 leadProjectIds: [],
                 managedProjectIds: [],
                 memberProjectIds: []
@@ -92,7 +102,10 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
             memberProjectIds,
             viewerProjectIds,
             workspaceMemberId: workspaceMember.id,
-            workspaceMember,
+            workspaceRole: workspaceMember.workspaceRole,
+            userId: workspaceMember.userId,
+            userName: workspaceMember.user?.name || null,
+            userSurname: workspaceMember.user?.surname || null,
         };
     } catch (error) {
         console.error("Error fetching workspace permissions:", error);
@@ -101,9 +114,12 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
             canCreateProject: false,
             isProjectLead: false,
             hasAccess: false,
-            leadProjectIds: [],
             workspaceMemberId: null,
-            workspaceMember: null,
+            workspaceRole: null,
+            userId: null,
+            userName: null,
+            userSurname: null,
+            leadProjectIds: [],
         };
     }
 }
@@ -154,6 +170,15 @@ async function _getUserPermissionsInternal(workspaceId: string, projectId: strin
         const [workspaceMember, projectMember] = await Promise.all([
             prisma.workspaceMember.findFirst({
                 where: { workspaceId, userId },
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            name: true,
+                            surname: true,
+                        }
+                    }
+                }
             }),
             prisma.projectMember.findFirst({
                 where: {
@@ -171,6 +196,8 @@ async function _getUserPermissionsInternal(workspaceId: string, projectId: strin
                 canCreateSubTask: false,
                 canPerformBulkOperations: false,
                 workspaceMemberId: null,
+                workspaceRole: null,
+                userId: null,
             };
         }
 
@@ -189,8 +216,14 @@ async function _getUserPermissionsInternal(workspaceId: string, projectId: strin
             canCreateSubTask,
             canPerformBulkOperations,
             workspaceMemberId: workspaceMember.id,
-            workspaceMember,
-            projectMember,
+            workspaceRole: workspaceMember.workspaceRole,
+            userId: workspaceMember.userId,
+            userName: workspaceMember.user?.name || null,
+            userSurname: workspaceMember.user?.surname || null,
+            projectMember: projectMember ? {
+                id: projectMember.id,
+                projectRole: projectMember.projectRole,
+            } : null,
         };
     } catch (error) {
         console.error("Error fetching user permissions:", error);
@@ -202,6 +235,8 @@ async function _getUserPermissionsInternal(workspaceId: string, projectId: strin
             canCreateSubTask: false,
             canPerformBulkOperations: false,
             workspaceMemberId: null,
+            workspaceRole: null,
+            userId: null,
         };
     }
 }
