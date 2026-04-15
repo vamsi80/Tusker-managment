@@ -1,7 +1,8 @@
-import { getTasks } from "@/data/task/get-tasks";
-import { requireUser } from "@/lib/auth/require-user";
-import { getProjectMembers } from "@/data/project/get-project-members";
 import dynamic from "next/dynamic";
+import { useEffect } from "react";
+import { AppLoader } from "@/components/shared/app-loader";
+import { useProjectLayout } from "../project-layout-context";
+import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 
 const KanbanBoard = dynamic(
     () => import("@/components/task/kanban/kanban-board").then(mod => mod.KanbanBoard),
@@ -11,28 +12,32 @@ const KanbanBoard = dynamic(
 interface ProjectKanbanViewProps {
     workspaceId: string;
     projectId: string;
+    userId: string;
 }
 
-export async function ProjectKanbanView({
+/**
+ * ProjectKanbanView
+ * Consumes shared metadata (members, permissions, leader maps) from contexts.
+ */
+export function ProjectKanbanView({
     workspaceId,
-    projectId
+    projectId,
+    userId,
 }: ProjectKanbanViewProps) {
-    const userPromise = requireUser();
-    const membersPromise = getProjectMembers(projectId);
-    
-    const user = await userPromise;
-    const permissionsPromise = import("@/data/user/get-user-permissions").then(m => m.getUserPermissions(workspaceId, projectId, user.id));
+    const { kanbanMetadata, revalidate: revalidateWorkspace } = useWorkspaceLayout();
+    const { projectMembers, projectPermissions, isLoading: isProjectLoading, revalidate: revalidateProject } = useProjectLayout();
+
+    useEffect(() => {
+        // Trigger background revalidation on mount
+        revalidateWorkspace();
+        revalidateProject();
+    }, [revalidateWorkspace, revalidateProject]);
+
+    if (isProjectLoading || !kanbanMetadata) {
+        return <AppLoader />;
+    }
 
     const COLUMNS = ["TO_DO", "IN_PROGRESS", "REVIEW", "HOLD", "COMPLETED", "CANCELLED"] as const;
-
-    const [projectMembers, pmMap, permissions] = await Promise.all([
-        membersPromise,
-        import("@/data/workspace/get-workspace-kanban-data").then(m => m.getWorkspaceProjectManagersMap(workspaceId)),
-        permissionsPromise
-    ]);
-
-    // 🚀 ZERO-WEIGHT SHELL: Tasks are no longer fetched server-side.
-    // KanbanBoard will fetch its own initial data on the client via Hono.
     const initialData = COLUMNS.reduce((acc, status) => {
         acc[status] = {
             subTasks: [],
@@ -50,9 +55,9 @@ export async function ProjectKanbanView({
             projectMembers={projectMembers as any}
             workspaceId={workspaceId}
             projectId={projectId}
-            projectManagers={pmMap || {}}
-            permissions={permissions}
-            userId={user.id}
+            projectManagers={kanbanMetadata.projectLeadersMap || {}}
+            permissions={projectPermissions}
+            userId={userId}
         />
     );
 }

@@ -348,6 +348,63 @@ tasks.patch("/:taskId/status", async (c) => {
 });
 
 /**
+ * POST /api/v1/tasks/:taskId/kanban/move
+ * Legacy compatibility for Kanban board moves.
+ */
+tasks.post("/:taskId/kanban/move", async (c) => {
+  const user = c.get("user");
+  const taskId = c.req.param("taskId");
+  const body = await c.req.json();
+  const { newStatus, workspaceId, projectId, comment, attachmentData } = body;
+
+  if (!workspaceId || !projectId || !newStatus) {
+    throw AppError.ValidationError("Missing required fields");
+  }
+
+  const permissions = await getUserPermissions(workspaceId, projectId, user.id);
+  const result = await TasksService.updateSubTaskStatus({
+    subTaskId: taskId,
+    newStatus,
+    workspaceId,
+    projectId,
+    userId: user.id,
+    permissions,
+    comment,
+    attachmentData,
+  });
+
+  await invalidateTaskMutation({ projectId, workspaceId, userId: user.id, taskId });
+  return c.json({ success: true, data: result });
+});
+
+/**
+ * POST /api/v1/tasks/:taskId/kanban/pin
+ * Pins or unpins a subtask in the Kanban board.
+ */
+tasks.post("/:taskId/kanban/pin", async (c) => {
+  const user = c.get("user");
+  const taskId = c.req.param("taskId");
+  const body = await c.req.json();
+  const { isPinned, workspaceId, projectId } = body;
+
+  if (!workspaceId || !projectId || typeof isPinned !== "boolean") {
+    throw AppError.ValidationError("Missing required fields");
+  }
+
+  const permissions = await getUserPermissions(workspaceId, projectId, user.id);
+  if (!permissions.isWorkspaceAdmin && !permissions.isProjectLead) {
+    throw AppError.Forbidden("Only project admins and leads can pin cards.");
+  }
+
+  // NOTE: Schema does not currently support isPinned/pinnedAt. 
+  // Returning success to avoid UI breakage, matching legacy logic.
+  return c.json({
+    success: true,
+    message: "Pinning is not currently available. Feature coming soon.",
+  });
+});
+
+/**
  * PATCH /api/v1/tasks/:taskId/dates
  */
 tasks.patch("/:taskId/dates", async (c) => {

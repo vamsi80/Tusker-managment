@@ -148,5 +148,13 @@ export const workspacesClient = {
     getTaskCreationData: async (workspaceId: string): Promise<any> => {
         const response = await apiFetch<{ success: boolean; data: any }>(`/workspaces/${workspaceId}/task-creation-data`);
         return response.data;
+    },
+
+    /**
+     * Get workspace tags
+     */
+    getTags: async (workspaceId: string): Promise<any> => {
+        const response = await apiFetch<{ success: boolean; tags: any[] }>(`/tags?workspaceId=${workspaceId}`);
+        return response;
     }
 };

@@ -57,7 +57,7 @@ export const LoginForm = () => {
   async function signInWithGithub() {
     startGithubTransition(async () => {
       const callbackURL = workspaceId && role
-        ? `/api/verify?workspaceId=${workspaceId}&role=${role}`
+        ? `/api/v1/workspaces/verify?workspaceId=${workspaceId}&role=${role}`
         : "/w";
 
       await authClient.signIn.social({
@@ -78,7 +78,7 @@ export const LoginForm = () => {
   async function signInWithGoogle() {
     startGoogleTransition(async () => {
       const callbackURL = workspaceId && role
-        ? `/api/verify?workspaceId=${workspaceId}&role=${role}`
+        ? `/api/v1/workspaces/verify?workspaceId=${workspaceId}&role=${role}`
         : "/w";
 
       await authClient.signIn.social({
@@ -100,7 +100,7 @@ export const LoginForm = () => {
     startEmailTransition(async () => {
       try {
         const callbackURL = workspaceId && role
-          ? `/api/verify?workspaceId=${workspaceId}&role=${role}`
+          ? `/api/v1/workspaces/verify?workspaceId=${workspaceId}&role=${role}`
           : "/w";
 
         await authClient.signIn.email({
@@ -184,7 +184,7 @@ export const LoginForm = () => {
     startPhoneTransition(async () => {
       try {
         const callbackURL = workspaceId && role
-          ? `/api/verify?workspaceId=${workspaceId}&role=${role}`
+          ? `/api/v1/workspaces/verify?workspaceId=${workspaceId}&role=${role}`
           : "/w";
 
         await authClient.phoneNumber.verify({

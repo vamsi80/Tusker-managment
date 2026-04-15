@@ -32,6 +32,25 @@ workspaces.post("/", async (c) => {
 });
 
 /**
+ * GET /api/v1/workspaces/verify
+ * Verify invitation token and redirect to workspace.
+ */
+workspaces.get("/verify", async (c) => {
+  const user = c.get("user");
+  const q = c.req.query();
+  const workspaceId = q.workspaceId;
+  const role = q.role;
+
+  if (!workspaceId || !role) {
+    return c.redirect("/");
+  }
+
+  await WorkspaceService.verifyInvitation(workspaceId, role, user.id);
+
+  return c.redirect(`/w/${workspaceId}`);
+});
+
+/**
  * PATCH /api/v1/workspaces/:workspaceId
  * Update workspace info
  */
@@ -272,10 +291,10 @@ workspaces.get("/:workspaceId/task-creation-data", async (c) => {
 });
 
 /**
- * GET /api/v1/workspaces/:workspaceId/members
+ * GET /api/v1/workspaces/:workspaceId/paginated-members
  * Get paginated workspace members
  */
-workspaces.get("/:workspaceId/members", async (c) => {
+workspaces.get("/:workspaceId/paginated-members", async (c) => {
   const user = c.get("user");
   const workspaceId = c.req.param("workspaceId");
   const cursor = c.req.query("cursor");
