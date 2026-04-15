@@ -34,7 +34,7 @@ export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
         }
 
         const permissions = await getUserPermissions(project.workspaceId, values.projectId);
-        if (!permissions.workspaceMember) {
+        if (!permissions.workspaceMemberId) {
             return {
                 status: "error",
                 message: "You are not a member of this workspace",
@@ -45,7 +45,7 @@ export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
             name: validation.data.name,
             projectId: validation.data.projectId,
             workspaceId: project.workspaceId,
-            userId: permissions.workspaceMember.userId,
+            userId: permissions.userId,
             permissions
         });
 

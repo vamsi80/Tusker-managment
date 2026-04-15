@@ -60,7 +60,8 @@ export function EditTaskDialog({
 
     useEffect(() => {
         if (open) {
-            fetch(`/api/projects/${task.projectId}/reviewers`)
+            const targetId = form.getValues("projectId") || task.projectId;
+            fetch(`/api/v1/projects/${targetId}/reviewers`)
                 .then(res => res.json())
                 .then((fetchedReviewers: ProjectReviewer[]) => {
 

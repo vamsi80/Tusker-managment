@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Trash2, Loader2, AlertTriangle } from "lucide-react";
+import { useParams } from "next/navigation";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -26,13 +27,15 @@ export function DeleteTaskDialog({ task, onTaskDeleted }: DeleteTaskDialogProps)
     const [pending, startTransition] = useTransition();
     const subtaskCount = task._count?.subTasks || 0;
     const reloadView = useReloadView();
+    const params = useParams();
+    const workspaceId = (params.workspaceId as string) || task.workspaceId || "";
 
     const handleDelete = () => {
         if (pending) return;
         startTransition(async () => {
             const res = await tryCatch(apiClient.tasks.deleteTask(
                 task.id, 
-                task.workspaceId || "", 
+                workspaceId, 
                 task.projectId
             ));
 

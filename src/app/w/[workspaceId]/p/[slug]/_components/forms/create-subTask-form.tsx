@@ -128,7 +128,7 @@ export const CreateSubTaskForm = ({
                 const targetId = selectedProjectId || projectId || "";
                 if (!targetId) return;
 
-                const response = await fetch(`/api/projects/${targetId}/reviewers`);
+                const response = await fetch(`/api/v1/projects/${targetId}/reviewers`);
                 if (response.ok) {
                     const fetched = await response.json();
                     setReviewers(fetched);

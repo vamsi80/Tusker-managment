@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Trash2, Loader2, AlertTriangle } from "lucide-react";
+import { useParams } from "next/navigation";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -45,6 +46,9 @@ export function DeleteSubTaskForm<T extends SubTaskBase>({
     const setOpen = controlledOnOpenChange || setUncontrolledOpen;
 
     const [pending, startTransition] = useTransition();
+    const params = useParams();
+    const workspaceId = (params.workspaceId as string) || (subTask as any).workspaceId || "";
+    const projectId = (subTask as any).projectId || "";
 
     const handleDelete = () => {
         startTransition(async () => {
@@ -55,8 +59,8 @@ export function DeleteSubTaskForm<T extends SubTaskBase>({
 
             const res = await tryCatch(apiClient.tasks.deleteTask(
                 subTask.id, 
-                (subTask as any).workspaceId || "", // We might need to ensure workspaceId is passed
-                (subTask as any).projectId || ""
+                workspaceId,
+                projectId
             ));
 
             if (res.error) {
