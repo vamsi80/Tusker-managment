@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { toast } from "sonner";
 import { MapPin, LogIn, LogOut, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import { APP_DATE_FORMAT } from "@/lib/utils";
 
 export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
     const [isLoading, setIsLoading] = useState(false);
@@ -124,7 +125,7 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
             <CardHeader>
                 <CardTitle>Daily Attendance</CardTitle>
                 <CardDescription>
-                    Mark your attendance for {mounted ? format(new Date(), "MMMM do, yyyy") : "..."}. 
+                    Mark your attendance for {mounted ? format(new Date(), APP_DATE_FORMAT) : "..."}. 
                     <br />
                     <span className="text-destructive font-medium mt-1 inline-block">
                         Location access is required.

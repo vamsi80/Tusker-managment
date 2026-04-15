@@ -1,4 +1,6 @@
 import { GanttTask, GanttSubtask, ComputedTaskDates, TimelineGranularity, } from "./types";
+import { parse } from "date-fns";
+import { APP_DATE_FORMAT } from "@/lib/utils";
 
 /**
  * Get current date (midnight) for today comparisons
@@ -18,6 +20,20 @@ export function parseDate(dateStr: string | null | undefined): Date | null {
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) return null;
     return date;
+}
+
+/**
+ * Parses a date string in the project's standard Gantt format (e.g., "15 Apr 2026")
+ */
+export function parseGanttDate(dateStr: string | null | undefined): Date | null {
+    if (!dateStr || dateStr === "-") return null;
+    try {
+        const date = parse(dateStr, APP_DATE_FORMAT, new Date());
+        return isNaN(date.getTime()) ? null : date;
+    } catch (e) {
+        console.error(`[parseGanttDate] Failed to parse: ${dateStr}`, e);
+        return null;
+    }
 }
 /**
  * Formats a date for the API (YYYY-MM-DDTHH:mm)

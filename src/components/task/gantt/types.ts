@@ -8,12 +8,12 @@
 // GRANULARITY & TIMELINE TYPES
 // ============================================================================
 
-export type TimelineGranularity = 'days' | 'weeks' | 'months';
+export type TimelineGranularity = "days" | "weeks" | "months";
 
 export interface TimelineConfig {
-    start: Date;
-    end: Date;
-    granularity: TimelineGranularity;
+  start: Date;
+  end: Date;
+  granularity: TimelineGranularity;
 }
 
 // ============================================================================
@@ -21,26 +21,26 @@ export interface TimelineConfig {
 // ============================================================================
 
 export interface GanttSubtask {
-    id: string;
-    name: string;
-    taskSlug: string; 
-    start: string; // YYYY-MM-DD format
-    end: string;   // YYYY-MM-DD format
-    status: string;
+  id: string;
+  name: string;
+  taskSlug: string;
+  start: string; // dd MMM yyyy format (e.g., "15 Apr 2026")
+  end: string; // dd MMM yyyy format
+  status: string;
 
-    projectId: string;
-    parentTaskId: string | null;
-    description?: string | null;
-    tagId?: string | null;
-    days?: number | null;
-    
-    createdById: string | null;
-    assignee?: { id: string; name: string; image?: string | null };
-    assigneeId?: string | null;
-    assigneeRole?: string;
-    
-    position: number;
-    dependsOnIds?: string[];
+  projectId: string;
+  parentTaskId: string | null;
+  description?: string | null;
+  tagId?: string | null;
+  days?: number | null;
+
+  createdById: string | null;
+  assignee?: { id: string; name: string; image?: string | null };
+  assigneeId?: string | null;
+  assigneeRole?: string;
+
+  position: number;
+  dependsOnIds?: string[];
 }
 
 // ============================================================================
@@ -48,20 +48,20 @@ export interface GanttSubtask {
 // ============================================================================
 
 export interface GanttTask {
-    id: string;
-    name: string;
-    taskSlug: string;
-    projectId: string;
-    projectName?: string;
-    projectColor?: string;
-    status: string;
-    start?: string; // Optional: DB provided
-    end?: string;   // Optional: DB provided
-    subtasks: GanttSubtask[];
-    assignee?: { id: string; name: string; image?: string | null };
-    assigneeId?: string | null;
-    createdById: string | null;
-    parentTaskId: string | null;
+  id: string;
+  name: string;
+  taskSlug: string;
+  projectId: string;
+  projectName?: string;
+  projectColor?: string;
+  status: string;
+  start?: string; // Optional: DB provided
+  end?: string; // Optional: DB provided
+  subtasks: GanttSubtask[];
+  assignee?: { id: string; name: string; image?: string | null };
+  assigneeId?: string | null;
+  createdById: string | null;
+  parentTaskId: string | null;
 }
 
 // ============================================================================
@@ -69,8 +69,6 @@ export interface GanttTask {
 // ============================================================================
 
 export interface ComputedTaskDates {
-    start: Date | null;
-    end: Date | null;
+  start: Date | null;
+  end: Date | null;
 }
-
-

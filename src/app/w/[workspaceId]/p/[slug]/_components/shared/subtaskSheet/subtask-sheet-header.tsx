@@ -118,7 +118,7 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({ subTask, cu
                         <span className="text-xs sm:text-sm font-medium w-20 sm:w-24 shrink-0">Due Date</span>
                         {subTask.startDate ? (
                             <span className="text-xs sm:text-sm">
-                                {formatIST(subTask.startDate, "dd/MM/yyyy")}
+                                {formatIST(subTask.startDate)}
                             </span>
                         ) : (
                             <span className="text-xs sm:text-sm text-muted-foreground">No due date</span>

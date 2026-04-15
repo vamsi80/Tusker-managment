@@ -1,5 +1,5 @@
 "use client";
-import { formatIST } from "@/lib/utils";
+import { formatIST, APP_DATE_FORMAT } from "@/lib/utils";
 
 import { Badge } from "@/components/ui/badge";
 import { TabsContent } from "@/components/ui/tabs";
@@ -74,7 +74,7 @@ export function ActivityTab({ activities, isLoadingActivity }: ActivityTabProps)
                                                 {author?.surname || ""}
                                             </p>
                                             <p className="text-xs text-muted-foreground">
-                                                {formatIST(activity.createdAt, "dd/MM/yyyy h:mm a")}
+                                                {formatIST(activity.createdAt, `${APP_DATE_FORMAT} h:mm a`)}
                                             </p>
                                         </div>
                                         <div className="flex flex-col items-end gap-1.5">

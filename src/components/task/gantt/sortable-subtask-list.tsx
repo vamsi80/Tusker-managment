@@ -2,7 +2,7 @@
 
 import { CornerDownRight, GripVertical, Link2 } from "lucide-react";
 import { DraggableSubtaskBar } from "./draggable-subtask-bar";
-import { cn } from "@/lib/utils";
+import { cn, APP_DATE_FORMAT } from "@/lib/utils";
 import { GanttSubtask } from "./types";
 import { getDaysBetween } from "./utils";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,6 @@ import { useState } from "react";
 import { apiClient } from "@/lib/api-client";
 import { toast } from "sonner";
 import { DependencyPicker } from "./dependency-picker";
-import { DependencyLines } from "./dependency-lines";
 
 interface SortableSubtaskRowProps {
     subtask: GanttSubtask;
@@ -131,19 +130,21 @@ function SortableSubtaskRow({
                     </span>
 
                     {/* Dependency Link Button */}
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setShowDepPicker(true);
-                        }}
-                        className={cn(
-                            "absolute right-1 opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all",
-                            subtask.dependsOnIds && subtask.dependsOnIds.length > 0 && "opacity-100 text-blue-500"
-                        )}
-                        title="Manage Dependencies"
-                    >
-                        <Link2 className="h-3 w-3" />
-                    </button>
+                    {subtask.status !== "COMPLETED" && subtask.status !== "CANCELLED" && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setShowDepPicker(true);
+                            }}
+                            className={cn(
+                                "absolute right-1 opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all",
+                                subtask.dependsOnIds && subtask.dependsOnIds.length > 0 && "opacity-100 text-blue-500"
+                            )}
+                            title="Manage Dependencies"
+                        >
+                            <Link2 className="h-3 w-3" />
+                        </button>
+                    )}
                 </div>
 
                 {showDetails && (
@@ -192,7 +193,7 @@ function SortableSubtaskRow({
                         <div className="w-[var(--col-dates)] flex items-center px-2 shrink-0 h-full">
                             <span className="text-[10px] text-muted-foreground whitespace-nowrap">
                                 {subtask.start && subtask.end
-                                    ? `${format(new Date(subtask.start), "dd/MM")} - ${format(new Date(subtask.end), "dd/MM")}`
+                                    ? `${format(new Date(subtask.start), APP_DATE_FORMAT)} - ${format(new Date(subtask.end), APP_DATE_FORMAT)}`
                                     : "No dates"
                                 }
                             </span>
@@ -320,19 +321,6 @@ export function SortableSubtaskList({
                 strategy={verticalListSortingStrategy}
             >
                 <div className="flex flex-col relative">
-                    {/* Dependency Lines Overlay - Positioned over the timeline bars area */}
-                    <div 
-                        className="absolute top-0 right-0 h-full w-[var(--gantt-total-width)] pointer-events-none z-20"
-                        style={{ width: 'var(--gantt-total-width)' }}
-                    >
-                        <DependencyLines 
-                            subtasks={items}
-                            timelineStart={props.timelineStart}
-                            totalDays={props.totalDays}
-                            granularity={props.granularity}
-                        />
-                    </div>
-
                     {items.map((subtask) => (
                         <SortableSubtaskRow
                             key={subtask.id}

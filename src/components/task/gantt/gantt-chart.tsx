@@ -7,11 +7,12 @@ import { Calendar } from "lucide-react";
 import { ProjectRow } from "./project-row";
 import { ProjectOption } from "../shared/types";
 import { exportGanttToExcel, exportGanttToPDF } from "./export-utils";
-import { GanttTask, TimelineGranularity } from "./types";
+import { GanttSubtask, GanttTask, TimelineGranularity } from "./types";
 import { TimelineHeader, TimelineGrid } from "./timeline-grid";
 import { calculateTimelineRange, getDaysBetween } from "./utils";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { ProjectMembersType } from "@/data/project/get-project-members";
+import { DependencyLines } from "./dependency-lines";
 
 interface GanttChartProps {
     tasks: GanttTask[];
@@ -269,6 +270,76 @@ export function GanttChart({
         );
     }
 
+    // 🚀 Global Coordinate Mapping for Dependency Lines
+    const globalSubtasksWithPositions = useMemo(() => {
+        const result: (GanttSubtask & { globalY: number })[] = [];
+        let currentY = 0;
+
+        // Pre-build a map of all subtasks for faster project lookup
+        const allSubtaskMap = new Map<string, GanttSubtask>();
+        tasks.forEach(t => t.subtasks?.forEach(s => allSubtaskMap.set(s.id, s)));
+
+        if (groupByProject && groupedTasks) {
+            groupedTasks.groups.forEach(group => {
+                currentY += 32; // Project header height
+
+                if (expandedProjects.has(group.id)) {
+                    group.visibleTasks.forEach(task => {
+                        currentY += 36; // Task header height
+
+                        if (expandedTasks.has(task.id)) {
+                            task.subtasks.forEach((st) => {
+                                // Filter dependencies to only show within the same project
+                                const projectFilteredDeps = st.dependsOnIds?.filter(depId => {
+                                    const depSubtask = allSubtaskMap.get(depId);
+                                    return depSubtask?.projectId === group.id;
+                                });
+
+                                result.push({
+                                    ...st,
+                                    dependsOnIds: projectFilteredDeps,
+                                    globalY: currentY + 28 // Center of 32px row
+                                });
+                                currentY += 32; // Subtask row height
+                            });
+                        }
+                    });
+                }
+            });
+
+            // No project tasks
+            groupedTasks.noProjectTasks.forEach(task => {
+                currentY += 36;
+                if (expandedTasks.has(task.id)) {
+                    task.subtasks.forEach(st => {
+                        result.push({
+                            ...st,
+                            globalY: currentY + 16
+                        });
+                        currentY += 32;
+                    });
+                }
+            });
+        } else {
+            // Flat mode
+            visibleFlatTasks.forEach(task => {
+                currentY += 36;
+                if (expandedTasks.has(task.id)) {
+                    task.subtasks.forEach(st => {
+                        result.push({
+                            ...st,
+                            globalY: currentY + 28
+                        });
+                        currentY += 32;
+                    });
+                }
+            });
+        }
+
+        return result;
+    }, [tasks, expandedTasks, expandedProjects, groupByProject, groupedTasks, visibleFlatTasks]);
+
+    // Timeline Grid with Tasks
     return (
         <div className={cn(
             "flex flex-col transition-all duration-300 ease-in-out",
@@ -332,6 +403,21 @@ export function GanttChart({
                         : tasks
                     }
                 >
+                    {/* Global Dependency Lines */}
+                    <div
+                        className="absolute top-0 right-0 pointer-events-none z-10"
+                        style={{
+                            width: 'var(--gantt-total-width)',
+                            marginLeft: 'var(--gantt-sidebar-width)'
+                        }}
+                    >
+                        <DependencyLines
+                            subtasks={globalSubtasksWithPositions}
+                            timelineStart={timelineRange.start}
+                            totalDays={totalDays}
+                            granularity={granularity}
+                        />
+                    </div>
                     {groupByProject && groupedTasks ? (
                         <>
                             {/* Convert groups to array and paginate */}
@@ -469,8 +555,8 @@ export function GanttChart({
                     <span>Today</span>
                 </div>
                 <div className="flex items-center gap-2">
-                    <div 
-                        className="w-4 h-3 rounded border border-red-500/50" 
+                    <div
+                        className="w-4 h-3 rounded border border-red-500/50"
                         style={{
                             backgroundImage: `repeating-linear-gradient(15deg, transparent, transparent 2px, rgba(0,0,0,0.1) 2px, rgba(0,0,0,0.1) 4px)`,
                             backgroundColor: '#e5e7eb'
