@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useState, useTransition, useEffect, useMemo } from "react";
 import { Resolver, useForm, useWatch } from "react-hook-form";
 import { Check, Loader2, Pencil } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -89,6 +89,10 @@ export function EditSubTaskForm<T extends SubTaskBase>({
     const [selectedProjectId, setSelectedProjectId] = useState<string>(projectId || "");
     const router = useRouter();
     const reloadView = useReloadView();
+    const params = useParams();
+    const workspaceId = (params.workspaceId as string) || (subTask as any).workspaceId || "";
+    // Note: 'projectId' from URL is a slug, we need the UUID. 
+    // Usually 'subTask.projectId' or 'projectId' prop works.
     const [reviewers, setReviewers] = useState<ProjectReviewer[]>([]);
 
     // Memoize filtered parent tasks to prevent infinite loops
@@ -167,7 +171,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                 const targetId = selectedProjectId || projectId || "";
                 if (!targetId) return;
 
-                const response = await fetch(`/api/projects/${targetId}/reviewers`);
+                const response = await fetch(`/api/v1/projects/${targetId}/reviewers`);
                 if (response.ok) {
                     const fetched = await response.json();
                     setReviewers(fetched);
@@ -261,7 +265,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
         startTransition(async () => {
             const res = await tryCatch(apiClient.tasks.updateTask(
                 subTask.id, 
-                (subTask as any).workspaceId || "", // We might need to ensure workspaceId is passed
+                workspaceId, 
                 values.projectId, 
                 values
             ));

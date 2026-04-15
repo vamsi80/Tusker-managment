@@ -37,7 +37,7 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
         }
 
         const permissions = await getUserPermissions(project.workspaceId, values.projectId);
-        if (!permissions.workspaceMember) {
+        if (!permissions.workspaceMemberId) {
             return {
                 status: "error",
                 message: "You are not a member of this workspace",

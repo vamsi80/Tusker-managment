@@ -89,15 +89,16 @@ export function ProjectGanttClient({
 
             startTransition(async () => {
                 try {
-                    const res = await fetch(`/api/gt?${params.toString()}`);
+                    params.append("vm", "gantt");
+                    const res = await fetch(`/api/v1/tasks?${params.toString()}`);
                     const json = await res.json();
                     if (json.success) {
+                        // The Hono API returns the tasks directly in json.data
                         const allFetchedTasks: any[] = [];
-                        json.data.tasks.forEach((t: any) => {
+                        json.data.forEach((t: any) => {
                             allFetchedTasks.push(t);
                             if (t.subTasks) allFetchedTasks.push(...t.subTasks);
                         });
-                        console.log("🟦 [GANTT CLIENT] Project fetched tasks (flattened):", allFetchedTasks.length);
                         setTasks(transformToGanttTasks(allFetchedTasks));
                     }
                 } catch (err) {
