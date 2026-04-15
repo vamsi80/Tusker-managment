@@ -1,37 +1,46 @@
+"use client";
+
 import * as React from "react";
+import { 
+    Sidebar, 
+    SidebarContent, 
+    SidebarFooter, 
+    SidebarHeader, 
+    SidebarMenu, 
+    SidebarMenuItem, 
+    SidebarMenuButton,
+    SidebarGroup,
+    SidebarGroupLabel,
+    SidebarGroupContent,
+    SidebarSeparator
+} from "@/components/ui/sidebar";
 import { NavUser } from "./footer/nav-user";
 import { NavMain } from "./header/nav-main";
-import { NavProjectsAsync } from "./projectsList/nav-projects-async";
+import { NavProjects } from "./projectsList/nav-projects";
 import { NavWorkspacesSelector } from "./header/nav-workspaces-selector";
 import { NavFooter } from "./footer/nav-footer";
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuItem } from "@/components/ui/sidebar";
-import { WorkspacesType } from "@/data/workspace/get-workspaces";
-import { QuickCreateSubTaskAsync } from "./header/quick-create-subtask-async";
-
-interface iAppProps {
-  data: WorkspacesType;
-  workspaceId: string;
-}
+import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
+import { LayoutDashboard, Users, CheckSquare, Settings, BarChart3, AppWindow } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 /**
- * Main application sidebar component.
- * Organizes navigation into workspaces, main features, projects, and user settings.
+ * Main application sidebar component (Client Side).
+ * Optimized to match Shadcn premium standards for nesting and grouping.
  */
-export async function AppSidebar({ data, workspaceId, ...props }: React.ComponentProps<typeof Sidebar> & iAppProps) {
+export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
+  const { data, workspaceId } = useWorkspaceLayout();
+  const pathname = usePathname();
+  const { workspaces, projects, permissions } = data;
+
   // Navigation items for the main workspace section
-  // Navigation items — Procurement, Inventory & Orders are disabled for release-core-v1
-  const mainNavItems: Array<{
-    title: string;
-    url: string;
-    icon?: "LayoutDashboard" | "Users" | "CheckSquare" | "Settings";
-  }> = [
-      { title: "Dashboard", url: `/w/${workspaceId}`, icon: "LayoutDashboard" },
-      { title: "Team", url: `/w/${workspaceId}/team`, icon: "Users" },
-      { title: "Tasks", url: `/w/${workspaceId}/tasks`, icon: "CheckSquare" },
+  const mainNavItems = [
+      { id: "dashboard", title: "Dashboard", url: `/w/${workspaceId}`, icon: LayoutDashboard },
+      { id: "team", title: "Team", url: `/w/${workspaceId}/team`, icon: Users },
+      { id: "tasks", title: "Tasks", url: `/w/${workspaceId}/tasks`, icon: CheckSquare },
     ];
 
-  // Determine if the user is the owner of the current workspace
-  const currentWorkspace = data.workspaces.find((ws) => ws.id === workspaceId);
+  const currentWorkspace = workspaces.workspaces.find((ws: any) => ws.id === workspaceId);
   const isOwner = currentWorkspace?.workspaceRole === "OWNER";
 
   const footerNavItems: Array<{
@@ -49,30 +58,59 @@ export async function AppSidebar({ data, workspaceId, ...props }: React.Componen
     ];
 
   return (
-    <Sidebar collapsible="offcanvas" {...props} className="border-r border-border/50">
-      <SidebarHeader>
+    <Sidebar collapsible="icon" {...props} className="border-r bg-sidebar border-border/50">
+      <SidebarHeader className="h-(--header-height) justify-center border-b border-sidebar-border/50">
         <SidebarMenu>
           <SidebarMenuItem>
-            <NavWorkspacesSelector data={data} workspaceId={workspaceId} />
+            <NavWorkspacesSelector data={workspaces as any} workspaceId={workspaceId} />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent className="px-2">
-        <NavMain
-          items={mainNavItems}
-          workspaceId={workspaceId}
-          quickCreateButton={
-            <QuickCreateSubTaskAsync workspaceId={workspaceId} />
-          }
-        />
+      <SidebarContent>
+        <SidebarGroup>
+            <SidebarGroupLabel className="px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                Workspace
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+                <SidebarMenu>
+                    {mainNavItems.map((item) => (
+                        <SidebarMenuItem key={item.id}>
+                            <SidebarMenuButton 
+                                asChild 
+                                isActive={pathname === item.url}
+                                tooltip={item.title}
+                            >
+                                <Link href={item.url}>
+                                    <item.icon />
+                                    <span>{item.title}</span>
+                                </Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                    ))}
+                </SidebarMenu>
+            </SidebarGroupContent>
+        </SidebarGroup>
 
-        <NavProjectsAsync workspaceId={workspaceId} />
+        <SidebarSeparator className="mx-0" />
+
+        {projects && (
+            <NavProjects
+                projects={projects}
+                workspaceId={workspaceId}
+                isAdmin={permissions?.isWorkspaceAdmin ?? false}
+                canCreateProject={permissions?.canCreateProject ?? permissions?.isWorkspaceAdmin ?? false}
+                userRole={permissions?.workspaceRole}
+                currentUserId={data.user?.id}
+            />
+        )}
       </SidebarContent>
 
-      <SidebarFooter className="px-3">
+      <SidebarFooter className="border-t border-sidebar-border/50 p-4">
         <NavFooter items={footerNavItems} />
-        <NavUser />
+        <div className="mt-4">
+            <NavUser />
+        </div>
       </SidebarFooter>
     </Sidebar>
   );

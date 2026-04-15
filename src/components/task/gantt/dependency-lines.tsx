@@ -5,7 +5,7 @@ import { parseDate, getDaysBetween } from "./utils";
 import { GanttSubtask } from "./types";
 
 interface DependencyLinesProps {
-    subtasks: GanttSubtask[];
+    subtasks: (GanttSubtask & { globalY: number })[];
     timelineStart: Date;
     totalDays: number;
     granularity: 'days' | 'weeks' | 'months';
@@ -25,11 +25,11 @@ export function DependencyLines({
     const columnWidth = granularity === 'days' ? 40 : granularity === 'weeks' ? 80 : 120;
     const totalWidth = totalDays * columnWidth;
 
-    // Build a map of subtask positions in absolute pixels
+    // Use pre-calculated global positions
     const subtaskPositions = useMemo(() => {
         const positions = new Map<string, { x: number; y: number; width: number; endX: number }>();
 
-        subtasks.forEach((subtask, index) => {
+        subtasks.forEach((subtask) => {
             const start = parseDate(subtask.start);
             const end = parseDate(subtask.end);
 
@@ -42,12 +42,9 @@ export function DependencyLines({
             const left = startOffset * columnWidth;
             const width = duration * columnWidth;
 
-            // Y position based on row index - 32px per row, centered at 16px
-            const y = index * 32 + 16;
-
             positions.set(subtask.id, {
                 x: left,
-                y,
+                y: subtask.globalY,
                 width,
                 endX: left + width
             });
@@ -142,14 +139,16 @@ export function DependencyLines({
 
     if (lines.length === 0) return null;
 
+    const maxY = Math.max(...subtasks.map(st => st.globalY), 0) + 32;
+
     return (
         <svg
             ref={svgRef}
             className="absolute inset-0 pointer-events-none z-10"
-            viewBox={`0 0 ${totalWidth} ${subtasks.length * 32}`}
+            viewBox={`0 0 ${totalWidth} ${maxY}`}
             style={{
                 width: `${totalWidth}px`,
-                height: `${subtasks.length * 32}px`,
+                height: `${maxY}px`,
                 overflow: 'visible'
             }}
         >

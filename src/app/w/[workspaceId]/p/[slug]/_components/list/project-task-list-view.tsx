@@ -30,22 +30,9 @@ export async function ProjectTaskListView({
     permissions,
     userId,
 }: ProjectTaskListViewProps) {
-    // Fetch parent tasks (List View mode) using unified function
-    const { tasks, hasMore, nextCursor } = await getTasks({
-        workspaceId,
-        projectId,
-        hierarchyMode: "parents",
-        limit: 50,
-        view_mode: "list"
-    }, userId);
-
-    // Transform to TaskWithSubTasks structure
-    const parentTasks = tasks.map(task => ({
-        ...task,
-        subTasks: (task as any).subTasks,
-        // _count is already included in getTasks result
-    })) as TaskWithSubTasks[];
-
+    // 🚀 ZERO-WEIGHT SHELL: Tasks are no longer fetched server-side to minimize response payload.
+    // TaskTable will fetch its own initial data on the client via Hono.
+    
     // Fetch workspace tags for subtask creation/editing
     const tagsData = await getWorkspaceTags(workspaceId);
 
@@ -57,9 +44,9 @@ export async function ProjectTaskListView({
 
     return (
         <TaskTable
-            initialTasks={parentTasks}
-            initialHasMore={hasMore}
-            initialNextCursor={nextCursor}
+            initialTasks={[]}
+            initialHasMore={false}
+            initialNextCursor={null}
             members={members}
             workspaceId={workspaceId}
             projectId={projectId}

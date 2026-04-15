@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { DataTable } from "@/components/data-table/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
+import { APP_DATE_FORMAT } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Clock, Calendar } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -89,7 +90,7 @@ export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
                 if (!mounted) return "...";
                 return (
                     <div className="font-medium">
-                        {format(new Date(row.original.date), "dd/MM/yyyy")}
+                        {format(new Date(row.original.date), APP_DATE_FORMAT)}
                     </div>
                 );
             },

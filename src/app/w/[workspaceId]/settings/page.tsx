@@ -25,12 +25,14 @@ async function SettingsContent({ workspaceId }: { workspaceId: string }) {
         _count: tag._count,
     }));
 
+    const isWorkspaceAdmin = permissions.isWorkspaceAdmin;
+
     return (
         <div className="space-y-2">
             <TagsManager
                 workspaceId={workspaceId}
                 tags={tags}
-                isWorkspaceAdmin={permissions.isWorkspaceAdmin}
+                isWorkspaceAdmin={isWorkspaceAdmin}
             />
         </div>
     );

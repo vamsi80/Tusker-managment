@@ -152,11 +152,16 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
         setIsOpen(false);
     };
 
-    // Sync server-provided data if it changes (e.g., after a revalidatePath)
-    // We stringify to prevent unnecessary updates if the array reference changes but the content is the same
+    // Sync server-provided data if it changes
     useEffect(() => {
-        setUnreadNotifications(initialUnread);
-        setReadNotifications(initialRead);
+        // Only override if we have actual data in initial props
+        // Otherwise we risk wiping out our on-demand fetch
+        if (initialUnread && initialUnread.length > 0) {
+            setUnreadNotifications(initialUnread);
+        }
+        if (initialRead && initialRead.length > 0) {
+            setReadNotifications(initialRead);
+        }
         setPeopleCount(initialPeopleCount);
     }, [JSON.stringify(initialUnread), JSON.stringify(initialRead), initialPeopleCount]);
 

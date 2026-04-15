@@ -347,7 +347,7 @@ export function ReportsTable({ initialData, workspaceId, members, initialDate, i
                             </Button>
                             <CalendarIcon className="h-3.5 w-3.5 text-primary shrink-0" />
                             <span className="font-bold text-sm text-foreground">
-                                {data.date !== "No Date" ? formatIST(new Date(`${data.date}T12:00:00`), "dd/MM/yyyy") : "No Date"}
+                                {data.date !== "No Date" ? formatIST(new Date(`${data.date}T12:00:00`)) : "No Date"}
                             </span>
                             <Badge variant="secondary" className="px-1.5 py-0 h-4 text-[9px] font-bold opacity-70">
                                 {data.count} reports

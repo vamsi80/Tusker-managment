@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useEffect, useState } from "react";
 import { pusherClient } from "@/lib/pusher";
 import { useRouter } from "next/navigation";
+import { APP_DATE_FORMAT } from "@/lib/utils";
 
 interface ActivityLog {
     id: string;
@@ -31,7 +32,7 @@ const columns: ColumnDef<ActivityLog>[] = [
         header: "Time",
         cell: ({ row }) => (
             <div className="text-xs text-muted-foreground whitespace-nowrap">
-                {format(new Date(row.original.createdAt), "MMM d, h:mm a")}
+                {format(new Date(row.original.createdAt), `${APP_DATE_FORMAT}, h:mm a`)}
             </div>
         )
     },
