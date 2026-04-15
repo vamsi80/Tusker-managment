@@ -177,7 +177,7 @@ export function InlineSubTaskForm({
         const fetchData = async () => {
             try {
                 if (!projectId) return;
-                const response = await fetch(`/api/projects/${projectId}/reviewers`);
+                const response = await fetch(`/api/v1/projects/${projectId}/reviewers`);
                 if (!response.ok) throw new Error("Failed to fetch");
 
                 const fetchedReviewers = await response.json();

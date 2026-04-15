@@ -1,6 +1,8 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { format } from "date-fns"
+ 
+export const APP_DATE_FORMAT = "d MMM yyyy";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -42,8 +44,8 @@ export function formatDateUTC(date: string | Date | null | undefined, includeTim
   // Using Intl.DateTimeFormat to reliably get IST components regardless of local environment
   const formatter = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Asia/Kolkata',
-    day: '2-digit',
-    month: '2-digit',
+    day: 'numeric',
+    month: 'short',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
@@ -59,14 +61,14 @@ export function formatDateUTC(date: string | Date | null | undefined, includeTim
   const hours = getPart('hour');
   const minutes = getPart('minute');
 
-  const dateStr = `${day}/${month}/${year}`;
+  const dateStr = `${day} ${month} ${year}`;
   return includeTime ? `${dateStr} ${hours}:${minutes}` : dateStr;
 }
 
 /**
  * Formats a date in Indian Standard Time (IST)
  */
-export function formatIST(date: string | Date | null | undefined, formatStr: string = "dd/MM/yyyy"): string {
+export function formatIST(date: string | Date | null | undefined, formatStr: string = APP_DATE_FORMAT): string {
   if (!date) return "-";
   const d = new Date(date);
   if (isNaN(d.getTime())) return "-";

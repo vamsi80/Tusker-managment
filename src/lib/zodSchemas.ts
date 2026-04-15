@@ -250,7 +250,7 @@ export const taskSchema = z.object({
         .min(3, { message: "Title must be at least 3 charcters long" })
         .max(100, { message: "Title must be at most 100 character long" }),
     projectId: z.string().uuid({ message: "Invalid project id" }),
-    reviewerId: z.string().uuid({ message: "Invalid reviewer id" }).optional().nullable(),
+    reviewerId: z.string().optional().nullable().or(z.literal("")),
 });
 
 export const subTaskSchema = z.object({
@@ -271,7 +271,7 @@ export const subTaskSchema = z.object({
     assignee: z
         .string()
         .min(1, { message: "Assignee is required" }),
-    reviewerId: z.string().uuid({ message: "Invalid reviewer id" }).optional().nullable(),
+    reviewerId: z.string().optional().nullable().or(z.literal("")),
     startDate: z
         .string()
         .optional(),

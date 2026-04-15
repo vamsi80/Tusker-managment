@@ -12,7 +12,6 @@ import React, {
   memo,
 } from "react";
 import { Loader2, ChevronsUpDown, Maximize2, Minimize2 } from "lucide-react";
-import { loadTasksAction } from "@/actions/task/list-actions";
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 // Simple debounce implementation
 const debounce = (func: Function, wait: number) => {
@@ -139,37 +138,53 @@ function TaskTable({
     (state) => state.setProjectTasksCache,
   );
   const observerRef = useRef<IntersectionObserver | null>(null);
-  const loadProjectTasksRef = useRef<((id: string) => Promise<void>) | null>(
-    null,
-  );
-  const loadMoreSortedRef = useRef<(() => Promise<void>) | null>(null);
   const sortedSentinelRef = useRef<HTMLTableRowElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const autoExpandRef = useRef(false);
   const tasksRef = useRef<TaskWithSubTasks[]>([]);
+  const loadMoreSortedRef = useRef<(() => Promise<void>) | null>(null);
+  const loadProjectTasksRef = useRef<((id: string) => Promise<void>) | null>(null);
+  const autoExpandRef = useRef(false);
   const processedSubTasksRef = useRef<Set<string>>(new Set());
   const fetchingSubTasksRef = useRef<Set<string>>(new Set());
-  const mode = useMemo(() => {
-    return sorts.length > 0 ? "sorted" : "hierarchy";
-  }, [sorts]);
-
-  const sortsKey = sorts.map((s) => `${s.field}:${s.direction}`).join(",");
 
   const hydrateTasks = useCallback(
     (taskList: TaskWithSubTasks[]) => {
-      if (filtersActive) return taskList;
+      // 1. First, try to merge from what we already have in memory (essential for preservation during filters)
+      const currentTasks = tasksRef.current;
+      const memoryMap = new Map<string, TaskWithSubTasks>();
+      currentTasks.forEach((t) => {
+        if (t.subTasks !== undefined) memoryMap.set(t.id, t);
+      });
 
+      // 2. Fallback to global zustand cache
       const getCache = useTaskCacheStore.getState().getCachedSubTasks;
+
       return taskList.map((t) => {
+        // If it already has subtasks (from a fresh server result if that ever happens), keep them
         if (t.subTasks !== undefined) return t;
-        const cached = getCache(t.id);
-        if (cached) {
+
+        // Check memory first (preserves state during fast filter toggles)
+        const inMemory = memoryMap.get(t.id);
+        if (inMemory) {
           return {
             ...t,
-            subTasks: cached.subTasks,
-            subTasksHasMore: cached.hasMore,
-            subTasksNextCursor: cached.nextCursor,
+            subTasks: inMemory.subTasks,
+            subTasksHasMore: inMemory.subTasksHasMore,
+            subTasksNextCursor: inMemory.subTasksNextCursor,
           };
+        }
+
+        // Check global cache if NOT in special filtered mode
+        if (!filtersActive) {
+          const cached = getCache(t.id);
+          if (cached) {
+            return {
+              ...t,
+              subTasks: cached.subTasks,
+              subTasksHasMore: cached.hasMore,
+              subTasksNextCursor: cached.nextCursor,
+            };
+          }
         }
         return t;
       });
@@ -177,9 +192,242 @@ function TaskTable({
     [filtersActive],
   );
 
-  const [tasks, setTasks] = useState<TaskWithSubTasks[]>(() =>
-    hydrateTasks(initialTasks),
-  );
+  const [tasks, setTasks] = useState<TaskWithSubTasks[]>(() => hydrateTasks(initialTasks));
+  const [projectPagination, setProjectPagination] = useState<
+    Record<
+      string,
+      { page: number; nextCursor: any; hasMore: boolean; isLoading: boolean }
+    >
+  >(() => {
+    if (level === "project" && projectId && initialTasks.length > 0) {
+      return {
+        [projectId]: {
+          page: 1,
+          nextCursor: initialNextCursor,
+          hasMore: initialHasMore,
+          isLoading: false,
+        },
+      };
+    }
+    return {};
+  });
+
+  const mode = useMemo(() => {
+    return sorts.length > 0 ? "sorted" : "hierarchy";
+  }, [sorts]);
+
+  const sortsKey = sorts.map((s) => `${s.field}:${s.direction}`).join(",");
+
+  const fetchFiltered = useCallback(async (isAbortedRef: { current: boolean }) => {
+    setIsLoadingFilters(true);
+    setIsCurrentlyFiltered(true);
+
+    try {
+      const params = new URLSearchParams();
+      params.set("w", workspaceId);
+      if (level === "project" && projectId) params.set("p", projectId);
+      params.set("vm", "list");
+      params.set("hm", "parents");
+      params.set("l", "50");
+      params.set("sub", "true");
+      params.set("facets", "true");
+
+      if (filters.status) params.set("s", JSON.stringify(filters.status));
+      if (filters.assigneeId) params.set("a", JSON.stringify(filters.assigneeId));
+      if (filters.tagId) params.set("t", JSON.stringify(filters.tagId));
+      if (searchQuery) params.set("q", searchQuery);
+      if (filters.startDate) params.set("da", new Date(filters.startDate).toISOString());
+      if (filters.endDate) params.set("db", new Date(filters.endDate).toISOString());
+      if (sorts.length > 0) params.set("sorts", JSON.stringify(sorts));
+
+      const apiRes = await fetch(`/api/v1/tasks?${params.toString()}`);
+      const response = await apiRes.json();
+
+      if (isAbortedRef.current) return;
+
+      if (response.success && response.data) {
+        const result = response.data as any;
+        const sizeInBytes = JSON.stringify(response.data).length;
+        console.log(`[Zero-Weight] Tasks Payload: ${(sizeInBytes / 1024).toFixed(2)} KB (${result.tasks?.length || 0} tasks)`);
+        setTasks(hydrateTasks(result.tasks));
+
+        if (result.facets?.projects) {
+          const facetProjects = result.facets.projects as Record<string, number>;
+          setCurrentProjectCounts(facetProjects);
+
+          setProjectPagination((prev) => {
+            const next = { ...prev };
+            let changed = false;
+            Object.entries(facetProjects).forEach(([pId, count]) => {
+              if (count > 0 && !next[pId]) {
+                next[pId] = {
+                  page: 1,
+                  nextCursor: undefined,
+                  hasMore: true,
+                  isLoading: false,
+                };
+                changed = true;
+              }
+            });
+            return changed ? next : prev;
+          });
+        }
+
+        if (result.facets?.projects) {
+          setExpandedProjects((prev) => {
+            const next = { ...prev };
+            let changed = false;
+            const facetProjects = result.facets.projects as Record<string, number>;
+            Object.keys(facetProjects).forEach((pId) => {
+              if (facetProjects[pId] > 0 && next[pId] === undefined) {
+                next[pId] = true;
+                changed = true;
+              }
+            });
+            return changed ? next : prev;
+          });
+        }
+
+        if (level === "workspace" && result.tasks.length > 0) {
+          setProjectPagination((prev) => ({
+            ...prev,
+            ["__global_filter__"]: {
+              page: 1,
+              nextCursor: result.nextCursor,
+              hasMore: result.hasMore,
+              isLoading: false,
+            },
+          }));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to filter tasks:", err);
+      if (!isAbortedRef.current) toast.error("Failed to load tasks");
+    } finally {
+      if (!isAbortedRef.current) {
+        setIsLoadingFilters(false);
+      }
+    }
+  }, [workspaceId, projectId, level, filters, searchQuery, sorts, hydrateTasks]);
+
+  const loadProjectTasks = useCallback(async (targetProjectId: string) => {
+    const currentPagination = projectPagination[targetProjectId] || {
+      page: 0,
+      nextCursor: undefined,
+      hasMore: true,
+      isLoading: false,
+    };
+
+    if (currentPagination.isLoading || !currentPagination.hasMore) return;
+
+    setProjectPagination((prev) => ({
+      ...prev,
+      [targetProjectId]: { ...currentPagination, isLoading: true },
+    }));
+
+    const isGlobal = targetProjectId === "__global_filter__";
+
+    try {
+      const params = new URLSearchParams();
+      params.set("w", workspaceId);
+      if (!isGlobal) params.set("p", targetProjectId);
+      params.set("vm", "list");
+      params.set("hm", "parents");
+      if (isGlobal) params.set("sub", "true");
+      params.set("l", "50");
+      if (currentPagination.nextCursor) params.set("c", JSON.stringify(currentPagination.nextCursor));
+      if (filters.status) params.set("s", JSON.stringify(filters.status));
+      if (filters.assigneeId) params.set("a", JSON.stringify(filters.assigneeId));
+      if (filters.tagId) params.set("t", JSON.stringify(filters.tagId));
+      if (searchQuery) params.set("q", searchQuery);
+      if (filters.startDate) params.set("da", new Date(filters.startDate).toISOString());
+      if (filters.endDate) params.set("db", new Date(filters.endDate).toISOString());
+
+      const apiRes = await fetch(`/api/v1/tasks?${params.toString()}`);
+      const response = await apiRes.json();
+
+      if (response.success && response.data) {
+        const resultData = response.data as any;
+        const newTasksFromServer = resultData.tasks as unknown as TaskWithSubTasks[];
+
+        let nextTasks: TaskWithSubTasks[] = [];
+        let addedRoots: TaskWithSubTasks[] = [];
+
+        if (!isGlobal) {
+          // Standard project-specific append logic
+          const currentTasks = tasksRef.current;
+          const existingIds = new Set(currentTasks.map((t) => t.id));
+          addedRoots = newTasksFromServer.filter((task) => !existingIds.has(task.id));
+          nextTasks = hydrateTasks([...currentTasks, ...addedRoots]);
+        } else {
+          // Deep Merge Logic for Recursive Filtered Hierarchies
+          const taskMap = new Map<string, TaskWithSubTasks>();
+          tasksRef.current.forEach((t) => taskMap.set(t.id, { ...t }));
+
+          newTasksFromServer.forEach((task) => {
+            if (taskMap.has(task.id)) {
+              const existing = taskMap.get(task.id)!;
+              if (task.subTasks && task.subTasks.length > 0) {
+                const subTaskMap = new Map((existing.subTasks || []).map((st) => [st.id, st]));
+                task.subTasks.forEach((st) => subTaskMap.set(st.id, st));
+                existing.subTasks = Array.from(subTaskMap.values());
+              }
+            } else {
+              const newTask = { ...task };
+              taskMap.set(newTask.id, newTask);
+              addedRoots.push(newTask);
+            }
+          });
+          nextTasks = hydrateTasks(Array.from(taskMap.values()));
+        }
+
+        setTasks(nextTasks);
+
+        // Cache Logic
+        if (!filtersActive && !isGlobal) {
+          useTaskCacheStore.getState().setProjectTasksCache(targetProjectId, {
+            tasks: nextTasks.filter((t) => t.projectId === targetProjectId),
+            hasMore: resultData.hasMore ?? false,
+            page: currentPagination.page + 1,
+            nextCursor: resultData.nextCursor,
+            totalCount: resultData.totalCount ?? undefined,
+          });
+        }
+
+        if (autoExpandRef.current && addedRoots.length > 0) {
+          setTimeout(() => {
+            setExpanded((prevExpanded) => {
+              const newExpanded = { ...prevExpanded };
+              addedRoots.forEach((t) => { newExpanded[t.id] = true; });
+              return newExpanded;
+            });
+          }, 0);
+        }
+
+        setProjectPagination((prev) => ({
+          ...prev,
+          [targetProjectId]: {
+            page: currentPagination.page + 1,
+            nextCursor: resultData.nextCursor,
+            hasMore: resultData.hasMore ?? false,
+            isLoading: false,
+          },
+        }));
+      } else {
+        toast.error(response.error || "Failed to load tasks");
+        setProjectPagination((prev) => ({
+          ...prev,
+          [targetProjectId]: { ...currentPagination, isLoading: false },
+        }));
+      }
+    } catch (err) {
+      console.error(`Failed to load tasks for ${targetProjectId}:`, err);
+      setProjectPagination((prev) => ({
+        ...prev,
+        [targetProjectId]: { ...currentPagination, isLoading: false },
+      }));
+    }
+  }, [workspaceId, filters, searchQuery, projectPagination, hydrateTasks, filtersActive]);
 
   useEffect(() => {
     tasksRef.current = tasks;
@@ -222,24 +470,7 @@ function TaskTable({
     });
   }, [initialTasks, initialHasMore, initialTotalCount, setProjectTasksCache]);
 
-  const [projectPagination, setProjectPagination] = useState<
-    Record<
-      string,
-      { page: number; nextCursor: any; hasMore: boolean; isLoading: boolean }
-    >
-  >(() => {
-    if (level === "project" && projectId && initialTasks.length > 0) {
-      return {
-        [projectId]: {
-          page: 1,
-          nextCursor: initialNextCursor,
-          hasMore: initialHasMore,
-          isLoading: false,
-        },
-      };
-    }
-    return {};
-  });
+
 
   // Hydration-safe Cache Merge
   useEffect(() => {
@@ -316,6 +547,23 @@ function TaskTable({
       });
     }
   }, [level, projectId, projects, filtersActive]);
+
+  // 🚀 INITIAL DATA LOAD (Hono-First)
+  useEffect(() => {
+    const isAbortedRef = { current: false };
+    const hasInitialData = initialTasks && initialTasks.length > 0;
+    const cache = useTaskCacheStore.getState().getProjectTasksCache(projectId || "");
+    const hasCacheData = cache && cache.tasks.length > 0;
+
+    if (!hasInitialData && !hasCacheData && !filtersActive) {
+      if (level === "project" && projectId) {
+        loadProjectTasks(projectId);
+      } else {
+        fetchFiltered(isAbortedRef);
+      }
+    }
+    return () => { isAbortedRef.current = true; };
+  }, [fetchFiltered, loadProjectTasks, initialTasks, projectId, level, filtersActive]);
 
   useEffect(() => {
     if (!filtersActive) return;
@@ -397,180 +645,22 @@ function TaskTable({
   }, [mode, initialTasks]);
 
   useEffect(() => {
-    let isAborted = false;
+    const isAbortedRef = { current: false };
 
-    const fetchFiltered = async () => {
-      setIsLoadingFilters(true);
-      setIsCurrentlyFiltered(true);
-
-      try {
-        const response = await loadTasksAction({
-          workspaceId: workspaceId,
-          ...(level === "project" && projectId ? { projectId } : {}),
-          status: filters.status as any,
-          assigneeId: filters.assigneeId as any,
-          tagId: filters.tagId as any,
-          search: searchQuery,
-          dueAfter: filters.startDate ? new Date(filters.startDate) : undefined,
-          dueBefore: filters.endDate ? new Date(filters.endDate) : undefined,
-          hierarchyMode: "parents",
-          includeSubTasks: true,
-          includeFacets: true,
-          limit: 50,
-          sorts,
-          view_mode: "list",
-        });
-
-        if (isAborted) return;
-
-        if (response.success && response.data) {
-          const result = response.data as any;
-          setTasks(hydrateTasks(result.tasks));
-
-          if (result.facets?.projects) {
-            const facetProjects = result.facets.projects as Record<
-              string,
-              number
-            >;
-            setCurrentProjectCounts(facetProjects);
-
-            setProjectPagination((prev) => {
-              const next = { ...prev };
-              let changed = false;
-              Object.entries(facetProjects).forEach(([pId, count]) => {
-                if (count > 0 && !next[pId]) {
-                  next[pId] = {
-                    page: 1,
-                    nextCursor: undefined,
-                    hasMore: true,
-                    isLoading: false,
-                  };
-                  changed = true;
-                }
-              });
-              return changed ? next : prev;
-            });
-          }
-
-          if (result.facets?.projects) {
-            setExpandedProjects((prev) => {
-              const next = { ...prev };
-              let changed = false;
-              const facetProjects = result.facets.projects as Record<
-                string,
-                number
-              >;
-              Object.keys(facetProjects).forEach((pId) => {
-                if (facetProjects[pId] > 0 && next[pId] === undefined) {
-                  next[pId] = true;
-                  changed = true;
-                }
-              });
-              return changed ? next : prev;
-            });
-          }
-
-          if (level === "workspace" && result.tasks.length > 0) {
-            // Set global pagination state for workspace filter
-            setProjectPagination((prev) => ({
-              ...prev,
-              ["__global_filter__"]: {
-                page: 1,
-                nextCursor: result.nextCursor,
-                hasMore: result.hasMore,
-                isLoading: false,
-              },
-            }));
-          }
-
-          if (level === "project" && projectId) {
-            setProjectPagination({
-              [projectId]: {
-                page: 1,
-                nextCursor: result.nextCursor,
-                hasMore: result.hasMore,
-                isLoading: false,
-              },
-            });
-          }
-        }
-      } catch (err) {
-        console.error("Filter error:", err);
-        if (!isAborted) toast.error("Failed to apply filters");
-      } finally {
-        if (!isAborted) setIsLoadingFilters(false);
-      }
-    };
-
-    if (mode === "hierarchy") {
-      if (filtersActive) {
-        fetchFiltered();
-      } else if (isCurrentlyFiltered) {
-        // RESET LOGIC — Restore from cache if possible
-        const relevantProjectIds =
-          level === "project" && projectId
-            ? [projectId]
-            : projects.map((p) => p.id);
-        const getCache = useTaskCacheStore.getState().getProjectTasksCache;
-        const taskMap = new Map<string, TaskWithSubTasks>();
-        const newPagination: Record<string, any> = {};
-
-        relevantProjectIds.forEach((pId) => {
-          const cache = getCache(pId);
-          if (cache && cache.tasks.length > 0) {
-            // Filter out subtasks from root list
-            cache.tasks
-              .filter((t) => !t.parentTaskId)
-              .forEach((t) => taskMap.set(t.id, t));
-            newPagination[pId] = {
-              page: cache.page,
-              nextCursor: cache.nextCursor,
-              hasMore: cache.hasMore,
-              isLoading: false,
-            };
-          } else {
-            // Fallback to initialData for this specific project
-            const projectInitialTasks = initialTasks.filter(
-              (t) => t.projectId === pId,
-            );
-            if (projectInitialTasks.length > 0) {
-              projectInitialTasks.forEach((t) => taskMap.set(t.id, t));
-              newPagination[pId] = {
-                page: 1,
-                nextCursor: initialNextCursor,
-                hasMore: initialHasMore,
-                isLoading: false,
-              };
-            }
-          }
-        });
-
-        if (!isAborted) {
-          const resetList = Array.from(taskMap.values());
-          setTasks(hydrateTasks(resetList));
-          setProjectPagination(newPagination);
-          setExpanded({});
-          processedSubTasksRef.current.clear();
-          fetchingSubTasksRef.current.clear();
-          setIsCurrentlyFiltered(false);
-          setIsLoadingFilters(false);
-        }
-      }
+    // Skip if nothing changed AND we already have data
+    const isBaseProjectView = !searchQuery && Object.keys(filters).length === 0;
+    if (isBaseProjectView && tasks.length > 0) {
+      setIsCurrentlyFiltered(false);
+      setIsLoadingFilters(false);
+      return;
     }
 
+    fetchFiltered(isAbortedRef);
+
     return () => {
-      isAborted = true;
+      isAbortedRef.current = true;
     };
-  }, [
-    mode,
-    JSON.stringify(filters),
-    searchQuery,
-    sortsKey,
-    workspaceId,
-    projectId,
-    level,
-    initialTasks,
-  ]);
+  }, [fetchFiltered, searchQuery, filters, sortsKey]);
 
   // Effect to load sorted/filtered tasks when flat mode is active
   useEffect(() => {
@@ -588,20 +678,22 @@ function TaskTable({
       const startTime = performance.now();
       console.time("Filter Flat List Load");
 
-      const res = await loadTasksAction({
-        workspaceId,
-        ...(level === "project" && projectId ? { projectId } : {}),
-        status: filters.status,
-        assigneeId: filters.assigneeId,
-        tagId: filters.tagId,
-        search: searchQuery,
-        dueAfter: filters.startDate ? new Date(filters.startDate) : undefined,
-        dueBefore: filters.endDate ? new Date(filters.endDate) : undefined,
-        onlySubtasks: true,
-        sorts,
-        limit: 50, // Increased limit for faster "Load More" feel
-        view_mode: "list",
-      });
+      const params = new URLSearchParams();
+      params.set("w", workspaceId);
+      if (level === "project" && projectId) params.set("p", projectId);
+      params.set("vm", "list");
+      params.set("onlySub", "true");
+      params.set("l", "50");
+      if (filters.status) params.set("s", JSON.stringify(filters.status));
+      if (filters.assigneeId) params.set("a", JSON.stringify(filters.assigneeId));
+      if (filters.tagId) params.set("t", JSON.stringify(filters.tagId));
+      if (searchQuery) params.set("q", searchQuery);
+      if (filters.startDate) params.set("da", new Date(filters.startDate).toISOString());
+      if (filters.endDate) params.set("db", new Date(filters.endDate).toISOString());
+      if (sorts.length > 0) params.set("sorts", JSON.stringify(sorts));
+
+      const apiRes = await fetch(`/api/v1/tasks?${params.toString()}`);
+      const res = await apiRes.json();
 
       if (!isMounted) return;
 
@@ -635,21 +727,23 @@ function TaskTable({
     setIsLoadingMoreSorted(true);
 
     try {
-      const res = await loadTasksAction({
-        workspaceId,
-        ...(level === "project" && projectId ? { projectId } : {}),
-        status: filters.status,
-        assigneeId: filters.assigneeId,
-        tagId: filters.tagId,
-        search: searchQuery,
-        dueAfter: filters.startDate ? new Date(filters.startDate) : undefined,
-        dueBefore: filters.endDate ? new Date(filters.endDate) : undefined,
-        onlySubtasks: true,
-        sorts,
-        cursor: sortedNextCursor,
-        limit: 50,
-        view_mode: "list",
-      });
+      const params = new URLSearchParams();
+      params.set("w", workspaceId);
+      if (level === "project" && projectId) params.set("p", projectId);
+      params.set("vm", "list");
+      params.set("onlySub", "true");
+      params.set("l", "50");
+      if (sortedNextCursor) params.set("c", JSON.stringify(sortedNextCursor));
+      if (filters.status) params.set("s", JSON.stringify(filters.status));
+      if (filters.assigneeId) params.set("a", JSON.stringify(filters.assigneeId));
+      if (filters.tagId) params.set("t", JSON.stringify(filters.tagId));
+      if (searchQuery) params.set("q", searchQuery);
+      if (filters.startDate) params.set("da", new Date(filters.startDate).toISOString());
+      if (filters.endDate) params.set("db", new Date(filters.endDate).toISOString());
+      if (sorts.length > 0) params.set("sorts", JSON.stringify(sorts));
+
+      const apiRes = await fetch(`/api/v1/tasks?${params.toString()}`);
+      const res = await apiRes.json();
 
       if (res.success && res.data) {
         const newTasks = res.data.tasks || [];
@@ -699,140 +793,7 @@ function TaskTable({
     string | null
   >(null);
 
-  const loadProjectTasks = async (targetProjectId: string) => {
-    const currentPagination = projectPagination[targetProjectId] || {
-      page: 0,
-      nextCursor: undefined,
-      hasMore: true,
-      isLoading: false,
-    };
 
-    if (currentPagination.isLoading || !currentPagination.hasMore) return;
-
-    setProjectPagination((prev) => ({
-      ...prev,
-      [targetProjectId]: { ...currentPagination, isLoading: true },
-    }));
-
-    const isGlobal = targetProjectId === "__global_filter__";
-
-    try {
-      const response = await loadTasksAction({
-        workspaceId,
-        ...(isGlobal ? {} : { projectId: targetProjectId }),
-        status: filters.status as any,
-        assigneeId: filters.assigneeId as any,
-        tagId: filters.tagId as any,
-        search: searchQuery,
-        dueAfter: filters.startDate
-          ? (new Date(filters.startDate) as any)
-          : undefined,
-        dueBefore: filters.endDate
-          ? (new Date(filters.endDate) as any)
-          : undefined,
-        hierarchyMode: "parents",
-        includeSubTasks: isGlobal, // Bulk load subtasks if global search
-        cursor: currentPagination.nextCursor,
-        limit: 50,
-        sorts,
-        view_mode: "list",
-      });
-
-      if (response.success && response.data) {
-        const resultData = response.data as any;
-        const newTasksFromServer =
-          resultData.tasks as unknown as TaskWithSubTasks[];
-
-        let nextTasks: TaskWithSubTasks[] = [];
-        let addedRoots: TaskWithSubTasks[] = [];
-
-        if (!isGlobal) {
-          // Standard project-specific append logic (Flat/Grouped)
-          const currentTasks = tasksRef.current;
-          const existingIds = new Set(currentTasks.map((t) => t.id));
-          addedRoots = newTasksFromServer.filter(
-            (task) => !existingIds.has(task.id),
-          );
-          nextTasks = hydrateTasks([...currentTasks, ...addedRoots]);
-        } else {
-          // Deep Merge Logic for Recursive Filtered Hierarchies
-          const taskMap = new Map<string, TaskWithSubTasks>();
-          tasksRef.current.forEach((t) => taskMap.set(t.id, { ...t }));
-
-          newTasksFromServer.forEach((task) => {
-            if (taskMap.has(task.id)) {
-              const existing = taskMap.get(task.id)!;
-              if (task.subTasks && task.subTasks.length > 0) {
-                const subTaskMap = new Map(
-                  (existing.subTasks || []).map((st) => [st.id, st]),
-                );
-                task.subTasks.forEach((st) => subTaskMap.set(st.id, st));
-                existing.subTasks = Array.from(subTaskMap.values());
-              }
-            } else {
-              const newTask = { ...task };
-              taskMap.set(newTask.id, newTask);
-              addedRoots.push(newTask);
-            }
-          });
-
-          nextTasks = hydrateTasks(Array.from(taskMap.values()));
-        }
-
-        setTasks(nextTasks);
-
-        // Cache Logic - Only update if NOT filtered
-        if (!filtersActive && !isGlobal) {
-          setProjectTasksCache(targetProjectId, {
-            tasks: nextTasks.filter((t) => t.projectId === targetProjectId),
-            hasMore: resultData.hasMore ?? false,
-            page: currentPagination.page + 1,
-            nextCursor: resultData.nextCursor,
-            totalCount: resultData.totalCount ?? undefined,
-          });
-        }
-
-        if (autoExpandRef.current && addedRoots.length > 0) {
-          setTimeout(() => {
-            setExpanded((prevExpanded) => {
-              const newExpanded = { ...prevExpanded };
-              addedRoots.forEach((t) => {
-                newExpanded[t.id] = true;
-              });
-              return newExpanded;
-            });
-          }, 0);
-        }
-
-        setProjectPagination((prev) => ({
-          ...prev,
-          [targetProjectId]: {
-            page: currentPagination.page + 1,
-            nextCursor: resultData.nextCursor,
-            hasMore: resultData.hasMore ?? false,
-            isLoading: false,
-          },
-        }));
-      } else {
-        toast.error(response.error || "Failed to load tasks");
-        setProjectPagination((prev) => ({
-          ...prev,
-          [targetProjectId]: { ...currentPagination, isLoading: false },
-        }));
-      }
-    } catch (error) {
-      console.error("Error loading project tasks:", error);
-      toast.error("Failed to load project tasks");
-      setProjectPagination((prev) => ({
-        ...prev,
-        [targetProjectId]: { ...currentPagination, isLoading: false },
-      }));
-    }
-  };
-
-  useEffect(() => {
-    loadProjectTasksRef.current = loadProjectTasks;
-  }, [loadProjectTasks]);
 
   const toggleProjectExpand = (targetProjectId: string) => {
     setExpandedProjects((prev) => {
@@ -977,11 +938,9 @@ function TaskTable({
 
       // Note: references active 'tasks' state via closure or ref would be better,
       // but for now we look up in current render scope tasks.
-      const task = tasksRef.current.find((t) => t.id === taskId);
-      if (!task) return;
-
-      // Double check checks
-      if (task.subTasks !== undefined) {
+      // 2. Memory Check: If already loaded in our master state, don't refetch
+      const currentTaskInState = tasksRef.current.find((t) => t.id === taskId);
+      if (currentTaskInState?.subTasks !== undefined) {
         processedSubTasksRef.current.add(taskId);
         return;
       }
@@ -1010,7 +969,7 @@ function TaskTable({
       fetchingSubTasksRef.current.add(taskId);
       setLoadingSubTasks((prev) => ({ ...prev, [taskId]: true }));
 
-      const taskProjectId = task.projectId || projectId || "";
+      const taskProjectId = currentTaskInState?.projectId || projectId || "";
 
       try {
         // Include current filters so expanded subtasks match the filtered dataset
@@ -1020,32 +979,38 @@ function TaskTable({
           workspaceId,
         };
 
-        const queryParams = new URLSearchParams();
-        queryParams.set("w", workspaceId);
-        if (taskProjectId) queryParams.set("p", taskProjectId);
-        queryParams.set("ps", "30");
-        queryParams.set("vm", "subtask");
+        const params = new URLSearchParams();
+        params.set("w", workspaceId);
+        params.set("ids", taskId);
+        if (taskProjectId) params.set("p", taskProjectId);
+        params.set("ps", "30");
+        params.set("vm", "list");
 
         if (activeFilters.status)
-          queryParams.set("s", JSON.stringify(activeFilters.status));
+          params.set("s", JSON.stringify(activeFilters.status));
         if (activeFilters.assigneeId)
-          queryParams.set("a", JSON.stringify(activeFilters.assigneeId));
+          params.set("a", JSON.stringify(activeFilters.assigneeId));
         if (activeFilters.tagId)
-          queryParams.set("t", JSON.stringify(activeFilters.tagId));
-        if (activeFilters.search) queryParams.set("q", activeFilters.search);
+          params.set("t", JSON.stringify(activeFilters.tagId));
+        if (activeFilters.search) params.set("q", activeFilters.search);
         if (filters.startDate)
-          queryParams.set("da", new Date(filters.startDate).toISOString());
+          params.set("da", new Date(filters.startDate).toISOString());
         if (filters.endDate)
-          queryParams.set("db", new Date(filters.endDate).toISOString());
+          params.set("db", new Date(filters.endDate).toISOString());
 
         const res = await fetch(
-          `/api/v1/tasks/${taskId}/expand?${queryParams.toString()}`,
+          `/api/v1/tasks/expansion/batch?${params.toString()}`,
         );
         if (!res.ok) throw new Error("Failed to fetch subtasks");
-        const response = await res.json();
+        const responseData = await res.json();
 
-        if (response.success && response.subTasks) {
-          const subTasks = response.subTasks;
+        // The batch route returns an array of results in .data
+        if (responseData.success && responseData.data && responseData.data[0]) {
+          const result = responseData.data[0];
+          const subTasks = result.subTasks || [];
+          const sizeInBytes = JSON.stringify(responseData.data).length;
+          console.log(`[Zero-Weight] Batch Expansion Payload: ${(sizeInBytes / 1024).toFixed(2)} KB (Target: ${taskId})`);
+
           processedSubTasksRef.current.add(taskId);
 
           // Dedup
@@ -1057,8 +1022,8 @@ function TaskTable({
           if (!filtersActive) {
             setCachedSubTasks(taskId, {
               subTasks: uniqueSubTasks,
-              hasMore: response.hasMore,
-              nextCursor: response.nextCursor,
+              hasMore: result.hasMore,
+              nextCursor: result.nextCursor,
             });
           }
 
@@ -1068,8 +1033,8 @@ function TaskTable({
                 return {
                   ...t,
                   subTasks: uniqueSubTasks,
-                  subTasksHasMore: response.hasMore,
-                  subTasksNextCursor: response.nextCursor,
+                  subTasksHasMore: result.hasMore,
+                  subTasksNextCursor: result.nextCursor,
                 };
               }
               return t;
@@ -1160,20 +1125,23 @@ function TaskTable({
         }
       });
 
-      const response = await loadTasksAction({
-        workspaceId,
-        projectId: task.projectId || projectId,
-        filterParentTaskId: taskId,
-        status: cleanFilters.status,
-        assigneeId: cleanFilters.assigneeId,
-        tagId: cleanFilters.tagId,
-        search: cleanFilters.search,
-        dueAfter: cleanFilters.startDate,
-        dueBefore: cleanFilters.endDate,
-        cursor: task.subTasksNextCursor,
-        limit: 30,
-        sorts,
-      });
+      const params = new URLSearchParams();
+      params.set("w", workspaceId);
+      params.set("p", task.projectId || projectId);
+      params.set("vm", "list"); // Hierarchy mode but for a specific parent
+      params.set("pt", taskId);
+      params.set("l", "30");
+      if (task.subTasksNextCursor) params.set("c", JSON.stringify(task.subTasksNextCursor));
+      if (cleanFilters.status) params.set("s", JSON.stringify(cleanFilters.status));
+      if (cleanFilters.assigneeId) params.set("a", JSON.stringify(cleanFilters.assigneeId));
+      if (cleanFilters.tagId) params.set("t", JSON.stringify(cleanFilters.tagId));
+      if (cleanFilters.search) params.set("q", cleanFilters.search);
+      if (cleanFilters.startDate) params.set("da", new Date(cleanFilters.startDate).toISOString());
+      if (cleanFilters.endDate) params.set("db", new Date(cleanFilters.endDate).toISOString());
+      if (sorts.length > 0) params.set("sorts", JSON.stringify(sorts));
+
+      const apiRes = await fetch(`/api/v1/tasks?${params.toString()}`);
+      const response = await apiRes.json();
 
       if (response.success && response.data) {
         const resultData = response.data as any;
