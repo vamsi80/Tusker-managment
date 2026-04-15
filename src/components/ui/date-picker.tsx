@@ -3,7 +3,7 @@
 import * as React from "react";
 import { format } from "date-fns";
 import { Calendar as CalendarIcon, Clock } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, APP_DATE_FORMAT } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -107,7 +107,7 @@ export function DateTimePicker({
         >
           <CalendarIcon className="mr-2 h-3.5 w-3.5" />
           <span className="truncate text-xs">
-            {date ? format(date, "dd/MM/yyyy HH:mm") : placeholder}
+            {date ? format(date, `${APP_DATE_FORMAT} HH:mm`) : placeholder}
           </span>
         </Button>
       </PopoverTrigger>

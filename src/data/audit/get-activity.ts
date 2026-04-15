@@ -15,13 +15,18 @@ export async function getWorkspaceActivity(workspaceId: string) {
 
     return await prisma.auditLog.findMany({
         where: { workspaceId },
-        include: {
+        select: {
+            id: true,
+            action: true,
+            entityType: true,
+            entityId: true,
             user: {
                 select: {
-                    name: true,
-                    email: true,
+                    surname: true,
                 }
-            }
+            },
+            createdAt: true,
+            // Pruning oldData/newData JSON blobs to keep RSC payload small
         },
         orderBy: {
             createdAt: "desc"

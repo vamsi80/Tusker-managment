@@ -11,7 +11,6 @@ import { KanbanColumn } from "./kanban-column";
 import type { TaskFilters, ProjectOption, TagOption } from "../shared/types";
 import { STATUS_COLORS, STATUS_LABELS } from "@/lib/colors/status-colors";
 import { apiClient } from "@/lib/api-client";
-import { loadTasksAction } from "@/actions/task/list-actions";
 import {
   GlobalFilterToolbar,
   ParentTaskOption,
@@ -380,8 +379,9 @@ export function KanbanBoard({
         (activeFilterCount === 0 ||
           (activeFilterCount === 1 && filters.projectId === projectId));
       const hasFilters = !isBaseProjectView;
+      const isBoardEmpty = Object.values(columnData).every((col) => col.subTaskIds.length === 0);
 
-      if (!hasFilters) {
+      if (!hasFilters && !isBoardEmpty) {
         // Reset to initial unfiltered data ONLY if we were previously filtering
         if (isCurrentlyFiltered) {
           const contextId = projectId || "";
@@ -438,28 +438,21 @@ export function KanbanBoard({
       try {
         const targetProjectId = filters.projectId || projectId;
 
-        const response = await loadTasksAction({
-          workspaceId,
-          projectId: targetProjectId,
-          groupBy: "status",
-          includeSubTasks: true,
-          excludeParents: true, // ONLY CARDS
-          limit: 100,
-          sorts: [{ field: "createdAt", direction: "desc" }],
-          includeFacets: true,
-          status: undefined,
-          startDate: filters.startDate
-            ? new Date(filters.startDate).toISOString()
-            : undefined,
-          endDate: filters.endDate
-            ? new Date(filters.endDate).toISOString()
-            : undefined,
-          search: searchQuery,
-          assigneeId: filters.assigneeId,
-          tagId: filters.tagId,
-          filterParentTaskId: filters.parentTaskId,
-          view_mode: "kanban",
-        });
+        const params = new URLSearchParams();
+        params.set("w", workspaceId);
+        params.set("p", targetProjectId);
+        params.set("vm", "kanban");
+        params.set("l", "100");
+        params.set("facets", "true");
+        if (searchQuery) params.set("q", searchQuery);
+        if (filters.assigneeId) params.set("a", filters.assigneeId);
+        if (filters.tagId) params.set("t", filters.tagId);
+        if (filters.startDate) params.set("da", new Date(filters.startDate).toISOString());
+        if (filters.endDate) params.set("db", new Date(filters.endDate).toISOString());
+        if (filters.parentTaskId) params.set("pt", filters.parentTaskId);
+
+        const apiRes = await fetch(`/api/v1/tasks?${params.toString()}`);
+        const response = await apiRes.json();
 
         if (isAborted) return;
 
@@ -579,7 +572,7 @@ export function KanbanBoard({
       if (filters.assigneeId) params.append("a", filters.assigneeId);
       if (filters.tagId) params.append("t", filters.tagId);
 
-      const apiRes = await fetch(`/api/kt?${params.toString()}`);
+      const apiRes = await fetch(`/api/v1/tasks?${params.toString()}`);
       const response = await apiRes.json();
 
       if (!response.success) {
