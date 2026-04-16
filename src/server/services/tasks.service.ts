@@ -8,12 +8,12 @@ import { resolveProjectMemberId } from "@/lib/auth/resolve-member-chain";
 import { parseIST } from "@/lib/utils";
 import { getSubTasksByParentIds } from "@/data/task/get-subtasks-batch";
 import { logger } from "@/lib/logger";
-import { 
-  getTaskSelect, 
-  TaskCursor, 
-  buildProjectRootWhere, 
-  buildSubtaskExpansionWhere, 
-  buildWorkspaceFilterWhere, 
+import {
+  getTaskSelect,
+  TaskCursor,
+  buildProjectRootWhere,
+  buildSubtaskExpansionWhere,
+  buildWorkspaceFilterWhere,
   WorkspaceFilterOpts,
   buildOrderBy,
   buildSeekCondition,
@@ -174,6 +174,7 @@ export class TasksService {
       opts,
     );
   }
+
   public static async resolveTaskPermissions(
     workspaceId: string,
     projectId?: string,
@@ -203,11 +204,11 @@ export class TasksService {
       const authorizedProjectIds = isWorkspaceAdmin
         ? []
         : [
-            ...(wsPerms.leadProjectIds || []),
-            ...(wsPerms.managedProjectIds || []),
-            ...(wsPerms.memberProjectIds || []),
-            ...(wsPerms.viewerProjectIds || []),
-          ];
+          ...(wsPerms.leadProjectIds || []),
+          ...(wsPerms.managedProjectIds || []),
+          ...(wsPerms.memberProjectIds || []),
+          ...(wsPerms.viewerProjectIds || []),
+        ];
 
       const fullAccessProjectIds = [
         ...(wsPerms.leadProjectIds ?? []),
@@ -482,10 +483,10 @@ export class TasksService {
           trueHasMore && lastTask
             ? primarySort && SORT_MAP[primarySort.field]
               ? {
-                  id: lastTask.id,
-                  [SORT_MAP[primarySort.field].dbField]:
-                    lastTask[SORT_MAP[primarySort.field].dbField],
-                }
+                id: lastTask.id,
+                [SORT_MAP[primarySort.field].dbField]:
+                  lastTask[SORT_MAP[primarySort.field].dbField],
+              }
               : { id: lastTask.id, createdAt: lastTask.createdAt }
             : null;
 
@@ -571,9 +572,9 @@ export class TasksService {
 
     const nextCursor: TaskCursor | null = hasMore
       ? {
-          id: rawTasks[rawTasks.length - 1].id,
-          createdAt: rawTasks[rawTasks.length - 1].createdAt,
-        }
+        id: rawTasks[rawTasks.length - 1].id,
+        createdAt: rawTasks[rawTasks.length - 1].createdAt,
+      }
       : null;
 
     return {
@@ -634,9 +635,9 @@ export class TasksService {
 
     const nextCursor: TaskCursor | null = hasMore
       ? {
-          id: rawSubtasks[rawSubtasks.length - 1].id,
-          createdAt: rawSubtasks[rawSubtasks.length - 1].createdAt,
-        }
+        id: rawSubtasks[rawSubtasks.length - 1].id,
+        createdAt: rawSubtasks[rawSubtasks.length - 1].createdAt,
+      }
       : null;
 
     return {
@@ -757,8 +758,8 @@ export class TasksService {
 
       const parentIdsToExpand = opts.includeSubTasks
         ? currentGeneration
-            .filter((t) => (t as any).isParent && !expandedParentIds.has(t.id))
-            .map((t) => t.id)
+          .filter((t) => (t as any).isParent && !expandedParentIds.has(t.id))
+          .map((t) => t.id)
         : [];
 
       parentIdsToExpand.forEach((id) => expandedParentIds.add(id));
@@ -832,9 +833,9 @@ export class TasksService {
     const nextCursor: TaskCursor | null =
       hasMore && matches.length > 0
         ? {
-            id: matches[matches.length - 1].id,
-            createdAt: matches[matches.length - 1].createdAt,
-          }
+          id: matches[matches.length - 1].id,
+          createdAt: matches[matches.length - 1].createdAt,
+        }
         : null;
 
     const projectFacets: Record<string, number> = {};
@@ -944,10 +945,10 @@ export class TasksService {
       hasMore && lastTask
         ? primarySort && SORT_MAP[primarySort.field]
           ? {
-              id: lastTask.id,
-              [SORT_MAP[primarySort.field].dbField]:
-                lastTask[SORT_MAP[primarySort.field].dbField],
-            }
+            id: lastTask.id,
+            [SORT_MAP[primarySort.field].dbField]:
+              lastTask[SORT_MAP[primarySort.field].dbField],
+          }
           : { id: lastTask.id, createdAt: lastTask.createdAt }
         : null;
 
@@ -974,7 +975,6 @@ export class TasksService {
       facets: { status: {}, assignee: {}, tags: {}, projects: projectFacets },
     };
   }
-
 
   /**
    * Create a subtask
@@ -1433,19 +1433,19 @@ export class TasksService {
     if (data.assigneeUserId !== undefined) {
       updateData.assigneeId = data.assigneeUserId
         ? await this.resolveOrJoinProjectMember(
-            data.assigneeUserId,
-            projectId,
-            workspaceId,
-          )
+          data.assigneeUserId,
+          projectId,
+          workspaceId,
+        )
         : null;
     }
     if (data.reviewerUserId !== undefined) {
       updateData.reviewerId = data.reviewerUserId
         ? await this.resolveOrJoinProjectMember(
-            data.reviewerUserId,
-            projectId,
-            workspaceId,
-          )
+          data.reviewerUserId,
+          projectId,
+          workspaceId,
+        )
         : null;
     }
 
@@ -2086,20 +2086,20 @@ export class TasksService {
       }),
       result.commentActivity
         ? recordActivity({
-            userId,
-            userName,
-            workspaceId,
-            action: "COMMENT_CREATED",
-            entityType: "SUBTASK",
-            entityId: taskId,
-            newData: {
-              id: result.commentActivity.id,
-              text: explanation?.trim(),
-              createdAt: result.commentActivity.createdAt.toISOString(),
-            },
-            broadcastEvent: "team_update",
-            targetUserIds,
-          })
+          userId,
+          userName,
+          workspaceId,
+          action: "COMMENT_CREATED",
+          entityType: "SUBTASK",
+          entityId: taskId,
+          newData: {
+            id: result.commentActivity.id,
+            text: explanation?.trim(),
+            createdAt: result.commentActivity.createdAt.toISOString(),
+          },
+          broadcastEvent: "team_update",
+          targetUserIds,
+        })
         : Promise.resolve(),
     ]);
 

@@ -1,3 +1,4 @@
+"use client";
 import dynamic from "next/dynamic";
 import { useState, useEffect } from "react";
 import { AppLoader } from "@/components/shared/app-loader";
@@ -84,7 +85,7 @@ export function GanttServerWrapper({ workspaceId, projectId, userId }: GanttServ
             allTasks={allTasks}
             subtaskDataMap={subtaskDataMap}
             members={projectMembers}
-            tags={tags.map((t: any) => ({ id: t.id, name: t.name }))}
+            tags={(tags || []).map((t: any) => ({ id: t.id, name: t.name }))}
             projectCounts={projectCounts}
             currentUser={{ id: userId }}
             permissions={{
