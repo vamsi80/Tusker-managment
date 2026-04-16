@@ -40,7 +40,7 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
         getWorkspacePermissions(workspaceId, user.id),
     ]);
 
-    const rawTasks = tasksData.tasks;
+    const rawTasks = tasksData.tasks || [];
     // console.log("🟦 [GANTT SERVER] rawTasks count:", rawTasks.length);
     // if (rawTasks.length > 0) {
     //     console.log("🟦 [GANTT SERVER] SAMPLE TASK (First):", JSON.stringify(rawTasks[0], (key, value) => key === 'subTasks' ? (value?.length || 0) : value, 2));
@@ -116,7 +116,7 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
             projects={projectOptions}
             members={projectMembers as any}
             tags={tags.map(t => ({ id: t.id, name: t.name }))}
-            projectCounts={(tasksData as any)?.facets?.projects}
+            projectCounts={(tasksData as any)?.facets?.projects || {}}
             currentUser={{ id: user.id }}
             permissions={{
                 isWorkspaceAdmin: permissions.isWorkspaceAdmin,

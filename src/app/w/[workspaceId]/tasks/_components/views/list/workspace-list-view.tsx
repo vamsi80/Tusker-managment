@@ -53,7 +53,7 @@ export async function WorkspaceListView({
 
     const formattedMembers = projectMembers;
 
-    const initialTasks = tasksData.tasks.map(t => ({
+    const initialTasks = (tasksData.tasks || []).map(t => ({
         ...t,
         subTasks: (t as any).subTasks
     })) as TaskWithSubTasks[];
@@ -81,7 +81,7 @@ export async function WorkspaceListView({
             isWorkspaceAdmin={permissions.isWorkspaceAdmin}
             level="workspace"
             userId={user.id}
-            projectCounts={tasksData.facets.projects}
+            projectCounts={tasksData.facets?.projects || {}}
         />
     );
 }
