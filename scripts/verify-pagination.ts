@@ -18,8 +18,9 @@ async function testPagination() {
       sorts: [{ field: 'createdAt', direction: 'desc' }]
     }, MOCK_USER_ID);
 
-    console.log(`Page 1 Tasks: ${page1.tasks.length}`);
-    page1.tasks.forEach(t => console.log(` - ${t.id} (${t.createdAt})`));
+    const tasks1 = page1.tasks || [];
+    console.log(`Page 1 Tasks: ${tasks1.length}`);
+    tasks1.forEach(t => console.log(` - ${t.id} (${t.createdAt})`));
 
     if (!page1.hasMore || !page1.nextCursor) {
       console.log('Not enough tasks to test pagination. Please ensure you have at least 3 tasks.');
@@ -36,16 +37,17 @@ async function testPagination() {
       sorts: [{ field: 'createdAt', direction: 'desc' }]
     }, MOCK_USER_ID);
 
-    console.log(`Page 2 Tasks: ${page2.tasks.length}`);
-    page2.tasks.forEach(t => console.log(` - ${t.id} (${t.createdAt})`));
+    const tasks2 = page2.tasks || [];
+    console.log(`Page 2 Tasks: ${tasks2.length}`);
+    tasks2.forEach(t => console.log(` - ${t.id} (${t.createdAt})`));
 
     // 3. Verify no overlap
-    const p1Ids = new Set(page1.tasks.map(t => t.id));
-    const overlap = page2.tasks.filter(t => p1Ids.has(t.id));
+    const p1Ids = new Set(tasks1.map(t => t.id));
+    const overlap = tasks2.filter(t => p1Ids.has(t.id));
 
     if (overlap.length > 0) {
       console.error('❌ BUG DETECTED: Page 2 contains tasks from Page 1!');
-    } else if (page2.tasks.length > 0) {
+    } else if (tasks2.length > 0) {
       console.log('✅ SUCCESS: Pagination is working correctly with no overlap.');
     } else {
       console.log('⚠️ Page 2 is empty. Verify if there are more tasks in the DB.');

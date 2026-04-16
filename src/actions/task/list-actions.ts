@@ -14,9 +14,10 @@ export async function loadTasksAction(opts: GetTasksOptions) {
         const tasksByStatus: Record<string, any[]> = {};
 
         // Use a Map for strict deduplication by ID
-        const taskMap = new Map<string, typeof result.tasks[0]>();
+        const tasks = (result as any).tasks || [];
+        const taskMap = new Map<string, any>();
 
-        result.tasks.forEach(task => {
+        tasks.forEach((task: any) => {
             if (!taskMap.has(task.id)) {
                 taskMap.set(task.id, task);
             }
