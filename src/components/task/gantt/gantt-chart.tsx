@@ -556,13 +556,19 @@ export function GanttChart({
                 </div>
                 <div className="flex items-center gap-2">
                     <div
-                        className="w-4 h-3 rounded border border-red-500/50"
+                        className="w-4 h-3 rounded border border-neutral-400/50 overflow-hidden"
                         style={{
-                            backgroundImage: `repeating-linear-gradient(15deg, transparent, transparent 2px, rgba(0,0,0,0.1) 2px, rgba(0,0,0,0.1) 4px)`,
-                            backgroundColor: '#e5e7eb'
+                            backgroundImage: `repeating-linear-gradient(
+                                45deg,
+                                rgba(115, 115, 115, 0.1),
+                                rgba(115, 115, 115, 0.1) 2px,
+                                rgba(115, 115, 115, 0.4) 2px,
+                                rgba(115, 115, 115, 0.4) 4px
+                            )`,
+                            backgroundColor: 'rgba(115, 115, 115, 0.05)'
                         }}
                     />
-                    <span>Overdue Duration</span>
+                    <span>Overdue Duration (Status Colored)</span>
                 </div>
 
             </div>

@@ -10,6 +10,7 @@ import { GlobalFilterToolbar } from "@/components/task/shared/global-filter-tool
 import { MemberOption, TagOption, TaskFilters } from "@/components/task/shared/types";
 import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
 import { ProjectMembersType } from "@/data/project/get-project-members";
+import { useFilterStore } from "@/lib/store/filter-store";
 
 interface ProjectGanttClientProps {
     workspaceId: string;
@@ -40,8 +41,7 @@ export function ProjectGanttClient({
     currentUser,
     permissions
 }: ProjectGanttClientProps) {
-    const [filters, setFilters] = useState<TaskFilters>({});
-    const [searchQuery, setSearchQuery] = useState("");
+    const { filters, setFilters, searchQuery, setSearchQuery, clearFilters } = useFilterStore();
     const [isPending, startTransition] = useTransition();
 
     // Use global subtask sheet context
@@ -161,8 +161,7 @@ export function ProjectGanttClient({
                 onSearchChange={handleSearchChange}
                 onClearAll={() => {
                     startTransition(() => {
-                        setFilters({});
-                        setSearchQuery("");
+                        clearFilters();
                     });
                 }}
             />

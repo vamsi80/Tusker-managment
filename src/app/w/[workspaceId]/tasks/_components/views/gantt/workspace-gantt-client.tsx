@@ -15,6 +15,7 @@ import {
 import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 import type { ProjectMembersType } from "@/data/project/get-project-members";
+import { useFilterStore } from "@/lib/store/filter-store";
 
 interface WorkspaceGanttClientProps {
   workspaceId: string;
@@ -45,8 +46,7 @@ export function WorkspaceGanttClient({
   currentUser,
   permissions,
 }: WorkspaceGanttClientProps) {
-  const [filters, setFilters] = useState<TaskFilters>({});
-  const [searchQuery, setSearchQuery] = useState("");
+  const { filters, setFilters, searchQuery, setSearchQuery, clearFilters } = useFilterStore();
   const [isPending, startTransition] = useTransition();
 
   const filteredProjects = useMemo(
@@ -216,8 +216,7 @@ export function WorkspaceGanttClient({
         onSearchChange={handleSearchChange}
         onClearAll={() => {
           startTransition(() => {
-            setFilters({});
-            setSearchQuery("");
+            clearFilters();
           });
         }}
       />
