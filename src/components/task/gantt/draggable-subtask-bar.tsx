@@ -419,13 +419,13 @@ export function DraggableSubtaskBar({
                                     isDragging && "opacity-70 scale-105",
                                     // Status-based colors
                                     ({
-                                        'TO_DO': "bg-slate-400 dark:bg-slate-500 hover:bg-slate-500 dark:hover:bg-slate-600 focus:ring-slate-500",
-                                        'IN_PROGRESS': "bg-blue-400 dark:bg-blue-500 hover:bg-blue-500 dark:hover:bg-blue-600 focus:ring-blue-500",
-                                        'CANCELLED': "bg-red-400 dark:bg-red-500 hover:bg-red-500 dark:hover:bg-red-600 focus:ring-red-500",
-                                        'REVIEW': "bg-amber-400 dark:bg-amber-500 hover:bg-amber-500 dark:hover:bg-amber-600 focus:ring-amber-500",
-                                        'HOLD': "bg-purple-400 dark:bg-purple-500 hover:bg-purple-500 dark:hover:bg-purple-600 focus:ring-purple-500",
-                                        'COMPLETED': "bg-green-400 dark:bg-green-500 hover:bg-green-500 dark:hover:bg-green-600 focus:ring-green-500"
-                                    }[optimisticSubtask.status || 'TO_DO'] || "bg-slate-400 dark:bg-slate-500 hover:bg-slate-500 dark:hover:bg-slate-600 focus:ring-slate-500"
+                                        'TO_DO': "bg-[#D1D5DB] hover:bg-[#D1D5DB]/80 focus:ring-[#D1D5DB]",
+                                        'IN_PROGRESS': "bg-[#3B82F6] hover:bg-[#3B82F6]/80 focus:ring-[#3B82F6]",
+                                        'CANCELLED': "bg-[#EF4444] hover:bg-[#EF4444]/80 focus:ring-[#EF4444]",
+                                        'REVIEW': "bg-[#8B5CF6] hover:bg-[#8B5CF6]/80 focus:ring-[#8B5CF6]",
+                                        'HOLD': "bg-[#F59E0B] hover:bg-[#F59E0B]/80 focus:ring-[#F59E0B]",
+                                        'COMPLETED': "bg-[#22C55E] hover:bg-[#22C55E]/80 focus:ring-[#22C55E]"
+                                    }[optimisticSubtask.status || 'TO_DO'] || "bg-[#D1D5DB]"
                                     )
                                 )}
                                 style={{

@@ -146,18 +146,18 @@ export const KanbanCard = React.memo(function KanbanCard({
         (isDragging || isSortableDragging) && "opacity-50 shadow-xl",
         "border-l-4 overflow-hidden",
         (!assigneeUser && subTask.status !== "COMPLETED" && subTask.status !== "CANCELLED") && "bg-red-50 dark:bg-red-950/20 shadow-[0_0_8px_rgba(239,68,68,0.2)] animate-[pulse_2s_infinite] border-red-400 dark:border-red-600",
-        columnColor === "text-slate-700" &&
-          "border-l-slate-500 dark:border-l-slate-400",
-        columnColor === "text-blue-700" &&
-          "border-l-blue-500 dark:border-l-blue-400",
-        columnColor === "text-red-700" &&
-          "border-l-red-500 dark:border-l-red-400",
-        columnColor === "text-amber-700" &&
-          "border-l-amber-500 dark:border-l-amber-400",
-        columnColor === "text-purple-700" &&
-          "border-l-purple-500 dark:border-l-purple-400",
-        columnColor === "text-green-700" &&
-          "border-l-green-500 dark:border-l-green-400",
+        columnColor === "text-slate-600" &&
+          "border-l-[#D1D5DB] dark:border-l-[#D1D5DB]/80",
+        columnColor === "text-[#3B82F6]" &&
+          "border-l-[#3B82F6] dark:border-l-[#3B82F6]/80",
+        columnColor === "text-[#EF4444]" &&
+          "border-l-[#EF4444] dark:border-l-[#EF4444]/80",
+        columnColor === "text-[#F59E0B]" &&
+          "border-l-[#F59E0B] dark:border-l-[#F59E0B]/80",
+        columnColor === "text-[#8B5CF6]" &&
+          "border-l-[#8B5CF6] dark:border-l-[#8B5CF6]/80",
+        columnColor === "text-[#22C55E]" &&
+          "border-l-[#22C55E] dark:border-l-[#22C55E]/80",
       )}
       onMouseEnter={handlePrefetch}
       onClick={(e) => {
