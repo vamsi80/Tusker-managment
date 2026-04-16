@@ -298,6 +298,8 @@ export async function bulkUploadTasksAndSubtasks(data: {
 
                 createdItems.push({ type: 'task', name: taskName });
 
+                const createdTasks: any[] = [];
+
                 // Create subtasks
                 const subtaskRows = taskGroup.filter(t => t.subtaskName);
 
@@ -362,12 +364,45 @@ export async function bulkUploadTasksAndSubtasks(data: {
                             });
                         }
 
-                        createdItems.push({ type: 'subtask', name: subtaskRow.subtaskName });
+                        createdTasks.push(createdSubtask.id);
                     }
                 }
+                createdTasks.push(parentTask.id);
+                createdItems.push(...createdTasks);
             }
         }, {
-            timeout: 30000,
+            timeout: 60000,
+        });
+
+        // 6. Fetch all created tasks with relations to return to frontend
+        const fullTasks = await prisma.task.findMany({
+            where: {
+                id: { in: createdItems }
+            },
+            include: {
+                assignee: {
+                    include: {
+                        workspaceMember: {
+                            include: {
+                                user: true
+                            }
+                        }
+                    }
+                },
+                reviewer: {
+                    include: {
+                        workspaceMember: {
+                            include: {
+                                user: true
+                            }
+                        }
+                    }
+                },
+                tag: true,
+                _count: {
+                    select: { subTasks: true }
+                }
+            }
         });
 
         // Revalidate caches globally
@@ -377,8 +412,8 @@ export async function bulkUploadTasksAndSubtasks(data: {
             userId: user.id
         });
 
-        const taskCount = createdItems.filter(i => i.type === 'task').length;
-        const subtaskCount = createdItems.filter(i => i.type === 'subtask').length;
+        const taskCount = fullTasks.filter(i => i.isParent).length;
+        const subtaskCount = fullTasks.filter(i => !i.isParent).length;
 
         let message = `Successfully created ${taskCount} task${taskCount !== 1 ? 's' : ''}`;
         if (subtaskCount > 0) {
@@ -391,7 +426,7 @@ export async function bulkUploadTasksAndSubtasks(data: {
         return {
             status: "success",
             message,
-            data: createdItems,
+            data: fullTasks,
         };
 
     } catch (err: any) {

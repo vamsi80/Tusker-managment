@@ -11,10 +11,10 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useTaskContext } from "@/app/w/[workspaceId]/_components/shared/task-context";
 import { ApiResponse } from "@/lib/types";
-import { apiClient } from "@/lib/api-client";
+import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 import { useDropzone, FileRejection } from "react-dropzone";
 import { cn } from "@/lib/utils";
-
+import { apiClient } from "@/lib/api-client";
 
 interface BulkUploadFormProps {
     projectId: string;
@@ -252,7 +252,6 @@ Project Kickoff,,,,,,,,`;
             const totalChars = text.length;
             const nonPrintableRatio = totalChars > 0 ? nonPrintableCount / totalChars : 0;
 
-            // If more than 20% of characters are non-printable, file is likely corrupted/binary
             if (nonPrintableRatio > 0.2) {
                 toast.error(
                     "❌ File Upload Failed: The file appears to be corrupted or contains binary data.\n\n" +
@@ -268,7 +267,6 @@ Project Kickoff,,,,,,,,`;
                 return;
             }
 
-            // Check if file looks like a CSV (has commas and reasonable structure)
             const hasCommas = text.includes(',');
             const hasNewlines = text.includes('\n') || text.includes('\r');
 
@@ -341,7 +339,7 @@ Project Kickoff,,,,,,,,`;
         },
         maxFiles: 1,
         multiple: false,
-        maxSize: 10 * 1024 * 1024, // 10MB
+        maxSize: 10 * 1024 * 1024,
         onDropRejected,
         disabled: pending || parsedData.length > 0,
     });
@@ -364,7 +362,6 @@ Project Kickoff,,,,,,,,`;
             );
 
             if (error) {
-                // Log full error details to console for debugging
                 console.error('❌ Bulk Upload Error:', error);
                 console.error('Error details:', {
                     message: error.message,
@@ -372,9 +369,8 @@ Project Kickoff,,,,,,,,`;
                     name: error.name,
                 });
 
-                // Show error message in toast with longer duration
                 toast.error(error.message || 'An unexpected error occurred', {
-                    duration: 10000, // 10 seconds
+                    duration: 10000,
                 });
                 setIsAddingTask(false);
                 return;
@@ -384,19 +380,20 @@ Project Kickoff,,,,,,,,`;
                 toast.success(result.message || "Tasks uploaded successfully");
                 triggerConfetti();
 
+                // Incremental cache update instead of full reload
+                const newTasks = result.data as any[];
+                if (newTasks && newTasks.length > 0) {
+                    useTaskCacheStore.getState().upsertTasks(newTasks);
+                }
+
                 setParsedData([]);
                 setFileName("");
                 setOpen(false);
-
-                router.refresh();
             } else {
-                // Log error result to console
                 console.error('❌ Bulk Upload Failed:', result);
-
-                // Show detailed error message
                 const errorMessage = result?.message || 'Upload failed. Please try again.';
                 toast.error(errorMessage, {
-                    duration: 10000, // 10 seconds for error messages
+                    duration: 10000,
                 });
                 setIsAddingTask(false);
             }

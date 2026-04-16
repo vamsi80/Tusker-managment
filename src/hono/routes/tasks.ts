@@ -33,11 +33,16 @@ tasks.get("/", async (c) => {
   const parseParam = (key: string, shortKey: string) => {
     const val = q[shortKey] || q[key];
     if (!val) return undefined;
+    
+    // 1. Try to parse as JSON first (handles ["todo"] or "todo" with quotes)
     try {
-      // Handle JSON arrays or comma-separated strings
-      return val.startsWith("[") ? JSON.parse(val) : val.split(",");
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) return parsed;
+      if (parsed === null || parsed === undefined) return undefined;
+      return [String(parsed)];
     } catch {
-      return val.split(",");
+      // 2. Fallback to comma-separated split (handles todo,in_progress)
+      return val.split(",").map(v => v.trim()).filter(v => v.length > 0);
     }
   };
 

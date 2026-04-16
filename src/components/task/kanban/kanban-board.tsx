@@ -34,6 +34,7 @@ import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 import { Loader2, MoreHorizontal } from "lucide-react";
 import { logger } from "@/lib/logger";
 import { UserPermissionsType } from "@/data/user/get-user-permissions";
+import { useFilterStore } from "@/lib/store/filter-store";
 // Simple debounce implementation
 const debounce = (func: Function, wait: number) => {
   let timeout: NodeJS.Timeout;
@@ -351,8 +352,7 @@ export function KanbanBoard({
     targetStatus: TaskStatus;
   } | null>(null);
 
-  const [filters, setFilters] = useState<TaskFilters>({});
-  const [searchQuery, setSearchQuery] = useState("");
+  const { filters, setFilters, searchQuery, setSearchQuery, clearFilters } = useFilterStore();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -522,13 +522,10 @@ export function KanbanBoard({
     };
   }, [filters, searchQuery, workspaceId, projectId, initialData]);
 
-  const handleFilterChange = useCallback(
-    debounce((val: TaskFilters) => {
-      setIsFiltering(true);
-      setFilters(val);
-    }, 200) as (val: TaskFilters) => void,
-    [setFilters],
-  );
+  const handleFilterChange = (val: TaskFilters) => {
+    setIsFiltering(true);
+    setFilters(val);
+  };
 
   const handleSearchChange = (val: string) => {
     setIsFiltering(true);

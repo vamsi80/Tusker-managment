@@ -463,25 +463,37 @@ export function DraggableSubtaskBar({
                             </div>
 
                             {/* Delay Extension Bar */}
-                            {delayWidthPercent > 0 && (
-                                <div 
-                                    className="absolute top-1.5 h-2 rounded-r-md opacity-60 z-0"
-                                    style={{
-                                        left: `${leftPercent + widthPercent}%`,
-                                        width: `${delayWidthPercent}%`,
-                                        backgroundImage: `repeating-linear-gradient(
-                                            15deg,
-                                            transparent,
-                                            transparent 4px,
-                                            rgba(239, 68, 68, 0.4) 1px,
-                                            rgba(239, 68, 68, 0.4) 6px
-                                        )`,
-                                        border: '1px solid rgba(239, 68, 68, 0.3)',
-                                        borderLeft: 'none'
-                                    }}
-                                    title={`Delayed by ${Math.round((delayWidthPercent / 100) * totalDays)} days`}
-                                />
-                            )}
+                            {delayWidthPercent > 0 && (() => {
+                                const statusHex = {
+                                    'TO_DO': '#D1D5DB',
+                                    'IN_PROGRESS': '#3B82F6',
+                                    'CANCELLED': '#EF4444',
+                                    'REVIEW': '#8B5CF6',
+                                    'HOLD': '#F59E0B',
+                                    'COMPLETED': '#22C55E'
+                                }[optimisticSubtask.status || 'TO_DO'] || '#EF4444';
+
+                                return (
+                                    <div 
+                                        className="absolute top-1.5 h-2 rounded-r-md z-0 overflow-hidden"
+                                        style={{
+                                            left: `${leftPercent + widthPercent}%`,
+                                            width: `${delayWidthPercent}%`,
+                                            backgroundImage: `repeating-linear-gradient(
+                                                45deg,
+                                                ${statusHex}1A,
+                                                ${statusHex}1A 4px,
+                                                ${statusHex}66 4px,
+                                                ${statusHex}66 8px
+                                            )`,
+                                            border: `1px solid ${statusHex}80`,
+                                            borderLeft: 'none',
+                                            backgroundColor: `${statusHex}0D`
+                                        }}
+                                        title={`Delayed by ${Math.round((delayWidthPercent / 100) * totalDays)} days`}
+                                    />
+                                );
+                            })()}
                         </div>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="bg-popover text-popover-foreground border shadow-lg max-w-xs">
