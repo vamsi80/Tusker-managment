@@ -23,7 +23,8 @@ tasks.get("/", async (c) => {
 
   // 1. Parameter Mapping (Short -> Long)
   const workspaceId = q.w || q.workspaceId;
-  const projectId = q.p || q.projectId || undefined;
+  let projectId = q.p || q.projectId || undefined;
+  if (projectId === "") projectId = undefined;
   const view_mode = q.vm || q.view_mode || "list";
   const limit = parseInt(q.l || q.ps || q.limit || q.pageSize || "50", 10);
   const search = q.q || q.search || undefined;
@@ -75,7 +76,7 @@ tasks.get("/", async (c) => {
     onlySubtasks: q.onlySub === "true" || q.onlySubtasks === "true",
     filterParentTaskId: q.pt || q.parentTaskId || undefined,
     includeFacets: q.facets === "true",
-    hierarchyMode: (q.hm as any) || q.hierarchyMode || "parents",
+    hierarchyMode: (q.hm as any) || q.hierarchyMode || undefined,
   };
 
   // Parse sorts if provided as JSON string
@@ -91,6 +92,8 @@ tasks.get("/", async (c) => {
   if (view_mode === "kanban") {
     opts.groupBy = "status";
     opts.sorts = [{ field: "createdAt", direction: "desc" }];
+    opts.onlySubtasks = true; // Kanban is only for work items (subtasks)
+    opts.includeSubTasks = false; // No nested levels in Kanban
   } else if (view_mode === "gantt") {
     opts.sorts = [{ field: "startDate", direction: "asc" }];
     opts.includeSubTasks = true;
@@ -98,25 +101,6 @@ tasks.get("/", async (c) => {
 
   // 3. Fetch
   const result = await TasksService.listTasks(opts, user.id);
-
-  // 4. Special Grouping for Kanban
-  if (view_mode === "kanban") {
-    const tasksByStatus: Record<string, any[]> = {};
-    result.tasks.forEach((task) => {
-      const s = task.status || "UNKNOWN";
-      if (!tasksByStatus[s]) tasksByStatus[s] = [];
-      tasksByStatus[s].push(task);
-    });
-
-    return c.json({
-      success: true,
-      data: {
-        ...result,
-        tasksByStatus,
-      },
-    });
-  }
-
   return c.json({ success: true, data: result });
 });
 

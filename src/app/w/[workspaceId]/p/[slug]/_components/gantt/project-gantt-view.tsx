@@ -41,7 +41,8 @@ export function GanttServerWrapper({ workspaceId, projectId, userId }: GanttServ
                 // Gantt-specific fetch for large volume of tasks
                 const tasksRes = await fetch(`/api/v1/tasks?w=${workspaceId}&p=${projectId}&vm=gantt&limit=1000&hm=parents&ist=true`).then(res => res.json());
 
-                const rawTasks = tasksRes.data || [];
+                const result = tasksRes.data;
+                const rawTasks = result.tasks || [];
                 const allTasks: any[] = [];
                 rawTasks.forEach((t: any) => {
                     allTasks.push(t);
@@ -52,7 +53,7 @@ export function GanttServerWrapper({ workspaceId, projectId, userId }: GanttServ
 
                 setTaskData({
                     allTasks,
-                    projectCounts: tasksRes.facets?.projects || {}
+                    projectCounts: result.facets?.projects || {}
                 });
             } catch (error) {
                 console.error("Failed to fetch gantt tasks:", error);
