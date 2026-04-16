@@ -52,9 +52,9 @@ export async function bulkUploadTasksAndSubtasks(data: {
             };
         }
 
-        const permissions = await getUserPermissions(project.workspaceId, data.projectId);
+        const permissions = await getUserPermissions(project.workspaceId, data.projectId, user.id);
 
-        if (!permissions.workspaceMember) {
+        if (!permissions.workspaceMemberId) {
             return {
                 status: "error",
                 message: "You are not a member of this workspace",
@@ -242,11 +242,13 @@ export async function bulkUploadTasksAndSubtasks(data: {
 
         // Process each task group in a transaction with increased timeout
         let globalSubtaskIndex = 0;
+        let parentTaskIndex = 0;
 
         await prisma.$transaction(async (tx) => {
             for (const [taskName, taskGroup] of taskGroups.entries()) {
                 const taskSlug = taskSlugMap.get(taskName)!;
                 const firstRow = taskGroup[0];
+                parentTaskIndex++;
 
                 // Resolve parent task fields
                 const parentAssigneeId = firstRow.assigneeEmail
@@ -290,6 +292,7 @@ export async function bulkUploadTasksAndSubtasks(data: {
                         tagId: parentTagId,
                         subtaskCount: subtaskCountVal,
                         completedSubtaskCount: completedSubtaskCountVal,
+                        position: parentTaskIndex,
                     },
                 });
 
@@ -299,7 +302,9 @@ export async function bulkUploadTasksAndSubtasks(data: {
                 const subtaskRows = taskGroup.filter(t => t.subtaskName);
 
                 if (subtaskRows.length > 0) {
+                    let subtaskPositionIndex = 0;
                     for (const subtaskRow of subtaskRows) {
+                        subtaskPositionIndex++;
                         const subtaskSlug = allSubtaskSlugs[globalSubtaskIndex++];
 
                         const subtaskAssigneeId = subtaskRow.assigneeEmail
@@ -343,6 +348,7 @@ export async function bulkUploadTasksAndSubtasks(data: {
                                 dueDate: calculateDueDate(subtaskStartDate, subtaskRow.days),
                                 status: subtaskRow.status ? (subtaskRow.status as any) : undefined,
                                 tagId: resolvedTagId,
+                                position: subtaskPositionIndex,
                             },
                         });
 

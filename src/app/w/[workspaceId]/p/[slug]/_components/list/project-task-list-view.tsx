@@ -1,3 +1,4 @@
+"use client";
 import dynamic from "next/dynamic";
 import { useEffect } from "react";
 import { AppLoader } from "@/components/shared/app-loader";
@@ -47,7 +48,7 @@ export function ProjectTaskListView({
             canCreateSubTask={projectPermissions.canCreateSubTask}
             permissions={projectPermissions}
             userId={userId}
-            tags={tags.map((tag: any) => ({
+            tags={(tags || []).map((tag: any) => ({
                 id: tag.id,
                 name: tag.name,
             }))}

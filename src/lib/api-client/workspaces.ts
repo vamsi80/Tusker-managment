@@ -139,7 +139,10 @@ export const workspacesClient = {
      */
     getKanbanData: async (workspaceId: string): Promise<any> => {
         const response = await apiFetch<{ success: boolean; data: any }>(`/workspaces/${workspaceId}/kanban`);
-        return response.data;
+        return {
+            projectLeadersMap: response.data.projectLeadersMap || {},
+            projectMembersMap: response.data.projectUserMap || {},
+        };
     },
 
     /**
@@ -153,8 +156,8 @@ export const workspacesClient = {
     /**
      * Get workspace tags
      */
-    getTags: async (workspaceId: string): Promise<any> => {
+    getTags: async (workspaceId: string): Promise<any[]> => {
         const response = await apiFetch<{ success: boolean; tags: any[] }>(`/tags?workspaceId=${workspaceId}`);
-        return response;
+        return response.tags || [];
     }
 };

@@ -34,14 +34,26 @@ export function WorkspaceLayoutProvider({
   const fetchLayout = useCallback(async (isSilent = false) => {
     try {
       if (!isSilent) setIsLoading(true);
-      const [fetchedData, fetchedTags, fetchedKanban] = await Promise.all([
+      
+      // Fetch core layout and metadata in parallel, but handle tags and kanban independently for resilience
+      const [fetchedData, fetchedTags, fetchedKanban] = await Promise.allSettled([
         workspacesClient.getLayoutData(workspaceId),
         workspacesClient.getTags(workspaceId),
         workspacesClient.getKanbanData(workspaceId)
       ]);
-      setData(fetchedData);
-      setTags(fetchedTags || []);
-      setKanbanMetadata(fetchedKanban.data || null);
+
+      if (fetchedData.status === "fulfilled") {
+        setData(fetchedData.value);
+      }
+      
+      if (fetchedTags.status === "fulfilled") {
+        setTags(fetchedTags.value || []);
+      }
+
+      if (fetchedKanban.status === "fulfilled") {
+        setKanbanMetadata(fetchedKanban.value || null);
+      }
+
     } catch (error) {
       console.error("Failed to fetch workspace layout:", error);
     } finally {
@@ -57,6 +69,8 @@ export function WorkspaceLayoutProvider({
     if (initialData) {
       setData(initialData);
       setIsLoading(false);
+      // Trigger background fetch for metadata not included in initialData
+      fetchLayout(true);
     } else {
       fetchLayout();
     }

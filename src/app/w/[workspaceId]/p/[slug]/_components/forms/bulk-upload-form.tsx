@@ -167,11 +167,40 @@ Project Kickoff,,,,,,,,`;
         return str.replace(/\x00/g, '').replace(/[\x01-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '').trim();
     };
 
+    const parseCSVLine = (line: string): string[] => {
+        const result = [];
+        let curValue = "";
+        let inQuotes = false;
+
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            const nextChar = line[i + 1];
+
+            if (char === '"' && inQuotes && nextChar === '"') {
+                // Handle escaped quotes ("")
+                curValue += '"';
+                i++;
+            } else if (char === '"') {
+                // Toggle quote mode
+                inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+                // Value separator
+                result.push(curValue);
+                curValue = "";
+            } else {
+                curValue += char;
+            }
+        }
+        result.push(curValue);
+        return result.map(v => sanitizeString(v));
+    };
+
     const parseCSV = (text: string): ParsedTask[] => {
-        // First, sanitize the entire text to remove null bytes
         const sanitizedText = sanitizeString(text);
 
-        const lines = sanitizedText.split('\n').filter(line => line.trim());
+        // Normalize line endings and split
+        const lines = sanitizedText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(line => line.trim());
+
         if (lines.length < 2) {
             throw new Error("CSV file is empty or invalid");
         }
@@ -180,7 +209,7 @@ Project Kickoff,,,,,,,,`;
         const tasks: ParsedTask[] = [];
 
         for (const line of dataLines) {
-            const values = line.split(',').map(v => sanitizeString(v));
+            const values = parseCSVLine(line);
 
             // Pad the values array to ensure we have at least 9 elements
             while (values.length < 9) {
@@ -189,7 +218,6 @@ Project Kickoff,,,,,,,,`;
 
             const [taskName, subtaskName, description, assigneeEmail, reviewerEmail, startDate, days, status, tag] = values;
 
-            // Skip rows without a task name
             if (!taskName) continue;
 
             tasks.push({

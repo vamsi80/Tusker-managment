@@ -1,3 +1,4 @@
+"use client";
 import dynamic from "next/dynamic";
 import { useEffect } from "react";
 import { AppLoader } from "@/components/shared/app-loader";
@@ -33,10 +34,14 @@ export function ProjectKanbanView({
         revalidateProject();
     }, [revalidateWorkspace, revalidateProject]);
 
-    if (isProjectLoading || !kanbanMetadata) {
+    // Allow rendering if project loading is done, even if kanbanMetadata is still fetching
+    if (isProjectLoading) {
         return <AppLoader />;
     }
-
+    
+    // Fallback metadata if still null
+    const metadata = kanbanMetadata || { projectLeadersMap: {}, projectMembersMap: {} };
+    
     const COLUMNS = ["TO_DO", "IN_PROGRESS", "REVIEW", "HOLD", "COMPLETED", "CANCELLED"] as const;
     const initialData = COLUMNS.reduce((acc, status) => {
         acc[status] = {
@@ -48,14 +53,14 @@ export function ProjectKanbanView({
         };
         return acc;
     }, {} as any);
-
+    
     return (
         <KanbanBoard
             initialData={initialData}
             projectMembers={projectMembers as any}
             workspaceId={workspaceId}
             projectId={projectId}
-            projectManagers={kanbanMetadata.projectLeadersMap || {}}
+            projectManagers={metadata.projectLeadersMap || {}}
             permissions={projectPermissions}
             userId={userId}
         />
