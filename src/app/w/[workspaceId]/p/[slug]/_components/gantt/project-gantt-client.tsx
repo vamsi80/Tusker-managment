@@ -93,9 +93,10 @@ export function ProjectGanttClient({
                     const res = await fetch(`/api/v1/tasks?${params.toString()}`);
                     const json = await res.json();
                     if (json.success) {
-                        // The Hono API returns the tasks directly in json.data
+                        const result = json.data;
+                        const rawTasks = result.tasks || [];
                         const allFetchedTasks: any[] = [];
-                        json.data.forEach((t: any) => {
+                        rawTasks.forEach((t: any) => {
                             allFetchedTasks.push(t);
                             if (t.subTasks) allFetchedTasks.push(...t.subTasks);
                         });

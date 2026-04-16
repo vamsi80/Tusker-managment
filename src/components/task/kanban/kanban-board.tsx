@@ -442,7 +442,8 @@ export function KanbanBoard({
         params.set("w", workspaceId);
         params.set("p", targetProjectId);
         params.set("vm", "kanban");
-        params.set("l", "100");
+        params.set("excludeParents", "true");
+        params.set("l", "15");
         params.set("facets", "true");
         if (searchQuery) params.set("q", searchQuery);
         if (filters.assigneeId) params.set("a", filters.assigneeId);
@@ -736,14 +737,33 @@ export function KanbanBoard({
 
     const previousStatus = currentStatus;
 
-    moveSubTaskBetweenColumns(subTaskId, previousStatus, newStatus);
+    // 1. HARD BLOCK for IN_PROGRESS -> COMPLETED (Must go to REVIEW first)
+    if (previousStatus === "IN_PROGRESS" && newStatus === "COMPLETED") {
+      toast.error(
+        "In-Progress tasks must go to Review before being marked as Completed.",
+        { id: "status-block" },
+      );
+      return;
+    }
 
-    setPendingReviewMove({
-      subTaskId,
-      previousStatus,
-      targetStatus: newStatus,
-    });
-    setIsActivityDialogOpen(true);
+    const isMandatory =
+      ["HOLD", "CANCELLED", "REVIEW"].includes(newStatus) ||
+      ["HOLD", "CANCELLED"].includes(previousStatus) ||
+      (previousStatus === "REVIEW" &&
+        (newStatus === "TO_DO" || newStatus === "IN_PROGRESS")) ||
+      (previousStatus === "IN_PROGRESS" && newStatus === "TO_DO");
+
+    if (isMandatory) {
+      moveSubTaskBetweenColumns(subTaskId, previousStatus, newStatus);
+      setPendingReviewMove({
+        subTaskId,
+        previousStatus,
+        targetStatus: newStatus,
+      });
+      setIsActivityDialogOpen(true);
+    } else {
+      performStatusUpdate(subTaskId, newStatus, previousStatus);
+    }
     return;
   };
 
@@ -1012,6 +1032,19 @@ export function KanbanBoard({
     }
   };
 
+  const handleActivityClose = () => {
+    if (pendingReviewMove) {
+      // Revert optimistic move if the dialog was closed without submission
+      moveSubTaskBetweenColumns(
+        pendingReviewMove.subTaskId,
+        pendingReviewMove.targetStatus,
+        pendingReviewMove.previousStatus,
+      );
+      setPendingReviewMove(null);
+    }
+    setIsActivityDialogOpen(false);
+  };
+
   const getFilteredSubTaskIds = (status: TaskStatus) => {
     return columnData[status].subTaskIds;
   };
@@ -1161,7 +1194,7 @@ export function KanbanBoard({
       </DndContext>
       <ActivityDialog
         isOpen={isActivityDialogOpen}
-        onClose={() => setIsActivityDialogOpen(false)}
+        onClose={handleActivityClose}
         onSubmit={handleActivitySubmit}
         subTaskName={
           pendingReviewMove

@@ -255,8 +255,6 @@ export class TasksService {
         (opts.search && opts.search.trim().length > 0) ||
         opts.dueAfter ||
         opts.dueBefore ||
-        opts.startDate ||
-        opts.endDate ||
         (opts.sorts && opts.sorts.length > 0)
       );
 
@@ -359,7 +357,7 @@ export class TasksService {
         (!isSorting || opts.view_mode === "gantt") &&
         !opts.onlySubtasks &&
         !opts.excludeParents &&
-        (hasExplicitFilters || hierarchyMode === "parents" || !hierarchyMode)
+        (hasExplicitFilters || hierarchyMode === "parents" || hierarchyMode === "recursive")
       ) {
         strategy = opts.includeSubTasks
           ? "FILTERED_RECURSIVE_HIERARCHY"
@@ -377,10 +375,96 @@ export class TasksService {
       }
 
       if (opts.groupBy === "status") {
-        strategy = opts.includeSubTasks
-          ? "KANBAN_RECURSIVE_HIERARCHY"
-          : "KANBAN_SINGLE_QUERY";
-        const baseWhere = buildWorkspaceFilterWhere(
+        const targetStatuses = toArray(opts.status);
+        const perStatusLimit = opts.limit ?? 15;
+
+        // --- STRATEGY A: SINGLE STATUS PAGINATION (Load More) ---
+        // If the user specifies exactly one status, we treat this as a pagination request for one column.
+        if (targetStatuses && targetStatuses.length === 1) {
+          strategy = "KANBAN_PAGINATED_STATUS";
+          const status = targetStatuses[0];
+
+          const where = buildWorkspaceFilterWhere(
+            {
+              workspaceId,
+              projectId: opts.projectId,
+              assigneeId: toArray(opts.assigneeId),
+              tagId: toArray(opts.tagId),
+              search: opts.search,
+              dueAfter: (opts.dueAfter),
+              dueBefore: opts.dueBefore ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!) : undefined,
+              isAdmin,
+              fullAccessProjectIds,
+              restrictedProjectIds,
+              status: [status as any],
+              cursor: opts.cursor,
+              onlyParents: opts.onlyParents || (!hasExplicitFilters && hierarchyMode === "parents"),
+              onlySubtasks: opts.onlySubtasks || (!hasExplicitFilters && hierarchyMode === "children"),
+              excludeParents: opts.excludeParents,
+              view_mode: opts.view_mode,
+            },
+            userId
+          );
+
+          const tasks = await prisma.task.findMany({
+            where,
+            take: perStatusLimit + 1,
+            select: getTaskSelect(opts.view_mode),
+            orderBy: buildOrderBy(opts.sorts),
+          });
+
+          const trueHasMore = tasks.length > perStatusLimit;
+          if (trueHasMore) tasks.pop();
+
+          // Handle Subtask Expansion
+          if (opts.includeSubTasks && tasks.length > 0) {
+            const parentIds = tasks.filter((t) => t.isParent).map((t) => t.id);
+            if (parentIds.length > 0) {
+              const subtasks = await prisma.task.findMany({
+                where: buildSubtaskExpansionWhere(undefined, {
+                  parentIds,
+                  status: [status as any],
+                  assigneeId: toArray(opts.assigneeId),
+                  tagId: toArray(opts.tagId),
+                  search: opts.search,
+                  userId,
+                  isAdmin,
+                }),
+                select: getTaskSelect(opts.view_mode),
+                orderBy: buildOrderBy(opts.sorts),
+              });
+              tasks.forEach((parent: any) => {
+                if (parent.isParent) {
+                  parent.subTasks = subtasks.filter((st) => st.parentTaskId === parent.id);
+                } else {
+                  parent.subTasks = [];
+                }
+              });
+            }
+          }
+
+          const primarySort = opts.sorts?.[0];
+          const lastTask = tasks.length > 0 ? (tasks[tasks.length - 1] as any) : null;
+          const nextCursor: any = trueHasMore && lastTask
+            ? primarySort && SORT_MAP[primarySort.field]
+              ? { id: lastTask.id, [SORT_MAP[primarySort.field].dbField]: lastTask[SORT_MAP[primarySort.field].dbField] }
+              : { id: lastTask.id, createdAt: lastTask.createdAt }
+            : null;
+
+          return {
+            tasks,
+            totalCount: tasks.length, // Client uses facets.statusCounts for real total
+            hasMore: trueHasMore,
+            nextCursor,
+            facets: emptyFacets,
+          };
+        }
+
+        // --- STRATEGY B: PARALLEL ALL (Initial Load / Filter) ---
+        strategy = "KANBAN_OPTIMIZED_PARALLEL";
+
+        // 1. Get counts for all statuses (efficient)
+        const countWhere = JSON.parse(JSON.stringify(buildWorkspaceFilterWhere(
           {
             workspaceId,
             projectId: opts.projectId,
@@ -388,33 +472,16 @@ export class TasksService {
             tagId: toArray(opts.tagId),
             search: opts.search,
             dueAfter: toUTCDateOnly(opts.dueAfter),
-            dueBefore: opts.dueBefore
-              ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!)
-              : undefined,
+            dueBefore: opts.dueBefore ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!) : undefined,
             isAdmin,
             fullAccessProjectIds,
             restrictedProjectIds,
-            cursor: opts.cursor,
-            onlyParents: opts.hierarchyMode === "parents",
-            onlySubtasks: opts.hierarchyMode === "children",
-            excludeParents: opts.excludeParents,
-            includeSubTasks: opts.includeSubTasks,
+            onlyParents: opts.onlyParents || (!hasExplicitFilters && hierarchyMode === "parents"),
+            onlySubtasks: opts.onlySubtasks || (!hasExplicitFilters && hierarchyMode === "children"),
             view_mode: opts.view_mode,
           },
-          userId,
-        );
-
-        const countWhere = JSON.parse(JSON.stringify(baseWhere));
-        if (Array.isArray(countWhere.AND)) {
-          countWhere.AND = countWhere.AND.filter(
-            (cond: any) =>
-              !cond.OR ||
-              !cond.OR.some(
-                (c: any) => c.createdAt && (c.createdAt.lt || c.createdAt.gt),
-              ),
-          );
-          if (countWhere.AND.length === 0) delete countWhere.AND;
-        }
+          userId
+        )));
 
         const countsResult = await prisma.task.groupBy({
           by: ["status"],
@@ -427,17 +494,45 @@ export class TasksService {
           if (c.status) statusCounts[c.status] = c._count;
         });
 
-        const limit = opts.limit ?? 50;
-        const tasks = await prisma.task.findMany({
-          where: baseWhere,
-          take: limit + 1,
-          select: getTaskSelect(opts.view_mode),
-          orderBy: buildOrderBy(opts.sorts),
-        });
+        // 2. Define the statuses we care about
+        const allStatuses = ["TO_DO", "IN_PROGRESS", "REVIEW", "HOLD", "COMPLETED", "CANCELLED"];
 
-        const trueHasMore = tasks.length > limit;
-        if (trueHasMore) tasks.pop();
+        // 3. Fetch tasks for each status in parallel
+        const statusTasksResults = await Promise.all(
+          allStatuses.map(async (status) => {
+            const statusWhere = buildWorkspaceFilterWhere(
+              {
+                workspaceId,
+                projectId: opts.projectId,
+                assigneeId: toArray(opts.assigneeId),
+                tagId: toArray(opts.tagId),
+                search: opts.search,
+                dueAfter: (opts.dueAfter),
+                dueBefore: opts.dueBefore ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!) : undefined,
+                isAdmin,
+                fullAccessProjectIds,
+                restrictedProjectIds,
+                status: [status as any],
+                onlyParents: opts.onlyParents || (!hasExplicitFilters && hierarchyMode === "parents"),
+                onlySubtasks: opts.onlySubtasks || (!hasExplicitFilters && hierarchyMode === "children"),
+                excludeParents: opts.excludeParents,
+                view_mode: opts.view_mode,
+              },
+              userId
+            );
 
+            return prisma.task.findMany({
+              where: statusWhere,
+              take: perStatusLimit,
+              select: getTaskSelect(opts.view_mode),
+              orderBy: buildOrderBy(opts.sorts),
+            });
+          })
+        );
+
+        const tasks = statusTasksResults.flat();
+
+        // 4. Handle Subtask Expansion
         if (opts.includeSubTasks && tasks.length > 0) {
           const parentIds = tasks.filter((t) => t.isParent).map((t) => t.id);
           if (parentIds.length > 0) {
@@ -448,26 +543,15 @@ export class TasksService {
                 assigneeId: toArray(opts.assigneeId),
                 tagId: toArray(opts.tagId),
                 search: opts.search,
-                dueAfter: toUTCDateOnly(opts.dueAfter),
-                dueBefore: opts.dueBefore
-                  ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!)
-                  : undefined,
                 userId,
                 isAdmin,
-                isRestrictedMember:
-                  !isAdmin &&
-                  restrictedProjectIds.length > 0 &&
-                  restrictedProjectIds.includes(opts.projectId || ""),
               }),
               select: getTaskSelect(opts.view_mode),
               orderBy: buildOrderBy(opts.sorts),
             });
-
             tasks.forEach((parent: any) => {
               if (parent.isParent) {
-                parent.subTasks = subtasks.filter(
-                  (st) => st.parentTaskId === parent.id,
-                );
+                parent.subTasks = subtasks.filter((st) => st.parentTaskId === parent.id);
               } else {
                 parent.subTasks = [];
               }
@@ -475,26 +559,31 @@ export class TasksService {
           }
         }
 
-        const primarySort = opts.sorts?.[0];
-        const lastTask =
-          tasks.length > 0 ? (tasks[tasks.length - 1] as any) : null;
+        if (opts.view_mode === "kanban") {
+            const tasksByStatus: Record<string, any[]> = {};
+            tasks.forEach((task) => {
+                const s = task.status || "UNKNOWN";
+                if (!tasksByStatus[s]) tasksByStatus[s] = [];
+                tasksByStatus[s].push(task);
+            });
 
-        const nextCursor: any =
-          trueHasMore && lastTask
-            ? primarySort && SORT_MAP[primarySort.field]
-              ? {
-                id: lastTask.id,
-                [SORT_MAP[primarySort.field].dbField]:
-                  lastTask[SORT_MAP[primarySort.field].dbField],
-              }
-              : { id: lastTask.id, createdAt: lastTask.createdAt }
-            : null;
+            return {
+                tasksByStatus,
+                totalCount: tasks.length,
+                hasMore: false,
+                nextCursor: null,
+                facets: {
+                    ...emptyFacets,
+                    statusCounts,
+                },
+            };
+        }
 
         return {
           tasks,
           totalCount: tasks.length,
-          hasMore: trueHasMore,
-          nextCursor,
+          hasMore: false, // Initial parallel load doesn't provide a global cursor
+          nextCursor: null,
           facets: {
             ...emptyFacets,
             statusCounts,
@@ -688,8 +777,8 @@ export class TasksService {
             ? opts.expandedProjectIds
             : undefined,
         includeSubTasks: opts.includeSubTasks,
-        onlyParents: opts.hierarchyMode === "parents",
-        onlySubtasks: opts.hierarchyMode === "children",
+        onlyParents: !hasExplicitFilters && opts.hierarchyMode === "parents",
+        onlySubtasks: !hasExplicitFilters && opts.hierarchyMode === "children",
         view_mode: opts.view_mode,
       },
       userId,
@@ -720,8 +809,8 @@ export class TasksService {
               ? opts.expandedProjectIds
               : undefined,
           includeSubTasks: opts.includeSubTasks,
-          onlyParents: opts.hierarchyMode === "parents",
-          onlySubtasks: opts.hierarchyMode === "children",
+          onlyParents: !hasExplicitFilters && opts.hierarchyMode === "parents",
+          onlySubtasks: !hasExplicitFilters && opts.hierarchyMode === "children",
           cursor: opts.cursor,
         },
         userId,
@@ -1221,9 +1310,19 @@ export class TasksService {
       return subTask; // No change needed
     }
 
+    // Constraint: IN_PROGRESS -> COMPLETED is forbidden (must go to REVIEW)
+    if (subTask.status === "IN_PROGRESS" && newStatus === "COMPLETED") {
+      throw AppError.ValidationError(
+        "Tasks in In-Progress must be moved to Review before marking as Completed.",
+      );
+    }
+
     const isMandatoryTransition =
-      (subTask.status === "REVIEW" && newStatus !== "COMPLETED") ||
-      newStatus === "REVIEW";
+      ["HOLD", "CANCELLED", "REVIEW"].includes(newStatus) ||
+      (subTask.status && ["HOLD", "CANCELLED"].includes(subTask.status)) ||
+      (subTask.status === "REVIEW" &&
+        (newStatus === "TO_DO" || newStatus === "IN_PROGRESS")) ||
+      (subTask.status === "IN_PROGRESS" && newStatus === "TO_DO");
     if (isMandatoryTransition && !comment && !attachmentData) {
       throw AppError.ValidationError(
         "A comment or attachment link is required for this status transition.",

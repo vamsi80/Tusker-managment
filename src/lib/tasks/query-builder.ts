@@ -15,25 +15,35 @@ export function getTaskSelect(view_mode: string = "list"): Prisma.TaskSelect {
         taskSlug: true,
         status: true,
         dueDate: true,
-        subtaskCount: true,
-        completedSubtaskCount: true,
-        tagId: true,
-        description: true,
+        // tagId: true,
         startDate: true,
         days: true,
+
+        // Only include description for non-Kanban views to save payload
+        // Kanban cards pre-fetch details on hover
+        // description: !isKanban,
+
+        // Subtask progress is not shown on Kanban cards
+        // subtaskCount: !isKanban,
+        // completedSubtaskCount: !isKanban,
 
         // Always include basic assignee info
         assignee: {
             select: {
-                workspaceMember: { select: { userId: true, user: { select: { id: true, surname: true } } } }
+                workspaceMember: {
+                    select: {
+                        // userId: true, 
+                        user: { select: { id: true, surname: true } }
+                    }
+                }
             }
         },
 
-        createdAt: true,
+        createdAt: true, // Needed for sorting/pagination logic
         createdById: true,
-        projectId: true,
-        parentTaskId: true,
-        isParent: true,
+        projectId: true, // Needed for Kanban move operations
+        parentTaskId: true, // Needed for identifying subtasks
+        isParent: !isKanban,
         assigneeId: true
     };
 
@@ -41,7 +51,12 @@ export function getTaskSelect(view_mode: string = "list"): Prisma.TaskSelect {
     if (!isGantt) {
         select.createdBy = {
             select: {
-                workspaceMember: { select: { userId: true, user: { select: { id: true, surname: true } } } }
+                workspaceMember: {
+                    select: {
+                        userId: true,
+                        user: { select: { id: true, surname: true } }
+                    }
+                }
             }
         };
     }
@@ -53,7 +68,7 @@ export function getTaskSelect(view_mode: string = "list"): Prisma.TaskSelect {
         select._count = {
             select: {
                 activities: true,
-                subTasks: true
+                subTasks: !isKanban // Omit subtask count for Kanban board
             }
         };
         select.tag = { select: { name: true } };
@@ -61,13 +76,14 @@ export function getTaskSelect(view_mode: string = "list"): Prisma.TaskSelect {
 
     // 3. Project & Parent Context
     // Essential for workspace views and search results
-    // Omit for Gantt and Subtasks to reduce payload bloat
-    if (isKanban || isSearch || isList || isCalendar) {
+    if (isKanban || isSearch || isList || isCalendar || isGantt) {
         select.project = {
             select: { name: true, color: true }
         };
         select.parentTask = {
-            select: { name: true }
+            select: {
+                name: true,
+            }
         };
     }
 
@@ -75,7 +91,7 @@ export function getTaskSelect(view_mode: string = "list"): Prisma.TaskSelect {
     if (isList || isSearch || isCalendar || isGantt || isSubtask) {
         select.reviewer = {
             select: {
-                workspaceMember: { select: { userId: true, user: { select: { id: true, surname: true } } } }
+                workspaceMember: { select: { user: { select: { surname: true } } } }
             }
         };
     }

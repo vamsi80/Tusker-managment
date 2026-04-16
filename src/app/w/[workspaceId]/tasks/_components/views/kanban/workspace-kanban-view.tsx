@@ -31,7 +31,7 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
 
     // 3. Launch the final large queries
     const [
-        statusResponses,
+        kanbanResponse,
         permissions,
         projectMembers,
         projects,
@@ -39,17 +39,14 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
         tags,
         pmMap,
     ] = await Promise.all([
-        Promise.all(COLUMNS.map(status =>
-            getTasks({
-                workspaceId,
-                status: [status],
-                excludeParents: true,
-                limit: 30, // Increased to 30 to better fill initial screen and prevent eager paging
-                sorts: [{ field: "createdAt", direction: "desc" }],
-                view_mode: "kanban",
-                includeFacets: true
-            }, user.id)
-        )),
+        getTasks({
+            workspaceId,
+            excludeParents: true,
+            limit: 30, // Limit per status column
+            sorts: [{ field: "createdAt", direction: "desc" }],
+            view_mode: "kanban",
+            includeFacets: true
+        }, user.id),
         getWorkspacePermissions(workspaceId, user.id),
         membersPromise,
         projectsPromise,
@@ -59,11 +56,13 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
     ]);
 
     const initialData: Record<string, any> = {};
+    const kanbanData = kanbanResponse as any;
+    const tasksByStatus = kanbanData.tasksByStatus || {};
+    const totalCounts = kanbanData.facets?.statusCounts || {};
 
-    COLUMNS.forEach((status, index) => {
-        const response = statusResponses[index];
-        const tasks = response.tasks;
-        const totalInDb = (response.facets as any)?.statusCounts?.[status] || tasks.length;
+    COLUMNS.forEach((status) => {
+        const tasks = tasksByStatus[status] || [];
+        const totalInDb = totalCounts[status] || tasks.length;
 
         initialData[status] = {
             subTasks: tasks,

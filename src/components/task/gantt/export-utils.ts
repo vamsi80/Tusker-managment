@@ -350,7 +350,11 @@ export const exportGanttToPDF = async (
   const { jsPDF } = await import("jspdf");
   const autoTable = (await import("jspdf-autotable")).default;
 
-  const doc = new jsPDF();
+  const doc = new jsPDF({
+    orientation: "landscape",
+    unit: "mm",
+    format: "a4",
+  });
 
   // Title
   doc.setFontSize(16);
@@ -412,6 +416,7 @@ export const exportGanttToPDF = async (
         raw[4] === ""
       ) {
         data.cell.styles.fontStyle = "bold";
+        data.cell.styles.fillColor = [235, 245, 255]; // Distinct Light Blue background for parent rows in PDF
       }
     },
   });
