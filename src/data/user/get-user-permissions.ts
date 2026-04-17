@@ -6,7 +6,6 @@ import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
 import { CacheTags } from "@/data/cache-tags";
 
-// 🚀 Emergency Performance Cache (Bypasses even next-cache overhead for 30s)
 const PERMISSION_MEMORY_CACHE = new Map<string, { data: any, timestamp: number }>();
 const MEMORY_TTL = 15000; // 15 seconds
 
@@ -20,7 +19,6 @@ function getMemoryCached<T>(key: string): T | null {
 
 function setMemoryCached(key: string, data: any) {
     PERMISSION_MEMORY_CACHE.set(key, { data, timestamp: Date.now() });
-    // Cleanup old items periodically (simple)
     if (PERMISSION_MEMORY_CACHE.size > 500) PERMISSION_MEMORY_CACHE.clear();
 }
 
@@ -33,23 +31,56 @@ function setMemoryCached(key: string, data: any) {
  */
 async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: string) {
     try {
-        const [workspaceMember, projectRoles] = await Promise.all([
-            prisma.workspaceMember.findFirst({
-                where: {
-                    workspaceId: workspaceId,
-                    userId: userId,
-                },
-                include: {
-                    user: {
-                        select: {
-                            id: true,
-                            name: true,
-                            surname: true,
-                        }
+        const workspaceMember = await prisma.workspaceMember.findFirst({
+            where: { workspaceId: workspaceId, userId: userId },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        surname: true,
                     }
                 }
-            }),
-            prisma.projectMember.findMany({
+            }
+        });
+
+        if (!workspaceMember) {
+            return {
+                isWorkspaceAdmin: false,
+                canCreateProject: false,
+                isProjectLead: false,
+                isProjectManager: false,
+                hasAccess: false,
+                workspaceMemberId: null,
+                workspaceRole: null,
+                userId: null,
+                leadProjectIds: [],
+                managedProjectIds: [],
+                memberProjectIds: [],
+                viewerProjectIds: []
+            };
+        }
+
+        const isWorkspaceAdmin = workspaceMember.workspaceRole === "OWNER" || workspaceMember.workspaceRole === "ADMIN";
+        const canCreateProject = isWorkspaceAdmin || workspaceMember.workspaceRole === "MANAGER";
+
+        let leadProjectIds: string[] = [];
+        let managedProjectIds: string[] = [];
+        let memberProjectIds: string[] = [];
+        let viewerProjectIds: string[] = [];
+
+        if (isWorkspaceAdmin) {
+            // 🚀 Admin Override: Grant access to ALL projects in the workspace
+            const allProjects = await prisma.project.findMany({
+                where: { workspaceId },
+                select: { id: true }
+            });
+            const allIds = allProjects.map(p => p.id);
+            leadProjectIds = allIds;
+            managedProjectIds = allIds;
+            memberProjectIds = allIds;
+        } else {
+            // Standard User: Fetch explicit roles
+            const projectRoles = await prisma.projectMember.findMany({
                 where: {
                     workspaceMember: {
                         userId: userId,
@@ -60,35 +91,16 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
                     projectId: true,
                     projectRole: true,
                 },
-            }),
-        ]);
+            });
 
-        if (!workspaceMember) {
-            return {
-                isWorkspaceAdmin: false,
-                canCreateProject: false,
-                isProjectLead: false,
-                hasAccess: false,
-                workspaceMemberId: null,
-                workspaceRole: null,
-                userId: null,
-                leadProjectIds: [],
-                managedProjectIds: [],
-                memberProjectIds: []
-            };
+            leadProjectIds = projectRoles.filter(p => p.projectRole === "LEAD").map(p => p.projectId);
+            managedProjectIds = projectRoles.filter(p => p.projectRole === "PROJECT_MANAGER").map(p => p.projectId);
+            memberProjectIds = projectRoles.filter(p => p.projectRole === "MEMBER").map(p => p.projectId);
+            viewerProjectIds = projectRoles.filter(p => p.projectRole === "VIEWER").map(p => p.projectId);
         }
 
-        const isWorkspaceAdmin = workspaceMember.workspaceRole === "OWNER" || workspaceMember.workspaceRole === "ADMIN";
-        const canCreateProject = isWorkspaceAdmin || workspaceMember.workspaceRole === "MANAGER";
-
-        // projectRoles is now the result of the separate query
-        const leadProjectIds = projectRoles.filter(p => p.projectRole === "LEAD").map(p => p.projectId);
-        const managedProjectIds = projectRoles.filter(p => p.projectRole === "PROJECT_MANAGER").map(p => p.projectId);
-        const memberProjectIds = projectRoles.filter(p => p.projectRole === "MEMBER").map(p => p.projectId);
-        const viewerProjectIds = projectRoles.filter(p => p.projectRole === "VIEWER").map(p => p.projectId);
-
-        const isProjectLead = leadProjectIds.length > 0;
-        const isProjectManager = managedProjectIds.length > 0;
+        const isProjectLead = isWorkspaceAdmin || leadProjectIds.length > 0;
+        const isProjectManager = isWorkspaceAdmin || managedProjectIds.length > 0;
         const hasAccess = isWorkspaceAdmin || isProjectManager || isProjectLead || memberProjectIds.length > 0 || viewerProjectIds.length > 0;
 
         return {
@@ -104,7 +116,6 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
             workspaceMemberId: workspaceMember.id,
             workspaceRole: workspaceMember.workspaceRole,
             userId: workspaceMember.userId,
-            userName: workspaceMember.user?.name || null,
             userSurname: workspaceMember.user?.surname || null,
         };
     } catch (error) {
@@ -113,13 +124,14 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
             isWorkspaceAdmin: false,
             canCreateProject: false,
             isProjectLead: false,
+            isProjectManager: false,
             hasAccess: false,
             workspaceMemberId: null,
             workspaceRole: null,
             userId: null,
-            userName: null,
             userSurname: null,
             leadProjectIds: [],
+            managedProjectIds: [],
         };
     }
 }
@@ -174,7 +186,6 @@ async function _getUserPermissionsInternal(workspaceId: string, projectId: strin
                     user: {
                         select: {
                             id: true,
-                            name: true,
                             surname: true,
                         }
                     }
@@ -191,6 +202,7 @@ async function _getUserPermissionsInternal(workspaceId: string, projectId: strin
         if (!workspaceMember) {
             return {
                 isWorkspaceAdmin: false,
+                isProjectManager: false,
                 isProjectLead: false,
                 isMember: false,
                 canCreateSubTask: false,
@@ -202,9 +214,12 @@ async function _getUserPermissionsInternal(workspaceId: string, projectId: strin
         }
 
         const isWorkspaceAdmin = workspaceMember.workspaceRole === "OWNER" || workspaceMember.workspaceRole === "ADMIN";
-        const isProjectManager = projectMember?.projectRole === "PROJECT_MANAGER";
-        const isProjectLead = projectMember?.projectRole === "LEAD";
-        const isMember = !isWorkspaceAdmin && !isProjectManager && !isProjectLead;
+
+        // Logical overrides for Admins
+        const isProjectManager = isWorkspaceAdmin || projectMember?.projectRole === "PROJECT_MANAGER";
+        const isProjectLead = isWorkspaceAdmin || projectMember?.projectRole === "LEAD";
+        const isMember = !isWorkspaceAdmin && !isProjectManager && !isProjectLead && !!projectMember;
+
         const canCreateSubTask = isWorkspaceAdmin || isProjectManager || isProjectLead;
         const canPerformBulkOperations = isWorkspaceAdmin || isProjectManager || isProjectLead;
 
@@ -218,7 +233,6 @@ async function _getUserPermissionsInternal(workspaceId: string, projectId: strin
             workspaceMemberId: workspaceMember.id,
             workspaceRole: workspaceMember.workspaceRole,
             userId: workspaceMember.userId,
-            userName: workspaceMember.user?.name || null,
             userSurname: workspaceMember.user?.surname || null,
             projectMember: projectMember ? {
                 id: projectMember.id,

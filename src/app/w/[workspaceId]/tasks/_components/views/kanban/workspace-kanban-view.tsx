@@ -5,7 +5,7 @@ import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { requireUser } from "@/lib/auth/require-user";
 import dynamic from "next/dynamic";
 import { getProjectMembers } from "@/data/project/get-project-members";
-import { getWorkspaceProjectMembersMap, getWorkspaceProjectManagersMap } from "@/data/workspace/get-workspace-kanban-data";
+import { getWorkspaceProjectAssignments, getWorkspaceProjectLeaders } from "@/data/workspace/get-workspace-kanban-data";
 
 const KanbanBoard = dynamic(
     () => import("@/components/task/kanban/kanban-board").then(mod => mod.KanbanBoard),
@@ -21,8 +21,8 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
     const membersPromise = getProjectMembers({ workspaceId });
     const projectsPromise = getUserProjects(workspaceId);
     const tagsPromise = getWorkspaceTags(workspaceId);
-    const pmMatchesPromise = getWorkspaceProjectMembersMap(workspaceId);
-    const projectManagersPromise = getWorkspaceProjectManagersMap(workspaceId);
+    const assignmentsPromise = getWorkspaceProjectAssignments(workspaceId);
+    const leadersPromise = getWorkspaceProjectLeaders(workspaceId);
 
     // 2. Wait for user safely before launching the dependent queries
     const user = await userPromise;
@@ -30,14 +30,15 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
     const COLUMNS = ["TO_DO", "IN_PROGRESS", "REVIEW", "COMPLETED", "HOLD", "CANCELLED"] as const;
 
     // 3. Launch the final large queries
+    const viewStartTime = performance.now();
     const [
         kanbanResponse,
         permissions,
         projectMembers,
         projects,
-        projectUserMap,
+        projectAssignments,
         tags,
-        pmMap,
+        projectLeaders,
     ] = await Promise.all([
         getTasks({
             workspaceId,
@@ -50,10 +51,14 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
         getWorkspacePermissions(workspaceId, user.id),
         membersPromise,
         projectsPromise,
-        pmMatchesPromise,
+        assignmentsPromise,
         tagsPromise,
-        projectManagersPromise,
+        leadersPromise,
     ]);
+    const duration = performance.now() - viewStartTime;
+    if (duration > 600) {
+        console.warn(`[PERF_WARN] WorkspaceKanbanView rendered in ${duration.toFixed(2)}ms`);
+    }
 
     const initialData: Record<string, any> = {};
     const kanbanData = kanbanResponse as any;
@@ -81,7 +86,7 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
         name: project.name,
         slug: project.slug,
         color: project.color,
-        memberIds: projectUserMap[project.id] || []
+        memberIds: (projectAssignments[project.id] || []).map((m: any) => m.id)
     }));
 
 
@@ -94,7 +99,7 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
             projects={projectOptions}
             level="workspace"
             tags={tags.map(tag => ({ id: tag.id, name: tag.name }))}
-            projectManagers={pmMap}
+            projectManagers={projectLeaders}
             permissions={permissions}
             userId={user.id}
         />

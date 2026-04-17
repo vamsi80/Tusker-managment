@@ -44,7 +44,8 @@ export const getWorkspaceLayoutData = cache(async (workspaceId: string) => {
                 workspaceMemberId: null,
                 workspaceRole: null,
                 userId: null,
-            }
+            },
+            isError: true
         };
     }
 });

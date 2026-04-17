@@ -13,11 +13,12 @@ import { WorkspaceSkeleton } from "../workspace-skeleton";
 interface WorkspaceShellProps {
   children: React.ReactNode;
   workspaceId: string;
+  initialData?: any;
 }
 
-export function WorkspaceShell({ children, workspaceId }: WorkspaceShellProps) {
+export function WorkspaceShell({ children, workspaceId, initialData }: WorkspaceShellProps) {
   return (
-    <WorkspaceLayoutProvider workspaceId={workspaceId}>
+    <WorkspaceLayoutProvider workspaceId={workspaceId} initialData={initialData}>
       <WorkspaceShellContent>{children}</WorkspaceShellContent>
     </WorkspaceLayoutProvider>
   );
