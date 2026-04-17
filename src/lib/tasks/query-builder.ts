@@ -47,6 +47,10 @@ export function getTaskSelect(view_mode: string = "list"): Prisma.TaskSelect {
         assigneeId: true
     };
 
+    if (isList) {
+        select.description = true;
+    }
+
     // Include detailed createdBy only if NOT in Gantt view to save on payload/joins
     if (!isGantt) {
         select.createdBy = {
@@ -140,8 +144,10 @@ export function buildAssigneeFilter(memberIdOrUserId: string | string[]): Prisma
 /**
  * Checks if a user is an assignee of a task OR any of its subtasks.
  */
-export function buildParentAssigneeFilter(memberIdOrUserId: string | string[]): Prisma.TaskWhereInput {
+export function buildParentAssigneeFilter(memberIdOrUserId: string | string[], onlySubtasks = false): Prisma.TaskWhereInput {
     const leaf = buildAssigneeFilter(memberIdOrUserId);
+    if (onlySubtasks) return leaf;
+
     return {
         OR: [
             leaf,
@@ -439,7 +445,7 @@ function buildAccessScopeWhere(opts: WorkspaceFilterOpts, userId: string): Prism
     if (fullIds.length === 0) {
         return {
             projectId: { in: restrictedIds },
-            ...buildParentAssigneeFilter(userId)
+            ...buildParentAssigneeFilter(userId, opts.onlySubtasks)
         };
     }
 
@@ -449,7 +455,7 @@ function buildAccessScopeWhere(opts: WorkspaceFilterOpts, userId: string): Prism
             { projectId: { in: fullIds } },
             {
                 projectId: { in: restrictedIds },
-                ...buildParentAssigneeFilter(userId)
+                ...buildParentAssigneeFilter(userId, opts.onlySubtasks)
             }
         ]
     };

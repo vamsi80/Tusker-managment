@@ -14,6 +14,12 @@ export const getWorkspaceTags = cache(async (workspaceId: string) => {
                     where: {
                         workspaceId,
                     },
+                    select: {
+                        id: true,
+                        name: true,
+                        workspaceId: true,
+                        requirePurchase: true,
+                    },
                     orderBy: {
                         name: "asc",
                     },
@@ -44,7 +50,11 @@ export const getWorkspaceTagsWithCount = cache(async (workspaceId: string) => {
                     where: {
                         workspaceId,
                     },
-                    include: {
+                    select: {
+                        id: true,
+                        name: true,
+                        workspaceId: true,
+                        requirePurchase: true,
                         _count: {
                             select: {
                                 tasks: true,

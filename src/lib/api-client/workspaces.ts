@@ -135,13 +135,13 @@ export const workspacesClient = {
     },
 
     /**
-     * Get Kanban membership maps
+     * Get Project Assignment maps (members & leaders)
      */
-    getKanbanData: async (workspaceId: string): Promise<any> => {
-        const response = await apiFetch<{ success: boolean; data: any }>(`/workspaces/${workspaceId}/kanban`);
+    getAssignmentMaps: async (workspaceId: string): Promise<any> => {
+        const response = await apiFetch<{ success: boolean; data: any }>(`/workspaces/${workspaceId}/assignment-maps`);
         return {
-            projectLeadersMap: response.data.projectLeadersMap || {},
-            projectMembersMap: response.data.projectUserMap || {},
+            projectLeaders: response.data.projectLeaders || {},
+            projectAssignments: response.data.projectAssignments || {},
         };
     },
 
