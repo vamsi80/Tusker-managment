@@ -373,11 +373,19 @@ export class TasksService {
               orderBy: buildOrderBy(opts.sorts),
             });
 
+            // Use a map for O(n) grouping instead of O(n^2) nested filtering
+            const subtaskMap = new Map<string, any[]>();
+            subtasks.forEach(st => {
+              const pid = st.parentTaskId;
+              if (pid) {
+                if (!subtaskMap.has(pid)) subtaskMap.set(pid, []);
+                subtaskMap.get(pid)!.push(st);
+              }
+            });
+
             result.tasks.forEach((parent: any) => {
               if (parent.isParent) {
-                parent.subTasks = subtasks.filter(
-                  (st) => st.parentTaskId === parent.id,
-                );
+                parent.subTasks = subtaskMap.get(parent.id) || [];
               } else {
                 parent.subTasks = [];
               }

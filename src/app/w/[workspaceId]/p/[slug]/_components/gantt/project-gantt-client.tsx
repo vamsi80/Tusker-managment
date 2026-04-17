@@ -77,7 +77,7 @@ export function ProjectGanttClient({
     }, [clearFilters, workspaceId, projectId]);
 
     const [tasks, setTasks] = useState<GanttTask[]>(initialTasks);
-    const hasFetchedRef = useRef<boolean>(false);
+    const hasFetchedRef = useRef<boolean>(!isShell && !!(initialTasks && initialTasks.length > 0));
 
     useEffect(() => {
         // Skip if everything is already loaded and it's not a shell
