@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
 import { GanttTask } from "../../../../../../../components/task/gantt/types";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
@@ -27,6 +27,7 @@ interface ProjectGanttClientProps {
         leadProjectIds: string[];
         managedProjectIds: string[];
     };
+    isShell?: boolean;
 }
 
 export function ProjectGanttClient({
@@ -39,7 +40,8 @@ export function ProjectGanttClient({
     tags,
     projectCounts,
     currentUser,
-    permissions
+    permissions,
+    isShell = false
 }: ProjectGanttClientProps) {
     const { filters, setFilters, searchQuery, setSearchQuery, clearFilters } = useFilterStore();
     const [isPending, startTransition] = useTransition();
@@ -75,11 +77,11 @@ export function ProjectGanttClient({
     }, [clearFilters, workspaceId, projectId]);
 
     const [tasks, setTasks] = useState<GanttTask[]>(initialTasks);
-    const [isInitialLoad, setIsInitialLoad] = useState(true);
+    const hasFetchedRef = useRef<boolean>(false);
 
     useEffect(() => {
-        if (isInitialLoad) {
-            setIsInitialLoad(false);
+        // Skip if everything is already loaded and it's not a shell
+        if (!isShell && initialTasks.length > 0 && hasFetchedRef.current) {
             return;
         }
 
@@ -108,6 +110,7 @@ export function ProjectGanttClient({
                             if (t.subTasks) allFetchedTasks.push(...t.subTasks);
                         });
                         setTasks(transformToGanttTasks(allFetchedTasks));
+                        hasFetchedRef.current = true;
                     }
                 } catch (err) {
                     console.error("Failed to fetch gantt tasks:", err);

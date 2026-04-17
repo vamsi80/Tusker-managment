@@ -5,7 +5,7 @@ import { TaskFilters } from '@/components/task/shared/types';
 interface FilterState {
     filters: TaskFilters;
     searchQuery: string;
-    
+
     // Actions
     setFilters: (filters: TaskFilters | ((prev: TaskFilters) => TaskFilters)) => void;
     setSearchQuery: (query: string) => void;

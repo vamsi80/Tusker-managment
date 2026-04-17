@@ -165,7 +165,7 @@ export class TasksService {
       };
     }
 
-    return this._getTasksInternal(
+    const result = await this._getTasksInternal(
       workspaceId,
       userId,
       isWorkspaceAdmin,
@@ -173,6 +173,43 @@ export class TasksService {
       restrictedProjectIds,
       opts,
     );
+
+    this.stripParentMetadata(result);
+    return result;
+  }
+
+  private static stripParentMetadata(result: any) {
+    if (!result) return;
+    
+    const stripTask = (task: any) => {
+      if (task.isParent && !task.parentTaskId) {
+        delete task.assigneeId;
+        delete task.assignee;
+        delete task.description;
+        delete task.status;
+        delete task.dueDate;
+        delete task.startDate;
+        delete task.days;
+        delete task.createdBy;
+        delete task.createdById;
+        delete task.reviewer;
+        delete task.position;
+        delete task.tag;
+        delete task.tagId;
+        delete task.activities;
+        // Fields kept: id, name, taskSlug, isParent, parentTaskId, projectId, createdAt
+      }
+    };
+
+    if (result.tasks && Array.isArray(result.tasks)) {
+      result.tasks.forEach(stripTask);
+    }
+    
+    if (result.tasksByStatus) {
+      Object.keys(result.tasksByStatus).forEach(status => {
+         result.tasksByStatus[status].forEach(stripTask);
+      });
+    }
   }
 
   public static async resolveTaskPermissions(
@@ -650,7 +687,7 @@ export class TasksService {
     const [rawTasks] = await Promise.all([
       prisma.task.findMany({
         where,
-        select: getTaskSelect(opts.view_mode),
+        select: getTaskSelect(opts.view_mode, true), // TRUE for minimal parent select
         orderBy: buildOrderBy(opts.sorts),
         take: limit + 1,
       }),

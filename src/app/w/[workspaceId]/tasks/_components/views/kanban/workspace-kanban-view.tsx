@@ -92,10 +92,11 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
 
     return (
         <KanbanBoard
-            initialData={initialData}
+            initialData={initialData as any}
+            isShell={true}
             projectMembers={projectMembers as any}
             workspaceId={workspaceId}
-            projectId="" // Empty for workspace-level
+            projectId="" 
             projects={projectOptions}
             level="workspace"
             tags={tags.map(tag => ({ id: tag.id, name: tag.name }))}

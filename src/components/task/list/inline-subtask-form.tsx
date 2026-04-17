@@ -158,11 +158,10 @@ export function InlineSubTaskForm({
         const fetchMembers = async () => {
             if (projectId) {
                 try {
-                    // Start with passed members as fallback or loading state
-                    // Fetch real project members
+                    // Fetch real project members and filter out viewers
                     const pMembers = await getProjectMembers(projectId);
                     if (pMembers && pMembers.length > 0) {
-                        setAvailableMembers(pMembers);
+                        setAvailableMembers(pMembers.filter(m => m.projectRole !== "VIEWER"));
                     }
                 } catch (error) {
                     console.error("Failed to fetch project members", error);
@@ -437,13 +436,15 @@ export function InlineSubTaskForm({
                             <SelectValue placeholder="Select assignee..." className="truncate" />
                         </SelectTrigger>
                         <SelectContent>
-                            {availableMembers.map((member) => (
-                                <SelectItem key={member.userId} value={member.userId}>
-                                    <span className="truncate block">
-                                        {member.user.surname}
-                                    </span>
-                                </SelectItem>
-                            ))}
+                            {availableMembers
+                                .filter(m => m.projectRole !== "VIEWER")
+                                .map((member) => (
+                                    <SelectItem key={member.userId} value={member.userId}>
+                                        <span className="truncate block">
+                                            {member.user.surname || member.user.name}
+                                        </span>
+                                    </SelectItem>
+                                ))}
                         </SelectContent>
                     </Select>
                 </TableCell>

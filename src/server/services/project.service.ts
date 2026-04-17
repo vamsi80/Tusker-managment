@@ -1,7 +1,5 @@
 import prisma from "@/lib/db";
 import { ProjectRole } from "@/generated/prisma";
-import { CacheTags } from "@/data/cache-tags";
-import { revalidateTag } from "next/cache";
 
 export type ProjectMemberUI = {
   id: string; // userId
@@ -194,9 +192,19 @@ export class ProjectService {
   static async getProjectReviewers(projectId: string) {
     const members = await this.getMembers(projectId);
     // Filter for those who can actually review
-    return members.filter(m => 
-        ["OWNER", "ADMIN"].includes(m.workspaceRole || "") || 
+    // Reviewers include: Project Manager, Lead (Project Roles)
+    // AND Owner, Admin (Workspace Roles)
+    return members
+      .filter(m =>
+        ["OWNER", "ADMIN"].includes(m.workspaceRole || "") ||
         ["LEAD", "PROJECT_MANAGER"].includes(m.projectRole)
-    );
+      )
+      .map(m => ({
+        id: m.userId,
+        surname: m.user.surname,
+        role: (["OWNER", "ADMIN"].includes(m.workspaceRole || ""))
+          ? (m.workspaceRole as string)
+          : m.projectRole
+      }));
   }
 }

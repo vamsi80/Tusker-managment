@@ -1,6 +1,5 @@
 "use client";
 
-import * as React from "react";
 import { useState, useEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Bell, User, MessageSquare } from "lucide-react";
@@ -15,8 +14,6 @@ import { getNotificationsAction, markTaskCommentsReadAction } from "@/actions/co
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatDistanceToNow } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import Link from "next/link";
-
 import {
     Tabs,
     TabsContent,
@@ -55,10 +52,10 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
         if (!workspaceId) return;
 
         console.log(`[NOTIF_CENTER] Listening to PubSub for workspace: ${workspaceId}`);
-        
+
         const unsubscribe = pubsub.subscribe(EVENTS.APP_ACTIVITY_LOG, (data: any) => {
             console.log("[NOTIF_CENTER] PubSub message received:", data.action, data);
-            
+
             // Only handle targeted actions
             if (data.action === "COMMENT_CREATED") {
                 // Pulse and update if NOT the current user
@@ -170,12 +167,15 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
     return (
         <Popover open={isOpen} onOpenChange={(open) => {
             setIsOpen(open);
-            if (open) loadNotifications();
+            if (open) {
+                console.log("🔔 [NOTIF_CENTER] Opening Notification Center...");
+                loadNotifications();
+            }
         }}>
             <PopoverTrigger asChild>
-                <Button 
-                    variant="ghost" 
-                    size="icon" 
+                <Button
+                    variant="ghost"
+                    size="icon"
                     className={cn(
                         "relative h-9 w-9 rounded-full transition-all",
                         isPulsing && "ring-2 ring-primary ring-offset-2 bg-primary/10"

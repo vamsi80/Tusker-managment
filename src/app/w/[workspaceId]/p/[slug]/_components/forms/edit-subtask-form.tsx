@@ -683,14 +683,24 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                                                             onSelect={() => {
                                                                                 field.onChange(userId);
                                                                             }}
+                                                                            className="flex justify-between items-center"
                                                                         >
-                                                                            <Check
-                                                                                className={cn(
-                                                                                    "mr-2 h-4 w-4",
-                                                                                    isSelected ? "opacity-100" : "opacity-0"
-                                                                                )}
-                                                                            />
-                                                                            {userName}
+                                                                            <div className="flex items-center">
+                                                                                <Check
+                                                                                    className={cn(
+                                                                                        "mr-2 h-4 w-4",
+                                                                                        isSelected ? "opacity-100" : "opacity-0"
+                                                                                    )}
+                                                                                />
+                                                                                {userName}
+                                                                            </div>
+                                                                            {reviewer.role && (
+                                                                                <span className="text-[10px] text-muted-foreground ml-2">
+                                                                                    {reviewer.role === "PROJECT_MANAGER" ? "PM" : 
+                                                                                     reviewer.role === "LEAD" ? "Lead" : 
+                                                                                     reviewer.role}
+                                                                                </span>
+                                                                            )}
                                                                         </CommandItem>
                                                                     );
                                                                 })}

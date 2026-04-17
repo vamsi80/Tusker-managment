@@ -28,6 +28,7 @@ import {
   type SortConfig,
   type SortField,
   hasActiveFilters,
+  getActiveFilters,
 } from "@/components/task/shared/types";
 import { GlobalFilterToolbar } from "../shared/global-filter-toolbar";
 import { ColumnVisibility } from "../shared/column-visibility";
@@ -68,6 +69,7 @@ interface TaskTableProps {
     name: string;
     canManageMembers?: boolean;
     color?: string;
+    managedProjectIds?: string[];
   }[];
   leadProjectIds?: string[];
   isWorkspaceAdmin?: boolean;
@@ -75,6 +77,7 @@ interface TaskTableProps {
   permissions?: UserPermissionsType;
   userId?: string;
   projectCounts?: Record<string, number>;
+  isShell?: boolean;
 }
 
 const DEFAULT_TAGS: { id: string; name: string }[] = [];
@@ -99,6 +102,7 @@ function TaskTable({
   initialNextCursor,
   initialTotalCount,
   projectCounts,
+  isShell = false,
 }: TaskTableProps) {
   const { filters, setFilters, searchQuery, setSearchQuery, clearFilters } = useFilterStore();
   const debouncedSetFilters = useCallback(debounce(setFilters, 200), [
@@ -145,6 +149,7 @@ function TaskTable({
   const autoExpandRef = useRef(false);
   const processedSubTasksRef = useRef<Set<string>>(new Set());
   const fetchingSubTasksRef = useRef<Set<string>>(new Set());
+  const hasFetchedRef = useRef(false);
 
   const hydrateTasks = useCallback(
     (taskList: TaskWithSubTasks[]) => {
@@ -313,6 +318,7 @@ function TaskTable({
     } finally {
       if (!isAbortedRef.current) {
         setIsLoadingFilters(false);
+        hasFetchedRef.current = true;
       }
     }
   }, [workspaceId, projectId, level, filters, searchQuery, sorts, hydrateTasks]);
@@ -435,6 +441,8 @@ function TaskTable({
         ...prev,
         [targetProjectId]: { ...currentPagination, isLoading: false },
       }));
+    } finally {
+      hasFetchedRef.current = true;
     }
   }, [workspaceId, filters, searchQuery, projectPagination, hydrateTasks, filtersActive, loadingSubTasks]);
 
@@ -564,7 +572,9 @@ function TaskTable({
     const cache = useTaskCacheStore.getState().getProjectTasksCache(projectId || "");
     const hasCacheData = cache && cache.tasks.length > 0;
 
-    if (!hasInitialData && !hasCacheData && !filtersActive) {
+    const shouldInitialFetch = (!hasInitialData || isShell || !hasFetchedRef.current);
+    
+    if (shouldInitialFetch && !filtersActive) {
       if (level === "project" && projectId) {
         loadProjectTasks(projectId);
       } else {
@@ -572,7 +582,7 @@ function TaskTable({
       }
     }
     return () => { isAbortedRef.current = true; };
-  }, [fetchFiltered, loadProjectTasks, initialTasks, projectId, level, filtersActive]);
+  }, [fetchFiltered, loadProjectTasks, initialTasks, projectId, level, filtersActive, isShell]);
 
   useEffect(() => {
     if (!filtersActive) return;
@@ -662,9 +672,23 @@ function TaskTable({
     const isAbortedRef = { current: false };
 
     // Skip if nothing changed AND we already have data
-    const isBaseProjectView = !searchQuery && Object.keys(filters).length === 0;
-    if (isBaseProjectView && tasks.length > 0) {
-      setIsCurrentlyFiltered(false);
+    // 🛡️ Standardized Filter Detection
+    const activeFilters = hasActiveFilters(filters);
+    const isBaseProjectView = !searchQuery && (!activeFilters || 
+      (getActiveFilters(filters).length === 1 && filters.projectId === projectId));
+
+    if (isBaseProjectView && hasFetchedRef.current) {
+      if (isCurrentlyFiltered || tasks.length === 0) {
+        // Reset to initial data OR cache
+        const cache = useTaskCacheStore.getState().getProjectTasksCache(projectId || "");
+        if (cache && cache.tasks.length > 0) {
+           setTasks(hydrateTasks(cache.tasks));
+        } else {
+           setTasks(hydrateTasks(initialTasks));
+        }
+        setProjectPagination({});
+        setIsCurrentlyFiltered(false);
+      }
       setIsLoadingFilters(false);
       return;
     }

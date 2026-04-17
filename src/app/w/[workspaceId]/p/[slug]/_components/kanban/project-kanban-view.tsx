@@ -51,7 +51,7 @@ export function ProjectKanbanView({
             currentPage: 1
         };
         return acc;
-    }, {} as any);
+    }, { isShell: true } as any);
 
     return (
         <KanbanBoard

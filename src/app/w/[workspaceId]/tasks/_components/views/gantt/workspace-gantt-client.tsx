@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
-import { useState, useMemo, useTransition, useEffect } from "react";
+import { useState, useMemo, useTransition, useEffect, useRef } from "react";
 import { GanttTask } from "@/components/task/gantt/types";
 import { GanttChart } from "@/components/task/gantt/gantt-chart";
 import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
@@ -11,6 +11,7 @@ import {
   MemberOption,
   TaskFilters,
   TagOption,
+  hasActiveFilters,
 } from "@/components/task/shared/types";
 import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
@@ -32,6 +33,7 @@ interface WorkspaceGanttClientProps {
     leadProjectIds: string[];
     managedProjectIds: string[];
   };
+  isShell?: boolean;
 }
 
 export function WorkspaceGanttClient({
@@ -45,6 +47,7 @@ export function WorkspaceGanttClient({
   projectCounts,
   currentUser,
   permissions,
+  isShell = false,
 }: WorkspaceGanttClientProps) {
   const { filters, setFilters, searchQuery, setSearchQuery, clearFilters } = useFilterStore();
   const [isPending, startTransition] = useTransition();
@@ -81,15 +84,25 @@ export function WorkspaceGanttClient({
   );
 
   const [tasks, setTasks] = useState<GanttTask[]>(initialTasks);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const hasFetchedRef = useRef(false);
 
   useEffect(() => {
-    if (isInitialLoad) {
-      setIsInitialLoad(false);
-      return;
+    // Skip if everything is already loaded and it's not a shell
+    if (!isShell && initialTasks.length > 0 && hasFetchedRef.current) {
+        return;
     }
 
     const fetchTasks = async () => {
+      const activeFilters = hasActiveFilters(filters);
+      const isBaseView = !searchQuery && !activeFilters;
+
+      if (isBaseView) {
+        if (tasks.length === 0 || tasks.length !== initialTasks.length) {
+          setTasks(initialTasks);
+        }
+        return;
+      }
+
       const params = new URLSearchParams();
       params.append("w", workspaceId);
       if (filters.projectId) params.append("p", filters.projectId);
@@ -122,11 +135,8 @@ export function WorkspaceGanttClient({
               allFetchedTasks.push(t);
               if (t.subTasks) allFetchedTasks.push(...t.subTasks);
             });
-            console.log(
-              "🟦 [GANTT CLIENT] Workspace fetched tasks (flattened):",
-              allFetchedTasks.length,
-            );
             setTasks(transformToGanttTasks(allFetchedTasks));
+            hasFetchedRef.current = true;
           }
         } catch (err) {
           console.error("Failed to fetch gantt tasks:", err);
@@ -166,7 +176,7 @@ export function WorkspaceGanttClient({
         tasksByProject[pid].push(t);
       });
 
-      Object.entries(tasksByProject).forEach(([pid, tasks]) => {});
+      Object.entries(tasksByProject).forEach(([pid, tasks]) => { });
     }
   }, [allTasks]);
 
@@ -258,11 +268,11 @@ export function WorkspaceGanttClient({
                 t.id === subTaskId
                   ? { ...t, ...data }
                   : {
-                      ...t,
-                      subtasks: t.subtasks?.map(s =>
-                        s.id === subTaskId ? { ...s, ...data } : s
-                      )
-                    }
+                    ...t,
+                    subtasks: t.subtasks?.map(s =>
+                      s.id === subTaskId ? { ...s, ...data } : s
+                    )
+                  }
               )
             );
           }}
