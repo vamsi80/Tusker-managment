@@ -194,13 +194,20 @@ export function WorkspaceGanttClient({
     let subtaskData = subtaskDataMap[subtaskId];
     if (!subtaskData) {
       // Read directly from store state WITHOUT subscribing the component
-      subtaskData = useTaskCacheStore.getState().entities[subtaskId];
+      subtaskData = (useTaskCacheStore.getState() as any).entities[subtaskId];
     }
-
     if (subtaskData) {
       openSubTaskSheet(subtaskData);
     }
   };
+
+  // 🧹 Filter Reset Logic: Ensures a clean slate when navigating between different views
+  // Persists filters during forward routing within the same project/view.
+  useEffect(() => {
+    return () => {
+      clearFilters();
+    };
+  }, [clearFilters, workspaceId]);
 
   return (
     <div className="space-y-4">

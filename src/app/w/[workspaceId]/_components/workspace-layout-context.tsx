@@ -11,7 +11,6 @@ interface WorkspaceLayoutContextType {
   tags: any[];
   workspaceId: string;
   isLoading: boolean;
-  kanbanMetadata: { projectLeadersMap: Record<string, any[]>; projectMembersMap: Record<string, any[]> } | null;
   revalidate: () => Promise<void>;
 }
 
@@ -27,33 +26,27 @@ export function WorkspaceLayoutProvider({
   workspaceId: string;
 }) {
   const [data, setData] = useState<LayoutData | null>(initialData || null);
-  const [tags, setTags] = useState<any[]>([]);
-  const [kanbanMetadata, setKanbanMetadata] = useState<any>(null);
+  const [tags, setTags] = useState<any[]>(initialData?.tags || []);
   const [isLoading, setIsLoading] = useState(!initialData);
+  const lastFetchTimeRef = React.useRef<number>(initialData ? Date.now() : 0);
+  const THROTTLE_MS = 45000; // 45 seconds
 
   const fetchLayout = useCallback(async (isSilent = false) => {
+    // 🛡️ Throttle check: Skip if we fetched very recently (e.g. within 45s)
+    if (isSilent && Date.now() - lastFetchTimeRef.current < THROTTLE_MS) {
+        return;
+    }
+
     try {
       if (!isSilent) setIsLoading(true);
       
-      // Fetch core layout and metadata in parallel, but handle tags and kanban independently for resilience
-      const [fetchedData, fetchedTags, fetchedKanban] = await Promise.allSettled([
-        workspacesClient.getLayoutData(workspaceId),
-        workspacesClient.getTags(workspaceId),
-        workspacesClient.getKanbanData(workspaceId)
-      ]);
-
-      if (fetchedData.status === "fulfilled") {
-        setData(fetchedData.value);
-      }
+      const fetchedData = await workspacesClient.getLayoutData(workspaceId);
       
-      if (fetchedTags.status === "fulfilled") {
-        setTags(fetchedTags.value || []);
+      if (fetchedData) {
+        setData(fetchedData);
+        setTags(fetchedData.tags || []);
+        lastFetchTimeRef.current = Date.now();
       }
-
-      if (fetchedKanban.status === "fulfilled") {
-        setKanbanMetadata(fetchedKanban.value || null);
-      }
-
     } catch (error) {
       console.error("Failed to fetch workspace layout:", error);
     } finally {
@@ -66,15 +59,20 @@ export function WorkspaceLayoutProvider({
   }, [fetchLayout]);
 
   useEffect(() => {
-    if (initialData) {
+    // 🛡️ Data Integrity Guard: Only sync if initialData is valid.
+    // We ignore "safe empty" objects (where isError is true) that may arrive 
+    // during transient background re-validations (e.g. on window focus).
+    if (initialData && !(initialData as any).isError && (initialData as any).user) {
       setData(initialData);
+      setTags(initialData.tags || []);
       setIsLoading(false);
-      // Trigger background fetch for metadata not included in initialData
-      fetchLayout(true);
-    } else {
+    } else if (!data && !initialData) {
+      // First load or no data at all
       fetchLayout();
+    } else if (initialData && (initialData as any).isError) {
+       console.warn("[WorkspaceLayout] Ignoring transient background re-validation error to preserve UI state.");
     }
-  }, [workspaceId, initialData, fetchLayout]);
+  }, [workspaceId, initialData, fetchLayout, data]);
 
   // Provide a safe default for when data is loading
   const contextValue: WorkspaceLayoutContextType = {
@@ -94,7 +92,6 @@ export function WorkspaceLayoutProvider({
         }
     },
     tags,
-    kanbanMetadata,
     workspaceId,
     isLoading,
     revalidate
