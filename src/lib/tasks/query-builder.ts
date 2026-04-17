@@ -105,7 +105,7 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
     }
 
     // 4. Extended Info: Description & Reviewer
-    if (isList || isSearch || isCalendar || isGantt || isSubtask) {
+    if (isList || isSearch || isCalendar || isSubtask) {
         select.reviewer = {
             select: {
                 workspaceMember: { select: { user: { select: { surname: true } } } }

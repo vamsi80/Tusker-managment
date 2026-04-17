@@ -149,6 +149,8 @@ function TaskTable({
   const autoExpandRef = useRef(false);
   const processedSubTasksRef = useRef<Set<string>>(new Set());
   const fetchingSubTasksRef = useRef<Set<string>>(new Set());
+  const fetchingIdsRef = useRef<Set<string>>(new Set()); // Lock for parent/project fetches
+  const isInitialMountRef = useRef<boolean>(true);
   const hasFetchedRef = useRef(false);
 
   const hydrateTasks = useCallback(
@@ -251,6 +253,11 @@ function TaskTable({
       if (filters.startDate) params.set("da", new Date(filters.startDate).toISOString());
       if (filters.endDate) params.set("db", new Date(filters.endDate).toISOString());
       if (sorts.length > 0) params.set("sorts", JSON.stringify(sorts));
+      
+      const fetchKey = `filtered-${params.toString()}`;
+      if (fetchingIdsRef.current.has(fetchKey)) return;
+      fetchingIdsRef.current.add(fetchKey);
+      hasFetchedRef.current = true;
 
       const apiRes = await fetch(`/api/v1/tasks?${params.toString()}`);
       const response = await apiRes.json();
@@ -316,9 +323,27 @@ function TaskTable({
       console.error("Failed to filter tasks:", err);
       if (!isAbortedRef.current) toast.error("Failed to load tasks");
     } finally {
+      const params = new URLSearchParams();
+      params.set("w", workspaceId);
+      if (level === "project" && projectId) params.set("p", projectId);
+      params.set("vm", "list");
+      params.set("hm", "parents");
+      params.set("l", "20");
+      params.set("sub", "false");
+      params.set("facets", "true");
+      if (filters.status) params.set("s", filters.status);
+      if (filters.assigneeId) params.set("a", filters.assigneeId);
+      if (filters.tagId) params.set("t", filters.tagId);
+      if (searchQuery) params.set("q", searchQuery);
+      if (filters.startDate) params.set("da", new Date(filters.startDate).toISOString());
+      if (filters.endDate) params.set("db", new Date(filters.endDate).toISOString());
+      if (sorts.length > 0) params.set("sorts", JSON.stringify(sorts));
+      
+      const fetchKey = `filtered-${params.toString()}`;
+      fetchingIdsRef.current.delete(fetchKey);
+
       if (!isAbortedRef.current) {
         setIsLoadingFilters(false);
-        hasFetchedRef.current = true;
       }
     }
   }, [workspaceId, projectId, level, filters, searchQuery, sorts, hydrateTasks]);
@@ -357,6 +382,10 @@ function TaskTable({
       if (searchQuery) params.set("q", searchQuery);
       if (filters.startDate) params.set("da", new Date(filters.startDate).toISOString());
       if (filters.endDate) params.set("db", new Date(filters.endDate).toISOString());
+
+      const fetchKey = `project-${targetProjectId}-${params.toString()}`;
+      if (fetchingIdsRef.current.has(fetchKey)) return;
+      fetchingIdsRef.current.add(fetchKey);
 
       const apiRes = await fetch(`/api/v1/tasks?${params.toString()}`);
       const response = await apiRes.json();
@@ -442,9 +471,25 @@ function TaskTable({
         [targetProjectId]: { ...currentPagination, isLoading: false },
       }));
     } finally {
-      hasFetchedRef.current = true;
+      const params = new URLSearchParams();
+      params.set("w", workspaceId);
+      if (targetProjectId !== "__global_filter__") params.set("p", targetProjectId);
+      params.set("vm", "list");
+      params.set("hm", "parents");
+      params.set("sub", targetProjectId === "__global_filter__" ? "true" : "false"); 
+      params.set("l", "20");
+      if (projectPagination[targetProjectId]?.nextCursor) params.set("c", JSON.stringify(projectPagination[targetProjectId].nextCursor));
+      if (filters.status) params.set("s", filters.status);
+      if (filters.assigneeId) params.set("a", filters.assigneeId);
+      if (filters.tagId) params.set("t", filters.tagId);
+      if (searchQuery) params.set("q", searchQuery);
+      if (filters.startDate) params.set("da", new Date(filters.startDate).toISOString());
+      if (filters.endDate) params.set("db", new Date(filters.endDate).toISOString());
+
+      const fetchKey = `project-${targetProjectId}-${params.toString()}`;
+      fetchingIdsRef.current.delete(fetchKey);
     }
-  }, [workspaceId, filters, searchQuery, projectPagination, hydrateTasks, filtersActive, loadingSubTasks]);
+  }, [workspaceId, filters, searchQuery, projectPagination, hydrateTasks, filtersActive, loadingSubTasks, level]);
 
   useEffect(() => {
     tasksRef.current = tasks;
@@ -585,6 +630,14 @@ function TaskTable({
   }, [fetchFiltered, loadProjectTasks, initialTasks, projectId, level, filtersActive, isShell]);
 
   useEffect(() => {
+    // Release the mount guard once initial cycle is potentially settled
+    const timer = setTimeout(() => {
+        isInitialMountRef.current = false;
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
     if (!filtersActive) return;
 
     setExpandedProjects((prev) => {
@@ -630,6 +683,10 @@ function TaskTable({
           entries.forEach((entry) => {
             if (entry.isIntersecting) {
               const projectId = (entry.target as HTMLElement).dataset.projectId;
+              
+              // 🛡️ MOUNT GUARD: Ignore intersection fetches during first second of mount
+              // This prevents 5-10 parallel project fetches firing before data settles.
+              if (isInitialMountRef.current) return;
 
               if (projectId === "sorted") {
                 loadMoreSortedRef.current?.();
