@@ -1,9 +1,11 @@
-"use client";
 import dynamic from "next/dynamic";
-import { useEffect } from "react";
+import { getWorkspaceTags } from "@/data/tag/get-tags";
+import { getProjectMembers } from "@/data/project/get-project-members";
+import { getUserPermissions } from "@/data/user/get-user-permissions";
+import { requireUser } from "@/lib/auth/require-user";
+import { getTasks } from "@/data/task/get-tasks";
+import type { TaskWithSubTasks } from "@/components/task/shared/types";
 import { AppLoader } from "@/components/shared/app-loader";
-import { useProjectLayout } from "../project-layout-context";
-import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 
 const TaskTable = dynamic(() => import("@/components/task/list/task-table"), {
     loading: () => <div className="h-[60vh] w-full flex items-center justify-center text-muted-foreground animate-pulse">Loading Tasks...</div>
@@ -16,42 +18,58 @@ interface ProjectTaskListViewProps {
 }
 
 /**
- * ProjectTaskListView
- * Consumes shared metadata (members, permissions, tags) from contexts.
+ * ProjectTaskListView (Server Component)
+ * Hydrates initial tasks, members, and permissions on the server for sub-second 
+ * interaction and consistent infinite scroll behavior.
  */
-export function ProjectTaskListView({
+export async function ProjectTaskListView({
     workspaceId,
     projectId,
-    userId,
+    userId: propUserId,
 }: ProjectTaskListViewProps) {
-    const { tags, revalidate: revalidateWorkspace } = useWorkspaceLayout();
-    const { projectMembers, projectPermissions, isLoading: isProjectLoading, revalidate: revalidateProject } = useProjectLayout();
+    // 1. Get current user (server-side authentication)
+    const user = await requireUser();
+    
+    // 2. Fetch initial data in parallel for speed
+    const [tagsData, members, permissions, tasksData] = await Promise.all([
+        getWorkspaceTags(workspaceId),
+        getProjectMembers({ workspaceId, projectId }),
+        getUserPermissions(workspaceId, projectId, user.id),
+        getTasks({
+            workspaceId,
+            projectId,
+            hierarchyMode: "parents",
+            includeSubTasks: false,
+            page: 1,
+            limit: 50,
+            view_mode: "list"
+        }, user.id)
+    ]);
 
-    useEffect(() => {
-        // Trigger background revalidation on mount
-        revalidateWorkspace();
-        revalidateProject();
-    }, [revalidateWorkspace, revalidateProject]);
+    const tags = tagsData.map(tag => ({
+        id: tag.id,
+        name: tag.name,
+    }));
 
-    if (isProjectLoading) {
-        return <AppLoader />;
-    }
+    const initialTasks = (tasksData.tasks || []).map(t => ({
+        ...t,
+        subTasks: (t as any).subTasks
+    })) as TaskWithSubTasks[];
 
     return (
         <TaskTable
-            initialTasks={[]}
-            initialHasMore={false}
-            initialNextCursor={null}
-            members={projectMembers}
+            initialTasks={initialTasks}
+            initialHasMore={tasksData.hasMore}
+            initialNextCursor={tasksData.nextCursor}
+            initialTotalCount={tasksData.totalCount ?? undefined}
+            members={members as any}
             workspaceId={workspaceId}
             projectId={projectId}
-            canCreateSubTask={projectPermissions.canCreateSubTask}
-            permissions={projectPermissions}
-            userId={userId}
-            tags={(tags || []).map((tag: any) => ({
-                id: tag.id,
-                name: tag.name,
-            }))}
+            canCreateSubTask={permissions.canCreateSubTask}
+            permissions={permissions}
+            userId={user.id}
+            level="project"
+            tags={tags}
         />
     );
 }

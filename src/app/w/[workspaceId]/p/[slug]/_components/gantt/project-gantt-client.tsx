@@ -67,6 +67,13 @@ export function ProjectGanttClient({
         });
     };
 
+    // 🧹 Filter Reset Logic: Ensures a clean slate when navigating between different views
+    useEffect(() => {
+        return () => {
+            clearFilters();
+        };
+    }, [clearFilters, workspaceId, projectId]);
+
     const [tasks, setTasks] = useState<GanttTask[]>(initialTasks);
     const [isInitialLoad, setIsInitialLoad] = useState(true);
 

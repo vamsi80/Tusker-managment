@@ -255,22 +255,22 @@ workspaces.get("/:workspaceId/layout", async (c) => {
 });
 
 /**
- * GET /api/v1/workspaces/:workspaceId/kanban
- * Get project membership maps for Kanban
+ * GET /api/v1/workspaces/:workspaceId/assignment-maps
+ * Get project assignment maps (members & leaders)
  */
-workspaces.get("/:workspaceId/kanban", async (c) => {
+workspaces.get("/:workspaceId/assignment-maps", async (c) => {
   const workspaceId = c.req.param("workspaceId");
 
-  const [pmMap, leadersMap] = await Promise.all([
-    WorkspaceService.getWorkspaceProjectMembersMap(workspaceId),
-    WorkspaceService.getWorkspaceProjectManagersMap(workspaceId),
+  const [assignments, leaders] = await Promise.all([
+    WorkspaceService.getWorkspaceProjectAssignments(workspaceId),
+    WorkspaceService.getWorkspaceProjectLeaders(workspaceId),
   ]);
 
   return c.json({
     success: true,
     data: {
-      projectUserMap: pmMap,
-      projectLeadersMap: leadersMap,
+      projectAssignments: assignments,
+      projectLeaders: leaders,
     },
   });
 });

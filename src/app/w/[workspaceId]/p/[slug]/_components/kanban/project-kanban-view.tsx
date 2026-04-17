@@ -16,32 +16,31 @@ interface ProjectKanbanViewProps {
     userId: string;
 }
 
-/**
- * ProjectKanbanView
- * Consumes shared metadata (members, permissions, leader maps) from contexts.
- */
 export function ProjectKanbanView({
     workspaceId,
     projectId,
     userId,
 }: ProjectKanbanViewProps) {
-    const { kanbanMetadata, revalidate: revalidateWorkspace } = useWorkspaceLayout();
     const { projectMembers, projectPermissions, isLoading: isProjectLoading, revalidate: revalidateProject } = useProjectLayout();
 
     useEffect(() => {
-        // Trigger background revalidation on mount
-        revalidateWorkspace();
+        // Background revalidation of workspace layout is now handled by the LayoutProvider
         revalidateProject();
-    }, [revalidateWorkspace, revalidateProject]);
+    }, [revalidateProject]);
 
-    // Allow rendering if project loading is done, even if kanbanMetadata is still fetching
+    // Allow rendering if project loading is done
     if (isProjectLoading) {
         return <AppLoader />;
     }
-    
-    // Fallback metadata if still null
-    const metadata = kanbanMetadata || { projectLeadersMap: {}, projectMembersMap: {} };
-    
+
+    // 🚀 Project Manager Derivation (Localized Optimization)
+    // Derive managers directly from the project members list instead of relying on global metadata
+    const projectManagers = {
+        [projectId]: projectMembers
+            .filter(m => m.projectRole === "LEAD" || m.projectRole === "PROJECT_MANAGER")
+            .map(m => m.userId)
+    };
+
     const COLUMNS = ["TO_DO", "IN_PROGRESS", "REVIEW", "HOLD", "COMPLETED", "CANCELLED"] as const;
     const initialData = COLUMNS.reduce((acc, status) => {
         acc[status] = {
@@ -53,14 +52,14 @@ export function ProjectKanbanView({
         };
         return acc;
     }, {} as any);
-    
+
     return (
         <KanbanBoard
             initialData={initialData}
             projectMembers={projectMembers as any}
             workspaceId={workspaceId}
             projectId={projectId}
-            projectManagers={metadata.projectLeadersMap || {}}
+            projectManagers={projectManagers}
             permissions={projectPermissions}
             userId={userId}
         />
