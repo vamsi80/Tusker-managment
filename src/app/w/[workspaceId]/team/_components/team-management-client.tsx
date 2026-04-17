@@ -27,9 +27,8 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
                 const membersRes = await workspacesClient.getMembers(workspaceId);
                 setMembers(membersRes.data?.workspaceMembers || []);
                 
-                // Trigger background revalidation of layout data (perms, etc) 
-                // to satisfy the "revalidate on navigation" requirement
-                revalidate();
+                // Background revalidation is now handled by the LayoutProvider's throttle policy
+                // No need to manually trigger it here on every navigation
             } catch (error) {
                 console.error("Failed to fetch team data:", error);
             } finally {
@@ -38,9 +37,9 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
         }
 
         fetchData();
-    }, [workspaceId, revalidate]);
+    }, [workspaceId]);
 
-    if (layoutLoading || isLoadingMembers) {
+    if (isLoadingMembers) {
         return <AppLoader />;
     }
 

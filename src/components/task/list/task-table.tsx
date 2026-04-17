@@ -210,6 +210,14 @@ function TaskTable({
     }
     return {};
   });
+  
+  // 🧹 Filter Reset Logic: Ensures a clean slate when navigating between different views
+  // This satisfies the user request to have filters reset to neutral when switching pages.
+  useEffect(() => {
+    return () => {
+      clearFilters();
+    };
+  }, [clearFilters, workspaceId, projectId]);
 
   const mode = useMemo(() => {
     return sorts.length > 0 ? "sorted" : "hierarchy";
@@ -638,16 +646,17 @@ function TaskTable({
     setTasks(hydrateTasks(initialTasks));
 
     if (level === "project" && projectId) {
-      setProjectPagination({
+      setProjectPagination((prev) => ({
+        ...prev,
         [projectId]: {
           page: 1,
           nextCursor: initialNextCursor,
           hasMore: initialHasMore,
           isLoading: false,
         },
-      });
+      }));
     }
-  }, [mode, initialTasks]);
+  }, [mode, initialTasks, initialHasMore, initialNextCursor, projectId, level]);
 
   useEffect(() => {
     const isAbortedRef = { current: false };

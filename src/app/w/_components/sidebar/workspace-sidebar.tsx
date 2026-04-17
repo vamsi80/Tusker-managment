@@ -1,18 +1,18 @@
 "use client";
 
 import * as React from "react";
-import { 
-    Sidebar, 
-    SidebarContent, 
-    SidebarFooter, 
-    SidebarHeader, 
-    SidebarMenu, 
-    SidebarMenuItem, 
-    SidebarMenuButton,
-    SidebarGroup,
-    SidebarGroupLabel,
-    SidebarGroupContent,
-    SidebarSeparator
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarGroupContent,
+  SidebarSeparator
 } from "@/components/ui/sidebar";
 import { NavUser } from "./footer/nav-user";
 import { NavMain } from "./header/nav-main";
@@ -35,10 +35,10 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
 
   // Navigation items for the main workspace section
   const mainNavItems = [
-      { id: "dashboard", title: "Dashboard", url: `/w/${workspaceId}`, icon: LayoutDashboard },
-      { id: "team", title: "Team", url: `/w/${workspaceId}/team`, icon: Users },
-      { id: "tasks", title: "Tasks", url: `/w/${workspaceId}/tasks`, icon: CheckSquare },
-    ];
+    { id: "dashboard", title: "Dashboard", url: `/w/${workspaceId}`, icon: LayoutDashboard },
+    { id: "team", title: "Team", url: `/w/${workspaceId}/team`, icon: Users },
+    { id: "tasks", title: "Tasks", url: `/w/${workspaceId}/tasks`, icon: CheckSquare },
+  ];
 
   const currentWorkspace = workspaces.workspaces.find((ws: any) => ws.id === workspaceId);
   const isOwner = currentWorkspace?.workspaceRole === "OWNER";
@@ -48,11 +48,11 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
     url: string;
     icon: "Settings" | "BarChart3" | "LayoutDashboard";
   }> = [
-      {
-        title: isOwner ? "Member Board" : "My Board",
-        url: `/w/${workspaceId}/my-board`,
-        icon: "LayoutDashboard"
-      },
+      // {
+      //   title: isOwner ? "Member Board" : "My Board",
+      //   url: `/w/${workspaceId}/my-board`,
+      //   icon: "LayoutDashboard"
+      // },
       { title: "Reports", url: `/w/${workspaceId}/reports`, icon: "BarChart3" },
       { title: "Settings", url: `/w/${workspaceId}/settings`, icon: "Settings" },
     ];
@@ -69,47 +69,47 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
 
       <SidebarContent>
         <SidebarGroup>
-            <SidebarGroupLabel className="px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                Workspace
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-                <SidebarMenu>
-                    {mainNavItems.map((item) => (
-                        <SidebarMenuItem key={item.id}>
-                            <SidebarMenuButton 
-                                asChild 
-                                isActive={pathname === item.url}
-                                tooltip={item.title}
-                            >
-                                <Link href={item.url}>
-                                    <item.icon />
-                                    <span>{item.title}</span>
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
-                    ))}
-                </SidebarMenu>
-            </SidebarGroupContent>
+          <SidebarGroupLabel className="px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+            Workspace
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {mainNavItems.map((item) => (
+                <SidebarMenuItem key={item.id}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === item.url}
+                    tooltip={item.title}
+                  >
+                    <Link href={item.url}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
         </SidebarGroup>
 
         <SidebarSeparator className="mx-0" />
 
         {projects && (
-            <NavProjects
-                projects={projects}
-                workspaceId={workspaceId}
-                isAdmin={permissions?.isWorkspaceAdmin ?? false}
-                canCreateProject={permissions?.canCreateProject ?? permissions?.isWorkspaceAdmin ?? false}
-                userRole={permissions?.workspaceRole}
-                currentUserId={data.user?.id}
-            />
+          <NavProjects
+            projects={projects}
+            workspaceId={workspaceId}
+            isAdmin={permissions?.isWorkspaceAdmin ?? false}
+            canCreateProject={permissions?.canCreateProject ?? permissions?.isWorkspaceAdmin ?? false}
+            userRole={permissions?.workspaceRole}
+            currentUserId={data.user?.id}
+          />
         )}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border/50 p-4">
         <NavFooter items={footerNavItems} />
         <div className="mt-4">
-            <NavUser />
+          <NavUser />
         </div>
       </SidebarFooter>
     </Sidebar>

@@ -157,6 +157,15 @@ export function KanbanBoard({
     return map;
   });
 
+  // 🧹 Filter Reset Logic: Ensures a clean slate when navigating between different views
+  const { filters, setFilters, searchQuery, setSearchQuery, clearFilters } = useFilterStore();
+  
+  useEffect(() => {
+    return () => {
+      clearFilters();
+    };
+  }, [clearFilters, workspaceId, projectId]);
+
   // -------------------------------------------------------------------------
   // 🚀 SURGICAL SYNC: Listen for store updates (moves/surgical sync)
   // -------------------------------------------------------------------------
@@ -351,8 +360,6 @@ export function KanbanBoard({
     previousStatus: TaskStatus;
     targetStatus: TaskStatus;
   } | null>(null);
-
-  const { filters, setFilters, searchQuery, setSearchQuery, clearFilters } = useFilterStore();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -774,7 +781,6 @@ export function KanbanBoard({
   ) => {
     const fromIds = columnData[fromStatus].subTaskIds;
     const hasTask = fromIds.includes(subTaskId);
-
     if (!hasTask) return;
 
     const toIds = columnData[toStatus].subTaskIds;
@@ -788,19 +794,23 @@ export function KanbanBoard({
       ? columnData[toStatus].totalCount
       : columnData[toStatus].totalCount + 1;
 
-    setColumnData((prev) => ({
-      ...prev,
-      [fromStatus]: {
-        ...prev[fromStatus],
-        subTaskIds: newFromIds,
-        totalCount: newFromCount,
-      },
-      [toStatus]: {
-        ...prev[toStatus],
-        subTaskIds: newToIds,
-        totalCount: newToCount,
-      },
-    }));
+    setColumnData((prev) => {
+      // Functional update to ensure we don't overwrite concurrent changes
+      // but we use the pre-calculated IDs for consistency in this surgical move
+      return {
+        ...prev,
+        [fromStatus]: {
+          ...prev[fromStatus],
+          subTaskIds: newFromIds,
+          totalCount: newFromCount,
+        },
+        [toStatus]: {
+          ...prev[toStatus],
+          subTaskIds: newToIds,
+          totalCount: newToCount,
+        },
+      };
+    });
 
     // Fetch task object for cache sync
     const task = useTaskCacheStore.getState().entities[subTaskId];
@@ -964,10 +974,11 @@ export function KanbanBoard({
           id: toastId,
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       moveSubTaskBetweenColumns(subTaskId, newStatus, previousStatus);
-      toast.error("Failed to add activity. Let's try again.", {
-        id: "activity_error",
+      const errorMessage = error?.message || "Failed to update subtask status. Let's try again.";
+      toast.error(errorMessage, {
+        id: toastId,
       });
       console.error("Error updating subtask status:", error);
     } finally {

@@ -22,7 +22,7 @@ export async function WorkspaceListView({
     const user = await requireUser();
 
     // Fetch initial tasks and metadata in parallel
-    const startTime = performance.now();
+    const viewStartTime = performance.now();
     const [tagsData, projectMembers, permissions, projects, tasksData] = await Promise.all([
         getWorkspaceTags(workspaceId),
         getProjectMembers({ workspaceId }),
@@ -38,13 +38,10 @@ export async function WorkspaceListView({
             view_mode: "list"
         }, user.id)
     ]);
-    const duration = performance.now() - startTime;
-    import("@/lib/logger").then(({ logger }) => {
-        logger.serverPerf("WORKSPACE_VIEW_LOAD", duration, {
-            workspaceId,
-            userId: user.id
-        });
-    });
+    const duration = performance.now() - viewStartTime;
+    if (duration > 500) {
+        console.warn(`[PERF_WARN] WorkspaceListView rendered in ${duration.toFixed(2)}ms`);
+    }
 
     const tags = tagsData.map(tag => ({
         id: tag.id,
