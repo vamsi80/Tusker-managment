@@ -83,6 +83,7 @@ export function GanttServerWrapper({ workspaceId, projectId, userId }: GanttServ
             workspaceId={workspaceId}
             projectId={projectId}
             initialTasks={ganttTasks}
+            isShell={false} // Wrapper fetches its own data, so not a shell
             allTasks={allTasks}
             subtaskDataMap={subtaskDataMap}
             members={projectMembers}

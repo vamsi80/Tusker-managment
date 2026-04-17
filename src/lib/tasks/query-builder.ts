@@ -1,6 +1,19 @@
 import { Prisma } from "@/generated/prisma";
 
-export function getTaskSelect(view_mode: string = "list"): Prisma.TaskSelect {
+export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = false): Prisma.TaskSelect {
+    if (isMinimal) {
+        return {
+            id: true,
+            name: true,
+            taskSlug: true,
+            isParent: true,
+            projectId: true,
+            parentTaskId: true,
+            createdAt: true, // Needed for internal ordering/cursor
+            _count: { select: { subTasks: true } }
+        };
+    }
+
     const isList = view_mode === "list" || view_mode === "default" || !view_mode;
     const isKanban = view_mode === "kanban";
     const isGantt = view_mode === "gantt";

@@ -22,27 +22,16 @@ import {
   DragOverEvent,
   DragOverlay,
   DragStartEvent,
-  closestCorners,
   pointerWithin,
   PointerSensor,
-  MouseSensor,
-  TouchSensor,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
 import { useTaskCacheStore } from "@/lib/store/task-cache-store";
-import { Loader2, MoreHorizontal } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { logger } from "@/lib/logger";
 import { UserPermissionsType } from "@/data/user/get-user-permissions";
 import { useFilterStore } from "@/lib/store/filter-store";
-// Simple debounce implementation
-const debounce = (func: Function, wait: number) => {
-  let timeout: NodeJS.Timeout;
-  return (...args: any[]) => {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
-  };
-};
 
 type TaskStatus =
   | "TO_DO"
@@ -54,12 +43,13 @@ type TaskStatus =
 
 interface KanbanBoardProps {
   initialData: Record<TaskStatus, SubTasksByStatusResponse>;
+  isShell?: boolean;
   projectMembers: ProjectMembersType;
   workspaceId: string;
   projectId: string;
-  projects?: ProjectOption[]; // Optional for workspace-level
+  projects?: ProjectOption[];
   tags?: TagOption[];
-  level?: "project" | "workspace"; // Optional, defaults to "project"
+  level?: "project" | "workspace";
   projectManagers?: Record<string, any>;
   permissions?: UserPermissionsType;
   userId?: string;
@@ -115,6 +105,7 @@ export function KanbanBoard({
   projectManagers,
   permissions,
   userId,
+  isShell = false,
 }: KanbanBoardProps) {
   const setKanbanTasksCache = useTaskCacheStore(
     (state) => state.setKanbanTasksCache,
@@ -130,6 +121,7 @@ export function KanbanBoard({
 
   const renderCount = useRef(0);
   renderCount.current++;
+  const hasFetchedRef = useRef(false);
   logger.perf("KANBAN_RENDER", 0, { count: renderCount.current });
 
   // State for each column's data - INITIALIZE WITH PROPS ONLY FOR HYDRATION SAFETY
@@ -145,21 +137,38 @@ export function KanbanBoard({
     >
   >(() => {
     const map: any = {};
+    const contextId = projectId || "";
+    // Access cache directly for synchronous initial state if we are in a shell
+    const cacheState = useTaskCacheStore.getState();
+
     COLUMNS.forEach((col) => {
       const serverCol = initialData[col.id];
-      map[col.id] = {
-        subTaskIds: serverCol.subTasks.map((t) => t.id),
-        totalCount: serverCol.totalCount,
-        hasMore: serverCol.hasMore,
-        nextCursor: serverCol.nextCursor,
-      };
+      const cacheKey = `${workspaceId}-${contextId}-${col.id}`;
+      const cached = cacheState.getKanbanTasksCache(cacheKey);
+
+      // 💉 Optimization: If we have cached data and initialData is a shell, use cache.
+      if (isShell && cached && cached.tasks.length > 0) {
+        map[col.id] = {
+          subTaskIds: cached.tasks.map(t => t.id),
+          totalCount: cached.totalCount ?? 0,
+          hasMore: cached.hasMore,
+          nextCursor: cached.nextCursor,
+        };
+      } else {
+        map[col.id] = {
+          subTaskIds: serverCol.subTasks.map((t) => t.id),
+          totalCount: serverCol.totalCount,
+          hasMore: serverCol.hasMore,
+          nextCursor: serverCol.nextCursor,
+        };
+      }
     });
     return map;
   });
 
   // 🧹 Filter Reset Logic: Ensures a clean slate when navigating between different views
   const { filters, setFilters, searchQuery, setSearchQuery, clearFilters } = useFilterStore();
-  
+
   useEffect(() => {
     return () => {
       clearFilters();
@@ -212,8 +221,8 @@ export function KanbanBoard({
 
     // 0. IMMEDIATE SYNC: Upsert all initial server data into global entities
     // ensure we have the freshest versions available for relations and metadata
-    const allInitialTasks = Object.values(initialData).flatMap(
-      (d) => d.subTasks,
+    const allInitialTasks = COLUMNS.flatMap(
+      (col) => initialData[col.id]?.subTasks || []
     );
     if (allInitialTasks.length > 0) {
       upsertTasks(allInitialTasks);
@@ -233,7 +242,7 @@ export function KanbanBoard({
       let tasks = initialData[col.id].subTasks;
 
       if (cached && cached.tasks.length > 0) {
-        if (initialData[col.id].totalCount === 0) {
+        if (initialData[col.id].totalCount === 0 && !isShell) {
           // Server explicitly says there are 0 tasks. DO NOT fallback to stale cache.
           tasks = [];
         } else if (tasks.length > 0 && cached.tasks.length > tasks.length) {
@@ -245,8 +254,8 @@ export function KanbanBoard({
           if (baseIdsMatch) {
             tasks = cached.tasks;
           }
-        } else if (tasks.length === 0 && initialData[col.id].totalCount > 0) {
-          // Edge case: SSR provided 0 tasks but totalCount > 0? Trust the cache.
+        } else if (tasks.length === 0 && (initialData[col.id].totalCount > 0 || isShell)) {
+          // Edge case: SSR provided 0 tasks but totalCount > 0 OR it's a shell? Trust the cache.
           tasks = cached.tasks;
         }
       }
@@ -388,7 +397,11 @@ export function KanbanBoard({
       const hasFilters = !isBaseProjectView;
       const isBoardEmpty = Object.values(columnData).every((col) => col.subTaskIds.length === 0);
 
-      if (!hasFilters && !isBoardEmpty) {
+      // 🔄 Revalidation Logic: 
+      // Fetch if (has filters) OR (board is empty) OR (this is the first mount and we want to refresh cache)
+      const shouldFetch = hasFilters || isBoardEmpty || !hasFetchedRef.current;
+
+      if (!shouldFetch) {
         // Reset to initial unfiltered data ONLY if we were previously filtering
         if (isCurrentlyFiltered) {
           const contextId = projectId || "";
@@ -520,6 +533,7 @@ export function KanbanBoard({
             >,
           );
           setIsFiltering(false);
+          hasFetchedRef.current = true; // Mark as fetched after successful background refresh
         }
       }
     }, 300); // Debounce

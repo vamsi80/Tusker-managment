@@ -201,15 +201,11 @@ export const KanbanCard = React.memo(function KanbanCard({
                   <TooltipTrigger asChild>
                     <div className="flex items-center rounded-full bg-amber-50/50 dark:bg-amber-950/30 border border-amber-100/50 dark:border-amber-900/50 hover:bg-amber-100 transition-colors cursor-default">
                       <Avatar className="h-4 w-4 border border-amber-200 dark:border-amber-800 shadow-sm">
+                        <AvatarImage src={firstManager?.image || undefined} />
                         <AvatarFallback className="text-[8px] bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
                           {firstManager?.surname?.[0]}
                         </AvatarFallback>
                       </Avatar>
-                      {assignedManagers.length > 1 && (
-                        <span className="text-[8px] pr-1.5 font-bold">
-                          +{assignedManagers.length - 1}
-                        </span>
-                      )}
                     </div>
                   </TooltipTrigger>
                   <TooltipContent
@@ -236,18 +232,13 @@ export const KanbanCard = React.memo(function KanbanCard({
                     )}
                     <div>
                       <p className="font-semibold text-[10px] uppercase tracking-wider">
-                        {assignedManagers.length > 1
-                          ? "Project Managers"
-                          : "Project Manager"}
+                        Project Manager
                       </p>
-                      {assignedManagers.map((pm, idx) => (
-                        <p
-                          key={idx}
-                          className="font-medium text-[11px] text-primary"
-                        >
-                          {pm.surname}
+                      {firstManager && (
+                        <p className="font-medium text-[11px] text-primary">
+                          {firstManager.surname}
                         </p>
-                      ))}
+                      )}
                     </div>
                   </TooltipContent>
                 </Tooltip>

@@ -12,7 +12,7 @@ export async function getNotificationsAction(workspaceId: string, limit: number 
             return { success: false, error: "Access denied" };
         }
 
-        const isAuthorized = perms.isWorkspaceAdmin || perms.workspaceMember;
+        const isAuthorized = perms.isWorkspaceAdmin || !!perms.workspaceMemberId;
 
         if (!isAuthorized) {
             return { success: false, error: "Access denied" };
@@ -33,9 +33,9 @@ export async function getNotificationsAction(workspaceId: string, limit: number 
             where.task = {
                 ...where.task,
                 OR: [
-                    { assigneeId: user.id },
-                    { createdById: user.id },
-                    { reviewerId: user.id },
+                    { assignee: { workspaceMember: { userId: user.id } } },
+                    { createdBy: { workspaceMember: { userId: user.id } } },
+                    { reviewer: { workspaceMember: { userId: user.id } } },
                     ...(privilegedProjectIds.length > 0
                         ? [{ projectId: { in: privilegedProjectIds } }]
                         : [])
@@ -43,58 +43,83 @@ export async function getNotificationsAction(workspaceId: string, limit: number 
             };
         }
 
+        // Add user filter - don't notify them about their own comments
         where.userId = {
             not: user.id
         };
-        // 1. Fetch general comments
-        const comments = await prisma.comment.findMany({
-            where,
-            include: {
-                user: {
-                    select: {
-                        name: true,
-                        surname: true,
-                        image: true,
-                    }
-                },
-                readBy: {
-                    where: {
-                        userId: user.id
-                    }
-                },
-                task: {
-                    select: {
-                        id: true,
-                        name: true,
-                        taskSlug: true,
-                        project: {
-                            select: {
-                                name: true,
-                                color: true,
-                            }
-                        },
-                        parentTask: {
-                            select: {
-                                name: true
-                            }
+        const commentInclude = {
+            user: {
+                select: {
+                    name: true,
+                    surname: true,
+                    image: true,
+                }
+            },
+            readBy: {
+                where: {
+                    userId: user.id
+                }
+            },
+            task: {
+                select: {
+                    id: true,
+                    name: true,
+                    taskSlug: true,
+                    project: {
+                        select: {
+                            name: true,
+                            color: true,
+                        }
+                    },
+                    parentTask: {
+                        select: {
+                            name: true
                         }
                     }
                 }
+            }
+        };
+
+        // 1a. Fetch Unread comments first (High priority - ensures visibility)
+        const unreadComments = await prisma.comment.findMany({
+            where: {
+                ...where,
+                readBy: {
+                    none: { userId: user.id }
+                }
             },
+            include: commentInclude,
             orderBy: {
                 createdAt: 'desc'
             },
-            take: limit
+            take: 50 // Get all reasonable unread comments
         });
 
-        // 2. Fetch activities (Note: Activity table doesn't have readBy, so we treat recent ones as new)
-        // We'll treat activities created in last 24h as "New" if not by current user
-        // In a future update, we should add a separate read-tracking table for Activities
+        // 1b. Fetch general recent comments for history/balance
+        const recentComments = await prisma.comment.findMany({
+            where,
+            include: commentInclude,
+            orderBy: {
+                createdAt: 'desc'
+            },
+            take: limit,
+            skip: offset
+        });
+
+        // Combine and deduplicate by comment ID
+        const commentMap = new Map();
+        [...unreadComments, ...recentComments].forEach(c => commentMap.set(c.id, c));
+        const comments = Array.from(commentMap.values())
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+        // 2. Fetch activities
+        // Ensure activities also respect the same task-level permissions
         const activities = await prisma.activity.findMany({
             where: {
                 workspaceId: workspaceId,
                 authorId: { not: user.id },
-                createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } // Last 24h
+                createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }, // Last 24h
+                subTask: perms.isWorkspaceAdmin ? {} : where.task // Reuse the same task visibility logic
             },
             include: {
                 author: {
@@ -127,10 +152,10 @@ export async function getNotificationsAction(workspaceId: string, limit: number 
             take: 10
         });
 
-        // Group comments by task
+        // Group items by task
         const groupedMap = new Map();
 
-        // Process general comments
+        // Process combined comments
         comments.forEach(comment => {
             const isRead = comment.readBy.length > 0;
 
@@ -183,6 +208,7 @@ export async function getNotificationsAction(workspaceId: string, limit: number 
 
             const group = groupedMap.get(rc.subTaskId);
             group.count++;
+            group.isNew = true; // Any recent activity on a visible task makes it "New"
             
             // If this activity is newer than what we have, update latest
             if (new Date(rc.createdAt) > new Date(group.latestComment.createdAt)) {
@@ -204,30 +230,15 @@ export async function getNotificationsAction(workspaceId: string, limit: number 
         const unreadNotifications = allNotifications.filter(n => n.isNew);
         const readNotifications = allNotifications.filter(n => !n.isNew);
 
-        // Count for the badge (only unread)
-        const unreadCommenters = await prisma.comment.groupBy({
-            by: ['userId'],
-            where: {
-                ...where,
-                readBy: {
-                    none: { userId: user.id }
-                }
-            },
-            _count: {
-                userId: true
-            }
-        });
-
-        // Add activity authors to the count (approximate based on recipients)
-        const unreadActivityCount = activities.length > 0 ? 1 : 0;
+        const peopleCount = unreadNotifications.length;
 
         return {
             success: true,
             unreadNotifications,
             readNotifications,
-            peopleCount: unreadCommenters.length + unreadActivityCount,
+            peopleCount,
             totalCount: allNotifications.length,
-            hasMore: comments.length === limit
+            hasMore: recentComments.length === limit
         };
 
     } catch (error) {

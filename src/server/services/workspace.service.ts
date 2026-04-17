@@ -597,16 +597,21 @@ export class WorkspaceService {
         ...(perms.managedProjectIds || [])
       ];
       where.task.OR = [
-        { assigneeId: userId },
-        { createdById: userId },
-        { reviewerId: userId },
+        { assignee: { workspaceMember: { userId } } },
+        { createdBy: { workspaceMember: { userId } } },
+        { reviewer: { workspaceMember: { userId } } },
         ...(privilegedProjectIds.length > 0
           ? [{ projectId: { in: privilegedProjectIds } }]
           : [])
       ];
     }
 
-    return prisma.comment.count({ where });
+    const unreadTasks = await prisma.comment.groupBy({
+      by: ['taskId'],
+      where
+    });
+
+    return unreadTasks.length;
   }
 
   /**
@@ -688,9 +693,6 @@ export class WorkspaceService {
         project: { workspaceId },
         projectRole: "PROJECT_MANAGER",
         hasAccess: true,
-        workspaceMember: {
-          workspaceRole: { notIn: ["OWNER", "ADMIN"] },
-        },
       },
       select: {
         projectId: true,
@@ -708,9 +710,9 @@ export class WorkspaceService {
     > = {};
     managers.forEach((m) => {
       const user = m.workspaceMember?.user;
-      if (user) {
-        if (!pmMap[m.projectId]) pmMap[m.projectId] = [];
-        pmMap[m.projectId].push(user);
+      if (user && !pmMap[m.projectId]) {
+        // Only take one manager per project as requested
+        pmMap[m.projectId] = [user];
       }
     });
 
