@@ -1,6 +1,6 @@
 "use client";
 import dynamic from "next/dynamic";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { AppLoader } from "@/components/shared/app-loader";
 import { useProjectLayout } from "../project-layout-context";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
@@ -28,30 +28,33 @@ export function ProjectKanbanView({
         revalidateProject();
     }, [revalidateProject]);
 
+    const COLUMNS = useMemo(() => ["TO_DO", "IN_PROGRESS", "REVIEW", "HOLD", "COMPLETED", "CANCELLED"] as const, []);
+
+    const initialData = useMemo(() => {
+        return COLUMNS.reduce((acc, status) => {
+            acc[status] = {
+                subTasks: [],
+                totalCount: 0,
+                hasMore: false,
+                nextCursor: null,
+                currentPage: 1
+            };
+            return acc;
+        }, { isShell: true } as any);
+    }, [COLUMNS]);
+
+    // 🚀 Project Manager Derivation (Localized Optimization)
+    // Derive managers directly from the project members list instead of relying on global metadata
+    const projectManagers = useMemo(() => ({
+        [projectId]: projectMembers
+            .filter(m => m.projectRole === "LEAD" || m.projectRole === "PROJECT_MANAGER")
+            .map(m => m.userId)
+    }), [projectId, projectMembers]);
+
     // Allow rendering if project loading is done
     if (isProjectLoading) {
         return <AppLoader />;
     }
-
-    // 🚀 Project Manager Derivation (Localized Optimization)
-    // Derive managers directly from the project members list instead of relying on global metadata
-    const projectManagers = {
-        [projectId]: projectMembers
-            .filter(m => m.projectRole === "LEAD" || m.projectRole === "PROJECT_MANAGER")
-            .map(m => m.userId)
-    };
-
-    const COLUMNS = ["TO_DO", "IN_PROGRESS", "REVIEW", "HOLD", "COMPLETED", "CANCELLED"] as const;
-    const initialData = COLUMNS.reduce((acc, status) => {
-        acc[status] = {
-            subTasks: [],
-            totalCount: 0,
-            hasMore: false,
-            nextCursor: null,
-            currentPage: 1
-        };
-        return acc;
-    }, { isShell: true } as any);
 
     return (
         <KanbanBoard

@@ -182,23 +182,15 @@ export class TasksService {
     if (!result) return;
     
     const stripTask = (task: any) => {
+      // Pruning disabled to ensure data integrity as per user request.
+      // Root parent tasks should retain their metadata (status, dates, etc.)
+      /*
       if (task.isParent && !task.parentTaskId) {
         delete task.assigneeId;
         delete task.assignee;
-        delete task.description;
-        delete task.status;
-        delete task.dueDate;
-        delete task.startDate;
-        delete task.days;
-        delete task.createdBy;
-        delete task.createdById;
-        delete task.reviewer;
-        delete task.position;
-        delete task.tag;
-        delete task.tagId;
-        delete task.activities;
-        // Fields kept: id, name, taskSlug, isParent, parentTaskId, projectId, createdAt
+        ...
       }
+      */
     };
 
     if (result.tasks && Array.isArray(result.tasks)) {
