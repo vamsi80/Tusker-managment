@@ -298,8 +298,7 @@ export function buildProjectRootWhere(
 ): Prisma.TaskWhereInput {
     const where: Prisma.TaskWhereInput = {
         projectId,
-        isParent: true,     // ← prefix match on index col 2
-        parentTaskId: null, // redundant safety guard
+        parentTaskId: null,
     };
 
     if (opts.status && opts.status.length > 0) {

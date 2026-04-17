@@ -22,7 +22,9 @@ export async function getWorkspaceActivity(workspaceId: string) {
             entityId: true,
             user: {
                 select: {
-                    surname: true,
+                    name: true,
+                    email: true,
+                    image: true,
                 }
             },
             createdAt: true,

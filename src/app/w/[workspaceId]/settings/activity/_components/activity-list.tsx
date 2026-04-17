@@ -42,12 +42,12 @@ const columns: ColumnDef<ActivityLog>[] = [
         cell: ({ row }) => (
             <div className="flex items-center gap-2">
                 <Avatar className="h-6 w-6">
-                    <AvatarImage src={row.original.user.image || ""} />
-                    <AvatarFallback className="text-[10px]">{row.original.user.name.charAt(0)}</AvatarFallback>
+                    <AvatarImage src={row.original.user?.image || ""} />
+                    <AvatarFallback className="text-[10px]">{row.original.user?.name?.charAt(0) || "?"}</AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col">
-                    <span className="text-xs font-medium">{row.original.user.name}</span>
-                    <span className="text-[10px] text-muted-foreground">{row.original.user.email}</span>
+                    <span className="text-xs font-medium">{row.original.user?.name || "Unknown User"}</span>
+                    <span className="text-[10px] text-muted-foreground">{row.original.user?.email || "No email"}</span>
                 </div>
             </div>
         )

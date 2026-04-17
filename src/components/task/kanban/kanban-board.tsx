@@ -258,6 +258,11 @@ export function KanbanBoard({
           // Edge case: SSR provided 0 tasks but totalCount > 0 OR it's a shell? Trust the cache.
           tasks = cached.tasks;
         }
+      } else if (!cached && columnData[col.id].subTaskIds.length > 0 && isShell) {
+        // 🚀 SAFEGUARD: If cache is gone (invalidated) but we have live state, keep it!
+        // This prevents the "No tasks found" flicker when commenting or during transitions.
+        const entities = useTaskCacheStore.getState().entities;
+        tasks = columnData[col.id].subTaskIds.map((id) => entities[id]).filter(Boolean) as any;
       }
 
       // Sync these IDs into the global store immediately so the listener can find them
@@ -599,18 +604,18 @@ export function KanbanBoard({
         return;
       }
 
+      const allNewTasks = response.data.tasks || [];
+      // STRICT: Only tasks whose status matches AND are not parents
+      const newTasks = allNewTasks.filter(
+        (t: any) => !t.isParent && t.status === status,
+      );
+
+      // Sync to global store outside of React's state updater to avoid "bad setState in render" error.
+      useTaskCacheStore.getState().upsertTasks(newTasks);
+
       setColumnData((prev) => {
         const counts = (response.data.facets as any)?.statusCounts || {};
         const existingIds = prev[status].subTaskIds;
-        const allNewTasks = response.data.tasks || [];
-
-        // STRICT: Only tasks whose status matches AND are not parents
-        const newTasks = allNewTasks.filter(
-          (t: any) => !t.isParent && t.status === status,
-        );
-
-        // Sync to global store
-        useTaskCacheStore.getState().upsertTasks(newTasks);
 
         // Deduplicate using a Set
         const idSet = new Set([
@@ -928,10 +933,15 @@ export function KanbanBoard({
     if (task.parentTaskId) {
       invalidateSubTaskCache(task.parentTaskId);
     }
-    if ("projectId" in task && (task as any).projectId) {
-      invalidateProjectCache((task as any).projectId);
-    } else if (projectId) {
-      invalidateProjectCache(projectId);
+
+    // Only invalidate project list cache if the task actually moved columns.
+    // This prevents the Kanban from emptying itself during comment-only updates.
+    if (fromStatus !== toStatus) {
+      if ("projectId" in task && (task as any).projectId) {
+        invalidateProjectCache((task as any).projectId);
+      } else if (projectId) {
+        invalidateProjectCache(projectId);
+      }
     }
   };
 
@@ -958,8 +968,10 @@ export function KanbanBoard({
     attachmentData?: any,
   ) => {
     if (updatingTaskIds.has(subTaskId)) return;
-    // Optimistic move
-    moveSubTaskBetweenColumns(subTaskId, previousStatus, newStatus);
+    // Optimistic move only if status is actually changing
+    if (newStatus !== previousStatus) {
+      moveSubTaskBetweenColumns(subTaskId, previousStatus, newStatus);
+    }
     setUpdatingTaskIds((prev) => new Set(prev).add(subTaskId));
 
     const toastId = toast.loading("Updating subtask status...");

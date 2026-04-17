@@ -92,7 +92,7 @@ tasks.get("/", async (c) => {
   if (view_mode === "kanban") {
     opts.groupBy = "status";
     opts.sorts = [{ field: "createdAt", direction: "desc" }];
-    opts.onlySubtasks = true; // Kanban is only for work items (subtasks)
+    opts.onlySubtasks = false; // Allow root tasks in Kanban if they have a status
     opts.includeSubTasks = false; // No nested levels in Kanban
   } else if (view_mode === "gantt") {
     opts.sorts = [{ field: "startDate", direction: "asc" }];
