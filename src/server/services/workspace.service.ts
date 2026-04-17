@@ -456,11 +456,7 @@ export class WorkspaceService {
       select: {
         id: true,
         name: true,
-        slug: true,
         ownerId: true,
-        createdAt: true,
-        updatedAt: true,
-        _count: { select: { members: true } },
         members: {
           where: { userId },
           select: { workspaceRole: true },
@@ -472,15 +468,11 @@ export class WorkspaceService {
     const workspaces = workspacesData.map((workspace) => ({
       id: workspace.id,
       name: workspace.name,
-      slug: workspace.slug,
       ownerId: workspace.ownerId,
-      createdAt: workspace.createdAt,
-      updatedAt: workspace.updatedAt,
       workspaceRole: workspace.members[0]?.workspaceRole || "VIEWER",
-      memberCount: workspace._count.members,
     }));
 
-    return { workspaces, totalCount: workspaces.length };
+    return { workspaces };
   }
 
   /**
@@ -540,7 +532,7 @@ export class WorkspaceService {
   }
 
   /**
-   * Get workspace members with pagination
+   * Get workspace members (paginated)
    */
   static async getWorkspaceMembers(
     workspaceId: string,
@@ -549,11 +541,7 @@ export class WorkspaceService {
   ) {
     return prisma.workspaceMember.findMany({
       where: { workspaceId },
-      select: {
-        id: true,
-        userId: true,
-        workspaceId: true,
-        workspaceRole: true,
+      include: {
         user: {
           select: {
             id: true,
@@ -634,18 +622,14 @@ export class WorkspaceService {
       permissions,
       unreadNotificationsCount,
       tags,
-      projectUserMap,
-      projectLeadersMap,
-    ] = await Promise.all([
+    ]: any[] = await Promise.all([
       this.getWorkspaces(userId),
       this.getWorkspaceMetadata(workspaceId, userId),
       getDailyReportStatusForUser(workspaceId, userId),
       getUserProjects(workspaceId),
-      getWorkspacePermissions(workspaceId),
+      getWorkspacePermissions(workspaceId, userId),
       this.getUnreadNotificationsCount(workspaceId, userId),
       getWorkspaceTags(workspaceId),
-      this.getWorkspaceProjectMembersMap(workspaceId),
-      this.getWorkspaceProjectManagersMap(workspaceId),
     ]);
 
     return {
@@ -656,38 +640,49 @@ export class WorkspaceService {
       permissions,
       unreadNotificationsCount,
       tags,
-      projectUserMap,
-      projectLeadersMap,
     };
   }
 
   /**
-   * Get Project Members Map for Kanban
+   * Get Project Assignments Map
+   * Returns a map of projectId -> { id: string, memberId: string, surname: string, role: string }[]
    */
-  static async getWorkspaceProjectMembersMap(workspaceId: string) {
+  static async getWorkspaceProjectAssignments(workspaceId: string) {
     const projectMembers = await prisma.projectMember.findMany({
       where: { project: { workspaceId } },
       select: {
+        id: true, // ProjectMember record ID
         projectId: true,
-        workspaceMember: { select: { userId: true } },
+        projectRole: true,
+        workspaceMember: {
+          select: {
+            userId: true,
+            user: { select: { surname: true } }
+          }
+        },
       },
     });
 
-    const projectUserMap: Record<string, string[]> = {};
+    const projectAssignments: Record<string, { id: string; memberId: string; surname: string; role: string }[]> = {};
     projectMembers.forEach((pm) => {
-      if (!projectUserMap[pm.projectId]) {
-        projectUserMap[pm.projectId] = [];
+      if (!projectAssignments[pm.projectId]) {
+        projectAssignments[pm.projectId] = [];
       }
-      projectUserMap[pm.projectId].push(pm.workspaceMember.userId);
+      projectAssignments[pm.projectId].push({
+        memberId: pm.id,
+        id: pm.workspaceMember.userId,
+        surname: pm.workspaceMember.user?.surname || "Member",
+        role: pm.projectRole
+      });
     });
 
-    return projectUserMap;
+    return projectAssignments;
   }
 
   /**
-   * Get Project Managers Map for Kanban
+   * Get Project Leaders Map
    */
-  static async getWorkspaceProjectManagersMap(workspaceId: string) {
+  static async getWorkspaceProjectLeaders(workspaceId: string) {
     const managers = await prisma.projectMember.findMany({
       where: {
         project: { workspaceId },

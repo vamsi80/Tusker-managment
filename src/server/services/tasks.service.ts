@@ -560,23 +560,23 @@ export class TasksService {
         }
 
         if (opts.view_mode === "kanban") {
-            const tasksByStatus: Record<string, any[]> = {};
-            tasks.forEach((task) => {
-                const s = task.status || "UNKNOWN";
-                if (!tasksByStatus[s]) tasksByStatus[s] = [];
-                tasksByStatus[s].push(task);
-            });
+          const tasksByStatus: Record<string, any[]> = {};
+          tasks.forEach((task) => {
+            const s = task.status || "UNKNOWN";
+            if (!tasksByStatus[s]) tasksByStatus[s] = [];
+            tasksByStatus[s].push(task);
+          });
 
-            return {
-                tasksByStatus,
-                totalCount: tasks.length,
-                hasMore: false,
-                nextCursor: null,
-                facets: {
-                    ...emptyFacets,
-                    statusCounts,
-                },
-            };
+          return {
+            tasksByStatus,
+            totalCount: tasks.length,
+            hasMore: false,
+            nextCursor: null,
+            facets: {
+              ...emptyFacets,
+              statusCounts,
+            },
+          };
         }
 
         return {
@@ -868,7 +868,7 @@ export class TasksService {
         where: { OR: orConditions },
         select: getTaskSelect(opts.view_mode),
         orderBy: buildOrderBy(opts.sorts),
-        take: opts.view_mode === "gantt" ? 1000 : 200,
+        take: opts.view_mode === "gantt" ? 2000 : 500,
       });
 
       if (extraTasks.length === 0) break;
@@ -882,7 +882,7 @@ export class TasksService {
         }
       });
       currentGeneration = newEntries;
-      if (taskMap.size > 500) break;
+      if (taskMap.size > (opts.view_mode === "gantt" ? 5000 : 1000)) break;
     }
 
     const rootTasks: any[] = [];
@@ -1016,6 +1016,7 @@ export class TasksService {
 
     const primarySort = opts.sorts?.[0];
 
+    const queryStartTime = performance.now();
     const [rawTasks] = await Promise.all([
       prisma.task.findMany({
         where,
@@ -1025,6 +1026,11 @@ export class TasksService {
         skip: opts.skip || 0,
       }),
     ]);
+    const queryDuration = performance.now() - queryStartTime;
+
+    if (queryDuration > 100) {
+      console.log(`[SLOW_QUERY] TasksService._fetchWorkspaceFilter took ${queryDuration.toFixed(2)}ms for workspace: ${workspaceId}`);
+    }
 
     const hasMore = rawTasks.length > limit;
     if (hasMore) rawTasks.pop();
@@ -1409,9 +1415,7 @@ export class TasksService {
                 user: {
                   select: {
                     id: true,
-                    name: true,
                     surname: true,
-                    image: true,
                     email: true,
                   },
                 },
@@ -1424,7 +1428,7 @@ export class TasksService {
             workspaceMember: {
               include: {
                 user: {
-                  select: { id: true, name: true, surname: true, image: true },
+                  select: { id: true, surname: true, email: true },
                 },
               },
             },
