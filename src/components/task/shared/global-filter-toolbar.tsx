@@ -14,6 +14,7 @@ import { ColumnVisibility } from "./column-visibility";
 import { KanbanColumnVisibility, type KanbanColumnVisibility as KanbanColumnVisibilityType } from "./kanban-column-visibility";
 import { STATUS_OPTIONS } from "@/lib/zodSchemas";
 import { getColorFromString } from "@/lib/colors/project-colors";
+import { getStatusColors, STATUS_COLORS } from "@/lib/colors/status-colors";
 
 export interface ParentTaskOption {
     id: string;
@@ -406,14 +407,30 @@ export function GlobalFilterToolbar({
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="__all__">All Statuses</SelectItem>
-                                                    {STATUS_OPTIONS.map((option) => (
-                                                        <SelectItem key={option.value} value={option.value}>
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="h-2 w-2 rounded-full bg-green-500" />
-                                                                {option.label}
-                                                            </div>
-                                                        </SelectItem>
-                                                    ))}
+                                                    {STATUS_OPTIONS.map((option) => {
+                                                        const statusColors = getStatusColors(option.value);
+                                                        const hexMatch = statusColors?.bgColor?.match(/#([A-Fa-f0-9]{6})/);
+                                                        const hex = hexMatch ? `#${hexMatch[1]}` : undefined;
+
+                                                        return (
+                                                            <SelectItem key={option.value} value={option.value}>
+                                                                <div className="flex items-center gap-2">
+                                                                    {hex ? (
+                                                                        <div
+                                                                            className="h-2 w-2 rounded-full border border-black/5 dark:border-white/10"
+                                                                            style={{ backgroundColor: hex }}
+                                                                        />
+                                                                    ) : (
+                                                                        <div className={cn(
+                                                                            "h-2 w-2 rounded-full",
+                                                                            statusColors?.color?.replace("text-", "bg-") || "bg-slate-400"
+                                                                        )} />
+                                                                    )}
+                                                                    {option.label}
+                                                                </div>
+                                                            </SelectItem>
+                                                        );
+                                                    })}
                                                 </SelectContent>
                                             </Select>
                                         </div>
@@ -553,8 +570,6 @@ export function GlobalFilterToolbar({
                         />
                     )}
                 </div>
-
-
             </div>
         </div>
     );

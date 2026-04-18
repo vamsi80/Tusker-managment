@@ -35,9 +35,8 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
         if (remainingDays === null) return "bg-gray-300";
 
         if (isOverdue) return "bg-red-500";
-        if (remainingDays <= 10) return "bg-red-500";
-        if (remainingDays <= 20) return "bg-orange-500";
-        if (remainingDays <= 30) return "bg-yellow-500";
+        if (remainingDays <= 7) return "bg-red-500";
+        if (remainingDays <= 10) return "bg-orange-500";
         return "bg-green-500";
     };
 
@@ -154,18 +153,12 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
             {columnVisibility.dueDate && (
                 <TableCell className="w-[90px] sm:w-[120px]">
                     <div className="text-sm">
-                        {task.startDate && task.days
-                            ? formatDate(
-                                new Date(
-                                    new Date(task.startDate).getTime() + task.days * 24 * 60 * 60 * 1000
-                                )
-                            )
-                            : "-"}
+                        {dueDate ? formatDate(dueDate) : "-"}
                     </div>
                 </TableCell>
             )}
 
-            {/* Progress */}
+            {/* Deadline */}
             {columnVisibility.progress && (
                 <TableCell className="w-[100px] sm:w-[150px]">
                     {remainingDays !== null ? (

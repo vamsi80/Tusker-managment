@@ -8,7 +8,7 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
             taskSlug: true,
             isParent: true,
             projectId: true,
-            parentTaskId: true,
+            // parentTaskId: true,
             createdAt: true, // Needed for internal ordering/cursor
             _count: { select: { subTasks: true } }
         };
@@ -83,18 +83,13 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
     // 3. Project & Parent Context
     // Removed server-side joins for views to reduce payload size.
     // Client-side projectMap will be used for metadata resolution.
-    /* 
-    if (isSearch || isCalendar || isGantt) {
-        select.project = {
-            select: { name: true, color: true }
-        };
+    if (isList || isSearch || isCalendar) {
         select.parentTask = {
             select: {
                 name: true,
             }
         };
     }
-    */
 
     // 4. Extended Info: Description & Reviewer
     if (isList || isSearch || isCalendar || isSubtask) {
@@ -194,11 +189,13 @@ export const SORT_MAP: Record<string, { dbField: string; nulls?: "last" | "first
     createdAt: { dbField: "createdAt" },
     assignee: { dbField: "assigneeId", nulls: "last" },
     reviewer: { dbField: "reviewerId", nulls: "last" },
+    deadline: { dbField: "dueDate", nulls: "last" },
 };
 
 export function buildOrderBy(sorts?: Array<{ field: string; direction: "asc" | "desc" }>) {
+    // Standard default for "Order of Uploading" is oldest-first (ASC)
     if (!sorts || sorts.length === 0) {
-        return [{ createdAt: "desc" as const }, { id: "desc" as const }];
+        return [{ createdAt: "asc" as const }, { id: "asc" as const }];
     }
 
     const { field, direction } = sorts[0];
@@ -212,7 +209,7 @@ export function buildOrderBy(sorts?: Array<{ field: string; direction: "asc" | "
         ? { [def.dbField]: { sort: direction, nulls: def.nulls } }
         : { [def.dbField]: direction };
 
-    return [primary, { id: "desc" as const }];
+    return [primary, { id: direction as "asc" | "desc" }];
 }
 
 export function buildSeekCondition(

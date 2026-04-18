@@ -102,12 +102,11 @@ export const SubTaskRow = memo(function SubTaskRow({
     const getProgressColor = () => {
         if (remainingDays === null) return "bg-gray-300";
 
-        // Color based on absolute days remaining, not percentage
-        if (isOverdue) return "bg-red-500";           // Overdue
-        if (remainingDays <= 10) return "bg-red-500";  // 10 days or less - Critical
-        if (remainingDays <= 20) return "bg-orange-500"; // 11-20 days - Warning
-        if (remainingDays <= 30) return "bg-yellow-500"; // 21-30 days - Caution
-        return "bg-green-500";                         // More than 30 days - Good
+        // color based on absolute days remaining
+        if (isOverdue) return "bg-red-500";
+        if (remainingDays <= 7) return "bg-red-500";
+        if (remainingDays <= 10) return "bg-orange-500";
+        return "bg-green-500";
     };
 
     const progressColor = getProgressColor();
@@ -194,8 +193,8 @@ export const SubTaskRow = memo(function SubTaskRow({
             <TableRow
                 className={cn(
                     "h-8 [&_td]:py-2 transition-colors",
-                    (!assigneeUser && subTask.status !== "COMPLETED" && subTask.status !== "CANCELLED") 
-                        ? "bg-red-500/10 hover:bg-red-500/20 animate-[pulse_2s_infinite] border-y border-red-500/40" 
+                    (!assigneeUser && subTask.status !== "COMPLETED" && subTask.status !== "CANCELLED")
+                        ? "bg-red-500/10 hover:bg-red-500/20 animate-[pulse_2s_infinite] border-y border-red-500/40"
                         : "bg-muted/10 hover:bg-muted/20",
                     (subTask as any).isOptimistic && "opacity-60 grayscale-[0.5]"
                 )}

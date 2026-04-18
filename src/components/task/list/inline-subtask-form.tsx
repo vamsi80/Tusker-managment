@@ -14,6 +14,7 @@ import slugify from "slugify";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { ProjectMembersType, getProjectMembers } from "@/data/project/get-project-members";
 import { SubTaskStatus, STATUS_OPTIONS, subTaskSchema } from "@/lib/zodSchemas";
+import { getStatusColors } from "@/lib/colors/status-colors";
 import { ColumnVisibility } from "../shared/column-visibility";
 import { SubTaskType } from "@/data/task";
 import { ProjectReviewer } from "@/actions/project/get-project-reviewers";
@@ -478,11 +479,30 @@ export function InlineSubTaskForm({
                             <SelectValue className="truncate" />
                         </SelectTrigger>
                         <SelectContent>
-                            {STATUS_OPTIONS.map((option) => (
-                                <SelectItem key={option.value} value={option.value}>
-                                    {option.label}
-                                </SelectItem>
-                            ))}
+                            {STATUS_OPTIONS.map((option) => {
+                                const statusColors = getStatusColors(option.value);
+                                const hexMatch = statusColors?.bgColor?.match(/#([A-Fa-f0-9]{6})/);
+                                const hex = hexMatch ? `#${hexMatch[1]}` : undefined;
+
+                                return (
+                                    <SelectItem key={option.value} value={option.value}>
+                                        <div className="flex items-center gap-2">
+                                            {hex ? (
+                                                <div
+                                                    className="h-2 w-2 rounded-full border border-black/5 dark:border-white/10"
+                                                    style={{ backgroundColor: hex }}
+                                                />
+                                            ) : (
+                                                <div className={cn(
+                                                    "h-2 w-2 rounded-full",
+                                                    statusColors?.color?.replace("text-", "bg-") || "bg-slate-400"
+                                                )} />
+                                            )}
+                                            {option.label}
+                                        </div>
+                                    </SelectItem>
+                                );
+                            })}
                         </SelectContent>
                     </Select>
                 </TableCell>
@@ -499,7 +519,7 @@ export function InlineSubTaskForm({
                 </TableCell>
             )}
 
-            {/* Due Date */}
+            {/* Deadline */}
             {columnVisibility.dueDate && (
                 <TableCell className="w-[120px]">
                     <DateTimePicker

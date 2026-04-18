@@ -48,11 +48,11 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
     url: string;
     icon: "Settings" | "BarChart3" | "LayoutDashboard";
   }> = [
-      // {
-      //   title: isOwner ? "Member Board" : "My Board",
-      //   url: `/w/${workspaceId}/my-board`,
-      //   icon: "LayoutDashboard"
-      // },
+      {
+        title: isOwner ? "Member Board" : "My Board",
+        url: `/w/${workspaceId}/my-board`,
+        icon: "LayoutDashboard"
+      },
       { title: "Reports", url: `/w/${workspaceId}/reports`, icon: "BarChart3" },
       { title: "Settings", url: `/w/${workspaceId}/settings`, icon: "Settings" },
     ];

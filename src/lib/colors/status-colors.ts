@@ -10,7 +10,7 @@ export interface StatusColors {
 
 export const STATUS_COLORS: Record<TaskStatus, StatusColors> = {
     TO_DO: {
-        color: "text-slate-600",
+        color: "text-slate-600 dark:text-white",
         bgColor: "bg-[#D1D5DB]/20",
         borderColor: "border-[#D1D5DB]/50",
     },
