@@ -48,7 +48,49 @@ export function transformToGanttTasks(allTasks: any[]): GanttTask[] {
     return `${day} ${month} ${year}`;
   };
 
-  // 3. Transform data to GanttTask format
+  // 3. Helper for Progress Calculation
+  const calculateProgress = (status: string, startStr: string, endStr: string): number => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (status === "COMPLETED") return 100;
+    if (status === "REVIEW") return 80;
+    if (status === "TO_DO" || status === "HOLD" || status === "CANCELLED") return 0;
+
+    if (status === "IN_PROGRESS") {
+      const startDate = parseDisplayDate(startStr);
+      const endDate = parseDisplayDate(endStr);
+
+      if (!startDate || !endDate) return 10; // Default base for in-progress if no dates
+
+      const total = endDate.getTime() - startDate.getTime();
+      if (total <= 0) return 60; // Milestone/Overdue in progress
+
+      const elapsed = today.getTime() - startDate.getTime();
+      const rawProgress = Math.max(0, (elapsed / total) * 60);
+      return Math.min(60, Math.round(rawProgress));
+    }
+
+    return 0;
+  };
+
+  const parseDisplayDate = (dateStr: string | null): Date | null => {
+    if (!dateStr) return null;
+    try {
+      const parts = dateStr.split(" ");
+      if (parts.length !== 3) return null;
+      const day = parseInt(parts[0]);
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const month = monthNames.indexOf(parts[1]);
+      const year = parseInt(parts[2]);
+      if (month === -1) return null;
+      return new Date(year, month, day);
+    } catch {
+      return null;
+    }
+  };
+
+  // 4. Transform data to GanttTask format
   return parentTasks
     .sort((a, b) => (a.position ?? 1000) - (b.position ?? 1000))
     .map((parentTask) => {
@@ -78,18 +120,23 @@ export function transformToGanttTasks(allTasks: any[]): GanttTask[] {
             start = new Date(end); // 1-day milestone
           }
 
+          const startStr = formatLocalDate(start);
+          const endStr = formatLocalDate(end);
+          const progress = calculateProgress(subtask.status || "TO_DO", startStr, endStr);
+
           return {
             id: subtask.id,
             name: subtask.name,
             taskSlug: subtask.taskSlug,
-            start: formatLocalDate(start),
-            end: formatLocalDate(end),
+            start: startStr,
+            end: endStr,
             status: subtask.status || "TO_DO",
             projectId: subtask.projectId,
             parentTaskId: subtask.parentTaskId,
             description: subtask.description,
             tagId: subtask.tagId,
             days: subtask.days,
+            progress,
 
             assigneeId: subtask.assigneeId,
             assignee: subtask.assignee
@@ -114,6 +161,26 @@ export function transformToGanttTasks(allTasks: any[]): GanttTask[] {
           };
         });
 
+      // Calculate Parent Progress (weighted average by duration)
+      let parentProgress = 0;
+      if (rawSubtasks.length > 0) {
+        let totalWeight = 0;
+        let weightedSum = 0;
+        rawSubtasks.forEach(s => {
+          const weight = s.days || 1;
+          weightedSum += s.progress * weight;
+          totalWeight += weight;
+        });
+        parentProgress = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : 0;
+      } else {
+        // If no subtasks, check parent's own status
+        parentProgress = calculateProgress(
+          parentTask.status || "TO_DO",
+          parentTask.startDate ? formatLocalDate(new Date(parentTask.startDate)) : "",
+          parentTask.dueDate ? formatLocalDate(new Date(parentTask.dueDate)) : ""
+        );
+      }
+
       return {
         id: parentTask.id,
         name: parentTask.name,
@@ -132,6 +199,7 @@ export function transformToGanttTasks(allTasks: any[]): GanttTask[] {
         status: parentTask.status || "TO_DO",
         createdById: parentTask.createdById,
         parentTaskId: parentTask.parentTaskId || null,
+        progress: parentProgress,
           assignee: parentTask.assignee
             ? {
                 id: parentTask.assignee.workspaceMember?.userId,

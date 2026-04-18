@@ -380,9 +380,10 @@ export function GanttChart({
     return (
         <div className={cn(
             "flex flex-col transition-all duration-300 ease-in-out",
-            showDetails ? "[--gantt-sidebar-width:650px]" : "[--gantt-sidebar-width:250px]",
+            showDetails ? "[--gantt-sidebar-width:710px]" : "[--gantt-sidebar-width:250px]",
             "[--col-name:250px]",
             showDetails ? "[--col-assignee:100px]" : "[--col-assignee:0px]",
+            showDetails ? "[--col-progress:60px]" : "[--col-progress:0px]",
             showDetails ? "[--col-status:80px]" : "[--col-status:0px]",
             showDetails ? "[--col-days:40px]" : "[--col-days:0px]",
             showDetails ? "[--col-dates:180px]" : "[--col-dates:0px]",

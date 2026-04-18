@@ -470,6 +470,15 @@ export function DraggableSubtaskBar({
                                 role="button"
                                 aria-label={`${optimisticSubtask.name}: ${startDate ? formatDate(startDate) : 'N/A'} to ${endDate ? formatDate(endDate) : 'N/A'}`}
                             >
+                                {/* Progress Overlay */}
+                                <div
+                                    className="absolute inset-y-0 left-0 bg-black/15 dark:bg-white/15 rounded-l-md transition-all duration-300 pointer-events-none"
+                                    style={{ 
+                                        width: `${subtask.progress}%`, 
+                                        borderRadius: subtask.progress === 100 ? 'inherit' : undefined 
+                                    }}
+                                />
+
                                 {/* Resize handles */}
                                 {canEdit && (
                                     <>
@@ -556,6 +565,15 @@ export function DraggableSubtaskBar({
                                 {duration} days
                                 {isDelayed && ` (+${Math.round((delayWidthPercent / 100) * totalDays)}d delay)`}
                             </p>
+                            <div className="flex items-center gap-2 pt-1 border-t border-neutral-200 dark:border-neutral-700 mt-1">
+                                <div className="flex-1 h-1.5 bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden">
+                                    <div 
+                                        className="h-full bg-blue-500 rounded-full" 
+                                        style={{ width: `${subtask.progress}%` }} 
+                                    />
+                                </div>
+                                <span className="text-[10px] font-bold">{subtask.progress}%</span>
+                            </div>
                             {canEdit && (
                                 <p className="text-xs text-blue-600 dark:text-blue-400 pt-1 border-t">
                                     💡 Drag to move • Drag edge to resize
