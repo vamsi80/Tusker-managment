@@ -40,6 +40,7 @@ export interface GanttSubtask {
   assigneeRole?: string;
 
   position: number;
+  updatedAt?: string; // dd MMM yyyy format
   dependsOnIds?: string[];
 }
 
@@ -62,6 +63,7 @@ export interface GanttTask {
   assigneeId?: string | null;
   createdById: string | null;
   parentTaskId: string | null;
+  updatedAt?: string;
 }
 
 // ============================================================================

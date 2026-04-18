@@ -95,26 +95,38 @@ export function DraggableSubtaskBar({
 
     const isCompleted = optimisticSubtask.status === 'COMPLETED';
     const isCancelled = optimisticSubtask.status === 'CANCELLED';
+    const isHold = optimisticSubtask.status === 'HOLD';
+    const isSettled = isCompleted || isCancelled || isHold;
     
     const isDelayed = useMemo(() => {
-        if (isCompleted || isCancelled || !endDate) return false;
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const taskEnd = new Date(endDate);
-        taskEnd.setHours(0, 0, 0, 0);
-        return taskEnd < today;
-    }, [isCompleted, isCancelled, endDate]);
-
-    const delayWidthPercent = useMemo(() => {
-        if (!isDelayed || !endDate) return 0;
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        if (!endDate) return false;
+        
+        // For settled tasks, use updatedAt as reference, otherwise use today
+        const referenceDate = isSettled && optimisticSubtask.updatedAt 
+            ? new Date(optimisticSubtask.updatedAt) 
+            : new Date();
+            
+        referenceDate.setHours(0, 0, 0, 0);
         const taskEnd = new Date(endDate);
         taskEnd.setHours(0, 0, 0, 0);
         
-        const delayDays = getDaysBetween(taskEnd, today);
+        return taskEnd < referenceDate;
+    }, [isSettled, optimisticSubtask.updatedAt, endDate]);
+
+    const delayWidthPercent = useMemo(() => {
+        if (!isDelayed || !endDate) return 0;
+        
+        const referenceDate = isSettled && optimisticSubtask.updatedAt 
+            ? new Date(optimisticSubtask.updatedAt) 
+            : new Date();
+            
+        referenceDate.setHours(0, 0, 0, 0);
+        const taskEnd = new Date(endDate);
+        taskEnd.setHours(0, 0, 0, 0);
+        
+        const delayDays = getDaysBetween(taskEnd, referenceDate);
         return (delayDays / totalDays) * 100;
-    }, [isDelayed, endDate, totalDays]);
+    }, [isDelayed, isSettled, optimisticSubtask.updatedAt, endDate, totalDays]);
 
 
     const canEdit = useMemo(() => {
@@ -500,7 +512,7 @@ export function DraggableSubtaskBar({
                                             left: `${leftPercent + widthPercent}%`,
                                             width: `${delayWidthPercent}%`,
                                             backgroundImage: `repeating-linear-gradient(
-                                                45deg,
+                                                ${isSettled ? '-45deg' : '45deg'},
                                                 ${statusHex}1A,
                                                 ${statusHex}1A 4px,
                                                 ${statusHex}66 4px,
@@ -526,9 +538,14 @@ export function DraggableSubtaskBar({
                                     </span>
                                 )}
                                 {isDelayed && (
-                                    <span className="px-1.5 py-0.5 text-xs bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded flex items-center gap-1 font-bold animate-pulse">
+                                    <span className={cn(
+                                        "px-1.5 py-0.5 text-xs rounded flex items-center gap-1 font-bold",
+                                        isSettled 
+                                            ? "bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300" 
+                                            : "bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 animate-pulse"
+                                    )}>
                                         <AlertCircle className="h-3 w-3" />
-                                        OVERDUE
+                                        {isSettled ? "DELAYED" : "OVERDUE"}
                                     </span>
                                 )}
                             </div>
@@ -537,6 +554,7 @@ export function DraggableSubtaskBar({
                             </p>
                             <p className="text-xs text-muted-foreground">
                                 {duration} days
+                                {isDelayed && ` (+${Math.round((delayWidthPercent / 100) * totalDays)}d delay)`}
                             </p>
                             {canEdit && (
                                 <p className="text-xs text-blue-600 dark:text-blue-400 pt-1 border-t">
