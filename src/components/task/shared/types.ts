@@ -151,7 +151,7 @@ export interface ProjectOption {
     id: string;
     name: string;
     slug?: string;
-    color?: string;
+    color: string;
     memberIds?: string[];
 }
 

@@ -51,6 +51,7 @@ interface KanbanCardProps {
   onUpdateInPlace?: (subTaskId: string, data: any) => void;
   projectMembers?: any[];
   projects?: ProjectOption[];
+  projectMap?: Record<string, ProjectOption>;
 }
 
 export const KanbanCard = React.memo(function KanbanCard({
@@ -65,6 +66,7 @@ export const KanbanCard = React.memo(function KanbanCard({
   onUpdateInPlace,
   projectMembers = [],
   projects,
+  projectMap,
 }: KanbanCardProps) {
   const {
     attributes,
@@ -85,7 +87,9 @@ export const KanbanCard = React.memo(function KanbanCard({
 
   const assigneeUser = (subTask.assignee as any)?.workspaceMember?.user;
   const activityCount = (subTask as any)._count?.activities || 0;
-  const project = subTask.project;
+  
+  // Resolve project metadata: Priority to explicit object, then lookup from map
+  const project = subTask.project || (subTask.projectId && projectMap ? projectMap[subTask.projectId] : null);
 
   // Get Project Managers from the hoisted map (effective way)
   const assignedManagers = (
@@ -129,7 +133,12 @@ export const KanbanCard = React.memo(function KanbanCard({
 
   const handleNameClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onSubTaskClick?.(subTask);
+    // Inject project metadata if it's missing but we have it in our map
+    const subTaskWithMetadata = {
+      ...subTask,
+      project: subTask.project || project
+    };
+    onSubTaskClick?.(subTaskWithMetadata as any);
   };
 
   return (

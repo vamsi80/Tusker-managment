@@ -32,6 +32,7 @@ interface ProjectTaskGroupProps {
     isWorkspaceAdmin?: boolean;
     leadProjectIds?: string[];
     projects?: any[];
+    projectMap: Record<string, any>;
     onRequestSubtasks: (taskId: string) => void;
     getCachedSubTasks: (taskId: string) => any;
     tags: any[];
@@ -87,6 +88,7 @@ export function ProjectTaskGroup({
     filtersActive,
     activeInlineProjectId,
     setActiveInlineProjectId,
+    projectMap,
     onUpdateParentTaskLists
 }: ProjectTaskGroupProps) {
     // 1. Maintain a local, optimistic mirror of the tasks for this project
@@ -189,6 +191,7 @@ export function ProjectTaskGroup({
                             isWorkspaceAdmin={isWorkspaceAdmin}
                             leadProjectIds={leadProjectIds}
                             projects={projects}
+                            projectMap={projectMap}
                             scrollContainerRef={scrollContainerRef}
                             level={level}
                         />

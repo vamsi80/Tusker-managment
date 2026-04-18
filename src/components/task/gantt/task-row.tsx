@@ -42,7 +42,7 @@ interface TaskRowProps {
         managedProjectIds: string[];
     };
     showDetails: boolean;
-    projects?: { id: string; memberIds?: string[] }[];
+    projectMap: Map<string, { id: string; name: string; color: string; memberIds?: string[] }>;
     granularity: 'days' | 'weeks' | 'months';
 }
 
@@ -62,7 +62,7 @@ export function TaskRow({
     currentUser,
     permissions,
     showDetails,
-    projects,
+    projectMap,
     granularity
 }: TaskRowProps) {
 
@@ -101,8 +101,10 @@ export function TaskRow({
         return () => observer.disconnect();
     }, [hasMoreSubtasks]);
 
-    const currentProject = projects?.find(p => p.id === (task.projectId || projectId));
+    const currentProject = projectMap.get(task.projectId || projectId || "");
     const allowedUserIds = currentProject?.memberIds;
+
+    const resolvedProjectColor = task.projectColor || currentProject?.color;
 
     return (
         <div className="flex flex-col">
@@ -184,7 +186,7 @@ export function TaskRow({
                                             left: `${position.left}%`,
                                             width: `${position.width}%`,
                                             minWidth: '12px',
-                                            backgroundColor: task.projectColor,
+                                            backgroundColor: resolvedProjectColor,
                                             opacity: 0.5
                                         }}
                                         tabIndex={0}

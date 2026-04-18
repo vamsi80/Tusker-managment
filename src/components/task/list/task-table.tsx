@@ -140,6 +140,13 @@ function TaskTable({
   const setProjectTasksCache = useTaskCacheStore(
     (state) => state.setProjectTasksCache,
   );
+
+  const projectMap = useMemo(() => {
+    const map: Record<string, any> = {};
+    projects?.forEach((p) => { map[p.id] = p; });
+    return map;
+  }, [projects]);
+
   const observerRef = useRef<IntersectionObserver | null>(null);
   const sortedSentinelRef = useRef<HTMLTableRowElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -919,7 +926,13 @@ function TaskTable({
 
 
   const handleSubTaskClick = (subTask: SubTaskType) => {
-    openSubTaskSheet(subTask);
+    // Inject project metadata if it's missing but we have it in our map
+    const project = subTask.projectId && projectMap ? projectMap[subTask.projectId] : null;
+    const subTaskWithMetadata = {
+      ...subTask,
+      project: (subTask as any).project || project
+    };
+    openSubTaskSheet(subTaskWithMetadata);
   };
 
   useEffect(() => {
@@ -1501,6 +1514,7 @@ function TaskTable({
                         isWorkspaceAdmin={isWorkspaceAdmin}
                         leadProjectIds={leadProjectIds}
                         projects={projects}
+                        projectMap={projectMap}
                         onRequestSubtasks={handleRequestSubtasks}
                         getCachedSubTasks={getCachedSubTasks}
                         tags={tags}

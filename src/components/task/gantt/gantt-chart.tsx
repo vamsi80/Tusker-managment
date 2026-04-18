@@ -61,6 +61,13 @@ export function GanttChart({
     const [showDetails, setShowDetails] = useState(true);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+    // 🚀 Performance: Memoized projectMap for O(1) metadata lookups
+    const projectMap = useMemo(() => {
+        const map = new Map<string, ProjectOption>();
+        projects?.forEach(p => map.set(p.id, p));
+        return map;
+    }, [projects]);
+
     // Pagination State
     const [visibleProjectCount, setVisibleProjectCount] = useState(PROJECTS_PER_PAGE);
     const [visibleTasksPerProject, setVisibleTasksPerProject] = useState<Map<string, number>>(new Map());
@@ -114,10 +121,10 @@ export function GanttChart({
         tasks.forEach(task => {
             if (task.projectId) {
                 if (!groups.has(task.projectId)) {
-                    const projectFromProps = projects?.find(p => p.id === task.projectId);
+                    const projectFromMap = projectMap.get(task.projectId);
                     groups.set(task.projectId, {
-                        name: projectFromProps?.name || task.projectName || "Unknown Project",
-                        color: projectFromProps?.color,
+                        name: projectFromMap?.name || "Unknown Project",
+                        color: projectFromMap?.color,
                         tasks: []
                     });
                 }
@@ -232,6 +239,24 @@ export function GanttChart({
             }
             return next;
         });
+    };
+
+    const handleSubtaskClick = (subtaskId: string) => {
+        if (!onSubtaskClick) return;
+
+        // Find the subtask to inject project metadata for the details sheet
+        const allSubtasks = tasks.flatMap(t => t.subtasks || []);
+        const subtask = allSubtasks.find(s => s.id === subtaskId);
+
+        if (subtask) {
+            const project = projectMap.get(subtask.projectId);
+            if (project) {
+                (subtask as any).projectName = project.name;
+                (subtask as any).projectColor = project.color;
+            }
+        }
+
+        onSubtaskClick(subtaskId);
     };
 
     const expandAll = () => {
@@ -446,7 +471,7 @@ export function GanttChart({
                                             granularity={granularity}
                                             isExpanded={expandedTasks.has(task.id)}
                                             onToggle={() => toggleTask(task.id)}
-                                            onSubtaskClick={onSubtaskClick}
+                                            onSubtaskClick={handleSubtaskClick}
                                             onSubTaskUpdate={onSubTaskUpdate}
                                             allTasks={tasks}
                                             workspaceId={workspaceId}
@@ -456,7 +481,7 @@ export function GanttChart({
                                             permissions={permissions}
                                             isNestedInProject={true}
                                             showDetails={showDetails}
-                                            projects={projects}
+                                            projectMap={projectMap}
                                         />
                                     ))}
                                 </ProjectRow>
@@ -471,7 +496,7 @@ export function GanttChart({
                                     granularity={granularity}
                                     isExpanded={expandedTasks.has(task.id)}
                                     onToggle={() => toggleTask(task.id)}
-                                    onSubtaskClick={onSubtaskClick}
+                                    onSubtaskClick={handleSubtaskClick}
                                     onSubTaskUpdate={onSubTaskUpdate}
                                     allTasks={tasks}
                                     workspaceId={workspaceId}
@@ -480,7 +505,7 @@ export function GanttChart({
                                     currentUser={currentUser}
                                     permissions={permissions}
                                     showDetails={showDetails}
-                                    projects={projects}
+                                    projectMap={projectMap}
                                 />
                             ))}
 
@@ -505,7 +530,7 @@ export function GanttChart({
                                     granularity={granularity}
                                     isExpanded={expandedTasks.has(task.id)}
                                     onToggle={() => toggleTask(task.id)}
-                                    onSubtaskClick={onSubtaskClick}
+                                    onSubtaskClick={handleSubtaskClick}
                                     onSubTaskUpdate={onSubTaskUpdate}
                                     allTasks={tasks}
                                     workspaceId={workspaceId}
@@ -514,7 +539,7 @@ export function GanttChart({
                                     currentUser={currentUser}
                                     permissions={permissions}
                                     showDetails={showDetails}
-                                    projects={projects}
+                                    projectMap={projectMap}
                                 />
                             ))}
 

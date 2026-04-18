@@ -3,7 +3,6 @@ import dynamic from "next/dynamic";
 import { useEffect, useMemo } from "react";
 import { AppLoader } from "@/components/shared/app-loader";
 import { useProjectLayout } from "../project-layout-context";
-import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 
 const KanbanBoard = dynamic(
     () => import("@/components/task/kanban/kanban-board").then(mod => mod.KanbanBoard),
@@ -47,8 +46,16 @@ export function ProjectKanbanView({
     // Derive managers directly from the project members list instead of relying on global metadata
     const projectManagers = useMemo(() => ({
         [projectId]: projectMembers
-            .filter(m => m.projectRole === "LEAD" || m.projectRole === "PROJECT_MANAGER")
-            .map(m => m.userId)
+            .filter(m =>
+                m.projectRole === "LEAD" ||
+                m.projectRole === "PROJECT_MANAGER" ||
+                m.workspaceRole === "OWNER" ||
+                m.workspaceRole === "ADMIN"
+            )
+            .map(m => ({
+                id: m.userId,
+                surname: m.user.surname,
+            }))
     }), [projectId, projectMembers]);
 
     // Allow rendering if project loading is done

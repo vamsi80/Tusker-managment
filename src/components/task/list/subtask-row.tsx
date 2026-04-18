@@ -38,6 +38,7 @@ interface SubTaskRowProps {
     isWorkspaceAdmin?: boolean;
     leadProjectIds?: string[];
     projects?: Array<{ id: string; canManageMembers?: boolean; memberIds?: string[] }>; // For workspace view
+    projectMap?: Record<string, any>;
 }
 
 export const SubTaskRow = memo(function SubTaskRow({
@@ -55,6 +56,7 @@ export const SubTaskRow = memo(function SubTaskRow({
     isWorkspaceAdmin,
     leadProjectIds,
     projects,
+    projectMap,
 }: SubTaskRowProps) {
     const [isUpdating, setIsUpdating] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -74,7 +76,7 @@ export const SubTaskRow = memo(function SubTaskRow({
 
         const projectIdToCheck = (subTask as any).projectId || projectId;
 
-        const taskProject = projects?.find(p => p.id === projectIdToCheck);
+        const taskProject = projectMap ? projectMap[projectIdToCheck] : projects?.find(p => p.id === projectIdToCheck);
         if (taskProject?.canManageMembers) return true;
 
         // Check if user is LEAD in this project and created the task
@@ -257,7 +259,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                             <InlineAssigneePicker
                                 subTask={subTask as any}
                                 members={members}
-                                allowedUserIds={projects?.find(p => p.id === ((subTask as any).projectId || projectId))?.memberIds}
+                                allowedUserIds={(projectMap ? projectMap[(subTask as any).projectId || projectId] : projects?.find(p => p.id === ((subTask as any).projectId || projectId)))?.memberIds}
                                 projectId={(subTask as any).projectId || projectId}
                                 parentTaskId={subTask.parentTaskId || parentTaskId}
                                 canEdit={canEditSubTask()}

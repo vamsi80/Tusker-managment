@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect, memo, useCallback } from "react";
+import { useRef, useState, useEffect, memo, useCallback, useMemo } from "react";
 import type { SubTasksByStatusResponse, KanbanSubTaskType } from "@/data/task";
 import type { ProjectMembersType } from "@/data/project/get-project-members";
 import { cn } from "@/lib/utils";
@@ -117,6 +117,15 @@ export function KanbanBoard({
     (state) => state.invalidateProjectCache,
   );
   const kanbanLists = useTaskCacheStore((state) => state.kanbanLists);
+
+  const projectMap = useMemo(() => {
+    const map: Record<string, ProjectOption> = {};
+    projects?.forEach((p) => {
+      map[p.id] = p;
+    });
+    return map;
+  }, [projects]);
+
   const lastSyncRef = useRef<Record<string, number>>({});
 
   const renderCount = useRef(0);
@@ -1210,6 +1219,7 @@ export function KanbanBoard({
                   permissions={permissions}
                   userId={userId}
                   projects={projects}
+                  projectMap={projectMap}
                 />
               );
             })}
