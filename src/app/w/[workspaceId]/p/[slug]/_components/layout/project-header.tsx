@@ -12,6 +12,7 @@ interface ProjectHeaderProps {
     projectColor: string | null;
     userId: string;
     canPerformBulkOperations: boolean;
+    userRole?: string;
 }
 
 function ProjectHeader({
@@ -22,15 +23,21 @@ function ProjectHeader({
     projectColor,
     userId,
     canPerformBulkOperations,
+    userRole,
 }: ProjectHeaderProps) {
     return (
         <>
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-normal leading-tight tracking-tighter md:text-2xl flex items-center gap-2 sm:gap-3">
-                        {projectName}
+                        <span className="truncate">{projectName}</span>
+                        {userRole && (
+                            <span className="text-[10px] md:text-xs font-medium uppercase tracking-wider text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-md border border-border/40 shrink-0">
+                                {userRole}
+                            </span>
+                        )}
                         <div
-                            className="h-3 w-3 md:h-5 md:w-5 rounded-full border shadow-sm transition-colors shrink-0"
+                            className="h-3 w-3 md:h-4 md:w-4 rounded-full border shadow-sm transition-colors shrink-0"
                             style={{ backgroundColor: projectColor || '#888' }}
                         />
                     </h1>

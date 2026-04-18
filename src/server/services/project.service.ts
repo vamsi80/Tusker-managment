@@ -65,6 +65,18 @@ export class ProjectService {
       return null;
     }
 
+    // Role display logic: Workspace OWNER/ADMIN override project roles
+    let userRole = "";
+    if (workspaceMember.workspaceRole === "OWNER") {
+      userRole = "Owner";
+    } else if (workspaceMember.workspaceRole === "ADMIN") {
+      userRole = "Admin";
+    } else if (projectMember) {
+      userRole = projectMember.projectRole.split('_').map(word =>
+        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+      ).join(' ');
+    }
+
     return {
       id: project.id,
       name: project.name,
@@ -73,6 +85,7 @@ export class ProjectService {
       workspaceId: project.workspaceId,
       userId,
       canPerformBulkOperations: isWorkspaceAdmin || (projectMember?.projectRole === "LEAD" || projectMember?.projectRole === "PROJECT_MANAGER"),
+      userRole
     };
   }
 

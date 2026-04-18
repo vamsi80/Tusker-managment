@@ -37,6 +37,7 @@ async function ProjectHeaderLoader({
             projectColor={project.color}
             userId={project.userId}
             canPerformBulkOperations={project.canPerformBulkOperations}
+            userRole={project.userRole}
         />
     );
 }
@@ -80,6 +81,7 @@ export default async function ProjectLayout({
                         projectColor={project.color}
                         userId={project.userId}
                         canPerformBulkOperations={project.canPerformBulkOperations}
+                        userRole={project.userRole}
                     />
 
                     <div className="flex-1">{children}</div>

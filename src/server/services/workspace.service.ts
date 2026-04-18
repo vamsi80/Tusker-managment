@@ -686,33 +686,59 @@ export class WorkspaceService {
 
   /**
    * Get Project Leaders Map
+   * Returns a map of projectId -> { id, surname, image }[]
    */
   static async getWorkspaceProjectLeaders(workspaceId: string) {
-    const managers = await prisma.projectMember.findMany({
-      where: {
-        project: { workspaceId },
-        projectRole: "PROJECT_MANAGER",
-        hasAccess: true,
-      },
-      select: {
-        projectId: true,
-        workspaceMember: {
-          select: {
-            user: { select: { id: true, surname: true } },
+    const [projectMembers, workspaceAdmins, projects] = await Promise.all([
+      prisma.projectMember.findMany({
+        where: {
+          project: { workspaceId },
+          projectRole: { in: ["PROJECT_MANAGER", "LEAD"] },
+          hasAccess: true,
+        },
+        select: {
+          projectId: true,
+          workspaceMember: {
+            select: {
+              user: { select: { id: true, surname: true } },
+            },
           },
         },
-      },
-    });
+      }),
+      prisma.workspaceMember.findMany({
+        where: {
+          workspaceId,
+          workspaceRole: { in: ["OWNER", "ADMIN"] },
+        },
+        select: {
+          user: { select: { id: true, surname: true, image: true } },
+        },
+      }),
+      prisma.project.findMany({
+        where: { workspaceId },
+        select: { id: true },
+      }),
+    ]);
 
     const pmMap: Record<
       string,
       Array<{ id: string; surname: string | null }>
     > = {};
-    managers.forEach((m) => {
-      const user = m.workspaceMember?.user;
-      if (user && !pmMap[m.projectId]) {
-        // Only take one manager per project as requested
-        pmMap[m.projectId] = [user];
+
+    // 1. Initialize map with projects and workspace admins as default leaders
+    projects.forEach((p) => {
+      pmMap[p.id] = workspaceAdmins.map((wa) => wa.user).filter(Boolean) as any;
+    });
+
+    // 2. Add explicit project managers/leads (at the front if they exist)
+    projectMembers.forEach((pm) => {
+      const user = pm.workspaceMember?.user;
+      if (user) {
+        if (!pmMap[pm.projectId]) pmMap[pm.projectId] = [];
+        // Add to the front of the list, unless already there
+        if (!pmMap[pm.projectId].some((u) => u.id === user.id)) {
+          pmMap[pm.projectId].unshift(user as any);
+        }
       }
     });
 

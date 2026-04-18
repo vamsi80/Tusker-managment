@@ -28,19 +28,8 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
         taskSlug: true,
         status: true,
         dueDate: true,
-        // tagId: true,
         startDate: true,
         days: true,
-
-        // Only include description for non-Kanban views to save payload
-        // Kanban cards pre-fetch details on hover
-        // description: !isKanban,
-
-        // Subtask progress is not shown on Kanban cards
-        // subtaskCount: !isKanban,
-        // completedSubtaskCount: !isKanban,
-
-        // Always include basic assignee info
         assignee: {
             select: {
                 workspaceMember: {
@@ -92,8 +81,10 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
     }
 
     // 3. Project & Parent Context
-    // Essential for workspace views and search results
-    if (isKanban || isSearch || isList || isCalendar || isGantt) {
+    // Removed server-side joins for views to reduce payload size.
+    // Client-side projectMap will be used for metadata resolution.
+    /* 
+    if (isSearch || isCalendar || isGantt) {
         select.project = {
             select: { name: true, color: true }
         };
@@ -103,6 +94,7 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
             }
         };
     }
+    */
 
     // 4. Extended Info: Description & Reviewer
     if (isList || isSearch || isCalendar || isSubtask) {
