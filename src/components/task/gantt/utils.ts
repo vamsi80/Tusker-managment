@@ -3,6 +3,44 @@ import { parse } from "date-fns";
 import { APP_DATE_FORMAT } from "@/lib/utils";
 
 /**
+ * Status color mapping for Gantt bars
+ */
+export const GANTT_STATUS_COLORS: Record<string, string> = {
+    'TO_DO': '#D1D5DB',
+    'IN_PROGRESS': '#3B82F6',
+    'CANCELLED': '#EF4444',
+    'REVIEW': '#8B5CF6',
+    'HOLD': '#F59E0B',
+    'COMPLETED': '#22C55E'
+};
+
+/**
+ * Get color for a specific status
+ */
+export function getStatusColor(status: string, defaultColor?: string): string {
+    return GANTT_STATUS_COLORS[status] || defaultColor || GANTT_STATUS_COLORS['TO_DO'];
+}
+
+/**
+ * Determine aggregate status of a task based on its subtasks
+ */
+export function getAggregateStatus(subtasks: GanttSubtask[]): string {
+    if (!subtasks || subtasks.length === 0) return 'TO_DO';
+
+    const statuses = subtasks.map(st => st.status);
+
+    if (statuses.every(s => s === 'COMPLETED')) return 'COMPLETED';
+    if (statuses.some(s => s === 'IN_PROGRESS' || s === 'REVIEW')) return 'IN_PROGRESS';
+    if (statuses.some(s => s === 'COMPLETED') && statuses.some(s => s === 'TO_DO')) return 'IN_PROGRESS';
+    if (statuses.every(s => s === 'CANCELLED')) return 'CANCELLED';
+    if (statuses.every(s => s === 'HOLD')) return 'HOLD';
+
+    return statuses[0] || 'TO_DO';
+}
+
+
+
+/**
  * Get current date (midnight) for today comparisons
  * Uses local browser time which should be IST for users in India
  */

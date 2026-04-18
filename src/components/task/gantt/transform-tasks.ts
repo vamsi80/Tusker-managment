@@ -108,6 +108,9 @@ export function transformToGanttTasks(allTasks: any[]): GanttTask[] {
             position: subtask.position || 0,
             dependsOnIds:
               subtask.Task_TaskDependency_A?.map((d: any) => d.id) || [],
+            updatedAt: formatLocalDate(
+              subtask.updatedAt ? new Date(subtask.updatedAt) : null,
+            ),
           };
         });
 
@@ -129,16 +132,19 @@ export function transformToGanttTasks(allTasks: any[]): GanttTask[] {
         status: parentTask.status || "TO_DO",
         createdById: parentTask.createdById,
         parentTaskId: parentTask.parentTaskId || null,
-        assignee: parentTask.assignee
-          ? {
-              id: parentTask.assignee.workspaceMember?.userId,
-              name:
-                parentTask.assignee.workspaceMember?.user?.surname ||
-                parentTask.assignee.workspaceMember?.user?.name ||
-                "Unknown",
-              image: parentTask.assignee.workspaceMember?.user?.image,
-            }
-          : undefined,
-      };
-    });
-}
+          assignee: parentTask.assignee
+            ? {
+                id: parentTask.assignee.workspaceMember?.userId,
+                name:
+                  parentTask.assignee.workspaceMember?.user?.surname ||
+                  parentTask.assignee.workspaceMember?.user?.name ||
+                  "Unknown",
+                image: parentTask.assignee.workspaceMember?.user?.image,
+              }
+            : undefined,
+          updatedAt: formatLocalDate(
+            parentTask.updatedAt ? new Date(parentTask.updatedAt) : null,
+          ),
+        };
+      });
+  }

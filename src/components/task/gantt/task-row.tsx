@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useRef, useEffect } from "react";
 import { ChevronDown, ChevronRight, CornerDownRight } from "lucide-react";
-import { computeTaskDates, calculateBarPosition, formatDateRange, getDaysBetween } from "./utils";
+import { computeTaskDates, calculateBarPosition, formatDateRange, getDaysBetween, getAggregateStatus, getStatusColor } from "./utils";
 import { SortableSubtaskList } from "./sortable-subtask-list";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 
@@ -80,6 +80,72 @@ export function TaskRow({
         return calculateBarPosition(start, end, timelineStart, totalDays);
     }, [start, end, timelineStart, totalDays]);
 
+    const aggregateStatus = useMemo(() => {
+        if (!task.subtasks || task.subtasks.length === 0) return task.status;
+        return getAggregateStatus(task.subtasks);
+    }, [task.subtasks, task.status]);
+
+    const currentProject = projectMap.get(task.projectId || projectId || "");
+    const resolvedProjectColor = task.projectColor || currentProject?.color;
+
+    const statusColor = useMemo(() => getStatusColor(aggregateStatus, resolvedProjectColor), [aggregateStatus, resolvedProjectColor]);
+
+    const isSettled = aggregateStatus === 'COMPLETED' || aggregateStatus === 'CANCELLED' || aggregateStatus === 'HOLD';
+
+    const isDelayed = useMemo(() => {
+        if (!end) return false;
+        
+        // For parent tasks, if it's settled, use the latest updatedAt of subtasks or the task itself
+        const referenceDate = new Date();
+        if (isSettled) {
+            let latestUpdate = task.updatedAt ? new Date(task.updatedAt) : new Date(0);
+            if (task.subtasks) {
+                task.subtasks.forEach(s => {
+                    if (s.updatedAt) {
+                        const d = new Date(s.updatedAt);
+                        if (d > latestUpdate) latestUpdate = d;
+                    }
+                });
+            }
+            if (latestUpdate.getTime() > 0) {
+                referenceDate.setTime(latestUpdate.getTime());
+            }
+        }
+            
+        referenceDate.setHours(0, 0, 0, 0);
+        const taskEnd = new Date(end);
+        taskEnd.setHours(0, 0, 0, 0);
+        
+        return taskEnd < referenceDate;
+    }, [isSettled, task.updatedAt, task.subtasks, end]);
+
+    const delayWidthPercent = useMemo(() => {
+        if (!isDelayed || !end) return 0;
+        
+        const referenceDate = new Date();
+        if (isSettled) {
+            let latestUpdate = task.updatedAt ? new Date(task.updatedAt) : new Date(0);
+            if (task.subtasks) {
+                task.subtasks.forEach(s => {
+                    if (s.updatedAt) {
+                        const d = new Date(s.updatedAt);
+                        if (d > latestUpdate) latestUpdate = d;
+                    }
+                });
+            }
+            if (latestUpdate.getTime() > 0) {
+                referenceDate.setTime(latestUpdate.getTime());
+            }
+        }
+            
+        referenceDate.setHours(0, 0, 0, 0);
+        const taskEnd = new Date(end);
+        taskEnd.setHours(0, 0, 0, 0);
+        
+        const delayDays = getDaysBetween(taskEnd, referenceDate);
+        return (delayDays / totalDays) * 100;
+    }, [isDelayed, isSettled, task.updatedAt, task.subtasks, end, totalDays]);
+
     const hasSubtasks = task.subtasks && task.subtasks.length > 0;
 
 
@@ -106,10 +172,7 @@ export function TaskRow({
         return () => observer.disconnect();
     }, [hasMoreSubtasks]);
 
-    const currentProject = projectMap.get(task.projectId || projectId || "");
     const allowedUserIds = currentProject?.memberIds;
-
-    const resolvedProjectColor = task.projectColor || currentProject?.color;
 
     return (
         <div className="flex flex-col">
@@ -121,7 +184,10 @@ export function TaskRow({
                 {/* Left Panel - Task Name (Aligns with columns but hides details for parent) */}
                 {/* 1-2. Sidebar + Metadata (Transitioned width) */}
                 <div
-                    className="sticky left-0 z-30 flex items-center bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-700 h-full w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] shrink-0 transition-[width] duration-300 ease-in-out overflow-hidden"
+                    className={cn(
+                        "sticky left-0 z-30 flex items-center border-r border-neutral-200 dark:border-neutral-700 h-full w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] shrink-0 transition-[width] duration-300 ease-in-out overflow-hidden",
+                        "bg-neutral-100 dark:bg-neutral-800"
+                    )}
                 >
                     {/* 1. Task Name Column */}
                     <div className={cn(
@@ -170,8 +236,9 @@ export function TaskRow({
                 <div
                     className={cn(
                         "relative min-h-[36px] flex items-center w-full",
+                        "bg-neutral-100/50 dark:bg-neutral-800/40",
                         "border-b border-neutral-200 dark:border-neutral-700",
-                        "hover:bg-neutral-50 dark:hover:bg-neutral-800/50",
+                        "hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50",
                         "transition-colors duration-150"
                     )}
                 >
@@ -191,8 +258,9 @@ export function TaskRow({
                                             left: `${position.left}%`,
                                             width: `${position.width}%`,
                                             minWidth: '12px',
-                                            backgroundColor: resolvedProjectColor,
-                                            opacity: 0.5
+                                            backgroundColor: statusColor,
+                                            opacity: 0.8
+
                                         }}
                                         tabIndex={0}
                                         role="button"
@@ -204,13 +272,21 @@ export function TaskRow({
                                     className="bg-popover text-popover-foreground border shadow-lg"
                                 >
                                     <div className="space-y-1">
-                                        <p className="font-semibold text-sm">{task.name}</p>
+                                        <div className="flex items-center gap-2">
+                                            <p className="font-semibold text-sm">{task.name}</p>
+                                            {isDelayed && !isSettled && (
+                                                <span className="px-1.5 py-0.5 text-xs bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded flex items-center gap-1 font-bold animate-pulse">
+                                                    OVERDUE
+                                                </span>
+                                            )}
+                                        </div>
                                         <p className="text-xs text-muted-foreground">
                                             {formatDateRange(start, end)}
                                         </p>
                                         {start && end && (
                                             <p className="text-xs text-muted-foreground">
-                                                {getDaysBetween(start, end) + 1} days
+                                                {getDaysBetween(start, end) + 1} days 
+                                                {isDelayed && ` (+${Math.round((delayWidthPercent / 100) * totalDays)}d delay)`}
                                             </p>
                                         )}
                                     </div>
@@ -221,6 +297,28 @@ export function TaskRow({
                         <span className="text-xs text-muted-foreground px-2">
                             No subtasks
                         </span>
+                    )}
+
+                    {/* Parent Delay Extension Bar */}
+                    {position && delayWidthPercent > 0 && (
+                        <div 
+                            className="absolute top-[10px] h-3 rounded-r-full z-0 overflow-hidden"
+                            style={{
+                                left: `${position.left + position.width}%`,
+                                width: `${delayWidthPercent}%`,
+                                backgroundImage: `repeating-linear-gradient(
+                                    ${isSettled ? '-45deg' : '45deg'},
+                                    ${statusColor}1A,
+                                    ${statusColor}1A 4px,
+                                    ${statusColor}66 4px,
+                                    ${statusColor}66 8px
+                                )`,
+                                border: `1px solid ${statusColor}80`,
+                                borderLeft: 'none',
+                                backgroundColor: `${statusColor}0D`
+                            }}
+                            title={`Delayed by ${Math.round((delayWidthPercent / 100) * totalDays)} days`}
+                        />
                     )}
                 </div>
             </div>

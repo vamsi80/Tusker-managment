@@ -106,6 +106,7 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
     }
 
     if (isGantt) {
+        select.updatedAt = true;
         select.Task_TaskDependency_A = {
             select: { id: true }
         };
