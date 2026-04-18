@@ -22,6 +22,8 @@ interface DraggableSubtaskBarProps {
         leadProjectIds: string[];
         managedProjectIds: string[];
     };
+    isHighlighted?: boolean;
+    onToggleHighlight?: () => void;
     onUpdate?: (id: string, data: Partial<GanttSubtask>) => void;
 }
 
@@ -33,6 +35,8 @@ export function DraggableSubtaskBar({
     projectId,
     currentUser,
     permissions,
+    isHighlighted,
+    onToggleHighlight,
     onUpdate
 }: DraggableSubtaskBarProps) {
     const [isPending, startTransition] = useTransition();
@@ -183,6 +187,7 @@ export function DraggableSubtaskBar({
             const daysDelta = Math.round(deltaX / pixelsPerDay);
 
             if (isDragging) {
+                daysDeltaRef.current = Math.abs(daysDelta);
                 // Calculate new position as percentage for live visual feedback
                 const originalLeft = (startOffset / totalDays) * 100;
                 const deltaPercent = (daysDelta / totalDays) * 100;
@@ -401,6 +406,21 @@ export function DraggableSubtaskBar({
         }
     }
 
+    const daysDeltaRef = useRef(0);
+    useEffect(() => {
+        if (!isDragging && !isResizing) {
+            const timer = setTimeout(() => { daysDeltaRef.current = 0; }, 50);
+            return () => clearTimeout(timer);
+        }
+    }, [isDragging, isResizing]);
+
+    const handleBarClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (daysDeltaRef.current === 0) {
+            onToggleHighlight?.();
+        }
+    };
+
     return (
         <div ref={containerRef} className="h-6 relative w-full group/bar">
             <TooltipProvider delayDuration={100}>
@@ -411,10 +431,9 @@ export function DraggableSubtaskBar({
                             <div
                                 ref={barRef}
                                 className={cn(
-                                    "absolute top-1 h-3 rounded-md transition-all duration-200 ease-out",
+                                    "absolute top-1 h-3 rounded-md transition-all duration-200 ease-out gantt-subtask-bar-hitbox",
                                     "shadow-sm hover:shadow-md",
                                     "focus:outline-none focus:ring-2 focus:ring-offset-1",
-                                    (!optimisticSubtask.assignee?.id && optimisticSubtask.status !== "COMPLETED" && optimisticSubtask.status !== "CANCELLED") && "animate-[pulse_2s_infinite] ring-2 ring-red-500/50 shadow-[0_0_8px_rgba(239,68,68,0.4)]",
                                     canEdit && "cursor-grab active:cursor-grabbing",
                                     isDragging && "opacity-70 scale-105",
                                     // Status-based colors
@@ -434,6 +453,7 @@ export function DraggableSubtaskBar({
                                     minWidth: '20px'
                                 }}
                                 onMouseDown={handleBarMouseDown}
+                                onClick={handleBarClick}
                                 tabIndex={0}
                                 role="button"
                                 aria-label={`${optimisticSubtask.name}: ${startDate ? formatDate(startDate) : 'N/A'} to ${endDate ? formatDate(endDate) : 'N/A'}`}

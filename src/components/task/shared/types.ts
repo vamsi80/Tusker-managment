@@ -79,6 +79,7 @@ export type SortField =
     | "status"
     | "startDate"
     | "dueDate"
+    | "deadline"
     | "createdAt";
 
 /**
@@ -151,7 +152,7 @@ export interface ProjectOption {
     id: string;
     name: string;
     slug?: string;
-    color: string;
+    color?: string;
     memberIds?: string[];
 }
 

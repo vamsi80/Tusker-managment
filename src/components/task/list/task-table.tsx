@@ -224,7 +224,7 @@ function TaskTable({
     }
     return {};
   });
-  
+
   // 🧹 Filter Reset Logic: Ensures a clean slate when navigating between different views
   // This satisfies the user request to have filters reset to neutral when switching pages.
   useEffect(() => {
@@ -260,7 +260,7 @@ function TaskTable({
       if (filters.startDate) params.set("da", new Date(filters.startDate).toISOString());
       if (filters.endDate) params.set("db", new Date(filters.endDate).toISOString());
       if (sorts.length > 0) params.set("sorts", JSON.stringify(sorts));
-      
+
       const fetchKey = `filtered-${params.toString()}`;
       if (fetchingIdsRef.current.has(fetchKey)) return;
       fetchingIdsRef.current.add(fetchKey);
@@ -345,7 +345,7 @@ function TaskTable({
       if (filters.startDate) params.set("da", new Date(filters.startDate).toISOString());
       if (filters.endDate) params.set("db", new Date(filters.endDate).toISOString());
       if (sorts.length > 0) params.set("sorts", JSON.stringify(sorts));
-      
+
       const fetchKey = `filtered-${params.toString()}`;
       fetchingIdsRef.current.delete(fetchKey);
 
@@ -380,7 +380,7 @@ function TaskTable({
       params.set("hm", "parents");
       // IF currently filtered or global, we might want subtasks to show context, 
       // but based on user request "just fetch the updated data only", we'll default to parents.
-      params.set("sub", isGlobal ? "true" : "false"); 
+      params.set("sub", isGlobal ? "true" : "false");
       params.set("l", "20");
       if (currentPagination.nextCursor) params.set("c", JSON.stringify(currentPagination.nextCursor));
       if (filters.status) params.set("s", filters.status);
@@ -483,7 +483,7 @@ function TaskTable({
       if (targetProjectId !== "__global_filter__") params.set("p", targetProjectId);
       params.set("vm", "list");
       params.set("hm", "parents");
-      params.set("sub", targetProjectId === "__global_filter__" ? "true" : "false"); 
+      params.set("sub", targetProjectId === "__global_filter__" ? "true" : "false");
       params.set("l", "20");
       if (projectPagination[targetProjectId]?.nextCursor) params.set("c", JSON.stringify(projectPagination[targetProjectId].nextCursor));
       if (filters.status) params.set("s", filters.status);
@@ -625,7 +625,7 @@ function TaskTable({
     const hasCacheData = cache && cache.tasks.length > 0;
 
     const shouldInitialFetch = (!hasInitialData || isShell || !hasFetchedRef.current);
-    
+
     if (shouldInitialFetch && !filtersActive) {
       if (level === "project" && projectId) {
         loadProjectTasks(projectId);
@@ -639,7 +639,7 @@ function TaskTable({
   useEffect(() => {
     // Release the mount guard once initial cycle is potentially settled
     const timer = setTimeout(() => {
-        isInitialMountRef.current = false;
+      isInitialMountRef.current = false;
     }, 1000);
     return () => clearTimeout(timer);
   }, []);
@@ -690,7 +690,7 @@ function TaskTable({
           entries.forEach((entry) => {
             if (entry.isIntersecting) {
               const projectId = (entry.target as HTMLElement).dataset.projectId;
-              
+
               // 🛡️ MOUNT GUARD: Ignore intersection fetches during first second of mount
               // This prevents 5-10 parallel project fetches firing before data settles.
               if (isInitialMountRef.current) return;
@@ -738,7 +738,7 @@ function TaskTable({
     // Skip if nothing changed AND we already have data
     // 🛡️ Standardized Filter Detection
     const activeFilters = hasActiveFilters(filters);
-    const isBaseProjectView = !searchQuery && (!activeFilters || 
+    const isBaseProjectView = !searchQuery && (!activeFilters ||
       (getActiveFilters(filters).length === 1 && filters.projectId === projectId));
 
     if (isBaseProjectView && hasFetchedRef.current) {
@@ -746,9 +746,9 @@ function TaskTable({
         // Reset to initial data OR cache
         const cache = useTaskCacheStore.getState().getProjectTasksCache(projectId || "");
         if (cache && cache.tasks.length > 0) {
-           setTasks(hydrateTasks(cache.tasks));
+          setTasks(hydrateTasks(cache.tasks));
         } else {
-           setTasks(hydrateTasks(initialTasks));
+          setTasks(hydrateTasks(initialTasks));
         }
         setProjectPagination({});
         setIsCurrentlyFiltered(false);
@@ -1446,18 +1446,18 @@ function TaskTable({
                   </th>
                 )}
                 {columnVisibility.dueDate && (
-                  <SortableHeader
-                    field="dueDate"
-                    label="Due Date"
-                    sorts={sorts}
-                    onSortChange={handleSort}
-                    className="w-[90px] sm:w-[120px]"
-                  />
+                  <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] sm:w-[120px] bg-background">
+                    Due Date
+                  </th>
                 )}
                 {columnVisibility.progress && (
-                  <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] sm:w-[150px] bg-background">
-                    Deadline
-                  </th>
+                  <SortableHeader
+                    field="deadline"
+                    label="Deadline"
+                    sorts={sorts}
+                    onSortChange={handleSort}
+                    className="w-[100px] sm:w-[150px]"
+                  />
                 )}
                 {columnVisibility.tag && (
                   <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] sm:w-[120px] bg-background">
@@ -1616,32 +1616,6 @@ function TaskTable({
                   />
                 )}
 
-              {/* Global "No more tasks" marker */}
-              {!isLoadingFilters &&
-                ((mode === "sorted" &&
-                  !sortedHasMore &&
-                  sortedTasks.length > 0) ||
-                  (level === "project" &&
-                    mode !== "sorted" &&
-                    !projectPagination[projectId]?.hasMore &&
-                    tasks.length > 0) ||
-                  (level === "workspace" &&
-                    groupedTasks &&
-                    Object.keys(groupedTasks).length > 0 &&
-                    (filtersActive
-                      ? !projectPagination["__global_filter__"]?.hasMore
-                      : !Object.values(projectPagination).some(
-                        (p) => p.hasMore,
-                      )))) && (
-                  <TableRow className="hover:bg-transparent border-0">
-                    <TableCell
-                      colSpan={visibleColumnsCount}
-                      className="py-12 text-center text-muted-foreground/30 text-[10px] font-bold uppercase tracking-[0.4em] pointer-events-none select-none"
-                    >
-                      no more tasks found
-                    </TableCell>
-                  </TableRow>
-                )}
             </tbody>
           </table>
         </div>

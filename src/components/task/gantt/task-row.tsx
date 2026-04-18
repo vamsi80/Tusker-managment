@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/tooltip";
 import { GanttSubtask, GanttTask } from "./types";
 import { InlineAssigneePicker } from "../shared/inline-assignee-picker";
+import { ProjectOption } from "../shared/types";
 
 // ...
 // ... (imports)
@@ -42,8 +43,10 @@ interface TaskRowProps {
         managedProjectIds: string[];
     };
     showDetails: boolean;
-    projectMap: Map<string, { id: string; name: string; color: string; memberIds?: string[] }>;
+    projectMap: Map<string, ProjectOption>;
     granularity: 'days' | 'weeks' | 'months';
+    highlightedSubtaskId?: string | null;
+    onToggleSubtaskHighlight?: (id: string) => void;
 }
 
 export function TaskRow({
@@ -63,7 +66,9 @@ export function TaskRow({
     permissions,
     showDetails,
     projectMap,
-    granularity
+    granularity,
+    highlightedSubtaskId,
+    onToggleSubtaskHighlight
 }: TaskRowProps) {
 
     const [visibleSubtaskCount, setVisibleSubtaskCount] = useState(SUBTASKS_PER_PAGE);
@@ -238,6 +243,8 @@ export function TaskRow({
                         allowedUserIds={allowedUserIds}
                         allTasks={allTasks}
                         granularity={granularity}
+                        highlightedSubtaskId={highlightedSubtaskId}
+                        onToggleSubtaskHighlight={onToggleSubtaskHighlight}
                     />
 
                     {hasMoreSubtasks && (

@@ -10,7 +10,7 @@ import { exportGanttToExcel, exportGanttToPDF } from "./export-utils";
 import { GanttSubtask, GanttTask, TimelineGranularity } from "./types";
 import { TimelineHeader, TimelineGrid } from "./timeline-grid";
 import { calculateTimelineRange, getDaysBetween } from "./utils";
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 import { DependencyLines } from "./dependency-lines";
 
@@ -59,7 +59,17 @@ export function GanttChart({
     const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
     const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
     const [showDetails, setShowDetails] = useState(true);
+    const [highlightedSubtaskId, setHighlightedSubtaskId] = useState<string | null>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    const onToggleSubtaskHighlight = useCallback((id: string) => {
+        setHighlightedSubtaskId(prev => (prev === id ? null : id));
+    }, []);
+
+    useEffect(() => {
+        // Highlighting status tracking removed
+    }, [highlightedSubtaskId]);
+
 
     // 🚀 Performance: Memoized projectMap for O(1) metadata lookups
     const projectMap = useMemo(() => {
@@ -145,7 +155,9 @@ export function GanttChart({
                 allTasks: group.tasks,
                 visibleTasks: group.tasks.slice(0, limit),
                 totalTasks: group.tasks.length,
-                hasMoreTasks: limit < group.tasks.length
+                hasMoreTasks: limit < group.tasks.length,
+                highlightedSubtaskId,
+                onToggleSubtaskHighlight
             };
         });
 
@@ -154,7 +166,7 @@ export function GanttChart({
             hasMoreProjects: visibleProjectCount < allGroups.length,
             noProjectTasks: noProjectTasks
         };
-    }, [tasks, groupByProject, projects, visibleProjectCount, visibleTasksPerProject]);
+    }, [tasks, groupByProject, projects, visibleProjectCount, visibleTasksPerProject, highlightedSubtaskId, onToggleSubtaskHighlight]);
 
     const visibleFlatTasks = useMemo(() => {
         if (groupByProject) return [];
@@ -482,6 +494,8 @@ export function GanttChart({
                                             isNestedInProject={true}
                                             showDetails={showDetails}
                                             projectMap={projectMap}
+                                            highlightedSubtaskId={highlightedSubtaskId}
+                                            onToggleSubtaskHighlight={onToggleSubtaskHighlight}
                                         />
                                     ))}
                                 </ProjectRow>

@@ -18,6 +18,7 @@ import { useState } from "react";
 import { apiClient } from "@/lib/api-client";
 import { toast } from "sonner";
 import { DependencyPicker } from "./dependency-picker";
+import { getStatusColors } from "@/lib/colors/status-colors";
 
 interface SortableSubtaskRowProps {
     subtask: GanttSubtask;
@@ -37,6 +38,8 @@ interface SortableSubtaskRowProps {
     showDetails: boolean;
     allowedUserIds?: string[];
     allTasks?: any[];
+    highlightedSubtaskId?: string | null;
+    onToggleSubtaskHighlight?: (id: string) => void;
 }
 
 function SortableSubtaskRow({
@@ -52,10 +55,14 @@ function SortableSubtaskRow({
     currentUser,
     permissions,
     allowedUserIds,
-    allTasks
+    allTasks,
+    highlightedSubtaskId,
+    onToggleSubtaskHighlight
 }: SortableSubtaskRowProps) {
+    const isHighlighted = subtask.id === highlightedSubtaskId;
+    const statusColors = getStatusColors(subtask.status);
     const [showDepPicker, setShowDepPicker] = useState(false);
-    
+
     const {
         attributes,
         listeners,
@@ -72,26 +79,19 @@ function SortableSubtaskRow({
         opacity: isDragging ? 0.5 : 1,
     };
 
-    const getStatusStyles = (status: string) => {
-        switch (status) {
-            case 'COMPLETED':
-                return "bg-[#22C55E]/10 text-[#22C55E] border-[#22C55E]/20";
-            case 'IN_PROGRESS':
-                return "bg-[#3B82F6]/10 text-[#3B82F6] border-[#3B82F6]/20";
-            case 'REVIEW':
-                return "bg-[#8B5CF6]/10 text-[#8B5CF6] border-[#8B5CF6]/20";
-            case 'HOLD':
-                return "bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/20";
-            case 'CANCELLED':
-                return "bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]/20";
-            default:
-                return "bg-[#D1D5DB]/20 text-slate-600 border-[#D1D5DB]/50";
-        }
-    };
 
-    const canManage = permissions?.isWorkspaceAdmin || 
-                    permissions?.managedProjectIds.includes(projectId) || 
-                    subtask.createdById === currentUser?.id;
+    const canManage = permissions?.isWorkspaceAdmin ||
+        permissions?.managedProjectIds.includes(projectId) ||
+        subtask.createdById === currentUser?.id;
+
+    const handleRowClick = (e: React.MouseEvent) => {
+        // Prevent double highlight toggle if clicking the bar (which handles its own click)
+        if ((e.target as HTMLElement).closest('.gantt-subtask-bar-hitbox')) {
+            return;
+        }
+
+        onToggleSubtaskHighlight?.(subtask.id);
+    };
 
     return (
         <div
@@ -100,20 +100,33 @@ function SortableSubtaskRow({
                 ...style,
                 gridTemplateColumns: 'var(--gantt-sidebar-width) var(--gantt-total-width)',
             }}
-            className="grid group/row"
+            className={cn(
+                "grid group/row transition-all duration-200 cursor-pointer relative",
+                isHighlighted 
+                    ? cn(
+                        statusColors.bgColor.replace('/10', '/20').replace('/20', '/30'),
+                        "border-t border-b border-red-500/80 z-40"
+                      )
+                    : "border-t border-t-transparent"
+            )}
+            onClick={handleRowClick}
         >
             {/* Left Panel */}
             <div
                 className={cn(
                     "sticky left-0 z-30 flex items-center bg-white dark:bg-neutral-900 border-b border-r border-neutral-200 dark:border-neutral-700 h-[32px] w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] shrink-0 transition-colors duration-200 overflow-hidden",
-                    isDragging ? "bg-blue-50/50 dark:bg-blue-900/10" : (!subtask.assigneeId && subtask.status !== "COMPLETED" && subtask.status !== "CANCELLED") && "bg-red-500/10 animate-[pulse_2s_infinite]"
+                    isDragging && "bg-blue-50/50 dark:bg-blue-900/10",
+                    isHighlighted && cn(
+                        statusColors.bgColor.replace('/10', '/30').replace('/20', '/40'),
+                        "border-t border-b border-red-500/80 !z-50"
+                    )
                 )}
             >
                 {/* Drag Handle & Name */}
                 <div className="w-[var(--col-name)] flex items-center gap-1 px-1 shrink-0 border-r border-neutral-200 dark:border-neutral-700 h-full relative group">
                     {/* Gripper - only visible on hover or dragging */}
-                    <div 
-                        {...attributes} 
+                    <div
+                        {...attributes}
                         {...listeners}
                         className={cn(
                             "cursor-grab active:cursor-grabbing p-1 text-muted-foreground/30 hover:text-muted-foreground transition-colors",
@@ -124,7 +137,7 @@ function SortableSubtaskRow({
                     </div>
 
                     <CornerDownRight className="h-3 w-3 text-muted-foreground/30 shrink-0" />
-                    
+
                     <span
                         className="text-[12px] text-muted-foreground truncate flex-1 cursor-pointer hover:text-foreground hover:underline transition-colors pl-1"
                         onClick={() => onSubtaskClick?.(subtask.id)}
@@ -181,7 +194,9 @@ function SortableSubtaskRow({
                                 variant="outline"
                                 className={cn(
                                     "text-[9px] px-1 py-0 h-4 font-normal uppercase whitespace-nowrap border-0",
-                                    getStatusStyles(subtask.status)
+                                    getStatusColors(subtask.status).color,
+                                    getStatusColors(subtask.status).bgColor,
+                                    getStatusColors(subtask.status).borderColor
                                 )}
                             >
                                 {subtask.status?.replace('_', ' ') || 'TO-DO'}
@@ -207,7 +222,10 @@ function SortableSubtaskRow({
             </div>
 
             {/* Right Panel - Timeline Bar */}
-            <div className="relative min-h-[32px] flex items-center w-full border-b border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50/50 dark:hover:bg-neutral-800/20 transition-colors">
+            <div className={cn(
+                "relative min-h-[32px] flex items-center w-full border-b border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50/50 dark:hover:bg-neutral-800/20 transition-colors",
+                isHighlighted && "border-t border-b border-red-500/80 !z-40"
+            )}>
                 <DraggableSubtaskBar
                     subtask={subtask}
                     timelineStart={timelineStart}
@@ -217,6 +235,8 @@ function SortableSubtaskRow({
                     currentUser={currentUser}
                     permissions={permissions}
                     onUpdate={(id, data) => onSubTaskUpdate?.(id, data)}
+                    isHighlighted={subtask.id === highlightedSubtaskId}
+                    onToggleHighlight={() => onToggleSubtaskHighlight?.(subtask.id)}
                 />
             </div>
 
@@ -255,6 +275,8 @@ interface SortableSubtaskListProps {
     allowedUserIds?: string[];
     allTasks?: any[];
     granularity: 'days' | 'weeks' | 'months';
+    highlightedSubtaskId?: string | null;
+    onToggleSubtaskHighlight?: (id: string) => void;
 }
 
 export function SortableSubtaskList({

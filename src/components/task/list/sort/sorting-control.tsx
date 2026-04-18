@@ -24,7 +24,8 @@ const SORT_FIELD_LABELS: Record<SortField, string> = {
     // reviewer: "Reviewer",
     status: "Status",
     startDate: "Start Date",
-    dueDate: "Due Date",
+    dueDate: "", // Hidden in dropdown as per "remove for the due date"
+    deadline: "Deadline",
     createdAt: ""
 };
 
@@ -55,6 +56,8 @@ export function SortingControl({ sorts, onSortsChange }: SortingControlProps) {
         onSortsChange([]);
     };
 
+    const visibleSortFields = Object.entries(SORT_FIELD_LABELS).filter(([_, label]) => label !== "");
+
     return (
         <div className="flex items-center gap-2">
             <DropdownMenu>
@@ -74,7 +77,7 @@ export function SortingControl({ sorts, onSortsChange }: SortingControlProps) {
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
-                    {Object.entries(SORT_FIELD_LABELS).map(([field, label]) => {
+                    {visibleSortFields.map(([field, label]) => {
                         const currentSort = sorts.find(s => s.field === field);
                         return (
                             <DropdownMenuItem
