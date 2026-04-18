@@ -254,6 +254,9 @@ export function TimelineHeader({
                                     <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-[var(--col-assignee)] px-2 border-r border-neutral-200 dark:border-neutral-700 h-full flex items-center">
                                         Assignee
                                     </span>
+                                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-[var(--col-progress)] px-2 border-r border-neutral-200 dark:border-neutral-700 h-full flex items-center justify-center text-center">
+                                        Progress
+                                    </span>
                                     <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-[var(--col-status)] px-2 border-r border-neutral-200 dark:border-neutral-700 h-full flex items-center">
                                         Status
                                     </span>

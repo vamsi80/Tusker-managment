@@ -225,6 +225,14 @@ export function TaskRow({
                         <>
                             {/* 2. Assignee Column */}
                             <div className="w-[var(--col-assignee)] shrink-0 border-r border-neutral-200 dark:border-neutral-700 h-full px-2" />
+                            <div className="w-[var(--col-progress)] shrink-0 border-r border-neutral-200 dark:border-neutral-700 h-full px-2 flex items-center justify-center">
+                                <span className={cn(
+                                    "text-xs font-medium px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800",
+                                    task.progress === 100 ? "text-green-600 dark:text-green-400" : "text-muted-foreground"
+                                )}>
+                                    {task.progress}%
+                                </span>
+                            </div>
                             <div className="w-[var(--col-status)] shrink-0 border-r border-neutral-200 dark:border-neutral-700 h-full px-2 bg-neutral-50/10 dark:bg-neutral-800/5" />
                             <div className="w-[var(--col-days)] shrink-0 border-r border-neutral-200 dark:border-neutral-700 h-full px-2 bg-neutral-50/10 dark:bg-neutral-800/5" />
                             <div className="w-[var(--col-dates)] shrink-0 h-full px-2 bg-neutral-50/10 dark:bg-neutral-800/5" />
@@ -265,7 +273,13 @@ export function TaskRow({
                                         tabIndex={0}
                                         role="button"
                                         aria-label={`${task.name}: ${formatDateRange(start, end)}`}
-                                    />
+                                    >
+                                        {/* Progress Overlay */}
+                                        <div
+                                            className="absolute h-full rounded-full bg-black/20 dark:bg-white/20 top-0 left-0 transition-all duration-300"
+                                            style={{ width: `${task.progress}%` }}
+                                        />
+                                    </div>
                                 </TooltipTrigger>
                                 <TooltipContent
                                     side="top"
@@ -284,11 +298,20 @@ export function TaskRow({
                                             {formatDateRange(start, end)}
                                         </p>
                                         {start && end && (
-                                            <p className="text-xs text-muted-foreground">
+                                            <p className="text-xs text-muted-foreground whitespace-nowrap">
                                                 {getDaysBetween(start, end) + 1} days 
                                                 {isDelayed && ` (+${Math.round((delayWidthPercent / 100) * totalDays)}d delay)`}
                                             </p>
                                         )}
+                                        <div className="flex items-center gap-2 pt-1 border-t border-neutral-200 dark:border-neutral-700 mt-1">
+                                            <div className="flex-1 h-1.5 bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden">
+                                                <div 
+                                                    className="h-full bg-blue-500 rounded-full" 
+                                                    style={{ width: `${task.progress}%` }} 
+                                                />
+                                            </div>
+                                            <span className="text-[10px] font-bold">{task.progress}%</span>
+                                        </div>
                                     </div>
                                 </TooltipContent>
                             </Tooltip>

@@ -189,6 +189,15 @@ function SortableSubtaskRow({
                             )}
                         </div>
 
+                        <div className="w-[var(--col-progress)] flex items-center px-2 shrink-0 border-r border-neutral-200 dark:border-neutral-700 h-full justify-center">
+                            <span className={cn(
+                                "text-[10px] font-medium px-1 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800",
+                                subtask.progress === 100 ? "text-green-600 dark:text-green-400" : "text-muted-foreground"
+                            )}>
+                                {subtask.progress}%
+                            </span>
+                        </div>
+
                         <div className="w-[var(--col-status)] flex items-center px-2 shrink-0 border-r border-neutral-200 dark:border-neutral-700 h-full">
                             <Badge
                                 variant="outline"

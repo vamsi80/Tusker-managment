@@ -42,6 +42,7 @@ export interface GanttSubtask {
   position: number;
   updatedAt?: string; // dd MMM yyyy format
   dependsOnIds?: string[];
+  progress: number;
 }
 
 // ============================================================================
@@ -64,6 +65,7 @@ export interface GanttTask {
   createdById: string | null;
   parentTaskId: string | null;
   updatedAt?: string;
+  progress: number;
 }
 
 // ============================================================================
