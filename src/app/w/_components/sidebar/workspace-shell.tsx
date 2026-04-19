@@ -9,6 +9,7 @@ import { WorkspaceClientProviders } from "@/app/w/[workspaceId]/_components/work
 import { DataLoadReporter } from "@/app/w/[workspaceId]/_components/data-load-reporter";
 import { WorkspaceLayoutProvider, useWorkspaceLayout } from "../../[workspaceId]/_components/workspace-layout-context";
 import { WorkspaceSkeleton } from "../workspace-skeleton";
+import { TopLoader } from "@/components/shared/top-loader";
 
 interface WorkspaceShellProps {
   children: React.ReactNode;
@@ -34,6 +35,7 @@ function WorkspaceShellContent({ children }: { children: React.ReactNode }) {
   return (
     <WorkspaceClientProviders>
       <DataLoadReporter />
+      <TopLoader />
       <SidebarProvider
         style={
           {

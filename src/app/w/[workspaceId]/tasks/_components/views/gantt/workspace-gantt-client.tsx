@@ -90,6 +90,7 @@ export function WorkspaceGanttClient({
   const [loadingSubtasks, setLoadingSubtasks] = useState<Set<string>>(new Set());
   const fetchingIdsRef = useRef<Set<string>>(new Set());
   const expandedTaskIdsRef = useRef<Set<string>>(new Set());
+  const hasFetchedRef = useRef(false);
 
   // 🔑 Force GanttChart to reset its internal expansion state when filters change
   const filterKey = useMemo(() => 
@@ -168,6 +169,15 @@ export function WorkspaceGanttClient({
   };
 
   useEffect(() => {
+    // 🛡️ Mount Guard: If we have initial data and filters are neutral, skip the first fetch
+    const isNeutral = !searchQuery && 
+      Object.values(filters).every(v => v === undefined || v === "" || (Array.isArray(v) && v.length === 0));
+
+    if (!hasFetchedRef.current && initialTasks.length > 0 && isNeutral) {
+      hasFetchedRef.current = true;
+      return;
+    }
+
     // 🚿 Clear subtasks and expanded tracking on every filter change
     setTasks(prev => prev.map(t => ({ ...t, subtasks: [] })));
     expandedTaskIdsRef.current.clear();

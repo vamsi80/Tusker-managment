@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, ReactNode, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, ReactNode, useState, useEffect, useCallback, useTransition } from "react";
 import type { getWorkspaceLayoutData } from "@/data/workspace/get-workspace-layout-data";
 import { workspacesClient } from "@/lib/api-client/workspaces";
 
@@ -11,6 +11,8 @@ interface WorkspaceLayoutContextType {
   tags: any[];
   workspaceId: string;
   isLoading: boolean;
+  isNavigating: boolean;
+  startNavigation: (callback: () => void) => void;
   revalidate: () => Promise<void>;
 }
 
@@ -28,6 +30,7 @@ export function WorkspaceLayoutProvider({
   const [data, setData] = useState<LayoutData | null>(initialData || null);
   const [tags, setTags] = useState<any[]>(initialData?.tags || []);
   const [isLoading, setIsLoading] = useState(!initialData);
+  const [isNavigating, startTransition] = useTransition();
   const lastFetchTimeRef = React.useRef<number>(initialData ? Date.now() : 0);
   const THROTTLE_MS = 45000; // 45 seconds
 
@@ -57,6 +60,12 @@ export function WorkspaceLayoutProvider({
   const revalidate = useCallback(async () => {
     await fetchLayout(true); // Silent revalidation
   }, [fetchLayout]);
+
+  const startNavigation = useCallback((callback: () => void) => {
+    startTransition(() => {
+      callback();
+    });
+  }, []);
 
   useEffect(() => {
     // 🛡️ Data Integrity Guard: Only sync if initialData is valid.
@@ -94,6 +103,8 @@ export function WorkspaceLayoutProvider({
     tags,
     workspaceId,
     isLoading,
+    isNavigating,
+    startNavigation,
     revalidate
   };
 

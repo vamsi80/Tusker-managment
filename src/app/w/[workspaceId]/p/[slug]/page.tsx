@@ -1,10 +1,8 @@
 import { Suspense } from "react";
 import { getProjectBySlug } from "@/data/project/get-project-by-slug";
-import { getProjectMembers } from "@/data/project/get-project-members";
 import { ProjectDashboard } from "./_components/dashboard/project-dashboard";
 import { ReloadableView } from "./_components/shared/reloadable-view";
 import { ProjectTaskListView } from "./_components/list/project-task-list-view";
-import { getUserPermissions } from "@/data/user/get-user-permissions";
 import { requireUser } from "@/lib/auth/require-user";
 import { AppLoader } from "@/components/shared/app-loader";
 
@@ -69,7 +67,6 @@ export default async function ProjectPage({ params, searchParams }: iAppProps) {
   );
 }
 
-// Inline Data Loaders for Streaming Boundaries
 async function ProjectTaskListViewServer({ workspaceId, slug }: { workspaceId: string, slug: string }) {
   const [project, user] = await Promise.all([getProjectBySlug(workspaceId, slug), requireUser()]);
   if (!project) return null;
