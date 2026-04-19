@@ -24,7 +24,7 @@ import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
 import { pubsub, EVENTS } from "@/lib/pubsub";
-import { useRouter } from "next/navigation";
+import { useSafeNavigation } from "@/hooks/use-safe-navigation";
 
 export function NotificationCenter({ workspaceId, initialUnread = [], initialRead = [], initialPeopleCount = 0 }: { workspaceId: string, initialUnread?: any[], initialRead?: any[], initialPeopleCount?: number }) {
     const pathname = usePathname();
@@ -45,7 +45,7 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
     const { data: session } = authClient.useSession();
 
     const { openSubTaskSheetLoading } = useSubTaskSheet();
-    const router = useRouter();
+    const router = useSafeNavigation();
 
     // Listen for Real-time Notifications via PubSub
     useEffect(() => {
@@ -83,7 +83,10 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
         // 2. Synchronize URL programmatically
         const params = new URLSearchParams(currentSearchParams.toString());
         params.set("subtask", notif.taskSlug);
-        router.push(`${pathname}?${params.toString()}`);
+        
+        if (!router.isNavigating) {
+            router.push(`${pathname}?${params.toString()}`);
+        }
 
         // 3. Mark as read and close popover
         if (notif.isNew !== false) {

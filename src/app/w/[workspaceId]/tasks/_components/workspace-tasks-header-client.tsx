@@ -4,6 +4,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
 import { LayoutList, LayoutGrid, GanttChartSquare } from "lucide-react";
+import { useSafeNavigation } from "@/hooks/use-safe-navigation";
 interface WorkspaceTasksHeaderClientProps {
     workspaceId: string;
     permissions: {
@@ -23,6 +24,7 @@ export function WorkspaceTasksHeaderClient({
     permissions,
 }: WorkspaceTasksHeaderClientProps) {
     const searchParams = useSearchParams();
+    const router = useSafeNavigation();
     const currentView = searchParams.get('view') || 'list';
     const baseUrl = `/w/${workspaceId}/tasks`;
 
@@ -84,11 +86,18 @@ export function WorkspaceTasksHeaderClient({
                                 href={tab.href}
                                 prefetch={false}
                                 scroll={false}
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    if (currentView !== tab.value) {
+                                        router.push(tab.href);
+                                    }
+                                }}
                                 className={cn(
                                     "flex h-full items-center gap-2 border-b-2 px-2 sm:px-3 text-sm font-medium transition-colors hover:text-primary whitespace-nowrap flex-shrink-0",
                                     isActive
                                         ? "border-primary text-primary"
-                                        : "border-transparent text-muted-foreground"
+                                        : "border-transparent text-muted-foreground",
+                                    router.isNavigating && "pointer-events-none opacity-50"
                                 )}
                             >
                                 <Icon className="h-3 w-3" />

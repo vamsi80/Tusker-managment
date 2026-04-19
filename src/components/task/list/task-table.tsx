@@ -621,8 +621,15 @@ function TaskTable({
   useEffect(() => {
     const isAbortedRef = { current: false };
     const hasInitialData = initialTasks && initialTasks.length > 0;
-    const cache = useTaskCacheStore.getState().getProjectTasksCache(projectId || "");
-    const hasCacheData = cache && cache.tasks.length > 0;
+    
+    // 🛡️ Mount Guard: If we have initial data and filters are neutral, trust RSC.
+    const isNeutral = !searchQuery && 
+      Object.values(filters).every(v => v === undefined || v === "" || (Array.isArray(v) && v.length === 0));
+
+    if (!hasFetchedRef.current && hasInitialData && isNeutral) {
+      hasFetchedRef.current = true;
+      return;
+    }
 
     const shouldInitialFetch = (!hasInitialData || isShell || !hasFetchedRef.current);
 
@@ -634,7 +641,7 @@ function TaskTable({
       }
     }
     return () => { isAbortedRef.current = true; };
-  }, [fetchFiltered, loadProjectTasks, initialTasks, projectId, level, filtersActive, isShell]);
+  }, [fetchFiltered, loadProjectTasks, initialTasks, projectId, level, filtersActive, isShell, searchQuery, filters]);
 
   useEffect(() => {
     // Release the mount guard once initial cycle is potentially settled
@@ -757,10 +764,13 @@ function TaskTable({
       return;
     }
 
-    fetchFiltered(isAbortedRef);
+    const timer = setTimeout(() => {
+      fetchFiltered(isAbortedRef);
+    }, 200);
 
     return () => {
       isAbortedRef.current = true;
+      clearTimeout(timer);
     };
   }, [fetchFiltered, searchQuery, filters, sortsKey]);
 

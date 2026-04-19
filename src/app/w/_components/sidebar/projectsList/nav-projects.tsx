@@ -5,8 +5,9 @@ import { toast } from "sonner";
 import { useState } from "react";
 import { EditProjectForm } from "./options/edit-project-form";
 import { ManageProjectMembersDialog } from "./options/manage-members-dialog";
-import { usePathname, useRouter } from "next/navigation";
-import { useTransition, useRef, useEffect } from "react";
+import { usePathname } from "next/navigation";
+import { useRef, useEffect } from "react";
+import { useSafeNavigation } from "@/hooks/use-safe-navigation";
 import { deleteProject } from "@/actions/project/delete-project";
 import type { UserProjectsType } from "@/data/project/get-projects";
 import type { WorkspaceMembersResult } from "@/data/workspace/get-workspace-members";
@@ -32,28 +33,25 @@ interface iAppProps {
 export function NavProjects({ projects, workspaceId, isAdmin, canCreateProject, userRole, currentUserId }: iAppProps) {
   const { isMobile } = useSidebar();
   const pathname = usePathname();
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const router = useSafeNavigation();
   const navigatingTo = useRef<string | null>(null);
   const mounted = useMounted();
 
   // Clear navigating ref when transition ends or path changes
   useEffect(() => {
-    if (!isPending) {
+    if (!router.isNavigating) {
       navigatingTo.current = null;
     }
-  }, [isPending, pathname]);
+  }, [router.isNavigating, pathname]);
 
   const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, url: string) => {
     e.preventDefault();
-    // 1. Block if already navigating OR if isPending
+    // 1. Block if already navigating globally OR if target is already being loaded locally
     // 2. Block if already on the target URL (pathname check)
-    if (isPending || pathname === url || navigatingTo.current === url) return;
+    if (router.isNavigating || pathname === url || navigatingTo.current === url) return;
 
     navigatingTo.current = url;
-    startTransition(() => {
-      router.push(url);
-    });
+    router.push(url);
   };
 
   // Delete dialog state
@@ -195,7 +193,7 @@ export function NavProjects({ projects, workspaceId, isAdmin, canCreateProject, 
 
             return (
               <SidebarMenuItem key={proj.id}>
-                <SidebarMenuButton asChild disabled={isPending}>
+                <SidebarMenuButton asChild disabled={router.isNavigating}>
                   <Link
                     href={href}
                     prefetch={false}

@@ -23,6 +23,7 @@ import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-
 import { LayoutDashboard, Users, CheckSquare, Settings, BarChart3, AppWindow } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSafeNavigation } from "@/hooks/use-safe-navigation";
 
 /**
  * Main application sidebar component (Client Side).
@@ -31,6 +32,7 @@ import { usePathname } from "next/navigation";
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const { data, workspaceId } = useWorkspaceLayout();
   const pathname = usePathname();
+  const router = useSafeNavigation();
   const { workspaces, projects, permissions } = data;
 
   // Navigation items for the main workspace section
@@ -80,8 +82,17 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                     asChild
                     isActive={pathname === item.url}
                     tooltip={item.title}
+                    disabled={router.isNavigating}
                   >
-                    <Link href={item.url}>
+                    <Link 
+                        href={item.url}
+                        onClick={(e) => {
+                            if (pathname !== item.url) {
+                                e.preventDefault();
+                                router.push(item.url);
+                            }
+                        }}
+                    >
                       <item.icon />
                       <span>{item.title}</span>
                     </Link>

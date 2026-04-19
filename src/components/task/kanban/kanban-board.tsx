@@ -414,6 +414,20 @@ export function KanbanBoard({
       const hasFilters = !isBaseProjectView;
       const isBoardEmpty = Object.values(columnData).every((col) => col.subTaskIds.length === 0);
 
+      // 🛡️ Mount Guard: If we have initial data and filters are neutral, skip the first fetch
+      const isNeutral = !searchQuery && 
+        Object.values(filters).every(v => v === undefined || v === "" || (Array.isArray(v) && v.length === 0));
+
+      const hasInitialData = initialData && Object.values(initialData).some((col: any) => 
+        (col.tasks || col.subTasks) && (col.tasks?.length > 0 || col.subTasks?.length > 0)
+      );
+
+      if (!hasFetchedRef.current && hasInitialData && isNeutral) {
+        hasFetchedRef.current = true;
+        setIsFiltering(false);
+        return;
+      }
+
       // 🔄 Revalidation Logic: 
       // Fetch if (has filters) OR (board is empty) OR (this is the first mount and we want to refresh cache)
       const shouldFetch = hasFilters || isBoardEmpty || !hasFetchedRef.current;
