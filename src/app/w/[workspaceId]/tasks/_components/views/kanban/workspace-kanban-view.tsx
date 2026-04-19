@@ -32,7 +32,6 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
     // 3. Launch the final large queries
     const viewStartTime = performance.now();
     const [
-        kanbanResponse,
         permissions,
         projectMembers,
         projects,
@@ -40,14 +39,6 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
         tags,
         projectLeaders,
     ] = await Promise.all([
-        getTasks({
-            workspaceId,
-            excludeParents: true,
-            limit: 30, // Limit per status column
-            sorts: [{ field: "createdAt", direction: "desc" }],
-            view_mode: "kanban",
-            includeFacets: true
-        }, user.id),
         getWorkspacePermissions(workspaceId, user.id),
         membersPromise,
         projectsPromise,
@@ -60,25 +51,7 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
         console.warn(`[PERF_WARN] WorkspaceKanbanView rendered in ${duration.toFixed(2)}ms`);
     }
 
-    const initialData: Record<string, any> = {};
-    const kanbanData = kanbanResponse as any;
-    const tasksByStatus = kanbanData.tasksByStatus || {};
-    const totalCounts = kanbanData.facets?.statusCounts || {};
-
-    COLUMNS.forEach((status) => {
-        const tasks = tasksByStatus[status] || [];
-        const totalInDb = totalCounts[status] || tasks.length;
-
-        initialData[status] = {
-            subTasks: tasks,
-            totalCount: totalInDb,
-            hasMore: totalInDb > tasks.length,
-            nextCursor: totalInDb > tasks.length && tasks.length > 0
-                ? { id: tasks[tasks.length - 1].id, createdAt: tasks[tasks.length - 1].createdAt }
-                : null,
-            currentPage: 1
-        };
-    });
+    const initialData = null;
 
     // Convert projects to ProjectOption format for filters
     const projectOptions = projects.map(project => ({

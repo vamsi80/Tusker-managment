@@ -42,8 +42,8 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
 
     const progressColor = getProgressColor();
 
-    const assigneeUser = (task.assignee as any)?.workspaceMember?.user;
-    const reviewerUser = (task.reviewer as any)?.workspaceMember?.user;
+    const assigneeUser = task.assignee;
+    const reviewerUser = task.reviewer;
 
     return (
         <TableRow
@@ -93,10 +93,12 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
                     {assigneeUser ? (
                         <div className="flex items-center gap-2 min-w-0">
                             <Avatar className="h-5 w-5 flex-shrink-0">
-                                <AvatarFallback className="text-[10px]">{assigneeUser.surname?.[0] || assigneeUser.name?.[0]}</AvatarFallback>
+                                <AvatarFallback className="text-[10px]">
+                                    {(assigneeUser.surname || (assigneeUser as any).workspaceMember?.user?.surname)?.[0]?.toUpperCase() || "?"}
+                                </AvatarFallback>
                             </Avatar>
                             <span className="text-sm truncate">
-                                {assigneeUser.surname || assigneeUser.name}
+                                {assigneeUser.surname}
                             </span>
                         </div>
                     ) : (
@@ -111,10 +113,12 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
                     {reviewerUser ? (
                         <div className="flex items-center gap-2 min-w-0">
                             <Avatar className="h-5 w-5 flex-shrink-0">
-                                <AvatarFallback className="text-[10px]">{reviewerUser.surname?.[0] || reviewerUser.name?.[0]}</AvatarFallback>
+                                <AvatarFallback className="text-[10px]">
+                                    {(reviewerUser.surname || (reviewerUser as any).workspaceMember?.user?.surname)?.[0]?.toUpperCase() || "?"}
+                                </AvatarFallback>
                             </Avatar>
                             <span className="text-sm truncate">
-                                {reviewerUser.surname || reviewerUser.name}
+                                {reviewerUser.surname}
                             </span>
                         </div>
                     ) : (

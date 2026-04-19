@@ -31,45 +31,18 @@ export type WorkspaceTaskType = {
     assigneeId: string | null;          // raw FK (from TASK_CORE_SELECT)
     tagId?: string | null;               // raw FK (from TASK_CORE_SELECT)
 
-    // Hydrated relations — present after batch-loading
+    // Flat metadata - optimized for performance
     assignee?: {
         id: string;
-        name: string | null;
         surname: string | null;
-        image: string | null;
-        workspaceMember?: {
-            user: {
-                id: string;
-                name: string | null;
-                surname: string | null;
-            }
-        }
     } | null;
     reviewer?: {
         id: string;
-        name: string | null;
         surname: string | null;
-        image: string | null;
-        workspaceMember?: {
-            user: {
-                id: string;
-                name: string | null;
-                surname: string | null;
-            }
-        }
     } | null;
     createdBy?: {
         id: string;
-        name: string | null;
         surname: string | null;
-        image: string | null;
-        workspaceMember?: {
-            user: {
-                id: string;
-                name: string | null;
-                surname: string | null;
-            }
-        }
     } | null;
     parentTask?: {
         id: string;

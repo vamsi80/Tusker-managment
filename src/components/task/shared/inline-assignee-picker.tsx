@@ -47,14 +47,12 @@ export interface AssignableSubTask {
     tag?: { id: string } | null;
     assigneeId?: string | null;
     assignee?: {
-        id?: string;
-        name?: string;
-        image?: string | null;
-        workspaceMember?: { user?: { id?: string, name?: string, surname?: string, image?: string | null } | null } | null;
+        id: string;
+        surname: string | null;
     } | null;
     reviewer?: {
-        id?: string;
-        workspaceMember?: { user?: { id?: string, name?: string, surname?: string, image?: string | null } | null } | null;
+        id: string;
+        surname: string | null;
     } | null;
 }
 
@@ -117,15 +115,14 @@ export function InlineAssigneePicker({
     // or by userId as a fallback.
     const currentMember = allMembers.find(m =>
         (subTask.assigneeId && m.id === subTask.assigneeId) ||
-        (subTask.assignee?.id && m.userId === subTask.assignee.id) ||
-        (subTask.assignee?.workspaceMember?.user?.id && m.userId === subTask.assignee.workspaceMember.user.id)
+        (subTask.assignee?.id && m.userId === subTask.assignee.id)
     );
 
     const displayInfo = {
         name: currentMember
             ? (currentMember.user.surname || currentMember.user.name)
-            : (subTask.assignee?.name || "Unassigned"),
-        isAssigned: !!currentMember || !!(subTask.assignee && (subTask.assignee.name || subTask.assignee.id))
+            : (subTask.assignee?.surname || "Unassigned"),
+        isAssigned: !!currentMember || !!(subTask.assignee && (subTask.assignee.surname || subTask.assignee.id))
     };
 
     const handleSelect = (member: ProjectMembersType[number]) => {
@@ -157,15 +154,7 @@ export function InlineAssigneePicker({
                     assigneeId: member.projectMemberId,
                     assignee: {
                         id: member.userId,
-                        name: member.user.surname,
-                        workspaceMember: {
-                            userId: member.userId,
-                            user: {
-                                id: member.userId,
-                                name: member.user.name,
-                                surname: member.user.surname,
-                            }
-                        }
+                        surname: member.user.surname,
                     },
                     updatedAt: new Date().toISOString()
                 };

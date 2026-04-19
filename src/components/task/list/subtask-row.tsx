@@ -64,7 +64,7 @@ export const SubTaskRow = memo(function SubTaskRow({
     const [deleteOpen, setDeleteOpen] = useState(false);
 
     const canEditSubTask = () => {
-        const subTaskCreatorId = subTask.createdBy?.workspaceMember?.user?.id || (subTask as any).createdById;
+        const subTaskCreatorId = subTask.createdBy?.id || (subTask as any).createdById;
 
         if (permissions) {
             return permissions.isWorkspaceAdmin ||
@@ -93,8 +93,8 @@ export const SubTaskRow = memo(function SubTaskRow({
         }
     };
 
-    const assigneeUser = (subTask.assignee as any)?.workspaceMember?.user;
-    const reviewerUser = (subTask.reviewer as any)?.workspaceMember?.user;
+    const assigneeUser = subTask.assignee;
+    const reviewerUser = subTask.reviewer;
     // Use custom hooks for date calculations
     // Use custom hook for remaining days calculation, passing persisted dueDate if available
     const { remainingDays, isOverdue, dueDate } = useRemainingDays(subTask.startDate, subTask.days, subTask.dueDate);
@@ -248,7 +248,9 @@ export const SubTaskRow = memo(function SubTaskRow({
                         {assigneeUser ? (
                             <div className="flex items-center gap-2 min-w-0">
                                 <Avatar className="h-5 w-5 flex-shrink-0">
-                                    <AvatarFallback className="text-[10px]">{assigneeUser.surname?.[0]}</AvatarFallback>
+                                    <AvatarFallback className="text-[10px]">
+                                        {(assigneeUser.surname || (assigneeUser as any).workspaceMember?.user?.surname)?.[0]?.toUpperCase() || "?"}
+                                    </AvatarFallback>
                                 </Avatar>
                                 <span className="text-xs text-muted-foreground truncate">
                                     {assigneeUser.surname}
@@ -284,10 +286,12 @@ export const SubTaskRow = memo(function SubTaskRow({
                         {reviewerUser ? (
                             <div className="flex items-center gap-2 min-w-0">
                                 <Avatar className="h-5 w-5 flex-shrink-0">
-                                    <AvatarFallback className="text-[10px]">{reviewerUser.surname?.[0] || reviewerUser.name?.[0]}</AvatarFallback>
+                                    <AvatarFallback className="text-[10px]">
+                                        {(reviewerUser.surname || (reviewerUser as any).workspaceMember?.user?.surname)?.[0]?.toUpperCase() || "?"}
+                                    </AvatarFallback>
                                 </Avatar>
                                 <span className="text-xs text-muted-foreground truncate">
-                                    {reviewerUser.surname || reviewerUser.name}
+                                    {reviewerUser.surname}
                                 </span>
                             </div>
                         ) : (

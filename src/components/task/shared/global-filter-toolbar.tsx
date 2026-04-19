@@ -92,7 +92,7 @@ export function GlobalFilterToolbar({
         if (filter.key === 'assigneeId' && members) {
             const assignee = members.find(m => m.id === filter.value);
             if (assignee) {
-                const displayName = assignee.surname || assignee.name || "";
+                const displayName = assignee.surname || "";
                 return {
                     ...filter,
                     value: displayName
@@ -479,9 +479,9 @@ export function GlobalFilterToolbar({
                                                             <SelectItem key={member.id} value={member.id}>
                                                                 <div className="flex items-center gap-2">
                                                                     <Avatar className="h-4 w-4 flex-shrink-0">
-                                                                        <AvatarFallback className="text-[8px]">{member.surname?.[0] || member.name?.[0]}</AvatarFallback>
+                                                                        <AvatarFallback className="text-[8px]">{member.surname?.[0] || '?'}</AvatarFallback>
                                                                     </Avatar>
-                                                                    <span className="truncate">{member.surname || member.name}</span>
+                                                                    <span className="truncate">{member.surname}</span>
                                                                 </div>
                                                             </SelectItem>
                                                         ))}

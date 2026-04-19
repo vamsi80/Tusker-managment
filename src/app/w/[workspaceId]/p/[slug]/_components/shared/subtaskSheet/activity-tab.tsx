@@ -64,9 +64,8 @@ export function ActivityTab({ activities, isLoadingActivity }: ActivityTabProps)
                                     {/* Author Info */}
                                     <div className="flex items-center gap-3 mb-3">
                                         <Avatar className="h-8 w-8">
-                                            <AvatarImage src={author?.image || ""} />
                                             <AvatarFallback className="text-xs">
-                                                {author?.name?.[0] || "?"}
+                                                {author?.surname?.[0] || "?"}
                                             </AvatarFallback>
                                         </Avatar>
                                         <div className="flex-1">

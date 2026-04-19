@@ -42,7 +42,7 @@ type TaskStatus =
   | "COMPLETED";
 
 interface KanbanBoardProps {
-  initialData: Record<TaskStatus, SubTasksByStatusResponse>;
+  initialData: Record<TaskStatus, SubTasksByStatusResponse> | null;
   isShell?: boolean;
   projectMembers: ProjectMembersType;
   workspaceId: string;
@@ -130,7 +130,9 @@ export function KanbanBoard({
 
   const renderCount = useRef(0);
   renderCount.current++;
-  const hasFetchedRef = useRef(false);
+  const hasFetchedRef = useRef(
+    isShell && initialData && Object.values(initialData).some((col: any) => (col.tasks || col.subTasks) && (col.tasks?.length > 0 || col.subTasks?.length > 0))
+  );
   logger.perf("KANBAN_RENDER", 0, { count: renderCount.current });
 
   // State for each column's data - INITIALIZE WITH PROPS ONLY FOR HYDRATION SAFETY
@@ -151,24 +153,24 @@ export function KanbanBoard({
     const cacheState = useTaskCacheStore.getState();
 
     COLUMNS.forEach((col) => {
-      const serverCol = initialData[col.id];
+      const serverCol = initialData ? initialData[col.id] : null;
       const cacheKey = `${workspaceId}-${contextId}-${col.id}`;
       const cached = cacheState.getKanbanTasksCache(cacheKey);
 
       // 💉 Optimization: If we have cached data and initialData is a shell, use cache.
       if (isShell && cached && cached.tasks.length > 0) {
         map[col.id] = {
-          subTaskIds: cached.tasks.map(t => t.id),
+          subTaskIds: Array.from(new Set(cached.tasks.map(t => t.id))),
           totalCount: cached.totalCount ?? 0,
           hasMore: cached.hasMore,
           nextCursor: cached.nextCursor,
         };
-      } else {
+        const colTasks = serverCol ? ((serverCol as any).tasks || (serverCol as any).subTasks || []) : [];
         map[col.id] = {
-          subTaskIds: serverCol.subTasks.map((t) => t.id),
-          totalCount: serverCol.totalCount,
-          hasMore: serverCol.hasMore,
-          nextCursor: serverCol.nextCursor,
+          subTaskIds: Array.from(new Set(colTasks.map((t: any) => t.id))),
+          totalCount: serverCol ? serverCol.totalCount : 0,
+          hasMore: serverCol ? serverCol.hasMore : false,
+          nextCursor: serverCol ? serverCol.nextCursor : null,
         };
       }
     });
@@ -209,7 +211,7 @@ export function KanbanBoard({
         if (!matches) {
           nextState[col.id] = {
             ...nextState[col.id],
-            subTaskIds: cachedList.ids,
+            subTaskIds: Array.from(new Set(cachedList.ids)),
             totalCount: cachedList.totalCount ?? nextState[col.id].totalCount,
           };
           hasChanges = true;
@@ -230,12 +232,14 @@ export function KanbanBoard({
 
     // 0. IMMEDIATE SYNC: Upsert all initial server data into global entities
     // ensure we have the freshest versions available for relations and metadata
-    const allInitialTasks = COLUMNS.flatMap(
-      (col) => initialData[col.id]?.subTasks || []
-    );
+    const allInitialTasks = initialData ? COLUMNS.flatMap(
+      (col) => (initialData[col.id] as any)?.tasks || (initialData[col.id] as any)?.subTasks || []
+    ) : [];
     if (allInitialTasks.length > 0) {
       upsertTasks(allInitialTasks);
     }
+
+    if (!initialData) return;
 
     const contextId = projectId || "";
     const hydratedData: any = { ...columnData };
@@ -245,10 +249,9 @@ export function KanbanBoard({
       const cacheKey = `${workspaceId}-${contextId}-${col.id}`;
       const cached = useTaskCacheStore.getState().getKanbanTasksCache(cacheKey);
 
-      // 1. Base Data Strategy:
       // ALWAYS prefer the list structure from the server (initialData) if it just arrived.
       // Use cache only for "nextCursor" or if we are navigating back without new props.
-      let tasks = initialData[col.id].subTasks;
+      let tasks = (initialData[col.id] as any).tasks || (initialData[col.id] as any).subTasks || [];
 
       if (cached && cached.tasks.length > 0) {
         if (initialData[col.id].totalCount === 0 && !isShell) {
@@ -258,7 +261,7 @@ export function KanbanBoard({
           // Cache has MORE items than the server provided page 1.
           // Verify if it's the SAME data set by checking if the base IDs match.
           const baseIdsMatch = tasks.every(
-            (t, i) => cached.tasks[i]?.id === t.id,
+            (t: any, i: number) => cached.tasks[i]?.id === t.id,
           );
           if (baseIdsMatch) {
             tasks = cached.tasks;
@@ -321,7 +324,7 @@ export function KanbanBoard({
       }
 
       hydratedData[col.id] = {
-        subTaskIds: tasks.map((t) => t.id),
+        subTaskIds: Array.from(new Set(tasks.map((t: any) => t.id))),
         totalCount: totalCount || (cached ? cached.totalCount : 0),
         hasMore: hasMore,
         nextCursor: nextCursor,
@@ -431,12 +434,12 @@ export function KanbanBoard({
             resetData[col.id] = {
               subTaskIds: (cached && cached.tasks.length > 0
                 ? cached.tasks
-                : initialData[col.id].subTasks
-              ).map((t) => t.id),
+                : ((initialData?.[col.id] as any)?.tasks || (initialData?.[col.id] as any)?.subTasks || [])
+              ).map((t: any) => t.id),
               totalCount: cached
                 ? (cached.totalCount ?? 0)
-                : initialData[col.id].totalCount,
-              hasMore: cached ? cached.hasMore : initialData[col.id].hasMore,
+                : (initialData?.[col.id]?.totalCount || 0),
+              hasMore: cached ? cached.hasMore : (initialData?.[col.id]?.hasMore || false),
               nextCursor: cached ? cached.nextCursor : undefined,
             };
           });
@@ -477,7 +480,7 @@ export function KanbanBoard({
         params.set("p", targetProjectId);
         params.set("vm", "kanban");
         params.set("excludeParents", "true");
-        params.set("l", "15");
+        params.set("l", "5");
         params.set("facets", "true");
         if (searchQuery) params.set("q", searchQuery);
         if (filters.assigneeId) params.set("a", filters.assigneeId);
@@ -492,11 +495,16 @@ export function KanbanBoard({
         if (isAborted) return;
 
         if (response.success && response.data) {
-          const counts = (response.data.facets as any)?.statusCounts || {};
+          // Log payload weight for optimization verification
+          const sizeInBytes = new TextEncoder().encode(JSON.stringify(response.data)).length;
+          console.log(`%c[KANBAN_WEIGHT] Data: ${(sizeInBytes / 1024).toFixed(2)} KB`, "color: #10b981; font-weight: bold;");
+
+          const counts = (response.data.facets as any)?.status || {};
           const groupedData: any = {};
 
           COLUMNS.forEach((col) => {
-            const allColTasks = response.data.tasksByStatus[col.id] || [];
+            const serverCol = response.data.tasksByStatus[col.id];
+            const allColTasks = serverCol?.tasks || [];
             // Don't display parent as a card
             const colTasks = allColTasks.filter((t: any) => !t.isParent);
 
@@ -505,23 +513,12 @@ export function KanbanBoard({
               useTaskCacheStore.getState().upsertTasks(colTasks);
             }
 
-            // Use the statusCounts to compute if this SPECIFIC column has more items
-            // since this specific query fetches everything generically
-            const totalForCol = counts[col.id] || colTasks.length;
-            const hasMoreLocal = totalForCol > colTasks.length;
-
-            // Extract a custom cursor specifically for this column if needed
-            const lastTask = colTasks[colTasks.length - 1];
-            const nextCursor =
-              hasMoreLocal && lastTask
-                ? { id: lastTask.id, createdAt: lastTask.createdAt }
-                : null;
-
+            // Use the server-provided pagination state directly
             groupedData[col.id] = {
-              subTaskIds: colTasks.map((t: any) => t.id),
-              totalCount: totalForCol,
-              hasMore: hasMoreLocal,
-              nextCursor: nextCursor,
+              subTaskIds: Array.from(new Set(colTasks.map((t: any) => t.id))),
+              totalCount: counts[col.id] || colTasks.length,
+              hasMore: serverCol?.hasMore || false,
+              nextCursor: serverCol?.nextCursor || null,
             };
           });
           setColumnData(groupedData);
@@ -594,7 +591,7 @@ export function KanbanBoard({
       const params = new URLSearchParams();
       params.set("w", workspaceId);
       params.set("s", status);
-      params.set("l", "30");
+      params.set("l", "10");
       params.set("vm", "kanban");
 
       if (targetProjectId) params.set("p", targetProjectId);
@@ -613,6 +610,10 @@ export function KanbanBoard({
         return;
       }
 
+      // Log payload weight for Load More optimization verification
+      const sizeInBytes = new TextEncoder().encode(JSON.stringify(response.data)).length;
+      console.log(`%c[KANBAN_LOAD_MORE_WEIGHT] ${status}: ${(sizeInBytes / 1024).toFixed(2)} KB`, "color: #3b82f6; font-weight: bold;");
+
       const allNewTasks = response.data.tasks || [];
       // STRICT: Only tasks whose status matches AND are not parents
       const newTasks = allNewTasks.filter(
@@ -623,7 +624,7 @@ export function KanbanBoard({
       useTaskCacheStore.getState().upsertTasks(newTasks);
 
       setColumnData((prev) => {
-        const counts = (response.data.facets as any)?.statusCounts || {};
+        const counts = (response.data.facets as any)?.status || {};
         const existingIds = prev[status].subTaskIds;
 
         // Deduplicate using a Set

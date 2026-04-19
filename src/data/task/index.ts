@@ -7,7 +7,7 @@ export { getTaskById, type TaskByIdType } from "./get-task-by-id";
 // Kanban Specific Type Aliases
 export type { WorkspaceTaskType as KanbanSubTaskType } from "./legacy-types";
 export type SubTasksByStatusResponse = {
-    subTasks: import("./legacy-types").WorkspaceTaskType[];
+    tasks: import("./legacy-types").WorkspaceTaskType[];
     totalCount: number;
     hasMore: boolean;
     currentPage?: number;

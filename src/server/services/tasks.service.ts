@@ -178,28 +178,47 @@ export class TasksService {
     return result;
   }
 
+  private static mapToFlatMetadata(task: any) {
+    if (!task) return task;
+    const flatten = (obj: any) => {
+      const user = obj?.workspaceMember?.user || obj?.user || obj;
+      if (!user?.id && !user?.surname) return obj;
+      return {
+        id: user.id,
+        surname: user.surname,
+        // name and image explicitly excluded per user request
+      };
+    };
+
+    if (task.assignee) task.assignee = flatten(task.assignee);
+    if (task.reviewer) task.reviewer = flatten(task.reviewer);
+    if (task.createdBy) task.createdBy = flatten(task.createdBy);
+    
+    // Recursive for subtasks if present
+    if (task.subTasks && Array.isArray(task.subTasks)) {
+      task.subTasks = task.subTasks.map((st: any) => this.mapToFlatMetadata(st));
+    }
+    
+    return task;
+  }
+
   private static stripParentMetadata(result: any) {
     if (!result) return;
     
-    const stripTask = (task: any) => {
+    const processTask = (task: any) => {
+      this.mapToFlatMetadata(task);
       // Pruning disabled to ensure data integrity as per user request.
-      // Root parent tasks should retain their metadata (status, dates, etc.)
-      /*
-      if (task.isParent && !task.parentTaskId) {
-        delete task.assigneeId;
-        delete task.assignee;
-        ...
-      }
-      */
     };
 
     if (result.tasks && Array.isArray(result.tasks)) {
-      result.tasks.forEach(stripTask);
+      result.tasks.forEach(processTask);
     }
     
     if (result.tasksByStatus) {
       Object.keys(result.tasksByStatus).forEach(status => {
-         result.tasksByStatus[status].forEach(stripTask);
+         const colData = result.tasksByStatus[status];
+         const colTasks = Array.isArray(colData) ? colData : (colData?.tasks || []);
+         colTasks.forEach(processTask);
       });
     }
   }
@@ -277,6 +296,8 @@ export class TasksService {
       const toArray = <T>(v: T | T[] | undefined): T[] | undefined =>
         v === undefined ? undefined : Array.isArray(v) ? v : [v];
 
+      const isMinimal = opts.hierarchyMode === "parents" && !opts.includeSubTasks;
+
       const hasExplicitFilters = !!(
         (opts.status && toArray(opts.status)?.length) ||
         (opts.assigneeId && toArray(opts.assigneeId)?.length) ||
@@ -318,7 +339,7 @@ export class TasksService {
           isAdmin,
           fullAccessProjectIds,
           restrictedProjectIds,
-          opts,
+          { ...opts, isMinimal }, 
         );
         return { ...result, totalCount: null, facets: emptyFacets };
       }
@@ -361,7 +382,7 @@ export class TasksService {
                 isAdmin,
                 isRestrictedMember: !hasFullAccess,
               }),
-              select: getTaskSelect(opts.view_mode),
+              select: getTaskSelect(opts.view_mode, false), // Subtasks are never minimal in expansion
               orderBy: buildOrderBy(opts.sorts),
             });
 
@@ -413,7 +434,9 @@ export class TasksService {
 
       if (opts.groupBy === "status") {
         const targetStatuses = toArray(opts.status);
-        const perStatusLimit = opts.limit ?? 15;
+        // Default to 5 per status for initial parallel load, 
+        // handleLoadMore will explicitly request 10.
+        const perStatusLimit = opts.limit ?? (opts.view_mode === "kanban" ? 5 : 15);
 
         // --- STRATEGY A: SINGLE STATUS PAGINATION (Load More) ---
         // If the user specifies exactly one status, we treat this as a pagination request for one column.
@@ -447,7 +470,7 @@ export class TasksService {
           const tasks = await prisma.task.findMany({
             where,
             take: perStatusLimit + 1,
-            select: getTaskSelect(opts.view_mode),
+            select: getTaskSelect(opts.view_mode, isMinimal),
             orderBy: buildOrderBy(opts.sorts),
           });
 
@@ -468,7 +491,7 @@ export class TasksService {
                   userId,
                   isAdmin,
                 }),
-                select: getTaskSelect(opts.view_mode),
+                select: getTaskSelect(opts.view_mode, false), // subtasks never minimal
                 orderBy: buildOrderBy(opts.sorts),
               });
               tasks.forEach((parent: any) => {
@@ -489,12 +512,17 @@ export class TasksService {
               : { id: lastTask.id, createdAt: lastTask.createdAt }
             : null;
 
+          const totalCount = await prisma.task.count({ where });
+
           return {
             tasks,
-            totalCount: tasks.length, // Client uses facets.statusCounts for real total
+            totalCount: tasks.length, 
             hasMore: trueHasMore,
             nextCursor,
-            facets: emptyFacets,
+            facets: {
+              ...emptyFacets,
+              status: { [status]: totalCount } 
+            },
           };
         }
 
@@ -517,6 +545,7 @@ export class TasksService {
               restrictedProjectIds,
               onlyParents: opts.onlyParents || (!hasExplicitFilters && hierarchyMode === "parents"),
               onlySubtasks: opts.onlySubtasks || (!hasExplicitFilters && hierarchyMode === "children"),
+              excludeParents: opts.excludeParents,
               view_mode: opts.view_mode,
             },
             userId
@@ -563,8 +592,8 @@ export class TasksService {
 
             return prisma.task.findMany({
               where: statusWhere,
-              take: perStatusLimit,
-              select: getTaskSelect(opts.view_mode),
+              take: perStatusLimit + 1,
+              select: getTaskSelect(opts.view_mode, isMinimal),
               orderBy: buildOrderBy(opts.sorts),
             });
           })
@@ -600,21 +629,37 @@ export class TasksService {
         }
 
         if (opts.view_mode === "kanban") {
-          const tasksByStatus: Record<string, any[]> = {};
-          tasks.forEach((task) => {
-            const s = task.status || "UNKNOWN";
-            if (!tasksByStatus[s]) tasksByStatus[s] = [];
-            tasksByStatus[s].push(task);
+          const tasksByStatus: Record<string, { tasks: any[], nextCursor: any, hasMore: boolean }> = {};
+          
+          const primarySort = opts.sorts?.[0];
+
+          statusTasksResults.forEach((statusTasks, idx) => {
+            const status = allStatuses[idx];
+            const hasMore = statusTasks.length > perStatusLimit;
+            if (hasMore) statusTasks.pop();
+
+            const lastTask = statusTasks.length > 0 ? (statusTasks[statusTasks.length - 1] as any) : null;
+            const nextCursor: any = hasMore && lastTask
+              ? primarySort && SORT_MAP[primarySort.field]
+                ? { id: lastTask.id, [SORT_MAP[primarySort.field].dbField]: lastTask[SORT_MAP[primarySort.field].dbField] }
+                : { id: lastTask.id, createdAt: lastTask.createdAt }
+              : null;
+
+            tasksByStatus[status] = {
+              tasks: statusTasks,
+              nextCursor,
+              hasMore
+            };
           });
 
           return {
             tasksByStatus,
-            totalCount: tasks.length,
+            totalCount: Object.values(statusCounts).reduce((acc, c) => acc + c, 0),
             hasMore: false,
             nextCursor: null,
             facets: {
               ...emptyFacets,
-              statusCounts,
+              status: statusCounts,
             },
           };
         }
@@ -626,7 +671,7 @@ export class TasksService {
           nextCursor: null,
           facets: {
             ...emptyFacets,
-            statusCounts,
+            status: statusCounts,
           },
         };
       }
@@ -765,7 +810,7 @@ export class TasksService {
           where
         ]
       },
-      select: getTaskSelect(opts.view_mode),
+      select: getTaskSelect(opts.view_mode, opts.isMinimal),
       orderBy: buildOrderBy(opts.sorts),
       take: limit + 5, // Extra buffer for the parent and potential overlap
     });
@@ -867,7 +912,7 @@ export class TasksService {
         },
         userId,
       ),
-      select: getTaskSelect(opts.view_mode),
+      select: getTaskSelect(opts.view_mode, opts.isMinimal),
       take: limit + 1,
       orderBy: buildOrderBy(opts.sorts),
     });
