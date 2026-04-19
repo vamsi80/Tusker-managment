@@ -11,8 +11,8 @@ import {
   MemberOption,
   TaskFilters,
   TagOption,
-  hasActiveFilters,
 } from "@/components/task/shared/types";
+import { toast } from "sonner";
 import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 import type { ProjectMembersType } from "@/data/project/get-project-members";
@@ -84,69 +84,190 @@ export function WorkspaceGanttClient({
   );
 
   const [tasks, setTasks] = useState<GanttTask[]>(initialTasks);
-  const hasFetchedRef = useRef(false);
+  const [nextCursor, setNextCursor] = useState<any>(null);
+  const [hasMore, setHasMore] = useState<boolean>(true);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+  const [loadingSubtasks, setLoadingSubtasks] = useState<Set<string>>(new Set());
+  const fetchingIdsRef = useRef<Set<string>>(new Set());
+  const expandedTaskIdsRef = useRef<Set<string>>(new Set());
 
-  useEffect(() => {
-    // Skip if everything is already loaded and it's not a shell
-    if (!isShell && initialTasks.length > 0 && hasFetchedRef.current) {
-        return;
+  // 🔑 Force GanttChart to reset its internal expansion state when filters change
+  const filterKey = useMemo(() => 
+    JSON.stringify({ 
+      filters, 
+      searchQuery,
+      workspaceId 
+    }), 
+    [filters, searchQuery, workspaceId]
+  );
+
+  const fetchTasks = async (isLoadMore = false): Promise<void> => {
+    if (isLoadMore && (!hasMore || isLoadingMore)) return;
+
+    const params = new URLSearchParams();
+    params.append("w", workspaceId);
+    params.append("vm", "gantt");
+    params.append("hm", "parents");
+    params.append("sub", "false"); // 🚀 True lazy loading: exclude subtasks in root fetch
+    params.append("l", "30");
+
+    if (isLoadMore && nextCursor) {
+        params.append("c", JSON.stringify(nextCursor));
     }
 
-    const fetchTasks = async () => {
-      const activeFilters = hasActiveFilters(filters);
-      const isBaseView = !searchQuery && !activeFilters;
+    if (filters.projectId) params.append("p", filters.projectId);
+    if (filters.status) params.append("s", filters.status);
+    if (filters.assigneeId) params.append("a", filters.assigneeId);
+    if (filters.tagId) params.append("t", filters.tagId);
+    if (filters.startDate)
+      params.append(
+        "da",
+        filters.startDate instanceof Date
+          ? filters.startDate.toISOString()
+          : filters.startDate,
+      );
+    if (filters.endDate)
+      params.append(
+        "db",
+        filters.endDate instanceof Date
+          ? filters.endDate.toISOString()
+          : filters.endDate,
+      );
+    if (searchQuery) params.append("q", searchQuery);
 
-      if (isBaseView) {
-        if (tasks.length === 0 || tasks.length !== initialTasks.length) {
-          setTasks(initialTasks);
-        }
+    const fetchKey = `gantt-fetch-${params.toString()}`;
+    if (fetchingIdsRef.current.has(fetchKey)) return;
+    fetchingIdsRef.current.add(fetchKey);
+
+    if (isLoadMore) setIsLoadingMore(true);
+
+    try {
+      const res = await fetch(`/api/v1/tasks?${params.toString()}`);
+      const json = await res.json();
+      if (json.success) {
+        const result = json.data;
+        const newRawTasks = result.tasks || [];
+        const newGanttTasks = transformToGanttTasks(newRawTasks);
+
+        setTasks(prev => {
+          if (!isLoadMore) return newGanttTasks;
+          const existingIds = new Set(prev.map(t => t.id));
+          const uniqueNew = newGanttTasks.filter(t => !existingIds.has(t.id));
+          return [...prev, ...uniqueNew];
+        });
+        setNextCursor(result.nextCursor);
+        setHasMore(result.hasMore);
+      }
+    } catch (err) {
+      console.error("Failed to fetch gantt tasks:", err);
+      toast.error("Failed to load tasks");
+    } finally {
+      fetchingIdsRef.current.delete(fetchKey);
+      if (isLoadMore) setIsLoadingMore(false);
+    }
+  };
+
+  useEffect(() => {
+    // 🚿 Clear subtasks and expanded tracking on every filter change
+    setTasks(prev => prev.map(t => ({ ...t, subtasks: [] })));
+    expandedTaskIdsRef.current.clear();
+
+    const timer = setTimeout(() => {
+      startTransition(() => {
+        fetchTasks(false);
+      });
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [workspaceId, filters, searchQuery]);
+
+  const handleLoadMore = () => {
+    startTransition(() => {
+        fetchTasks(true);
+    });
+  };
+
+  const handleRequestSubtasks = async (taskId: string) => {
+    console.log("[Workspace Gantt] handleRequestSubtasks triggered for:", taskId);
+    expandedTaskIdsRef.current.add(taskId);
+
+    // 🧠 Cache Strategy: Bypass cache if any filters are active to ensure data accuracy
+    const hasActiveFilters = !!(filters.status || filters.assigneeId || filters.tagId || searchQuery || filters.startDate || filters.endDate);
+    
+    if (!hasActiveFilters) {
+      const cached = useTaskCacheStore.getState().getCachedSubTasks(taskId);
+      if (cached && cached.subTasks.length > 0) {
+        const transformedSubtasks = transformToGanttTasks(cached.subTasks)[0]?.subtasks || [];
+        setTasks(prev => prev.map(t =>
+          t.id === taskId ? { ...t, subtasks: transformedSubtasks } : t
+        ));
         return;
       }
+    }
 
+    setLoadingSubtasks(prev => new Set(prev).add(taskId));
+    try {
       const params = new URLSearchParams();
-      params.append("w", workspaceId);
-      if (filters.projectId) params.append("p", filters.projectId);
+      params.set("w", workspaceId);
+      params.set("ids", taskId);
+      params.set("vm", "gantt");
+      params.set("sub", "true");      // 🚀 Signal for subtask expansion fetch
+      params.set("hm", "subtasks");  // 🚀 Hierarchy mode for expansion
+
+      // 🎯 Precision Filtering: Pass all current filters to expansion fetch
       if (filters.status) params.append("s", filters.status);
       if (filters.assigneeId) params.append("a", filters.assigneeId);
       if (filters.tagId) params.append("t", filters.tagId);
-      if (filters.startDate)
-        params.append(
-          "da",
-          filters.startDate instanceof Date
-            ? filters.startDate.toISOString()
-            : filters.startDate,
-        );
-      if (filters.endDate)
-        params.append(
-          "db",
-          filters.endDate instanceof Date
-            ? filters.endDate.toISOString()
-            : filters.endDate,
-        );
       if (searchQuery) params.append("q", searchQuery);
+      if (filters.projectId) params.append("p", filters.projectId);
+      if (filters.startDate) {
+        const da = filters.startDate instanceof Date ? filters.startDate.toISOString() : filters.startDate;
+        params.append("da", da);
+      }
+      if (filters.endDate) {
+        const db = filters.endDate instanceof Date ? filters.endDate.toISOString() : filters.endDate;
+        params.append("db", db);
+      }
 
-      startTransition(async () => {
-        try {
-          const res = await fetch(`/api/gt?${params.toString()}`);
-          const json = await res.json();
-          if (json.success) {
-            const allFetchedTasks: any[] = [];
-            json.data.tasks.forEach((t: any) => {
-              allFetchedTasks.push(t);
-              if (t.subTasks) allFetchedTasks.push(...t.subTasks);
-            });
-            setTasks(transformToGanttTasks(allFetchedTasks));
-            hasFetchedRef.current = true;
-          }
-        } catch (err) {
-          console.error("Failed to fetch gantt tasks:", err);
+      const res = await fetch(`/api/v1/tasks?${params.toString()}`);
+      const json = await res.json();
+
+      if (json.success && json.data.tasks?.length > 0) {
+        // Cache management: only cache results when no filters are active
+        if (!hasActiveFilters) {
+          const subtasks = json.data.tasks.filter((t: any) => t.id !== taskId);
+          useTaskCacheStore.getState().setCachedSubTasks(taskId, {
+            subTasks: subtasks,
+            hasMore: false
+          });
         }
-      });
-    };
 
-    const timer = setTimeout(fetchTasks, 300);
-    return () => clearTimeout(timer);
-  }, [workspaceId, filters, searchQuery]);
+        // 🧬 Transform and update state
+        // transformToGanttTasks handles raw flat API response [Parent, Sub1, Sub2] 
+        // and returns nested structure [{ id: taskId, subtasks: [...] }]
+        const transformed = transformToGanttTasks(json.data.tasks);
+        if (transformed.length > 0) {
+          const match = transformed.find(t => t.id === taskId);
+          setTasks(prev => prev.map(t =>
+            t.id === taskId ? { ...t, subtasks: match?.subtasks || [] } : t
+          ));
+        }
+      } else {
+        // Explicitly set empty subtasks if no matching results returned
+        setTasks(prev => prev.map(t =>
+          t.id === taskId ? { ...t, subtasks: [] } : t
+        ));
+      }
+    } catch (err) {
+      console.error("Failed to load subtasks:", err);
+    } finally {
+      setLoadingSubtasks(prev => {
+        const next = new Set(prev);
+        next.delete(taskId);
+        return next;
+      });
+    }
+  };
 
   const ganttTasks = tasks;
 
@@ -249,6 +370,7 @@ export function WorkspaceGanttClient({
           </div>
         )}
         <GanttChart
+          key={filterKey}
           workspaceId={workspaceId}
           tasks={ganttTasks}
           showProjectFilter={true}
@@ -280,6 +402,11 @@ export function WorkspaceGanttClient({
           members={members}
           currentUser={currentUser}
           permissions={permissions}
+          hasMore={hasMore}
+          onLoadMore={handleLoadMore}
+          onRequestSubtasks={handleRequestSubtasks}
+          loadingSubtasks={loadingSubtasks}
+          isLoading={isLoadingMore || isPending}
         />
       </div>
     </div>

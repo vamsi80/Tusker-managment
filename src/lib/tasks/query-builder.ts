@@ -70,14 +70,16 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
     // 2. Metadata: Tags & Comment Counts
     // Uniformly added to most views for UI consistency
     // Omit for Gantt and Subtasks to reduce payload bloat
-    if (isList || isKanban || isSearch || isCalendar) {
+    if (isList || isKanban || isSearch || isCalendar || isGantt) {
         select._count = {
             select: {
-                activities: true,
+                activities: !isGantt,
                 subTasks: !isKanban // Omit subtask count for Kanban board
             }
         };
-        select.tag = { select: { name: true } };
+        if (!isGantt) {
+            select.tag = { select: { name: true } };
+        }
     }
 
     // 3. Project & Parent Context
@@ -107,6 +109,7 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
 
     if (isGantt) {
         select.updatedAt = true;
+        select.subtaskCount = true;
         select.Task_TaskDependency_A = {
             select: { id: true }
         };
@@ -281,18 +284,30 @@ export function buildProjectRootWhere(
         status?: string[];
         assigneeId?: string | string[];   // null = unfiltered (admin/lead sees all)
         cursor?: TaskCursor;
+        sorts?: Array<{ field: string; direction: "asc" | "desc" }>;
         userId?: string;
         isAdmin?: boolean;
         fullAccessProjectIds?: string[];
+        ids?: string[];
     }
 ): Prisma.TaskWhereInput {
     const where: Prisma.TaskWhereInput = {
         projectId,
-        parentTaskId: null,
     };
 
+    if (opts.ids && opts.ids.length > 0) {
+        where.id = { in: opts.ids };
+    } else {
+        where.parentTaskId = null;
+    }
+
     if (opts.status && opts.status.length > 0) {
-        where.status = { in: opts.status as any };
+        appendAnd(where, {
+            OR: [
+                { status: { in: opts.status as any } },
+                { subTasks: { some: { status: { in: opts.status as any } } } }
+            ]
+        });
     }
 
     const isRestricted = opts.userId && !opts.isAdmin && (!opts.fullAccessProjectIds || !opts.fullAccessProjectIds.includes(projectId));
@@ -306,7 +321,11 @@ export function buildProjectRootWhere(
     }
 
     if (opts.cursor) {
-        appendAnd(where, buildCursorWhere(opts.cursor));
+        if (opts.sorts && opts.sorts.length > 0) {
+            appendAnd(where, buildSeekCondition(opts.sorts, opts.cursor));
+        } else {
+            appendAnd(where, buildCursorWhere(opts.cursor));
+        }
     }
 
     return where;
@@ -402,6 +421,7 @@ export function buildSubtaskExpansionWhere(
 // ============================================================
 export interface WorkspaceFilterOpts {
     workspaceId: string;
+    ids?: string[];
     projectId?: string;         // narrows to a project — uses project index
     assigneeId?: string | string[];
     status?: string[];
@@ -419,6 +439,7 @@ export interface WorkspaceFilterOpts {
     onlySubtasks?: boolean;
     includeSubTasks?: boolean;
     view_mode?: string;
+    sorts?: Array<{ field: string; direction: "asc" | "desc" }>;
 }
 
 /**
@@ -471,6 +492,10 @@ export function buildWorkspaceFilterWhere(
         workspaceId: opts.workspaceId,
     };
 
+    if (opts.ids && opts.ids.length > 0) {
+        where.id = { in: opts.ids };
+    }
+
     // 1. Apply Access Control
     if (!opts.isAdmin) {
         appendAnd(where, buildAccessScopeWhere(opts, userId));
@@ -480,9 +505,14 @@ export function buildWorkspaceFilterWhere(
         where.projectId = { in: opts.projectIds };
     }
 
-    // 2. Apply Filters
+    // 2. Apply Filters (Hierarchical for Milestone containers)
     if (opts.status && opts.status.length > 0) {
-        where.status = { in: opts.status as any };
+        appendAnd(where, {
+            OR: [
+                { status: { in: opts.status as any } },
+                { subTasks: { some: { status: { in: opts.status as any } } } }
+            ]
+        });
     }
 
     if (opts.tagId) {
@@ -503,26 +533,43 @@ export function buildWorkspaceFilterWhere(
 
     if (opts.search && opts.search.trim().length > 0) {
         const q = opts.search.trim();
-        appendAnd(where, {
+        const searchMatches: Prisma.TaskWhereInput = {
             OR: [
                 { name: { contains: q, mode: "insensitive" } },
                 { taskSlug: { contains: q, mode: "insensitive" } },
                 { description: { contains: q, mode: "insensitive" } },
             ]
+        };
+        
+        appendAnd(where, {
+            OR: [
+                searchMatches,
+                { subTasks: { some: searchMatches } }
+            ]
         });
     }
 
-    // 3. Apply Hierarchy/View Logic
-    if (opts.onlyParents) {
-        where.isParent = true;
-        where.parentTaskId = null;
-    } else if (opts.excludeParents || opts.onlySubtasks) {
-        where.parentTaskId = { not: null };
+    // 3. Apply Hierarchy/View Logic (Ignore if specific IDs are requested)
+    if (!opts.ids || opts.ids.length === 0) {
+        if (opts.onlyParents) {
+            where.isParent = true;
+            // For Gantt view hierarchies, we might want all parents regardless of level.
+            // But for standard root views, we stick to parentTaskId: null.
+            if (opts.view_mode !== "gantt") {
+                where.parentTaskId = null;
+            }
+        } else if (opts.excludeParents || opts.onlySubtasks) {
+            where.parentTaskId = { not: null };
+        }
     }
 
     // 4. Pagination
     if (opts.cursor) {
-        appendAnd(where, buildCursorWhere(opts.cursor));
+        if (opts.sorts && opts.sorts.length > 0) {
+            appendAnd(where, buildSeekCondition(opts.sorts, opts.cursor));
+        } else {
+            appendAnd(where, buildCursorWhere(opts.cursor));
+        }
     }
 
     return where;

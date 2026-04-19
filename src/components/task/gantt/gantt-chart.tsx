@@ -27,6 +27,9 @@ interface GanttChartProps {
     onProjectChange?: (projectId: string | null) => void;
     hasMore?: boolean;
     onLoadMore?: () => void;
+    onRequestSubtasks?: (taskId: string) => void;
+    loadingSubtasks?: Set<string>;
+    isLoading?: boolean;
     projectCounts?: Record<string, number>;
     members?: ProjectMembersType;
     currentUser?: { id: string };
@@ -53,6 +56,11 @@ export function GanttChart({
     projectCounts,
     members,
     currentUser,
+    hasMore,
+    onLoadMore,
+    onRequestSubtasks,
+    loadingSubtasks,
+    isLoading,
     permissions
 }: GanttChartProps & { groupByProject?: boolean }) {
     const [granularity, setGranularity] = useState<TimelineGranularity>('days');
@@ -78,10 +86,8 @@ export function GanttChart({
         return map;
     }, [projects]);
 
-    // Pagination State
-    const [visibleProjectCount, setVisibleProjectCount] = useState(PROJECTS_PER_PAGE);
+    // 🚀 Performance: Windowing logic remains for smoothness but fetching is now server-driven
     const [visibleTasksPerProject, setVisibleTasksPerProject] = useState<Map<string, number>>(new Map());
-    const [visibleFlatCount, setVisibleFlatCount] = useState(ITEMS_PER_PAGE);
 
     // Initial expansion effects
     const initializedRef = useRef(false);
@@ -145,9 +151,8 @@ export function GanttChart({
         });
 
         const allGroups = Array.from(groups.entries());
-        // 🚀 Optimization: Keep only first 100 projects initially to prevent DOM explosion
-        // User can still scroll to Load More.
-        const paginatedGroups = allGroups.slice(0, visibleProjectCount).map(([pid, group]) => {
+        
+        const paginatedGroups = allGroups.map(([pid, group]) => {
             const limit = visibleTasksPerProject.get(pid) || ITEMS_PER_PAGE;
             return {
                 id: pid,
@@ -163,19 +168,16 @@ export function GanttChart({
 
         return {
             groups: paginatedGroups,
-            hasMoreProjects: visibleProjectCount < allGroups.length,
+            hasMoreProjects: hasMore, // Use server-side state
             noProjectTasks: noProjectTasks
         };
-    }, [tasks, groupByProject, projects, visibleProjectCount, visibleTasksPerProject, highlightedSubtaskId, onToggleSubtaskHighlight]);
+    }, [tasks, groupByProject, projects, hasMore, visibleTasksPerProject, highlightedSubtaskId, onToggleSubtaskHighlight]);
 
     const visibleFlatTasks = useMemo(() => {
         if (groupByProject) return [];
-        return tasks.slice(0, visibleFlatCount);
-    }, [tasks, groupByProject, visibleFlatCount]);
+        return tasks;
+    }, [tasks, groupByProject]);
 
-    const handleLoadMoreProjects = () => {
-        setVisibleProjectCount(prev => prev + PROJECTS_PER_PAGE);
-    };
 
     const handleLoadMoreTasksForProject = (pid: string) => {
         setVisibleTasksPerProject(prev => {
@@ -186,9 +188,6 @@ export function GanttChart({
         });
     };
 
-    const handleLoadMoreFlat = () => {
-        setVisibleFlatCount(prev => prev + ITEMS_PER_PAGE);
-    };
 
     // Infinite Scroll Implementation
     const projectsLoaderRef = useRef<HTMLDivElement>(null);
@@ -197,12 +196,13 @@ export function GanttChart({
     useEffect(() => {
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    if (entry.target === projectsLoaderRef.current && groupedTasks?.hasMoreProjects) {
-                        handleLoadMoreProjects();
+                // 🛑 Avoid triggering loadMore if already loading
+                if (entry.isIntersecting && !isLoading) {
+                    if (entry.target === projectsLoaderRef.current && hasMore) {
+                        onLoadMore?.();
                     }
-                    if (entry.target === flatTasksLoaderRef.current && !groupByProject && tasks.length > visibleFlatCount) {
-                        handleLoadMoreFlat();
+                    if (entry.target === flatTasksLoaderRef.current && !groupByProject && hasMore) {
+                        onLoadMore?.();
                     }
                 }
             });
@@ -212,7 +212,7 @@ export function GanttChart({
         if (flatTasksLoaderRef.current) observer.observe(flatTasksLoaderRef.current);
 
         return () => observer.disconnect();
-    }, [groupedTasks?.hasMoreProjects, groupByProject, tasks.length, visibleFlatCount]);
+    }, [hasMore, groupByProject, onLoadMore, isLoading]);
 
     useEffect(() => {
         if (!scrollContainerRef.current) return;
@@ -236,6 +236,12 @@ export function GanttChart({
                 next.delete(taskId);
             } else {
                 next.add(taskId);
+                
+                // Lazy load subtasks if needed
+                const task = tasks.find(t => t.id === taskId);
+                if (task && (!task.subtasks || task.subtasks.length === 0)) {
+                    onRequestSubtasks?.(taskId);
+                }
             }
             return next;
         });
@@ -441,8 +447,8 @@ export function GanttChart({
                         : tasks
                     }
                 >
-                    {/* Global Dependency Lines */}
-                    <div
+                    {/* Global Dependency Lines - Hidden as requested */}
+                    {/* <div
                         className="absolute top-0 right-0 pointer-events-none z-10"
                         style={{
                             width: 'var(--gantt-total-width)',
@@ -455,7 +461,7 @@ export function GanttChart({
                             totalDays={totalDays}
                             granularity={granularity}
                         />
-                    </div>
+                    </div> */}
                     {groupByProject && groupedTasks ? (
                         <>
                             {/* Convert groups to array and paginate */}
@@ -497,6 +503,7 @@ export function GanttChart({
                                             projectMap={projectMap}
                                             highlightedSubtaskId={highlightedSubtaskId}
                                             onToggleSubtaskHighlight={onToggleSubtaskHighlight}
+                                            isLoading={loadingSubtasks?.has(task.id)}
                                         />
                                     ))}
                                 </ProjectRow>
@@ -521,6 +528,7 @@ export function GanttChart({
                                     permissions={permissions}
                                     showDetails={showDetails}
                                     projectMap={projectMap}
+                                    isLoading={loadingSubtasks?.has(task.id)}
                                 />
                             ))}
 
@@ -555,11 +563,12 @@ export function GanttChart({
                                     permissions={permissions}
                                     showDetails={showDetails}
                                     projectMap={projectMap}
+                                    isLoading={loadingSubtasks?.has(task.id)}
                                 />
                             ))}
 
                             {/* Load More Flat Tasks Row */}
-                            {!groupByProject && (tasks.length > visibleFlatCount) && (
+                            {!groupByProject && hasMore && (
                                 <>
                                     <div ref={flatTasksLoaderRef} className="sticky left-0 z-30 w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] flex items-center justify-center p-2 bg-white dark:bg-neutral-900 border-b border-r border-neutral-200 dark:border-neutral-700">
                                         <span className="text-xs text-muted-foreground">Loading more tasks...</span>

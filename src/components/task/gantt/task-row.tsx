@@ -47,6 +47,7 @@ interface TaskRowProps {
     granularity: 'days' | 'weeks' | 'months';
     highlightedSubtaskId?: string | null;
     onToggleSubtaskHighlight?: (id: string) => void;
+    isLoading?: boolean;
 }
 
 export function TaskRow({
@@ -68,7 +69,8 @@ export function TaskRow({
     projectMap,
     granularity,
     highlightedSubtaskId,
-    onToggleSubtaskHighlight
+    onToggleSubtaskHighlight,
+    isLoading = false
 }: TaskRowProps) {
 
     const [visibleSubtaskCount, setVisibleSubtaskCount] = useState(SUBTASKS_PER_PAGE);
@@ -146,7 +148,7 @@ export function TaskRow({
         return (delayDays / totalDays) * 100;
     }, [isDelayed, isSettled, task.updatedAt, task.subtasks, end, totalDays]);
 
-    const hasSubtasks = task.subtasks && task.subtasks.length > 0;
+    const hasSubtasks = (task.subtasks && task.subtasks.length > 0) || (task.subtaskCount !== undefined && task.subtaskCount > 0);
 
 
 
@@ -199,12 +201,15 @@ export function TaskRow({
                             className={cn(
                                 "p-0.5 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700",
                                 "transition-colors duration-150",
-                                !hasSubtasks && "invisible"
+                                !hasSubtasks && !isLoading && "invisible"
                             )}
+                            disabled={isLoading}
                             aria-expanded={isExpanded}
                             aria-label={isExpanded ? "Collapse" : "Expand"}
                         >
-                            {isExpanded ? (
+                            {isLoading ? (
+                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                            ) : isExpanded ? (
                                 <ChevronDown className="h-4 w-4 text-muted-foreground" />
                             ) : (
                                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -215,8 +220,11 @@ export function TaskRow({
                         </span>
                         {hasSubtasks && (
                             <span className="text-xs text-muted-foreground ml-auto bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded-full">
-                                {task.subtasks.length}
+                                {task.subtasks.length > 0 ? task.subtasks.length : task.subtaskCount}
                             </span>
+                        )}
+                        {isLoading && (
+                             <span className="text-[10px] text-muted-foreground ml-auto animate-pulse">Loading...</span>
                         )}
                     </div>
 

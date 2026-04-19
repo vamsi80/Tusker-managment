@@ -50,6 +50,7 @@ tasks.get("/", async (c) => {
   const status = parseParam("status", "s");
   const assigneeId = parseParam("assigneeId", "a");
   const tagId = parseParam("tagId", "t");
+  const ids = parseParam("ids", "ids");
 
   // Dates
   const dueAfter = q.da || q.dueAfter || q.startDate || undefined;
@@ -66,6 +67,7 @@ tasks.get("/", async (c) => {
     status,
     assigneeId,
     tagId,
+    ids,
     search,
     dueAfter,
     dueBefore,
