@@ -4,8 +4,23 @@ import { GanttSubtask, GanttTask } from "@/components/task/gantt/types";
  * Transform flat tasks list into Gantt structure
  * Handles Project -> Task -> Subtask hierarchy and date normalization
  */
-export function transformToGanttTasks(allTasks: any[]): GanttTask[] {
-  // console.log("🟦 [GANTT TRANSFORM] Input allTasks count:", allTasks.length);
+export function transformToGanttTasks(inputTasks: any[]): GanttTask[] {
+  // 🚿 Flatten nested tasks if they arrive in Prisma-nested format
+  const taskMap = new Map<string, any>();
+  const flatten = (items: any[]) => {
+    items.forEach(item => {
+      if (!taskMap.has(item.id)) {
+        taskMap.set(item.id, item);
+      }
+      if (item.subTasks && Array.isArray(item.subTasks)) {
+        flatten(item.subTasks);
+      }
+    });
+  };
+  flatten(inputTasks);
+  const allTasks = Array.from(taskMap.values());
+
+  // console.log("🟦 [GANTT TRANSFORM] Flattened tasks count:", allTasks.length);
   const allIds = new Set(allTasks.map((t) => t.id));
 
   // 1. Separate parent tasks and subtasks
@@ -141,7 +156,7 @@ export function transformToGanttTasks(allTasks: any[]): GanttTask[] {
             assigneeId: subtask.assigneeId,
             assignee: subtask.assignee
               ? {
-                  id: subtask.assignee.workspaceMember?.userId, // This is userId
+                  id: subtask.assignee.workspaceMember?.user?.id || subtask.assigneeId,
                   name:
                     subtask.assignee.workspaceMember?.user?.surname ||
                     subtask.assignee.workspaceMember?.user?.name ||
@@ -202,8 +217,9 @@ export function transformToGanttTasks(allTasks: any[]): GanttTask[] {
         progress: parentProgress,
           assignee: parentTask.assignee
             ? {
-                id: parentTask.assignee.workspaceMember?.userId,
+                id: parentTask.assignee.workspaceMember?.user?.id || parentTask.assigneeId,
                 name:
+                  parentTask.assignee.workspaceMember?.surname ||
                   parentTask.assignee.workspaceMember?.user?.surname ||
                   parentTask.assignee.workspaceMember?.user?.name ||
                   "Unknown",
@@ -213,6 +229,7 @@ export function transformToGanttTasks(allTasks: any[]): GanttTask[] {
           updatedAt: formatLocalDate(
             parentTask.updatedAt ? new Date(parentTask.updatedAt) : null,
           ),
+          subtaskCount: parentTask.subtaskCount ?? parentTask._count?.subTasks ?? 0,
         };
       });
   }

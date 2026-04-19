@@ -424,6 +424,7 @@ export class TasksService {
           const where = buildWorkspaceFilterWhere(
             {
               workspaceId,
+              ids: opts.ids,
               projectId: opts.projectId,
               assigneeId: toArray(opts.assigneeId),
               tagId: toArray(opts.tagId),
@@ -502,23 +503,24 @@ export class TasksService {
 
         // 1. Get counts for all statuses (efficient)
         const countWhere = JSON.parse(JSON.stringify(buildWorkspaceFilterWhere(
-          {
-            workspaceId,
-            projectId: opts.projectId,
-            assigneeId: toArray(opts.assigneeId),
-            tagId: toArray(opts.tagId),
-            search: opts.search,
-            dueAfter: toUTCDateOnly(opts.dueAfter),
-            dueBefore: opts.dueBefore ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!) : undefined,
-            isAdmin,
-            fullAccessProjectIds,
-            restrictedProjectIds,
-            onlyParents: opts.onlyParents || (!hasExplicitFilters && hierarchyMode === "parents"),
-            onlySubtasks: opts.onlySubtasks || (!hasExplicitFilters && hierarchyMode === "children"),
-            view_mode: opts.view_mode,
-          },
-          userId
-        )));
+            {
+              workspaceId,
+              ids: opts.ids,
+              projectId: opts.projectId,
+              assigneeId: toArray(opts.assigneeId),
+              tagId: toArray(opts.tagId),
+              search: opts.search,
+              dueAfter: toUTCDateOnly(opts.dueAfter),
+              dueBefore: opts.dueBefore ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!) : undefined,
+              isAdmin,
+              fullAccessProjectIds,
+              restrictedProjectIds,
+              onlyParents: opts.onlyParents || (!hasExplicitFilters && hierarchyMode === "parents"),
+              onlySubtasks: opts.onlySubtasks || (!hasExplicitFilters && hierarchyMode === "children"),
+              view_mode: opts.view_mode,
+            },
+            userId
+          )));
 
         const countsResult = await prisma.task.groupBy({
           by: ["status"],
@@ -540,6 +542,7 @@ export class TasksService {
             const statusWhere = buildWorkspaceFilterWhere(
               {
                 workspaceId,
+                ids: opts.ids,
                 projectId: opts.projectId,
                 assigneeId: toArray(opts.assigneeId),
                 tagId: toArray(opts.tagId),
@@ -679,9 +682,11 @@ export class TasksService {
       status: toArray(opts.status),
       assigneeId: toArray(opts.assigneeId),
       cursor: opts.cursor,
+      sorts: opts.sorts,
       userId,
       isAdmin,
       fullAccessProjectIds,
+      ids: opts.ids,
     });
 
     const [rawTasks] = await Promise.all([
@@ -696,10 +701,14 @@ export class TasksService {
     const hasMore = rawTasks.length > limit;
     if (hasMore) rawTasks.pop();
 
-    const nextCursor: TaskCursor | null = hasMore
+    const primarySortField = opts.sorts?.[0]?.field || "createdAt";
+    const dbField = SORT_MAP[primarySortField]?.dbField || "createdAt";
+    const lastTask = rawTasks[rawTasks.length - 1] as any;
+
+    const nextCursor: any = hasMore
       ? {
-        id: rawTasks[rawTasks.length - 1].id,
-        createdAt: rawTasks[rawTasks.length - 1].createdAt,
+        id: lastTask.id,
+        [dbField]: lastTask[dbField],
       }
       : null;
 
@@ -750,10 +759,15 @@ export class TasksService {
     });
 
     const rawSubtasks = await prisma.task.findMany({
-      where,
+      where: {
+        OR: [
+          { id: parentTaskId },
+          where
+        ]
+      },
       select: getTaskSelect(opts.view_mode),
       orderBy: buildOrderBy(opts.sorts),
-      take: limit + 1,
+      take: limit + 5, // Extra buffer for the parent and potential overlap
     });
 
     const hasMore = rawSubtasks.length > limit;
@@ -817,6 +831,7 @@ export class TasksService {
         onlyParents: !hasExplicitFilters && opts.hierarchyMode === "parents",
         onlySubtasks: !hasExplicitFilters && opts.hierarchyMode === "children",
         view_mode: opts.view_mode,
+        ids: opts.ids,
       },
       userId,
     );
@@ -956,11 +971,15 @@ export class TasksService {
       return b.id < a.id ? -1 : b.id > a.id ? 1 : 0;
     });
 
-    const nextCursor: TaskCursor | null =
+    const primarySortField = opts.sorts?.[0]?.field || "createdAt";
+    const dbField = SORT_MAP[primarySortField]?.dbField || "createdAt";
+    const lastMatch = matches[matches.length - 1] as any;
+
+    const nextCursor: any =
       hasMore && matches.length > 0
         ? {
-          id: matches[matches.length - 1].id,
-          createdAt: matches[matches.length - 1].createdAt,
+          id: lastMatch.id,
+          [dbField]: lastMatch[dbField],
         }
         : null;
 
@@ -1023,6 +1042,7 @@ export class TasksService {
       excludeParents: opts.excludeParents,
       onlySubtasks: isSorting ? true : opts.onlySubtasks,
       view_mode: opts.view_mode,
+      ids: opts.ids,
     };
 
     let where = buildWorkspaceFilterWhere(filterOpts, userId);

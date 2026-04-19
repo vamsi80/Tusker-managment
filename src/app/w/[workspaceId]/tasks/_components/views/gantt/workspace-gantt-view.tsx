@@ -49,7 +49,7 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
         console.warn(`[PERF_WARN] WorkspaceGanttView rendered in ${duration.toFixed(2)}ms`);
     }
 
-    const rawTasks = tasksData.tasks || [];
+    const rawTasks = 'tasks' in tasksData ? tasksData.tasks : [];
     // console.log("🟦 [GANTT SERVER] rawTasks count:", rawTasks.length);
     // if (rawTasks.length > 0) {
     //     console.log("🟦 [GANTT SERVER] SAMPLE TASK (First):", JSON.stringify(rawTasks[0], (key, value) => key === 'subTasks' ? (value?.length || 0) : value, 2));

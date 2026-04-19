@@ -66,6 +66,7 @@ export interface GanttTask {
   parentTaskId: string | null;
   updatedAt?: string;
   progress: number;
+  subtaskCount?: number;
 }
 
 // ============================================================================
