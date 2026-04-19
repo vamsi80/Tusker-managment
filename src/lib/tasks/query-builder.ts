@@ -8,9 +8,8 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
             taskSlug: true,
             isParent: true,
             projectId: true,
-            // parentTaskId: true,
-            createdAt: true, // Needed for internal ordering/cursor
-            _count: { select: { subTasks: true } }
+            createdAt: true, 
+            // removed _count for absolute minimum weight
         };
     }
 
@@ -34,19 +33,18 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
             select: {
                 workspaceMember: {
                     select: {
-                        // userId: true, 
                         user: { select: { id: true, surname: true } }
                     }
                 }
             }
         },
 
-        createdAt: true, // Needed for sorting/pagination logic
+        createdAt: true,
         createdById: true,
-        projectId: true, // Needed for Kanban move operations
-        parentTaskId: true, // Needed for identifying subtasks
-        isParent: !isKanban,
-        assigneeId: true
+        projectId: true, 
+        parentTaskId: !isKanban,
+        isParent: !isKanban, // Always false in Kanban subtask view
+        assigneeId: !isKanban // Redundant with assignee object
     };
 
     if (isList) {
@@ -54,13 +52,14 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
     }
 
     // Include detailed createdBy only if NOT in Gantt view to save on payload/joins
-    if (!isGantt) {
+    if (!isGantt && !isKanban) {
         select.createdBy = {
             select: {
                 workspaceMember: {
                     select: {
                         userId: true,
-                        user: { select: { id: true, surname: true } }
+                        // Only need surname in list/search, not Kanban
+                        user: { select: { id: true, surname: !isKanban } }
                     }
                 }
             }
@@ -68,15 +67,19 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
     }
 
     // 2. Metadata: Tags & Comment Counts
-    // Uniformly added to most views for UI consistency
-    // Omit for Gantt and Subtasks to reduce payload bloat
-    if (isList || isKanban || isSearch || isCalendar || isGantt) {
+    // Omit counts for Kanban and Gantt to save on payload/joins
+    const includeCounts = (isList || isSearch || isCalendar) || (isKanban && false);
+
+    if (includeCounts) {
         select._count = {
             select: {
-                activities: !isGantt,
-                subTasks: !isKanban // Omit subtask count for Kanban board
+                activities: true,
+                subTasks: !isKanban
             }
         };
+    }
+
+    if (isList || isKanban || isSearch || isCalendar || isGantt) {
         if (!isGantt) {
             select.tag = { select: { name: true } };
         }
@@ -85,9 +88,10 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
     // 3. Project & Parent Context
     // Removed server-side joins for views to reduce payload size.
     // Client-side projectMap will be used for metadata resolution.
-    if (isList || isSearch || isCalendar) {
+    if (isList || isSearch || isCalendar || isKanban) {
         select.parentTask = {
             select: {
+                id: true,
                 name: true,
             }
         };
@@ -174,10 +178,11 @@ export function appendAnd(where: Prisma.TaskWhereInput, ...conditions: Prisma.Ta
  * Build a standard createdAt DESC cursor condition.
  */
 export function buildCursorWhere(cursor: TaskCursor): Prisma.TaskWhereInput {
+    const createdAt = typeof cursor.createdAt === "string" ? new Date(cursor.createdAt) : cursor.createdAt;
     return {
         OR: [
-            { createdAt: { lt: cursor.createdAt } },
-            { AND: [{ createdAt: cursor.createdAt }, { id: { lt: cursor.id } }] },
+            { createdAt: { lt: createdAt } },
+            { AND: [{ createdAt: createdAt }, { id: { lt: cursor.id } }] },
         ],
     };
 }
@@ -439,6 +444,7 @@ export interface WorkspaceFilterOpts {
     onlySubtasks?: boolean;
     includeSubTasks?: boolean;
     view_mode?: string;
+    parentTaskId?: string;
     sorts?: Array<{ field: string; direction: "asc" | "desc" }>;
 }
 
@@ -507,12 +513,18 @@ export function buildWorkspaceFilterWhere(
 
     // 2. Apply Filters (Hierarchical for Milestone containers)
     if (opts.status && opts.status.length > 0) {
-        appendAnd(where, {
-            OR: [
-                { status: { in: opts.status as any } },
-                { subTasks: { some: { status: { in: opts.status as any } } } }
-            ]
-        });
+        // 🚀 CRITICAL: In Kanban or when excluding parents, we want STRICT status matching.
+        // We do NOT want to pull in a Parent task just because its SubTask matches the status.
+        if (opts.excludeParents || opts.view_mode === "kanban" || opts.onlySubtasks) {
+            where.status = { in: opts.status as any };
+        } else {
+            appendAnd(where, {
+                OR: [
+                    { status: { in: opts.status as any } },
+                    { subTasks: { some: { status: { in: opts.status as any } } } }
+                ]
+            });
+        }
     }
 
     if (opts.tagId) {
@@ -522,6 +534,10 @@ export function buildWorkspaceFilterWhere(
 
     if (opts.assigneeId) {
         appendAnd(where, buildParentAssigneeFilter(opts.assigneeId));
+    }
+
+    if (opts.parentTaskId) {
+        where.parentTaskId = opts.parentTaskId;
     }
 
     if (opts.dueAfter || opts.dueBefore) {
@@ -538,9 +554,10 @@ export function buildWorkspaceFilterWhere(
                 { name: { contains: q, mode: "insensitive" } },
                 { taskSlug: { contains: q, mode: "insensitive" } },
                 { description: { contains: q, mode: "insensitive" } },
+                { parentTask: { name: { contains: q, mode: "insensitive" } } },
             ]
         };
-        
+
         appendAnd(where, {
             OR: [
                 searchMatches,
@@ -558,8 +575,9 @@ export function buildWorkspaceFilterWhere(
             if (opts.view_mode !== "gantt") {
                 where.parentTaskId = null;
             }
-        } else if (opts.excludeParents || opts.onlySubtasks) {
+        } else if (opts.excludeParents || opts.onlySubtasks || opts.view_mode === "kanban") {
             where.parentTaskId = { not: null };
+            where.isParent = false;
         }
     }
 

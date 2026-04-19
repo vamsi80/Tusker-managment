@@ -57,7 +57,7 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({ subTask, cu
                 </div>
 
                 {/* Edit Button for authorized users */}
-                {subTask && (subTask.createdBy?.workspaceMember?.user?.id === currentUserId || (subTask as any).createdById === currentUserId) && (
+                {subTask && (subTask.createdBy?.id === currentUserId || (subTask as any).createdById === currentUserId) && (
                     <div className="ml-4 flex-shrink-0">
                         <EditSubTaskForm
                             subTask={subTask as any}
@@ -89,8 +89,7 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({ subTask, cu
                         {assignee ? (
                             <div className="flex items-center gap-2 min-w-0">
                                 <Avatar className="h-6 w-6 shrink-0">
-                                    <AvatarImage src={assignee.image || ""} />
-                                    <AvatarFallback>{assignee.name?.[0]}</AvatarFallback>
+                                    <AvatarFallback>{assignee.surname?.[0]}</AvatarFallback>
                                 </Avatar>
                                 <span className="text-xs sm:text-sm truncate">{assignee.surname || ""}</span>
                             </div>

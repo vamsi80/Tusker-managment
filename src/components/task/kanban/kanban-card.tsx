@@ -85,7 +85,7 @@ export const KanbanCard = React.memo(function KanbanCard({
     transition,
   };
 
-  const assigneeUser = (subTask.assignee as any)?.workspaceMember?.user;
+  const assigneeUser = subTask.assignee;
   const activityCount = (subTask as any)._count?.activities || 0;
   
   // Resolve project metadata: Priority to explicit object, then lookup from map
@@ -106,7 +106,7 @@ export const KanbanCard = React.memo(function KanbanCard({
 
   const canEdit = () => {
     const creatorId =
-      subTask.createdBy?.workspaceMember?.user?.id ||
+      subTask.createdBy?.id ||
       (subTask as any).createdById;
 
     if (permissions) {
@@ -210,9 +210,8 @@ export const KanbanCard = React.memo(function KanbanCard({
                   <TooltipTrigger asChild>
                     <div className="flex items-center rounded-full bg-amber-50/50 dark:bg-amber-950/30 border border-amber-100/50 dark:border-amber-900/50 hover:bg-amber-100 transition-colors cursor-default">
                       <Avatar className="h-4 w-4 border border-amber-200 dark:border-amber-800 shadow-sm">
-                        <AvatarImage src={firstManager?.image || undefined} />
                         <AvatarFallback className="text-[8px] bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
-                          {firstManager?.surname?.[0]}
+                          {(firstManager?.surname || firstManager?.user?.surname)?.[0]?.toUpperCase() || "?"}
                         </AvatarFallback>
                       </Avatar>
                     </div>
@@ -391,12 +390,12 @@ export const KanbanCard = React.memo(function KanbanCard({
                 <TooltipTrigger asChild>
                   <Avatar className="h-6 w-6 cursor-pointer border-2 border-background">
                     <AvatarFallback className="text-[10px]">
-                      {assigneeUser.surname?.[0] || assigneeUser.name?.[0]}
+                      {(assigneeUser.surname || (assigneeUser as any).workspaceMember?.user?.surname)?.[0]?.toUpperCase() || "?"}
                     </AvatarFallback>
                   </Avatar>
                 </TooltipTrigger>
                 <TooltipContent side="left">
-                  <p>Assignee: {assigneeUser.surname || assigneeUser.name}</p>
+                  <p>Assignee: {assigneeUser.surname || (assigneeUser as any).workspaceMember?.user?.surname || "Unassigned"}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -412,13 +411,8 @@ export const KanbanCard = React.memo(function KanbanCard({
                 onAssigned={(_userId, member) => {
                   onUpdateInPlace?.(subTask.id, {
                     assignee: {
-                      workspaceMember: {
-                        user: {
-                          id: member.userId,
-                          name: member.user.name,
-                          surname: member.user.surname,
-                        },
-                      },
+                      id: member.userId,
+                      surname: member.user.surname,
                     },
                   });
                 }}
