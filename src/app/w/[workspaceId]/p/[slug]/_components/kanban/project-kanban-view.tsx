@@ -23,7 +23,6 @@ export function ProjectKanbanView({
     const { projectMembers, projectPermissions, isLoading: isProjectLoading, revalidate: revalidateProject } = useProjectLayout();
 
     useEffect(() => {
-        // Background revalidation of workspace layout is now handled by the LayoutProvider
         revalidateProject();
     }, [revalidateProject]);
 
@@ -42,8 +41,6 @@ export function ProjectKanbanView({
         }, { isShell: true } as any);
     }, [COLUMNS]);
 
-    // 🚀 Project Manager Derivation (Localized Optimization)
-    // Derive managers directly from the project members list instead of relying on global metadata
     const projectManagers = useMemo(() => ({
         [projectId]: projectMembers
             .filter(m =>

@@ -157,6 +157,14 @@ export function KanbanBoard({
       const cacheKey = `${workspaceId}-${contextId}-${col.id}`;
       const cached = cacheState.getKanbanTasksCache(cacheKey);
 
+      // Default state for every column to prevent crashes
+      map[col.id] = {
+        subTaskIds: [],
+        totalCount: 0,
+        hasMore: false,
+        nextCursor: null,
+      };
+
       // 💉 Optimization: If we have cached data and initialData is a shell, use cache.
       if (isShell && cached && cached.tasks.length > 0) {
         map[col.id] = {
@@ -165,12 +173,14 @@ export function KanbanBoard({
           hasMore: cached.hasMore,
           nextCursor: cached.nextCursor,
         };
-        const colTasks = serverCol ? ((serverCol as any).tasks || (serverCol as any).subTasks || []) : [];
+      } else if (serverCol) {
+        // Hydrate from server data if available
+        const colTasks = ((serverCol as any).tasks || (serverCol as any).subTasks || []);
         map[col.id] = {
           subTaskIds: Array.from(new Set(colTasks.map((t: any) => t.id))),
-          totalCount: serverCol ? serverCol.totalCount : 0,
-          hasMore: serverCol ? serverCol.hasMore : false,
-          nextCursor: serverCol ? serverCol.nextCursor : null,
+          totalCount: serverCol.totalCount,
+          hasMore: serverCol.hasMore,
+          nextCursor: serverCol.nextCursor,
         };
       }
     });
@@ -1107,16 +1117,16 @@ export function KanbanBoard({
   };
 
   const getFilteredSubTaskIds = (status: TaskStatus) => {
-    return columnData[status].subTaskIds;
+    return columnData[status]?.subTaskIds || [];
   };
 
   const uniqueParentTasks: ParentTaskOption[] = Array.from(
     new Map(
       COLUMNS.flatMap((col) => {
         const entities = useTaskCacheStore.getState().entities;
-        const allTasks = columnData[col.id].subTaskIds.map(
+        const allTasks = columnData[col.id]?.subTaskIds.map(
           (id) => entities[id],
-        );
+        ) || [];
         return allTasks
           .filter((st) => st && (st as any).parentTask)
           .map((st: any) => [
