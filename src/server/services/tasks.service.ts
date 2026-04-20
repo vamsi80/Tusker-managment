@@ -178,6 +178,40 @@ export class TasksService {
     return result;
   }
 
+  public static mapToLegacyMetadata(task: any) {
+    if (!task) return task;
+    const toLegacy = (obj: any) => {
+      const user = obj?.workspaceMember?.user || obj?.user || obj;
+      if (!user?.id && !user?.surname) return obj;
+
+      const userData = {
+        id: user.id,
+        surname: user.surname,
+        name: user.name || "",
+        image: user.image || null,
+      };
+
+      return {
+        ...userData, // Support for flat access (assignee.surname)
+        workspaceMember: {
+          user: userData, // Support for legacy access (assignee.workspaceMember.user.surname)
+        },
+      };
+    };
+
+    if (task.assignee) task.assignee = toLegacy(task.assignee);
+    if (task.reviewer) task.reviewer = toLegacy(task.reviewer);
+    if (task.createdBy) task.createdBy = toLegacy(task.createdBy);
+
+    if (task.subTasks && Array.isArray(task.subTasks)) {
+      task.subTasks = task.subTasks.map((st: any) =>
+        this.mapToLegacyMetadata(st),
+      );
+    }
+
+    return task;
+  }
+
   private static mapToFlatMetadata(task: any) {
     if (!task) return task;
     const flatten = (obj: any) => {
@@ -186,25 +220,26 @@ export class TasksService {
       return {
         id: user.id,
         surname: user.surname,
-        // name and image explicitly excluded per user request
+        // name: user.name || "",
+        // image: user.image || null,
       };
     };
 
     if (task.assignee) task.assignee = flatten(task.assignee);
     if (task.reviewer) task.reviewer = flatten(task.reviewer);
     if (task.createdBy) task.createdBy = flatten(task.createdBy);
-    
+
     // Recursive for subtasks if present
     if (task.subTasks && Array.isArray(task.subTasks)) {
       task.subTasks = task.subTasks.map((st: any) => this.mapToFlatMetadata(st));
     }
-    
+
     return task;
   }
 
   private static stripParentMetadata(result: any) {
     if (!result) return;
-    
+
     const processTask = (task: any) => {
       this.mapToFlatMetadata(task);
       // Pruning disabled to ensure data integrity as per user request.
@@ -213,12 +248,12 @@ export class TasksService {
     if (result.tasks && Array.isArray(result.tasks)) {
       result.tasks.forEach(processTask);
     }
-    
+
     if (result.tasksByStatus) {
       Object.keys(result.tasksByStatus).forEach(status => {
-         const colData = result.tasksByStatus[status];
-         const colTasks = Array.isArray(colData) ? colData : (colData?.tasks || []);
-         colTasks.forEach(processTask);
+        const colData = result.tasksByStatus[status];
+        const colTasks = Array.isArray(colData) ? colData : (colData?.tasks || []);
+        colTasks.forEach(processTask);
       });
     }
   }
@@ -339,7 +374,7 @@ export class TasksService {
           isAdmin,
           fullAccessProjectIds,
           restrictedProjectIds,
-          { ...opts, isMinimal }, 
+          { ...opts, isMinimal },
         );
         return { ...result, totalCount: null, facets: emptyFacets };
       }
@@ -349,7 +384,7 @@ export class TasksService {
         !hasExplicitFilters &&
         !opts.excludeParents &&
         !opts.onlySubtasks &&
-        (hierarchyMode === "parents" || !hierarchyMode)
+        (hierarchyMode === "parents" || hierarchyMode === "subtasks" || !hierarchyMode)
       ) {
         strategy = opts.includeSubTasks ? "RECURSIVE_HIERARCHY" : "PROJECT_ROOT";
         const result = await this._fetchProjectRoot(
@@ -415,7 +450,7 @@ export class TasksService {
         (!isSorting || opts.view_mode === "gantt") &&
         !opts.onlySubtasks &&
         !opts.excludeParents &&
-        (hasExplicitFilters || hierarchyMode === "parents" || hierarchyMode === "recursive")
+        (hasExplicitFilters || hierarchyMode === "parents" || hierarchyMode === "subtasks" || hierarchyMode === "recursive")
       ) {
         strategy = opts.includeSubTasks
           ? "FILTERED_RECURSIVE_HIERARCHY"
@@ -516,12 +551,12 @@ export class TasksService {
 
           return {
             tasks,
-            totalCount: tasks.length, 
+            totalCount: tasks.length,
             hasMore: trueHasMore,
             nextCursor,
             facets: {
               ...emptyFacets,
-              status: { [status]: totalCount } 
+              status: { [status]: totalCount }
             },
           };
         }
@@ -531,25 +566,25 @@ export class TasksService {
 
         // 1. Get counts for all statuses (efficient)
         const countWhere = JSON.parse(JSON.stringify(buildWorkspaceFilterWhere(
-            {
-              workspaceId,
-              ids: opts.ids,
-              projectId: opts.projectId,
-              assigneeId: toArray(opts.assigneeId),
-              tagId: toArray(opts.tagId),
-              search: opts.search,
-              dueAfter: toUTCDateOnly(opts.dueAfter),
-              dueBefore: opts.dueBefore ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!) : undefined,
-              isAdmin,
-              fullAccessProjectIds,
-              restrictedProjectIds,
-              onlyParents: opts.onlyParents || (!hasExplicitFilters && hierarchyMode === "parents"),
-              onlySubtasks: opts.onlySubtasks || (!hasExplicitFilters && hierarchyMode === "children"),
-              excludeParents: opts.excludeParents,
-              view_mode: opts.view_mode,
-            },
-            userId
-          )));
+          {
+            workspaceId,
+            ids: opts.ids,
+            projectId: opts.projectId,
+            assigneeId: toArray(opts.assigneeId),
+            tagId: toArray(opts.tagId),
+            search: opts.search,
+            dueAfter: toUTCDateOnly(opts.dueAfter),
+            dueBefore: opts.dueBefore ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!) : undefined,
+            isAdmin,
+            fullAccessProjectIds,
+            restrictedProjectIds,
+            onlyParents: opts.onlyParents || (!hasExplicitFilters && hierarchyMode === "parents"),
+            onlySubtasks: opts.onlySubtasks || (!hasExplicitFilters && hierarchyMode === "children"),
+            excludeParents: opts.excludeParents,
+            view_mode: opts.view_mode,
+          },
+          userId
+        )));
 
         const countsResult = await prisma.task.groupBy({
           by: ["status"],
@@ -630,7 +665,7 @@ export class TasksService {
 
         if (opts.view_mode === "kanban") {
           const tasksByStatus: Record<string, { tasks: any[], nextCursor: any, hasMore: boolean }> = {};
-          
+
           const primarySort = opts.sorts?.[0];
 
           statusTasksResults.forEach((statusTasks, idx) => {

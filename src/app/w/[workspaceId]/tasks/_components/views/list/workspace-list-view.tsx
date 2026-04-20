@@ -50,9 +50,13 @@ export async function WorkspaceListView({
 
     const formattedMembers = projectMembers;
 
-    const initialTasks = (tasksData.tasks || []).map(t => ({
+    // Handle union response safely
+    const rawTasks = (tasksData as any).tasks || [];
+
+    const initialTasks = rawTasks.map((t: any) => ({
         ...t,
-        subTasks: (t as any).subTasks
+        subtaskCount: t.subtaskCount ?? t._count?.subTasks ?? 0,
+        subTasks: undefined
     })) as TaskWithSubTasks[];
 
     return (
@@ -70,7 +74,7 @@ export async function WorkspaceListView({
             projects={projects.map(p => ({
                 id: p.id,
                 name: p.name,
-                color: p.color || undefined,
+                color: p.color,
                 canManageMembers: p.canManageMembers,
                 memberIds: (p as any).memberIds
             }))}

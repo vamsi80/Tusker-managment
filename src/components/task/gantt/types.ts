@@ -35,7 +35,7 @@ export interface GanttSubtask {
   days?: number | null;
 
   createdById: string | null;
-  assignee?: { id: string; name: string; image?: string | null };
+  assignee?: { id: string; surname: string };
   assigneeId?: string | null;
   assigneeRole?: string;
 
@@ -60,7 +60,7 @@ export interface GanttTask {
   start?: string; // Optional: DB provided
   end?: string; // Optional: DB provided
   subtasks: GanttSubtask[];
-  assignee?: { id: string; name: string; image?: string | null };
+  assignee?: { id: string; surname: string };
   assigneeId?: string | null;
   createdById: string | null;
   parentTaskId: string | null;

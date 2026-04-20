@@ -249,7 +249,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                             <div className="flex items-center gap-2 min-w-0">
                                 <Avatar className="h-5 w-5 flex-shrink-0">
                                     <AvatarFallback className="text-[10px]">
-                                        {(assigneeUser.surname || (assigneeUser as any).workspaceMember?.user?.surname)?.[0]?.toUpperCase() || "?"}
+                                        {assigneeUser.surname?.[0]?.toUpperCase() || "?"}
                                     </AvatarFallback>
                                 </Avatar>
                                 <span className="text-xs text-muted-foreground truncate">
@@ -267,12 +267,8 @@ export const SubTaskRow = memo(function SubTaskRow({
                                 onAssigned={(_userId, member) => {
                                     handleSubTaskUpdated({
                                         assignee: {
-                                            workspaceMember: {
-                                                user: {
-                                                    id: member.userId,
-                                                    surname: member.user.surname,
-                                                }
-                                            }
+                                            id: member.id,
+                                            surname: member.user.surname,
                                         } as any,
                                     });
                                 }}
@@ -287,7 +283,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                             <div className="flex items-center gap-2 min-w-0">
                                 <Avatar className="h-5 w-5 flex-shrink-0">
                                     <AvatarFallback className="text-[10px]">
-                                        {(reviewerUser.surname || (reviewerUser as any).workspaceMember?.user?.surname)?.[0]?.toUpperCase() || "?"}
+                                        {reviewerUser.surname?.[0]?.toUpperCase() || "?"}
                                     </AvatarFallback>
                                 </Avatar>
                                 <span className="text-xs text-muted-foreground truncate">

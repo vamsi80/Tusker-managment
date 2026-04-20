@@ -8,8 +8,12 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
             taskSlug: true,
             isParent: true,
             projectId: true,
-            createdAt: true, 
-            // removed _count for absolute minimum weight
+            createdAt: true,
+            _count: {
+                select: {
+                    subTasks: true
+                }
+            }
         };
     }
 
@@ -41,7 +45,7 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
 
         createdAt: true,
         createdById: true,
-        projectId: true, 
+        projectId: true,
         parentTaskId: !isKanban,
         isParent: !isKanban, // Always false in Kanban subtask view
         assigneeId: !isKanban // Redundant with assignee object
@@ -57,9 +61,7 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
             select: {
                 workspaceMember: {
                     select: {
-                        userId: true,
-                        // Only need surname in list/search, not Kanban
-                        user: { select: { id: true, surname: !isKanban } }
+                        user: { select: { id: true, surname: true, name: true, image: true } }
                     }
                 }
             }
@@ -101,7 +103,7 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
     if (isList || isSearch || isCalendar || isSubtask) {
         select.reviewer = {
             select: {
-                workspaceMember: { select: { user: { select: { surname: true } } } }
+                workspaceMember: { select: { user: { select: { id: true, surname: true } } } }
             }
         };
     }
