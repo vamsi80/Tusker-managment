@@ -365,11 +365,7 @@ export function TaskRow({
                                 </TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
-                    ) : (
-                        <span className="text-xs text-muted-foreground px-2">
-                            No subtasks
-                        </span>
-                    )}
+                    ): null}
 
                     {/* Parent Delay Extension Bar */}
                     {position && delayWidthPercent > 0 && (
