@@ -65,7 +65,7 @@ export function DependencyPicker({
     ): Set<string> => {
       visited.add(id);
       const children = allTasks.flatMap((t) =>
-        t.subtasks.filter((st) => st.dependsOnIds?.includes(id)),
+        (t.subtasks || []).filter((st) => st.dependsOnIds?.includes(id)),
       );
       children.forEach((child) => {
         if (!visited.has(child.id)) {
@@ -86,7 +86,7 @@ export function DependencyPicker({
     return allTasks
       .filter((task) => task.projectId === subtask.projectId)
       .map((task) => {
-        const visibleSubtasks = task.subtasks.filter((st) => {
+        const visibleSubtasks = (task.subtasks || []).filter((st) => {
           const matchesSearch = st.name
             .toLowerCase()
             .includes(searchQuery.toLowerCase());
@@ -109,7 +109,7 @@ export function DependencyPicker({
           subtasks: visibleSubtasks,
         };
       })
-      .filter((task) => task.subtasks.length > 0);
+      .filter((task) => (task.subtasks?.length || 0) > 0);
   }, [allTasks, searchQuery, subtask.id, subtask.start, subtask.projectId, descendantIds]);
 
   // Get currently selected subtasks for the "Current Dependencies" section
@@ -121,7 +121,7 @@ export function DependencyPicker({
       end: string;
     }> = [];
     allTasks.forEach((task) => {
-      task.subtasks.forEach((st) => {
+      task.subtasks?.forEach((st) => {
         if (selectedDependencies.has(st.id)) {
           deps.push({ id: st.id, name: st.name, start: st.start, end: st.end });
         }
@@ -281,12 +281,12 @@ export function DependencyPicker({
                             {task.name}
                           </span>
                           <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-500">
-                            {task.subtasks.length}
+                            {task.subtasks?.length || 0}
                           </span>
                         </div>
                       </CollapsibleTrigger>
                       <CollapsibleContent className="pl-4 mt-1 border-l-2 border-neutral-100 dark:border-neutral-800/50 ml-3.5 space-y-1">
-                        {task.subtasks.map((st) => {
+                        {(task.subtasks || []).map((st) => {
                           const isSelected = selectedDependencies.has(st.id);
                           if (isSelected) return null;
 

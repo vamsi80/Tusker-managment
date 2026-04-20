@@ -187,8 +187,6 @@ export class TasksService {
       const userData = {
         id: user.id,
         surname: user.surname,
-        name: user.name || "",
-        image: user.image || null,
       };
 
       return {
@@ -203,7 +201,15 @@ export class TasksService {
     if (task.reviewer) task.reviewer = toLegacy(task.reviewer);
     if (task.createdBy) task.createdBy = toLegacy(task.createdBy);
 
-    if (task.subTasks && Array.isArray(task.subTasks)) {
+    if (task._count) {
+      task.subtaskCount = task._count.subTasks;
+      delete task._count;
+    }
+
+    if (!task.isParent) {
+      delete task.subTasks;
+      delete task.subtaskCount;
+    } else if (task.subTasks && Array.isArray(task.subTasks)) {
       task.subTasks = task.subTasks.map((st: any) =>
         this.mapToLegacyMetadata(st),
       );
@@ -212,7 +218,7 @@ export class TasksService {
     return task;
   }
 
-  private static mapToFlatMetadata(task: any) {
+  public static mapToFlatMetadata(task: any) {
     if (!task) return task;
     const flatten = (obj: any) => {
       const user = obj?.workspaceMember?.user || obj?.user || obj;
@@ -220,8 +226,6 @@ export class TasksService {
       return {
         id: user.id,
         surname: user.surname,
-        // name: user.name || "",
-        // image: user.image || null,
       };
     };
 
@@ -229,8 +233,15 @@ export class TasksService {
     if (task.reviewer) task.reviewer = flatten(task.reviewer);
     if (task.createdBy) task.createdBy = flatten(task.createdBy);
 
-    // Recursive for subtasks if present
-    if (task.subTasks && Array.isArray(task.subTasks)) {
+    if (task._count) {
+      task.subtaskCount = task._count.subTasks;
+      delete task._count;
+    }
+
+    if (!task.isParent) {
+      delete task.subTasks;
+      delete task.subtaskCount;
+    } else if (task.subTasks && Array.isArray(task.subTasks)) {
       task.subTasks = task.subTasks.map((st: any) => this.mapToFlatMetadata(st));
     }
 
@@ -419,6 +430,7 @@ export class TasksService {
               }),
               select: getTaskSelect(opts.view_mode, false), // Subtasks are never minimal in expansion
               orderBy: buildOrderBy(opts.sorts),
+              take: 200, // focus on performance: fetch subtasks for initial roots with a safe cap
             });
 
             // Use a map for O(n) grouping instead of O(n^2) nested filtering
@@ -845,7 +857,7 @@ export class TasksService {
           where
         ]
       },
-      select: getTaskSelect(opts.view_mode, opts.isMinimal),
+      select: getTaskSelect(opts.view_mode, opts.view_mode === "gantt" || opts.isMinimal),
       orderBy: buildOrderBy(opts.sorts),
       take: limit + 5, // Extra buffer for the parent and potential overlap
     });
@@ -947,7 +959,7 @@ export class TasksService {
         },
         userId,
       ),
-      select: getTaskSelect(opts.view_mode, opts.isMinimal),
+      select: getTaskSelect(opts.view_mode, opts.view_mode === "gantt" || opts.isMinimal),
       take: limit + 1,
       orderBy: buildOrderBy(opts.sorts),
     });
@@ -960,11 +972,15 @@ export class TasksService {
     }
 
     const taskMap = new Map<string, any>();
-    const shouldHaveSubTasks = opts.includeSubTasks || hasExplicitFilters;
+    // For Gantt mode, we strictly honor includeSubTasks even if filters are active to prevent N+1 bloat
+    const shouldHaveSubTasks = (opts.view_mode === "gantt")
+      ? opts.includeSubTasks
+      : (opts.includeSubTasks || hasExplicitFilters);
+
     matches.forEach((t) =>
       taskMap.set(t.id, {
         ...t,
-        subTasks: shouldHaveSubTasks ? [] : undefined,
+        subTasks: (shouldHaveSubTasks && t.isParent) ? [] : undefined,
       }),
     );
 
@@ -1020,17 +1036,20 @@ export class TasksService {
     const rootTasks: any[] = [];
     const nestedIds = new Set<string>();
     const allTasks = Array.from(taskMap.values());
-
-    allTasks.forEach((task) => {
-      if (task.parentTaskId && taskMap.has(task.parentTaskId)) {
-        const parent = taskMap.get(task.parentTaskId);
-        if (!parent.subTasks) parent.subTasks = [];
-        if (!parent.subTasks.some((st: any) => st.id === task.id)) {
-          parent.subTasks.push(task);
-          nestedIds.add(task.id);
+    
+    // 🌳 Building Tree: ONLY if subtasks are explicitly requested or filters are forcing expansion
+    if (shouldHaveSubTasks) {
+      allTasks.forEach((task) => {
+        if (task.parentTaskId && taskMap.has(task.parentTaskId)) {
+          const parent = taskMap.get(task.parentTaskId);
+          if (!parent.subTasks) parent.subTasks = [];
+          if (!parent.subTasks.some((st: any) => st.id === task.id)) {
+            parent.subTasks.push(task);
+            nestedIds.add(task.id);
+          }
         }
-      }
-    });
+      });
+    }
 
     allTasks.forEach((task) => {
       if (!nestedIds.has(task.id)) {
@@ -2138,6 +2157,7 @@ export class TasksService {
     filters,
     pageSize,
     viewMode,
+    cursor,
     userId,
   }: {
     parentId: string;
@@ -2146,6 +2166,7 @@ export class TasksService {
     filters: any;
     pageSize: number;
     viewMode: string;
+    cursor?: any;
     userId: string;
   }) {
     const results = await getSubTasksByParentIds(
@@ -2157,6 +2178,7 @@ export class TasksService {
       viewMode,
       userId,
       true, // skipPermissionsCheck for service-level access
+      cursor
     );
 
     if (!results || results.length === 0) {

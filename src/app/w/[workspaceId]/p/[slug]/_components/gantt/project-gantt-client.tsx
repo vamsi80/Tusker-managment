@@ -7,12 +7,14 @@ import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
 import type { WorkspaceTaskType } from "@/data/task";
 import { GanttChart } from "@/components/task/gantt/gantt-chart";
 import { GlobalFilterToolbar } from "@/components/task/shared/global-filter-toolbar";
-import { MemberOption, TagOption, TaskFilters } from "@/components/task/shared/types";
+import { TagOption, TaskFilters } from "@/components/task/shared/types";
 import { transformToGanttTasks, transformToGanttSubtasks } from "@/components/task/gantt/transform-tasks";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 import { useFilterStore } from "@/lib/store/filter-store";
 import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 import { toast } from "sonner";
+import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
+import { ProjectOption } from "@/components/task/shared/types";
 
 interface ProjectGanttClientProps {
     workspaceId: string;
@@ -21,14 +23,8 @@ interface ProjectGanttClientProps {
     allTasks: any[];
     subtaskDataMap: Record<string, WorkspaceTaskType>;
     members: ProjectMembersType;
-    tags: TagOption[];
     projectCounts?: Record<string, number>;
     currentUser?: { id: string };
-    permissions?: {
-        isWorkspaceAdmin: boolean;
-        leadProjectIds: string[];
-        managedProjectIds: string[];
-    };
     isShell?: boolean;
 }
 
@@ -36,15 +32,16 @@ export function ProjectGanttClient({
     workspaceId,
     projectId,
     initialTasks,
-    allTasks,
     subtaskDataMap,
     members,
-    tags,
     projectCounts,
     currentUser,
-    permissions,
-    isShell = false
 }: ProjectGanttClientProps) {
+    const { data: layoutData } = useWorkspaceLayout();
+    const projects = (layoutData.projects || []) as ProjectOption[];
+    const tags = layoutData.tags || [];
+    const permissions = layoutData.permissions;
+
     const { filters, setFilters, searchQuery, setSearchQuery, clearFilters } = useFilterStore();
     const [isPending, startTransition] = useTransition();
 
@@ -84,6 +81,7 @@ export function ProjectGanttClient({
     const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
     const [loadingSubtasks, setLoadingSubtasks] = useState<Set<string>>(new Set());
     const fetchingIdsRef = useRef<Set<string>>(new Set());
+    const fetchingSubtasksRef = useRef<Set<string>>(new Set()); // 🚀 NEW: Per-task lock for infinite scroll
     const expandedTaskIdsRef = useRef<Set<string>>(new Set());
 
     // 🔑 Force GanttChart to reset its internal expansion state when filters change
@@ -106,7 +104,7 @@ export function ProjectGanttClient({
         params.append("vm", "gantt");
         params.append("hm", "parents"); // Only fetch root tasks
         params.append("sub", "false"); // 🚀 True lazy loading: exclude subtasks in root fetch
-        params.append("l", "30"); // Limit per page
+        params.append("l", "50"); // 🔋 Reverted to 50 for faster initial response
 
         if (isLoadMore && nextCursor) {
             params.append("c", JSON.stringify(nextCursor));
@@ -144,6 +142,7 @@ export function ProjectGanttClient({
                 });
                 setNextCursor(result.nextCursor);
                 setHasMore(result.hasMore);
+                lastFetchTimeRef.current = Date.now(); // Track last successful fetch
             }
         } catch (err) {
             console.error("Failed to fetch gantt tasks:", err);
@@ -156,7 +155,7 @@ export function ProjectGanttClient({
 
     useEffect(() => {
         // 🚿 Clear subtasks and expanded tracking on every filter change
-        setTasks(prev => prev.map(t => ({ ...t, subtasks: [] })));
+        setTasks(prev => prev.map(t => ({ ...t, subtasks: undefined })));
         expandedTaskIdsRef.current.clear();
 
         const timer = setTimeout(() => {
@@ -167,15 +166,20 @@ export function ProjectGanttClient({
         return () => clearTimeout(timer);
     }, [workspaceId, projectId, filters, searchQuery]);
 
+    const lastFetchTimeRef = useRef(0);
+
     const handleLoadMore = () => {
+        // 🛡️ Guard: Prevent overlapping fetches or too-frequent pagination triggers
+        const now = Date.now();
+        if (now - lastFetchTimeRef.current < 2000) return; // 2s cooldown for pagination
+
         startTransition(() => {
             fetchTasks(true);
         });
     };
 
     const handleRequestSubtasks = async (taskId: string) => {
-        console.log("[Gantt] handleRequestSubtasks triggered for:", taskId);
-        expandedTaskIdsRef.current.add(taskId);
+        if (fetchingIdsRef.current.has(taskId)) return;
 
         // 🧠 Cache Strategy: Bypass cache if any filters are active
         const hasActiveFilters = !!(filters.status || filters.assigneeId || filters.tagId || searchQuery || filters.startDate || filters.endDate);
@@ -191,21 +195,22 @@ export function ProjectGanttClient({
             }
         }
 
+        fetchingIdsRef.current.add(taskId);
         setLoadingSubtasks(prev => new Set(prev).add(taskId));
+
         try {
             const params = new URLSearchParams();
             params.set("w", workspaceId);
-            params.set("ids", taskId);
             params.set("p", projectId);
+            params.set("ids", taskId);
             params.set("vm", "gantt");
-            params.set("sub", "true");      // 🚀 Signal for subtask expansion fetch
-            params.set("hm", "subtasks");  // 🚀 Hierarchy mode for expansion
+            params.set("ps", "30"); // 🚀 Matches List view initial expansion
 
-            // 🎯 Precision Filtering: Pass all current filters to expansion fetch
-            if (filters.status) params.append("s", filters.status);
-            if (filters.assigneeId) params.append("a", filters.assigneeId);
-            if (filters.tagId) params.append("t", filters.tagId);
+            if (filters.status) params.append("s", JSON.stringify(filters.status));
+            if (filters.assigneeId) params.append("a", JSON.stringify(filters.assigneeId));
+            if (filters.tagId) params.append("t", JSON.stringify(filters.tagId));
             if (searchQuery) params.append("q", searchQuery);
+            
             if (filters.startDate) {
                 const da = filters.startDate instanceof Date ? filters.startDate.toISOString() : filters.startDate;
                 params.append("da", da);
@@ -215,40 +220,129 @@ export function ProjectGanttClient({
                 params.append("db", db);
             }
 
-            const res = await fetch(`/api/v1/tasks/expansion/batch?${params.toString()}`);
+            const fetchUrl = `/api/v1/tasks/expansion/batch?${params.toString()}`;
+            const res = await fetch(fetchUrl);
             const json = await res.json();
 
             if (json.success && json.data?.length > 0) {
-                const batchResult = json.data[0]; // Since we only requested one ID
+                const batchResult = json.data[0];
                 const subTasks = batchResult.subTasks || [];
 
-                // Cache management: only cache results when no filters are active
                 if (!hasActiveFilters) {
                     useTaskCacheStore.getState().setCachedSubTasks(taskId, {
                         subTasks: subTasks,
-                        hasMore: batchResult.hasMore
+                        hasMore: batchResult.hasMore,
+                        nextCursor: batchResult.nextCursor
                     });
                 }
 
-                // 🧬 Transform and update state
-                // Note: transformToGanttTasks expects a flat list of tasks to create a tree.
-                // We provide the parent shell (match from existing tasks) + the new subtasks.
-                const parentShell = tasks.find(t => t.id === taskId);
-                if (parentShell) {
-                    const transformedSubtasks = transformToGanttSubtasks(subTasks);
-                    setTasks(prev => prev.map(t =>
-                        t.id === taskId ? { ...t, subtasks: transformedSubtasks } : t
-                    ));
-                }
-            } else {
-                // Explicitly set empty subtasks if no matching results returned
+                const transformedSubtasks = transformToGanttSubtasks(subTasks);
                 setTasks(prev => prev.map(t =>
-                    t.id === taskId ? { ...t, subtasks: [] } : t
+                    t.id === taskId ? { 
+                        ...t, 
+                        subtasks: transformedSubtasks,
+                        hasMoreSubtasks: batchResult.hasMore,
+                        subtaskCursor: batchResult.nextCursor
+                    } : t
+                ));
+            } else {
+                setTasks(prev => prev.map(t =>
+                    t.id === taskId ? { ...t, subtasks: [], hasMoreSubtasks: false } : t
                 ));
             }
         } catch (err) {
-            console.error("Failed to load subtasks:", err);
+            console.error("[Project Gantt] Expansion failed for:", taskId, err);
+            setTasks(prev => prev.map(t =>
+                t.id === taskId ? { ...t, subtasks: undefined } : t
+            ));
         } finally {
+            fetchingIdsRef.current.delete(taskId);
+            setLoadingSubtasks(prev => {
+                const next = new Set(prev);
+                next.delete(taskId);
+                return next;
+            });
+        }
+    };
+
+    // 🚀 ONE-BY-ONE: Trigger individual expansions progressively for all visible parents
+    const handleBatchRequestSubtasks = async (taskIds: string[]) => {
+        const targetIds = taskIds.filter(id => {
+            const isFetching = fetchingIdsRef.current.has(id);
+            const isLoaded = tasks.find(t => t.id === id)?.subtasks !== undefined;
+            return !isFetching && !isLoaded;
+        });
+        
+        if (targetIds.length === 0) return;
+
+        // Trigger all in parallel (one-by-one network calls)
+        await Promise.all(targetIds.map(id => handleRequestSubtasks(id)));
+    };
+
+
+    /**
+     * 🚀 NEW: handleRequestMoreSubtasks
+     * Fetches the next page of subtasks for a specific parent task.
+     */
+    const handleRequestMoreSubtasks = async (taskId: string) => {
+        const task = tasks.find(t => t.id === taskId);
+        if (!task || !task.hasMoreSubtasks || fetchingSubtasksRef.current.has(taskId)) return;
+
+        fetchingSubtasksRef.current.add(taskId);
+        setLoadingSubtasks(prev => new Set(prev).add(taskId));
+
+        try {
+            const params = new URLSearchParams({
+                w: workspaceId,
+                p: projectId,
+                vm: "gantt",
+                pt: taskId,    // 🚀 Parent filter (List view pattern)
+                l: "30",       // 🚀 Matches List view pagination
+                sub: "false"
+            });
+
+            if (task.subtaskCursor) {
+                params.set("c", JSON.stringify(task.subtaskCursor));
+            }
+
+            if (filters.status) params.append("s", JSON.stringify(filters.status));
+            if (filters.assigneeId) params.append("a", JSON.stringify(filters.assigneeId));
+            if (filters.tagId) params.append("t", JSON.stringify(filters.tagId));
+            if (searchQuery) params.append("q", searchQuery);
+            if (filters.startDate) params.set("da", new Date(filters.startDate).toISOString());
+            if (filters.endDate) params.set("db", new Date(filters.endDate).toISOString());
+
+            const res = await fetch(`/api/v1/tasks?${params.toString()}`);
+            const json = await res.json();
+
+            if (json.success && json.data) {
+                const result = json.data;
+                const rawSubtasks = result.tasks || [];
+                setTasks(prev => {
+                    const next = [...prev];
+                    const idx = next.findIndex(t => t.id === taskId);
+                    if (idx !== -1) {
+                        const currentSubtasks = next[idx].subtasks || [];
+                        const newSubtasks = transformToGanttSubtasks(rawSubtasks);
+
+                        // Deduplicate subtasks by ID
+                        const existingIds = new Set(currentSubtasks.map(s => s.id));
+                        const uniqueNew = newSubtasks.filter(s => !existingIds.has(s.id));
+
+                        next[idx] = {
+                            ...next[idx],
+                            subtasks: [...currentSubtasks, ...uniqueNew],
+                            hasMoreSubtasks: result.hasMore,
+                            subtaskCursor: result.nextCursor
+                        };
+                    }
+                    return next;
+                });
+            }
+        } catch (err) {
+            console.error("[Project Gantt] Load more subtasks failed:", err);
+        } finally {
+            fetchingSubtasksRef.current.delete(taskId);
             setLoadingSubtasks(prev => {
                 const next = new Set(prev);
                 next.delete(taskId);
@@ -330,6 +424,8 @@ export function ProjectGanttClient({
                     permissions={permissions}
                     onLoadMore={handleLoadMore}
                     onRequestSubtasks={handleRequestSubtasks}
+                    onBatchRequestSubtasks={handleBatchRequestSubtasks}
+                    onRequestMoreSubtasks={handleRequestMoreSubtasks} // 🚀 NEW: Pass handler
                     loadingSubtasks={loadingSubtasks}
                     isLoading={isLoadingMore || isPending}
                 />

@@ -7,6 +7,8 @@ import { SortableSubtaskList } from "./sortable-subtask-list";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 
 import { cn } from "@/lib/utils";
+import { GanttRowSkeleton } from "./gantt-row-skeleton";
+
 import { Button } from "@/components/ui/button";
 import {
     Tooltip,
@@ -21,7 +23,7 @@ import { ProjectOption } from "../shared/types";
 // ...
 // ... (imports)
 
-const SUBTASKS_PER_PAGE = 50;
+const SUBTASKS_PER_PAGE = 10;
 
 interface TaskRowProps {
     task: GanttTask;
@@ -48,6 +50,7 @@ interface TaskRowProps {
     highlightedSubtaskId?: string | null;
     onToggleSubtaskHighlight?: (id: string) => void;
     isLoading?: boolean;
+    onLoadMoreSubtasks?: (taskId: string) => void;
 }
 
 export function TaskRow({
@@ -70,7 +73,8 @@ export function TaskRow({
     granularity,
     highlightedSubtaskId,
     onToggleSubtaskHighlight,
-    isLoading = false
+    isLoading = false,
+    onLoadMoreSubtasks
 }: TaskRowProps) {
 
     const [visibleSubtaskCount, setVisibleSubtaskCount] = useState(SUBTASKS_PER_PAGE);
@@ -149,30 +153,51 @@ export function TaskRow({
     }, [isDelayed, isSettled, task.updatedAt, task.subtasks, end, totalDays]);
 
     const hasSubtasks = (task.subtasks && task.subtasks.length > 0) || (task.subtaskCount !== undefined && task.subtaskCount > 0);
+    const isLoaded = task.subtasks !== undefined;
 
 
 
     // Handle load more subtasks
     const handleLoadMoreSubtasks = () => {
-        setVisibleSubtaskCount(prev => Math.min(prev + SUBTASKS_PER_PAGE, task.subtasks.length));
+        setVisibleSubtaskCount(prev => Math.min(prev + SUBTASKS_PER_PAGE, task.subtasks?.length || 0));
     };
 
-    // Get visible subtasks
-    const visibleSubtasks = task.subtasks.slice(0, visibleSubtaskCount);
-    const hasMoreSubtasks = visibleSubtaskCount < task.subtasks.length;
+    // 🚀 SYNC: Automatically show all subtasks if they were just loaded from server (e.g. Expand All or Load More)
+    useEffect(() => {
+        if (task.subtasks && task.subtasks.length > visibleSubtaskCount) {
+             setVisibleSubtaskCount(task.subtasks.length);
+        }
+    }, [task.subtasks?.length]);
 
-    // Auto-scroll trigger for subtasks
+
+    // Get visible subtasks
+    const visibleSubtasks = (task.subtasks || []).slice(0, visibleSubtaskCount);
+    
+    // 🧠 Evaluation logic for mixed client/server pagination
+    const hasMoreInMemory = visibleSubtaskCount < (task.subtasks?.length || 0);
+    const hasMoreOnServer = !!task.hasMoreSubtasks;
+    const canLoadMore = hasMoreInMemory || hasMoreOnServer;
+
+    const handleLoadMoreTrigger = () => {
+        if (hasMoreInMemory) {
+            handleLoadMoreSubtasks();
+        } else if (hasMoreOnServer && onLoadMoreSubtasks) {
+            onLoadMoreSubtasks(task.id);
+        }
+    };
+
+    // Auto-scroll trigger for subtasks (sentinel at bottom of subtask list)
     const subtaskLoaderRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
         if (!subtaskLoaderRef.current) return;
         const observer = new IntersectionObserver(([entry]) => {
-            if (entry.isIntersecting && hasMoreSubtasks) {
-                handleLoadMoreSubtasks();
+            if (entry.isIntersecting && canLoadMore) {
+                handleLoadMoreTrigger();
             }
         }, { threshold: 0.1 });
         observer.observe(subtaskLoaderRef.current);
         return () => observer.disconnect();
-    }, [hasMoreSubtasks]);
+    }, [canLoadMore, hasMoreInMemory, hasMoreOnServer]);
 
     const allowedUserIds = currentProject?.memberIds;
 
@@ -220,7 +245,7 @@ export function TaskRow({
                         </span>
                         {hasSubtasks && (
                             <span className="text-xs text-muted-foreground ml-auto bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded-full">
-                                {task.subtasks.length > 0 ? task.subtasks.length : task.subtaskCount}
+                                {(task.subtasks && task.subtasks.length > 0) ? task.subtasks.length : task.subtaskCount}
                             </span>
                         )}
                         {isLoading && (
@@ -355,7 +380,7 @@ export function TaskRow({
             </div>
 
             {/* Subtask Rows - Sortable */}
-            {isExpanded && hasSubtasks && (
+            {isExpanded && hasSubtasks && isLoaded && (
                 <div className="flex flex-col">
                     <SortableSubtaskList
                         subtasks={visibleSubtasks}
@@ -376,22 +401,13 @@ export function TaskRow({
                         onToggleSubtaskHighlight={onToggleSubtaskHighlight}
                     />
 
-                    {hasMoreSubtasks && (
-                        <div
-                            className="grid"
-                            style={{ gridTemplateColumns: 'var(--gantt-sidebar-width) var(--gantt-total-width)' }}
-                        >
-                            {/* Left Panel - Auto Load Trigger */}
-                            <div ref={subtaskLoaderRef} className="sticky left-0 z-30 shrink-0 bg-neutral-50 dark:bg-neutral-800/30 border-b border-r border-neutral-200 dark:border-neutral-700 flex items-center px-2 py-1.5 pl-8">
-                                <span className="text-xs text-muted-foreground ml-6">Loading more subtasks...</span>
-                            </div>
-
-                            {/* Right Panel - Spacer */}
-                            <div
-                                className="relative min-h-[32px] w-full bg-neutral-50/50 dark:bg-neutral-800/10 border-b border-neutral-200 dark:border-neutral-700"
-                            />
-                        </div>
+                    {canLoadMore && (
+                        <GanttRowSkeleton 
+                            ref={subtaskLoaderRef} 
+                            className="bg-neutral-50/10 dark:bg-neutral-800/5 h-8"
+                        />
                     )}
+
                 </div>
             )}
 

@@ -209,7 +209,9 @@ export function transformToGanttTasks(inputTasks: any[]): GanttTask[] {
         end: parentTask.dueDate
           ? formatLocalDate(new Date(parentTask.dueDate))
           : undefined,
-        subtasks: rawSubtasks,
+        subtasks: (parentTask.subTasks === undefined && (parentTask.subtaskCount > 0 || parentTask._count?.subTasks > 0)) 
+          ? undefined 
+          : rawSubtasks,
         assigneeId: parentTask.assigneeId,
         status: parentTask.status || "TO_DO",
         createdById: parentTask.createdById,
