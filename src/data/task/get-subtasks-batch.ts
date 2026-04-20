@@ -58,6 +58,7 @@ async function _getSubTasksByParentIdsInternal(
     pageSize: number = 30,
     viewMode: string = "list"
 ): Promise<BatchSubTasksResult> {
+    console.log(`🔍 [DEBUG] getSubTasksByParentIdsInternal called for parentIds: ${parentTaskIds.join(', ')} in project: ${projectId} view: ${viewMode}`);
     if (parentTaskIds.length === 0) {
         return [];
     }
@@ -77,6 +78,7 @@ async function _getSubTasksByParentIdsInternal(
         ...buildSubTaskConditions({
             ...filters,
             workspaceId,
+            projectId, // Ensure project scope is applied
             dueAfter,
             dueBefore
         })
@@ -133,10 +135,12 @@ async function _getSubTasksByParentIdsInternal(
             ...buildSubTaskConditions({
                 ...filters,
                 workspaceId,
+                projectId, // Ensure project scope is applied
                 dueAfter,
                 dueBefore
             })
         };
+        console.log(`🔍 [DEBUG] singleParentWhere:`, JSON.stringify(singleParentWhere, null, 2));
 
         // Apply permission scoping (only for non-admins)
         if (!isAdmin) {
@@ -176,6 +180,8 @@ async function _getSubTasksByParentIdsInternal(
             })
         ]);
 
+        console.log(`🔍 [DEBUG] Fetched ${rawTasks.length} raw tasks for parent ${parentId}`);
+
         // Extract parent and project data from the combined query
         const parentData = parentAndProjectData
             ? { id: parentAndProjectData.id, name: (parentAndProjectData as any).name }
@@ -190,7 +196,7 @@ async function _getSubTasksByParentIdsInternal(
         }
 
         const hasMore = rawTasks.length > pageSize;
-        const finalTasks = (hasMore ? rawTasks.slice(0, pageSize) : rawTasks);
+        const finalTasks = (hasMore ? rawTasks.slice(0, pageSize) : rawTasks).map(t => TasksService.mapToLegacyMetadata(t));
 
         const duration = performance.now() - startTime;
 
@@ -238,7 +244,7 @@ async function _getSubTasksByParentIdsInternal(
 
         if (currentCount < pageSize) {
             if (!subTasksMap.has(pId)) subTasksMap.set(pId, []);
-            subTasksMap.get(pId)!.push(task);
+            subTasksMap.get(pId)!.push(TasksService.mapToLegacyMetadata(task));
         }
     });
 

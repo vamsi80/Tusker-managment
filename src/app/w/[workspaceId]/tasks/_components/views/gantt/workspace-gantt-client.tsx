@@ -4,7 +4,7 @@ import { Loader2 } from "lucide-react";
 import { useState, useMemo, useTransition, useEffect, useRef } from "react";
 import { GanttTask } from "@/components/task/gantt/types";
 import { GanttChart } from "@/components/task/gantt/gantt-chart";
-import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
+import { transformToGanttTasks, transformToGanttSubtasks } from "@/components/task/gantt/transform-tasks";
 import { GlobalFilterToolbar } from "@/components/task/shared/global-filter-toolbar";
 import {
   ProjectOption,
@@ -66,9 +66,7 @@ export function WorkspaceGanttClient({
   const toolbarMembers = useMemo<MemberOption[]>(
     () => members.map(m => ({
       id: m.userId,
-      name: m.user.name || "",
       surname: m.user.surname || "",
-      email: m.user.email || "",
     })),
     [members]
   );
@@ -93,12 +91,12 @@ export function WorkspaceGanttClient({
   const hasFetchedRef = useRef(false);
 
   // 🔑 Force GanttChart to reset its internal expansion state when filters change
-  const filterKey = useMemo(() => 
-    JSON.stringify({ 
-      filters, 
+  const filterKey = useMemo(() =>
+    JSON.stringify({
+      filters,
       searchQuery,
-      workspaceId 
-    }), 
+      workspaceId
+    }),
     [filters, searchQuery, workspaceId]
   );
 
@@ -113,7 +111,7 @@ export function WorkspaceGanttClient({
     params.append("l", "30");
 
     if (isLoadMore && nextCursor) {
-        params.append("c", JSON.stringify(nextCursor));
+      params.append("c", JSON.stringify(nextCursor));
     }
 
     if (filters.projectId) params.append("p", filters.projectId);
@@ -170,7 +168,7 @@ export function WorkspaceGanttClient({
 
   useEffect(() => {
     // 🛡️ Mount Guard: If we have initial data and filters are neutral, skip the first fetch
-    const isNeutral = !searchQuery && 
+    const isNeutral = !searchQuery &&
       Object.values(filters).every(v => v === undefined || v === "" || (Array.isArray(v) && v.length === 0));
 
     if (!hasFetchedRef.current && initialTasks.length > 0 && isNeutral) {
@@ -193,7 +191,7 @@ export function WorkspaceGanttClient({
 
   const handleLoadMore = () => {
     startTransition(() => {
-        fetchTasks(true);
+      fetchTasks(true);
     });
   };
 
@@ -203,11 +201,11 @@ export function WorkspaceGanttClient({
 
     // 🧠 Cache Strategy: Bypass cache if any filters are active to ensure data accuracy
     const hasActiveFilters = !!(filters.status || filters.assigneeId || filters.tagId || searchQuery || filters.startDate || filters.endDate);
-    
+
     if (!hasActiveFilters) {
       const cached = useTaskCacheStore.getState().getCachedSubTasks(taskId);
       if (cached && cached.subTasks.length > 0) {
-        const transformedSubtasks = transformToGanttTasks(cached.subTasks)[0]?.subtasks || [];
+        const transformedSubtasks = transformToGanttSubtasks(cached.subTasks);
         setTasks(prev => prev.map(t =>
           t.id === taskId ? { ...t, subtasks: transformedSubtasks } : t
         ));
@@ -239,27 +237,27 @@ export function WorkspaceGanttClient({
         params.append("db", db);
       }
 
-      const res = await fetch(`/api/v1/tasks?${params.toString()}`);
+      const res = await fetch(`/api/v1/tasks/expansion/batch?${params.toString()}`);
       const json = await res.json();
 
-      if (json.success && json.data.tasks?.length > 0) {
+      if (json.success && json.data?.length > 0) {
+        const batchResult = json.data[0]; // Since we only requested one ID
+        const subTasks = batchResult.subTasks || [];
+
         // Cache management: only cache results when no filters are active
         if (!hasActiveFilters) {
-          const subtasks = json.data.tasks.filter((t: any) => t.id !== taskId);
           useTaskCacheStore.getState().setCachedSubTasks(taskId, {
-            subTasks: subtasks,
-            hasMore: false
+            subTasks: subTasks,
+            hasMore: batchResult.hasMore
           });
         }
 
         // 🧬 Transform and update state
-        // transformToGanttTasks handles raw flat API response [Parent, Sub1, Sub2] 
-        // and returns nested structure [{ id: taskId, subtasks: [...] }]
-        const transformed = transformToGanttTasks(json.data.tasks);
-        if (transformed.length > 0) {
-          const match = transformed.find(t => t.id === taskId);
+        const parentShell = tasks.find(t => t.id === taskId);
+        if (parentShell) {
+          const transformedSubtasks = transformToGanttSubtasks(subTasks);
           setTasks(prev => prev.map(t =>
-            t.id === taskId ? { ...t, subtasks: match?.subtasks || [] } : t
+            t.id === taskId ? { ...t, subtasks: transformedSubtasks } : t
           ));
         }
       } else {

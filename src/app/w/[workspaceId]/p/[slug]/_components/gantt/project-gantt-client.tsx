@@ -8,7 +8,7 @@ import type { WorkspaceTaskType } from "@/data/task";
 import { GanttChart } from "@/components/task/gantt/gantt-chart";
 import { GlobalFilterToolbar } from "@/components/task/shared/global-filter-toolbar";
 import { MemberOption, TagOption, TaskFilters } from "@/components/task/shared/types";
-import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
+import { transformToGanttTasks, transformToGanttSubtasks } from "@/components/task/gantt/transform-tasks";
 import { ProjectMembersType } from "@/data/project/get-project-members";
 import { useFilterStore } from "@/lib/store/filter-store";
 import { useTaskCacheStore } from "@/lib/store/task-cache-store";
@@ -183,7 +183,7 @@ export function ProjectGanttClient({
         if (!hasActiveFilters) {
             const cached = useTaskCacheStore.getState().getCachedSubTasks(taskId);
             if (cached && cached.subTasks.length > 0) {
-                const transformedSubtasks = transformToGanttTasks(cached.subTasks)[0]?.subtasks || [];
+                const transformedSubtasks = transformToGanttSubtasks(cached.subTasks);
                 setTasks(prev => prev.map(t =>
                     t.id === taskId ? { ...t, subtasks: transformedSubtasks } : t
                 ));
@@ -215,25 +215,29 @@ export function ProjectGanttClient({
                 params.append("db", db);
             }
 
-            const res = await fetch(`/api/v1/tasks?${params.toString()}`);
+            const res = await fetch(`/api/v1/tasks/expansion/batch?${params.toString()}`);
             const json = await res.json();
 
-            if (json.success && json.data.tasks?.length > 0) {
+            if (json.success && json.data?.length > 0) {
+                const batchResult = json.data[0]; // Since we only requested one ID
+                const subTasks = batchResult.subTasks || [];
+
                 // Cache management: only cache results when no filters are active
                 if (!hasActiveFilters) {
-                    const subtasks = json.data.tasks.filter((t: any) => t.id !== taskId);
                     useTaskCacheStore.getState().setCachedSubTasks(taskId, {
-                        subTasks: subtasks,
-                        hasMore: false
+                        subTasks: subTasks,
+                        hasMore: batchResult.hasMore
                     });
                 }
 
                 // 🧬 Transform and update state
-                const transformed = transformToGanttTasks(json.data.tasks);
-                if (transformed.length > 0) {
-                    const match = transformed.find(t => t.id === taskId);
+                // Note: transformToGanttTasks expects a flat list of tasks to create a tree.
+                // We provide the parent shell (match from existing tasks) + the new subtasks.
+                const parentShell = tasks.find(t => t.id === taskId);
+                if (parentShell) {
+                    const transformedSubtasks = transformToGanttSubtasks(subTasks);
                     setTasks(prev => prev.map(t =>
-                        t.id === taskId ? { ...t, subtasks: match?.subtasks || [] } : t
+                        t.id === taskId ? { ...t, subtasks: transformedSubtasks } : t
                     ));
                 }
             } else {
@@ -284,10 +288,7 @@ export function ProjectGanttClient({
     // Transform full member objects for the toolbar dropdowns
     const toolbarMembers = members.map(m => ({
         id: m.userId,
-        name: m.user.name || '',
         surname: m.user.surname || '',
-        email: m.user.email || '',
-        image: m.user.image || ''
     }));
 
     return (
