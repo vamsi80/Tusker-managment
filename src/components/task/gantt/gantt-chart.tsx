@@ -7,12 +7,11 @@ import { Calendar } from "lucide-react";
 import { ProjectRow } from "./project-row";
 import { ProjectOption } from "../shared/types";
 import { exportGanttToExcel, exportGanttToPDF } from "./export-utils";
-import { GanttSubtask, GanttTask, TimelineGranularity } from "./types";
+import { GanttTask, TimelineGranularity } from "./types";
 import { TimelineHeader, TimelineGrid } from "./timeline-grid";
 import { calculateTimelineRange, getDaysBetween } from "./utils";
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { ProjectMembersType } from "@/data/project/get-project-members";
-import { DependencyLines } from "./dependency-lines";
 import { GanttRowSkeleton } from "./gantt-row-skeleton";
 
 
@@ -30,7 +29,6 @@ interface GanttChartProps {
     hasMore?: boolean;
     onLoadMore?: () => void;
     onRequestSubtasks?: (taskId: string) => void;
-    onBatchRequestSubtasks?: (taskIds: string[]) => void;
     onRequestMoreSubtasks?: (taskId: string) => void;
     onRequestProjectTasks?: (projectId: string) => void;
     loadingSubtasks?: Set<string>;
@@ -47,8 +45,6 @@ interface GanttChartProps {
 }
 
 const ITEMS_PER_PAGE = 50;
-const PROJECTS_PER_PAGE = 20;
-
 export function GanttChart({
     tasks,
     workspaceId,
@@ -56,7 +52,6 @@ export function GanttChart({
     className,
     onSubtaskClick,
     onSubTaskUpdate,
-    showProjectFilter,
     projects,
     groupByProject = false,
     projectCounts,
@@ -65,7 +60,6 @@ export function GanttChart({
     hasMore,
     onLoadMore,
     onRequestSubtasks,
-    onBatchRequestSubtasks,
     onRequestMoreSubtasks,
     onRequestProjectTasks,
     loadingSubtasks,
@@ -80,7 +74,6 @@ export function GanttChart({
     const [showDetails, setShowDetails] = useState(true);
     const [highlightedSubtaskId, setHighlightedSubtaskId] = useState<string | null>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
-    const lastRequestedBatchRef = useRef<string>("");
 
     const onToggleSubtaskHighlight = useCallback((id: string) => {
         setHighlightedSubtaskId(prev => (prev === id ? null : id));
@@ -242,13 +235,6 @@ export function GanttChart({
             }
             return next;
         });
-
-        if (isExpanding) {
-            const task = tasks.find(t => t.id === taskId);
-            if (task && (task.subtasks === undefined)) {
-                onRequestSubtasks?.(taskId);
-            }
-        }
     };
 
     const toggleProject = (projectId: string) => {
@@ -290,7 +276,6 @@ export function GanttChart({
     // 🚀 SYNC: Persistent expansion management
     useEffect(() => {
         if (!isExpandAllMode) {
-            lastRequestedBatchRef.current = "";
             return;
         }
 
@@ -316,18 +301,6 @@ export function GanttChart({
             if (prev.size === allTaskIds.size && [...allTaskIds].every(id => prev.has(id))) return prev;
             return new Set([...prev, ...allTaskIds]);
         });
-
-        // 3. Trigger batch fetch for missing subtasks
-        // 🚀 CRITICAL: Filter out tasks that are ALREADY loading to prevent request storms
-        const tasksToLoad = tasks
-            .filter(t => (t.subtaskCount || 0) > 0 && t.subtasks === undefined && !loadingSubtasks?.has(t.id))
-            .map(t => t.id);
-        
-        const batchKey = tasksToLoad.sort().join(",");
-        if (tasksToLoad.length > 0 && batchKey !== lastRequestedBatchRef.current) {
-            lastRequestedBatchRef.current = batchKey;
-            onBatchRequestSubtasks?.(tasksToLoad);
-        }
     }, [isExpandAllMode, tasks, groupedTasks, loadingSubtasks, loadingProjects]);
 
     const expandAll = () => {
@@ -338,7 +311,6 @@ export function GanttChart({
         setIsExpandAllMode(false);
         setExpandedTasks(new Set());
         setExpandedProjects(new Set());
-        lastRequestedBatchRef.current = "";
     };
 
     const handleExport = async (type: 'pdf' | 'excel') => {
@@ -467,6 +439,7 @@ export function GanttChart({
                                             highlightedSubtaskId={highlightedSubtaskId}
                                             onToggleSubtaskHighlight={onToggleSubtaskHighlight}
                                             onLoadMoreSubtasks={onRequestMoreSubtasks}
+                                            onInitialLoadSubtasks={onRequestSubtasks}
                                             isLoading={loadingSubtasks?.has(task.id)}
                                         />
                                     ))}
@@ -492,6 +465,8 @@ export function GanttChart({
                                     showDetails={showDetails}
                                     projectMap={projectMap}
                                     isLoading={loadingSubtasks?.has(task.id)}
+                                    onLoadMoreSubtasks={onRequestMoreSubtasks}
+                                    onInitialLoadSubtasks={onRequestSubtasks}
                                 />
                             ))}
 
@@ -527,6 +502,8 @@ export function GanttChart({
                                     showDetails={showDetails}
                                     projectMap={projectMap}
                                     isLoading={loadingSubtasks?.has(task.id)}
+                                    onLoadMoreSubtasks={onRequestMoreSubtasks}
+                                    onInitialLoadSubtasks={onRequestSubtasks}
                                 />
                             ))}
 
