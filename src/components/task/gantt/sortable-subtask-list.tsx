@@ -13,7 +13,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { restrictToVerticalAxis, restrictToWindowEdges } from "@dnd-kit/modifiers";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { apiClient } from "@/lib/api-client";
 import { toast } from "sonner";
 import { DependencyPicker } from "./dependency-picker";
@@ -292,10 +292,10 @@ export function SortableSubtaskList({
 }: SortableSubtaskListProps) {
     const [items, setItems] = useState(initialSubtasks);
 
-    // Sync items if props change (unless dragging)
-    useState(() => {
+    // Keep the rendered subtask list in sync with newly loaded batches.
+    useEffect(() => {
         setItems(initialSubtasks);
-    });
+    }, [initialSubtasks]);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {

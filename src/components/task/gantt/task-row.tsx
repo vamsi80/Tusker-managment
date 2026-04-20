@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useRef, useEffect } from "react";
-import { ChevronDown, ChevronRight, CornerDownRight } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { computeTaskDates, calculateBarPosition, formatDateRange, getDaysBetween, getAggregateStatus, getStatusColor } from "./utils";
 import { SortableSubtaskList } from "./sortable-subtask-list";
 import { ProjectMembersType } from "@/data/project/get-project-members";
@@ -16,8 +16,7 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { GanttSubtask, GanttTask } from "./types";
-import { InlineAssigneePicker } from "../shared/inline-assignee-picker";
+import { GanttTask } from "./types";
 import { ProjectOption } from "../shared/types";
 
 // ...
@@ -51,6 +50,7 @@ interface TaskRowProps {
     onToggleSubtaskHighlight?: (id: string) => void;
     isLoading?: boolean;
     onLoadMoreSubtasks?: (taskId: string) => void;
+    onInitialLoadSubtasks?: (taskId: string) => void;
 }
 
 export function TaskRow({
@@ -74,7 +74,8 @@ export function TaskRow({
     highlightedSubtaskId,
     onToggleSubtaskHighlight,
     isLoading = false,
-    onLoadMoreSubtasks
+    onLoadMoreSubtasks,
+    onInitialLoadSubtasks
 }: TaskRowProps) {
 
     const [visibleSubtaskCount, setVisibleSubtaskCount] = useState(SUBTASKS_PER_PAGE);
@@ -154,8 +155,7 @@ export function TaskRow({
 
     const hasSubtasks = (task.subtasks && task.subtasks.length > 0) || (task.subtaskCount !== undefined && task.subtaskCount > 0);
     const isLoaded = task.subtasks !== undefined;
-
-
+    const needsInitialLoad = isExpanded && hasSubtasks && !isLoaded;
 
     // Handle load more subtasks
     const handleLoadMoreSubtasks = () => {
@@ -186,18 +186,34 @@ export function TaskRow({
         }
     };
 
-    // Auto-scroll trigger for subtasks (sentinel at bottom of subtask list)
+    // A single sentinel handles first-load and later pagination once the expanded area becomes visible.
     const subtaskLoaderRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
         if (!subtaskLoaderRef.current) return;
         const observer = new IntersectionObserver(([entry]) => {
-            if (entry.isIntersecting && canLoadMore) {
+            if (!entry.isIntersecting || isLoading) return;
+
+            if (needsInitialLoad) {
+                onInitialLoadSubtasks?.(task.id);
+                return;
+            }
+
+            if (canLoadMore) {
                 handleLoadMoreTrigger();
             }
-        }, { threshold: 0.1 });
+        }, { threshold: 0.1, rootMargin: '240px 0px' });
         observer.observe(subtaskLoaderRef.current);
         return () => observer.disconnect();
-    }, [canLoadMore, hasMoreInMemory, hasMoreOnServer]);
+    }, [
+        canLoadMore,
+        hasMoreInMemory,
+        hasMoreOnServer,
+        isLoading,
+        needsInitialLoad,
+        onInitialLoadSubtasks,
+        onLoadMoreSubtasks,
+        task.id
+    ]);
 
     const allowedUserIds = currentProject?.memberIds;
 
@@ -380,34 +396,35 @@ export function TaskRow({
             </div>
 
             {/* Subtask Rows - Sortable */}
-            {isExpanded && hasSubtasks && isLoaded && (
+            {isExpanded && hasSubtasks && (
                 <div className="flex flex-col">
-                    <SortableSubtaskList
-                        subtasks={visibleSubtasks}
-                        timelineStart={timelineStart}
-                        totalDays={totalDays}
-                        showDetails={showDetails}
-                        onSubtaskClick={onSubtaskClick}
-                        onSubTaskUpdate={onSubTaskUpdate}
-                        workspaceId={workspaceId || ""}
-                        projectId={projectId || task.projectId}
-                        members={members}
-                        currentUser={currentUser}
-                        permissions={permissions}
-                        allowedUserIds={allowedUserIds}
-                        allTasks={allTasks}
-                        granularity={granularity}
-                        highlightedSubtaskId={highlightedSubtaskId}
-                        onToggleSubtaskHighlight={onToggleSubtaskHighlight}
-                    />
+                    {isLoaded && (
+                        <SortableSubtaskList
+                            subtasks={visibleSubtasks}
+                            timelineStart={timelineStart}
+                            totalDays={totalDays}
+                            showDetails={showDetails}
+                            onSubtaskClick={onSubtaskClick}
+                            onSubTaskUpdate={onSubTaskUpdate}
+                            workspaceId={workspaceId || ""}
+                            projectId={projectId || task.projectId}
+                            members={members}
+                            currentUser={currentUser}
+                            permissions={permissions}
+                            allowedUserIds={allowedUserIds}
+                            allTasks={allTasks}
+                            granularity={granularity}
+                            highlightedSubtaskId={highlightedSubtaskId}
+                            onToggleSubtaskHighlight={onToggleSubtaskHighlight}
+                        />
+                    )}
 
-                    {canLoadMore && (
+                    {(needsInitialLoad || canLoadMore || isLoading) && (
                         <GanttRowSkeleton 
                             ref={subtaskLoaderRef} 
                             className="bg-neutral-50/10 dark:bg-neutral-800/5 h-8"
                         />
                     )}
-
                 </div>
             )}
 

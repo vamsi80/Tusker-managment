@@ -298,22 +298,6 @@ export function WorkspaceGanttClient({
     }
   };
 
-  // 🚀 ONE-BY-ONE: Trigger individual expansions progressively for all visible parents
-  const handleBatchRequestSubtasks = async (taskIds: string[]) => {
-    const targetIds = taskIds.filter(id => {
-      const isFetching = fetchingIdsRef.current.has(id);
-      const isLoaded = tasks.find(t => t.id === id)?.subtasks !== undefined;
-      return !isFetching && !isLoaded;
-    });
-    
-    if (targetIds.length === 0) return;
-
-    // Trigger all in parallel (one-by-one network calls)
-    await Promise.all(targetIds.map(id => handleRequestSubtasks(id)));
-  };
-
-
-
   /**
    * 🚀 NEW: handleRequestMoreSubtasks
    * Fetches the next page of subtasks for a specific parent task.
@@ -502,7 +486,6 @@ export function WorkspaceGanttClient({
           hasMore={hasMore}
           onLoadMore={handleLoadMore}
           onRequestSubtasks={handleRequestSubtasks}
-          onBatchRequestSubtasks={handleBatchRequestSubtasks}
           onRequestMoreSubtasks={handleRequestMoreSubtasks} // 🚀 NEW: Pass handler
           onRequestProjectTasks={handleRequestProjectTasks}
           loadingSubtasks={loadingSubtasks}
