@@ -95,7 +95,11 @@ tasks.get("/", async (c) => {
     opts.groupBy = "status";
     opts.sorts = [{ field: "createdAt", direction: "desc" }];
     opts.onlySubtasks = false; // Allow root tasks in Kanban if they have a status
-    opts.includeSubTasks = false; // No nested levels in Kanban
+    
+    // 🎨 Hierarchy Support: Kanban is usually flat, but we allow 
+    // subtask inclusion if specifically filtering by a parent or expanding.
+    const isExpanding = q.sub === "true" || !!opts.filterParentTaskId || !!opts.ids;
+    opts.includeSubTasks = isExpanding;
   } else if (view_mode === "gantt") {
     opts.sorts = [{ field: "startDate", direction: "asc" }];
     opts.includeSubTasks = true;
@@ -653,6 +657,8 @@ tasks.get("/expansion/batch", async (c) => {
   const projectId = q.p || q.projectId;
   const viewMode = q.vm || q.viewMode || "list";
   const pageSize = parseInt(q.ps || q.pageSize || "30", 10);
+
+  console.log(`🔍 [DEBUG] /expansion/batch request - parentIds: ${q.ids}, projectId: ${projectId}, viewMode: ${viewMode}`);
 
   const parseParam = (key: string, shortKey: string) => {
     const val = q[shortKey] || q[key];

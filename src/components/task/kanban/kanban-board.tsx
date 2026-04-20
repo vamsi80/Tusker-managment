@@ -1120,26 +1120,66 @@ export function KanbanBoard({
     return columnData[status]?.subTaskIds || [];
   };
 
-  const uniqueParentTasks: ParentTaskOption[] = Array.from(
-    new Map(
-      COLUMNS.flatMap((col) => {
-        const entities = useTaskCacheStore.getState().entities;
-        const allTasks = columnData[col.id]?.subTaskIds.map(
-          (id) => entities[id],
-        ) || [];
-        return allTasks
-          .filter((st) => st && (st as any).parentTask)
-          .map((st: any) => [
-            st.parentTask!.id,
-            {
-              id: st.parentTask!.id,
-              name: st.parentTask!.name,
-              taskSlug: st.parentTask!.taskSlug,
-            },
-          ]);
-      }),
-    ).values(),
-  ) as ParentTaskOption[];
+  const uniqueParentTasks = useMemo(() => {
+    const parentMap = new Map<string, ParentTaskOption>();
+
+    // 1. Extract from currently loaded items in Kanban columns
+    COLUMNS.forEach((col) => {
+      const entities = useTaskCacheStore.getState().entities;
+      const subTaskIds = columnData[col.id]?.subTaskIds || [];
+      subTaskIds.forEach((id) => {
+        const st = entities[id] as any;
+        if (st?.parentTask?.id) {
+          parentMap.set(st.parentTask.id, {
+            id: st.parentTask.id,
+            name: st.parentTask.name,
+            taskSlug: st.parentTask.taskSlug,
+          });
+        }
+      });
+    });
+
+    // 2. Extract from global entities (all loaded roots/parents for this project)
+    const allEntities = Object.values(useTaskCacheStore.getState().entities);
+    allEntities.forEach((task: any) => {
+      if (task.isParent && task.projectId === projectId) {
+        parentMap.set(task.id, {
+          id: task.id,
+          name: task.name,
+          taskSlug: task.taskSlug,
+        });
+      }
+    });
+
+    return Array.from(parentMap.values());
+  }, [columnData, projectId]);
+
+  // handleRequestSubtasks: Triggers explicit expansion for a parent task.
+  // Although Kanban is flat, this hydrates the cache allowing filter-by-parent to work instantly.
+  const handleRequestSubtasks = useCallback(async (parentId: string) => {
+    try {
+      const params = new URLSearchParams();
+      params.set("w", workspaceId);
+      params.set("p", projectId);
+      params.set("ids", parentId);
+      params.set("vm", "kanban");
+      params.set("sub", "true"); 
+
+      const res = await fetch(`/api/v1/tasks/expansion/batch?${params.toString()}`);
+      const json = await res.json();
+      
+      if (json.success && json.data?.[0]) {
+        const batchResult = json.data[0];
+        useTaskCacheStore.getState().upsertTasks(batchResult.subTasks || []);
+        useTaskCacheStore.getState().setCachedSubTasks(parentId, {
+           subTasks: batchResult.subTasks || [],
+           hasMore: batchResult.hasMore
+        });
+      }
+    } catch (err) {
+      console.error("Failed to request subtasks in Kanban:", err);
+    }
+  }, [workspaceId, projectId]);
 
   const memberOptions = Array.from(
     new Map(

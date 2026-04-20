@@ -5,7 +5,6 @@ import { getUserPermissions } from "@/data/user/get-user-permissions";
 import { requireUser } from "@/lib/auth/require-user";
 import { getTasks } from "@/data/task/get-tasks";
 import type { TaskWithSubTasks } from "@/components/task/shared/types";
-import { AppLoader } from "@/components/shared/app-loader";
 
 const TaskTable = dynamic(() => import("@/components/task/list/task-table"), {
     loading: () => <div className="h-[60vh] w-full flex items-center justify-center text-muted-foreground animate-pulse">Loading Tasks...</div>
@@ -25,11 +24,10 @@ interface ProjectTaskListViewProps {
 export async function ProjectTaskListView({
     workspaceId,
     projectId,
-    userId: propUserId,
 }: ProjectTaskListViewProps) {
     // 1. Get current user (server-side authentication)
     const user = await requireUser();
-    
+
     // 2. Fetch initial data in parallel for speed
     const [tagsData, members, permissions, tasksData] = await Promise.all([
         getWorkspaceTags(workspaceId),
@@ -51,9 +49,13 @@ export async function ProjectTaskListView({
         name: tag.name,
     }));
 
-    const initialTasks = (tasksData.tasks || []).map(t => ({
+    // Handle union response safely
+    const rawTasks = (tasksData as any).tasks || [];
+
+    const initialTasks = rawTasks.map((t: any) => ({
         ...t,
-        subTasks: (t as any).subTasks
+        subtaskCount: t.subtaskCount ?? t._count?.subTasks ?? 0,
+        subTasks: undefined // Signaling 'not yet fetched'
     })) as TaskWithSubTasks[];
 
     return (
@@ -61,7 +63,7 @@ export async function ProjectTaskListView({
             initialTasks={initialTasks}
             initialHasMore={tasksData.hasMore}
             initialNextCursor={tasksData.nextCursor}
-            initialTotalCount={tasksData.totalCount ?? undefined}
+            initialTotalCount={(tasksData as any).totalCount ?? undefined}
             members={members as any}
             workspaceId={workspaceId}
             projectId={projectId}

@@ -156,13 +156,13 @@ export function transformToGanttTasks(inputTasks: any[]): GanttTask[] {
             assigneeId: subtask.assigneeId,
             assignee: subtask.assignee
               ? {
-                  id: subtask.assignee.workspaceMember?.user?.id || subtask.assigneeId,
-                  name:
-                    subtask.assignee.workspaceMember?.user?.surname ||
-                    subtask.assignee.workspaceMember?.user?.name ||
-                    "Unknown",
-                  image: subtask.assignee.workspaceMember?.user?.image,
-                }
+                id: subtask.assignee.workspaceMember?.user?.id || subtask.assignee.id || subtask.assigneeId,
+                surname:
+                  subtask.assignee.surname ||
+                  subtask.assignee.workspaceMember?.user?.surname ||
+                  subtask.assignee.workspaceMember?.user?.name ||
+                  "Unknown",
+              }
               : undefined,
             assigneeRole:
               subtask.projectRole || (subtask.assignee as any)?.projectRole,
@@ -215,21 +215,123 @@ export function transformToGanttTasks(inputTasks: any[]): GanttTask[] {
         createdById: parentTask.createdById,
         parentTaskId: parentTask.parentTaskId || null,
         progress: parentProgress,
-          assignee: parentTask.assignee
-            ? {
-                id: parentTask.assignee.workspaceMember?.user?.id || parentTask.assigneeId,
-                name:
-                  parentTask.assignee.workspaceMember?.surname ||
-                  parentTask.assignee.workspaceMember?.user?.surname ||
-                  parentTask.assignee.workspaceMember?.user?.name ||
-                  "Unknown",
-                image: parentTask.assignee.workspaceMember?.user?.image,
-              }
-            : undefined,
-          updatedAt: formatLocalDate(
-            parentTask.updatedAt ? new Date(parentTask.updatedAt) : null,
-          ),
-          subtaskCount: parentTask.subtaskCount ?? parentTask._count?.subTasks ?? 0,
-        };
-      });
-  }
+        assignee: parentTask.assignee
+          ? {
+            id: parentTask.assignee.id,
+            surname:
+              parentTask.assignee.surname ||
+              "Unknown",
+          }
+          : undefined,
+        updatedAt: formatLocalDate(
+          parentTask.updatedAt ? new Date(parentTask.updatedAt) : null,
+        ),
+        subtaskCount: parentTask.subtaskCount ?? parentTask._count?.subTasks ?? 0,
+      };
+    });
+}
+
+/**
+ * Transforms raw tasks into a flat list of GanttSubtask objects
+ * This is useful for lazy-loading children of a specific parent
+ */
+export function transformToGanttSubtasks(tasks: any[]): GanttSubtask[] {
+  // Helper to format dates consistently (dd MMM yyyy)
+  const formatLocalDate = (date: Date | null): string => {
+    if (!date) return "";
+    const day = date.getDate();
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const month = monthNames[date.getMonth()];
+    const year = date.getFullYear();
+    return `${day} ${month} ${year}`;
+  };
+
+  const parseDisplayDate = (dateStr: string | null): Date | null => {
+    if (!dateStr) return null;
+    try {
+      const parts = dateStr.split(" ");
+      if (parts.length !== 3) return null;
+      const day = parseInt(parts[0]);
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const month = monthNames.indexOf(parts[1]);
+      const year = parseInt(parts[2]);
+      if (month === -1) return null;
+      return new Date(year, month, day);
+    } catch {
+      return null;
+    }
+  };
+
+  const calculateProgress = (status: string, startStr: string, endStr: string): number => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (status === "COMPLETED") return 100;
+    if (status === "REVIEW") return 80;
+    if (status === "TO_DO" || status === "HOLD" || status === "CANCELLED") return 0;
+
+    if (status === "IN_PROGRESS") {
+      const startDate = parseDisplayDate(startStr);
+      const endDate = parseDisplayDate(endStr);
+      if (!startDate || !endDate) return 10;
+      const total = endDate.getTime() - startDate.getTime();
+      if (total <= 0) return 60;
+      const elapsed = today.getTime() - startDate.getTime();
+      const rawProgress = Math.max(0, (elapsed / total) * 60);
+      return Math.min(60, Math.round(rawProgress));
+    }
+    return 0;
+  };
+
+  return tasks
+    .sort((a, b) => (a.position ?? 1000) - (b.position ?? 1000))
+    .map((subtask) => {
+      let start: Date | null = subtask.startDate ? new Date(subtask.startDate) : null;
+      let end: Date | null = subtask.dueDate ? new Date(subtask.dueDate) : null;
+
+      if (!end && start && subtask.days) {
+        end = new Date(start.getTime() + (subtask.days - 1) * 24 * 60 * 60 * 1000);
+      }
+      if (!start && end) {
+        start = new Date(end);
+      }
+
+      const startStr = formatLocalDate(start);
+      const endStr = formatLocalDate(end);
+      const progress = calculateProgress(subtask.status || "TO_DO", startStr, endStr);
+
+      return {
+        id: subtask.id,
+        name: subtask.name,
+        taskSlug: subtask.taskSlug,
+        start: startStr,
+        end: endStr,
+        status: subtask.status || "TO_DO",
+        projectId: subtask.projectId,
+        parentTaskId: subtask.parentTaskId,
+        description: subtask.description,
+        tagId: subtask.tagId,
+        days: subtask.days,
+        progress,
+        assigneeId: subtask.assigneeId,
+        assignee: subtask.assignee
+          ? {
+            id: subtask.assignee.workspaceMember?.user?.id || subtask.assignee.id || subtask.assigneeId,
+            surname:
+              subtask.assignee.surname ||
+              subtask.assignee.workspaceMember?.user?.surname ||
+              subtask.assignee.workspaceMember?.user?.name ||
+              "Unknown",
+          }
+          : undefined,
+        assigneeRole:
+          subtask.projectRole || (subtask.assignee as any)?.projectRole,
+        createdById: subtask.createdById,
+        position: subtask.position || 0,
+        dependsOnIds: subtask.Task_TaskDependency_A?.map((d: any) => d.id) || [],
+        updatedAt: formatLocalDate(
+          subtask.updatedAt ? new Date(subtask.updatedAt) : null,
+        ),
+      };
+    });
+}

@@ -1117,9 +1117,9 @@ function TaskTable({
         if (filters.endDate)
           params.set("db", new Date(filters.endDate).toISOString());
 
-        const res = await fetch(
-          `/api/v1/tasks/expansion/batch?${params.toString()}`,
-        );
+        const fetchUrl = `/api/v1/tasks/expansion/batch?${params.toString()}`;
+        console.log(`🔍 [CLIENT] Requesting subtasks expansion: ${fetchUrl}`);
+        const res = await fetch(fetchUrl);
         if (!res.ok) throw new Error("Failed to fetch subtasks");
         const responseData = await res.json();
 

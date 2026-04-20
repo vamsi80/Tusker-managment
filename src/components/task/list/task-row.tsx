@@ -66,9 +66,17 @@ export const TaskRow = memo(function TaskRow({
     const rowRef = useRef<HTMLTableRowElement>(null);
 
     useEffect(() => {
-        if (!isExpanded || !onRequestSubtasks || (task.subTasks !== undefined) || subtaskCount === 0) return;
+        if (!isExpanded || !onRequestSubtasks || subtaskCount === 0) return;
+        
+        // Only fetch if subTasks is undefined (unfetched) OR if was explicitly cleared/invalidated
+        if (task.subTasks !== undefined) {
+             return;
+        }
+
+        console.log(`🔍 [Expansion Trigger] Detected need for subtasks: Task=${task.id} Name="${task.name}" (Count=${subtaskCount})`);
 
         if (isCached) {
+            console.log(`🔍 [Expansion Trigger] Using Cached Fetch for: ${task.id}`);
             onRequestSubtasks(task.id);
             return;
         }
@@ -76,12 +84,13 @@ export const TaskRow = memo(function TaskRow({
         const observer = new IntersectionObserver(
             (entries) => {
                 if (entries[0].isIntersecting) {
+                    console.log(`🔍 [Expansion Trigger] Intersection Observed - Triggering Fetch for: ${task.id}`);
                     onRequestSubtasks(task.id);
                 }
             },
             {
                 root: scrollContainerRef?.current || null,
-                rootMargin: "20px"
+                rootMargin: "100px" // Increased margin for smoother feel
             }
         );
 
@@ -90,7 +99,7 @@ export const TaskRow = memo(function TaskRow({
         }
 
         return () => observer.disconnect();
-    }, [isExpanded, task.subTasks, task.id, subtaskCount, onRequestSubtasks, isCached]);
+    }, [isExpanded, task.subTasks, task.id, subtaskCount, onRequestSubtasks, isCached, scrollContainerRef]);
 
     let colSpan = 2;
     if (columnVisibility.description) colSpan++;
@@ -110,7 +119,7 @@ export const TaskRow = memo(function TaskRow({
     const handleOptimisticSubTaskUpdated = (subTaskId: string, updatedData: any) => {
         // Clear zustand cache so the next request actually hits the server
         useTaskCacheStore.getState().invalidateSubTaskCache(task.id);
-        
+
         // Clear local state so that if it is expanded, it triggers a refetch immediately.
         // If it is collapsed, it will refetch on the next expand.
         setTask(prev => ({
@@ -121,7 +130,7 @@ export const TaskRow = memo(function TaskRow({
 
     const handleOptimisticSubTaskDeleted = (subTaskId: string) => {
         useTaskCacheStore.getState().invalidateSubTaskCache(task.id);
-        
+
         const subTaskToDelete = task.subTasks?.find((st: any) => st.id === subTaskId);
         const wasCompleted = subTaskToDelete?.status === "COMPLETED";
 
@@ -137,7 +146,7 @@ export const TaskRow = memo(function TaskRow({
 
     const handleOptimisticSubTaskCreated = (newSubTask: any, tempId?: string) => {
         useTaskCacheStore.getState().invalidateSubTaskCache(task.id);
-        
+
         setTask(prev => {
             const currentSubTasks = prev.subTasks || [];
             if (tempId) {
@@ -160,7 +169,7 @@ export const TaskRow = memo(function TaskRow({
     };
 
     const canEditTask = () => {
-        const taskCreatorId = task.createdBy?.workspaceMember?.user?.id || (task as any).createdById;
+        const taskCreatorId = task.createdBy?.id;
 
         if (permissions) {
             return permissions.isWorkspaceAdmin ||
