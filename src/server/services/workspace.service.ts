@@ -627,6 +627,7 @@ export class WorkspaceService {
       permissions,
       unreadNotificationsCount,
       tags,
+      projectAssignments,
     ]: any[] = await Promise.all([
       this.getWorkspaces(userId),
       this.getWorkspaceMetadata(workspaceId, userId),
@@ -635,6 +636,7 @@ export class WorkspaceService {
       getWorkspacePermissions(workspaceId, userId),
       this.getUnreadNotificationsCount(workspaceId, userId),
       getWorkspaceTags(workspaceId),
+      this.getWorkspaceProjectAssignments(workspaceId),
     ]);
 
     return {
@@ -645,6 +647,7 @@ export class WorkspaceService {
       permissions,
       unreadNotificationsCount,
       tags,
+      projectAssignments,
     };
   }
 

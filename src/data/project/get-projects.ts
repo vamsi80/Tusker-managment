@@ -135,6 +135,7 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
             slug: project.slug,
             color: project.color,
             canManageMembers: isOwnerOrAdmin || isProjectManager || isCreator,
+            memberIds: project.projectMembers.map(m => m.workspaceMember.userId),
         };
     });
 }

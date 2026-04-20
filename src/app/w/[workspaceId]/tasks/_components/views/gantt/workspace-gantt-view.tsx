@@ -19,30 +19,22 @@ interface WorkspaceGanttViewProps {
 
 export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProps) {
     const userPromise = requireUser();
-    const projectsPromise = getUserProjects(workspaceId);
     const membersPromise = getProjectMembers({ workspaceId });
-    const tagsPromise = getWorkspaceTags(workspaceId);
-    const assignmentsPromise = getWorkspaceProjectAssignments(workspaceId);
-    const leadersPromise = getWorkspaceProjectLeaders(workspaceId);
 
     const user = await userPromise;
 
     const viewStartTime = performance.now();
-    const [tasksData, projects, projectMembers, tags, permissions, projectAssignments, projectLeaders] = await Promise.all([
+    const [tasksData, projectMembers, permissions] = await Promise.all([
         getTasks({
             workspaceId,
             hierarchyMode: "parents",
-            includeSubTasks: true,
-            limit: 500,
+            includeSubTasks: false, // 🚀 ZERO-WEIGHT: Don't load subtasks initially
+            limit: 50, // 🔋 Standard limit for initial load
             includeFacets: true,
             view_mode: "gantt"
         }, user.id),
-        projectsPromise,
         membersPromise,
-        tagsPromise,
         getWorkspacePermissions(workspaceId, user.id),
-        assignmentsPromise,
-        leadersPromise
     ]);
     const duration = performance.now() - viewStartTime;
     if (duration > 800) {
@@ -50,45 +42,11 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
     }
 
     const rawTasks = 'tasks' in tasksData ? tasksData.tasks : [];
-    // console.log("🟦 [GANTT SERVER] rawTasks count:", rawTasks.length);
-    // if (rawTasks.length > 0) {
-    //     console.log("🟦 [GANTT SERVER] SAMPLE TASK (First):", JSON.stringify(rawTasks[0], (key, value) => key === 'subTasks' ? (value?.length || 0) : value, 2));
-    // }
-    const allTasks: any[] = [];
-    rawTasks.forEach((t: any) => {
-        allTasks.push(t);
-        if (t.subTasks && t.subTasks.length > 0) {
-            // console.log(`   ✅ Task "${t.name}" (${t.id}) has ${t.subTasks.length} subTasks`);
-            allTasks.push(...t.subTasks);
-        }
-    });
+    const allTasks: any[] = [...rawTasks]; // Only parent tasks initially
+
     // console.log("🟦 [GANTT SERVER] allTasks total count:", allTasks.length);
 
-    // Build map of project -> userIds and project-user role map
-    const projectUserMap: Record<string, string[]> = {};
-    const roleMap: Record<string, string> = {};
-
-    Object.entries(projectAssignments).forEach(([pId, assignments]: [string, any]) => {
-        projectUserMap[pId] = assignments.map((m: any) => m.id);
-        assignments.forEach((m: any) => {
-            roleMap[`${pId}-${m.id}`] = m.role;
-        });
-    });
-
-    // Enrich tasks with assignee roles for permission checks
-    allTasks.forEach(t => {
-        if (t.assigneeId && t.projectId) {
-            t.projectRole = roleMap[`${t.projectId}-${t.assigneeId}`];
-        }
-    });
-
-    const projectOptions = projects.map(p => ({
-        id: p.id,
-        name: p.name,
-        slug: p.slug,
-        color: p.color || undefined,
-        memberIds: projectUserMap[p.id] || []
-    }));
+    // Simplified: Role indicators and project metadata are resolved on the client using Layout Memory
 
     const ganttTasks = transformToGanttTasks(allTasks);
 
@@ -98,16 +56,9 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
             initialTasks={ganttTasks}
             allTasks={allTasks}
             subtaskDataMap={{}}
-            projects={projectOptions}
             members={projectMembers as any}
-            tags={tags.map(t => ({ id: t.id, name: t.name }))}
             projectCounts={(tasksData as any)?.facets?.projects || {}}
             currentUser={{ id: user.id }}
-            permissions={{
-                isWorkspaceAdmin: permissions.isWorkspaceAdmin,
-                leadProjectIds: permissions.leadProjectIds || [],
-                managedProjectIds: permissions.managedProjectIds || []
-            }}
         />
     );
 }

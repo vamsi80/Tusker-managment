@@ -425,10 +425,10 @@ export function KanbanBoard({
       const isBoardEmpty = Object.values(columnData).every((col) => col.subTaskIds.length === 0);
 
       // 🛡️ Mount Guard: If we have initial data and filters are neutral, skip the first fetch
-      const isNeutral = !searchQuery && 
+      const isNeutral = !searchQuery &&
         Object.values(filters).every(v => v === undefined || v === "" || (Array.isArray(v) && v.length === 0));
 
-      const hasInitialData = initialData && Object.values(initialData).some((col: any) => 
+      const hasInitialData = initialData && Object.values(initialData).some((col: any) =>
         (col.tasks || col.subTasks) && (col.tasks?.length > 0 || col.subTasks?.length > 0)
       );
 
@@ -647,53 +647,52 @@ export function KanbanBoard({
       // Sync to global store outside of React's state updater to avoid "bad setState in render" error.
       useTaskCacheStore.getState().upsertTasks(newTasks);
 
-      setColumnData((prev) => {
-        const counts = (response.data.facets as any)?.status || {};
-        const existingIds = prev[status].subTaskIds;
+      // 1. Prepare data for update
+      const counts = (response.data.facets as any)?.status || {};
+      const colState = columnData[status];
+      const existingIds = colState.subTaskIds;
 
-        // Deduplicate using a Set
-        const idSet = new Set([
-          ...existingIds,
-          ...newTasks.map((t: any) => t.id),
-        ]);
-        const deduplicatedIds = Array.from(idSet);
-        const totalForCol = counts[status] || (prev[status].totalCount ?? 0);
+      // Deduplicate using a Set
+      const idSet = new Set([
+        ...existingIds,
+        ...newTasks.map((t: any) => t.id),
+      ]);
+      const deduplicatedIds = Array.from(idSet);
+      const totalForCol = counts[status] || (colState.totalCount ?? 0);
 
-        // Trust the server's pagination state directly to avoid infinite loops
-        const serverHasMore = response.data.hasMore || false;
-        const serverNextCursor = response.data.nextCursor || null;
+      const serverHasMore = response.data.hasMore || false;
+      const serverNextCursor = response.data.nextCursor || null;
 
-        const newData = {
-          ...prev,
-          [status]: {
-            subTaskIds: deduplicatedIds,
-            totalCount: totalForCol,
-            hasMore: serverHasMore,
-            nextCursor: serverNextCursor,
-          },
-        };
+      // 2. Schedule Local State Update
+      setColumnData((prev) => ({
+        ...prev,
+        [status]: {
+          subTaskIds: deduplicatedIds,
+          totalCount: totalForCol,
+          hasMore: serverHasMore,
+          nextCursor: serverNextCursor,
+        },
+      }));
 
-        // Update Cache (only if no filters)
-        const isFiltered = searchQuery || Object.keys(filters).length > 0;
-        if (!isFiltered) {
-          const contextId = projectId || "";
-          const cacheKey = `${workspaceId}-${contextId}-${status}`;
-          // We need all tasks for this column to update cache correctly
-          const entities = useTaskCacheStore.getState().entities;
-          const allTasksForCol = deduplicatedIds
-            .map((id) => entities[id])
-            .filter(Boolean);
+      // 3. Update Global Cache (strictly OUTSIDE of any state updater to avoid React cycle errors)
+      const isFiltered = searchQuery || Object.keys(filters).length > 0;
+      if (!isFiltered) {
+        const contextId = projectId || "";
+        const cacheKey = `${workspaceId}-${contextId}-${status}`;
 
-          setKanbanTasksCache(cacheKey, {
-            tasks: allTasksForCol,
-            hasMore: response.data.hasMore,
-            nextCursor: response.data.nextCursor,
-            totalCount: response.data.totalCount ?? undefined,
-          });
-        }
+        // Use updated task entities from the store
+        const entities = useTaskCacheStore.getState().entities;
+        const allTasksForCol = deduplicatedIds
+          .map((id) => entities[id])
+          .filter(Boolean);
 
-        return newData;
-      });
+        setKanbanTasksCache(cacheKey, {
+          tasks: allTasksForCol,
+          hasMore: response.data.hasMore,
+          nextCursor: response.data.nextCursor,
+          totalCount: response.data.totalCount ?? undefined,
+        });
+      }
     } catch (error) {
       console.error(`Error loading more subtasks for ${status}:`, error);
       toast.error("Failed to load more subtasks");
@@ -1163,17 +1162,17 @@ export function KanbanBoard({
       params.set("p", projectId);
       params.set("ids", parentId);
       params.set("vm", "kanban");
-      params.set("sub", "true"); 
+      params.set("sub", "true");
 
       const res = await fetch(`/api/v1/tasks/expansion/batch?${params.toString()}`);
       const json = await res.json();
-      
+
       if (json.success && json.data?.[0]) {
         const batchResult = json.data[0];
         useTaskCacheStore.getState().upsertTasks(batchResult.subTasks || []);
         useTaskCacheStore.getState().setCachedSubTasks(parentId, {
-           subTasks: batchResult.subTasks || [],
-           hasMore: batchResult.hasMore
+          subTasks: batchResult.subTasks || [],
+          hasMore: batchResult.hasMore
         });
       }
     } catch (err) {

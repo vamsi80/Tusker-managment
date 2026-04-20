@@ -56,7 +56,8 @@ async function _getSubTasksByParentIdsInternal(
     restrictedProjectIds: string[],
     filters: Partial<TaskFilters> = {},
     pageSize: number = 30,
-    viewMode: string = "list"
+    viewMode: string = "list",
+    cursor?: any
 ): Promise<BatchSubTasksResult> {
     console.log(`🔍 [DEBUG] getSubTasksByParentIdsInternal called for parentIds: ${parentTaskIds.join(', ')} in project: ${projectId} view: ${viewMode}`);
     if (parentTaskIds.length === 0) {
@@ -140,6 +141,27 @@ async function _getSubTasksByParentIdsInternal(
                 dueBefore
             })
         };
+
+        if (cursor) {
+            const createdAt = typeof cursor.createdAt === "string" ? new Date(cursor.createdAt) : cursor.createdAt;
+            if (singleParentWhere.AND) {
+                singleParentWhere.AND.push({
+                    OR: [
+                        { createdAt: { lt: createdAt } },
+                        { AND: [{ createdAt: createdAt }, { id: { lt: cursor.id } }] },
+                    ],
+                });
+            } else {
+                singleParentWhere.AND = [
+                    {
+                        OR: [
+                            { createdAt: { lt: createdAt } },
+                            { AND: [{ createdAt: createdAt }, { id: { lt: cursor.id } }] },
+                        ],
+                    }
+                ];
+            }
+        }
         console.log(`🔍 [DEBUG] singleParentWhere:`, JSON.stringify(singleParentWhere, null, 2));
 
         // Apply permission scoping (only for non-admins)
@@ -196,7 +218,7 @@ async function _getSubTasksByParentIdsInternal(
         }
 
         const hasMore = rawTasks.length > pageSize;
-        const finalTasks = (hasMore ? rawTasks.slice(0, pageSize) : rawTasks).map(t => TasksService.mapToLegacyMetadata(t));
+        const finalTasks = (hasMore ? rawTasks.slice(0, pageSize) : rawTasks).map(t => TasksService.mapToFlatMetadata(t));
 
         const duration = performance.now() - startTime;
 
@@ -244,7 +266,7 @@ async function _getSubTasksByParentIdsInternal(
 
         if (currentCount < pageSize) {
             if (!subTasksMap.has(pId)) subTasksMap.set(pId, []);
-            subTasksMap.get(pId)!.push(TasksService.mapToLegacyMetadata(task));
+            subTasksMap.get(pId)!.push(TasksService.mapToFlatMetadata(task));
         }
     });
 
@@ -256,13 +278,24 @@ async function _getSubTasksByParentIdsInternal(
     return parentTaskIds.map(parentTaskId => {
         const subTasks = subTasksMap.get(parentTaskId) || [];
         const totalCount = totalCountMap.get(parentTaskId) || 0;
+        const hasMore = totalCount > pageSize;
+        
+        // Return only the requested page size
+        const pagedSubTasks = hasMore ? subTasks.slice(0, pageSize) : subTasks;
+
+        const nextCursor = hasMore && pagedSubTasks.length > 0
+            ? { id: pagedSubTasks[pagedSubTasks.length - 1].id, createdAt: pagedSubTasks[pagedSubTasks.length - 1].createdAt }
+            : undefined;
+
         return {
             parentTaskId,
-            subTasks,
+            subTasks: pagedSubTasks,
             totalCount,
-            hasMore: totalCount > pageSize,
+            hasMore,
+            nextCursor
         };
     });
+
 }
 
 /**
@@ -279,10 +312,12 @@ const getCachedSubTasksByParentIds = async (
     restrictedProjectIds: string[],
     filters: Partial<TaskFilters>,
     pageSize: number,
-    viewMode: string
+    viewMode: string,
+    cursor?: any
 ): Promise<BatchSubTasksResult> => {
     const sortedIds = [...parentTaskIds].sort().join(',');
     const filterHash = getFilterHash(filters);
+    const cursorHash = cursor ? `-${cursor.id}-${cursor.createdAt}` : '';
     const scopeHash = JSON.stringify({
         isAdmin,
         full: [...fullAccessProjectIds].sort(),
@@ -301,9 +336,10 @@ const getCachedSubTasksByParentIds = async (
             restrictedProjectIds,
             filters,
             pageSize,
-            viewMode
+            viewMode,
+            cursor
         ),
-        [`batch-subtasks-v8-${sortedIds}-${userId}-${scopeHash}-${filterHash}-${pageSize}-${viewMode}`],
+        [`batch-subtasks-v8-${sortedIds}-${userId}-${scopeHash}-${filterHash}-${pageSize}-${viewMode}${cursorHash}`],
         {
             tags: parentTaskIds.flatMap(id => CacheTags.taskSubTasks(id, userId)),
             revalidate: 300, // 5 minutes - reliable because we invalidate specifically on mutation
@@ -328,7 +364,8 @@ export const getSubTasksByParentIds = cache(
         pageSize: number = 30,
         viewMode: string = "list",
         userId?: string,
-        skipPermissionsCheck: boolean = false
+        skipPermissionsCheck: boolean = false,
+        cursor?: any
     ): Promise<BatchSubTasksResult> => {
         try {
             if (parentTaskIds.length === 0) {
@@ -383,7 +420,8 @@ export const getSubTasksByParentIds = cache(
                     restrictedProjectIds,
                     filters,
                     pageSize,
-                    viewMode
+                    viewMode,
+                    cursor
                 );
             }
 
@@ -397,7 +435,8 @@ export const getSubTasksByParentIds = cache(
                 restrictedProjectIds,
                 filters,
                 pageSize,
-                viewMode
+                viewMode,
+                cursor
             );
         } catch (error) {
             console.error("Error fetching batch subtasks:", error);

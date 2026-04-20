@@ -101,8 +101,7 @@ tasks.get("/", async (c) => {
     const isExpanding = q.sub === "true" || !!opts.filterParentTaskId || !!opts.ids;
     opts.includeSubTasks = isExpanding;
   } else if (view_mode === "gantt") {
-    opts.sorts = [{ field: "startDate", direction: "asc" }];
-    opts.includeSubTasks = true;
+    opts.sorts = q.sorts ? opts.sorts : [{ field: "startDate", direction: "asc" }];
   }
 
   // 3. Fetch
@@ -598,6 +597,9 @@ tasks.get("/:parentId/expand", async (c) => {
   const projectId = q.p || q.projectId;
   const viewMode = q.vm || q.viewMode || "list";
   const pageSize = parseInt(q.ps || q.pageSize || "30", 10);
+  
+  const cursorParam = q.c || q.cursor;
+  const cursor = cursorParam ? (cursorParam.startsWith("{") ? JSON.parse(cursorParam) : undefined) : undefined;
 
   const parseParam = (key: string, shortKey: string) => {
     const val = q[shortKey] || q[key];
@@ -631,6 +633,7 @@ tasks.get("/:parentId/expand", async (c) => {
     filters,
     pageSize,
     viewMode,
+    cursor,
     userId: user.id,
   });
 
@@ -686,6 +689,51 @@ tasks.get("/expansion/batch", async (c) => {
     filters.dueBefore = new Date(db);
 
   // Directly call the batch service
+  const results = await TasksService.expandSubtasksBatch({
+    parentIds,
+    workspaceId,
+    projectId,
+    filters,
+    pageSize,
+    viewMode,
+    userId: user.id
+  });
+
+  return c.json({ success: true, data: results });
+});
+
+/**
+ * POST /api/v1/tasks/expansion/batch
+ * 
+ * Secure/Clean alternative for GET /expansion/batch.
+ * Accepts IDs in JSON body to avoid URL length limitations.
+ */
+tasks.post("/expansion/batch", async (c) => {
+  const user = c.get("user");
+  const body = await c.req.json();
+  const q = c.req.query(); // Still allow some meta-params in URL if needed
+
+  const workspaceId = body.w || body.workspaceId || q.w || q.workspaceId;
+  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+
+  const parentIds = body.ids || (body.parentIds);
+  if (!parentIds || !Array.isArray(parentIds)) {
+    throw AppError.ValidationError("Missing ids array in body");
+  }
+
+  const projectId = body.projectId || body.p || q.p || q.projectId;
+  const viewMode = body.viewMode || body.vm || q.vm || q.view_mode || "list";
+  const pageSize = parseInt(body.pageSize || body.ps || q.ps || q.pageSize || "30", 10);
+
+  const filters = {
+    status: body.filters?.status || body.s,
+    assigneeId: body.filters?.assigneeId || body.a,
+    tagId: body.filters?.tagId || body.t,
+    search: body.filters?.search || body.q || q.q,
+    dueAfter: body.filters?.dueAfter || body.da,
+    dueBefore: body.filters?.dueBefore || body.db,
+  };
+
   const results = await TasksService.expandSubtasksBatch({
     parentIds,
     workspaceId,

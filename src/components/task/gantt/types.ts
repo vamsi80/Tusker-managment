@@ -59,7 +59,7 @@ export interface GanttTask {
   status: string;
   start?: string; // Optional: DB provided
   end?: string; // Optional: DB provided
-  subtasks: GanttSubtask[];
+  subtasks?: GanttSubtask[]; // Optional/Undefined signals "not yet loaded"
   assignee?: { id: string; surname: string };
   assigneeId?: string | null;
   createdById: string | null;
@@ -67,6 +67,8 @@ export interface GanttTask {
   updatedAt?: string;
   progress: number;
   subtaskCount?: number;
+  hasMoreSubtasks?: boolean;
+  subtaskCursor?: any;
 }
 
 // ============================================================================

@@ -39,17 +39,12 @@ export function GanttServerWrapper({ workspaceId, projectId, userId }: GanttServ
             try {
                 setIsLoadingTasks(true);
                 // Gantt-specific fetch for large volume of tasks
-                const tasksRes = await fetch(`/api/v1/tasks?w=${workspaceId}&p=${projectId}&vm=gantt&limit=1000&hm=parents&ist=true`).then(res => res.json());
+                const tasksRes = await fetch(`/api/v1/tasks?w=${workspaceId}&p=${projectId}&vm=gantt&limit=50&hm=parents&ist=false`).then(res => res.json());
 
                 const result = tasksRes.data;
                 const rawTasks = result.tasks || [];
-                const allTasks: any[] = [];
-                rawTasks.forEach((t: any) => {
-                    allTasks.push(t);
-                    if (t.subTasks && t.subTasks.length > 0) {
-                        allTasks.push(...t.subTasks);
-                    }
-                });
+                const allTasks: any[] = [...rawTasks]; // Only parent tasks initially
+
 
                 setTaskData({
                     allTasks,
@@ -83,18 +78,12 @@ export function GanttServerWrapper({ workspaceId, projectId, userId }: GanttServ
             workspaceId={workspaceId}
             projectId={projectId}
             initialTasks={ganttTasks}
-            isShell={false} // Wrapper fetches its own data, so not a shell
+            isShell={false}
             allTasks={allTasks}
             subtaskDataMap={subtaskDataMap}
             members={projectMembers}
-            tags={(tags || []).map((t: any) => ({ id: t.id, name: t.name }))}
             projectCounts={projectCounts}
             currentUser={{ id: userId }}
-            permissions={{
-                isWorkspaceAdmin: projectPermissions.isWorkspaceAdmin,
-                leadProjectIds: projectPermissions.leadProjectIds || [],
-                managedProjectIds: projectPermissions.managedProjectIds || []
-            }}
         />
     );
 }
