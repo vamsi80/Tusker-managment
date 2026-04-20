@@ -120,7 +120,7 @@ export function InlineAssigneePicker({
 
     const displayInfo = {
         name: currentMember
-            ? (currentMember.user.surname || currentMember.user.name)
+            ? (currentMember.user.surname)
             : (subTask.assignee?.surname || "Unassigned"),
         isAssigned: !!currentMember || !!(subTask.assignee && (subTask.assignee.surname || subTask.assignee.id))
     };
@@ -146,7 +146,7 @@ export function InlineAssigneePicker({
             );
 
             if (response.success) {
-                toast.success(`Assigned to ${member.user.surname || member.user.name}`);
+                toast.success(`Assigned to ${member.user.surname}`);
 
                 // 2. IN-MEMORY GLOBAL SYNC (fully optimistic)
                 const updatedTaskData = {
@@ -239,7 +239,7 @@ export function InlineAssigneePicker({
                             <CommandGroup>
                                 {assignableMembers.map((member) => {
                                     const displayName =
-                                        member.user.surname || member.user.name || "Unknown";
+                                        member.user.surname || "Unknown";
                                     const roleLabel =
                                         member.projectRole === "PROJECT_MANAGER"
                                             ? "PM"

@@ -4,7 +4,6 @@ import { CornerDownRight, GripVertical, Link2 } from "lucide-react";
 import { DraggableSubtaskBar } from "./draggable-subtask-bar";
 import { cn, APP_DATE_FORMAT } from "@/lib/utils";
 import { GanttSubtask } from "./types";
-import { getDaysBetween } from "./utils";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { InlineAssigneePicker } from "../shared/inline-assignee-picker";
@@ -102,11 +101,11 @@ function SortableSubtaskRow({
             }}
             className={cn(
                 "grid group/row transition-all duration-200 cursor-pointer relative",
-                isHighlighted 
+                isHighlighted
                     ? cn(
                         statusColors.bgColor.replace('/10', '/20').replace('/20', '/30'),
                         "border-t border-b border-red-500/80 z-40"
-                      )
+                    )
                     : "border-t border-t-transparent"
             )}
             onClick={handleRowClick}
@@ -179,8 +178,7 @@ function SortableSubtaskRow({
                                             assigneeId: member.projectMemberId,
                                             assignee: {
                                                 id: member.userId,
-                                                name: member.user.surname || member.user.name,
-                                                image: member.user.image,
+                                                surname: member.user.surname,
                                             }
                                         });
                                     }}
