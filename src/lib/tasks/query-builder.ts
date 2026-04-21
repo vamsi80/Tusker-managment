@@ -1,8 +1,15 @@
 import { Prisma } from "@/generated/prisma";
 
 export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = false): Prisma.TaskSelect {
+    const isList = view_mode === "list" || view_mode === "default" || !view_mode;
+    const isKanban = view_mode === "kanban";
+    const isGantt = view_mode === "gantt";
+    const isCalendar = view_mode === "calendar";
+    const isSearch = view_mode === "search";
+    const isSubtask = view_mode === "subtask";
+
     if (isMinimal) {
-        return {
+        const select: Prisma.TaskSelect = {
             id: true,
             name: true,
             taskSlug: true,
@@ -15,14 +22,28 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
                 }
             }
         };
-    }
 
-    const isList = view_mode === "list" || view_mode === "default" || !view_mode;
-    const isKanban = view_mode === "kanban";
-    const isGantt = view_mode === "gantt";
-    const isCalendar = view_mode === "calendar";
-    const isSearch = view_mode === "search";
-    const isSubtask = view_mode === "subtask";
+        // For the main List view, "minimal" must still include the columns displayed in the table.
+        if (isList) {
+            select.status = true;
+            select.dueDate = true;
+            select.startDate = true;
+            select.description = true;
+            select.tag = { select: { name: true } };
+            select.assignee = {
+                select: {
+                    workspaceMember: { select: { user: { select: { id: true, name: true, surname: true } } } }
+                }
+            };
+            select.reviewer = {
+                select: {
+                    workspaceMember: { select: { user: { select: { id: true, name: true, surname: true } } } }
+                }
+            };
+        }
+
+        return select;
+    }
 
     // 1. Core fields required everywhere
     const select: Prisma.TaskSelect = {
@@ -34,6 +55,15 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
         startDate: true,
         days: true,
         assignee: {
+            select: {
+                workspaceMember: {
+                    select: {
+                        user: { select: { id: true, surname: true } }
+                    }
+                }
+            }
+        },
+        reviewer: {
             select: {
                 workspaceMember: {
                     select: {
@@ -61,7 +91,7 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
             select: {
                 workspaceMember: {
                     select: {
-                        user: { select: { id: true, surname: true, name: true, image: true } }
+                        user: { select: { id: true, surname: true } }
                     }
                 }
             }
@@ -103,7 +133,7 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
     if (isList || isSearch || isCalendar || isSubtask) {
         select.reviewer = {
             select: {
-                workspaceMember: { select: { user: { select: { id: true, surname: true } } } }
+                workspaceMember: { select: { user: { select: { id: true, name: true, surname: true } } } }
             }
         };
     }
@@ -296,6 +326,10 @@ export function buildProjectRootWhere(
         isAdmin?: boolean;
         fullAccessProjectIds?: string[];
         ids?: string[];
+        tagId?: string | string[];
+        search?: string;
+        dueAfter?: Date;
+        dueBefore?: Date;
     }
 ): Prisma.TaskWhereInput {
     const where: Prisma.TaskWhereInput = {
@@ -325,6 +359,46 @@ export function buildProjectRootWhere(
 
     if (opts.assigneeId) {
         appendAnd(where, buildParentAssigneeFilter(opts.assigneeId));
+    }
+
+    if (opts.tagId) {
+        const tIds = Array.isArray(opts.tagId) ? opts.tagId : [opts.tagId];
+        appendAnd(where, { 
+            OR: [
+                { tagId: { in: tIds } },
+                { subTasks: { some: { tagId: { in: tIds } } } }
+            ]
+        });
+    }
+
+    if (opts.dueAfter || opts.dueBefore) {
+        const dateFilter = {
+            ...(opts.dueAfter ? { gte: opts.dueAfter } : {}),
+            ...(opts.dueBefore ? { lt: opts.dueBefore } : {}),
+        };
+        appendAnd(where, {
+            OR: [
+                { dueDate: dateFilter },
+                { subTasks: { some: { dueDate: dateFilter } } }
+            ]
+        });
+    }
+
+    if (opts.search && opts.search.trim().length > 0) {
+        const q = opts.search.trim();
+        const searchMatches: Prisma.TaskWhereInput = {
+            OR: [
+                { name: { contains: q, mode: "insensitive" } },
+                { taskSlug: { contains: q, mode: "insensitive" } },
+                { description: { contains: q, mode: "insensitive" } },
+            ]
+        };
+        appendAnd(where, {
+            OR: [
+                searchMatches,
+                { subTasks: { some: searchMatches } }
+            ]
+        });
     }
 
     if (opts.cursor) {

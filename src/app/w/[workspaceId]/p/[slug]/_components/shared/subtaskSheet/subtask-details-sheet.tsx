@@ -106,6 +106,7 @@ export function SubTaskDetailsSheet({
     const [isLoadingActivity, setIsLoadingActivity] = useState(false);
     const [currentUserId, setCurrentUserId] = useState<string | null>(initialCurrentUserId);
     const [members, setMembers] = useState<ProjectMembersType>([]);
+    const [tags, setTags] = useState<{ id: string; name: string }[]>([]);
 
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -246,6 +247,34 @@ export function SubTaskDetailsSheet({
         }
     }, [subTask?.projectId, isOpen]);
 
+    // Fetch tags when sheet opens
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const fetchTags = async () => {
+            try {
+                // Get workspaceId from URL path /w/[workspaceId]/p/[slug]
+                const pathParts = pathname.split('/');
+                const wIdx = pathParts.indexOf('w');
+                const workspaceId = wIdx !== -1 ? pathParts[wIdx + 1] : subTask?.workspaceId;
+
+                if (!workspaceId) return;
+
+                const response = await fetch(`/api/v1/tags?workspaceId=${workspaceId}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.tags) {
+                        setTags(data.tags);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch tags", err);
+            }
+        };
+
+        fetchTags();
+    }, [isOpen, pathname, subTask?.workspaceId]);
+
     return (
         <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <SheetContent className="w-full sm:max-w-2xl p-0 flex flex-col h-full bg-background border-l">
@@ -260,6 +289,7 @@ export function SubTaskDetailsSheet({
                             subTask={subTask}
                             currentUserId={currentUserId}
                             members={members}
+                            tags={tags}
                             isAdmin={isAdmin || members.find(m => m.userId === currentUserId)?.workspaceRole === 'ADMIN' || members.find(m => m.userId === currentUserId)?.workspaceRole === 'OWNER'}
                             isProjectManager={isProjectManager || members.find(m => m.userId === currentUserId)?.projectRole === 'PROJECT_MANAGER'}
                             onSubTaskAssigned={(memberObj) => {

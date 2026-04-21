@@ -156,12 +156,8 @@ export function transformToGanttTasks(inputTasks: any[]): GanttTask[] {
             assigneeId: subtask.assigneeId,
             assignee: subtask.assignee
               ? {
-                id: subtask.assignee.workspaceMember?.user?.id || subtask.assignee.id || subtask.assigneeId,
-                surname:
-                  subtask.assignee.surname ||
-                  subtask.assignee.workspaceMember?.user?.surname ||
-                  subtask.assignee.workspaceMember?.user?.name ||
-                  "Unknown",
+                id: subtask.assignee.id || subtask.assigneeId,
+                surname: subtask.assignee.surname || "Unknown",
               }
               : undefined,
             assigneeRole:
@@ -318,12 +314,8 @@ export function transformToGanttSubtasks(tasks: any[]): GanttSubtask[] {
         assigneeId: subtask.assigneeId,
         assignee: subtask.assignee
           ? {
-            id: subtask.assignee.workspaceMember?.user?.id || subtask.assignee.id || subtask.assigneeId,
-            surname:
-              subtask.assignee.surname ||
-              subtask.assignee.workspaceMember?.user?.surname ||
-              subtask.assignee.workspaceMember?.user?.name ||
-              "Unknown",
+            id: subtask.assignee.id || subtask.assigneeId,
+            surname: subtask.assignee.surname || "Unknown",
           }
           : undefined,
         assigneeRole:

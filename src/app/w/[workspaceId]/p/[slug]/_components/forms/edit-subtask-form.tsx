@@ -39,15 +39,15 @@ type SubTaskBase = {
     days: number | null;
     assignee?: {
         id: string;
-        workspaceMember?: {
-            userId: string;
-        };
+        // workspaceMember?: {
+        //     userId: string;
+        // };
     } | null;
     reviewer?: {
         id: string;
-        workspaceMember?: {
-            userId: string;
-        };
+        // workspaceMember?: {
+        //     userId: string;
+        // };
     } | null;
 };
 
@@ -129,7 +129,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
             projectId: projectId || (subTask as any).projectId || "",
             parentTaskId: parentTaskId || (subTask as any).parentTaskId || "",
             assignee: (subTask.assignee as any)?.workspaceMember?.userId || (subTask as any).assigneeId || "",
-            tag: subTask.tag?.id || (subTask as any).tagId || "",
+            tag: (typeof subTask.tag === 'string' ? subTask.tag : subTask.tag?.id) || (subTask as any).tagId || "",
             status: (subTask.status || "TO_DO") as any,
             startDate: getFormattedDate(subTask.startDate),
             dueDate: getFormattedDate(subTask.dueDate),
@@ -141,27 +141,30 @@ export function EditSubTaskForm<T extends SubTaskBase>({
     // CRITICAL: Reset the form when subTask changes or dialog opens
     useEffect(() => {
         if (open) {
-            console.log("🛠️ [EditSubTaskForm] Initializing with subtask data:", subTask);
+            console.group("🛠️ [EditSubTaskForm] Form Initialization");
+            console.log("Subtask Data:", subTask);
+            console.log("Tags Prop:", tags);
+            console.log("Members Prop:", members);
+            console.log("Project ID:", projectId);
+            console.log("Parent Task ID:", parentTaskId);
+            console.groupEnd();
+
             form.reset({
                 name: subTask.name || "",
                 description: subTask.description || "",
                 taskSlug: subTask.taskSlug || "",
                 projectId: projectId || (subTask as any).projectId || "",
                 parentTaskId: parentTaskId || (subTask as any).parentTaskId || "",
-                assignee: (subTask.assignee as any)?.workspaceMember?.user?.id || (subTask.assignee as any)?.workspaceMember?.userId || (subTask as any).assigneeId || "",
-                tag: subTask.tag?.id || (subTask as any).tagId || "",
+                assignee: (subTask.assignee as any)?.id || (subTask as any).assigneeId || "",
+                tag: (typeof subTask.tag === 'string' ? subTask.tag : subTask.tag?.id) || (subTask as any).tagId || "",
                 status: (subTask.status || "TO_DO") as any,
                 startDate: getFormattedDate(subTask.startDate),
                 dueDate: getFormattedDate(subTask.dueDate),
-                reviewerId: (subTask.reviewer as any)?.workspaceMember?.user?.id || (subTask.reviewer as any)?.workspaceMember?.userId || (subTask as any).reviewerId || "",
+                reviewerId: (subTask.reviewer as any)?.id || (subTask as any).reviewerId || "",
                 days: (subTask as any).days || 1,
             });
         }
-    }, [subTask, open, form, projectId, parentTaskId]);
-
-    const watchedStartDate = useWatch({ control: form.control, name: "startDate" });
-    const watchedDueDate = useWatch({ control: form.control, name: "dueDate" });
-    const watchedDays = useWatch({ control: form.control, name: "days" });
+    }, [subTask, open, form, projectId, parentTaskId, tags, members]);
 
     // Fetch reviewers via API route to avoid the "Action Refresh" loop
     useEffect(() => {
@@ -234,7 +237,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
             values.name !== subTask.name ||
             values.status !== (subTask.status || "TO_DO") ||
             values.assignee !== (subTask.assignee?.id || "") ||
-            values.tag !== (subTask.tag?.id || "") ||
+            values.tag !== ((typeof subTask.tag === 'string' ? subTask.tag : subTask.tag?.id) || (subTask as any).tagId || "") ||
             values.startDate !== (subTask.startDate ? (() => {
                 const d = new Date(subTask.startDate);
                 const year = d.getFullYear();
@@ -264,9 +267,9 @@ export function EditSubTaskForm<T extends SubTaskBase>({
 
         startTransition(async () => {
             const res = await tryCatch(apiClient.tasks.updateTask(
-                subTask.id, 
-                workspaceId, 
-                values.projectId, 
+                subTask.id,
+                workspaceId,
+                values.projectId,
                 values
             ));
 
@@ -696,9 +699,9 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                                                             </div>
                                                                             {reviewer.role && (
                                                                                 <span className="text-[10px] text-muted-foreground ml-2">
-                                                                                    {reviewer.role === "PROJECT_MANAGER" ? "PM" : 
-                                                                                     reviewer.role === "LEAD" ? "Lead" : 
-                                                                                     reviewer.role}
+                                                                                    {reviewer.role === "PROJECT_MANAGER" ? "PM" :
+                                                                                        reviewer.role === "LEAD" ? "Lead" :
+                                                                                            reviewer.role}
                                                                                 </span>
                                                                             )}
                                                                         </CommandItem>
