@@ -14,7 +14,7 @@ async function testPagination() {
     const page1 = await getTasks({
       workspaceId: WORKSPACE_ID,
       limit: 2,
-      view_mode: 'kanban',
+      view_mode: 'list',
       sorts: [{ field: 'createdAt', direction: 'desc' }]
     }, MOCK_USER_ID);
 
@@ -33,7 +33,7 @@ async function testPagination() {
       workspaceId: WORKSPACE_ID,
       limit: 2,
       cursor: page1.nextCursor,
-      view_mode: 'kanban',
+      view_mode: 'list',
       sorts: [{ field: 'createdAt', direction: 'desc' }]
     }, MOCK_USER_ID);
 

@@ -30,7 +30,7 @@ export const exportGanttToExcel = async (
   // 1. Calculate Date Range for Timeline
   const allDates: Date[] = [];
   tasks.forEach((t) => {
-    t.subtasks.forEach((st) => {
+    t.subtasks?.forEach((st) => {
       const startDate = parseDisplayDate(st.start);
       const endDate = parseDisplayDate(st.end);
       if (startDate) allDates.push(startDate);
@@ -55,7 +55,7 @@ export const exportGanttToExcel = async (
     const e = parseDisplayDate(end);
     if (!s || !e) return null;
     const timeDiff = e.getTime() - s.getTime();
-    const days = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1; // Inclusive
+    const days = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
     return days > 0 ? days : 1;
   };
 
@@ -83,7 +83,7 @@ export const exportGanttToExcel = async (
     // Add Parent Task
     rows.push({
       name: task.name,
-      assignee: task.assignee?.name || "",
+      assignee: task.assignee?.surname || "",
       status: "",
       start: null,
       end: null,
@@ -93,10 +93,10 @@ export const exportGanttToExcel = async (
     });
 
     // Add Subtasks
-    task.subtasks.forEach((subtask) => {
+    task.subtasks?.forEach((subtask) => {
       rows.push({
         name: `    ${subtask.name}`,
-        assignee: subtask.assignee?.name || "Unassigned",
+        assignee: subtask.assignee?.surname || "Unassigned",
         status: subtask.status?.toUpperCase() || "",
         start: parseDisplayDate(subtask.start),
         end: parseDisplayDate(subtask.end),
@@ -107,14 +107,12 @@ export const exportGanttToExcel = async (
     });
   });
 
-  // 3. Create Sheet
   const worksheet = XLSX.utils.json_to_sheet([]);
   XLSX.utils.sheet_add_json(worksheet, rows, {
     skipHeader: true,
     origin: "A2",
   });
 
-  // 4. Write Headers
   const staticHeaders = [
     "Task Name",
     "Assigned To",
@@ -125,7 +123,6 @@ export const exportGanttToExcel = async (
     "Delayed Days",
   ];
 
-  // Write Static Headers (A1:K1)
   staticHeaders.forEach((h, i) => {
     const cellRef = XLSX.utils.encode_cell({ c: i, r: 0 });
     worksheet[cellRef] = {
@@ -179,7 +176,7 @@ export const exportGanttToExcel = async (
 
     for (let c = 0; c < 7; c++) {
       const cellRef = XLSX.utils.encode_cell({ c: c, r: worksheetRowIndex });
-      
+
       // Ensure cell exists for styling (even if value is null)
       if (!worksheet[cellRef]) {
         worksheet[cellRef] = { t: "s", v: "" };
@@ -353,9 +350,9 @@ export const exportGanttToPDF = async (
   const tableData: any[][] = [];
 
   tasks.forEach((task) => {
-    tableData.push([task.name, task.assignee?.name || "", "", "", ""]);
+    tableData.push([task.name, task.assignee?.surname || "", "", "", ""]);
 
-    task.subtasks.forEach((subtask) => {
+    task.subtasks?.forEach((subtask) => {
       const startDateStr = subtask.start
         ? format(parseDisplayDate(subtask.start) || new Date(), "d MMM yyyy")
         : "N/A";
@@ -364,25 +361,25 @@ export const exportGanttToPDF = async (
         : "N/A";
       const delayVal =
         subtask.end &&
-        subtask.status !== "COMPLETED" &&
-        subtask.status !== "CANCELLED"
+          subtask.status !== "COMPLETED" &&
+          subtask.status !== "CANCELLED"
           ? (() => {
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              const e = parseDisplayDate(subtask.end);
-              if (!e) return 0;
-              e.setHours(0, 0, 0, 0);
-              return e < today
-                ? Math.floor(
-                    (today.getTime() - e.getTime()) / (1000 * 3600 * 24),
-                  )
-                : 0;
-            })()
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const e = parseDisplayDate(subtask.end);
+            if (!e) return 0;
+            e.setHours(0, 0, 0, 0);
+            return e < today
+              ? Math.floor(
+                (today.getTime() - e.getTime()) / (1000 * 3600 * 24),
+              )
+              : 0;
+          })()
           : 0;
 
       tableData.push([
         `   ${subtask.name}`,
-        subtask.assignee?.name || "Unassigned",
+        subtask.assignee?.surname || "Unassigned",
         subtask.status?.replace(/_/g, " ") || "TO DO",
         subtask.days?.toString() || "-",
         delayVal > 0 ? `${delayVal}d` : "-",

@@ -18,7 +18,9 @@ export type NormalMember = {
     projectMemberId: string;
     user: {
         id: string;
+        name: string | null;
         surname: string | null;
+        email?: string | null;
     };
     workspaceRole?: string;
 };

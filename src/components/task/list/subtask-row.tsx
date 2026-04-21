@@ -111,6 +111,25 @@ export const SubTaskRow = memo(function SubTaskRow({
 
     const progressColor = getProgressColor();
 
+    // 👤 Robust Surname Resolver: Prioritizes pre-fetched data, falls back to member list lookup
+    const getUserDisplayName = (userObj: any) => {
+        if (!userObj) return "";
+        
+        // Check if the user object is nested inside workspaceMember
+        const user = userObj.workspaceMember?.user || userObj;
+
+        // 1. Try pre-fetched data from the user object directly
+        if (user.surname) return user.surname;
+        if (user.name) return user.name;
+        
+        // 2. Fallback to member list lookup using the ID
+        const member = members.find(m => m.id === user.id || m.userId === user.id);
+        return member?.user.surname || member?.user.name || "";
+    };
+
+    const assigneeDisplayName = getUserDisplayName(assigneeUser);
+    const reviewerDisplayName = getUserDisplayName(reviewerUser);
+
     if (isUpdating) {
         return (
             <TableRow className="bg-muted/10">
@@ -199,7 +218,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                     (subTask as any).isOptimistic && "opacity-60 grayscale-[0.5]"
                 )}
             >
-                <TableCell className="pl-4 sm:pl-4 w-[60px] md:w-[80px]">
+                <TableCell className="pl-4 sm:pl-4 w-[50px] sticky left-0 z-0 bg-background">
                     <div className="flex items-center">
                         <div className="w-3 shrink-0" />
                         <div className="h-6 w-6 flex items-center justify-center shrink-0">
@@ -208,7 +227,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                     </div>
                 </TableCell>
 
-                <TableCell className="w-[180px] sm:w-[250px] md:w-[350px]">
+                <TableCell className="w-[80px] sm:w-[120px] md:w-[220px] sticky left-[50px] z-0 bg-background">
                     <span
                         className="truncate text-muted-foreground text-sm block cursor-pointer hover:text-foreground transition-colors"
                         onMouseEnter={() => {
@@ -249,11 +268,11 @@ export const SubTaskRow = memo(function SubTaskRow({
                             <div className="flex items-center gap-2 min-w-0">
                                 <Avatar className="h-5 w-5 flex-shrink-0">
                                     <AvatarFallback className="text-[10px]">
-                                        {assigneeUser.surname?.[0]?.toUpperCase() || "?"}
+                                        {assigneeDisplayName?.[0]?.toUpperCase() || "U"}
                                     </AvatarFallback>
                                 </Avatar>
                                 <span className="text-xs text-muted-foreground truncate">
-                                    {assigneeUser.surname}
+                                    {assigneeDisplayName || "User"}
                                 </span>
                             </div>
                         ) : (
@@ -283,11 +302,11 @@ export const SubTaskRow = memo(function SubTaskRow({
                             <div className="flex items-center gap-2 min-w-0">
                                 <Avatar className="h-5 w-5 flex-shrink-0">
                                     <AvatarFallback className="text-[10px]">
-                                        {reviewerUser.surname?.[0]?.toUpperCase() || "?"}
+                                        {reviewerDisplayName?.[0]?.toUpperCase() || "U"}
                                     </AvatarFallback>
                                 </Avatar>
                                 <span className="text-xs text-muted-foreground truncate">
-                                    {reviewerUser.surname}
+                                    {reviewerDisplayName || "Reviewer"}
                                 </span>
                             </div>
                         ) : (

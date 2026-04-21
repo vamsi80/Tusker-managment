@@ -50,7 +50,6 @@ import { ProjectTaskGroup } from "./group/project-task-group";
 import { FlatTaskList } from "./group/flat-task-list";
 import { EmptyState } from "./table/empty-state";
 import { SortedTaskList } from "./sort/sorted-task-list";
-import { TableCell, TableRow } from "@/components/ui/table";
 
 interface TaskTableProps {
   initialTasks: TaskWithSubTasks[];
@@ -161,7 +160,7 @@ function TaskTable({
   const hasFetchedRef = useRef(false);
 
   const hydrateTasks = useCallback(
-    (taskList: TaskWithSubTasks[]) => {
+    (taskList: TaskWithSubTasks[], debugLabel?: string) => {
       // 1. First, try to merge from what we already have in memory (essential for preservation during filters)
       const currentTasks = tasksRef.current;
       const memoryMap = new Map<string, TaskWithSubTasks>();
@@ -172,7 +171,7 @@ function TaskTable({
       // 2. Fallback to global zustand cache
       const getCache = useTaskCacheStore.getState().getCachedSubTasks;
 
-      return taskList.map((t) => {
+      const result = taskList.map((t) => {
         // If it already has subtasks (from a fresh server result if that ever happens), keep them
         if (t.subTasks !== undefined) return t;
 
@@ -201,6 +200,13 @@ function TaskTable({
         }
         return t;
       });
+
+      // 🔬 DEBUG: Log what was resolved vs what couldn't be hydrated
+      const noSubtaskIds = result.filter(t => t.isParent && t.subTasks === undefined).map(t => t.name);
+      const hasSubtaskIds = result.filter(t => t.isParent && t.subTasks !== undefined).map(t => `${t.name}(${(t.subTasks as any)?.length}st)`);
+      console.log(`[Hydrate${debugLabel ? ` @ ${debugLabel}` : ''}] MemoryCacheSize=${memoryMap.size} | Loaded=${hasSubtaskIds.join(', ')} | Missing=${noSubtaskIds.join(', ')}`);
+
+      return result;
     },
     [filtersActive],
   );
@@ -242,6 +248,11 @@ function TaskTable({
   const fetchFiltered = useCallback(async (isAbortedRef: { current: boolean }) => {
     setIsLoadingFilters(true);
     setIsCurrentlyFiltered(true);
+    // 🧼 Clear expansion gates: Every filter change must allow subtasks to be re-fetched
+    // This prevents stale "already processed" markers from blocking subtask loading
+    // after the filter changes what subtasks are visible.
+    processedSubTasksRef.current.clear();
+    fetchingSubTasksRef.current.clear();
 
     try {
       const params = new URLSearchParams();
@@ -256,10 +267,14 @@ function TaskTable({
       if (filters.status) params.set("s", filters.status);
       if (filters.assigneeId) params.set("a", filters.assigneeId);
       if (filters.tagId) params.set("t", filters.tagId);
-      if (searchQuery) params.set("q", searchQuery);
       if (filters.startDate) params.set("da", new Date(filters.startDate).toISOString());
       if (filters.endDate) params.set("db", new Date(filters.endDate).toISOString());
       if (sorts.length > 0) params.set("sorts", JSON.stringify(sorts));
+      if (searchQuery) {
+        params.set("q", searchQuery);
+        // Include subtasks when searching so matching subtasks materialise under their parents
+        params.set("sub", "true");
+      }
 
       const fetchKey = `filtered-${params.toString()}`;
       if (fetchingIdsRef.current.has(fetchKey)) return;
@@ -274,8 +289,13 @@ function TaskTable({
       if (response.success && response.data) {
         const result = response.data as any;
         const sizeInBytes = JSON.stringify(response.data).length;
-        console.log(`[Zero-Weight] Tasks Payload: ${(sizeInBytes / 1024).toFixed(2)} KB (${result.tasks?.length || 0} tasks)`);
-        setTasks(hydrateTasks(result.tasks));
+        console.log(`[Zero-Weight] Filter Results:`, {
+          count: result.tasks?.length || 0,
+          size: `${(sizeInBytes / 1024).toFixed(2)} KB`,
+          hasMore: result.hasMore,
+          taskNames: result.tasks?.map((t: any) => t.name)
+        });
+        setTasks(hydrateTasks(result.tasks, 'filter-apply'));
 
         if (result.facets?.projects) {
           const facetProjects = result.facets.projects as Record<string, number>;
@@ -621,9 +641,9 @@ function TaskTable({
   useEffect(() => {
     const isAbortedRef = { current: false };
     const hasInitialData = initialTasks && initialTasks.length > 0;
-    
+
     // 🛡️ Mount Guard: If we have initial data and filters are neutral, trust RSC.
-    const isNeutral = !searchQuery && 
+    const isNeutral = !searchQuery &&
       Object.values(filters).every(v => v === undefined || v === "" || (Array.isArray(v) && v.length === 0));
 
     if (!hasFetchedRef.current && hasInitialData && isNeutral) {
@@ -681,6 +701,10 @@ function TaskTable({
       return changed ? next : prev;
     });
   }, [filtersActive, tasks]);
+
+  useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
 
   useEffect(() => {
     loadProjectTasksRef.current = loadProjectTasks;
@@ -748,17 +772,35 @@ function TaskTable({
     const isBaseProjectView = !searchQuery && (!activeFilters ||
       (getActiveFilters(filters).length === 1 && filters.projectId === projectId));
 
-    if (isBaseProjectView && hasFetchedRef.current) {
+    const needsReset = isBaseProjectView && (isCurrentlyFiltered || (hasFetchedRef.current && tasks.length === 0));
+
+    if (needsReset) {
       if (isCurrentlyFiltered || tasks.length === 0) {
         // Reset to initial data OR cache
         const cache = useTaskCacheStore.getState().getProjectTasksCache(projectId || "");
+        console.log(`[FilterReset] Clearing filter. Cache=${cache?.tasks.length ?? 0}, Memory=${tasksRef.current.length}`);
         if (cache && cache.tasks.length > 0) {
-          setTasks(hydrateTasks(cache.tasks));
+          setTasks(hydrateTasks(cache.tasks, 'filter-reset-cache'));
+        } else if (initialTasks && initialTasks.length > 0) {
+          setTasks(hydrateTasks(initialTasks, 'filter-reset-initialTasks'));
         } else {
-          setTasks(hydrateTasks(initialTasks));
+          // 🚀 Fallback: Trigger a fresh fetch of the base data
+          if (level === "project" && projectId) {
+            loadProjectTasks(projectId);
+          } else {
+            // In workspace view or if specific project root fetch isn't applicable, 
+            // allow the fetchFiltered timer below to run instead of returning.
+            hasFetchedRef.current = false;
+            setIsCurrentlyFiltered(false);
+            return;
+          }
         }
+
         setProjectPagination({});
         setIsCurrentlyFiltered(false);
+        // 🧼 Expansion State Cleanup: Ensure the UI isn't 'stuck' during re-expansion after a reset
+        processedSubTasksRef.current.clear();
+        fetchingSubTasksRef.current.clear();
       }
       setIsLoadingFilters(false);
       return;
@@ -1049,17 +1091,20 @@ function TaskTable({
   // 1. Lazy Subtask Loader Callback (Passed to TaskRow)
   const handleRequestSubtasks = useCallback(
     async (taskId: string) => {
-      if (
+    if (
         processedSubTasksRef.current.has(taskId) ||
         fetchingSubTasksRef.current.has(taskId)
-      )
+      ) {
+        console.log(`[SubtaskGate] BLOCKED taskId=${taskId} | processed=${processedSubTasksRef.current.has(taskId)} | fetching=${fetchingSubTasksRef.current.has(taskId)}`);
         return;
+      }
 
       // Note: references active 'tasks' state via closure or ref would be better,
       // but for now we look up in current render scope tasks.
       // 2. Memory Check: If already loaded in our master state, don't refetch
       const currentTaskInState = tasksRef.current.find((t) => t.id === taskId);
       if (currentTaskInState?.subTasks !== undefined) {
+        console.log(`[SubtaskGate] IN-MEMORY taskId=${taskId} subTaskCount=${currentTaskInState.subTasks?.length}`);
         processedSubTasksRef.current.add(taskId);
         return;
       }
@@ -1393,7 +1438,7 @@ function TaskTable({
           <table className="w-full caption-bottom text-sm table-fixed">
             <thead className="[&_tr]:border-b">
               <tr className="sticky top-0 z-10 bg-background border-b shadow-sm hover:bg-muted/50">
-                <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[40px] md:w-[50px] bg-background">
+                <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[50px] sticky left-0 z-0 bg-background">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
@@ -1421,7 +1466,7 @@ function TaskTable({
                   label="Task Name"
                   sorts={sorts}
                   onSortChange={handleSort}
-                  className="w-[180px] sm:w-[250px] md:w-[350px]"
+                  className="w-[80px] sm:w-[120px] md:w-[220px] sticky left-[50px] z-30 bg-background"
                 />
                 {/* Project column removed (using grouping instead) */}
                 {columnVisibility.description && (
@@ -1447,7 +1492,7 @@ function TaskTable({
                     label="Status"
                     sorts={sorts}
                     onSortChange={handleSort}
-                    className="w-[90px] sm:w-[120px]"
+                    className="w-[90px] sm:w-[90px]"
                   />
                 )}
                 {columnVisibility.startDate && (
@@ -1466,11 +1511,11 @@ function TaskTable({
                     label="Deadline"
                     sorts={sorts}
                     onSortChange={handleSort}
-                    className="w-[100px] sm:w-[150px]"
+                    className="w-[100px] sm:w-[100px]"
                   />
                 )}
                 {columnVisibility.tag && (
-                  <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] sm:w-[120px] bg-background">
+                  <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] sm:w-[100px] bg-background">
                     Tag
                   </th>
                 )}
@@ -1478,7 +1523,6 @@ function TaskTable({
               </tr>
             </thead>
             <tbody>
-              {/* SORTED VIEW: Flat task rows grouped by project */}
               {mode === "sorted" ? (
                 <SortedTaskList
                   sortedTasks={sortedTasks}

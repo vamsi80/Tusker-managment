@@ -20,6 +20,7 @@ interface SubtaskSheetHeaderProps {
     onSubTaskAssigned?: (memberObj: { id: string; name: string | null; surname: string | null }) => void;
     isAdmin?: boolean;
     isProjectManager?: boolean;
+    tags?: { id: string; name: string; }[];
 }
 
 /**
@@ -32,7 +33,7 @@ interface SubtaskSheetHeaderProps {
  * - Tag
  * - Status badge
  */
-export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({ subTask, currentUserId, members = [], onSubTaskAssigned, isAdmin, isProjectManager }: SubtaskSheetHeaderProps) {
+export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({ subTask, currentUserId, members = [], onSubTaskAssigned, isAdmin, isProjectManager, tags = [] }: SubtaskSheetHeaderProps) {
     // Assignee is directly on the task object (user fields) in both SubTaskType and TaskByIdType
     // But we handle potential workspaceMember nesting just in case legacy types are passed
     const assignee = (subTask.assignee as any)?.workspaceMember?.user || subTask.assignee;
@@ -63,6 +64,7 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({ subTask, cu
                             subTask={subTask as any}
                             projectId={subTask.projectId}
                             parentTaskId={subTask.parentTaskId!}
+                            tags={tags}
                             members={members}
                             trigger={
                                 <Button variant="outline" size="sm" className="h-8 gap-2">
@@ -99,7 +101,7 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({ subTask, cu
                                 members={members}
                                 projectId={subTask.projectId || ""}
                                 parentTaskId={subTask.parentTaskId || ""}
-                                canEdit={!!(isAdmin || isProjectManager || subTask.createdBy?.workspaceMember?.user?.id === currentUserId || (subTask as any).createdById === currentUserId)}
+                                canEdit={!!(isAdmin || isProjectManager || subTask.createdBy?.id === currentUserId || (subTask as any).createdById === currentUserId)}
                                 onAssigned={(_userId, member) => {
                                     onSubTaskAssigned?.({
                                         id: member.userId,

@@ -175,6 +175,7 @@ export class TasksService {
     );
 
     this.stripParentMetadata(result);
+    console.log(`[TasksService] Final Result: ${result.tasks.length} roots, ${result.totalCount} total`);
     return result;
   }
 
@@ -222,10 +223,12 @@ export class TasksService {
     if (!task) return task;
     const flatten = (obj: any) => {
       const user = obj?.workspaceMember?.user || obj?.user || obj;
-      if (!user?.id && !user?.surname) return obj;
+      // 🛡️ Guard: If we don't have an ID, we can't flatten to a valid user object
+      if (!user?.id) return obj;
       return {
         id: user.id,
-        surname: user.surname,
+        name: user.name || "",
+        surname: user.surname || "",
       };
     };
 
@@ -700,6 +703,7 @@ export class TasksService {
           });
 
           return {
+            tasks: [], // Added for consistent return shape and to fix type union issues
             tasksByStatus,
             totalCount: Object.values(statusCounts).reduce((acc, c) => acc + c, 0),
             hasMore: false,
