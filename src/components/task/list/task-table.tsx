@@ -164,6 +164,8 @@ function TaskTable({
   const isInitialMountRef = useRef<boolean>(true);
   const hasFetchedRef = useRef(false);
   const filteredProjectQueueRunningRef = useRef(false);
+  // ✅ DUP-FIX: Always-current ref so loadProjectTasks never reads a stale pagination closure
+  const projectPaginationRef = useRef<Record<string, { page: number; nextCursor: any; hasMore: boolean; isLoading: boolean }>>({});
 
   const hydrateTasks = useCallback(
     (
@@ -377,7 +379,7 @@ function TaskTable({
   );
 
   const [tasks, setTasks] = useState<TaskWithSubTasks[]>(() =>
-    hydrateTasks(initialTasks),
+    hydrateTasks(orderRootTasks(initialTasks)),
   );
   const [projectPagination, setProjectPagination] = useState<
     Record<
@@ -412,6 +414,8 @@ function TaskTable({
 
     return initial;
   });
+  // ✅ DUP-FIX: Keep ref in sync so loadProjectTasks always reads the latest cursor
+  projectPaginationRef.current = projectPagination;
 
   // 🧹 Filter Reset Logic: Ensures a clean slate when navigating between different views
   // This satisfies the user request to have filters reset to neutral when switching pages.
@@ -437,12 +441,13 @@ function TaskTable({
       processedSubTasksRef.current.clear();
       fetchingSubTasksRef.current.clear();
 
+      let fetchKey: string | undefined = undefined;
       try {
         const params = new URLSearchParams();
         params.set("w", workspaceId);
         if (level === "project" && projectId) params.set("p", projectId);
         params.set("vm", "list");
-        params.set("l", "20");
+        params.set("l", "50");
         params.set("sub", "false");
         params.set("facets", "true");
 
@@ -454,6 +459,7 @@ function TaskTable({
           params.set("hm", "parents");
         }
 
+        if (filters.projectId) params.set("p", filters.projectId);
         if (filters.status) params.set("s", filters.status);
         if (filters.assigneeId) params.set("a", filters.assigneeId);
         if (filters.tagId) params.set("t", filters.tagId);
@@ -464,12 +470,13 @@ function TaskTable({
         if (sorts.length > 0) params.set("sorts", JSON.stringify(sorts));
         if (searchQuery) {
           params.set("q", searchQuery);
-          // Include subtasks when searching so matching subtasks materialise under their parents
-          params.set("sub", "true");
         }
 
-        const fetchKey = `filtered-${params.toString()}`;
-        if (fetchingIdsRef.current.has(fetchKey)) return;
+        fetchKey = `filtered-${params.toString()}`;
+        if (fetchingIdsRef.current.has(fetchKey)) {
+          setIsLoadingFilters(false);
+          return;
+        }
         fetchingIdsRef.current.add(fetchKey);
         hasFetchedRef.current = true;
 
@@ -553,26 +560,12 @@ function TaskTable({
         console.error("Failed to filter tasks:", err);
         if (!isAbortedRef.current) toast.error("Failed to load tasks");
       } finally {
-        const params = new URLSearchParams();
-        params.set("w", workspaceId);
-        if (level === "project" && projectId) params.set("p", projectId);
-        params.set("vm", "list");
-        params.set("hm", "parents");
-        params.set("l", "20");
-        params.set("sub", "false");
-        params.set("facets", "true");
-        if (filters.status) params.set("s", filters.status);
-        if (filters.assigneeId) params.set("a", filters.assigneeId);
-        if (filters.tagId) params.set("t", filters.tagId);
-        if (searchQuery) params.set("q", searchQuery);
-        if (filters.startDate)
-          params.set("da", new Date(filters.startDate).toISOString());
-        if (filters.endDate)
-          params.set("db", new Date(filters.endDate).toISOString());
-        if (sorts.length > 0) params.set("sorts", JSON.stringify(sorts));
-
-        const fetchKey = `filtered-${params.toString()}`;
-        fetchingIdsRef.current.delete(fetchKey);
+        // 🚀 BUG FIX: We must clear the lock using the SAME key we used at the start.
+        // Re-calculating params here is error-prone and caused stale locks when 
+        // parameters like 'hm' didn't match perfectly.
+        if (typeof fetchKey !== 'undefined') {
+          fetchingIdsRef.current.delete(fetchKey);
+        }
 
         if (!isAbortedRef.current) {
           setIsLoadingFilters(false);
@@ -593,7 +586,11 @@ function TaskTable({
 
   const loadProjectTasks = useCallback(
     async (targetProjectId: string) => {
-      const currentPagination = projectPagination[targetProjectId] || {
+      let fetchKey: string | undefined = undefined;
+      // ✅ DUP-FIX: Read from the always-current ref instead of the closed-over state
+      // This prevents stale closures from re-fetching page 1 when "Load More" fires
+      // after the initial batch has already updated projectPagination state.
+      const currentPagination = projectPaginationRef.current[targetProjectId] || {
         page: 0,
         nextCursor: undefined,
         hasMore: true,
@@ -602,21 +599,26 @@ function TaskTable({
 
       if (currentPagination.isLoading || !currentPagination.hasMore) return;
 
+      // Immediately mark as loading in the ref to prevent concurrent calls
+      projectPaginationRef.current = {
+        ...projectPaginationRef.current,
+        [targetProjectId]: { ...currentPagination, isLoading: true },
+      };
       setProjectPagination((prev) => ({
         ...prev,
         [targetProjectId]: { ...currentPagination, isLoading: true },
       }));
 
       const isGlobal = targetProjectId === "__global_filter__";
-      console.log(`[LazyLoad] Fetching tasks for project: ${targetProjectId}, Page: ${currentPagination.page + 1}`);
+      console.log(`[LazyLoad] Fetching tasks for project: ${targetProjectId}, Page: ${currentPagination.page + 1}, Cursor: ${JSON.stringify(currentPagination.nextCursor)}`);
 
       const params = new URLSearchParams();
       params.set("w", workspaceId);
       if (!isGlobal) params.set("p", targetProjectId);
       params.set("vm", "list");
       params.set("hm", "parents");
-      params.set("sub", isGlobal ? "true" : "false");
-      params.set("l", "10");
+      params.set("sub", "false");
+      params.set("l", "50");
       if (currentPagination.nextCursor)
         params.set("c", JSON.stringify(currentPagination.nextCursor));
       if (filters.status) params.set("s", filters.status);
@@ -628,7 +630,7 @@ function TaskTable({
       if (filters.endDate)
         params.set("db", new Date(filters.endDate).toISOString());
 
-      const fetchKey = `project-${targetProjectId}-${params.toString()}`;
+      fetchKey = `project-${targetProjectId}-${params.toString()}`;
       if (fetchingIdsRef.current.has(fetchKey)) return;
       fetchingIdsRef.current.add(fetchKey);
 
@@ -706,6 +708,13 @@ function TaskTable({
             return nextTasks;
           });
 
+          const nextPaginationEntry = {
+            page: currentPagination.page + 1,
+            nextCursor: resultData.nextCursor,
+            hasMore: resultData.hasMore ?? false,
+            isLoading: false,
+          };
+
           // Cache Logic
           if (!filtersActive && !isGlobal) {
             useTaskCacheStore.getState().setProjectTasksCache(targetProjectId, {
@@ -717,27 +726,37 @@ function TaskTable({
             });
           }
 
+          // ✅ DUP-FIX: Update ref immediately so next call reads the correct cursor
+          projectPaginationRef.current = {
+            ...projectPaginationRef.current,
+            [targetProjectId]: nextPaginationEntry,
+          };
           setProjectPagination((prev) => ({
             ...prev,
-            [targetProjectId]: {
-              page: currentPagination.page + 1,
-              nextCursor: resultData.nextCursor,
-              hasMore: resultData.hasMore ?? false,
-              isLoading: false,
-            },
+            [targetProjectId]: nextPaginationEntry,
           }));
         } else {
           toast.error(response.error || "Failed to load tasks");
+          const resetEntry = { ...currentPagination, isLoading: false };
+          projectPaginationRef.current = {
+            ...projectPaginationRef.current,
+            [targetProjectId]: resetEntry,
+          };
           setProjectPagination((prev) => ({
             ...prev,
-            [targetProjectId]: { ...currentPagination, isLoading: false },
+            [targetProjectId]: resetEntry,
           }));
         }
       } catch (err) {
         console.error(`Failed to load tasks for ${targetProjectId}:`, err);
+        const resetEntry = { ...currentPagination, isLoading: false };
+        projectPaginationRef.current = {
+          ...projectPaginationRef.current,
+          [targetProjectId]: resetEntry,
+        };
         setProjectPagination((prev) => ({
           ...prev,
-          [targetProjectId]: { ...currentPagination, isLoading: false },
+          [targetProjectId]: resetEntry,
         }));
       } finally {
         fetchingIdsRef.current.delete(fetchKey);
@@ -747,7 +766,8 @@ function TaskTable({
       workspaceId,
       filters,
       searchQuery,
-      projectPagination,
+      // ✅ DUP-FIX: projectPagination removed — we read from projectPaginationRef instead
+      // so the callback stays stable and loadProjectTasksRef always holds the latest version
       hydrateTasks,
       filtersActive,
       loadingSubTasks,
@@ -1429,8 +1449,20 @@ function TaskTable({
   const orderedWorkspaceProjects = useMemo(() => {
     if (level !== "workspace") return projects;
 
-    return projects.filter((project) => groupedTasks?.[project.id]);
-  }, [level, projects, groupedTasks]);
+    // Explicitly sort projects by ID descending (newest first) to ensure consistent ordering.
+    // Based on the prisma data layer, higher IDs correspond to more recently created projects.
+    return [...projects]
+      .filter((project) => {
+        const hasTasksInMemory = !!groupedTasks?.[project.id];
+        const hasFacetHits = (currentProjectCounts?.[project.id] ?? 0) > 0;
+        return hasTasksInMemory || hasFacetHits;
+      })
+      .sort((a, b) => {
+        const aId = String(a.id || "");
+        const bId = String(b.id || "");
+        return bId.localeCompare(aId, undefined, { numeric: true });
+      });
+  }, [level, projects, groupedTasks, currentProjectCounts]);
 
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
     assignee: true,
@@ -1691,7 +1723,7 @@ function TaskTable({
       params.set("p", task.projectId || projectId);
       params.set("vm", "list"); // Hierarchy mode but for a specific parent
       params.set("pt", taskId);
-      params.set("l", "30");
+      params.set("l", "50");
       if (task.subTasksNextCursor)
         params.set("c", JSON.stringify(task.subTasksNextCursor));
       if (cleanFilters.status)

@@ -1,6 +1,6 @@
 import { Prisma } from "@/generated/prisma";
 
-export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = false): Prisma.TaskSelect {
+export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = false, extraFields?: string[]): Prisma.TaskSelect {
     const isList = view_mode === "list" || view_mode === "default" || !view_mode;
     const isKanban = view_mode === "kanban";
     const isGantt = view_mode === "gantt";
@@ -23,23 +23,10 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
             }
         };
 
-        // For the main List view, "minimal" must still include the columns displayed in the table.
-        if (isList) {
-            select.status = true;
-            select.dueDate = true;
-            select.startDate = true;
-            select.description = true;
-            select.tag = { select: { name: true } };
-            select.assignee = {
-                select: {
-                    workspaceMember: { select: { user: { select: { id: true, name: true, surname: true } } } }
-                }
-            };
-            select.reviewer = {
-                select: {
-                    workspaceMember: { select: { user: { select: { id: true, name: true, surname: true } } } }
-                }
-            };
+        if (extraFields && extraFields.length > 0) {
+            extraFields.forEach(field => {
+                (select as any)[field] = true;
+            });
         }
 
         return select;
