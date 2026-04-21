@@ -258,23 +258,13 @@ export class TasksService {
       this.mapToFlatMetadata(task);
 
       if (task?.isParent) {
-        const nullableParentFields = [
-          "dueDate",
-          "startDate",
-          "description",
-          "tag",
-          "assignee",
-        ];
-
-        nullableParentFields.forEach((field) => {
-          if (task[field] == null) {
-            delete task[field];
+        // Strict Allowed-list for Parent tasks to minimize payload weight
+        const allowedFields = ["id", "name", "taskSlug", "isParent", "projectId", "subTasks", "subtaskCount", "createdAt"];
+        Object.keys(task).forEach(key => {
+          if (!allowedFields.includes(key)) {
+            delete task[key];
           }
         });
-
-        // Strip non-required fields for parent tasks
-        delete task.status;
-        delete task.reviewer;
       }
     };
 
@@ -869,20 +859,20 @@ export class TasksService {
       ids: opts.ids,
     });
 
+    const primarySortField = opts.sorts?.[0]?.field || "createdAt";
+    const dbField = SORT_MAP[primarySortField]?.dbField || "createdAt";
+
     const [rawTasks] = await Promise.all([
       prisma.task.findMany({
         where,
-        select: getTaskSelect(opts.view_mode, true), // TRUE for minimal parent select
+        select: getTaskSelect(opts.view_mode, true, [dbField]), // TRUE for minimal parent select, include sort field
         orderBy: buildOrderBy(opts.sorts),
-        take: limit + 1,
       }),
     ]);
 
     const hasMore = rawTasks.length > limit;
     if (hasMore) rawTasks.pop();
 
-    const primarySortField = opts.sorts?.[0]?.field || "createdAt";
-    const dbField = SORT_MAP[primarySortField]?.dbField || "createdAt";
     const lastTask = rawTasks[rawTasks.length - 1] as any;
 
     const nextCursor: any = hasMore
@@ -1020,6 +1010,9 @@ export class TasksService {
     delete (expansionMatchWhere as any).isParent;
     delete (expansionMatchWhere as any).parentTaskId;
 
+    const primarySortFieldForSelect = opts.sorts?.[0]?.field || "createdAt";
+    const dbFieldForSelect = SORT_MAP[primarySortFieldForSelect]?.dbField || "createdAt";
+
     const rawMatches = await prisma.task.findMany({
       where: buildWorkspaceFilterWhere(
         {
@@ -1051,6 +1044,7 @@ export class TasksService {
       select: getTaskSelect(
         opts.view_mode,
         opts.view_mode === "gantt" || opts.isMinimal,
+        dbFieldForSelect ? [dbFieldForSelect] : []
       ),
       take: limit + 1,
       orderBy: buildOrderBy(opts.sorts),
@@ -1272,12 +1266,13 @@ export class TasksService {
     }
 
     const primarySort = opts.sorts?.[0];
+    const dbField = primarySort ? SORT_MAP[primarySort.field]?.dbField : "createdAt";
 
     const queryStartTime = performance.now();
     const [rawTasks] = await Promise.all([
       prisma.task.findMany({
         where,
-        select: getTaskSelect(opts.view_mode, true), // Use minimal select for filter queries
+        select: getTaskSelect(opts.view_mode, true, dbField ? [dbField] : []), // Use minimal select for filter queries
         orderBy: buildOrderBy(opts.sorts),
         take: limit + 1,
         skip: opts.skip || 0,
