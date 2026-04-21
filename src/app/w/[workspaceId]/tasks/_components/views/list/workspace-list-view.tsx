@@ -33,7 +33,7 @@ export async function WorkspaceListView({
             hierarchyMode: "parents",
             includeSubTasks: false,
             page: 1,
-            limit: 50,
+            limit: 1,
             includeFacets: true,
             view_mode: "list"
         }, user.id)

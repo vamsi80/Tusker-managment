@@ -62,37 +62,37 @@ const COLUMNS: {
   bgColor: string;
   borderColor: string;
 }[] = [
-    {
-      id: "TO_DO",
-      title: STATUS_LABELS.TO_DO,
-      ...STATUS_COLORS.TO_DO,
-    },
-    {
-      id: "IN_PROGRESS",
-      title: STATUS_LABELS.IN_PROGRESS,
-      ...STATUS_COLORS.IN_PROGRESS,
-    },
-    {
-      id: "REVIEW",
-      title: STATUS_LABELS.REVIEW,
-      ...STATUS_COLORS.REVIEW,
-    },
-    {
-      id: "COMPLETED",
-      title: STATUS_LABELS.COMPLETED,
-      ...STATUS_COLORS.COMPLETED,
-    },
-    {
-      id: "HOLD",
-      title: STATUS_LABELS.HOLD,
-      ...STATUS_COLORS.HOLD,
-    },
-    {
-      id: "CANCELLED",
-      title: STATUS_LABELS.CANCELLED,
-      ...STATUS_COLORS.CANCELLED,
-    },
-  ];
+  {
+    id: "TO_DO",
+    title: STATUS_LABELS.TO_DO,
+    ...STATUS_COLORS.TO_DO,
+  },
+  {
+    id: "IN_PROGRESS",
+    title: STATUS_LABELS.IN_PROGRESS,
+    ...STATUS_COLORS.IN_PROGRESS,
+  },
+  {
+    id: "REVIEW",
+    title: STATUS_LABELS.REVIEW,
+    ...STATUS_COLORS.REVIEW,
+  },
+  {
+    id: "COMPLETED",
+    title: STATUS_LABELS.COMPLETED,
+    ...STATUS_COLORS.COMPLETED,
+  },
+  {
+    id: "HOLD",
+    title: STATUS_LABELS.HOLD,
+    ...STATUS_COLORS.HOLD,
+  },
+  {
+    id: "CANCELLED",
+    title: STATUS_LABELS.CANCELLED,
+    ...STATUS_COLORS.CANCELLED,
+  },
+];
 
 export function KanbanBoard({
   initialData,
@@ -131,7 +131,13 @@ export function KanbanBoard({
   const renderCount = useRef(0);
   renderCount.current++;
   const hasFetchedRef = useRef(
-    isShell && initialData && Object.values(initialData).some((col: any) => (col.tasks || col.subTasks) && (col.tasks?.length > 0 || col.subTasks?.length > 0))
+    isShell &&
+      initialData &&
+      Object.values(initialData).some(
+        (col: any) =>
+          (col.tasks || col.subTasks) &&
+          (col.tasks?.length > 0 || col.subTasks?.length > 0),
+      ),
   );
   logger.perf("KANBAN_RENDER", 0, { count: renderCount.current });
 
@@ -168,14 +174,15 @@ export function KanbanBoard({
       // 💉 Optimization: If we have cached data and initialData is a shell, use cache.
       if (isShell && cached && cached.tasks.length > 0) {
         map[col.id] = {
-          subTaskIds: Array.from(new Set(cached.tasks.map(t => t.id))),
+          subTaskIds: Array.from(new Set(cached.tasks.map((t) => t.id))),
           totalCount: cached.totalCount ?? 0,
           hasMore: cached.hasMore,
           nextCursor: cached.nextCursor,
         };
       } else if (serverCol) {
         // Hydrate from server data if available
-        const colTasks = ((serverCol as any).tasks || (serverCol as any).subTasks || []);
+        const colTasks =
+          (serverCol as any).tasks || (serverCol as any).subTasks || [];
         map[col.id] = {
           subTaskIds: Array.from(new Set(colTasks.map((t: any) => t.id))),
           totalCount: serverCol.totalCount,
@@ -188,7 +195,8 @@ export function KanbanBoard({
   });
 
   // 🧹 Filter Reset Logic: Ensures a clean slate when navigating between different views
-  const { filters, setFilters, searchQuery, setSearchQuery, clearFilters } = useFilterStore();
+  const { filters, setFilters, searchQuery, setSearchQuery, clearFilters } =
+    useFilterStore();
 
   useEffect(() => {
     return () => {
@@ -206,7 +214,8 @@ export function KanbanBoard({
 
     COLUMNS.forEach((col) => {
       const cacheKey = `${workspaceId}-${contextId}-${col.id}`;
-      const cachedList = kanbanLists[cacheKey];
+      // Access the unfiltered cache entry
+      const cachedList = kanbanLists[cacheKey]?.["__unfiltered__"];
 
       if (
         cachedList &&
@@ -216,7 +225,7 @@ export function KanbanBoard({
         const currentIds = columnData[col.id].subTaskIds;
         const matches =
           cachedList.ids.length === currentIds.length &&
-          cachedList.ids.every((id, i) => id === currentIds[i]);
+          cachedList.ids.every((id: string, i: number) => id === currentIds[i]);
 
         if (!matches) {
           nextState[col.id] = {
@@ -242,9 +251,14 @@ export function KanbanBoard({
 
     // 0. IMMEDIATE SYNC: Upsert all initial server data into global entities
     // ensure we have the freshest versions available for relations and metadata
-    const allInitialTasks = initialData ? COLUMNS.flatMap(
-      (col) => (initialData[col.id] as any)?.tasks || (initialData[col.id] as any)?.subTasks || []
-    ) : [];
+    const allInitialTasks = initialData
+      ? COLUMNS.flatMap(
+          (col) =>
+            (initialData[col.id] as any)?.tasks ||
+            (initialData[col.id] as any)?.subTasks ||
+            [],
+        )
+      : [];
     if (allInitialTasks.length > 0) {
       upsertTasks(allInitialTasks);
     }
@@ -261,7 +275,10 @@ export function KanbanBoard({
 
       // ALWAYS prefer the list structure from the server (initialData) if it just arrived.
       // Use cache only for "nextCursor" or if we are navigating back without new props.
-      let tasks = (initialData[col.id] as any).tasks || (initialData[col.id] as any).subTasks || [];
+      let tasks =
+        (initialData[col.id] as any).tasks ||
+        (initialData[col.id] as any).subTasks ||
+        [];
 
       if (cached && cached.tasks.length > 0) {
         if (initialData[col.id].totalCount === 0 && !isShell) {
@@ -276,15 +293,24 @@ export function KanbanBoard({
           if (baseIdsMatch) {
             tasks = cached.tasks;
           }
-        } else if (tasks.length === 0 && (initialData[col.id].totalCount > 0 || isShell)) {
+        } else if (
+          tasks.length === 0 &&
+          (initialData[col.id].totalCount > 0 || isShell)
+        ) {
           // Edge case: SSR provided 0 tasks but totalCount > 0 OR it's a shell? Trust the cache.
           tasks = cached.tasks;
         }
-      } else if (!cached && columnData[col.id].subTaskIds.length > 0 && isShell) {
+      } else if (
+        !cached &&
+        columnData[col.id].subTaskIds.length > 0 &&
+        isShell
+      ) {
         // 🚀 SAFEGUARD: If cache is gone (invalidated) but we have live state, keep it!
         // This prevents the "No tasks found" flicker when commenting or during transitions.
         const entities = useTaskCacheStore.getState().entities;
-        tasks = columnData[col.id].subTaskIds.map((id) => entities[id]).filter(Boolean) as any;
+        tasks = columnData[col.id].subTaskIds
+          .map((id) => entities[id])
+          .filter(Boolean) as any;
       }
 
       // Sync these IDs into the global store immediately so the listener can find them
@@ -422,15 +448,25 @@ export function KanbanBoard({
         (activeFilterCount === 0 ||
           (activeFilterCount === 1 && filters.projectId === projectId));
       const hasFilters = !isBaseProjectView;
-      const isBoardEmpty = Object.values(columnData).every((col) => col.subTaskIds.length === 0);
+      const isBoardEmpty = Object.values(columnData).every(
+        (col) => col.subTaskIds.length === 0,
+      );
 
       // 🛡️ Mount Guard: If we have initial data and filters are neutral, skip the first fetch
-      const isNeutral = !searchQuery &&
-        Object.values(filters).every(v => v === undefined || v === "" || (Array.isArray(v) && v.length === 0));
+      const isNeutral =
+        !searchQuery &&
+        Object.values(filters).every(
+          (v) =>
+            v === undefined || v === "" || (Array.isArray(v) && v.length === 0),
+        );
 
-      const hasInitialData = initialData && Object.values(initialData).some((col: any) =>
-        (col.tasks || col.subTasks) && (col.tasks?.length > 0 || col.subTasks?.length > 0)
-      );
+      const hasInitialData =
+        initialData &&
+        Object.values(initialData).some(
+          (col: any) =>
+            (col.tasks || col.subTasks) &&
+            (col.tasks?.length > 0 || col.subTasks?.length > 0),
+        );
 
       if (!hasFetchedRef.current && hasInitialData && isNeutral) {
         hasFetchedRef.current = true;
@@ -438,7 +474,7 @@ export function KanbanBoard({
         return;
       }
 
-      // 🔄 Revalidation Logic: 
+      // 🔄 Revalidation Logic:
       // Fetch if (has filters) OR (board is empty) OR (this is the first mount and we want to refresh cache)
       const shouldFetch = hasFilters || isBoardEmpty || !hasFetchedRef.current;
 
@@ -458,12 +494,16 @@ export function KanbanBoard({
             resetData[col.id] = {
               subTaskIds: (cached && cached.tasks.length > 0
                 ? cached.tasks
-                : ((initialData?.[col.id] as any)?.tasks || (initialData?.[col.id] as any)?.subTasks || [])
+                : (initialData?.[col.id] as any)?.tasks ||
+                  (initialData?.[col.id] as any)?.subTasks ||
+                  []
               ).map((t: any) => t.id),
               totalCount: cached
                 ? (cached.totalCount ?? 0)
-                : (initialData?.[col.id]?.totalCount || 0),
-              hasMore: cached ? cached.hasMore : (initialData?.[col.id]?.hasMore || false),
+                : initialData?.[col.id]?.totalCount || 0,
+              hasMore: cached
+                ? cached.hasMore
+                : initialData?.[col.id]?.hasMore || false,
               nextCursor: cached ? cached.nextCursor : undefined,
             };
           });
@@ -509,8 +549,10 @@ export function KanbanBoard({
         if (searchQuery) params.set("q", searchQuery);
         if (filters.assigneeId) params.set("a", filters.assigneeId);
         if (filters.tagId) params.set("t", filters.tagId);
-        if (filters.startDate) params.set("da", new Date(filters.startDate).toISOString());
-        if (filters.endDate) params.set("db", new Date(filters.endDate).toISOString());
+        if (filters.startDate)
+          params.set("da", new Date(filters.startDate).toISOString());
+        if (filters.endDate)
+          params.set("db", new Date(filters.endDate).toISOString());
         if (filters.parentTaskId) params.set("pt", filters.parentTaskId);
 
         const apiRes = await fetch(`/api/v1/tasks?${params.toString()}`);
@@ -520,8 +562,13 @@ export function KanbanBoard({
 
         if (response.success && response.data) {
           // Log payload weight for optimization verification
-          const sizeInBytes = new TextEncoder().encode(JSON.stringify(response.data)).length;
-          console.log(`%c[KANBAN_WEIGHT] Data: ${(sizeInBytes / 1024).toFixed(2)} KB`, "color: #10b981; font-weight: bold;");
+          const sizeInBytes = new TextEncoder().encode(
+            JSON.stringify(response.data),
+          ).length;
+          console.log(
+            `%c[KANBAN_WEIGHT] Data: ${(sizeInBytes / 1024).toFixed(2)} KB`,
+            "color: #10b981; font-weight: bold;",
+          );
 
           const counts = (response.data.facets as any)?.status || {};
           const groupedData: any = {};
@@ -598,15 +645,15 @@ export function KanbanBoard({
       const activeFilters =
         searchQuery || Object.keys(filters).length > 0
           ? {
-            ...filters,
-            startDate: filters.startDate
-              ? new Date(filters.startDate).toISOString()
-              : undefined,
-            endDate: filters.endDate
-              ? new Date(filters.endDate).toISOString()
-              : undefined,
-            search: searchQuery,
-          }
+              ...filters,
+              startDate: filters.startDate
+                ? new Date(filters.startDate).toISOString()
+                : undefined,
+              endDate: filters.endDate
+                ? new Date(filters.endDate).toISOString()
+                : undefined,
+              search: searchQuery,
+            }
           : undefined;
 
       const targetProjectId = filters.projectId || projectId;
@@ -635,8 +682,13 @@ export function KanbanBoard({
       }
 
       // Log payload weight for Load More optimization verification
-      const sizeInBytes = new TextEncoder().encode(JSON.stringify(response.data)).length;
-      console.log(`%c[KANBAN_LOAD_MORE_WEIGHT] ${status}: ${(sizeInBytes / 1024).toFixed(2)} KB`, "color: #3b82f6; font-weight: bold;");
+      const sizeInBytes = new TextEncoder().encode(
+        JSON.stringify(response.data),
+      ).length;
+      console.log(
+        `%c[KANBAN_LOAD_MORE_WEIGHT] ${status}: ${(sizeInBytes / 1024).toFixed(2)} KB`,
+        "color: #3b82f6; font-weight: bold;",
+      );
 
       const allNewTasks = response.data.tasks || [];
       // STRICT: Only tasks whose status matches AND are not parents
@@ -1035,7 +1087,8 @@ export function KanbanBoard({
       }
     } catch (error: any) {
       moveSubTaskBetweenColumns(subTaskId, newStatus, previousStatus);
-      const errorMessage = error?.message || "Failed to update subtask status. Let's try again.";
+      const errorMessage =
+        error?.message || "Failed to update subtask status. Let's try again.";
       toast.error(errorMessage, {
         id: toastId,
       });
@@ -1155,30 +1208,35 @@ export function KanbanBoard({
 
   // handleRequestSubtasks: Triggers explicit expansion for a parent task.
   // Although Kanban is flat, this hydrates the cache allowing filter-by-parent to work instantly.
-  const handleRequestSubtasks = useCallback(async (parentId: string) => {
-    try {
-      const params = new URLSearchParams();
-      params.set("w", workspaceId);
-      params.set("p", projectId);
-      params.set("ids", parentId);
-      params.set("vm", "kanban");
-      params.set("sub", "true");
+  const handleRequestSubtasks = useCallback(
+    async (parentId: string) => {
+      try {
+        const params = new URLSearchParams();
+        params.set("w", workspaceId);
+        params.set("p", projectId);
+        params.set("ids", parentId);
+        params.set("vm", "kanban");
+        params.set("sub", "true");
 
-      const res = await fetch(`/api/v1/tasks/expansion/batch?${params.toString()}`);
-      const json = await res.json();
+        const res = await fetch(
+          `/api/v1/tasks/expansion/batch?${params.toString()}`,
+        );
+        const json = await res.json();
 
-      if (json.success && json.data?.[0]) {
-        const batchResult = json.data[0];
-        useTaskCacheStore.getState().upsertTasks(batchResult.subTasks || []);
-        useTaskCacheStore.getState().setCachedSubTasks(parentId, {
-          subTasks: batchResult.subTasks || [],
-          hasMore: batchResult.hasMore
-        });
+        if (json.success && json.data?.[0]) {
+          const batchResult = json.data[0];
+          useTaskCacheStore.getState().upsertTasks(batchResult.subTasks || []);
+          useTaskCacheStore.getState().setCachedSubTasks(parentId, {
+            subTasks: batchResult.subTasks || [],
+            hasMore: batchResult.hasMore,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to request subtasks in Kanban:", err);
       }
-    } catch (err) {
-      console.error("Failed to request subtasks in Kanban:", err);
-    }
-  }, [workspaceId, projectId]);
+    },
+    [workspaceId, projectId],
+  );
 
   const memberOptions = Array.from(
     new Map(
@@ -1310,12 +1368,10 @@ export function KanbanBoard({
         subTaskName={
           pendingReviewMove
             ? useTaskCacheStore.getState().entities[pendingReviewMove.subTaskId]
-              ?.name || "Subtask"
+                ?.name || "Subtask"
             : ""
         }
       />
     </div>
   );
 }
-
-
