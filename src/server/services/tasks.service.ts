@@ -19,7 +19,7 @@ import {
   buildSeekCondition,
   toUTCDateOnly,
   addOneDayUTC,
-  SORT_MAP
+  SORT_MAP,
 } from "@/lib/tasks/query-builder";
 
 export type TaskStatus =
@@ -119,10 +119,7 @@ export class TasksService {
       });
       await recordActivity({
         userId,
-        userName:
-          permissions.userSurname ||
-          permissions.userName ||
-          "Someone",
+        userName: permissions.userSurname,
         workspaceId,
         action: "TASK_CREATED",
         entityType: "TASK",
@@ -175,7 +172,9 @@ export class TasksService {
     );
 
     this.stripParentMetadata(result);
-    console.log(`[TasksService] Final Result: ${result.tasks.length} roots, ${result.totalCount} total`);
+    console.log(
+      `[TasksService] Final Result: ${result.tasks.length} roots, ${result.totalCount} total`,
+    );
     return result;
   }
 
@@ -227,7 +226,6 @@ export class TasksService {
       if (!user?.id) return obj;
       return {
         id: user.id,
-        name: user.name || "",
         surname: user.surname || "",
       };
     };
@@ -245,7 +243,9 @@ export class TasksService {
       delete task.subTasks;
       delete task.subtaskCount;
     } else if (task.subTasks && Array.isArray(task.subTasks)) {
-      task.subTasks = task.subTasks.map((st: any) => this.mapToFlatMetadata(st));
+      task.subTasks = task.subTasks.map((st: any) =>
+        this.mapToFlatMetadata(st),
+      );
     }
 
     return task;
@@ -256,7 +256,26 @@ export class TasksService {
 
     const processTask = (task: any) => {
       this.mapToFlatMetadata(task);
-      // Pruning disabled to ensure data integrity as per user request.
+
+      if (task?.isParent) {
+        const nullableParentFields = [
+          "dueDate",
+          "startDate",
+          "description",
+          "tag",
+          "assignee",
+        ];
+
+        nullableParentFields.forEach((field) => {
+          if (task[field] == null) {
+            delete task[field];
+          }
+        });
+
+        // Strip non-required fields for parent tasks
+        delete task.status;
+        delete task.reviewer;
+      }
     };
 
     if (result.tasks && Array.isArray(result.tasks)) {
@@ -264,9 +283,11 @@ export class TasksService {
     }
 
     if (result.tasksByStatus) {
-      Object.keys(result.tasksByStatus).forEach(status => {
+      Object.keys(result.tasksByStatus).forEach((status) => {
         const colData = result.tasksByStatus[status];
-        const colTasks = Array.isArray(colData) ? colData : (colData?.tasks || []);
+        const colTasks = Array.isArray(colData)
+          ? colData
+          : colData?.tasks || [];
         colTasks.forEach(processTask);
       });
     }
@@ -277,12 +298,15 @@ export class TasksService {
     projectId?: string,
     userId?: string,
   ) {
-    const { getUserPermissions, getWorkspacePermissions } = await import(
-      "@/data/user/get-user-permissions"
-    );
+    const { getUserPermissions, getWorkspacePermissions } =
+      await import("@/data/user/get-user-permissions");
 
     if (projectId) {
-      const permissions = await getUserPermissions(workspaceId, projectId, userId);
+      const permissions = await getUserPermissions(
+        workspaceId,
+        projectId,
+        userId,
+      );
       const hasFullAccess =
         permissions.isWorkspaceAdmin ||
         permissions.isProjectLead ||
@@ -345,7 +369,8 @@ export class TasksService {
       const toArray = <T>(v: T | T[] | undefined): T[] | undefined =>
         v === undefined ? undefined : Array.isArray(v) ? v : [v];
 
-      const isMinimal = opts.hierarchyMode === "parents" && !opts.includeSubTasks;
+      const isMinimal =
+        opts.hierarchyMode === "parents" && !opts.includeSubTasks;
 
       const hasExplicitFilters = !!(
         (opts.status && toArray(opts.status)?.length) ||
@@ -398,9 +423,13 @@ export class TasksService {
         !hasExplicitFilters &&
         !opts.excludeParents &&
         !opts.onlySubtasks &&
-        (hierarchyMode === "parents" || hierarchyMode === "subtasks" || !hierarchyMode)
+        (hierarchyMode === "parents" ||
+          hierarchyMode === "subtasks" ||
+          !hierarchyMode)
       ) {
-        strategy = opts.includeSubTasks ? "RECURSIVE_HIERARCHY" : "PROJECT_ROOT";
+        strategy = opts.includeSubTasks
+          ? "RECURSIVE_HIERARCHY"
+          : "PROJECT_ROOT";
         const result = await this._fetchProjectRoot(
           projectId,
           workspaceId,
@@ -438,7 +467,7 @@ export class TasksService {
 
             // Use a map for O(n) grouping instead of O(n^2) nested filtering
             const subtaskMap = new Map<string, any[]>();
-            subtasks.forEach(st => {
+            subtasks.forEach((st) => {
               const pid = st.parentTaskId;
               if (pid) {
                 if (!subtaskMap.has(pid)) subtaskMap.set(pid, []);
@@ -465,7 +494,10 @@ export class TasksService {
         (!isSorting || opts.view_mode === "gantt") &&
         !opts.onlySubtasks &&
         !opts.excludeParents &&
-        (hasExplicitFilters || hierarchyMode === "parents" || hierarchyMode === "subtasks" || hierarchyMode === "recursive")
+        (hasExplicitFilters ||
+          hierarchyMode === "parents" ||
+          hierarchyMode === "subtasks" ||
+          hierarchyMode === "recursive")
       ) {
         strategy = opts.includeSubTasks
           ? "FILTERED_RECURSIVE_HIERARCHY"
@@ -484,9 +516,10 @@ export class TasksService {
 
       if (opts.groupBy === "status") {
         const targetStatuses = toArray(opts.status);
-        // Default to 5 per status for initial parallel load, 
+        // Default to 5 per status for initial parallel load,
         // handleLoadMore will explicitly request 10.
-        const perStatusLimit = opts.limit ?? (opts.view_mode === "kanban" ? 5 : 15);
+        const perStatusLimit =
+          opts.limit ?? (opts.view_mode === "kanban" ? 5 : 15);
 
         // --- STRATEGY A: SINGLE STATUS PAGINATION (Load More) ---
         // If the user specifies exactly one status, we treat this as a pagination request for one column.
@@ -502,19 +535,25 @@ export class TasksService {
               assigneeId: toArray(opts.assigneeId),
               tagId: toArray(opts.tagId),
               search: opts.search,
-              dueAfter: (opts.dueAfter),
-              dueBefore: opts.dueBefore ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!) : undefined,
+              dueAfter: opts.dueAfter,
+              dueBefore: opts.dueBefore
+                ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!)
+                : undefined,
               isAdmin,
               fullAccessProjectIds,
               restrictedProjectIds,
               status: [status as any],
               cursor: opts.cursor,
-              onlyParents: opts.onlyParents || (!hasExplicitFilters && hierarchyMode === "parents"),
-              onlySubtasks: opts.onlySubtasks || (!hasExplicitFilters && hierarchyMode === "children"),
+              onlyParents:
+                opts.onlyParents ||
+                (!hasExplicitFilters && hierarchyMode === "parents"),
+              onlySubtasks:
+                opts.onlySubtasks ||
+                (!hasExplicitFilters && hierarchyMode === "children"),
               excludeParents: opts.excludeParents,
               view_mode: opts.view_mode,
             },
-            userId
+            userId,
           );
 
           const tasks = await prisma.task.findMany({
@@ -546,7 +585,9 @@ export class TasksService {
               });
               tasks.forEach((parent: any) => {
                 if (parent.isParent) {
-                  parent.subTasks = subtasks.filter((st) => st.parentTaskId === parent.id);
+                  parent.subTasks = subtasks.filter(
+                    (st) => st.parentTaskId === parent.id,
+                  );
                 } else {
                   parent.subTasks = [];
                 }
@@ -555,12 +596,18 @@ export class TasksService {
           }
 
           const primarySort = opts.sorts?.[0];
-          const lastTask = tasks.length > 0 ? (tasks[tasks.length - 1] as any) : null;
-          const nextCursor: any = trueHasMore && lastTask
-            ? primarySort && SORT_MAP[primarySort.field]
-              ? { id: lastTask.id, [SORT_MAP[primarySort.field].dbField]: lastTask[SORT_MAP[primarySort.field].dbField] }
-              : { id: lastTask.id, createdAt: lastTask.createdAt }
-            : null;
+          const lastTask =
+            tasks.length > 0 ? (tasks[tasks.length - 1] as any) : null;
+          const nextCursor: any =
+            trueHasMore && lastTask
+              ? primarySort && SORT_MAP[primarySort.field]
+                ? {
+                  id: lastTask.id,
+                  [SORT_MAP[primarySort.field].dbField]:
+                    lastTask[SORT_MAP[primarySort.field].dbField],
+                }
+                : { id: lastTask.id, createdAt: lastTask.createdAt }
+              : null;
 
           const totalCount = await prisma.task.count({ where });
 
@@ -571,7 +618,7 @@ export class TasksService {
             nextCursor,
             facets: {
               ...emptyFacets,
-              status: { [status]: totalCount }
+              status: { [status]: totalCount },
             },
           };
         }
@@ -580,26 +627,36 @@ export class TasksService {
         strategy = "KANBAN_OPTIMIZED_PARALLEL";
 
         // 1. Get counts for all statuses (efficient)
-        const countWhere = JSON.parse(JSON.stringify(buildWorkspaceFilterWhere(
-          {
-            workspaceId,
-            ids: opts.ids,
-            projectId: opts.projectId,
-            assigneeId: toArray(opts.assigneeId),
-            tagId: toArray(opts.tagId),
-            search: opts.search,
-            dueAfter: toUTCDateOnly(opts.dueAfter),
-            dueBefore: opts.dueBefore ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!) : undefined,
-            isAdmin,
-            fullAccessProjectIds,
-            restrictedProjectIds,
-            onlyParents: opts.onlyParents || (!hasExplicitFilters && hierarchyMode === "parents"),
-            onlySubtasks: opts.onlySubtasks || (!hasExplicitFilters && hierarchyMode === "children"),
-            excludeParents: opts.excludeParents,
-            view_mode: opts.view_mode,
-          },
-          userId
-        )));
+        const countWhere = JSON.parse(
+          JSON.stringify(
+            buildWorkspaceFilterWhere(
+              {
+                workspaceId,
+                ids: opts.ids,
+                projectId: opts.projectId,
+                assigneeId: toArray(opts.assigneeId),
+                tagId: toArray(opts.tagId),
+                search: opts.search,
+                dueAfter: toUTCDateOnly(opts.dueAfter),
+                dueBefore: opts.dueBefore
+                  ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!)
+                  : undefined,
+                isAdmin,
+                fullAccessProjectIds,
+                restrictedProjectIds,
+                onlyParents:
+                  opts.onlyParents ||
+                  (!hasExplicitFilters && hierarchyMode === "parents"),
+                onlySubtasks:
+                  opts.onlySubtasks ||
+                  (!hasExplicitFilters && hierarchyMode === "children"),
+                excludeParents: opts.excludeParents,
+                view_mode: opts.view_mode,
+              },
+              userId,
+            ),
+          ),
+        );
 
         const countsResult = await prisma.task.groupBy({
           by: ["status"],
@@ -613,7 +670,14 @@ export class TasksService {
         });
 
         // 2. Define the statuses we care about
-        const allStatuses = ["TO_DO", "IN_PROGRESS", "REVIEW", "HOLD", "COMPLETED", "CANCELLED"];
+        const allStatuses = [
+          "TO_DO",
+          "IN_PROGRESS",
+          "REVIEW",
+          "HOLD",
+          "COMPLETED",
+          "CANCELLED",
+        ];
 
         // 3. Fetch tasks for each status in parallel
         const statusTasksResults = await Promise.all(
@@ -626,18 +690,24 @@ export class TasksService {
                 assigneeId: toArray(opts.assigneeId),
                 tagId: toArray(opts.tagId),
                 search: opts.search,
-                dueAfter: (opts.dueAfter),
-                dueBefore: opts.dueBefore ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!) : undefined,
+                dueAfter: opts.dueAfter,
+                dueBefore: opts.dueBefore
+                  ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!)
+                  : undefined,
                 isAdmin,
                 fullAccessProjectIds,
                 restrictedProjectIds,
                 status: [status as any],
-                onlyParents: opts.onlyParents || (!hasExplicitFilters && hierarchyMode === "parents"),
-                onlySubtasks: opts.onlySubtasks || (!hasExplicitFilters && hierarchyMode === "children"),
+                onlyParents:
+                  opts.onlyParents ||
+                  (!hasExplicitFilters && hierarchyMode === "parents"),
+                onlySubtasks:
+                  opts.onlySubtasks ||
+                  (!hasExplicitFilters && hierarchyMode === "children"),
                 excludeParents: opts.excludeParents,
                 view_mode: opts.view_mode,
               },
-              userId
+              userId,
             );
 
             return prisma.task.findMany({
@@ -646,7 +716,7 @@ export class TasksService {
               select: getTaskSelect(opts.view_mode, isMinimal),
               orderBy: buildOrderBy(opts.sorts),
             });
-          })
+          }),
         );
 
         const tasks = statusTasksResults.flat();
@@ -670,7 +740,9 @@ export class TasksService {
             });
             tasks.forEach((parent: any) => {
               if (parent.isParent) {
-                parent.subTasks = subtasks.filter((st) => st.parentTaskId === parent.id);
+                parent.subTasks = subtasks.filter(
+                  (st) => st.parentTaskId === parent.id,
+                );
               } else {
                 parent.subTasks = [];
               }
@@ -679,7 +751,10 @@ export class TasksService {
         }
 
         if (opts.view_mode === "kanban") {
-          const tasksByStatus: Record<string, { tasks: any[], nextCursor: any, hasMore: boolean }> = {};
+          const tasksByStatus: Record<
+            string,
+            { tasks: any[]; nextCursor: any; hasMore: boolean }
+          > = {};
 
           const primarySort = opts.sorts?.[0];
 
@@ -688,24 +763,35 @@ export class TasksService {
             const hasMore = statusTasks.length > perStatusLimit;
             if (hasMore) statusTasks.pop();
 
-            const lastTask = statusTasks.length > 0 ? (statusTasks[statusTasks.length - 1] as any) : null;
-            const nextCursor: any = hasMore && lastTask
-              ? primarySort && SORT_MAP[primarySort.field]
-                ? { id: lastTask.id, [SORT_MAP[primarySort.field].dbField]: lastTask[SORT_MAP[primarySort.field].dbField] }
-                : { id: lastTask.id, createdAt: lastTask.createdAt }
-              : null;
+            const lastTask =
+              statusTasks.length > 0
+                ? (statusTasks[statusTasks.length - 1] as any)
+                : null;
+            const nextCursor: any =
+              hasMore && lastTask
+                ? primarySort && SORT_MAP[primarySort.field]
+                  ? {
+                    id: lastTask.id,
+                    [SORT_MAP[primarySort.field].dbField]:
+                      lastTask[SORT_MAP[primarySort.field].dbField],
+                  }
+                  : { id: lastTask.id, createdAt: lastTask.createdAt }
+                : null;
 
             tasksByStatus[status] = {
               tasks: statusTasks,
               nextCursor,
-              hasMore
+              hasMore,
             };
           });
 
           return {
             tasks: [], // Added for consistent return shape and to fix type union issues
             tasksByStatus,
-            totalCount: Object.values(statusCounts).reduce((acc, c) => acc + c, 0),
+            totalCount: Object.values(statusCounts).reduce(
+              (acc, c) => acc + c,
+              0,
+            ),
             hasMore: false,
             nextCursor: null,
             facets: {
@@ -742,9 +828,7 @@ export class TasksService {
           excludeParents: opts.excludeParents,
           onlySubtasks:
             !hasExplicitFilters &&
-            (isSorting ||
-              opts.onlySubtasks ||
-              hierarchyMode === "children"),
+            (isSorting || opts.onlySubtasks || hierarchyMode === "children"),
         },
       );
 
@@ -856,12 +940,12 @@ export class TasksService {
 
     const rawSubtasks = await prisma.task.findMany({
       where: {
-        OR: [
-          { id: parentTaskId },
-          where
-        ]
+        OR: [{ id: parentTaskId }, where],
       },
-      select: getTaskSelect(opts.view_mode, opts.view_mode === "gantt" || opts.isMinimal),
+      select: getTaskSelect(
+        opts.view_mode,
+        opts.view_mode === "gantt" || opts.isMinimal,
+      ),
       orderBy: buildOrderBy(opts.sorts),
       take: limit + 5, // Extra buffer for the parent and potential overlap
     });
@@ -958,12 +1042,16 @@ export class TasksService {
               : undefined,
           includeSubTasks: opts.includeSubTasks,
           onlyParents: !hasExplicitFilters && opts.hierarchyMode === "parents",
-          onlySubtasks: !hasExplicitFilters && opts.hierarchyMode === "children",
+          onlySubtasks:
+            !hasExplicitFilters && opts.hierarchyMode === "children",
           cursor: opts.cursor,
         },
         userId,
       ),
-      select: getTaskSelect(opts.view_mode, opts.view_mode === "gantt" || opts.isMinimal),
+      select: getTaskSelect(
+        opts.view_mode,
+        opts.view_mode === "gantt" || opts.isMinimal,
+      ),
       take: limit + 1,
       orderBy: buildOrderBy(opts.sorts),
     });
@@ -977,14 +1065,15 @@ export class TasksService {
 
     const taskMap = new Map<string, any>();
     // For Gantt mode, we strictly honor includeSubTasks even if filters are active to prevent N+1 bloat
-    const shouldHaveSubTasks = (opts.view_mode === "gantt")
-      ? opts.includeSubTasks
-      : (opts.includeSubTasks || hasExplicitFilters);
+    const shouldHaveSubTasks =
+      opts.view_mode === "gantt"
+        ? opts.includeSubTasks
+        : opts.includeSubTasks || hasExplicitFilters;
 
     matches.forEach((t) =>
       taskMap.set(t.id, {
         ...t,
-        subTasks: (shouldHaveSubTasks && t.isParent) ? [] : undefined,
+        subTasks: shouldHaveSubTasks && t.isParent ? [] : undefined,
       }),
     );
 
@@ -1005,7 +1094,8 @@ export class TasksService {
 
       parentIdsToExpand.forEach((id) => expandedParentIds.add(id));
 
-      if (missingParentIds.length === 0 && parentIdsToExpand.length === 0) break;
+      if (missingParentIds.length === 0 && parentIdsToExpand.length === 0)
+        break;
 
       const orConditions: any[] = [];
       if (missingParentIds.length > 0) {
@@ -1013,7 +1103,10 @@ export class TasksService {
       }
       if (parentIdsToExpand.length > 0) {
         orConditions.push({
-          AND: [{ parentTaskId: { in: parentIdsToExpand } }, expansionMatchWhere],
+          AND: [
+            { parentTaskId: { in: parentIdsToExpand } },
+            expansionMatchWhere,
+          ],
         });
       }
       const extraTasks = await prisma.task.findMany({
@@ -1040,7 +1133,7 @@ export class TasksService {
     const rootTasks: any[] = [];
     const nestedIds = new Set<string>();
     const allTasks = Array.from(taskMap.values());
-    
+
     // 🌳 Building Tree: ONLY if subtasks are explicitly requested or filters are forcing expansion
     if (shouldHaveSubTasks) {
       allTasks.forEach((task) => {
@@ -1159,7 +1252,9 @@ export class TasksService {
           where.AND = [
             ...(Array.isArray(where.AND)
               ? where.AND
-              : (where.AND ? [where.AND] : [])),
+              : where.AND
+                ? [where.AND]
+                : []),
             { OR: existingOR },
             seek,
           ];
@@ -1167,7 +1262,9 @@ export class TasksService {
           where.AND = [
             ...(Array.isArray(where.AND)
               ? where.AND
-              : (where.AND ? [where.AND] : [])),
+              : where.AND
+                ? [where.AND]
+                : []),
             seek,
           ];
         }
@@ -1180,7 +1277,7 @@ export class TasksService {
     const [rawTasks] = await Promise.all([
       prisma.task.findMany({
         where,
-        select: getTaskSelect(opts.view_mode),
+        select: getTaskSelect(opts.view_mode, true), // Use minimal select for filter queries
         orderBy: buildOrderBy(opts.sorts),
         take: limit + 1,
         skip: opts.skip || 0,
@@ -1189,7 +1286,9 @@ export class TasksService {
     const queryDuration = performance.now() - queryStartTime;
 
     if (queryDuration > 100) {
-      console.log(`[SLOW_QUERY] TasksService._fetchWorkspaceFilter took ${queryDuration.toFixed(2)}ms for workspace: ${workspaceId}`);
+      console.log(
+        `[SLOW_QUERY] TasksService._fetchWorkspaceFilter took ${queryDuration.toFixed(2)}ms for workspace: ${workspaceId}`,
+      );
     }
 
     const hasMore = rawTasks.length > limit;
@@ -1372,10 +1471,7 @@ export class TasksService {
       });
       await recordActivity({
         userId,
-        userName:
-          permissions.userSurname ||
-          permissions.userName ||
-          "Someone",
+        userName: permissions.userSurname,
         workspaceId,
         action: "SUBTASK_CREATED",
         entityType: "SUBTASK",
@@ -1747,10 +1843,7 @@ export class TasksService {
 
       await recordActivity({
         userId,
-        userName:
-          permissions.userSurname ||
-          permissions.userName ||
-          "Someone",
+        userName: permissions.userSurname || permissions.userName || "Someone",
         workspaceId,
         action: task.parentTaskId ? "SUBTASK_UPDATED" : "TASK_UPDATED",
         entityType: task.parentTaskId ? "SUBTASK" : "TASK",
@@ -1831,10 +1924,7 @@ export class TasksService {
     try {
       await recordActivity({
         userId,
-        userName:
-          permissions.userSurname ||
-          permissions.userName ||
-          "Someone",
+        userName: permissions.userSurname || permissions.userName || "Someone",
         workspaceId,
         action: task.parentTaskId ? "SUBTASK_DELETED" : "TASK_DELETED",
         entityType: task.parentTaskId ? "SUBTASK" : "TASK",
@@ -1942,10 +2032,7 @@ export class TasksService {
     try {
       await recordActivity({
         userId,
-        userName:
-          permissions.userSurname ||
-          permissions.userName ||
-          "Someone",
+        userName: permissions.userSurname || permissions.userName || "Someone",
         workspaceId,
         action: "TASK_UPDATED",
         entityType: "TASK",
@@ -2182,7 +2269,7 @@ export class TasksService {
       viewMode,
       userId,
       true, // skipPermissionsCheck for service-level access
-      cursor
+      cursor,
     );
 
     if (!results || results.length === 0) {
@@ -2257,9 +2344,8 @@ export class TasksService {
     userId: string;
     userName: string;
   }) {
-    const { getUserPermissions } = await import(
-      "@/data/user/get-user-permissions"
-    );
+    const { getUserPermissions } =
+      await import("@/data/user/get-user-permissions");
 
     // 1. Parallel fetch context
     const [task, permissions] = await Promise.all([

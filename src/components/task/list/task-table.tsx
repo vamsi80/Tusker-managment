@@ -103,7 +103,8 @@ function TaskTable({
   projectCounts,
   isShell = false,
 }: TaskTableProps) {
-  const { filters, setFilters, searchQuery, setSearchQuery, clearFilters } = useFilterStore();
+  const { filters, setFilters, searchQuery, setSearchQuery, clearFilters } =
+    useFilterStore();
   const debouncedSetFilters = useCallback(debounce(setFilters, 200), [
     setFilters,
   ]);
@@ -142,7 +143,9 @@ function TaskTable({
 
   const projectMap = useMemo(() => {
     const map: Record<string, any> = {};
-    projects?.forEach((p) => { map[p.id] = p; });
+    projects?.forEach((p) => {
+      map[p.id] = p;
+    });
     return map;
   }, [projects]);
 
@@ -151,16 +154,23 @@ function TaskTable({
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const tasksRef = useRef<TaskWithSubTasks[]>([]);
   const loadMoreSortedRef = useRef<(() => Promise<void>) | null>(null);
-  const loadProjectTasksRef = useRef<((id: string) => Promise<void>) | null>(null);
+  const loadProjectTasksRef = useRef<((id: string) => Promise<void>) | null>(
+    null,
+  );
   const autoExpandRef = useRef(false);
   const processedSubTasksRef = useRef<Set<string>>(new Set());
   const fetchingSubTasksRef = useRef<Set<string>>(new Set());
   const fetchingIdsRef = useRef<Set<string>>(new Set()); // Lock for parent/project fetches
   const isInitialMountRef = useRef<boolean>(true);
   const hasFetchedRef = useRef(false);
+  const filteredProjectQueueRunningRef = useRef(false);
 
   const hydrateTasks = useCallback(
-    (taskList: TaskWithSubTasks[], debugLabel?: string) => {
+    (
+      taskList: TaskWithSubTasks[],
+      debugLabel?: string,
+      options?: { skipMemorySubtasks?: boolean },
+    ) => {
       // 1. First, try to merge from what we already have in memory (essential for preservation during filters)
       const currentTasks = tasksRef.current;
       const memoryMap = new Map<string, TaskWithSubTasks>();
@@ -175,19 +185,22 @@ function TaskTable({
         // If it already has subtasks (from a fresh server result if that ever happens), keep them
         if (t.subTasks !== undefined) return t;
 
-        // Check memory first (preserves state during fast filter toggles)
-        const inMemory = memoryMap.get(t.id);
-        if (inMemory) {
-          return {
-            ...t,
-            subTasks: inMemory.subTasks,
-            subTasksHasMore: inMemory.subTasksHasMore,
-            subTasksNextCursor: inMemory.subTasksNextCursor,
-          };
-        }
+        // ✅ Bug 2 Fix: Skip memory + global cache entirely when filters are active.
+        // Hydrating stale unfiltered subtasks here would overwrite fresh filtered results
+        // and feed Bug 3 (gate blocks re-fetch because subTasks !== undefined).
+        if (!filtersActive && !options?.skipMemorySubtasks) {
+          // Check memory first (preserves state during fast filter toggles)
+          const inMemory = memoryMap.get(t.id);
+          if (inMemory) {
+            return {
+              ...t,
+              subTasks: inMemory.subTasks,
+              subTasksHasMore: inMemory.subTasksHasMore,
+              subTasksNextCursor: inMemory.subTasksNextCursor,
+            };
+          }
 
-        // Check global cache if NOT in special filtered mode
-        if (!filtersActive) {
+          // Check global cache
           const cached = getCache(t.id);
           if (cached) {
             return {
@@ -202,33 +215,202 @@ function TaskTable({
       });
 
       // 🔬 DEBUG: Log what was resolved vs what couldn't be hydrated
-      const noSubtaskIds = result.filter(t => t.isParent && t.subTasks === undefined).map(t => t.name);
-      const hasSubtaskIds = result.filter(t => t.isParent && t.subTasks !== undefined).map(t => `${t.name}(${(t.subTasks as any)?.length}st)`);
-      console.log(`[Hydrate${debugLabel ? ` @ ${debugLabel}` : ''}] MemoryCacheSize=${memoryMap.size} | Loaded=${hasSubtaskIds.join(', ')} | Missing=${noSubtaskIds.join(', ')}`);
+      const noSubtaskIds = result
+        .filter((t) => t.isParent && t.subTasks === undefined)
+        .map((t) => t.name);
+      const hasSubtaskIds = result
+        .filter((t) => t.isParent && t.subTasks !== undefined)
+        .map((t) => `${t.name}(${(t.subTasks as any)?.length}st)`);
+      console.log(
+        `[Hydrate${debugLabel ? ` @ ${debugLabel}` : ""}] MemoryCacheSize=${memoryMap.size} | Loaded=${hasSubtaskIds.join(", ")} | Missing=${noSubtaskIds.join(", ")}`,
+      );
 
       return result;
     },
     [filtersActive],
   );
 
-  const [tasks, setTasks] = useState<TaskWithSubTasks[]>(() => hydrateTasks(initialTasks));
+  const compareByCreatedAtAsc = useCallback((a: any, b: any) => {
+    const aTime = a?.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const bTime = b?.createdAt ? new Date(b.createdAt).getTime() : 0;
+    if (aTime !== bTime) return aTime - bTime;
+
+    const aId = String(a?.id || "");
+    const bId = String(b?.id || "");
+    return aId < bId ? -1 : aId > bId ? 1 : 0;
+  }, []);
+
+  const compareSubTasksFallback = useCallback(
+    (a: any, b: any) => {
+      const aPos =
+        typeof a?.position === "number" ? a.position : Number.MAX_SAFE_INTEGER;
+      const bPos =
+        typeof b?.position === "number" ? b.position : Number.MAX_SAFE_INTEGER;
+      if (aPos !== bPos) return aPos - bPos;
+      return compareByCreatedAtAsc(a, b);
+    },
+    [compareByCreatedAtAsc],
+  );
+
+  const getCanonicalProjectTaskIds = useCallback(
+    (targetProjectId: string) => {
+      const seen = new Set<string>();
+      const orderedIds: string[] = [];
+      const state = useTaskCacheStore.getState();
+
+      const pushTask = (task: TaskWithSubTasks) => {
+        if (
+          task.projectId === targetProjectId &&
+          !task.parentTaskId &&
+          !seen.has(task.id)
+        ) {
+          seen.add(task.id);
+          orderedIds.push(task.id);
+        }
+      };
+
+      const cached = state.getProjectTasksCache(targetProjectId);
+      cached?.tasks.forEach((task) => pushTask(task as TaskWithSubTasks));
+      initialTasks.forEach((task) => pushTask(task));
+      tasksRef.current.forEach((task) => pushTask(task));
+
+      return orderedIds;
+    },
+    [initialTasks],
+  );
+
+  const orderSubTasksForParent = useCallback(
+    (parentTaskId: string, subTasks: any[], preferredSource?: any[]) => {
+      const deduped = subTasks.filter(
+        (subTask, index, self) =>
+          index === self.findIndex((candidate) => candidate.id === subTask.id),
+      );
+
+      const rankMap = new Map<string, number>();
+      const canonicalSources = [
+        preferredSource,
+        tasksRef.current.find((task) => task.id === parentTaskId)?.subTasks,
+        getCachedSubTasks(parentTaskId)?.subTasks,
+      ];
+
+      canonicalSources.forEach((source) => {
+        source?.forEach((subTask: any) => {
+          if (subTask?.id && !rankMap.has(subTask.id)) {
+            rankMap.set(subTask.id, rankMap.size);
+          }
+        });
+      });
+
+      return deduped.sort((a, b) => {
+        const aRank = rankMap.get(a.id);
+        const bRank = rankMap.get(b.id);
+
+        if (aRank !== undefined && bRank !== undefined) return aRank - bRank;
+        if (aRank !== undefined) return -1;
+        if (bRank !== undefined) return 1;
+
+        return compareSubTasksFallback(a, b);
+      });
+    },
+    [compareSubTasksFallback, getCachedSubTasks],
+  );
+
+  const orderRootTasks = useCallback(
+    (taskList: TaskWithSubTasks[]) => {
+      const deduped = taskList.filter(
+        (task, index, self) =>
+          index === self.findIndex((candidate) => candidate.id === task.id),
+      );
+
+      const projectRank = new Map<string, number>();
+      projects.forEach((project, index) => {
+        projectRank.set(project.id, index);
+      });
+
+      const projectTaskRanks = new Map<string, Map<string, number>>();
+
+      const getTaskRankMap = (targetProjectId: string) => {
+        if (!projectTaskRanks.has(targetProjectId)) {
+          const rankMap = new Map<string, number>();
+          getCanonicalProjectTaskIds(targetProjectId).forEach((taskId, index) => {
+            rankMap.set(taskId, index);
+          });
+          projectTaskRanks.set(targetProjectId, rankMap);
+        }
+        return projectTaskRanks.get(targetProjectId)!;
+      };
+
+      return deduped.sort((a, b) => {
+        const aProjectRank =
+          projectRank.get(a.projectId || "") ?? Number.MAX_SAFE_INTEGER;
+        const bProjectRank =
+          projectRank.get(b.projectId || "") ?? Number.MAX_SAFE_INTEGER;
+
+        if (aProjectRank !== bProjectRank) return aProjectRank - bProjectRank;
+
+        const sameProjectId = a.projectId || b.projectId || "";
+        const rankMap = getTaskRankMap(sameProjectId);
+        const aRank = rankMap.get(a.id);
+        const bRank = rankMap.get(b.id);
+
+        if (aRank !== undefined && bRank !== undefined) return aRank - bRank;
+        if (aRank !== undefined) return -1;
+        if (bRank !== undefined) return 1;
+
+        return compareByCreatedAtAsc(a, b);
+      });
+    },
+    [compareByCreatedAtAsc, getCanonicalProjectTaskIds, projects],
+  );
+
+  const normalizeFilteredTasks = useCallback(
+    (taskList: TaskWithSubTasks[]) =>
+      orderRootTasks(
+        taskList.map((task) => ({
+          ...task,
+          subTasks: task.subTasks
+            ? orderSubTasksForParent(task.id, task.subTasks)
+            : task.subTasks,
+        })),
+      ),
+    [orderRootTasks, orderSubTasksForParent],
+  );
+
+  const [tasks, setTasks] = useState<TaskWithSubTasks[]>(() =>
+    hydrateTasks(initialTasks),
+  );
   const [projectPagination, setProjectPagination] = useState<
     Record<
       string,
       { page: number; nextCursor: any; hasMore: boolean; isLoading: boolean }
     >
   >(() => {
+    const initial: any = {};
+
     if (level === "project" && projectId && initialTasks.length > 0) {
-      return {
-        [projectId]: {
-          page: 1,
-          nextCursor: initialNextCursor,
-          hasMore: initialHasMore,
-          isLoading: false,
-        },
+      initial[projectId] = {
+        page: 1,
+        nextCursor: initialNextCursor,
+        hasMore: initialHasMore,
+        isLoading: false,
       };
     }
-    return {};
+
+    // Pre-populate pagination state from facets to enable lazy loading on expand
+    if (projectCounts) {
+      Object.entries(projectCounts).forEach(([pId, count]) => {
+        if (count > 0 && !initial[pId]) {
+          initial[pId] = {
+            page: 1,
+            nextCursor: undefined,
+            hasMore: true,
+            isLoading: false,
+          };
+        }
+      });
+    }
+
+    return initial;
   });
 
   // 🧹 Filter Reset Logic: Ensures a clean slate when navigating between different views
@@ -245,278 +427,335 @@ function TaskTable({
 
   const sortsKey = sorts.map((s) => `${s.field}:${s.direction}`).join(",");
 
-  const fetchFiltered = useCallback(async (isAbortedRef: { current: boolean }) => {
-    setIsLoadingFilters(true);
-    setIsCurrentlyFiltered(true);
-    // 🧼 Clear expansion gates: Every filter change must allow subtasks to be re-fetched
-    // This prevents stale "already processed" markers from blocking subtask loading
-    // after the filter changes what subtasks are visible.
-    processedSubTasksRef.current.clear();
-    fetchingSubTasksRef.current.clear();
+  const fetchFiltered = useCallback(
+    async (isAbortedRef: { current: boolean }) => {
+      setIsLoadingFilters(true);
+      setIsCurrentlyFiltered(true);
+      // 🧼 Clear expansion gates: Every filter change must allow subtasks to be re-fetched
+      // This prevents stale "already processed" markers from blocking subtask loading
+      // after the filter changes what subtasks are visible.
+      processedSubTasksRef.current.clear();
+      fetchingSubTasksRef.current.clear();
 
-    try {
-      const params = new URLSearchParams();
-      params.set("w", workspaceId);
-      if (level === "project" && projectId) params.set("p", projectId);
-      params.set("vm", "list");
-      params.set("hm", "parents");
-      params.set("l", "20");
-      params.set("sub", "false");
-      params.set("facets", "true");
+      try {
+        const params = new URLSearchParams();
+        params.set("w", workspaceId);
+        if (level === "project" && projectId) params.set("p", projectId);
+        params.set("vm", "list");
+        params.set("l", "20");
+        params.set("sub", "false");
+        params.set("facets", "true");
 
-      if (filters.status) params.set("s", filters.status);
-      if (filters.assigneeId) params.set("a", filters.assigneeId);
-      if (filters.tagId) params.set("t", filters.tagId);
-      if (filters.startDate) params.set("da", new Date(filters.startDate).toISOString());
-      if (filters.endDate) params.set("db", new Date(filters.endDate).toISOString());
-      if (sorts.length > 0) params.set("sorts", JSON.stringify(sorts));
-      if (searchQuery) {
-        params.set("q", searchQuery);
-        // Include subtasks when searching so matching subtasks materialise under their parents
-        params.set("sub", "true");
-      }
+        // Only set hierarchyMode to "parents" when NO filters are active
+        // This ensures subtasks matching filters are also returned
+        const hasActiveFiltersValue =
+          hasActiveFilters(filters) || !!searchQuery;
+        if (!hasActiveFiltersValue) {
+          params.set("hm", "parents");
+        }
 
-      const fetchKey = `filtered-${params.toString()}`;
-      if (fetchingIdsRef.current.has(fetchKey)) return;
-      fetchingIdsRef.current.add(fetchKey);
-      hasFetchedRef.current = true;
+        if (filters.status) params.set("s", filters.status);
+        if (filters.assigneeId) params.set("a", filters.assigneeId);
+        if (filters.tagId) params.set("t", filters.tagId);
+        if (filters.startDate)
+          params.set("da", new Date(filters.startDate).toISOString());
+        if (filters.endDate)
+          params.set("db", new Date(filters.endDate).toISOString());
+        if (sorts.length > 0) params.set("sorts", JSON.stringify(sorts));
+        if (searchQuery) {
+          params.set("q", searchQuery);
+          // Include subtasks when searching so matching subtasks materialise under their parents
+          params.set("sub", "true");
+        }
 
-      const apiRes = await fetch(`/api/v1/tasks?${params.toString()}`);
-      const response = await apiRes.json();
+        const fetchKey = `filtered-${params.toString()}`;
+        if (fetchingIdsRef.current.has(fetchKey)) return;
+        fetchingIdsRef.current.add(fetchKey);
+        hasFetchedRef.current = true;
 
-      if (isAbortedRef.current) return;
+        const apiRes = await fetch(`/api/v1/tasks?${params.toString()}`);
+        const response = await apiRes.json();
 
-      if (response.success && response.data) {
-        const result = response.data as any;
-        const sizeInBytes = JSON.stringify(response.data).length;
-        console.log(`[Zero-Weight] Filter Results:`, {
-          count: result.tasks?.length || 0,
-          size: `${(sizeInBytes / 1024).toFixed(2)} KB`,
-          hasMore: result.hasMore,
-          taskNames: result.tasks?.map((t: any) => t.name)
-        });
-        setTasks(hydrateTasks(result.tasks, 'filter-apply'));
+        if (isAbortedRef.current) return;
 
-        if (result.facets?.projects) {
-          const facetProjects = result.facets.projects as Record<string, number>;
-          setCurrentProjectCounts(facetProjects);
-
-          setProjectPagination((prev) => {
-            const next = { ...prev };
-            let changed = false;
-            Object.entries(facetProjects).forEach(([pId, count]) => {
-              if (count > 0 && !next[pId]) {
-                next[pId] = {
-                  page: 1,
-                  nextCursor: undefined,
-                  hasMore: true,
-                  isLoading: false,
-                };
-                changed = true;
-              }
-            });
-            return changed ? next : prev;
+        if (response.success && response.data) {
+          const result = response.data as any;
+          const sizeInBytes = JSON.stringify(response.data).length;
+          console.log(`[Zero-Weight] Filter Results:`, {
+            count: result.tasks?.length || 0,
+            size: `${(sizeInBytes / 1024).toFixed(2)} KB`,
+            hasMore: result.hasMore,
+            taskNames: result.tasks?.map((t: any) => t.name),
           });
-        }
+          setTasks(() =>
+            hydrateTasks(
+              normalizeFilteredTasks(result.tasks),
+              "filter-apply",
+            ),
+          );
 
-        if (result.facets?.projects) {
-          setExpandedProjects((prev) => {
-            const next = { ...prev };
-            let changed = false;
-            const facetProjects = result.facets.projects as Record<string, number>;
-            Object.keys(facetProjects).forEach((pId) => {
-              if (facetProjects[pId] > 0 && next[pId] === undefined) {
-                next[pId] = true;
-                changed = true;
-              }
+          if (result.facets?.projects) {
+            const facetProjects = result.facets.projects as Record<
+              string,
+              number
+            >;
+            setCurrentProjectCounts(facetProjects);
+
+            setProjectPagination((prev) => {
+              const next = { ...prev };
+              let changed = false;
+              Object.entries(facetProjects).forEach(([pId, count]) => {
+                if (count > 0 && !next[pId]) {
+                  next[pId] = {
+                    page: 1,
+                    nextCursor: undefined,
+                    hasMore: true,
+                    isLoading: false,
+                  };
+                  changed = true;
+                }
+              });
+              return changed ? next : prev;
             });
-            return changed ? next : prev;
-          });
-        }
+          }
 
-        if (level === "workspace" && result.tasks.length > 0) {
-          setProjectPagination((prev) => ({
-            ...prev,
-            ["__global_filter__"]: {
-              page: 1,
-              nextCursor: result.nextCursor,
-              hasMore: result.hasMore,
-              isLoading: false,
-            },
-          }));
+          if (result.facets?.projects) {
+            setExpandedProjects((prev) => {
+              const next = { ...prev };
+              let changed = false;
+              const facetProjects = result.facets.projects as Record<
+                string,
+                number
+              >;
+              Object.keys(facetProjects).forEach((pId) => {
+                if (filtersActive && facetProjects[pId] > 0 && next[pId] === undefined) {
+                  next[pId] = true;
+                  changed = true;
+                }
+              });
+              return changed ? next : prev;
+            });
+          }
+
+          if (level === "workspace" && result.tasks.length > 0) {
+            setProjectPagination((prev) => ({
+              ...prev,
+              ["__global_filter__"]: {
+                page: 1,
+                nextCursor: result.nextCursor,
+                hasMore: result.hasMore,
+                isLoading: false,
+              },
+            }));
+          }
+        }
+      } catch (err) {
+        console.error("Failed to filter tasks:", err);
+        if (!isAbortedRef.current) toast.error("Failed to load tasks");
+      } finally {
+        const params = new URLSearchParams();
+        params.set("w", workspaceId);
+        if (level === "project" && projectId) params.set("p", projectId);
+        params.set("vm", "list");
+        params.set("hm", "parents");
+        params.set("l", "20");
+        params.set("sub", "false");
+        params.set("facets", "true");
+        if (filters.status) params.set("s", filters.status);
+        if (filters.assigneeId) params.set("a", filters.assigneeId);
+        if (filters.tagId) params.set("t", filters.tagId);
+        if (searchQuery) params.set("q", searchQuery);
+        if (filters.startDate)
+          params.set("da", new Date(filters.startDate).toISOString());
+        if (filters.endDate)
+          params.set("db", new Date(filters.endDate).toISOString());
+        if (sorts.length > 0) params.set("sorts", JSON.stringify(sorts));
+
+        const fetchKey = `filtered-${params.toString()}`;
+        fetchingIdsRef.current.delete(fetchKey);
+
+        if (!isAbortedRef.current) {
+          setIsLoadingFilters(false);
         }
       }
-    } catch (err) {
-      console.error("Failed to filter tasks:", err);
-      if (!isAbortedRef.current) toast.error("Failed to load tasks");
-    } finally {
-      const params = new URLSearchParams();
-      params.set("w", workspaceId);
-      if (level === "project" && projectId) params.set("p", projectId);
-      params.set("vm", "list");
-      params.set("hm", "parents");
-      params.set("l", "20");
-      params.set("sub", "false");
-      params.set("facets", "true");
-      if (filters.status) params.set("s", filters.status);
-      if (filters.assigneeId) params.set("a", filters.assigneeId);
-      if (filters.tagId) params.set("t", filters.tagId);
-      if (searchQuery) params.set("q", searchQuery);
-      if (filters.startDate) params.set("da", new Date(filters.startDate).toISOString());
-      if (filters.endDate) params.set("db", new Date(filters.endDate).toISOString());
-      if (sorts.length > 0) params.set("sorts", JSON.stringify(sorts));
+    },
+    [
+      workspaceId,
+      projectId,
+      level,
+      filters,
+      searchQuery,
+      sorts,
+      hydrateTasks,
+      normalizeFilteredTasks,
+    ],
+  );
 
-      const fetchKey = `filtered-${params.toString()}`;
-      fetchingIdsRef.current.delete(fetchKey);
+  const loadProjectTasks = useCallback(
+    async (targetProjectId: string) => {
+      const currentPagination = projectPagination[targetProjectId] || {
+        page: 0,
+        nextCursor: undefined,
+        hasMore: true,
+        isLoading: false,
+      };
 
-      if (!isAbortedRef.current) {
-        setIsLoadingFilters(false);
-      }
-    }
-  }, [workspaceId, projectId, level, filters, searchQuery, sorts, hydrateTasks]);
+      if (currentPagination.isLoading || !currentPagination.hasMore) return;
 
-  const loadProjectTasks = useCallback(async (targetProjectId: string) => {
-    const currentPagination = projectPagination[targetProjectId] || {
-      page: 0,
-      nextCursor: undefined,
-      hasMore: true,
-      isLoading: false,
-    };
+      setProjectPagination((prev) => ({
+        ...prev,
+        [targetProjectId]: { ...currentPagination, isLoading: true },
+      }));
 
-    if (currentPagination.isLoading || !currentPagination.hasMore) return;
+      const isGlobal = targetProjectId === "__global_filter__";
+      console.log(`[LazyLoad] Fetching tasks for project: ${targetProjectId}, Page: ${currentPagination.page + 1}`);
 
-    setProjectPagination((prev) => ({
-      ...prev,
-      [targetProjectId]: { ...currentPagination, isLoading: true },
-    }));
-
-    const isGlobal = targetProjectId === "__global_filter__";
-
-    try {
       const params = new URLSearchParams();
       params.set("w", workspaceId);
       if (!isGlobal) params.set("p", targetProjectId);
       params.set("vm", "list");
       params.set("hm", "parents");
-      // IF currently filtered or global, we might want subtasks to show context, 
-      // but based on user request "just fetch the updated data only", we'll default to parents.
       params.set("sub", isGlobal ? "true" : "false");
-      params.set("l", "20");
-      if (currentPagination.nextCursor) params.set("c", JSON.stringify(currentPagination.nextCursor));
+      params.set("l", "10");
+      if (currentPagination.nextCursor)
+        params.set("c", JSON.stringify(currentPagination.nextCursor));
       if (filters.status) params.set("s", filters.status);
       if (filters.assigneeId) params.set("a", filters.assigneeId);
       if (filters.tagId) params.set("t", filters.tagId);
       if (searchQuery) params.set("q", searchQuery);
-      if (filters.startDate) params.set("da", new Date(filters.startDate).toISOString());
-      if (filters.endDate) params.set("db", new Date(filters.endDate).toISOString());
+      if (filters.startDate)
+        params.set("da", new Date(filters.startDate).toISOString());
+      if (filters.endDate)
+        params.set("db", new Date(filters.endDate).toISOString());
 
       const fetchKey = `project-${targetProjectId}-${params.toString()}`;
       if (fetchingIdsRef.current.has(fetchKey)) return;
       fetchingIdsRef.current.add(fetchKey);
 
-      const apiRes = await fetch(`/api/v1/tasks?${params.toString()}`);
-      const response = await apiRes.json();
+      try {
+        const apiRes = await fetch(`/api/v1/tasks?${params.toString()}`);
+        const response = await apiRes.json();
 
-      if (response.success && response.data) {
-        const resultData = response.data as any;
-        const newTasksFromServer = resultData.tasks as unknown as TaskWithSubTasks[];
+        if (response.success && response.data) {
+          const resultData = response.data as any;
+          const newTasksFromServer = resultData.tasks as unknown as TaskWithSubTasks[];
 
-        let nextTasks: TaskWithSubTasks[] = [];
-        let addedRoots: TaskWithSubTasks[] = [];
+          setTasks((prevTasks) => {
+            let nextTasks: TaskWithSubTasks[] = [];
+            let addedRoots: TaskWithSubTasks[] = [];
 
-        if (!isGlobal) {
-          // Standard project-specific append logic
-          const currentTasks = tasksRef.current;
-          const existingIds = new Set(currentTasks.map((t) => t.id));
-          addedRoots = newTasksFromServer.filter((task) => !existingIds.has(task.id));
-          nextTasks = hydrateTasks([...currentTasks, ...addedRoots]);
-        } else {
-          // Deep Merge Logic for Recursive Filtered Hierarchies
-          const taskMap = new Map<string, TaskWithSubTasks>();
-          tasksRef.current.forEach((t) => taskMap.set(t.id, { ...t }));
-
-          newTasksFromServer.forEach((task) => {
-            if (taskMap.has(task.id)) {
-              const existing = taskMap.get(task.id)!;
-              if (task.subTasks && task.subTasks.length > 0) {
-                const subTaskMap = new Map((existing.subTasks || []).map((st) => [st.id, st]));
-                task.subTasks.forEach((st) => subTaskMap.set(st.id, st));
-                existing.subTasks = Array.from(subTaskMap.values());
-              }
+            if (!isGlobal) {
+              const existingIds = new Set(prevTasks.map((t) => t.id));
+              addedRoots = newTasksFromServer.filter(
+                (task) => !existingIds.has(task.id),
+              );
+              // Ensure we sort and deduplicate the FINAL set aggressively
+              const mergedRootTasks = filtersActive
+                ? normalizeFilteredTasks([...prevTasks, ...addedRoots])
+                : orderRootTasks([...prevTasks, ...addedRoots]);
+              nextTasks = hydrateTasks(mergedRootTasks);
             } else {
-              const newTask = { ...task };
-              taskMap.set(newTask.id, newTask);
-              addedRoots.push(newTask);
+              const taskMap = new Map<string, TaskWithSubTasks>();
+              prevTasks.forEach((t) => taskMap.set(t.id, { ...t }));
+
+              newTasksFromServer.forEach((task) => {
+                if (taskMap.has(task.id)) {
+                  const existing = taskMap.get(task.id)!;
+                  if (task.subTasks && task.subTasks.length > 0) {
+                    existing.subTasks = orderSubTasksForParent(
+                      task.id,
+                      [...(existing.subTasks || []), ...task.subTasks],
+                      existing.subTasks,
+                    );
+                  }
+                } else {
+                  const newTask = { ...task };
+                  taskMap.set(newTask.id, newTask);
+                  addedRoots.push(newTask);
+                }
+              });
+              nextTasks = hydrateTasks(
+                normalizeFilteredTasks(Array.from(taskMap.values())),
+              );
             }
+
+            // 📊 Force update count metadata if this project was previously empty
+            if (addedRoots.length > 0) {
+              setCurrentProjectCounts((prevCounts) => {
+                const current = prevCounts?.[targetProjectId] || 0;
+                if (current === 0) {
+                  return { ...prevCounts, [targetProjectId]: addedRoots.length };
+                }
+                return prevCounts;
+              });
+            }
+
+            // Expand roots if auto-expand is on (for new items)
+            if (autoExpandRef.current && addedRoots.length > 0) {
+              setTimeout(() => {
+                setExpanded((prevExpanded) => {
+                  const newExpanded = { ...prevExpanded };
+                  addedRoots.forEach((t) => {
+                    newExpanded[t.id] = true;
+                  });
+                  return newExpanded;
+                });
+              }, 0);
+            }
+
+            return nextTasks;
           });
-          nextTasks = hydrateTasks(Array.from(taskMap.values()));
-        }
 
-        setTasks(nextTasks);
-
-        // Cache Logic
-        if (!filtersActive && !isGlobal) {
-          useTaskCacheStore.getState().setProjectTasksCache(targetProjectId, {
-            tasks: nextTasks.filter((t) => t.projectId === targetProjectId),
-            hasMore: resultData.hasMore ?? false,
-            page: currentPagination.page + 1,
-            nextCursor: resultData.nextCursor,
-            totalCount: resultData.totalCount ?? undefined,
-          });
-        }
-
-        if (autoExpandRef.current && addedRoots.length > 0) {
-          setTimeout(() => {
-            setExpanded((prevExpanded) => {
-              const newExpanded = { ...prevExpanded };
-              addedRoots.forEach((t) => { newExpanded[t.id] = true; });
-              return newExpanded;
+          // Cache Logic
+          if (!filtersActive && !isGlobal) {
+            useTaskCacheStore.getState().setProjectTasksCache(targetProjectId, {
+              tasks: newTasksFromServer.filter((t) => t.projectId === targetProjectId),
+              hasMore: resultData.hasMore ?? false,
+              page: currentPagination.page + 1,
+              nextCursor: resultData.nextCursor,
+              totalCount: resultData.totalCount ?? undefined,
             });
-          }, 0);
-        }
+          }
 
-        setProjectPagination((prev) => ({
-          ...prev,
-          [targetProjectId]: {
-            page: currentPagination.page + 1,
-            nextCursor: resultData.nextCursor,
-            hasMore: resultData.hasMore ?? false,
-            isLoading: false,
-          },
-        }));
-      } else {
-        toast.error(response.error || "Failed to load tasks");
+          setProjectPagination((prev) => ({
+            ...prev,
+            [targetProjectId]: {
+              page: currentPagination.page + 1,
+              nextCursor: resultData.nextCursor,
+              hasMore: resultData.hasMore ?? false,
+              isLoading: false,
+            },
+          }));
+        } else {
+          toast.error(response.error || "Failed to load tasks");
+          setProjectPagination((prev) => ({
+            ...prev,
+            [targetProjectId]: { ...currentPagination, isLoading: false },
+          }));
+        }
+      } catch (err) {
+        console.error(`Failed to load tasks for ${targetProjectId}:`, err);
         setProjectPagination((prev) => ({
           ...prev,
           [targetProjectId]: { ...currentPagination, isLoading: false },
         }));
+      } finally {
+        fetchingIdsRef.current.delete(fetchKey);
       }
-    } catch (err) {
-      console.error(`Failed to load tasks for ${targetProjectId}:`, err);
-      setProjectPagination((prev) => ({
-        ...prev,
-        [targetProjectId]: { ...currentPagination, isLoading: false },
-      }));
-    } finally {
-      const params = new URLSearchParams();
-      params.set("w", workspaceId);
-      if (targetProjectId !== "__global_filter__") params.set("p", targetProjectId);
-      params.set("vm", "list");
-      params.set("hm", "parents");
-      params.set("sub", targetProjectId === "__global_filter__" ? "true" : "false");
-      params.set("l", "20");
-      if (projectPagination[targetProjectId]?.nextCursor) params.set("c", JSON.stringify(projectPagination[targetProjectId].nextCursor));
-      if (filters.status) params.set("s", filters.status);
-      if (filters.assigneeId) params.set("a", filters.assigneeId);
-      if (filters.tagId) params.set("t", filters.tagId);
-      if (searchQuery) params.set("q", searchQuery);
-      if (filters.startDate) params.set("da", new Date(filters.startDate).toISOString());
-      if (filters.endDate) params.set("db", new Date(filters.endDate).toISOString());
-
-      const fetchKey = `project-${targetProjectId}-${params.toString()}`;
-      fetchingIdsRef.current.delete(fetchKey);
-    }
-  }, [workspaceId, filters, searchQuery, projectPagination, hydrateTasks, filtersActive, loadingSubTasks, level]);
+    },
+    [
+      workspaceId,
+      filters,
+      searchQuery,
+      projectPagination,
+      hydrateTasks,
+      filtersActive,
+      loadingSubTasks,
+      level,
+      normalizeFilteredTasks,
+      orderSubTasksForParent,
+    ],
+  );
 
   useEffect(() => {
     tasksRef.current = tasks;
@@ -559,8 +798,6 @@ function TaskTable({
     });
   }, [initialTasks, initialHasMore, initialTotalCount, setProjectTasksCache]);
 
-
-
   // Hydration-safe Cache Merge
   useEffect(() => {
     if (filtersActive) return;
@@ -594,47 +831,23 @@ function TaskTable({
       return changed ? next : prev;
     });
 
-    // 2. Resolve Tasks from Cache
-    const cachedTasks = relevantProjectIds.flatMap((pId) => {
-      const cache = getProjCache(pId);
-      return cache
-        ? cache.tasks.filter((t) => !t.parentTaskId).slice(0, 100)
-        : [];
-    });
-
-    if (cachedTasks.length > 0) {
-      setTasks((prev) => {
-        const taskMap = new Map<string, TaskWithSubTasks>();
-        // Keep existing tasks (server truth) as priority
-        prev.forEach((t) => taskMap.set(t.id, t));
-        // Add cached tasks if not already present
-        cachedTasks.forEach((t) => {
-          if (!taskMap.has(t.id)) {
-            taskMap.set(t.id, t);
-          }
-        });
-
-        let mergedList = Array.from(taskMap.values());
-        if (level === "project" && projectId) {
-          mergedList = mergedList.filter((t) => t.projectId === projectId);
+    // 2. Hydrate subtasks from cache for existing tasks only
+    // Do NOT inject cached root tasks here, as they break pagination and ordering invariants!
+    setTasks((prev) => {
+      return prev.map((t) => {
+        if (t.subTasks !== undefined) return t;
+        const cached = getSubCache(t.id);
+        if (cached) {
+          return {
+            ...t,
+            subTasks: cached.subTasks,
+            subTasksHasMore: cached.hasMore,
+            subTasksNextCursor: cached.nextCursor,
+          };
         }
-
-        // Hydrate subtasks from cache
-        return mergedList.map((t) => {
-          if (t.subTasks !== undefined) return t;
-          const cached = getSubCache(t.id);
-          if (cached) {
-            return {
-              ...t,
-              subTasks: cached.subTasks,
-              subTasksHasMore: cached.hasMore,
-              subTasksNextCursor: cached.nextCursor,
-            };
-          }
-          return t;
-        });
+        return t;
       });
-    }
+    });
   }, [level, projectId, projects, filtersActive]);
 
   // 🚀 INITIAL DATA LOAD (Hono-First)
@@ -643,25 +856,43 @@ function TaskTable({
     const hasInitialData = initialTasks && initialTasks.length > 0;
 
     // 🛡️ Mount Guard: If we have initial data and filters are neutral, trust RSC.
-    const isNeutral = !searchQuery &&
-      Object.values(filters).every(v => v === undefined || v === "" || (Array.isArray(v) && v.length === 0));
+    const isNeutral =
+      !searchQuery &&
+      Object.values(filters).every(
+        (v) =>
+          v === undefined || v === "" || (Array.isArray(v) && v.length === 0),
+      );
 
     if (!hasFetchedRef.current && hasInitialData && isNeutral) {
       hasFetchedRef.current = true;
       return;
     }
 
-    const shouldInitialFetch = (!hasInitialData || isShell || !hasFetchedRef.current);
+    const shouldInitialFetch =
+      !hasInitialData || isShell || !hasFetchedRef.current;
 
     if (shouldInitialFetch && !filtersActive) {
       if (level === "project" && projectId) {
         loadProjectTasks(projectId);
       } else {
-        fetchFiltered(isAbortedRef);
+        // fetchFiltered(isAbortedRef); 
+        // 🚀 Deferred: Skip workspace-wide fetch on mount to favor project-by-project lazy expansion.
       }
     }
-    return () => { isAbortedRef.current = true; };
-  }, [fetchFiltered, loadProjectTasks, initialTasks, projectId, level, filtersActive, isShell, searchQuery, filters]);
+    return () => {
+      isAbortedRef.current = true;
+    };
+  }, [
+    fetchFiltered,
+    loadProjectTasks,
+    initialTasks,
+    projectId,
+    level,
+    filtersActive,
+    isShell,
+    searchQuery,
+    filters,
+  ]);
 
   useEffect(() => {
     // Release the mount guard once initial cycle is potentially settled
@@ -703,6 +934,59 @@ function TaskTable({
   }, [filtersActive, tasks]);
 
   useEffect(() => {
+    if (level !== "workspace" || !filtersActive || isLoadingFilters) return;
+    if (!currentProjectCounts) return;
+
+    const pendingProjectIds = projects
+      .filter((project) => {
+        const hasMatches = (currentProjectCounts[project.id] || 0) > 0;
+        const hasLoadedTasks = tasks.some((task) => task.projectId === project.id);
+        const pagination = projectPagination[project.id];
+
+        return (
+          hasMatches &&
+          !hasLoadedTasks &&
+          expandedProjects[project.id] === true &&
+          !!pagination?.hasMore &&
+          !pagination.isLoading
+        );
+      })
+      .map((project) => project.id);
+
+    if (pendingProjectIds.length === 0 || filteredProjectQueueRunningRef.current) {
+      return;
+    }
+
+    let cancelled = false;
+    filteredProjectQueueRunningRef.current = true;
+
+    (async () => {
+      try {
+        for (const pendingProjectId of pendingProjectIds) {
+          if (cancelled) break;
+          await loadProjectTasks(pendingProjectId);
+        }
+      } finally {
+        filteredProjectQueueRunningRef.current = false;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    level,
+    filtersActive,
+    isLoadingFilters,
+    currentProjectCounts,
+    projects,
+    tasks,
+    projectPagination,
+    expandedProjects,
+    loadProjectTasks,
+  ]);
+
+  useEffect(() => {
     tasksRef.current = tasks;
   }, [tasks]);
 
@@ -721,10 +1005,6 @@ function TaskTable({
           entries.forEach((entry) => {
             if (entry.isIntersecting) {
               const projectId = (entry.target as HTMLElement).dataset.projectId;
-
-              // 🛡️ MOUNT GUARD: Ignore intersection fetches during first second of mount
-              // This prevents 5-10 parallel project fetches firing before data settles.
-              if (isInitialMountRef.current) return;
 
               if (projectId === "sorted") {
                 loadMoreSortedRef.current?.();
@@ -766,33 +1046,58 @@ function TaskTable({
   useEffect(() => {
     const isAbortedRef = { current: false };
 
+    // 🚀 Zero-Weight Optimization: Skip the automatic fetch on initial mount if no filters are active.
+    // We trust the server-provided initialTasks and projectCounts.
+    if (isInitialMountRef.current && !filtersActive) {
+      isInitialMountRef.current = false;
+      hasFetchedRef.current = true;
+      setIsLoadingFilters(false);
+      return;
+    }
+    isInitialMountRef.current = false;
+
     // Skip if nothing changed AND we already have data
     // 🛡️ Standardized Filter Detection
     const activeFilters = hasActiveFilters(filters);
-    const isBaseProjectView = !searchQuery && (!activeFilters ||
-      (getActiveFilters(filters).length === 1 && filters.projectId === projectId));
+    const isBaseProjectView =
+      !searchQuery &&
+      (!activeFilters ||
+        (getActiveFilters(filters).length === 1 &&
+          filters.projectId === projectId));
 
-    const needsReset = isBaseProjectView && (isCurrentlyFiltered || (hasFetchedRef.current && tasks.length === 0));
+    const needsReset =
+      isBaseProjectView &&
+      (isCurrentlyFiltered || (hasFetchedRef.current && tasks.length === 0));
 
     if (needsReset) {
       if (isCurrentlyFiltered || tasks.length === 0) {
         // Reset to initial data OR cache
-        const cache = useTaskCacheStore.getState().getProjectTasksCache(projectId || "");
-        console.log(`[FilterReset] Clearing filter. Cache=${cache?.tasks.length ?? 0}, Memory=${tasksRef.current.length}`);
+        const cache = useTaskCacheStore
+          .getState()
+          .getProjectTasksCache(projectId || "");
+        console.log(
+          `[FilterReset] Clearing filter. Cache=${cache?.tasks.length ?? 0}, Memory=${tasksRef.current.length}`,
+        );
+        processedSubTasksRef.current.clear();
+        fetchingSubTasksRef.current.clear();
         if (cache && cache.tasks.length > 0) {
-          setTasks(hydrateTasks(cache.tasks, 'filter-reset-cache'));
+          setTasks(
+            hydrateTasks(cache.tasks, "filter-reset-cache", {
+              skipMemorySubtasks: true,
+            }),
+          );
         } else if (initialTasks && initialTasks.length > 0) {
-          setTasks(hydrateTasks(initialTasks, 'filter-reset-initialTasks'));
+          setTasks(
+            hydrateTasks(initialTasks, "filter-reset-initialTasks", {
+              skipMemorySubtasks: true,
+            }),
+          );
         } else {
           // 🚀 Fallback: Trigger a fresh fetch of the base data
           if (level === "project" && projectId) {
             loadProjectTasks(projectId);
-          } else {
-            // In workspace view or if specific project root fetch isn't applicable, 
-            // allow the fetchFiltered timer below to run instead of returning.
-            hasFetchedRef.current = false;
-            setIsCurrentlyFiltered(false);
-            return;
+          } else if (level === "workspace" && tasks.length === 0) {
+            fetchFiltered(isAbortedRef);
           }
         }
 
@@ -842,8 +1147,10 @@ function TaskTable({
       if (filters.assigneeId) params.set("a", filters.assigneeId);
       if (filters.tagId) params.set("t", filters.tagId);
       if (searchQuery) params.set("q", searchQuery);
-      if (filters.startDate) params.set("da", new Date(filters.startDate).toISOString());
-      if (filters.endDate) params.set("db", new Date(filters.endDate).toISOString());
+      if (filters.startDate)
+        params.set("da", new Date(filters.startDate).toISOString());
+      if (filters.endDate)
+        params.set("db", new Date(filters.endDate).toISOString());
       if (sorts.length > 0) params.set("sorts", JSON.stringify(sorts));
 
       const apiRes = await fetch(`/api/v1/tasks?${params.toString()}`);
@@ -892,8 +1199,10 @@ function TaskTable({
       if (filters.assigneeId) params.set("a", filters.assigneeId);
       if (filters.tagId) params.set("t", filters.tagId);
       if (searchQuery) params.set("q", searchQuery);
-      if (filters.startDate) params.set("da", new Date(filters.startDate).toISOString());
-      if (filters.endDate) params.set("db", new Date(filters.endDate).toISOString());
+      if (filters.startDate)
+        params.set("da", new Date(filters.startDate).toISOString());
+      if (filters.endDate)
+        params.set("db", new Date(filters.endDate).toISOString());
       if (sorts.length > 0) params.set("sorts", JSON.stringify(sorts));
 
       const apiRes = await fetch(`/api/v1/tasks?${params.toString()}`);
@@ -947,8 +1256,6 @@ function TaskTable({
     string | null
   >(null);
 
-
-
   const toggleProjectExpand = (targetProjectId: string) => {
     setExpandedProjects((prev) => {
       const isExpanding = !prev[targetProjectId];
@@ -959,30 +1266,67 @@ function TaskTable({
     });
     const isCurrentlyExpanded = expandedProjects[targetProjectId];
     if (!isCurrentlyExpanded) {
-      // Check if we need to load tasks for this project
-      const projectTasks = tasks.filter((t) => t.projectId === targetProjectId);
+      // Trigger load if:
+      // 1. Project has no tasks loaded AND metadata shows it might have some (or no pagination exists yet)
+      const localTasks = tasks;
+      const projectTasks = localTasks.filter((t) => t.projectId === targetProjectId);
       const hasNoTasksLoaded = projectTasks.length === 0;
       const pagination = projectPagination[targetProjectId];
 
-      // Trigger load if:
-      // 1. Pagination hasn't been initialized yet (Standard view)
-      // 2. OR it's a filtered view, we have no tasks for this project yet, but pagination says there are more
       if (
-        !pagination ||
-        (filtersActive && hasNoTasksLoaded && pagination.hasMore)
+        !isCurrentlyExpanded && 
+        hasNoTasksLoaded && 
+        (!pagination || pagination.hasMore)
       ) {
+        console.log(`[ExpandProject] Project "${targetProjectId}" is empty. Triggering load...`);
         loadProjectTasks(targetProjectId);
+      } else {
+        console.log(`[ExpandProject] Project "${targetProjectId}" already has ${projectTasks.length} tasks or no more data. Skipping load.`);
       }
     }
   };
 
+  const ensureFilteredProjectLoad = useCallback(
+    (targetProjectId: string) => {
+      if (level !== "workspace") return;
+
+      const hasMatches = (currentProjectCounts?.[targetProjectId] || 0) > 0;
+      const hasLoadedTasks = tasksRef.current.some(
+        (task) => task.projectId === targetProjectId,
+      );
+      const pagination = projectPagination[targetProjectId];
+      const canLoadUnfiltered =
+        !filtersActive && !!pagination?.hasMore && !pagination.isLoading;
+
+      if (
+        expandedProjects[targetProjectId] === true &&
+        !hasLoadedTasks &&
+        ((filtersActive &&
+          hasMatches &&
+          !!pagination?.hasMore &&
+          !pagination.isLoading) ||
+          canLoadUnfiltered)
+      ) {
+        loadProjectTasks(targetProjectId);
+      }
+    },
+    [
+      level,
+      filtersActive,
+      currentProjectCounts,
+      projectPagination,
+      expandedProjects,
+      loadProjectTasks,
+    ],
+  );
 
   const handleSubTaskClick = (subTask: SubTaskType) => {
     // Inject project metadata if it's missing but we have it in our map
-    const project = subTask.projectId && projectMap ? projectMap[subTask.projectId] : null;
+    const project =
+      subTask.projectId && projectMap ? projectMap[subTask.projectId] : null;
     const subTaskWithMetadata = {
       ...subTask,
-      project: (subTask as any).project || project
+      project: (subTask as any).project || project,
     };
     openSubTaskSheet(subTaskWithMetadata);
   };
@@ -1012,7 +1356,6 @@ function TaskTable({
         .filter((member) => member.user)
         .map((member) => ({
           id: member.user!.id,
-          // name: member.user!.name,
           surname: member.user!.surname || undefined,
         }))
         .sort((a, b) => {
@@ -1056,6 +1399,14 @@ function TaskTable({
           groups[project.id] = [];
         }
       });
+    } else if (isLoadingFilters) {
+      // ✅ While loading, keep previous project structure visible
+      // to prevent groups from vanishing mid-load
+      projects.forEach((project) => {
+        if (tasks.some((t) => t.projectId === project.id)) {
+          groups[project.id] = [];
+        }
+      });
     }
 
     tasks.forEach((task) => {
@@ -1066,7 +1417,20 @@ function TaskTable({
       groups[pId].push(task);
     });
     return groups;
-  }, [tasks, level, projects, filtersActive, currentProjectCounts]);
+  }, [
+    tasks,
+    level,
+    projects,
+    filtersActive,
+    currentProjectCounts,
+    isLoadingFilters,
+  ]);
+
+  const orderedWorkspaceProjects = useMemo(() => {
+    if (level !== "workspace") return projects;
+
+    return projects.filter((project) => groupedTasks?.[project.id]);
+  }, [level, projects, groupedTasks]);
 
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
     assignee: true,
@@ -1091,11 +1455,13 @@ function TaskTable({
   // 1. Lazy Subtask Loader Callback (Passed to TaskRow)
   const handleRequestSubtasks = useCallback(
     async (taskId: string) => {
-    if (
+      if (
         processedSubTasksRef.current.has(taskId) ||
         fetchingSubTasksRef.current.has(taskId)
       ) {
-        console.log(`[SubtaskGate] BLOCKED taskId=${taskId} | processed=${processedSubTasksRef.current.has(taskId)} | fetching=${fetchingSubTasksRef.current.has(taskId)}`);
+        console.log(
+          `[SubtaskGate] BLOCKED taskId=${taskId} | processed=${processedSubTasksRef.current.has(taskId)} | fetching=${fetchingSubTasksRef.current.has(taskId)}`,
+        );
         return;
       }
 
@@ -1103,8 +1469,14 @@ function TaskTable({
       // but for now we look up in current render scope tasks.
       // 2. Memory Check: If already loaded in our master state, don't refetch
       const currentTaskInState = tasksRef.current.find((t) => t.id === taskId);
-      if (currentTaskInState?.subTasks !== undefined) {
-        console.log(`[SubtaskGate] IN-MEMORY taskId=${taskId} subTaskCount=${currentTaskInState.subTasks?.length}`);
+      // ✅ Bug 3 Fix: When filters are active, only trust in-memory subTasks if they
+      // were fetched during THIS filter session. processedSubTasksRef is cleared on
+      // every filter change, so stale hydrated data won't block a fresh filtered fetch.
+      const isProcessedThisSession = processedSubTasksRef.current.has(taskId);
+      if (currentTaskInState?.subTasks !== undefined && (!filtersActive || isProcessedThisSession)) {
+        console.log(
+          `[SubtaskGate] IN-MEMORY taskId=${taskId} subTaskCount=${currentTaskInState.subTasks?.length} filteredSession=${isProcessedThisSession}`,
+        );
         processedSubTasksRef.current.add(taskId);
         return;
       }
@@ -1150,12 +1522,10 @@ function TaskTable({
         params.set("ps", "30");
         params.set("vm", "list");
 
-        if (activeFilters.status)
-          params.set("s", JSON.stringify(activeFilters.status));
-        if (activeFilters.assigneeId)
-          params.set("a", JSON.stringify(activeFilters.assigneeId));
-        if (activeFilters.tagId)
-          params.set("t", JSON.stringify(activeFilters.tagId));
+        // Don't use JSON.stringify - it adds quotes around strings
+        if (activeFilters.status) params.set("s", activeFilters.status);
+        if (activeFilters.assigneeId) params.set("a", activeFilters.assigneeId);
+        if (activeFilters.tagId) params.set("t", activeFilters.tagId);
         if (activeFilters.search) params.set("q", activeFilters.search);
         if (filters.startDate)
           params.set("da", new Date(filters.startDate).toISOString());
@@ -1173,7 +1543,9 @@ function TaskTable({
           const result = responseData.data[0];
           const subTasks = result.subTasks || [];
           const sizeInBytes = JSON.stringify(responseData.data).length;
-          console.log(`[Zero-Weight] Batch Expansion Payload: ${(sizeInBytes / 1024).toFixed(2)} KB (Target: ${taskId})`);
+          console.log(
+            `[Zero-Weight] Batch Expansion Payload: ${(sizeInBytes / 1024).toFixed(2)} KB (Target: ${taskId})`,
+          );
 
           processedSubTasksRef.current.add(taskId);
 
@@ -1182,10 +1554,15 @@ function TaskTable({
             (st: any, index: number, self: any[]) =>
               index === self.findIndex((t: any) => t.id === st.id),
           );
+          const orderedSubTasks = orderSubTasksForParent(
+            taskId,
+            uniqueSubTasks,
+            currentTaskInState?.subTasks,
+          );
 
           if (!filtersActive) {
             setCachedSubTasks(taskId, {
-              subTasks: uniqueSubTasks,
+              subTasks: orderedSubTasks,
               hasMore: result.hasMore,
               nextCursor: result.nextCursor,
             });
@@ -1196,7 +1573,7 @@ function TaskTable({
               if (t.id === taskId) {
                 return {
                   ...t,
-                  subTasks: uniqueSubTasks,
+                  subTasks: orderedSubTasks,
                   subTasksHasMore: result.hasMore,
                   subTasksNextCursor: result.nextCursor,
                 };
@@ -1222,6 +1599,7 @@ function TaskTable({
       filters,
       searchQuery,
       getCachedSubTasks,
+      orderSubTasksForParent,
       setCachedSubTasks,
     ],
   );
@@ -1236,7 +1614,10 @@ function TaskTable({
           if (
             task &&
             (task.subTasks === undefined || task.subTasks.length === 0) &&
-            task.subtaskCount > 0
+            // ✅ Bug 1 Fix: When filters are active, ignore subtaskCount (which reflects
+            // the UNFILTERED total). A parent may have 0 in the stripped payload but
+            // still have matching subtasks under the current filter — always try to fetch.
+            (filtersActive || task.subtaskCount > 0)
           ) {
             handleRequestSubtasks(taskId);
           }
@@ -1311,13 +1692,19 @@ function TaskTable({
       params.set("vm", "list"); // Hierarchy mode but for a specific parent
       params.set("pt", taskId);
       params.set("l", "30");
-      if (task.subTasksNextCursor) params.set("c", JSON.stringify(task.subTasksNextCursor));
-      if (cleanFilters.status) params.set("s", JSON.stringify(cleanFilters.status));
-      if (cleanFilters.assigneeId) params.set("a", JSON.stringify(cleanFilters.assigneeId));
-      if (cleanFilters.tagId) params.set("t", JSON.stringify(cleanFilters.tagId));
+      if (task.subTasksNextCursor)
+        params.set("c", JSON.stringify(task.subTasksNextCursor));
+      if (cleanFilters.status)
+        params.set("s", JSON.stringify(cleanFilters.status));
+      if (cleanFilters.assigneeId)
+        params.set("a", JSON.stringify(cleanFilters.assigneeId));
+      if (cleanFilters.tagId)
+        params.set("t", JSON.stringify(cleanFilters.tagId));
       if (cleanFilters.search) params.set("q", cleanFilters.search);
-      if (cleanFilters.startDate) params.set("da", new Date(cleanFilters.startDate).toISOString());
-      if (cleanFilters.endDate) params.set("db", new Date(cleanFilters.endDate).toISOString());
+      if (cleanFilters.startDate)
+        params.set("da", new Date(cleanFilters.startDate).toISOString());
+      if (cleanFilters.endDate)
+        params.set("db", new Date(cleanFilters.endDate).toISOString());
       if (sorts.length > 0) params.set("sorts", JSON.stringify(sorts));
 
       const apiRes = await fetch(`/api/v1/tasks?${params.toString()}`);
@@ -1335,7 +1722,10 @@ function TaskTable({
         const newSubTasks = (resultData.tasks as any[]).filter(
           (st: any) => st.id && !existingIds.has(st.id),
         );
-        const combinedSubTasks = [...existingSubTasks, ...newSubTasks];
+        const combinedSubTasks = orderSubTasksForParent(taskId, [
+          ...existingSubTasks,
+          ...newSubTasks,
+        ], existingSubTasks);
 
         if (!filtersActive) {
           setCachedSubTasks(taskId, {
@@ -1536,8 +1926,7 @@ function TaskTable({
                 />
               ) : groupedTasks ? (
                 // Sort project IDs to match the order in the 'projects' array (which is server-sorted newest-first)
-                projects
-                  .filter((p) => groupedTasks[p.id])
+                orderedWorkspaceProjects
                   .map((project) => {
                     const currentProjectId = project.id;
                     const projectTasks = groupedTasks[currentProjectId];
@@ -1549,13 +1938,15 @@ function TaskTable({
                         project={project}
                         initialTasks={projectTasks}
                         totalTasksCount={
-                          projectCounts
-                            ? projectCounts[currentProjectId] || 0
-                            : projectTaskCounts[currentProjectId]
+                          filtersActive
+                            ? currentProjectCounts?.[currentProjectId] ||
+                            projectTaskCounts[currentProjectId] ||
+                            0
+                            : projectCounts
+                              ? projectCounts[currentProjectId] || 0
+                              : projectTaskCounts[currentProjectId]
                         }
-                        isExpanded={
-                          expandedProjects[currentProjectId] === true
-                        }
+                        isExpanded={expandedProjects[currentProjectId] === true}
                         onToggle={() => toggleProjectExpand(currentProjectId)}
                         visibleColumnsCount={visibleColumnsCount}
                         columnVisibility={columnVisibility}
@@ -1586,13 +1977,12 @@ function TaskTable({
                         filtersActive={filtersActive}
                         activeInlineProjectId={activeInlineProjectId}
                         setActiveInlineProjectId={setActiveInlineProjectId}
+                        onEnsureProjectLoad={ensureFilteredProjectLoad}
                         onUpdateParentTaskLists={(updatedProjectTasks) => {
                           // Maintain newest-first: updated tasks should stay in their relative created order.
                           // For simplicity in a flat array, we just update the specific matching tasks in the main list.
                           setTasks((prev) => {
-                            const taskMap = new Map(
-                              prev.map((t) => [t.id, t]),
-                            );
+                            const taskMap = new Map(prev.map((t) => [t.id, t]));
                             updatedProjectTasks.forEach((t) =>
                               taskMap.set(t.id, t),
                             );
@@ -1669,7 +2059,6 @@ function TaskTable({
                     observer={getObserver()}
                   />
                 )}
-
             </tbody>
           </table>
         </div>

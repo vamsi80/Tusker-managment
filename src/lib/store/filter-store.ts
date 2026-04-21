@@ -1,34 +1,75 @@
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import { TaskFilters } from '@/components/task/shared/types';
+import { create } from "zustand";
+import { TaskFilters } from "@/components/task/shared/types";
 
 interface FilterState {
-    filters: TaskFilters;
-    searchQuery: string;
+  filters: TaskFilters;
+  searchQuery: string;
 
-    // Actions
-    setFilters: (filters: TaskFilters | ((prev: TaskFilters) => TaskFilters)) => void;
-    setSearchQuery: (query: string) => void;
-    clearFilters: () => void;
+  // Actions
+  setFilters: (
+    filters: TaskFilters | ((prev: TaskFilters) => TaskFilters),
+  ) => void;
+  setSearchQuery: (query: string) => void;
+  clearFilters: () => void;
 }
 
-export const useFilterStore = create<FilterState>()(
-    persist(
-        (set) => ({
-            filters: {},
-            searchQuery: "",
+// Helper to check if filters have any active values
+function hasActiveFilterValues(filters: TaskFilters): boolean {
+  return Object.values(filters).some(
+    (v) =>
+      v !== undefined &&
+      v !== "" &&
+      v !== null &&
+      (Array.isArray(v) ? v.length > 0 : true),
+  );
+}
 
-            setFilters: (filters) => set((state) => ({
-                filters: typeof filters === 'function' ? filters(state.filters) : filters
-            })),
+export const useFilterStore = create<FilterState>()((set, get) => ({
+  filters: {},
+  searchQuery: "",
 
-            setSearchQuery: (query) => set({ searchQuery: query }),
+  setFilters: (filters) => {
+    const prevFilters = get().filters;
+    const newFilters =
+      typeof filters === "function" ? filters(prevFilters) : filters;
 
-            clearFilters: () => set({ filters: {}, searchQuery: "" }),
-        }),
-        {
-            name: 'tusker-task-filters',
-            storage: createJSONStorage(() => localStorage),
-        }
-    )
-);
+    // If filters are actually changing, invalidate caches
+    const prevHasFilters = hasActiveFilterValues(prevFilters);
+    const newHasFilters = hasActiveFilterValues(newFilters);
+
+    if (
+      prevHasFilters !== newHasFilters ||
+      JSON.stringify(prevFilters) !== JSON.stringify(newFilters)
+    ) {
+      // Dynamically import to avoid circular dependency
+      import("@/lib/store/task-cache-store")
+        .then(({ useTaskCacheStore }) => {
+          useTaskCacheStore.getState().clearCache();
+        })
+        .catch(console.error);
+    }
+
+    set({ filters: newFilters });
+  },
+
+  setSearchQuery: (query) => {
+    const prevQuery = get().searchQuery;
+    if (prevQuery !== query) {
+      import("@/lib/store/task-cache-store")
+        .then(({ useTaskCacheStore }) => {
+          useTaskCacheStore.getState().clearCache();
+        })
+        .catch(console.error);
+    }
+    set({ searchQuery: query });
+  },
+
+  clearFilters: () => {
+    import("@/lib/store/task-cache-store")
+      .then(({ useTaskCacheStore }) => {
+        useTaskCacheStore.getState().clearCache();
+      })
+      .catch(console.error);
+    set({ filters: {}, searchQuery: "" });
+  },
+}));

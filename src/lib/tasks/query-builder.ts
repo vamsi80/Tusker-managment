@@ -207,14 +207,17 @@ export function appendAnd(where: Prisma.TaskWhereInput, ...conditions: Prisma.Ta
 }
 
 /**
- * Build a standard createdAt DESC cursor condition.
+ * Build a cursor condition that respects the query sort direction.
+ * direction="asc"  → gt (load next/newer page when sorted oldest-first)
+ * direction="desc" → lt (load next/older page when sorted newest-first)
  */
-export function buildCursorWhere(cursor: TaskCursor): Prisma.TaskWhereInput {
+export function buildCursorWhere(cursor: TaskCursor, direction: "asc" | "desc" = "asc"): Prisma.TaskWhereInput {
     const createdAt = typeof cursor.createdAt === "string" ? new Date(cursor.createdAt) : cursor.createdAt;
+    const op = direction === "asc" ? "gt" : "lt";
     return {
         OR: [
-            { createdAt: { lt: createdAt } },
-            { AND: [{ createdAt: createdAt }, { id: { lt: cursor.id } }] },
+            { createdAt: { [op]: createdAt } },
+            { AND: [{ createdAt: createdAt }, { id: { [op]: cursor.id } }] },
         ],
     };
 }
@@ -234,7 +237,7 @@ export const SORT_MAP: Record<string, { dbField: string; nulls?: "last" | "first
 };
 
 export function buildOrderBy(sorts?: Array<{ field: string; direction: "asc" | "desc" }>) {
-    // Standard default for "Order of Uploading" is oldest-first (ASC)
+    // Default task list order is newest-first so recently created parent tasks appear first.
     if (!sorts || sorts.length === 0) {
         return [{ createdAt: "asc" as const }, { id: "asc" as const }];
     }
@@ -281,7 +284,8 @@ export function buildSeekCondition(
         const conditions: any[] = [
             { [dbField]: { [op]: lastFieldValue } },
             {
-                AND: [{ [dbField]: lastFieldValue }, { id: { lt: lastId } }],
+                // ID tiebreaker must also respect direction so page boundaries are stable
+                AND: [{ [dbField]: lastFieldValue }, { id: { [op]: lastId } }],
             },
         ];
 
@@ -363,7 +367,7 @@ export function buildProjectRootWhere(
 
     if (opts.tagId) {
         const tIds = Array.isArray(opts.tagId) ? opts.tagId : [opts.tagId];
-        appendAnd(where, { 
+        appendAnd(where, {
             OR: [
                 { tagId: { in: tIds } },
                 { subTasks: { some: { tagId: { in: tIds } } } }
@@ -405,7 +409,8 @@ export function buildProjectRootWhere(
         if (opts.sorts && opts.sorts.length > 0) {
             appendAnd(where, buildSeekCondition(opts.sorts, opts.cursor));
         } else {
-            appendAnd(where, buildCursorWhere(opts.cursor));
+            // No custom sorts → default orderBy is ASC (oldest-first) → cursor must use "asc"
+            appendAnd(where, buildCursorWhere(opts.cursor, "asc"));
         }
     }
 
@@ -489,7 +494,8 @@ export function buildSubtaskExpansionWhere(
     }
 
     if (opts.cursor) {
-        appendAnd(where, buildCursorWhere(opts.cursor));
+        // No custom sorts → default orderBy is ASC (oldest-first) → cursor must use "gt"
+        appendAnd(where, buildCursorWhere(opts.cursor, "desc"));
     }
 
     return where;
@@ -662,7 +668,8 @@ export function buildWorkspaceFilterWhere(
         if (opts.sorts && opts.sorts.length > 0) {
             appendAnd(where, buildSeekCondition(opts.sorts, opts.cursor));
         } else {
-            appendAnd(where, buildCursorWhere(opts.cursor));
+            // No custom sorts → default orderBy is ASC (oldest-first) → cursor must use "gt"
+            appendAnd(where, buildCursorWhere(opts.cursor, "desc"));
         }
     }
 
