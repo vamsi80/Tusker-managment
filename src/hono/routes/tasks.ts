@@ -13,7 +13,7 @@ const tasks = new Hono<{ Variables: HonoVariables }>();
 
 /**
  * GET /api/v1/tasks
- * 
+ *
  * Consolidated Listing Route for all Task Views.
  * Supports standard and shortened parameters.
  */
@@ -23,7 +23,8 @@ tasks.get("/", async (c) => {
 
   // 1. Parameter Mapping (Short -> Long)
   const workspaceId = q.w || q.workspaceId;
-  const projectId = q.p || q.projectId || undefined;
+  let projectId = q.p || q.projectId || undefined;
+  if (projectId === "") projectId = undefined;
   const view_mode = q.vm || q.view_mode || "list";
   const limit = parseInt(q.l || q.ps || q.limit || q.pageSize || "50", 10);
   const search = q.q || q.search || undefined;
@@ -33,17 +34,26 @@ tasks.get("/", async (c) => {
   const parseParam = (key: string, shortKey: string) => {
     const val = q[shortKey] || q[key];
     if (!val) return undefined;
+
+    // 1. Try to parse as JSON first (handles ["todo"] or "todo" with quotes)
     try {
-      // Handle JSON arrays or comma-separated strings
-      return val.startsWith("[") ? JSON.parse(val) : val.split(",");
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) return parsed;
+      if (parsed === null || parsed === undefined) return undefined;
+      return [String(parsed)];
     } catch {
-      return val.split(",");
+      // 2. Fallback to comma-separated split (handles todo,in_progress)
+      return val
+        .split(",")
+        .map((v) => v.trim())
+        .filter((v) => v.length > 0);
     }
   };
 
   const status = parseParam("status", "s");
   const assigneeId = parseParam("assigneeId", "a");
   const tagId = parseParam("tagId", "t");
+  const ids = parseParam("ids", "ids");
 
   // Dates
   const dueAfter = q.da || q.dueAfter || q.startDate || undefined;
@@ -51,7 +61,11 @@ tasks.get("/", async (c) => {
 
   // Pagination
   const cursorParam = q.c || q.cursor;
-  const cursor = cursorParam ? (cursorParam.startsWith("{") ? JSON.parse(cursorParam) : undefined) : undefined;
+  const cursor = cursorParam
+    ? cursorParam.startsWith("{")
+      ? JSON.parse(cursorParam)
+      : undefined
+    : undefined;
 
   // 2. Build Options based on View Mode
   const opts: any = {
@@ -60,17 +74,18 @@ tasks.get("/", async (c) => {
     status,
     assigneeId,
     tagId,
+    ids,
     search,
     dueAfter,
     dueBefore,
     cursor,
     limit,
     view_mode: view_mode as any,
-    includeSubTasks: (q.subTasks !== "false" && q.sub !== "false"), 
+    includeSubTasks: q.subTasks !== "false" && q.sub !== "false",
     onlySubtasks: q.onlySub === "true" || q.onlySubtasks === "true",
     filterParentTaskId: q.pt || q.parentTaskId || undefined,
     includeFacets: q.facets === "true",
-    hierarchyMode: (q.hm as any) || q.hierarchyMode || "parents",
+    hierarchyMode: (q.hm as any) || q.hierarchyMode || undefined,
   };
 
   // Parse sorts if provided as JSON string
@@ -86,32 +101,21 @@ tasks.get("/", async (c) => {
   if (view_mode === "kanban") {
     opts.groupBy = "status";
     opts.sorts = [{ field: "createdAt", direction: "desc" }];
+    opts.onlySubtasks = false; // Allow root tasks in Kanban if they have a status
+
+    // 🎨 Hierarchy Support: Kanban is usually flat, but we allow
+    // subtask inclusion if specifically filtering by a parent or expanding.
+    const isExpanding =
+      q.sub === "true" || !!opts.filterParentTaskId || !!opts.ids;
+    opts.includeSubTasks = isExpanding;
   } else if (view_mode === "gantt") {
-    opts.sorts = [{ field: "startDate", direction: "asc" }];
-    opts.includeSubTasks = true;
+    opts.sorts = q.sorts
+      ? opts.sorts
+      : [{ field: "startDate", direction: "asc" }];
   }
 
   // 3. Fetch
   const result = await TasksService.listTasks(opts, user.id);
-
-  // 4. Special Grouping for Kanban
-  if (view_mode === "kanban") {
-    const tasksByStatus: Record<string, any[]> = {};
-    result.tasks.forEach((task) => {
-      const s = task.status || "UNKNOWN";
-      if (!tasksByStatus[s]) tasksByStatus[s] = [];
-      tasksByStatus[s].push(task);
-    });
-
-    return c.json({
-      success: true,
-      data: {
-        ...result,
-        tasksByStatus,
-      },
-    });
-  }
-
   return c.json({ success: true, data: result });
 });
 
@@ -236,9 +240,8 @@ tasks.post("/bulk", async (c) => {
     throw AppError.ValidationError("Missing projectId or tasks");
   }
 
-  const { bulkUploadTasksAndSubtasks } = await import(
-    "@/actions/task/bulk-create-taskAndSubTask"
-  );
+  const { bulkUploadTasksAndSubtasks } =
+    await import("@/actions/task/bulk-create-taskAndSubTask");
   const result = await bulkUploadTasksAndSubtasks({
     projectId,
     tasks: taskData,
@@ -275,9 +278,8 @@ tasks.patch("/reorder", async (c) => {
 
   await TasksService.updateSubtasksOrder(subtaskIds);
 
-  const { invalidateProjectSubTasks } = await import(
-    "@/lib/cache/invalidation"
-  );
+  const { invalidateProjectSubTasks } =
+    await import("@/lib/cache/invalidation");
   await invalidateProjectSubTasks(projectId);
 
   return c.json({ success: true, message: "Reordered successfully" });
@@ -301,7 +303,9 @@ tasks.patch("/:taskId/assignee", async (c) => {
   };
 
   if (!workspaceId || !projectId) {
-    throw AppError.ValidationError("Missing workspaceId or projectId in request body");
+    throw AppError.ValidationError(
+      "Missing workspaceId or projectId in request body",
+    );
   }
 
   const result = await TasksService.updateTaskAssignee({
@@ -314,7 +318,12 @@ tasks.patch("/:taskId/assignee", async (c) => {
     userName: (user as any).surname,
   });
 
-  await invalidateTaskMutation({ projectId, workspaceId, userId: user.id, taskId });
+  await invalidateTaskMutation({
+    projectId,
+    workspaceId,
+    userId: user.id,
+    taskId,
+  });
   return c.json(result);
 });
 
@@ -328,7 +337,9 @@ tasks.patch("/:taskId/status", async (c) => {
   const { newStatus, workspaceId, projectId, comment, attachmentData } = body;
 
   if (!workspaceId || !projectId || !newStatus) {
-    throw AppError.ValidationError("Missing required fields (workspaceId, projectId, newStatus)");
+    throw AppError.ValidationError(
+      "Missing required fields (workspaceId, projectId, newStatus)",
+    );
   }
 
   const permissions = await getUserPermissions(workspaceId, projectId, user.id);
@@ -343,8 +354,75 @@ tasks.patch("/:taskId/status", async (c) => {
     attachmentData,
   });
 
-  await invalidateTaskMutation({ projectId, workspaceId, userId: user.id, taskId });
+  await invalidateTaskMutation({
+    projectId,
+    workspaceId,
+    userId: user.id,
+    taskId,
+  });
   return c.json({ success: true, data: result });
+});
+
+/**
+ * POST /api/v1/tasks/:taskId/kanban/move
+ * Legacy compatibility for Kanban board moves.
+ */
+tasks.post("/:taskId/kanban/move", async (c) => {
+  const user = c.get("user");
+  const taskId = c.req.param("taskId");
+  const body = await c.req.json();
+  const { newStatus, workspaceId, projectId, comment, attachmentData } = body;
+
+  if (!workspaceId || !projectId || !newStatus) {
+    throw AppError.ValidationError("Missing required fields");
+  }
+
+  const permissions = await getUserPermissions(workspaceId, projectId, user.id);
+  const result = await TasksService.updateSubTaskStatus({
+    subTaskId: taskId,
+    newStatus,
+    workspaceId,
+    projectId,
+    userId: user.id,
+    permissions,
+    comment,
+    attachmentData,
+  });
+
+  await invalidateTaskMutation({
+    projectId,
+    workspaceId,
+    userId: user.id,
+    taskId,
+  });
+  return c.json({ success: true, data: result });
+});
+
+/**
+ * POST /api/v1/tasks/:taskId/kanban/pin
+ * Pins or unpins a subtask in the Kanban board.
+ */
+tasks.post("/:taskId/kanban/pin", async (c) => {
+  const user = c.get("user");
+  const taskId = c.req.param("taskId");
+  const body = await c.req.json();
+  const { isPinned, workspaceId, projectId } = body;
+
+  if (!workspaceId || !projectId || typeof isPinned !== "boolean") {
+    throw AppError.ValidationError("Missing required fields");
+  }
+
+  const permissions = await getUserPermissions(workspaceId, projectId, user.id);
+  if (!permissions.isWorkspaceAdmin && !permissions.isProjectLead) {
+    throw AppError.Forbidden("Only project admins and leads can pin cards.");
+  }
+
+  // NOTE: Schema does not currently support isPinned/pinnedAt.
+  // Returning success to avoid UI breakage, matching legacy logic.
+  return c.json({
+    success: true,
+    message: "Pinning is not currently available. Feature coming soon.",
+  });
 });
 
 /**
@@ -371,7 +449,12 @@ tasks.patch("/:taskId/dates", async (c) => {
     permissions,
   });
 
-  await invalidateTaskMutation({ projectId, workspaceId, userId: user.id, taskId });
+  await invalidateTaskMutation({
+    projectId,
+    workspaceId,
+    userId: user.id,
+    taskId,
+  });
   return c.json({ success: true, data: updated });
 });
 
@@ -449,7 +532,6 @@ tasks.delete("/:taskId", async (c) => {
 
   return c.json({ success: true, message: "Task deleted" });
 });
-
 
 /**
  * POST /api/v1/tasks/:taskId/dependencies
@@ -547,6 +629,13 @@ tasks.get("/:parentId/expand", async (c) => {
   const viewMode = q.vm || q.viewMode || "list";
   const pageSize = parseInt(q.ps || q.pageSize || "30", 10);
 
+  const cursorParam = q.c || q.cursor;
+  const cursor = cursorParam
+    ? cursorParam.startsWith("{")
+      ? JSON.parse(cursorParam)
+      : undefined
+    : undefined;
+
   const parseParam = (key: string, shortKey: string) => {
     const val = q[shortKey] || q[key];
     if (!val) return undefined;
@@ -579,6 +668,7 @@ tasks.get("/:parentId/expand", async (c) => {
     filters,
     pageSize,
     viewMode,
+    cursor,
     userId: user.id,
   });
 
@@ -587,7 +677,7 @@ tasks.get("/:parentId/expand", async (c) => {
 
 /**
  * GET /api/v1/tasks/expansion/batch
- * 
+ *
  * Expands multiple parent tasks in one single request.
  * Query Param: ids (comma-separated list of parent task IDs)
  */
@@ -600,11 +690,15 @@ tasks.get("/expansion/batch", async (c) => {
 
   const idsParam = q.ids;
   if (!idsParam) throw AppError.ValidationError("Missing ids parameter");
-  
+
   const parentIds = idsParam.split(",");
   const projectId = q.p || q.projectId;
   const viewMode = q.vm || q.viewMode || "list";
   const pageSize = parseInt(q.ps || q.pageSize || "30", 10);
+
+  console.log(
+    `🔍 [DEBUG] /expansion/batch request - parentIds: ${q.ids}, projectId: ${projectId}, viewMode: ${viewMode}`,
+  );
 
   const parseParam = (key: string, shortKey: string) => {
     const val = q[shortKey] || q[key];
@@ -623,6 +717,8 @@ tasks.get("/expansion/batch", async (c) => {
     search: q.q || q.search,
   };
 
+  console.log(`🔍 [DEBUG] /expansion/batch filters parsed:`, filters);
+
   const da = q.da || q.dueAfter;
   if (da && da !== "undefined" && da !== "null")
     filters.dueAfter = new Date(da);
@@ -639,7 +735,55 @@ tasks.get("/expansion/batch", async (c) => {
     filters,
     pageSize,
     viewMode,
-    userId: user.id
+    userId: user.id,
+  });
+
+  return c.json({ success: true, data: results });
+});
+
+/**
+ * POST /api/v1/tasks/expansion/batch
+ *
+ * Secure/Clean alternative for GET /expansion/batch.
+ * Accepts IDs in JSON body to avoid URL length limitations.
+ */
+tasks.post("/expansion/batch", async (c) => {
+  const user = c.get("user");
+  const body = await c.req.json();
+  const q = c.req.query(); // Still allow some meta-params in URL if needed
+
+  const workspaceId = body.w || body.workspaceId || q.w || q.workspaceId;
+  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+
+  const parentIds = body.ids || body.parentIds;
+  if (!parentIds || !Array.isArray(parentIds)) {
+    throw AppError.ValidationError("Missing ids array in body");
+  }
+
+  const projectId = body.projectId || body.p || q.p || q.projectId;
+  const viewMode = body.viewMode || body.vm || q.vm || q.view_mode || "list";
+  const pageSize = parseInt(
+    body.pageSize || body.ps || q.ps || q.pageSize || "30",
+    10,
+  );
+
+  const filters = {
+    status: body.filters?.status || body.s,
+    assigneeId: body.filters?.assigneeId || body.a,
+    tagId: body.filters?.tagId || body.t,
+    search: body.filters?.search || body.q || q.q,
+    dueAfter: body.filters?.dueAfter || body.da,
+    dueBefore: body.filters?.dueBefore || body.db,
+  };
+
+  const results = await TasksService.expandSubtasksBatch({
+    parentIds,
+    workspaceId,
+    projectId,
+    filters,
+    pageSize,
+    viewMode,
+    userId: user.id,
   });
 
   return c.json({ success: true, data: results });

@@ -11,7 +11,12 @@ import { useRef, useEffect, useState, memo, cloneElement } from "react";
 import { ChevronDown, ChevronRight, MoreHorizontal } from "lucide-react";
 import { EditTaskDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/edit-task-form";
 import { DeleteTaskDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/delete-task-form";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 
 interface TaskRowProps {
@@ -54,7 +59,7 @@ export const TaskRow = memo(function TaskRow({
     onRequestSubtasks,
     isCached = false,
     scrollContainerRef,
-    children
+    children,
 }: TaskRowProps) {
     const [task, setTask] = useState(initialTask);
 
@@ -66,31 +71,25 @@ export const TaskRow = memo(function TaskRow({
     const rowRef = useRef<HTMLTableRowElement>(null);
 
     useEffect(() => {
-        if (!isExpanded || !onRequestSubtasks || (task.subTasks !== undefined) || subtaskCount === 0) return;
+        if (!isExpanded || !onRequestSubtasks || subtaskCount === 0) return;
 
-        if (isCached) {
-            onRequestSubtasks(task.id);
+        // Only fetch if subTasks is undefined (unfetched) OR if was explicitly cleared/invalidated
+        if (task.subTasks !== undefined) {
             return;
         }
 
-        const observer = new IntersectionObserver(
-            (entries) => {
-                if (entries[0].isIntersecting) {
-                    onRequestSubtasks(task.id);
-                }
-            },
-            {
-                root: scrollContainerRef?.current || null,
-                rootMargin: "20px"
-            }
+        console.log(
+            `ðŸ” [Expansion Trigger] Detected need for subtasks: Task=${task.id} Name="${task.name}" (Count=${subtaskCount})`,
         );
 
-        if (rowRef.current) {
-            observer.observe(rowRef.current);
+        if (isCached) {
+            console.log(`ðŸ” [Expansion Trigger] Using Cached Fetch for: ${task.id}`);
         }
 
-        return () => observer.disconnect();
-    }, [isExpanded, task.subTasks, task.id, subtaskCount, onRequestSubtasks, isCached]);
+        // Fetch immediately when expanded so loading follows row order,
+        // not scroll/intersection timing.
+        onRequestSubtasks(task.id);
+    }, [isExpanded, task.subTasks, task.id, task.name, subtaskCount, onRequestSubtasks, isCached]);
 
     let colSpan = 2;
     if (columnVisibility.description) colSpan++;
@@ -104,46 +103,45 @@ export const TaskRow = memo(function TaskRow({
 
     const handleTaskUpdated = (updatedTask: { name: string; taskSlug: string }) => {
         onTaskUpdated?.(updatedTask);
-        setTask(prev => ({ ...prev, name: updatedTask.name, taskSlug: updatedTask.taskSlug }));
+        setTask((prev) => ({ ...prev, name: updatedTask.name, taskSlug: updatedTask.taskSlug }));
     };
 
     const handleOptimisticSubTaskUpdated = (subTaskId: string, updatedData: any) => {
-        // Clear zustand cache so the next request actually hits the server
         useTaskCacheStore.getState().invalidateSubTaskCache(task.id);
-        
-        // Clear local state so that if it is expanded, it triggers a refetch immediately.
-        // If it is collapsed, it will refetch on the next expand.
-        setTask(prev => ({
+
+        setTask((prev) => ({
             ...prev,
-            subTasks: undefined
+            subTasks: undefined,
         }));
     };
 
     const handleOptimisticSubTaskDeleted = (subTaskId: string) => {
         useTaskCacheStore.getState().invalidateSubTaskCache(task.id);
-        
+
         const subTaskToDelete = task.subTasks?.find((st: any) => st.id === subTaskId);
         const wasCompleted = subTaskToDelete?.status === "COMPLETED";
 
-        setTask(prev => ({
+        setTask((prev) => ({
             ...prev,
             subTasks: prev.subTasks?.filter((st: any) => st.id !== subTaskId),
             subtaskCount: Math.max(0, (prev.subtaskCount || 0) - 1),
             completedSubtaskCount: wasCompleted
                 ? Math.max(0, (prev.completedSubtaskCount || 0) - 1)
-                : (prev.completedSubtaskCount || 0)
+                : (prev.completedSubtaskCount || 0),
         }));
     };
 
     const handleOptimisticSubTaskCreated = (newSubTask: any, tempId?: string) => {
         useTaskCacheStore.getState().invalidateSubTaskCache(task.id);
-        
-        setTask(prev => {
+
+        setTask((prev) => {
             const currentSubTasks = prev.subTasks || [];
             if (tempId) {
                 return {
                     ...prev,
-                    subTasks: currentSubTasks.map((st: any) => st.id === tempId ? newSubTask : st)
+                    subTasks: currentSubTasks.map((st: any) =>
+                        st.id === tempId ? newSubTask : st,
+                    ),
                 };
             }
             if (currentSubTasks.some((st: any) => st.id === newSubTask.id)) return prev;
@@ -152,25 +150,28 @@ export const TaskRow = memo(function TaskRow({
                 ...prev,
                 subTasks: [...currentSubTasks, newSubTask],
                 subtaskCount: (prev.subtaskCount || 0) + 1,
-                completedSubtaskCount: newSubTask.status === "COMPLETED"
-                    ? (prev.completedSubtaskCount || 0) + 1
-                    : (prev.completedSubtaskCount || 0)
+                completedSubtaskCount:
+                    newSubTask.status === "COMPLETED"
+                        ? (prev.completedSubtaskCount || 0) + 1
+                        : (prev.completedSubtaskCount || 0),
             };
         });
     };
 
     const canEditTask = () => {
-        const taskCreatorId = task.createdBy?.workspaceMember?.user?.id || (task as any).createdById;
+        const taskCreatorId = task.createdBy?.id;
 
         if (permissions) {
-            return permissions.isWorkspaceAdmin ||
+            return (
+                permissions.isWorkspaceAdmin ||
                 permissions.isProjectManager ||
-                (permissions.isProjectLead && taskCreatorId === userId);
+                (permissions.isProjectLead && taskCreatorId === userId)
+            );
         }
 
         if (isWorkspaceAdmin) return true;
 
-        const taskProject = projects?.find(p => p.id === task.projectId);
+        const taskProject = projects?.find((p) => p.id === task.projectId);
         if (taskProject?.canManageMembers) return true;
 
         if (leadProjectIds?.includes(task.projectId) && taskCreatorId === userId) {
@@ -180,7 +181,6 @@ export const TaskRow = memo(function TaskRow({
         return false;
     };
 
-    // Show skeleton while updating OR while refresh is pending
     if (isUpdating) {
         return (
             <TableRow className="group">
@@ -206,8 +206,9 @@ export const TaskRow = memo(function TaskRow({
                 ref={rowRef}
                 className={cn(
                     "group [&_td]:py-2 hover:bg-muted/30 transition-colors",
-                    (task as any).isOptimistic && "opacity-60 grayscale-[0.5]"
-                )}>
+                    (task as any).isOptimistic && "opacity-60 grayscale-[0.5]",
+                )}
+            >
                 <TableCell className="w-[40px] md:w-[50px]">
                     <div className="flex items-center justify-center">
                         <Button
@@ -230,9 +231,7 @@ export const TaskRow = memo(function TaskRow({
 
                 <TableCell className="px-2" colSpan={colSpan}>
                     <div className="flex items-center gap-2 min-w-0">
-                        <span
-                            className="truncate font-semibold text-sm cursor-pointer hover:text-primary transition-colors"
-                        >
+                        <span className="truncate font-semibold text-sm cursor-pointer hover:text-primary transition-colors">
                             {task.name}
                         </span>
                         {subtaskCount > 0 && (
@@ -250,7 +249,10 @@ export const TaskRow = memo(function TaskRow({
                                         </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
-                                        <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
+                                        <DropdownMenuItem
+                                            asChild
+                                            onSelect={(e) => e.preventDefault()}
+                                        >
                                             <EditTaskDialog
                                                 task={task}
                                                 onTaskUpdated={handleTaskUpdated}
@@ -258,7 +260,10 @@ export const TaskRow = memo(function TaskRow({
                                                 onUpdateEnd={onUpdateEnd}
                                             />
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
+                                        <DropdownMenuItem
+                                            asChild
+                                            onSelect={(e) => e.preventDefault()}
+                                        >
                                             <DeleteTaskDialog
                                                 task={task}
                                                 onTaskDeleted={onTaskDeleted}
@@ -271,21 +276,23 @@ export const TaskRow = memo(function TaskRow({
                     </div>
                 </TableCell>
             </TableRow>
-            {isExpanded && children && cloneElement(children as any, {
-                task,
-                onSubTaskUpdated: (subTaskId: string, updatedData: any) => {
-                    handleOptimisticSubTaskUpdated(subTaskId, updatedData);
-                    (children as any).props.onSubTaskUpdated?.(subTaskId, updatedData);
-                },
-                onSubTaskDeleted: (subTaskId: string) => {
-                    handleOptimisticSubTaskDeleted(subTaskId);
-                    (children as any).props.onSubTaskDeleted?.(subTaskId);
-                },
-                onSubTaskCreated: (newSubTask: any, tempId?: string) => {
-                    handleOptimisticSubTaskCreated(newSubTask, tempId);
-                    (children as any).props.onSubTaskCreated?.(newSubTask, tempId);
-                }
-            })}
+            {isExpanded &&
+                children &&
+                cloneElement(children as any, {
+                    task,
+                    onSubTaskUpdated: (subTaskId: string, updatedData: any) => {
+                        handleOptimisticSubTaskUpdated(subTaskId, updatedData);
+                        (children as any).props.onSubTaskUpdated?.(subTaskId, updatedData);
+                    },
+                    onSubTaskDeleted: (subTaskId: string) => {
+                        handleOptimisticSubTaskDeleted(subTaskId);
+                        (children as any).props.onSubTaskDeleted?.(subTaskId);
+                    },
+                    onSubTaskCreated: (newSubTask: any, tempId?: string) => {
+                        handleOptimisticSubTaskCreated(newSubTask, tempId);
+                        (children as any).props.onSubTaskCreated?.(newSubTask, tempId);
+                    },
+                })}
         </>
     );
 });

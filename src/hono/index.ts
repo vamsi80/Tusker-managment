@@ -10,6 +10,7 @@ import tags from "./routes/tags";
 import workspaces from "./routes/workspaces";
 import { HonoVariables } from "./types";
 import { authMiddleware } from "./middleware/auth";
+import { AppError } from "../lib/errors/app-error";
 
 /**
  * Main Hono Application
@@ -38,6 +39,18 @@ app.use(
  */
 app.onError((err, c) => {
     console.error(`[HONO_ERROR] ${err.message}`, err);
+
+    if (err instanceof AppError) {
+        return c.json(
+            {
+                success: false,
+                error: err.message,
+                code: err.code,
+            },
+            err.statusCode as any
+        );
+    }
+
     return c.json(
         {
             success: false,

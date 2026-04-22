@@ -1,7 +1,8 @@
-import { getTasks } from "@/data/task/get-tasks";
-import { requireUser } from "@/lib/auth/require-user";
-import { getProjectMembers } from "@/data/project/get-project-members";
+"use client";
 import dynamic from "next/dynamic";
+import { useEffect, useMemo } from "react";
+import { AppLoader } from "@/components/shared/app-loader";
+import { useProjectLayout } from "../project-layout-context";
 
 const KanbanBoard = dynamic(
     () => import("@/components/task/kanban/kanban-board").then(mod => mod.KanbanBoard),
@@ -11,38 +12,53 @@ const KanbanBoard = dynamic(
 interface ProjectKanbanViewProps {
     workspaceId: string;
     projectId: string;
+    userId: string;
 }
 
-export async function ProjectKanbanView({
+export function ProjectKanbanView({
     workspaceId,
-    projectId
+    projectId,
+    userId,
 }: ProjectKanbanViewProps) {
-    const userPromise = requireUser();
-    const membersPromise = getProjectMembers(projectId);
-    
-    const user = await userPromise;
-    const permissionsPromise = import("@/data/user/get-user-permissions").then(m => m.getUserPermissions(workspaceId, projectId, user.id));
+    const { projectMembers, projectPermissions, isLoading: isProjectLoading, revalidate: revalidateProject } = useProjectLayout();
 
-    const COLUMNS = ["TO_DO", "IN_PROGRESS", "REVIEW", "HOLD", "COMPLETED", "CANCELLED"] as const;
+    useEffect(() => {
+        revalidateProject();
+    }, [revalidateProject]);
 
-    const [projectMembers, pmMap, permissions] = await Promise.all([
-        membersPromise,
-        import("@/data/workspace/get-workspace-kanban-data").then(m => m.getWorkspaceProjectManagersMap(workspaceId)),
-        permissionsPromise
-    ]);
+    const COLUMNS = useMemo(() => ["TO_DO", "IN_PROGRESS", "REVIEW", "HOLD", "COMPLETED", "CANCELLED"] as const, []);
 
-    // 🚀 ZERO-WEIGHT SHELL: Tasks are no longer fetched server-side.
-    // KanbanBoard will fetch its own initial data on the client via Hono.
-    const initialData = COLUMNS.reduce((acc, status) => {
-        acc[status] = {
-            subTasks: [],
-            totalCount: 0,
-            hasMore: false,
-            nextCursor: null,
-            currentPage: 1
-        };
-        return acc;
-    }, {} as any);
+    const initialData = useMemo(() => {
+        return COLUMNS.reduce((acc, status) => {
+            acc[status] = {
+                subTasks: [],
+                totalCount: 0,
+                hasMore: false,
+                nextCursor: null,
+                currentPage: 1
+            };
+            return acc;
+        }, { isShell: true } as any);
+    }, [COLUMNS]);
+
+    const projectManagers = useMemo(() => ({
+        [projectId]: projectMembers
+            .filter(m =>
+                m.projectRole === "LEAD" ||
+                m.projectRole === "PROJECT_MANAGER" ||
+                m.workspaceRole === "OWNER" ||
+                m.workspaceRole === "ADMIN"
+            )
+            .map(m => ({
+                id: m.userId,
+                surname: m.user.surname,
+            }))
+    }), [projectId, projectMembers]);
+
+    // Allow rendering if project loading is done
+    if (isProjectLoading) {
+        return <AppLoader />;
+    }
 
     return (
         <KanbanBoard
@@ -50,9 +66,9 @@ export async function ProjectKanbanView({
             projectMembers={projectMembers as any}
             workspaceId={workspaceId}
             projectId={projectId}
-            projectManagers={pmMap || {}}
-            permissions={permissions}
-            userId={user.id}
+            projectManagers={projectManagers}
+            permissions={projectPermissions}
+            userId={userId}
         />
     );
 }

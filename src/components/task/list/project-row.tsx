@@ -18,7 +18,7 @@ export function ProjectRow({
     isExpanded,
     onToggle,
     colSpan,
-    children
+    children,
 }: ProjectRowProps) {
     return (
         <>

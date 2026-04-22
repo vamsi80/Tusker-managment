@@ -1,4 +1,5 @@
 import { WorkspaceShell } from "../_components/sidebar/workspace-shell";
+import { getWorkspaceLayoutData } from "@/data/workspace/get-workspace-layout-data";
 
 interface Props {
   children: React.ReactNode;
@@ -12,9 +13,10 @@ interface Props {
  */
 export default async function WorkSpaceLayout({ children, params }: Props) {
   const { workspaceId } = await params;
+  const layoutData = await getWorkspaceLayoutData(workspaceId);
 
   return (
-    <WorkspaceShell workspaceId={workspaceId}>
+    <WorkspaceShell workspaceId={workspaceId} initialData={layoutData}>
       {children}
     </WorkspaceShell>
   );

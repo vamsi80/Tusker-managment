@@ -4,6 +4,8 @@ import { useMemo, useRef, useEffect } from "react";
 import { ChevronDown, ChevronRight, Folder } from "lucide-react";
 import { calculateBarPosition, formatDateRange, getDaysBetween } from "./utils";
 import { cn } from "@/lib/utils";
+import { GanttRowSkeleton } from "./gantt-row-skeleton";
+
 import {
     Tooltip,
     TooltipContent,
@@ -26,6 +28,7 @@ interface ProjectRowProps {
     hasMore?: boolean;
     onLoadMore?: () => void;
     totalTasksCount?: number;
+    isLoading?: boolean;
 }
 
 export function ProjectRow({
@@ -41,7 +44,8 @@ export function ProjectRow({
     showDetails,
     hasMore,
     onLoadMore,
-    totalTasksCount
+    totalTasksCount,
+    isLoading = false
 }: ProjectRowProps) {
     const { start, end } = useMemo(() => {
         let minStart: Date | null = null;
@@ -121,10 +125,13 @@ export function ProjectRow({
                                 "p-0.5 rounded hover:bg-neutral-700 dark:hover:bg-neutral-800",
                                 "transition-colors duration-150"
                             )}
+                            disabled={isLoading}
                             aria-expanded={isExpanded}
                             aria-label={isExpanded ? "Collapse Project" : "Expand Project"}
                         >
-                            {isExpanded ? (
+                            {isLoading ? (
+                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                            ) : isExpanded ? (
                                 <ChevronDown className="h-4 w-4 text-muted-foreground" />
                             ) : (
                                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -201,18 +208,12 @@ export function ProjectRow({
 
             {/* Load More Tasks in Project */}
             {isExpanded && hasMore && (
-                <div
-                    className="grid"
-                    style={{ gridTemplateColumns: 'var(--gantt-sidebar-width) var(--gantt-total-width)' }}
-                >
-                    {/* Left Panel */}
-                    <div ref={loaderRef} className="sticky left-0 z-30 shrink-0 bg-neutral-50 dark:bg-neutral-800/30 border-b border-r border-neutral-200 dark:border-neutral-700 flex items-center px-3 py-1.5 pl-8">
-                        <span className="text-xs text-muted-foreground">Loading more...</span>
-                    </div>
-                    {/* Right Panel */}
-                    <div className="relative min-h-[32px] w-full bg-neutral-50/50 dark:bg-neutral-800/10 border-b border-neutral-200 dark:border-neutral-700" />
-                </div>
+                <GanttRowSkeleton 
+                    ref={loaderRef} 
+                    className="bg-neutral-50/50 dark:bg-neutral-800/10"
+                />
             )}
+
         </div>
     );
 }

@@ -26,11 +26,6 @@ import {
 import type { KanbanSubTaskType } from "@/data/task";
 import { cn } from "@/lib/utils";
 import { getColorFromString } from "@/lib/colors/project-colors";
-import {
-  commentCache,
-  activityCache,
-  pendingPrefetches,
-} from "@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/subtask-details-sheet";
 import { UserPermissionsType } from "@/data/user/get-user-permissions";
 import {
   DropdownMenu,
@@ -56,6 +51,7 @@ interface KanbanCardProps {
   onUpdateInPlace?: (subTaskId: string, data: any) => void;
   projectMembers?: any[];
   projects?: ProjectOption[];
+  projectMap?: Record<string, ProjectOption>;
 }
 
 export const KanbanCard = React.memo(function KanbanCard({
@@ -70,6 +66,7 @@ export const KanbanCard = React.memo(function KanbanCard({
   onUpdateInPlace,
   projectMembers = [],
   projects,
+  projectMap,
 }: KanbanCardProps) {
   const {
     attributes,
@@ -88,9 +85,11 @@ export const KanbanCard = React.memo(function KanbanCard({
     transition,
   };
 
-  const assigneeUser = (subTask.assignee as any)?.workspaceMember?.user;
+  const assigneeUser = subTask.assignee;
   const activityCount = (subTask as any)._count?.activities || 0;
-  const project = subTask.project;
+  
+  // Resolve project metadata: Priority to explicit object, then lookup from map
+  const project = subTask.project || (subTask.projectId && projectMap ? projectMap[subTask.projectId] : null);
 
   // Get Project Managers from the hoisted map (effective way)
   const assignedManagers = (
@@ -107,7 +106,7 @@ export const KanbanCard = React.memo(function KanbanCard({
 
   const canEdit = () => {
     const creatorId =
-      subTask.createdBy?.workspaceMember?.user?.id ||
+      subTask.createdBy?.id ||
       (subTask as any).createdById;
 
     if (permissions) {
@@ -123,18 +122,23 @@ export const KanbanCard = React.memo(function KanbanCard({
   const dueDate = subTask.dueDate
     ? new Date(subTask.dueDate)
     : (() => {
-        if (!subTask.startDate || !subTask.days) return null;
-        const start = new Date(subTask.startDate);
-        const due = new Date(start);
-        due.setDate(due.getDate() + subTask.days);
-        return due;
-      })();
+      if (!subTask.startDate || !subTask.days) return null;
+      const start = new Date(subTask.startDate);
+      const due = new Date(start);
+      due.setDate(due.getDate() + subTask.days);
+      return due;
+    })();
 
   const isOverdue = dueDate && new Date() > dueDate;
 
   const handleNameClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onSubTaskClick?.(subTask);
+    // Inject project metadata if it's missing but we have it in our map
+    const subTaskWithMetadata = {
+      ...subTask,
+      project: subTask.project || project
+    };
+    onSubTaskClick?.(subTaskWithMetadata as any);
   };
 
   return (
@@ -146,18 +150,18 @@ export const KanbanCard = React.memo(function KanbanCard({
         (isDragging || isSortableDragging) && "opacity-50 shadow-xl",
         "border-l-4 overflow-hidden",
         (!assigneeUser && subTask.status !== "COMPLETED" && subTask.status !== "CANCELLED") && "bg-red-50 dark:bg-red-950/20 shadow-[0_0_8px_rgba(239,68,68,0.2)] animate-[pulse_2s_infinite] border-red-400 dark:border-red-600",
-        columnColor === "text-slate-700" &&
-          "border-l-slate-500 dark:border-l-slate-400",
-        columnColor === "text-blue-700" &&
-          "border-l-blue-500 dark:border-l-blue-400",
-        columnColor === "text-red-700" &&
-          "border-l-red-500 dark:border-l-red-400",
-        columnColor === "text-amber-700" &&
-          "border-l-amber-500 dark:border-l-amber-400",
-        columnColor === "text-purple-700" &&
-          "border-l-purple-500 dark:border-l-purple-400",
-        columnColor === "text-green-700" &&
-          "border-l-green-500 dark:border-l-green-400",
+        columnColor === "text-slate-600" &&
+        "border-l-[#D1D5DB] dark:border-l-[#D1D5DB]/80",
+        columnColor === "text-[#3B82F6]" &&
+        "border-l-[#3B82F6] dark:border-l-[#3B82F6]/80",
+        columnColor === "text-[#EF4444]" &&
+        "border-l-[#EF4444] dark:border-l-[#EF4444]/80",
+        columnColor === "text-[#F59E0B]" &&
+        "border-l-[#F59E0B] dark:border-l-[#F59E0B]/80",
+        columnColor === "text-[#8B5CF6]" &&
+        "border-l-[#8B5CF6] dark:border-l-[#8B5CF6]/80",
+        columnColor === "text-[#22C55E]" &&
+        "border-l-[#22C55E] dark:border-l-[#22C55E]/80",
       )}
       onMouseEnter={handlePrefetch}
       onClick={(e) => {
@@ -199,97 +203,54 @@ export const KanbanCard = React.memo(function KanbanCard({
             )}
           </div>
 
-          {(assignedManagers.length > 0 || subTask.parentTask?.reviewer) && (
+          {assignedManagers.length > 0 && (
             <div className="flex items-center gap-1.5 ml-auto">
-              {subTask.parentTask?.reviewer && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="flex items-center rounded-full bg-blue-50/50 dark:bg-blue-950/30 border border-blue-100/50 dark:border-blue-900/50 hover:bg-blue-100 transition-colors cursor-default">
-                        <Avatar className="h-4 w-4 border border-blue-200 dark:border-blue-800 shadow-sm">
-                          <AvatarFallback className="text-[8px] bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-                            {subTask.parentTask.reviewer.surname?.[0] ||
-                              subTask.parentTask.reviewer.name?.[0]}
-                          </AvatarFallback>
-                        </Avatar>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent
-                      side="left"
-                      className="text-xs p-2 space-y-0.5"
-                    >
-                      <div>
-                        <p className="font-semibold text-[10px] uppercase tracking-wider">
-                          Parent Reviewer
-                        </p>
-                        <p className="font-medium text-[11px] text-primary">
-                          {subTask.parentTask.reviewer.surname ||
-                            subTask.parentTask.reviewer.name}
-                        </p>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-
-              {assignedManagers.length > 0 && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="flex items-center rounded-full bg-amber-50/50 dark:bg-amber-950/30 border border-amber-100/50 dark:border-amber-900/50 hover:bg-amber-100 transition-colors cursor-default">
-                        <Avatar className="h-4 w-4 border border-amber-200 dark:border-amber-800 shadow-sm">
-                          <AvatarFallback className="text-[8px] bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
-                            {firstManager?.surname?.[0]}
-                          </AvatarFallback>
-                        </Avatar>
-                        {assignedManagers.length > 1 && (
-                          <span className="text-[8px] pr-1.5 font-bold">
-                            +{assignedManagers.length - 1}
-                          </span>
-                        )}
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent
-                      side="left"
-                      className="text-xs p-2 space-y-0.5"
-                    >
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center rounded-full bg-amber-50/50 dark:bg-amber-950/30 border border-amber-100/50 dark:border-amber-900/50 hover:bg-amber-100 transition-colors cursor-default">
+                      <Avatar className="h-4 w-4 border border-amber-200 dark:border-amber-800 shadow-sm">
+                        <AvatarFallback className="text-[8px] bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+                          {(firstManager?.surname || firstManager?.user?.surname)?.[0]?.toUpperCase() || "?"}
+                        </AvatarFallback>
+                      </Avatar>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="left"
+                    className="text-xs p-2 space-y-0.5"
+                  >
+                    <div className="pb-1.5 border-b">
+                      <p className="font-semibold text-[10px] uppercase tracking-wider">
+                        Project
+                      </p>
+                      <p className="font-medium text-[11px] text-primary">
+                        {project?.name}
+                      </p>
+                    </div>
+                    {subTask.parentTask && (
                       <div className="pb-1.5 border-b">
                         <p className="font-semibold text-[10px] uppercase tracking-wider">
-                          Project
+                          Parent Task
                         </p>
                         <p className="font-medium text-[11px] text-primary">
-                          {project?.name}
+                          {subTask.parentTask.name}
                         </p>
                       </div>
-                      {subTask.parentTask && (
-                        <div className="pb-1.5 border-b">
-                          <p className="font-semibold text-[10px] uppercase tracking-wider">
-                            Parent Task
-                          </p>
-                          <p className="font-medium text-[11px] text-primary">
-                            {subTask.parentTask.name}
-                          </p>
-                        </div>
+                    )}
+                    <div>
+                      <p className="font-semibold text-[10px] uppercase tracking-wider">
+                        Project Manager
+                      </p>
+                      {firstManager && (
+                        <p className="font-medium text-[11px] text-primary">
+                          {firstManager.surname}
+                        </p>
                       )}
-                      <div>
-                        <p className="font-semibold text-[10px] uppercase tracking-wider">
-                          {assignedManagers.length > 1
-                            ? "Project Managers"
-                            : "Project Manager"}
-                        </p>
-                        {assignedManagers.map((pm, idx) => (
-                          <p
-                            key={idx}
-                            className="font-medium text-[11px] text-primary"
-                          >
-                            {pm.surname}
-                          </p>
-                        ))}
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           )}
         </div>
@@ -429,12 +390,12 @@ export const KanbanCard = React.memo(function KanbanCard({
                 <TooltipTrigger asChild>
                   <Avatar className="h-6 w-6 cursor-pointer border-2 border-background">
                     <AvatarFallback className="text-[10px]">
-                      {assigneeUser.surname?.[0] || assigneeUser.name?.[0]}
+                      {(assigneeUser.surname || (assigneeUser as any).workspaceMember?.user?.surname)?.[0]?.toUpperCase() || "?"}
                     </AvatarFallback>
                   </Avatar>
                 </TooltipTrigger>
                 <TooltipContent side="left">
-                  <p>Assignee: {assigneeUser.surname || assigneeUser.name}</p>
+                  <p>Assignee: {assigneeUser.surname || (assigneeUser as any).workspaceMember?.user?.surname || "Unassigned"}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -450,13 +411,8 @@ export const KanbanCard = React.memo(function KanbanCard({
                 onAssigned={(_userId, member) => {
                   onUpdateInPlace?.(subTask.id, {
                     assignee: {
-                      workspaceMember: {
-                        user: {
-                          id: member.userId,
-                          name: member.user.name,
-                          surname: member.user.surname,
-                        },
-                      },
+                      id: member.userId,
+                      surname: member.user.surname,
                     },
                   });
                 }}

@@ -22,7 +22,7 @@ export async function WorkspaceListView({
     const user = await requireUser();
 
     // Fetch initial tasks and metadata in parallel
-    const startTime = performance.now();
+    const viewStartTime = performance.now();
     const [tagsData, projectMembers, permissions, projects, tasksData] = await Promise.all([
         getWorkspaceTags(workspaceId),
         getProjectMembers({ workspaceId }),
@@ -33,18 +33,15 @@ export async function WorkspaceListView({
             hierarchyMode: "parents",
             includeSubTasks: false,
             page: 1,
-            limit: 50,
+            limit: 1,
             includeFacets: true,
             view_mode: "list"
         }, user.id)
     ]);
-    const duration = performance.now() - startTime;
-    import("@/lib/logger").then(({ logger }) => {
-        logger.serverPerf("WORKSPACE_VIEW_LOAD", duration, {
-            workspaceId,
-            userId: user.id
-        });
-    });
+    const duration = performance.now() - viewStartTime;
+    if (duration > 500) {
+        console.warn(`[PERF_WARN] WorkspaceListView rendered in ${duration.toFixed(2)}ms`);
+    }
 
     const tags = tagsData.map(tag => ({
         id: tag.id,
@@ -53,9 +50,13 @@ export async function WorkspaceListView({
 
     const formattedMembers = projectMembers;
 
-    const initialTasks = tasksData.tasks.map(t => ({
+    // Handle union response safely
+    const rawTasks = (tasksData as any).tasks || [];
+
+    const initialTasks = rawTasks.map((t: any) => ({
         ...t,
-        subTasks: (t as any).subTasks
+        subtaskCount: t.subtaskCount ?? t._count?.subTasks ?? 0,
+        subTasks: undefined
     })) as TaskWithSubTasks[];
 
     return (
@@ -73,7 +74,7 @@ export async function WorkspaceListView({
             projects={projects.map(p => ({
                 id: p.id,
                 name: p.name,
-                color: p.color || undefined,
+                color: p.color,
                 canManageMembers: p.canManageMembers,
                 memberIds: (p as any).memberIds
             }))}
@@ -81,7 +82,7 @@ export async function WorkspaceListView({
             isWorkspaceAdmin={permissions.isWorkspaceAdmin}
             level="workspace"
             userId={user.id}
-            projectCounts={tasksData.facets.projects}
+            projectCounts={tasksData.facets?.projects || {}}
         />
     );
 }

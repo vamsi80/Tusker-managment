@@ -1,8 +1,9 @@
 import dynamic from "next/dynamic";
-import { getTasks } from "@/data/task/get-tasks";
-import type { ProjectMembersType } from "@/data/project/get-project-members";
 import { getWorkspaceTags } from "@/data/tag/get-tags";
-import type { UserPermissionsType } from "@/data/user/get-user-permissions";
+import { getProjectMembers } from "@/data/project/get-project-members";
+import { getUserPermissions } from "@/data/user/get-user-permissions";
+import { requireUser } from "@/lib/auth/require-user";
+import { getTasks } from "@/data/task/get-tasks";
 import type { TaskWithSubTasks } from "@/components/task/shared/types";
 
 const TaskTable = dynamic(() => import("@/components/task/list/task-table"), {
@@ -12,47 +13,64 @@ const TaskTable = dynamic(() => import("@/components/task/list/task-table"), {
 interface ProjectTaskListViewProps {
     workspaceId: string;
     projectId: string;
-    members: ProjectMembersType;
-    canCreateSubTask: boolean;
-    permissions: UserPermissionsType;
     userId: string;
 }
 
 /**
- * Server component that fetches initial task data and passes it to the client TaskTable component
- * Uses unified getTasks() function
+ * ProjectTaskListView (Server Component)
+ * Hydrates initial tasks, members, and permissions on the server for sub-second 
+ * interaction and consistent infinite scroll behavior.
  */
 export async function ProjectTaskListView({
     workspaceId,
     projectId,
-    members,
-    canCreateSubTask,
-    permissions,
-    userId,
 }: ProjectTaskListViewProps) {
-    // 🚀 ZERO-WEIGHT SHELL: Tasks are no longer fetched server-side to minimize response payload.
-    // TaskTable will fetch its own initial data on the client via Hono.
-    
-    // Fetch workspace tags for subtask creation/editing
-    const tagsData = await getWorkspaceTags(workspaceId);
+    // 1. Get current user (server-side authentication)
+    const user = await requireUser();
 
-    // Map tags to only include necessary fields (id, name)
+    // 2. Fetch initial data in parallel for speed
+    const [tagsData, members, permissions, tasksData] = await Promise.all([
+        getWorkspaceTags(workspaceId),
+        getProjectMembers({ workspaceId, projectId }),
+        getUserPermissions(workspaceId, projectId, user.id),
+        getTasks({
+            workspaceId,
+            projectId,
+            hierarchyMode: "parents",
+            includeSubTasks: false,
+            page: 1,
+            limit: 50,
+            view_mode: "list"
+        }, user.id)
+    ]);
+
     const tags = tagsData.map(tag => ({
         id: tag.id,
         name: tag.name,
     }));
 
+    // Handle union response safely
+    const rawTasks = (tasksData as any).tasks || [];
+
+    const initialTasks = rawTasks.map((t: any) => ({
+        ...t,
+        subtaskCount: t.subtaskCount ?? t._count?.subTasks ?? 0,
+        subTasks: undefined // Signaling 'not yet fetched'
+    })) as TaskWithSubTasks[];
+
     return (
         <TaskTable
-            initialTasks={[]}
-            initialHasMore={false}
-            initialNextCursor={null}
-            members={members}
+            initialTasks={initialTasks}
+            initialHasMore={tasksData.hasMore}
+            initialNextCursor={tasksData.nextCursor}
+            initialTotalCount={(tasksData as any).totalCount ?? undefined}
+            members={members as any}
             workspaceId={workspaceId}
             projectId={projectId}
-            canCreateSubTask={canCreateSubTask}
+            canCreateSubTask={permissions.canCreateSubTask}
             permissions={permissions}
-            userId={userId}
+            userId={user.id}
+            level="project"
             tags={tags}
         />
     );

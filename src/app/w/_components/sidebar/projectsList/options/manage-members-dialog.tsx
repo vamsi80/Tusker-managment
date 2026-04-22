@@ -275,14 +275,14 @@ export const ManageProjectMembersDialog = ({
                             <h3 className="text-sm font-semibold">
                                 Current Members ({members.filter((member: ProjectMember) => {
                                     const workspaceMember = workspaceMembers.find(wm => wm.userId === member.userId);
-                                    return workspaceMember?.workspaceRole !== "ADMIN";
+                                    return workspaceMember?.workspaceRole !== "ADMIN" && workspaceMember?.workspaceRole !== "OWNER";
                                 }).length})
                             </h3>
                             <div className="space-y-2">
                                 {members.filter((member: ProjectMember) => {
-                                    // Filter out workspace admins from display
+                                    // Filter out workspace admins and owners from display
                                     const workspaceMember = workspaceMembers.find(wm => wm.userId === member.userId);
-                                    return workspaceMember?.workspaceRole !== "ADMIN";
+                                    return workspaceMember?.workspaceRole !== "ADMIN" && workspaceMember?.workspaceRole !== "OWNER";
                                 }).length === 0 ? (
                                     <p className="text-sm text-muted-foreground text-center py-4">
                                         No members in this project yet.
@@ -290,9 +290,9 @@ export const ManageProjectMembersDialog = ({
                                 ) : (
                                     members
                                         .filter((member: ProjectMember) => {
-                                            // Filter out workspace admins from display
+                                            // Filter out workspace admins and owners from display
                                             const workspaceMember = workspaceMembers.find(wm => wm.userId === member.userId);
-                                            return workspaceMember?.workspaceRole !== "ADMIN";
+                                            return workspaceMember?.workspaceRole !== "ADMIN" && workspaceMember?.workspaceRole !== "OWNER";
                                         })
                                         .map((member: ProjectMember) => (
                                             <div

@@ -32,6 +32,7 @@ interface ProjectTaskGroupProps {
     isWorkspaceAdmin?: boolean;
     leadProjectIds?: string[];
     projects?: any[];
+    projectMap: Record<string, any>;
     onRequestSubtasks: (taskId: string) => void;
     getCachedSubTasks: (taskId: string) => any;
     tags: any[];
@@ -50,6 +51,7 @@ interface ProjectTaskGroupProps {
     activeInlineProjectId: string | null;
     setActiveInlineProjectId: (id: string | null) => void;
     onUpdateParentTaskLists: (updatedList: TaskWithSubTasks[]) => void;
+    onEnsureProjectLoad?: (projectId: string) => void;
 }
 
 export function ProjectTaskGroup({
@@ -82,12 +84,14 @@ export function ProjectTaskGroup({
     handleSubTaskClick,
     scrollContainerRef,
     level,
-    paginationState = { isLoading: false, hasMore: false },
+    paginationState = { isLoading: false, hasMore: true },
     getObserver,
     filtersActive,
     activeInlineProjectId,
     setActiveInlineProjectId,
-    onUpdateParentTaskLists
+    projectMap,
+    onUpdateParentTaskLists,
+    onEnsureProjectLoad,
 }: ProjectTaskGroupProps) {
     // 1. Maintain a local, optimistic mirror of the tasks for this project
     const [localTasks, setLocalTasks] = useState<TaskWithSubTasks[]>(initialTasks);
@@ -96,6 +100,9 @@ export function ProjectTaskGroup({
     useEffect(() => {
         setLocalTasks(initialTasks);
     }, [initialTasks]);
+
+    // 🚀 Lazy Hydration: Handled by the intersection observer on the sentinel below
+    // instead of an automatic useEffect. This prevents "fetch storms" on Expand All.
 
     // Trigger parent sync for caching/other UI updates, using local state as truth
     const flushToParent = (newList: TaskWithSubTasks[]) => {
@@ -189,6 +196,7 @@ export function ProjectTaskGroup({
                             isWorkspaceAdmin={isWorkspaceAdmin}
                             leadProjectIds={leadProjectIds}
                             projects={projects}
+                            projectMap={projectMap}
                             scrollContainerRef={scrollContainerRef}
                             level={level}
                         />
@@ -200,19 +208,34 @@ export function ProjectTaskGroup({
                 <TableLoadingSkeleton visibleColumnsCount={visibleColumnsCount} />
             )}
 
-            {isExpanded && paginationState.hasMore && (
-                paginationState.isLoading ? (
-                    <LoadMoreSentinel visibleColumnsCount={visibleColumnsCount} />
-                ) : (
-                    <TableRow
-                        ref={(node) => {
-                            if (node) getObserver()?.observe(node);
-                        }}
-                        data-project-id={projectId}
-                    >
-                        <TableCell colSpan={visibleColumnsCount} className="py-2 h-1"></TableCell>
-                    </TableRow>
-                )
+            {/* 🎯 Hydration Sentinel: Triggers the first fetch for an empty expanded project when it enters view */}
+            {isExpanded && !paginationState.isLoading && localTasks.length === 0 && paginationState.hasMore && (
+                <TableRow
+                    ref={(node) => {
+                        if (node) getObserver()?.observe(node);
+                    }}
+                    data-project-id={projectId}
+                    className="hover:bg-transparent border-0 h-4"
+                >
+                    <TableCell colSpan={visibleColumnsCount} className="py-0 px-2 h-4">
+                        {/* Invisible trigger */}
+                    </TableCell>
+                </TableRow>
+            )}
+
+            {isExpanded && paginationState.hasMore && paginationState.isLoading && localTasks.length > 0 && (
+                <TableLoadingSkeleton visibleColumnsCount={visibleColumnsCount} count={5} />
+            )}
+
+            {isExpanded && paginationState.hasMore && !paginationState.isLoading && (
+                <TableRow
+                    ref={(node) => {
+                        if (node) getObserver()?.observe(node);
+                    }}
+                    data-project-id={projectId}
+                >
+                    <TableCell colSpan={visibleColumnsCount} className="py-2 h-1"></TableCell>
+                </TableRow>
             )}
 
             {isExpanded && !paginationState.isLoading && localTasks.length === 0 && totalTasksCount === 0 && (

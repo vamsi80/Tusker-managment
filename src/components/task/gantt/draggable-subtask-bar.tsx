@@ -22,6 +22,8 @@ interface DraggableSubtaskBarProps {
         leadProjectIds: string[];
         managedProjectIds: string[];
     };
+    isHighlighted?: boolean;
+    onToggleHighlight?: () => void;
     onUpdate?: (id: string, data: Partial<GanttSubtask>) => void;
 }
 
@@ -33,6 +35,8 @@ export function DraggableSubtaskBar({
     projectId,
     currentUser,
     permissions,
+    isHighlighted,
+    onToggleHighlight,
     onUpdate
 }: DraggableSubtaskBarProps) {
     const [isPending, startTransition] = useTransition();
@@ -91,26 +95,38 @@ export function DraggableSubtaskBar({
 
     const isCompleted = optimisticSubtask.status === 'COMPLETED';
     const isCancelled = optimisticSubtask.status === 'CANCELLED';
+    const isHold = optimisticSubtask.status === 'HOLD';
+    const isSettled = isCompleted || isCancelled || isHold;
     
     const isDelayed = useMemo(() => {
-        if (isCompleted || isCancelled || !endDate) return false;
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const taskEnd = new Date(endDate);
-        taskEnd.setHours(0, 0, 0, 0);
-        return taskEnd < today;
-    }, [isCompleted, isCancelled, endDate]);
-
-    const delayWidthPercent = useMemo(() => {
-        if (!isDelayed || !endDate) return 0;
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        if (!endDate) return false;
+        
+        // For settled tasks, use updatedAt as reference, otherwise use today
+        const referenceDate = isSettled && optimisticSubtask.updatedAt 
+            ? new Date(optimisticSubtask.updatedAt) 
+            : new Date();
+            
+        referenceDate.setHours(0, 0, 0, 0);
         const taskEnd = new Date(endDate);
         taskEnd.setHours(0, 0, 0, 0);
         
-        const delayDays = getDaysBetween(taskEnd, today);
+        return taskEnd < referenceDate;
+    }, [isSettled, optimisticSubtask.updatedAt, endDate]);
+
+    const delayWidthPercent = useMemo(() => {
+        if (!isDelayed || !endDate) return 0;
+        
+        const referenceDate = isSettled && optimisticSubtask.updatedAt 
+            ? new Date(optimisticSubtask.updatedAt) 
+            : new Date();
+            
+        referenceDate.setHours(0, 0, 0, 0);
+        const taskEnd = new Date(endDate);
+        taskEnd.setHours(0, 0, 0, 0);
+        
+        const delayDays = getDaysBetween(taskEnd, referenceDate);
         return (delayDays / totalDays) * 100;
-    }, [isDelayed, endDate, totalDays]);
+    }, [isDelayed, isSettled, optimisticSubtask.updatedAt, endDate, totalDays]);
 
 
     const canEdit = useMemo(() => {
@@ -183,6 +199,7 @@ export function DraggableSubtaskBar({
             const daysDelta = Math.round(deltaX / pixelsPerDay);
 
             if (isDragging) {
+                daysDeltaRef.current = Math.abs(daysDelta);
                 // Calculate new position as percentage for live visual feedback
                 const originalLeft = (startOffset / totalDays) * 100;
                 const deltaPercent = (daysDelta / totalDays) * 100;
@@ -401,6 +418,21 @@ export function DraggableSubtaskBar({
         }
     }
 
+    const daysDeltaRef = useRef(0);
+    useEffect(() => {
+        if (!isDragging && !isResizing) {
+            const timer = setTimeout(() => { daysDeltaRef.current = 0; }, 50);
+            return () => clearTimeout(timer);
+        }
+    }, [isDragging, isResizing]);
+
+    const handleBarClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (daysDeltaRef.current === 0) {
+            onToggleHighlight?.();
+        }
+    };
+
     return (
         <div ref={containerRef} className="h-6 relative w-full group/bar">
             <TooltipProvider delayDuration={100}>
@@ -411,21 +443,20 @@ export function DraggableSubtaskBar({
                             <div
                                 ref={barRef}
                                 className={cn(
-                                    "absolute top-1 h-3 rounded-md transition-all duration-200 ease-out",
+                                    "absolute top-1 h-3 rounded-md transition-all duration-200 ease-out gantt-subtask-bar-hitbox",
                                     "shadow-sm hover:shadow-md",
                                     "focus:outline-none focus:ring-2 focus:ring-offset-1",
-                                    (!optimisticSubtask.assignee?.id && optimisticSubtask.status !== "COMPLETED" && optimisticSubtask.status !== "CANCELLED") && "animate-[pulse_2s_infinite] ring-2 ring-red-500/50 shadow-[0_0_8px_rgba(239,68,68,0.4)]",
                                     canEdit && "cursor-grab active:cursor-grabbing",
                                     isDragging && "opacity-70 scale-105",
                                     // Status-based colors
                                     ({
-                                        'TO_DO': "bg-slate-400 dark:bg-slate-500 hover:bg-slate-500 dark:hover:bg-slate-600 focus:ring-slate-500",
-                                        'IN_PROGRESS': "bg-blue-400 dark:bg-blue-500 hover:bg-blue-500 dark:hover:bg-blue-600 focus:ring-blue-500",
-                                        'CANCELLED': "bg-red-400 dark:bg-red-500 hover:bg-red-500 dark:hover:bg-red-600 focus:ring-red-500",
-                                        'REVIEW': "bg-amber-400 dark:bg-amber-500 hover:bg-amber-500 dark:hover:bg-amber-600 focus:ring-amber-500",
-                                        'HOLD': "bg-purple-400 dark:bg-purple-500 hover:bg-purple-500 dark:hover:bg-purple-600 focus:ring-purple-500",
-                                        'COMPLETED': "bg-green-400 dark:bg-green-500 hover:bg-green-500 dark:hover:bg-green-600 focus:ring-green-500"
-                                    }[optimisticSubtask.status || 'TO_DO'] || "bg-slate-400 dark:bg-slate-500 hover:bg-slate-500 dark:hover:bg-slate-600 focus:ring-slate-500"
+                                        'TO_DO': "bg-[#D1D5DB] hover:bg-[#D1D5DB]/80 focus:ring-[#D1D5DB]",
+                                        'IN_PROGRESS': "bg-[#3B82F6] hover:bg-[#3B82F6]/80 focus:ring-[#3B82F6]",
+                                        'CANCELLED': "bg-[#EF4444] hover:bg-[#EF4444]/80 focus:ring-[#EF4444]",
+                                        'REVIEW': "bg-[#8B5CF6] hover:bg-[#8B5CF6]/80 focus:ring-[#8B5CF6]",
+                                        'HOLD': "bg-[#F59E0B] hover:bg-[#F59E0B]/80 focus:ring-[#F59E0B]",
+                                        'COMPLETED': "bg-[#22C55E] hover:bg-[#22C55E]/80 focus:ring-[#22C55E]"
+                                    }[optimisticSubtask.status || 'TO_DO'] || "bg-[#D1D5DB]"
                                     )
                                 )}
                                 style={{
@@ -434,10 +465,20 @@ export function DraggableSubtaskBar({
                                     minWidth: '20px'
                                 }}
                                 onMouseDown={handleBarMouseDown}
+                                onClick={handleBarClick}
                                 tabIndex={0}
                                 role="button"
                                 aria-label={`${optimisticSubtask.name}: ${startDate ? formatDate(startDate) : 'N/A'} to ${endDate ? formatDate(endDate) : 'N/A'}`}
                             >
+                                {/* Progress Overlay */}
+                                <div
+                                    className="absolute inset-y-0 left-0 bg-black/15 dark:bg-white/15 rounded-l-md transition-all duration-300 pointer-events-none"
+                                    style={{ 
+                                        width: `${subtask.progress}%`, 
+                                        borderRadius: subtask.progress === 100 ? 'inherit' : undefined 
+                                    }}
+                                />
+
                                 {/* Resize handles */}
                                 {canEdit && (
                                     <>
@@ -463,25 +504,37 @@ export function DraggableSubtaskBar({
                             </div>
 
                             {/* Delay Extension Bar */}
-                            {delayWidthPercent > 0 && (
-                                <div 
-                                    className="absolute top-1.5 h-2 rounded-r-md opacity-60 z-0"
-                                    style={{
-                                        left: `${leftPercent + widthPercent}%`,
-                                        width: `${delayWidthPercent}%`,
-                                        backgroundImage: `repeating-linear-gradient(
-                                            15deg,
-                                            transparent,
-                                            transparent 4px,
-                                            rgba(239, 68, 68, 0.4) 1px,
-                                            rgba(239, 68, 68, 0.4) 6px
-                                        )`,
-                                        border: '1px solid rgba(239, 68, 68, 0.3)',
-                                        borderLeft: 'none'
-                                    }}
-                                    title={`Delayed by ${Math.round((delayWidthPercent / 100) * totalDays)} days`}
-                                />
-                            )}
+                            {delayWidthPercent > 0 && (() => {
+                                const statusHex = {
+                                    'TO_DO': '#D1D5DB',
+                                    'IN_PROGRESS': '#3B82F6',
+                                    'CANCELLED': '#EF4444',
+                                    'REVIEW': '#8B5CF6',
+                                    'HOLD': '#F59E0B',
+                                    'COMPLETED': '#22C55E'
+                                }[optimisticSubtask.status || 'TO_DO'] || '#EF4444';
+
+                                return (
+                                    <div 
+                                        className="absolute top-1.5 h-2 rounded-r-md z-0 overflow-hidden"
+                                        style={{
+                                            left: `${leftPercent + widthPercent}%`,
+                                            width: `${delayWidthPercent}%`,
+                                            backgroundImage: `repeating-linear-gradient(
+                                                ${isSettled ? '-45deg' : '45deg'},
+                                                ${statusHex}1A,
+                                                ${statusHex}1A 4px,
+                                                ${statusHex}66 4px,
+                                                ${statusHex}66 8px
+                                            )`,
+                                            border: `1px solid ${statusHex}80`,
+                                            borderLeft: 'none',
+                                            backgroundColor: `${statusHex}0D`
+                                        }}
+                                        title={`Delayed by ${Math.round((delayWidthPercent / 100) * totalDays)} days`}
+                                    />
+                                );
+                            })()}
                         </div>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="bg-popover text-popover-foreground border shadow-lg max-w-xs">
@@ -494,9 +547,14 @@ export function DraggableSubtaskBar({
                                     </span>
                                 )}
                                 {isDelayed && (
-                                    <span className="px-1.5 py-0.5 text-xs bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded flex items-center gap-1 font-bold animate-pulse">
+                                    <span className={cn(
+                                        "px-1.5 py-0.5 text-xs rounded flex items-center gap-1 font-bold",
+                                        isSettled 
+                                            ? "bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300" 
+                                            : "bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 animate-pulse"
+                                    )}>
                                         <AlertCircle className="h-3 w-3" />
-                                        OVERDUE
+                                        {isSettled ? "DELAYED" : "OVERDUE"}
                                     </span>
                                 )}
                             </div>
@@ -505,7 +563,17 @@ export function DraggableSubtaskBar({
                             </p>
                             <p className="text-xs text-muted-foreground">
                                 {duration} days
+                                {isDelayed && ` (+${Math.round((delayWidthPercent / 100) * totalDays)}d delay)`}
                             </p>
+                            <div className="flex items-center gap-2 pt-1 border-t border-neutral-200 dark:border-neutral-700 mt-1">
+                                <div className="flex-1 h-1.5 bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden">
+                                    <div 
+                                        className="h-full bg-blue-500 rounded-full" 
+                                        style={{ width: `${subtask.progress}%` }} 
+                                    />
+                                </div>
+                                <span className="text-[10px] font-bold">{subtask.progress}%</span>
+                            </div>
                             {canEdit && (
                                 <p className="text-xs text-blue-600 dark:text-blue-400 pt-1 border-t">
                                     💡 Drag to move • Drag edge to resize

@@ -9,7 +9,7 @@ import { GanttTask, TimelineGranularity } from "./types";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { ChevronsDownUp, ChevronsUpDown, Download, Calendar, ChevronDown, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { ChevronsDownUp, ChevronsUpDown, Download, Calendar, ChevronDown, PanelLeftClose, PanelLeftOpen, Loader2 } from "lucide-react";
 
 interface TimelineHeaderProps {
     startDate: Date;
@@ -27,6 +27,7 @@ interface TimelineHeaderProps {
     onToggleDetails: () => void;
     scrollX: number;
     viewportWidth: number;
+    isBatchLoading?: boolean;
 }
 
 export function TimelineHeader({
@@ -44,7 +45,8 @@ export function TimelineHeader({
     showDetails,
     onToggleDetails,
     scrollX,
-    viewportWidth
+    viewportWidth,
+    isBatchLoading
 }: TimelineHeaderProps) {
     const columns = useMemo(
         () => generateTimelineColumns(startDate, endDate, granularity),
@@ -129,10 +131,17 @@ export function TimelineHeader({
                                     </Button>
                                 </TooltipTrigger>
                                 <TooltipContent side="bottom">
-                                    {allExpanded ? 'Collapse All' : 'Expand All'}
+                                    {isBatchLoading ? 'Loading...' : allExpanded ? 'Collapse All' : 'Expand All'}
                                 </TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
+
+                        {isBatchLoading && (
+                            <div className="flex items-center gap-1 ml-1 px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 animate-in fade-in zoom-in duration-300">
+                                <Loader2 className="h-2.5 w-2.5 animate-spin text-blue-600 dark:text-blue-400" />
+                                <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-tighter">Syncing</span>
+                            </div>
+                        )}
                     </div>
 
                     <div className="h-3 w-[1px] bg-neutral-300 dark:bg-neutral-700 mx-0.5" />
@@ -253,6 +262,9 @@ export function TimelineHeader({
                                 <>
                                     <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-[var(--col-assignee)] px-2 border-r border-neutral-200 dark:border-neutral-700 h-full flex items-center">
                                         Assignee
+                                    </span>
+                                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-[var(--col-progress)] px-2 border-r border-neutral-200 dark:border-neutral-700 h-full flex items-center justify-center text-center">
+                                        Progress
                                     </span>
                                     <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-[var(--col-status)] px-2 border-r border-neutral-200 dark:border-neutral-700 h-full flex items-center">
                                         Status

@@ -14,6 +14,7 @@ import slugify from "slugify";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { ProjectMembersType, getProjectMembers } from "@/data/project/get-project-members";
 import { SubTaskStatus, STATUS_OPTIONS, subTaskSchema } from "@/lib/zodSchemas";
+import { getStatusColors } from "@/lib/colors/status-colors";
 import { ColumnVisibility } from "../shared/column-visibility";
 import { SubTaskType } from "@/data/task";
 import { ProjectReviewer } from "@/actions/project/get-project-reviewers";
@@ -59,8 +60,8 @@ export function InlineSubTaskForm({
     const [pending, startTransition] = useTransition();
     const [subTaskName, setSubTaskName] = useState(subTask?.name || "");
     const [description, setDescription] = useState(subTask?.description || "");
-    const [assignee, setAssignee] = useState(subTask?.assignee?.workspaceMember?.user?.id || "");
-    const [reviewer, setReviewer] = useState(subTask?.reviewer?.workspaceMember?.user?.id || "");
+    const [assignee, setAssignee] = useState(subTask?.assignee?.id || "");
+    const [reviewer, setReviewer] = useState(subTask?.reviewer?.id || "");
     const [reviewers, setReviewers] = useState<ProjectReviewer[]>([]);
     const [status, setStatus] = useState<typeof SubTaskStatus[number]>(
         (subTask?.status as typeof SubTaskStatus[number]) || "TO_DO"
@@ -158,11 +159,10 @@ export function InlineSubTaskForm({
         const fetchMembers = async () => {
             if (projectId) {
                 try {
-                    // Start with passed members as fallback or loading state
-                    // Fetch real project members
+                    // Fetch real project members and filter out viewers
                     const pMembers = await getProjectMembers(projectId);
                     if (pMembers && pMembers.length > 0) {
-                        setAvailableMembers(pMembers);
+                        setAvailableMembers(pMembers.filter(m => m.projectRole !== "VIEWER"));
                     }
                 } catch (error) {
                     console.error("Failed to fetch project members", error);
@@ -274,8 +274,7 @@ export function InlineSubTaskForm({
                 assignee: selectedMember ? {
                     id: selectedMember.userId,
                     surname: selectedMember.user.surname,
-                    workspaceMember: { user: { id: selectedMember.userId, surname: selectedMember.user.surname } }
-                } : null,
+                } as any : null,
                 tag: selectedTag ? { id: selectedTag.id, name: selectedTag.name } : null
             };
 
@@ -360,14 +359,14 @@ export function InlineSubTaskForm({
             "h-8 [&_td]:p-0"
         )}>
             {/* Drag Handle - Empty with hierarchy gap */}
-            <TableCell className="w-[60px] md:w-[80px]">
+            <TableCell className="w-[50px] sticky left-0 z-20 bg-background">
                 <div className="flex items-center">
                     <div className="w-8 shrink-0" />
                 </div>
             </TableCell>
 
             {/* SubTask Name Input */}
-            <TableCell className="w-[250px] pl-0">
+            <TableCell className="w-[80px] sm:w-[120px] md:w-[220px] sticky left-[50px] z-20 bg-background pl-0">
                 <div className="flex flex-col">
                     <Input
                         placeholder="SubTask name..."
@@ -437,13 +436,15 @@ export function InlineSubTaskForm({
                             <SelectValue placeholder="Select assignee..." className="truncate" />
                         </SelectTrigger>
                         <SelectContent>
-                            {availableMembers.map((member) => (
-                                <SelectItem key={member.userId} value={member.userId}>
-                                    <span className="truncate block">
-                                        {member.user.surname}
-                                    </span>
-                                </SelectItem>
-                            ))}
+                            {availableMembers
+                                .filter(m => m.projectRole !== "VIEWER")
+                                .map((member) => (
+                                    <SelectItem key={member.userId} value={member.userId}>
+                                        <span className="truncate block">
+                                            {member.user.surname || member.user.name}
+                                        </span>
+                                    </SelectItem>
+                                ))}
                         </SelectContent>
                     </Select>
                 </TableCell>
@@ -477,11 +478,30 @@ export function InlineSubTaskForm({
                             <SelectValue className="truncate" />
                         </SelectTrigger>
                         <SelectContent>
-                            {STATUS_OPTIONS.map((option) => (
-                                <SelectItem key={option.value} value={option.value}>
-                                    {option.label}
-                                </SelectItem>
-                            ))}
+                            {STATUS_OPTIONS.map((option) => {
+                                const statusColors = getStatusColors(option.value);
+                                const hexMatch = statusColors?.bgColor?.match(/#([A-Fa-f0-9]{6})/);
+                                const hex = hexMatch ? `#${hexMatch[1]}` : undefined;
+
+                                return (
+                                    <SelectItem key={option.value} value={option.value}>
+                                        <div className="flex items-center gap-2">
+                                            {hex ? (
+                                                <div
+                                                    className="h-2 w-2 rounded-full border border-black/5 dark:border-white/10"
+                                                    style={{ backgroundColor: hex }}
+                                                />
+                                            ) : (
+                                                <div className={cn(
+                                                    "h-2 w-2 rounded-full",
+                                                    statusColors?.color?.replace("text-", "bg-") || "bg-slate-400"
+                                                )} />
+                                            )}
+                                            {option.label}
+                                        </div>
+                                    </SelectItem>
+                                );
+                            })}
                         </SelectContent>
                     </Select>
                 </TableCell>
@@ -498,7 +518,7 @@ export function InlineSubTaskForm({
                 </TableCell>
             )}
 
-            {/* Due Date */}
+            {/* Deadline */}
             {columnVisibility.dueDate && (
                 <TableCell className="w-[120px]">
                     <DateTimePicker

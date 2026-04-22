@@ -53,7 +53,7 @@ export async function createTask(values: TaskSchemaType): Promise<ApiResponse> {
         await invalidateTaskMutation({
             projectId: values.projectId,
             workspaceId: project.workspaceId,
-            userId: permissions.workspaceMember.userId,
+            userId: permissions.userId,
             taskId: newTask.id,
         });
 

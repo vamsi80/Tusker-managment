@@ -8,11 +8,13 @@ import { authClient } from "@/lib/auth-client"
 import Link from "next/link"
 import { useSignout } from "@/hooks/use-signout"
 import { useMounted } from "@/hooks/use-mounted"
+import { useSafeNavigation } from "@/hooks/use-safe-navigation"
 
 export function NavUser() {
   const { isMobile } = useSidebar()
   const handleSignOut = useSignout();
   const mounted = useMounted();
+  const router = useSafeNavigation();
 
   const { data: session, isPending } = authClient.useSession();
 
@@ -82,19 +84,37 @@ export function NavUser() {
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
                 <DropdownMenuItem asChild>
-                  <Link href="/">
+                  <Link 
+                    href="/"
+                    onClick={(e) => {
+                        e.preventDefault();
+                        router.push("/");
+                    }}
+                  >
                     <HomeIcon />
                     Homepage
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/admin">
+                  <Link 
+                    href="/admin"
+                    onClick={(e) => {
+                        e.preventDefault();
+                        router.push("/admin");
+                    }}
+                  >
                     <LayoutDashboard />
                     Dashboard
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/admin/courses">
+                  <Link 
+                    href="/admin/courses"
+                    onClick={(e) => {
+                        e.preventDefault();
+                        router.push("/admin/courses");
+                    }}
+                  >
                     <Tv2 />
                     Courses
                   </Link>
