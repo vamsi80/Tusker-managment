@@ -12,7 +12,8 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarGroupContent,
-  SidebarSeparator
+  SidebarSeparator,
+  useSidebar
 } from "@/components/ui/sidebar";
 import { NavUser } from "./footer/nav-user";
 import { NavMain } from "./header/nav-main";
@@ -31,6 +32,7 @@ import { useSafeNavigation } from "@/hooks/use-safe-navigation";
  */
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const { data, workspaceId } = useWorkspaceLayout();
+  const { isMobile, setOpenMobile } = useSidebar();
   const pathname = usePathname();
   const router = useSafeNavigation();
   const { workspaces, projects, permissions } = data;
@@ -88,6 +90,9 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                         href={item.url}
                         onClick={(e) => {
                             if (pathname !== item.url) {
+                                if (isMobile) {
+                                    setOpenMobile(false);
+                                }
                                 e.preventDefault();
                                 router.push(item.url);
                             }

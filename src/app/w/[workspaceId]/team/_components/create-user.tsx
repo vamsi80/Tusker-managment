@@ -66,7 +66,6 @@ export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onO
         defaultValues: {
             name: "",
             email: "",
-            password: "",
             niceName: "",
             phoneNumber: "",
             role: "MEMBER",
@@ -221,27 +220,6 @@ export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onO
                             )}
                         />
 
-                        <FormField
-                            control={form.control}
-                            name="password"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Password</FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            type="password"
-                                            placeholder="••••••••"
-                                            {...field}
-                                            disabled={pending}
-                                        />
-                                    </FormControl>
-                                    <FormDescription className="text-xs">
-                                        Min. 8 chars with uppercase, lowercase & number
-                                    </FormDescription>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
 
                         <FormField
                             control={form.control}

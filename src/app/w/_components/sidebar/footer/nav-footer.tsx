@@ -1,7 +1,7 @@
 "use client";
 
 import { Settings, BarChart3, LayoutDashboard } from "lucide-react";
-import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar"
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSafeNavigation } from "@/hooks/use-safe-navigation";
@@ -28,6 +28,7 @@ export function NavFooter({
         icon: IconName
     }[]
 }) {
+    const { isMobile, setOpenMobile } = useSidebar();
     const pathname = usePathname();
     const router = useSafeNavigation();
 
@@ -50,6 +51,9 @@ export function NavFooter({
                                 className="flex items-center gap-0"
                                 onClick={(e) => {
                                     if (pathname !== item.url) {
+                                        if (isMobile) {
+                                            setOpenMobile(false);
+                                        }
                                         e.preventDefault();
                                         router.push(item.url);
                                     }

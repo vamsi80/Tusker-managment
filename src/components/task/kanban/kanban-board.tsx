@@ -32,8 +32,10 @@ import { Loader2 } from "lucide-react";
 import { logger } from "@/lib/logger";
 import { UserPermissionsType } from "@/data/user/get-user-permissions";
 import { useFilterStore } from "@/lib/store/filter-store";
+import { useIsMobile } from "@/hooks/use-mobile";
 
-type TaskStatus =
+
+export type TaskStatus =
   | "TO_DO"
   | "IN_PROGRESS"
   | "CANCELLED"
@@ -55,7 +57,7 @@ interface KanbanBoardProps {
   userId?: string;
 }
 
-const COLUMNS: {
+export const COLUMNS: {
   id: TaskStatus;
   title: string;
   color: string;
@@ -107,6 +109,7 @@ export function KanbanBoard({
   userId,
   isShell = false,
 }: KanbanBoardProps) {
+  const isMobile = useIsMobile();
   const setKanbanTasksCache = useTaskCacheStore(
     (state) => state.setKanbanTasksCache,
   );
@@ -425,9 +428,7 @@ export function KanbanBoard({
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 3,
-      },
+      activationConstraint: isMobile ? { delay: 300, tolerance: 5 } : { distance: 3 },
     }),
   );
 
@@ -1108,6 +1109,40 @@ export function KanbanBoard({
     setOverInfo({ overId: null, columnId: null });
   };
 
+  const handleManualStatusChange = (
+    subTaskId: string,
+    newStatus: TaskStatus,
+    currentStatus: TaskStatus,
+  ) => {
+    // Re-use the same validation logic as handleDragEnd
+    if (currentStatus === "IN_PROGRESS" && newStatus === "COMPLETED") {
+      toast.error(
+        "In-Progress tasks must go to Review before being marked as Completed.",
+        { id: "status-block" },
+      );
+      return;
+    }
+
+    const isMandatory =
+      ["HOLD", "CANCELLED", "REVIEW"].includes(newStatus) ||
+      ["HOLD", "CANCELLED"].includes(currentStatus) ||
+      (currentStatus === "REVIEW" &&
+        (newStatus === "TO_DO" || newStatus === "IN_PROGRESS")) ||
+      (currentStatus === "IN_PROGRESS" && newStatus === "TO_DO");
+
+    if (isMandatory) {
+      moveSubTaskBetweenColumns(subTaskId, currentStatus, newStatus);
+      setPendingReviewMove({
+        subTaskId,
+        previousStatus: currentStatus,
+        targetStatus: newStatus,
+      });
+      setIsActivityDialogOpen(true);
+    } else {
+      performStatusUpdate(subTaskId, newStatus, currentStatus);
+    }
+  };
+
   const handleSubTaskClick = (subTask: KanbanSubTaskType) => {
     openSubTaskSheet(subTask);
   };
@@ -1343,6 +1378,8 @@ export function KanbanBoard({
                   userId={userId}
                   projects={projects}
                   projectMap={projectMap}
+                  isMobile={isMobile}
+                  onStatusChange={handleManualStatusChange}
                 />
               );
             })}

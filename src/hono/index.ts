@@ -8,6 +8,7 @@ import tasks from "./routes/tasks";
 import projects from "./routes/projects";
 import tags from "./routes/tags";
 import workspaces from "./routes/workspaces";
+import auth from "./routes/auth";
 import { HonoVariables } from "./types";
 import { authMiddleware } from "./middleware/auth";
 import { AppError } from "../lib/errors/app-error";
@@ -76,6 +77,9 @@ app.get("/health", (c) => {
 
 // Cron Job Routes (Secret-based Auth)
 app.route("/cron", cron);
+
+// Public Auth Routes (Token verification, Invitation acceptance)
+app.route("/auth", auth);
 
 /**
  * Protected Routes (Auth Middleware Applied)

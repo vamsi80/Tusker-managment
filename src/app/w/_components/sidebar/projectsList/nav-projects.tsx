@@ -31,7 +31,7 @@ interface iAppProps {
 }
 
 export function NavProjects({ projects, workspaceId, isAdmin, canCreateProject, userRole, currentUserId }: iAppProps) {
-  const { isMobile } = useSidebar();
+  const { isMobile, setOpenMobile } = useSidebar();
   const pathname = usePathname();
   const router = useSafeNavigation();
   const navigatingTo = useRef<string | null>(null);
@@ -49,6 +49,10 @@ export function NavProjects({ projects, workspaceId, isAdmin, canCreateProject, 
     // 1. Block if already navigating globally OR if target is already being loaded locally
     // 2. Block if already on the target URL (pathname check)
     if (router.isNavigating || pathname === url || navigatingTo.current === url) return;
+    
+    if (isMobile) {
+      setOpenMobile(false);
+    }
 
     navigatingTo.current = url;
     router.push(url);

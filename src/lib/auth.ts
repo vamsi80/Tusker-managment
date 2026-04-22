@@ -142,14 +142,17 @@ export async function sendWorkspaceInvitationEmail({
   name,
   workspaceId,
   role,
+  token,
 }: {
   email: string;
   name: string;
   workspaceId: string;
   role: string;
+  token: string;
 }) {
 
-  const signInUrl = `${process.env.BETTER_AUTH_URL}/sign-in`;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const invitationUrl = `${appUrl}/accept-invitation?token=${token}&email=${encodeURIComponent(email)}`;
 
   await sendEmail({
     to: email,
@@ -160,15 +163,15 @@ export async function sendWorkspaceInvitationEmail({
         <p>Hi ${name},</p>
         <p>You've been invited to join a workspace as <strong>${role}</strong>.</p>
         <div style="margin: 20px 0; padding: 15px; background-color: #F3F4F6; border-radius: 6px;">
-          <p style="margin: 0;"><strong>Important:</strong></p>
+          <p style="margin: 0;"><strong>Instructions:</strong></p>
           <ol style="margin: 10px 0; padding-left: 20px;">
-            <li>First, verify your email address using the verification email you received</li>
-            <li>Then, sign in to access your workspace</li>
+            <li>Click the button below to set your account password</li>
+            <li>Once set, you will be automatically member of the workspace</li>
           </ol>
         </div>
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${signInUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-            Sign In to Workspace
+          <a href="${invitationUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+            Join Workspace & Set Password
           </a>
         </div>
         <p style="color: #6B7280; font-size: 14px;">

@@ -7,7 +7,7 @@ import {
   Settings,
   BarChart3
 } from "lucide-react";
-import { SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuButton, SidebarMenuItem, } from "@/components/ui/sidebar"
+import { SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar"
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTransition, useRef, useEffect } from "react";
@@ -38,6 +38,7 @@ export function NavMain({
   }[]
   workspaceId: string
 }) {
+  const { setOpenMobile, isMobile } = useSidebar();
   const pathname = usePathname();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -55,6 +56,9 @@ export function NavMain({
     if (isPending || pathname === url || navigatingTo.current === url) return;
 
     navigatingTo.current = url;
+    if (isMobile) {
+      setOpenMobile(false);
+    }
     startTransition(() => {
       router.push(url);
     });
