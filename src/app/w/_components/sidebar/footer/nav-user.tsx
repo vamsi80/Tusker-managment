@@ -11,7 +11,7 @@ import { useMounted } from "@/hooks/use-mounted"
 import { useSafeNavigation } from "@/hooks/use-safe-navigation"
 
 export function NavUser() {
-  const { isMobile } = useSidebar()
+  const { isMobile, setOpenMobile } = useSidebar()
   const handleSignOut = useSignout();
   const mounted = useMounted();
   const router = useSafeNavigation();
@@ -87,6 +87,9 @@ export function NavUser() {
                   <Link 
                     href="/"
                     onClick={(e) => {
+                        if (isMobile) {
+                            setOpenMobile(false);
+                        }
                         e.preventDefault();
                         router.push("/");
                     }}
@@ -99,6 +102,9 @@ export function NavUser() {
                   <Link 
                     href="/admin"
                     onClick={(e) => {
+                        if (isMobile) {
+                            setOpenMobile(false);
+                        }
                         e.preventDefault();
                         router.push("/admin");
                     }}
@@ -111,6 +117,9 @@ export function NavUser() {
                   <Link 
                     href="/admin/courses"
                     onClick={(e) => {
+                        if (isMobile) {
+                            setOpenMobile(false);
+                        }
                         e.preventDefault();
                         router.push("/admin/courses");
                     }}

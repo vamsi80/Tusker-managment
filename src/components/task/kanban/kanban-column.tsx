@@ -43,6 +43,8 @@ interface KanbanColumnProps {
     projectMembers?: any[];
     projects?: ProjectOption[];
     projectMap?: Record<string, ProjectOption>;
+    isMobile?: boolean;
+    onStatusChange?: (subTaskId: string, newStatus: TaskStatus, currentStatus: TaskStatus) => void;
 }
 
 /**
@@ -68,6 +70,8 @@ export const KanbanColumn = React.memo(function KanbanColumn({
     projectMembers = [],
     projects,
     projectMap,
+    isMobile,
+    onStatusChange,
 }: KanbanColumnProps) {
     const { setNodeRef, isOver } = useDroppable({
         id: column.id,
@@ -192,6 +196,8 @@ export const KanbanColumn = React.memo(function KanbanColumn({
                                             projectMembers={projectMembers}
                                             projects={projects}
                                             projectMap={projectMap}
+                                            isMobile={isMobile}
+                                            onStatusChange={onStatusChange}
                                         />
                                     </div>
                                 </React.Fragment>
@@ -301,6 +307,8 @@ const KanbanCardWrapper = React.memo(function KanbanCardWrapper({
     projectMembers?: any[];
     projects?: ProjectOption[];
     projectMap?: Record<string, ProjectOption>;
+    isMobile?: boolean;
+    onStatusChange?: (subTaskId: string, newStatus: any, currentStatus: any) => void;
 }) {
     const subTask = useTaskCacheStore(state => state.entities[id]);
     if (!subTask) return null;
@@ -310,6 +318,8 @@ const KanbanCardWrapper = React.memo(function KanbanCardWrapper({
             <KanbanCard
                 subTask={subTask as KanbanSubTaskType}
                 projectMap={projectMap}
+                isMobile={props.isMobile}
+                onStatusChange={props.onStatusChange}
                 {...props}
             />
         </div>

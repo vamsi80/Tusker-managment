@@ -49,15 +49,26 @@ export const inviteUserSchema = z.object({
         .string()
         .min(10, { message: "Phone Number must be at least 10 characters long" })
         .max(15, { message: "Phone Number must be at most 15 characters long" }),
-    password: z
-        .string()
+    // role and workspaceId are required for the link
+    role: z.enum(workspaceMemberRole, { message: "Role is required" }),
+    workspaceId: z.string().uuid({ message: "Invalid workspace id" }),
+});
+
+export const acceptInvitationSchema = z.object({
+    token: z.string().min(1, "Token is required"),
+    email: z.string().email("Invalid email"),
+    name: z.string().min(3, "Name must be at least 3 characters"),
+    niceName: z.string().optional(),
+    password: z.string()
         .min(8, "Password must be at least 8 characters")
         .regex(
             /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
             "Password must contain at least one uppercase letter, one lowercase letter, and one number"
         ),
-    role: z.enum(workspaceMemberRole, { message: "Role is required" }),
-    workspaceId: z.string().uuid({ message: "Invalid workspace id" }),
+    confirmPassword: z.string()
+}).refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
 });
 
 export const workSpaceSchema = z.object({

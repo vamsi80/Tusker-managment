@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Check, ChevronsUpDown, Loader2, Plus } from "lucide-react";
-import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "../../../../../components/ui/sidebar";
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "../../../../../components/ui/sidebar";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useMounted } from "@/hooks/use-mounted";
@@ -24,6 +24,7 @@ interface Props {
 
 export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) => {
   const router = useRouter();
+  const { isMobile, setOpenMobile } = useSidebar();
   const [isPending, startTransition] = useTransition();
   const navigatingTo = useRef<string | null>(null);
   const mounted = useMounted();
@@ -47,6 +48,9 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
   const onWorkspaceSelect = (targetWorkspaceId: string) => {
     if (targetWorkspaceId === workspaceId || isPending || navigatingTo.current === targetWorkspaceId) return; // Already on this workspace or switching
     navigatingTo.current = targetWorkspaceId;
+    if (isMobile) {
+      setOpenMobile(false);
+    }
     startTransition(() => {
       router.push(`/w/${targetWorkspaceId}`);
     });
