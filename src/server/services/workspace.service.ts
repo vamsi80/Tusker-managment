@@ -456,11 +456,7 @@ export class WorkspaceService {
       select: {
         id: true,
         name: true,
-        slug: true,
         ownerId: true,
-        createdAt: true,
-        updatedAt: true,
-        _count: { select: { members: true } },
         members: {
           where: { userId },
           select: { workspaceRole: true },
@@ -472,15 +468,11 @@ export class WorkspaceService {
     const workspaces = workspacesData.map((workspace) => ({
       id: workspace.id,
       name: workspace.name,
-      slug: workspace.slug,
       ownerId: workspace.ownerId,
-      createdAt: workspace.createdAt,
-      updatedAt: workspace.updatedAt,
       workspaceRole: workspace.members[0]?.workspaceRole || "VIEWER",
-      memberCount: workspace._count.members,
     }));
 
-    return { workspaces, totalCount: workspaces.length };
+    return { workspaces };
   }
 
   /**
@@ -540,7 +532,7 @@ export class WorkspaceService {
   }
 
   /**
-   * Get workspace members with pagination
+   * Get workspace members (paginated)
    */
   static async getWorkspaceMembers(
     workspaceId: string,
@@ -549,11 +541,7 @@ export class WorkspaceService {
   ) {
     return prisma.workspaceMember.findMany({
       where: { workspaceId },
-      select: {
-        id: true,
-        userId: true,
-        workspaceId: true,
-        workspaceRole: true,
+      include: {
         user: {
           select: {
             id: true,
@@ -609,16 +597,21 @@ export class WorkspaceService {
         ...(perms.managedProjectIds || [])
       ];
       where.task.OR = [
-        { assigneeId: userId },
-        { createdById: userId },
-        { reviewerId: userId },
+        { assignee: { workspaceMember: { userId } } },
+        { createdBy: { workspaceMember: { userId } } },
+        { reviewer: { workspaceMember: { userId } } },
         ...(privilegedProjectIds.length > 0
           ? [{ projectId: { in: privilegedProjectIds } }]
           : [])
       ];
     }
 
-    return prisma.comment.count({ where });
+    const unreadTasks = await prisma.comment.groupBy({
+      by: ['taskId'],
+      where
+    });
+
+    return unreadTasks.length;
   }
 
   /**
@@ -626,81 +619,129 @@ export class WorkspaceService {
    * Optimized for zero-weight shell hydration.
    */
   static async getWorkspaceLayoutData(workspaceId: string, userId: string) {
-    const [workspaces, metadata, reportStatus, projects, permissions, unreadNotificationsCount] =
-      await Promise.all([
-        this.getWorkspaces(userId),
-        this.getWorkspaceMetadata(workspaceId, userId),
-        getDailyReportStatusForUser(workspaceId, userId),
-        getUserProjects(workspaceId),
-        getWorkspacePermissions(workspaceId),
-        this.getUnreadNotificationsCount(workspaceId, userId),
-      ]);
-
-    return { 
-      workspaces, 
-      metadata, 
-      reportStatus, 
-      projects, 
+    const [
+      workspaces,
+      metadata,
+      reportStatus,
+      projects,
       permissions,
-      unreadNotificationsCount 
+      unreadNotificationsCount,
+      tags,
+      projectAssignments,
+    ]: any[] = await Promise.all([
+      this.getWorkspaces(userId),
+      this.getWorkspaceMetadata(workspaceId, userId),
+      getDailyReportStatusForUser(workspaceId, userId),
+      getUserProjects(workspaceId),
+      getWorkspacePermissions(workspaceId, userId),
+      this.getUnreadNotificationsCount(workspaceId, userId),
+      getWorkspaceTags(workspaceId),
+      this.getWorkspaceProjectAssignments(workspaceId),
+    ]);
+
+    return {
+      workspaces,
+      metadata,
+      reportStatus,
+      projects,
+      permissions,
+      unreadNotificationsCount,
+      tags,
+      projectAssignments,
     };
   }
 
   /**
-   * Get Project Members Map for Kanban
+   * Get Project Assignments Map
+   * Returns a map of projectId -> { id: string, memberId: string, surname: string, role: string }[]
    */
-  static async getWorkspaceProjectMembersMap(workspaceId: string) {
+  static async getWorkspaceProjectAssignments(workspaceId: string) {
     const projectMembers = await prisma.projectMember.findMany({
       where: { project: { workspaceId } },
       select: {
+        id: true, // ProjectMember record ID
         projectId: true,
-        workspaceMember: { select: { userId: true } },
+        projectRole: true,
+        workspaceMember: {
+          select: {
+            userId: true,
+            user: { select: { surname: true } }
+          }
+        },
       },
     });
 
-    const projectUserMap: Record<string, string[]> = {};
+    const projectAssignments: Record<string, { id: string; memberId: string; surname: string; role: string }[]> = {};
     projectMembers.forEach((pm) => {
-      if (!projectUserMap[pm.projectId]) {
-        projectUserMap[pm.projectId] = [];
+      if (!projectAssignments[pm.projectId]) {
+        projectAssignments[pm.projectId] = [];
       }
-      projectUserMap[pm.projectId].push(pm.workspaceMember.userId);
+      projectAssignments[pm.projectId].push({
+        memberId: pm.id,
+        id: pm.workspaceMember.userId,
+        surname: pm.workspaceMember.user?.surname || "Member",
+        role: pm.projectRole
+      });
     });
 
-    return projectUserMap;
+    return projectAssignments;
   }
 
   /**
-   * Get Project Managers Map for Kanban
+   * Get Project Leaders Map
+   * Returns a map of projectId -> { id, surname, image }[]
    */
-  static async getWorkspaceProjectManagersMap(workspaceId: string) {
-    const managers = await prisma.projectMember.findMany({
-      where: {
-        project: { workspaceId },
-        projectRole: "PROJECT_MANAGER",
-        hasAccess: true,
-        workspaceMember: {
-          workspaceRole: { notIn: ["OWNER", "ADMIN"] },
+  static async getWorkspaceProjectLeaders(workspaceId: string) {
+    const [projectMembers, workspaceAdmins, projects] = await Promise.all([
+      prisma.projectMember.findMany({
+        where: {
+          project: { workspaceId },
+          projectRole: { in: ["PROJECT_MANAGER", "LEAD"] },
+          hasAccess: true,
         },
-      },
-      select: {
-        projectId: true,
-        workspaceMember: {
-          select: {
-            user: { select: { id: true, surname: true } },
+        select: {
+          projectId: true,
+          workspaceMember: {
+            select: {
+              user: { select: { id: true, surname: true } },
+            },
           },
         },
-      },
-    });
+      }),
+      prisma.workspaceMember.findMany({
+        where: {
+          workspaceId,
+          workspaceRole: { in: ["OWNER", "ADMIN"] },
+        },
+        select: {
+          user: { select: { id: true, surname: true, image: true } },
+        },
+      }),
+      prisma.project.findMany({
+        where: { workspaceId },
+        select: { id: true },
+      }),
+    ]);
 
     const pmMap: Record<
       string,
       Array<{ id: string; surname: string | null }>
     > = {};
-    managers.forEach((m) => {
-      const user = m.workspaceMember?.user;
+
+    // 1. Initialize map with projects and workspace admins as default leaders
+    projects.forEach((p) => {
+      pmMap[p.id] = workspaceAdmins.map((wa) => wa.user).filter(Boolean) as any;
+    });
+
+    // 2. Add explicit project managers/leads (at the front if they exist)
+    projectMembers.forEach((pm) => {
+      const user = pm.workspaceMember?.user;
       if (user) {
-        if (!pmMap[m.projectId]) pmMap[m.projectId] = [];
-        pmMap[m.projectId].push(user);
+        if (!pmMap[pm.projectId]) pmMap[pm.projectId] = [];
+        // Add to the front of the list, unless already there
+        if (!pmMap[pm.projectId].some((u) => u.id === user.id)) {
+          pmMap[pm.projectId].unshift(user as any);
+        }
       }
     });
 
@@ -768,5 +809,36 @@ export class WorkspaceService {
         canCreateSubTasks: true,
       },
     };
+  }
+  /**
+   * Verify an invitation and add the user to the workspace
+   */
+  static async verifyInvitation(workspaceId: string, role: string, userId: string) {
+    // Check if user already exists in workspace
+    const existingMember = await prisma.workspaceMember.findUnique({
+      where: {
+        userId_workspaceId: {
+          userId,
+          workspaceId,
+        },
+      },
+    });
+
+    if (!existingMember) {
+      // Add user to workspace
+      await prisma.workspaceMember.create({
+        data: {
+          workspaceId,
+          userId,
+          workspaceRole: role as any,
+        },
+      });
+    }
+
+    // Invalidate caches
+    await invalidateUserWorkspaces(userId);
+    await invalidateWorkspaceMembers(workspaceId);
+
+    return { success: true, workspaceId };
   }
 }

@@ -8,18 +8,18 @@ import { resolveProjectMemberId } from "@/lib/auth/resolve-member-chain";
 import { parseIST } from "@/lib/utils";
 import { getSubTasksByParentIds } from "@/data/task/get-subtasks-batch";
 import { logger } from "@/lib/logger";
-import { 
-  getTaskSelect, 
-  TaskCursor, 
-  buildProjectRootWhere, 
-  buildSubtaskExpansionWhere, 
-  buildWorkspaceFilterWhere, 
+import {
+  getTaskSelect,
+  TaskCursor,
+  buildProjectRootWhere,
+  buildSubtaskExpansionWhere,
+  buildWorkspaceFilterWhere,
   WorkspaceFilterOpts,
   buildOrderBy,
   buildSeekCondition,
   toUTCDateOnly,
   addOneDayUTC,
-  SORT_MAP
+  SORT_MAP,
 } from "@/lib/tasks/query-builder";
 
 export type TaskStatus =
@@ -119,10 +119,7 @@ export class TasksService {
       });
       await recordActivity({
         userId,
-        userName:
-          permissions.userSurname ||
-          permissions.userName ||
-          "Someone",
+        userName: permissions.userSurname,
         workspaceId,
         action: "TASK_CREATED",
         entityType: "TASK",
@@ -165,7 +162,7 @@ export class TasksService {
       };
     }
 
-    return this._getTasksInternal(
+    const result = await this._getTasksInternal(
       workspaceId,
       userId,
       isWorkspaceAdmin,
@@ -173,18 +170,133 @@ export class TasksService {
       restrictedProjectIds,
       opts,
     );
+
+    this.stripParentMetadata(result);
+    console.log(
+      `[TasksService] Final Result: ${result.tasks.length} roots, ${result.totalCount} total`,
+    );
+    return result;
   }
+
+  public static mapToLegacyMetadata(task: any) {
+    if (!task) return task;
+    const toLegacy = (obj: any) => {
+      const user = obj?.workspaceMember?.user || obj?.user || obj;
+      if (!user?.id && !user?.surname) return obj;
+
+      const userData = {
+        id: user.id,
+        surname: user.surname,
+      };
+
+      return {
+        ...userData, // Support for flat access (assignee.surname)
+        workspaceMember: {
+          user: userData, // Support for legacy access (assignee.workspaceMember.user.surname)
+        },
+      };
+    };
+
+    if (task.assignee) task.assignee = toLegacy(task.assignee);
+    if (task.reviewer) task.reviewer = toLegacy(task.reviewer);
+    if (task.createdBy) task.createdBy = toLegacy(task.createdBy);
+
+    if (task._count) {
+      task.subtaskCount = task._count.subTasks;
+      delete task._count;
+    }
+
+    if (!task.isParent) {
+      delete task.subTasks;
+      delete task.subtaskCount;
+    } else if (task.subTasks && Array.isArray(task.subTasks)) {
+      task.subTasks = task.subTasks.map((st: any) =>
+        this.mapToLegacyMetadata(st),
+      );
+    }
+
+    return task;
+  }
+
+  public static mapToFlatMetadata(task: any) {
+    if (!task) return task;
+    const flatten = (obj: any) => {
+      const user = obj?.workspaceMember?.user || obj?.user || obj;
+      // 🛡️ Guard: If we don't have an ID, we can't flatten to a valid user object
+      if (!user?.id) return obj;
+      return {
+        id: user.id,
+        surname: user.surname || "",
+      };
+    };
+
+    if (task.assignee) task.assignee = flatten(task.assignee);
+    if (task.reviewer) task.reviewer = flatten(task.reviewer);
+    if (task.createdBy) task.createdBy = flatten(task.createdBy);
+
+    if (task._count) {
+      task.subtaskCount = task._count.subTasks;
+      delete task._count;
+    }
+
+    if (!task.isParent) {
+      delete task.subTasks;
+      delete task.subtaskCount;
+    } else if (task.subTasks && Array.isArray(task.subTasks)) {
+      task.subTasks = task.subTasks.map((st: any) =>
+        this.mapToFlatMetadata(st),
+      );
+    }
+
+    return task;
+  }
+
+  private static stripParentMetadata(result: any) {
+    if (!result) return;
+
+    const processTask = (task: any) => {
+      this.mapToFlatMetadata(task);
+
+      if (task?.isParent) {
+        // Strict Allowed-list for Parent tasks to minimize payload weight
+        const allowedFields = ["id", "name", "taskSlug", "isParent", "projectId", "subTasks", "subtaskCount", "createdAt"];
+        Object.keys(task).forEach(key => {
+          if (!allowedFields.includes(key)) {
+            delete task[key];
+          }
+        });
+      }
+    };
+
+    if (result.tasks && Array.isArray(result.tasks)) {
+      result.tasks.forEach(processTask);
+    }
+
+    if (result.tasksByStatus) {
+      Object.keys(result.tasksByStatus).forEach((status) => {
+        const colData = result.tasksByStatus[status];
+        const colTasks = Array.isArray(colData)
+          ? colData
+          : colData?.tasks || [];
+        colTasks.forEach(processTask);
+      });
+    }
+  }
+
   public static async resolveTaskPermissions(
     workspaceId: string,
     projectId?: string,
     userId?: string,
   ) {
-    const { getUserPermissions, getWorkspacePermissions } = await import(
-      "@/data/user/get-user-permissions"
-    );
+    const { getUserPermissions, getWorkspacePermissions } =
+      await import("@/data/user/get-user-permissions");
 
     if (projectId) {
-      const permissions = await getUserPermissions(workspaceId, projectId, userId);
+      const permissions = await getUserPermissions(
+        workspaceId,
+        projectId,
+        userId,
+      );
       const hasFullAccess =
         permissions.isWorkspaceAdmin ||
         permissions.isProjectLead ||
@@ -203,11 +315,11 @@ export class TasksService {
       const authorizedProjectIds = isWorkspaceAdmin
         ? []
         : [
-            ...(wsPerms.leadProjectIds || []),
-            ...(wsPerms.managedProjectIds || []),
-            ...(wsPerms.memberProjectIds || []),
-            ...(wsPerms.viewerProjectIds || []),
-          ];
+          ...(wsPerms.leadProjectIds || []),
+          ...(wsPerms.managedProjectIds || []),
+          ...(wsPerms.memberProjectIds || []),
+          ...(wsPerms.viewerProjectIds || []),
+        ];
 
       const fullAccessProjectIds = [
         ...(wsPerms.leadProjectIds ?? []),
@@ -247,6 +359,9 @@ export class TasksService {
       const toArray = <T>(v: T | T[] | undefined): T[] | undefined =>
         v === undefined ? undefined : Array.isArray(v) ? v : [v];
 
+      const isMinimal =
+        opts.hierarchyMode === "parents" && !opts.includeSubTasks;
+
       const hasExplicitFilters = !!(
         (opts.status && toArray(opts.status)?.length) ||
         (opts.assigneeId && toArray(opts.assigneeId)?.length) ||
@@ -254,8 +369,6 @@ export class TasksService {
         (opts.search && opts.search.trim().length > 0) ||
         opts.dueAfter ||
         opts.dueBefore ||
-        opts.startDate ||
-        opts.endDate ||
         (opts.sorts && opts.sorts.length > 0)
       );
 
@@ -290,7 +403,7 @@ export class TasksService {
           isAdmin,
           fullAccessProjectIds,
           restrictedProjectIds,
-          opts,
+          { ...opts, isMinimal },
         );
         return { ...result, totalCount: null, facets: emptyFacets };
       }
@@ -300,9 +413,13 @@ export class TasksService {
         !hasExplicitFilters &&
         !opts.excludeParents &&
         !opts.onlySubtasks &&
-        (hierarchyMode === "parents" || !hierarchyMode)
+        (hierarchyMode === "parents" ||
+          hierarchyMode === "subtasks" ||
+          !hierarchyMode)
       ) {
-        strategy = opts.includeSubTasks ? "RECURSIVE_HIERARCHY" : "PROJECT_ROOT";
+        strategy = opts.includeSubTasks
+          ? "RECURSIVE_HIERARCHY"
+          : "PROJECT_ROOT";
         const result = await this._fetchProjectRoot(
           projectId,
           workspaceId,
@@ -333,15 +450,24 @@ export class TasksService {
                 isAdmin,
                 isRestrictedMember: !hasFullAccess,
               }),
-              select: getTaskSelect(opts.view_mode),
+              select: getTaskSelect(opts.view_mode, false), // Subtasks are never minimal in expansion
               orderBy: buildOrderBy(opts.sorts),
+              take: 200, // focus on performance: fetch subtasks for initial roots with a safe cap
+            });
+
+            // Use a map for O(n) grouping instead of O(n^2) nested filtering
+            const subtaskMap = new Map<string, any[]>();
+            subtasks.forEach((st) => {
+              const pid = st.parentTaskId;
+              if (pid) {
+                if (!subtaskMap.has(pid)) subtaskMap.set(pid, []);
+                subtaskMap.get(pid)!.push(st);
+              }
             });
 
             result.tasks.forEach((parent: any) => {
               if (parent.isParent) {
-                parent.subTasks = subtasks.filter(
-                  (st) => st.parentTaskId === parent.id,
-                );
+                parent.subTasks = subtaskMap.get(parent.id) || [];
               } else {
                 parent.subTasks = [];
               }
@@ -358,7 +484,10 @@ export class TasksService {
         (!isSorting || opts.view_mode === "gantt") &&
         !opts.onlySubtasks &&
         !opts.excludeParents &&
-        (hasExplicitFilters || hierarchyMode === "parents" || !hierarchyMode)
+        (hasExplicitFilters ||
+          hierarchyMode === "parents" ||
+          hierarchyMode === "subtasks" ||
+          hierarchyMode === "recursive")
       ) {
         strategy = opts.includeSubTasks
           ? "FILTERED_RECURSIVE_HIERARCHY"
@@ -376,44 +505,148 @@ export class TasksService {
       }
 
       if (opts.groupBy === "status") {
-        strategy = opts.includeSubTasks
-          ? "KANBAN_RECURSIVE_HIERARCHY"
-          : "KANBAN_SINGLE_QUERY";
-        const baseWhere = buildWorkspaceFilterWhere(
-          {
-            workspaceId,
-            projectId: opts.projectId,
-            assigneeId: toArray(opts.assigneeId),
-            tagId: toArray(opts.tagId),
-            search: opts.search,
-            dueAfter: toUTCDateOnly(opts.dueAfter),
-            dueBefore: opts.dueBefore
-              ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!)
-              : undefined,
-            isAdmin,
-            fullAccessProjectIds,
-            restrictedProjectIds,
-            cursor: opts.cursor,
-            onlyParents: opts.hierarchyMode === "parents",
-            onlySubtasks: opts.hierarchyMode === "children",
-            excludeParents: opts.excludeParents,
-            includeSubTasks: opts.includeSubTasks,
-            view_mode: opts.view_mode,
-          },
-          userId,
-        );
+        const targetStatuses = toArray(opts.status);
+        // Default to 5 per status for initial parallel load,
+        // handleLoadMore will explicitly request 10.
+        const perStatusLimit =
+          opts.limit ?? (opts.view_mode === "kanban" ? 5 : 15);
 
-        const countWhere = JSON.parse(JSON.stringify(baseWhere));
-        if (Array.isArray(countWhere.AND)) {
-          countWhere.AND = countWhere.AND.filter(
-            (cond: any) =>
-              !cond.OR ||
-              !cond.OR.some(
-                (c: any) => c.createdAt && (c.createdAt.lt || c.createdAt.gt),
-              ),
+        // --- STRATEGY A: SINGLE STATUS PAGINATION (Load More) ---
+        // If the user specifies exactly one status, we treat this as a pagination request for one column.
+        if (targetStatuses && targetStatuses.length === 1) {
+          strategy = "KANBAN_PAGINATED_STATUS";
+          const status = targetStatuses[0];
+
+          const where = buildWorkspaceFilterWhere(
+            {
+              workspaceId,
+              ids: opts.ids,
+              projectId: opts.projectId,
+              assigneeId: toArray(opts.assigneeId),
+              tagId: toArray(opts.tagId),
+              search: opts.search,
+              dueAfter: opts.dueAfter,
+              dueBefore: opts.dueBefore
+                ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!)
+                : undefined,
+              isAdmin,
+              fullAccessProjectIds,
+              restrictedProjectIds,
+              status: [status as any],
+              cursor: opts.cursor,
+              onlyParents:
+                opts.onlyParents ||
+                (!hasExplicitFilters && hierarchyMode === "parents"),
+              onlySubtasks:
+                opts.onlySubtasks ||
+                (!hasExplicitFilters && hierarchyMode === "children"),
+              excludeParents: opts.excludeParents,
+              view_mode: opts.view_mode,
+            },
+            userId,
           );
-          if (countWhere.AND.length === 0) delete countWhere.AND;
+
+          const tasks = await prisma.task.findMany({
+            where,
+            take: perStatusLimit + 1,
+            select: getTaskSelect(opts.view_mode, isMinimal),
+            orderBy: buildOrderBy(opts.sorts),
+          });
+
+          const trueHasMore = tasks.length > perStatusLimit;
+          if (trueHasMore) tasks.pop();
+
+          // Handle Subtask Expansion
+          if (opts.includeSubTasks && tasks.length > 0) {
+            const parentIds = tasks.filter((t) => t.isParent).map((t) => t.id);
+            if (parentIds.length > 0) {
+              const subtasks = await prisma.task.findMany({
+                where: buildSubtaskExpansionWhere(undefined, {
+                  parentIds,
+                  status: [status as any],
+                  assigneeId: toArray(opts.assigneeId),
+                  tagId: toArray(opts.tagId),
+                  search: opts.search,
+                  userId,
+                  isAdmin,
+                }),
+                select: getTaskSelect(opts.view_mode, false), // subtasks never minimal
+                orderBy: buildOrderBy(opts.sorts),
+              });
+              tasks.forEach((parent: any) => {
+                if (parent.isParent) {
+                  parent.subTasks = subtasks.filter(
+                    (st) => st.parentTaskId === parent.id,
+                  );
+                } else {
+                  parent.subTasks = [];
+                }
+              });
+            }
+          }
+
+          const primarySort = opts.sorts?.[0];
+          const lastTask =
+            tasks.length > 0 ? (tasks[tasks.length - 1] as any) : null;
+          const nextCursor: any =
+            trueHasMore && lastTask
+              ? primarySort && SORT_MAP[primarySort.field]
+                ? {
+                  id: lastTask.id,
+                  [SORT_MAP[primarySort.field].dbField]:
+                    lastTask[SORT_MAP[primarySort.field].dbField],
+                }
+                : { id: lastTask.id, createdAt: lastTask.createdAt }
+              : null;
+
+          const totalCount = await prisma.task.count({ where });
+
+          return {
+            tasks,
+            totalCount: tasks.length,
+            hasMore: trueHasMore,
+            nextCursor,
+            facets: {
+              ...emptyFacets,
+              status: { [status]: totalCount },
+            },
+          };
         }
+
+        // --- STRATEGY B: PARALLEL ALL (Initial Load / Filter) ---
+        strategy = "KANBAN_OPTIMIZED_PARALLEL";
+
+        // 1. Get counts for all statuses (efficient)
+        const countWhere = JSON.parse(
+          JSON.stringify(
+            buildWorkspaceFilterWhere(
+              {
+                workspaceId,
+                ids: opts.ids,
+                projectId: opts.projectId,
+                assigneeId: toArray(opts.assigneeId),
+                tagId: toArray(opts.tagId),
+                search: opts.search,
+                dueAfter: toUTCDateOnly(opts.dueAfter),
+                dueBefore: opts.dueBefore
+                  ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!)
+                  : undefined,
+                isAdmin,
+                fullAccessProjectIds,
+                restrictedProjectIds,
+                onlyParents:
+                  opts.onlyParents ||
+                  (!hasExplicitFilters && hierarchyMode === "parents"),
+                onlySubtasks:
+                  opts.onlySubtasks ||
+                  (!hasExplicitFilters && hierarchyMode === "children"),
+                excludeParents: opts.excludeParents,
+                view_mode: opts.view_mode,
+              },
+              userId,
+            ),
+          ),
+        );
 
         const countsResult = await prisma.task.groupBy({
           by: ["status"],
@@ -426,17 +659,59 @@ export class TasksService {
           if (c.status) statusCounts[c.status] = c._count;
         });
 
-        const limit = opts.limit ?? 50;
-        const tasks = await prisma.task.findMany({
-          where: baseWhere,
-          take: limit + 1,
-          select: getTaskSelect(opts.view_mode),
-          orderBy: buildOrderBy(opts.sorts),
-        });
+        // 2. Define the statuses we care about
+        const allStatuses = [
+          "TO_DO",
+          "IN_PROGRESS",
+          "REVIEW",
+          "HOLD",
+          "COMPLETED",
+          "CANCELLED",
+        ];
 
-        const trueHasMore = tasks.length > limit;
-        if (trueHasMore) tasks.pop();
+        // 3. Fetch tasks for each status in parallel
+        const statusTasksResults = await Promise.all(
+          allStatuses.map(async (status) => {
+            const statusWhere = buildWorkspaceFilterWhere(
+              {
+                workspaceId,
+                ids: opts.ids,
+                projectId: opts.projectId,
+                assigneeId: toArray(opts.assigneeId),
+                tagId: toArray(opts.tagId),
+                search: opts.search,
+                dueAfter: opts.dueAfter,
+                dueBefore: opts.dueBefore
+                  ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!)
+                  : undefined,
+                isAdmin,
+                fullAccessProjectIds,
+                restrictedProjectIds,
+                status: [status as any],
+                onlyParents:
+                  opts.onlyParents ||
+                  (!hasExplicitFilters && hierarchyMode === "parents"),
+                onlySubtasks:
+                  opts.onlySubtasks ||
+                  (!hasExplicitFilters && hierarchyMode === "children"),
+                excludeParents: opts.excludeParents,
+                view_mode: opts.view_mode,
+              },
+              userId,
+            );
 
+            return prisma.task.findMany({
+              where: statusWhere,
+              take: perStatusLimit + 1,
+              select: getTaskSelect(opts.view_mode, isMinimal),
+              orderBy: buildOrderBy(opts.sorts),
+            });
+          }),
+        );
+
+        const tasks = statusTasksResults.flat();
+
+        // 4. Handle Subtask Expansion
         if (opts.includeSubTasks && tasks.length > 0) {
           const parentIds = tasks.filter((t) => t.isParent).map((t) => t.id);
           if (parentIds.length > 0) {
@@ -447,21 +722,12 @@ export class TasksService {
                 assigneeId: toArray(opts.assigneeId),
                 tagId: toArray(opts.tagId),
                 search: opts.search,
-                dueAfter: toUTCDateOnly(opts.dueAfter),
-                dueBefore: opts.dueBefore
-                  ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!)
-                  : undefined,
                 userId,
                 isAdmin,
-                isRestrictedMember:
-                  !isAdmin &&
-                  restrictedProjectIds.length > 0 &&
-                  restrictedProjectIds.includes(opts.projectId || ""),
               }),
               select: getTaskSelect(opts.view_mode),
               orderBy: buildOrderBy(opts.sorts),
             });
-
             tasks.forEach((parent: any) => {
               if (parent.isParent) {
                 parent.subTasks = subtasks.filter(
@@ -474,29 +740,65 @@ export class TasksService {
           }
         }
 
-        const primarySort = opts.sorts?.[0];
-        const lastTask =
-          tasks.length > 0 ? (tasks[tasks.length - 1] as any) : null;
+        if (opts.view_mode === "kanban") {
+          const tasksByStatus: Record<
+            string,
+            { tasks: any[]; nextCursor: any; hasMore: boolean }
+          > = {};
 
-        const nextCursor: any =
-          trueHasMore && lastTask
-            ? primarySort && SORT_MAP[primarySort.field]
-              ? {
-                  id: lastTask.id,
-                  [SORT_MAP[primarySort.field].dbField]:
-                    lastTask[SORT_MAP[primarySort.field].dbField],
-                }
-              : { id: lastTask.id, createdAt: lastTask.createdAt }
-            : null;
+          const primarySort = opts.sorts?.[0];
+
+          statusTasksResults.forEach((statusTasks, idx) => {
+            const status = allStatuses[idx];
+            const hasMore = statusTasks.length > perStatusLimit;
+            if (hasMore) statusTasks.pop();
+
+            const lastTask =
+              statusTasks.length > 0
+                ? (statusTasks[statusTasks.length - 1] as any)
+                : null;
+            const nextCursor: any =
+              hasMore && lastTask
+                ? primarySort && SORT_MAP[primarySort.field]
+                  ? {
+                    id: lastTask.id,
+                    [SORT_MAP[primarySort.field].dbField]:
+                      lastTask[SORT_MAP[primarySort.field].dbField],
+                  }
+                  : { id: lastTask.id, createdAt: lastTask.createdAt }
+                : null;
+
+            tasksByStatus[status] = {
+              tasks: statusTasks,
+              nextCursor,
+              hasMore,
+            };
+          });
+
+          return {
+            tasks: [], // Added for consistent return shape and to fix type union issues
+            tasksByStatus,
+            totalCount: Object.values(statusCounts).reduce(
+              (acc, c) => acc + c,
+              0,
+            ),
+            hasMore: false,
+            nextCursor: null,
+            facets: {
+              ...emptyFacets,
+              status: statusCounts,
+            },
+          };
+        }
 
         return {
           tasks,
           totalCount: tasks.length,
-          hasMore: trueHasMore,
-          nextCursor,
+          hasMore: false, // Initial parallel load doesn't provide a global cursor
+          nextCursor: null,
           facets: {
             ...emptyFacets,
-            statusCounts,
+            status: statusCounts,
           },
         };
       }
@@ -516,9 +818,7 @@ export class TasksService {
           excludeParents: opts.excludeParents,
           onlySubtasks:
             !hasExplicitFilters &&
-            (isSorting ||
-              opts.onlySubtasks ||
-              hierarchyMode === "children"),
+            (isSorting || opts.onlySubtasks || hierarchyMode === "children"),
         },
       );
 
@@ -552,28 +852,34 @@ export class TasksService {
       status: toArray(opts.status),
       assigneeId: toArray(opts.assigneeId),
       cursor: opts.cursor,
+      sorts: opts.sorts,
       userId,
       isAdmin,
       fullAccessProjectIds,
+      ids: opts.ids,
     });
+
+    const primarySortField = opts.sorts?.[0]?.field || "createdAt";
+    const dbField = SORT_MAP[primarySortField]?.dbField || "createdAt";
 
     const [rawTasks] = await Promise.all([
       prisma.task.findMany({
         where,
-        select: getTaskSelect(opts.view_mode),
+        select: getTaskSelect(opts.view_mode, true, [dbField]), // TRUE for minimal parent select, include sort field
         orderBy: buildOrderBy(opts.sorts),
-        take: limit + 1,
       }),
     ]);
 
     const hasMore = rawTasks.length > limit;
     if (hasMore) rawTasks.pop();
 
-    const nextCursor: TaskCursor | null = hasMore
+    const lastTask = rawTasks[rawTasks.length - 1] as any;
+
+    const nextCursor: any = hasMore
       ? {
-          id: rawTasks[rawTasks.length - 1].id,
-          createdAt: rawTasks[rawTasks.length - 1].createdAt,
-        }
+        id: lastTask.id,
+        [dbField]: lastTask[dbField],
+      }
       : null;
 
     return {
@@ -623,10 +929,15 @@ export class TasksService {
     });
 
     const rawSubtasks = await prisma.task.findMany({
-      where,
-      select: getTaskSelect(opts.view_mode),
+      where: {
+        OR: [{ id: parentTaskId }, where],
+      },
+      select: getTaskSelect(
+        opts.view_mode,
+        opts.view_mode === "gantt" || opts.isMinimal,
+      ),
       orderBy: buildOrderBy(opts.sorts),
-      take: limit + 1,
+      take: limit + 5, // Extra buffer for the parent and potential overlap
     });
 
     const hasMore = rawSubtasks.length > limit;
@@ -634,9 +945,9 @@ export class TasksService {
 
     const nextCursor: TaskCursor | null = hasMore
       ? {
-          id: rawSubtasks[rawSubtasks.length - 1].id,
-          createdAt: rawSubtasks[rawSubtasks.length - 1].createdAt,
-        }
+        id: rawSubtasks[rawSubtasks.length - 1].id,
+        createdAt: rawSubtasks[rawSubtasks.length - 1].createdAt,
+      }
       : null;
 
     return {
@@ -687,9 +998,10 @@ export class TasksService {
             ? opts.expandedProjectIds
             : undefined,
         includeSubTasks: opts.includeSubTasks,
-        onlyParents: opts.hierarchyMode === "parents",
-        onlySubtasks: opts.hierarchyMode === "children",
+        onlyParents: !hasExplicitFilters && opts.hierarchyMode === "parents",
+        onlySubtasks: !hasExplicitFilters && opts.hierarchyMode === "children",
         view_mode: opts.view_mode,
+        ids: opts.ids,
       },
       userId,
     );
@@ -697,6 +1009,9 @@ export class TasksService {
     const expansionMatchWhere = { ...matchWhere };
     delete (expansionMatchWhere as any).isParent;
     delete (expansionMatchWhere as any).parentTaskId;
+
+    const primarySortFieldForSelect = opts.sorts?.[0]?.field || "createdAt";
+    const dbFieldForSelect = SORT_MAP[primarySortFieldForSelect]?.dbField || "createdAt";
 
     const rawMatches = await prisma.task.findMany({
       where: buildWorkspaceFilterWhere(
@@ -719,13 +1034,18 @@ export class TasksService {
               ? opts.expandedProjectIds
               : undefined,
           includeSubTasks: opts.includeSubTasks,
-          onlyParents: opts.hierarchyMode === "parents",
-          onlySubtasks: opts.hierarchyMode === "children",
+          onlyParents: !hasExplicitFilters && opts.hierarchyMode === "parents",
+          onlySubtasks:
+            !hasExplicitFilters && opts.hierarchyMode === "children",
           cursor: opts.cursor,
         },
         userId,
       ),
-      select: getTaskSelect(opts.view_mode),
+      select: getTaskSelect(
+        opts.view_mode,
+        opts.view_mode === "gantt" || opts.isMinimal,
+        dbFieldForSelect ? [dbFieldForSelect] : []
+      ),
       take: limit + 1,
       orderBy: buildOrderBy(opts.sorts),
     });
@@ -738,11 +1058,16 @@ export class TasksService {
     }
 
     const taskMap = new Map<string, any>();
-    const shouldHaveSubTasks = opts.includeSubTasks || hasExplicitFilters;
+    // For Gantt mode, we strictly honor includeSubTasks even if filters are active to prevent N+1 bloat
+    const shouldHaveSubTasks =
+      opts.view_mode === "gantt"
+        ? opts.includeSubTasks
+        : opts.includeSubTasks || hasExplicitFilters;
+
     matches.forEach((t) =>
       taskMap.set(t.id, {
         ...t,
-        subTasks: shouldHaveSubTasks ? [] : undefined,
+        subTasks: shouldHaveSubTasks && t.isParent ? [] : undefined,
       }),
     );
 
@@ -757,13 +1082,14 @@ export class TasksService {
 
       const parentIdsToExpand = opts.includeSubTasks
         ? currentGeneration
-            .filter((t) => (t as any).isParent && !expandedParentIds.has(t.id))
-            .map((t) => t.id)
+          .filter((t) => (t as any).isParent && !expandedParentIds.has(t.id))
+          .map((t) => t.id)
         : [];
 
       parentIdsToExpand.forEach((id) => expandedParentIds.add(id));
 
-      if (missingParentIds.length === 0 && parentIdsToExpand.length === 0) break;
+      if (missingParentIds.length === 0 && parentIdsToExpand.length === 0)
+        break;
 
       const orConditions: any[] = [];
       if (missingParentIds.length > 0) {
@@ -771,14 +1097,17 @@ export class TasksService {
       }
       if (parentIdsToExpand.length > 0) {
         orConditions.push({
-          AND: [{ parentTaskId: { in: parentIdsToExpand } }, expansionMatchWhere],
+          AND: [
+            { parentTaskId: { in: parentIdsToExpand } },
+            expansionMatchWhere,
+          ],
         });
       }
       const extraTasks = await prisma.task.findMany({
         where: { OR: orConditions },
         select: getTaskSelect(opts.view_mode),
         orderBy: buildOrderBy(opts.sorts),
-        take: opts.view_mode === "gantt" ? 1000 : 200,
+        take: opts.view_mode === "gantt" ? 2000 : 500,
       });
 
       if (extraTasks.length === 0) break;
@@ -792,23 +1121,26 @@ export class TasksService {
         }
       });
       currentGeneration = newEntries;
-      if (taskMap.size > 500) break;
+      if (taskMap.size > (opts.view_mode === "gantt" ? 5000 : 1000)) break;
     }
 
     const rootTasks: any[] = [];
     const nestedIds = new Set<string>();
     const allTasks = Array.from(taskMap.values());
 
-    allTasks.forEach((task) => {
-      if (task.parentTaskId && taskMap.has(task.parentTaskId)) {
-        const parent = taskMap.get(task.parentTaskId);
-        if (!parent.subTasks) parent.subTasks = [];
-        if (!parent.subTasks.some((st: any) => st.id === task.id)) {
-          parent.subTasks.push(task);
-          nestedIds.add(task.id);
+    // 🌳 Building Tree: ONLY if subtasks are explicitly requested or filters are forcing expansion
+    if (shouldHaveSubTasks) {
+      allTasks.forEach((task) => {
+        if (task.parentTaskId && taskMap.has(task.parentTaskId)) {
+          const parent = taskMap.get(task.parentTaskId);
+          if (!parent.subTasks) parent.subTasks = [];
+          if (!parent.subTasks.some((st: any) => st.id === task.id)) {
+            parent.subTasks.push(task);
+            nestedIds.add(task.id);
+          }
         }
-      }
-    });
+      });
+    }
 
     allTasks.forEach((task) => {
       if (!nestedIds.has(task.id)) {
@@ -829,12 +1161,16 @@ export class TasksService {
       return b.id < a.id ? -1 : b.id > a.id ? 1 : 0;
     });
 
-    const nextCursor: TaskCursor | null =
+    const primarySortField = opts.sorts?.[0]?.field || "createdAt";
+    const dbField = SORT_MAP[primarySortField]?.dbField || "createdAt";
+    const lastMatch = matches[matches.length - 1] as any;
+
+    const nextCursor: any =
       hasMore && matches.length > 0
         ? {
-            id: matches[matches.length - 1].id,
-            createdAt: matches[matches.length - 1].createdAt,
-          }
+          id: lastMatch.id,
+          [dbField]: lastMatch[dbField],
+        }
         : null;
 
     const projectFacets: Record<string, number> = {};
@@ -896,6 +1232,7 @@ export class TasksService {
       excludeParents: opts.excludeParents,
       onlySubtasks: isSorting ? true : opts.onlySubtasks,
       view_mode: opts.view_mode,
+      ids: opts.ids,
     };
 
     let where = buildWorkspaceFilterWhere(filterOpts, userId);
@@ -909,7 +1246,9 @@ export class TasksService {
           where.AND = [
             ...(Array.isArray(where.AND)
               ? where.AND
-              : (where.AND ? [where.AND] : [])),
+              : where.AND
+                ? [where.AND]
+                : []),
             { OR: existingOR },
             seek,
           ];
@@ -917,7 +1256,9 @@ export class TasksService {
           where.AND = [
             ...(Array.isArray(where.AND)
               ? where.AND
-              : (where.AND ? [where.AND] : [])),
+              : where.AND
+                ? [where.AND]
+                : []),
             seek,
           ];
         }
@@ -925,16 +1266,25 @@ export class TasksService {
     }
 
     const primarySort = opts.sorts?.[0];
+    const dbField = primarySort ? SORT_MAP[primarySort.field]?.dbField : "createdAt";
 
+    const queryStartTime = performance.now();
     const [rawTasks] = await Promise.all([
       prisma.task.findMany({
         where,
-        select: getTaskSelect(opts.view_mode),
+        select: getTaskSelect(opts.view_mode, true, dbField ? [dbField] : []), // Use minimal select for filter queries
         orderBy: buildOrderBy(opts.sorts),
         take: limit + 1,
         skip: opts.skip || 0,
       }),
     ]);
+    const queryDuration = performance.now() - queryStartTime;
+
+    if (queryDuration > 100) {
+      console.log(
+        `[SLOW_QUERY] TasksService._fetchWorkspaceFilter took ${queryDuration.toFixed(2)}ms for workspace: ${workspaceId}`,
+      );
+    }
 
     const hasMore = rawTasks.length > limit;
     if (hasMore) rawTasks.pop();
@@ -944,10 +1294,10 @@ export class TasksService {
       hasMore && lastTask
         ? primarySort && SORT_MAP[primarySort.field]
           ? {
-              id: lastTask.id,
-              [SORT_MAP[primarySort.field].dbField]:
-                lastTask[SORT_MAP[primarySort.field].dbField],
-            }
+            id: lastTask.id,
+            [SORT_MAP[primarySort.field].dbField]:
+              lastTask[SORT_MAP[primarySort.field].dbField],
+          }
           : { id: lastTask.id, createdAt: lastTask.createdAt }
         : null;
 
@@ -974,7 +1324,6 @@ export class TasksService {
       facets: { status: {}, assignee: {}, tags: {}, projects: projectFacets },
     };
   }
-
 
   /**
    * Create a subtask
@@ -1117,10 +1466,7 @@ export class TasksService {
       });
       await recordActivity({
         userId,
-        userName:
-          permissions.userSurname ||
-          permissions.userName ||
-          "Someone",
+        userName: permissions.userSurname,
         workspaceId,
         action: "SUBTASK_CREATED",
         entityType: "SUBTASK",
@@ -1221,9 +1567,19 @@ export class TasksService {
       return subTask; // No change needed
     }
 
+    // Constraint: IN_PROGRESS -> COMPLETED is forbidden (must go to REVIEW)
+    if (subTask.status === "IN_PROGRESS" && newStatus === "COMPLETED") {
+      throw AppError.ValidationError(
+        "Tasks in In-Progress must be moved to Review before marking as Completed.",
+      );
+    }
+
     const isMandatoryTransition =
-      (subTask.status === "REVIEW" && newStatus !== "COMPLETED") ||
-      newStatus === "REVIEW";
+      ["HOLD", "CANCELLED", "REVIEW"].includes(newStatus) ||
+      (subTask.status && ["HOLD", "CANCELLED"].includes(subTask.status)) ||
+      (subTask.status === "REVIEW" &&
+        (newStatus === "TO_DO" || newStatus === "IN_PROGRESS")) ||
+      (subTask.status === "IN_PROGRESS" && newStatus === "TO_DO");
     if (isMandatoryTransition && !comment && !attachmentData) {
       throw AppError.ValidationError(
         "A comment or attachment link is required for this status transition.",
@@ -1310,9 +1666,7 @@ export class TasksService {
                 user: {
                   select: {
                     id: true,
-                    name: true,
                     surname: true,
-                    image: true,
                     email: true,
                   },
                 },
@@ -1325,7 +1679,7 @@ export class TasksService {
             workspaceMember: {
               include: {
                 user: {
-                  select: { id: true, name: true, surname: true, image: true },
+                  select: { id: true, surname: true, email: true },
                 },
               },
             },
@@ -1433,19 +1787,19 @@ export class TasksService {
     if (data.assigneeUserId !== undefined) {
       updateData.assigneeId = data.assigneeUserId
         ? await this.resolveOrJoinProjectMember(
-            data.assigneeUserId,
-            projectId,
-            workspaceId,
-          )
+          data.assigneeUserId,
+          projectId,
+          workspaceId,
+        )
         : null;
     }
     if (data.reviewerUserId !== undefined) {
       updateData.reviewerId = data.reviewerUserId
         ? await this.resolveOrJoinProjectMember(
-            data.reviewerUserId,
-            projectId,
-            workspaceId,
-          )
+          data.reviewerUserId,
+          projectId,
+          workspaceId,
+        )
         : null;
     }
 
@@ -1484,10 +1838,7 @@ export class TasksService {
 
       await recordActivity({
         userId,
-        userName:
-          permissions.userSurname ||
-          permissions.userName ||
-          "Someone",
+        userName: permissions.userSurname || permissions.userName || "Someone",
         workspaceId,
         action: task.parentTaskId ? "SUBTASK_UPDATED" : "TASK_UPDATED",
         entityType: task.parentTaskId ? "SUBTASK" : "TASK",
@@ -1568,10 +1919,7 @@ export class TasksService {
     try {
       await recordActivity({
         userId,
-        userName:
-          permissions.userSurname ||
-          permissions.userName ||
-          "Someone",
+        userName: permissions.userSurname || permissions.userName || "Someone",
         workspaceId,
         action: task.parentTaskId ? "SUBTASK_DELETED" : "TASK_DELETED",
         entityType: task.parentTaskId ? "SUBTASK" : "TASK",
@@ -1679,10 +2027,7 @@ export class TasksService {
     try {
       await recordActivity({
         userId,
-        userName:
-          permissions.userSurname ||
-          permissions.userName ||
-          "Someone",
+        userName: permissions.userSurname || permissions.userName || "Someone",
         workspaceId,
         action: "TASK_UPDATED",
         entityType: "TASK",
@@ -1898,6 +2243,7 @@ export class TasksService {
     filters,
     pageSize,
     viewMode,
+    cursor,
     userId,
   }: {
     parentId: string;
@@ -1906,6 +2252,7 @@ export class TasksService {
     filters: any;
     pageSize: number;
     viewMode: string;
+    cursor?: any;
     userId: string;
   }) {
     const results = await getSubTasksByParentIds(
@@ -1917,6 +2264,7 @@ export class TasksService {
       viewMode,
       userId,
       true, // skipPermissionsCheck for service-level access
+      cursor,
     );
 
     if (!results || results.length === 0) {
@@ -1991,9 +2339,8 @@ export class TasksService {
     userId: string;
     userName: string;
   }) {
-    const { getUserPermissions } = await import(
-      "@/data/user/get-user-permissions"
-    );
+    const { getUserPermissions } =
+      await import("@/data/user/get-user-permissions");
 
     // 1. Parallel fetch context
     const [task, permissions] = await Promise.all([
@@ -2086,20 +2433,20 @@ export class TasksService {
       }),
       result.commentActivity
         ? recordActivity({
-            userId,
-            userName,
-            workspaceId,
-            action: "COMMENT_CREATED",
-            entityType: "SUBTASK",
-            entityId: taskId,
-            newData: {
-              id: result.commentActivity.id,
-              text: explanation?.trim(),
-              createdAt: result.commentActivity.createdAt.toISOString(),
-            },
-            broadcastEvent: "team_update",
-            targetUserIds,
-          })
+          userId,
+          userName,
+          workspaceId,
+          action: "COMMENT_CREATED",
+          entityType: "SUBTASK",
+          entityId: taskId,
+          newData: {
+            id: result.commentActivity.id,
+            text: explanation?.trim(),
+            createdAt: result.commentActivity.createdAt.toISOString(),
+          },
+          broadcastEvent: "team_update",
+          targetUserIds,
+        })
         : Promise.resolve(),
     ]);
 

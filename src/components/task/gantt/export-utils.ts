@@ -30,7 +30,7 @@ export const exportGanttToExcel = async (
   // 1. Calculate Date Range for Timeline
   const allDates: Date[] = [];
   tasks.forEach((t) => {
-    t.subtasks.forEach((st) => {
+    t.subtasks?.forEach((st) => {
       const startDate = parseDisplayDate(st.start);
       const endDate = parseDisplayDate(st.end);
       if (startDate) allDates.push(startDate);
@@ -55,7 +55,7 @@ export const exportGanttToExcel = async (
     const e = parseDisplayDate(end);
     if (!s || !e) return null;
     const timeDiff = e.getTime() - s.getTime();
-    const days = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1; // Inclusive
+    const days = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
     return days > 0 ? days : 1;
   };
 
@@ -83,62 +83,46 @@ export const exportGanttToExcel = async (
     // Add Parent Task
     rows.push({
       name: task.name,
-      type: "Task",
-      project: task.projectName || "Unknown",
-      assignee: task.assignee?.name || "",
+      assignee: task.assignee?.surname || "",
       status: "",
       start: null,
       end: null,
       duration: null,
       delayedDays: null,
-      deps: "",
-      tag: "",
-      desc: "",
+      _type: "Task", // Internal marker for logic
     });
 
     // Add Subtasks
-    task.subtasks.forEach((subtask) => {
+    task.subtasks?.forEach((subtask) => {
       rows.push({
         name: `    ${subtask.name}`,
-        type: "Subtask",
-        project: task.projectName || "Unknown",
-        assignee: subtask.assignee?.name || "Unassigned",
+        assignee: subtask.assignee?.surname || "Unassigned",
         status: subtask.status?.toUpperCase() || "",
         start: parseDisplayDate(subtask.start),
         end: parseDisplayDate(subtask.end),
         duration: getDuration(subtask.start, subtask.end),
         delayedDays: getDelayedDays(subtask.end, subtask.status),
-        deps: subtask.dependsOnIds?.join(", ") || "",
-        tag: subtask.tagId || "",
-        desc: subtask.description || "",
+        _type: "Subtask",
       });
     });
   });
 
-  // 3. Create Sheet
   const worksheet = XLSX.utils.json_to_sheet([]);
   XLSX.utils.sheet_add_json(worksheet, rows, {
     skipHeader: true,
     origin: "A2",
   });
 
-  // 4. Write Headers
   const staticHeaders = [
     "Task Name",
-    "Type",
-    "Project",
     "Assigned To",
     "Status",
     "Start Date",
     "End Date",
     "Duration",
     "Delayed Days",
-    "Dependencies",
-    "Tag",
-    "Description",
   ];
 
-  // Write Static Headers (A1:K1)
   staticHeaders.forEach((h, i) => {
     const cellRef = XLSX.utils.encode_cell({ c: i, r: 0 });
     worksheet[cellRef] = {
@@ -157,7 +141,7 @@ export const exportGanttToExcel = async (
   });
 
   timelineDates.forEach((date, i) => {
-    const colIndex = 12 + i;
+    const colIndex = 7 + i;
     const cellRef = XLSX.utils.encode_cell({ c: colIndex, r: 0 });
     worksheet[cellRef] = {
       t: "d",
@@ -180,36 +164,43 @@ export const exportGanttToExcel = async (
   });
 
   const rowCount = rows.length;
-  const colStart = 12;
-  const colEnd = 12 + timelineDates.length - 1;
+  const colStart = 7;
+  const colEnd = 7 + timelineDates.length - 1;
 
   for (let r = 0; r < rowCount; r++) {
     const worksheetRowIndex = r + 1;
     const excelRowNumber = r + 2;
     const rowData = rows[r];
 
-    for (let c = 0; c < 12; c++) {
+    const isParentRow = rowData._type === "Task";
+
+    for (let c = 0; c < 7; c++) {
       const cellRef = XLSX.utils.encode_cell({ c: c, r: worksheetRowIndex });
-      if (worksheet[cellRef]) {
-        worksheet[cellRef].s = {
-          ...worksheet[cellRef].s,
-          border: {
-            top: { style: "thin", color: { rgb: "E5E7EB" } },
-            bottom: { style: "thin", color: { rgb: "E5E7EB" } },
-          },
-        };
+
+      // Ensure cell exists for styling (even if value is null)
+      if (!worksheet[cellRef]) {
+        worksheet[cellRef] = { t: "s", v: "" };
       }
+
+      worksheet[cellRef].s = {
+        ...worksheet[cellRef].s,
+        fill: isParentRow ? { patternType: "solid", fgColor: { rgb: "E5E7EB" } } : worksheet[cellRef].s?.fill,
+        border: {
+          top: { style: "thin", color: { rgb: "E5E7EB" } },
+          bottom: { style: "thin", color: { rgb: "E5E7EB" } },
+        },
+      };
     }
 
-    const startCellRef = XLSX.utils.encode_cell({ c: 5, r: worksheetRowIndex });
-    if (worksheet[startCellRef]) {
+    const startCellRef = XLSX.utils.encode_cell({ c: 3, r: worksheetRowIndex });
+    if (worksheet[startCellRef] && worksheet[startCellRef].v) {
       worksheet[startCellRef].z = "d mmm yyyy";
     }
 
     if (rowData.start && rowData.end) {
-      const endCellRef = XLSX.utils.encode_cell({ c: 6, r: worksheetRowIndex });
-      const startRef = `F${excelRowNumber}`;
-      const durRef = `H${excelRowNumber}`;
+      const endCellRef = XLSX.utils.encode_cell({ c: 4, r: worksheetRowIndex });
+      const startRef = `D${excelRowNumber}`;
+      const durRef = `F${excelRowNumber}`;
 
       worksheet[endCellRef] = {
         t: "n",
@@ -237,7 +228,7 @@ export const exportGanttToExcel = async (
         const isWithinRange =
           timelineDate >= taskStart && timelineDate <= taskEnd;
 
-        const formula = `IF(AND(${colLetter}$1>=$F${excelRowNumber},${colLetter}$1<=$F${excelRowNumber}+$H${excelRowNumber}-1)," ","")`;
+        const formula = `IF(AND(${colLetter}$1>=$D${excelRowNumber},${colLetter}$1<=$D${excelRowNumber}+$F${excelRowNumber}-1)," ","")`;
 
         if (isWithinRange) {
           worksheet[cellRef] = {
@@ -283,6 +274,7 @@ export const exportGanttToExcel = async (
           t: "s",
           v: "",
           s: {
+            fill: { patternType: "solid", fgColor: { rgb: "E5E7EB" } },
             border: {
               top: { style: "thin", color: { rgb: "E5E7EB" } },
               bottom: { style: "thin", color: { rgb: "E5E7EB" } },
@@ -296,17 +288,12 @@ export const exportGanttToExcel = async (
   // 6. Set Column Widths
   const wscols = [
     { wch: 40 }, // Task Name
-    { wch: 10 }, // Type
-    { wch: 20 }, // Project
     { wch: 20 }, // Assigned To
     { wch: 15 }, // Status
     { wch: 12 }, // Start Date
     { wch: 12 }, // End Date
     { wch: 15 }, // Duration
     { wch: 15 }, // Delayed Days
-    { wch: 30 }, // Dependencies
-    { wch: 15 }, // Tag
-    { wch: 40 }, // Description
   ];
 
   const timelineCols = timelineDates.map(() => ({ wch: 3 }));
@@ -350,7 +337,11 @@ export const exportGanttToPDF = async (
   const { jsPDF } = await import("jspdf");
   const autoTable = (await import("jspdf-autotable")).default;
 
-  const doc = new jsPDF();
+  const doc = new jsPDF({
+    orientation: "landscape",
+    unit: "mm",
+    format: "a4",
+  });
 
   // Title
   doc.setFontSize(16);
@@ -359,9 +350,9 @@ export const exportGanttToPDF = async (
   const tableData: any[][] = [];
 
   tasks.forEach((task) => {
-    tableData.push([task.name, task.assignee?.name || "", "", "", ""]);
+    tableData.push([task.name, task.assignee?.surname || "", "", "", ""]);
 
-    task.subtasks.forEach((subtask) => {
+    task.subtasks?.forEach((subtask) => {
       const startDateStr = subtask.start
         ? format(parseDisplayDate(subtask.start) || new Date(), "d MMM yyyy")
         : "N/A";
@@ -370,25 +361,25 @@ export const exportGanttToPDF = async (
         : "N/A";
       const delayVal =
         subtask.end &&
-        subtask.status !== "COMPLETED" &&
-        subtask.status !== "CANCELLED"
+          subtask.status !== "COMPLETED" &&
+          subtask.status !== "CANCELLED"
           ? (() => {
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              const e = parseDisplayDate(subtask.end);
-              if (!e) return 0;
-              e.setHours(0, 0, 0, 0);
-              return e < today
-                ? Math.floor(
-                    (today.getTime() - e.getTime()) / (1000 * 3600 * 24),
-                  )
-                : 0;
-            })()
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const e = parseDisplayDate(subtask.end);
+            if (!e) return 0;
+            e.setHours(0, 0, 0, 0);
+            return e < today
+              ? Math.floor(
+                (today.getTime() - e.getTime()) / (1000 * 3600 * 24),
+              )
+              : 0;
+          })()
           : 0;
 
       tableData.push([
         `   ${subtask.name}`,
-        subtask.assignee?.name || "Unassigned",
+        subtask.assignee?.surname || "Unassigned",
         subtask.status?.replace(/_/g, " ") || "TO DO",
         subtask.days?.toString() || "-",
         delayVal > 0 ? `${delayVal}d` : "-",
@@ -412,6 +403,7 @@ export const exportGanttToPDF = async (
         raw[4] === ""
       ) {
         data.cell.styles.fontStyle = "bold";
+        data.cell.styles.fillColor = [229, 231, 235]; // Darker gray background for parent rows in PDF
       }
     },
   });

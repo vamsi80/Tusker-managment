@@ -42,7 +42,7 @@ export default async function InfoPage({ params }: InfoPageProps) {
 
     if (canEdit) {
         return (
-            <div className="container mx-auto py-0 space-y-8">
+            <div className="w-full py-0 space-y-8">
                 <WorkspaceInfoForm workspace={workspace} />
             </div>
         );
@@ -63,7 +63,7 @@ export default async function InfoPage({ params }: InfoPageProps) {
     ].filter(Boolean);
 
     return (
-        <div className="container mx-auto py-0 space-y-8">
+        <div className="w-full py-0 space-y-8">
             <div className="space-y-2">
                 <h1 className="text-3xl font-bold tracking-tight">Workspace Information</h1>
                 <p className="text-muted-foreground">

@@ -7,12 +7,13 @@ import { Calendar } from "lucide-react";
 import { ProjectRow } from "./project-row";
 import { ProjectOption } from "../shared/types";
 import { exportGanttToExcel, exportGanttToPDF } from "./export-utils";
-import { GanttSubtask, GanttTask, TimelineGranularity } from "./types";
+import { GanttTask, TimelineGranularity } from "./types";
 import { TimelineHeader, TimelineGrid } from "./timeline-grid";
 import { calculateTimelineRange, getDaysBetween } from "./utils";
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { ProjectMembersType } from "@/data/project/get-project-members";
-import { DependencyLines } from "./dependency-lines";
+import { GanttRowSkeleton } from "./gantt-row-skeleton";
+
 
 interface GanttChartProps {
     tasks: GanttTask[];
@@ -27,6 +28,12 @@ interface GanttChartProps {
     onProjectChange?: (projectId: string | null) => void;
     hasMore?: boolean;
     onLoadMore?: () => void;
+    onRequestSubtasks?: (taskId: string) => void;
+    onRequestMoreSubtasks?: (taskId: string) => void;
+    onRequestProjectTasks?: (projectId: string) => void;
+    loadingSubtasks?: Set<string>;
+    loadingProjects?: Set<string>;
+    isLoading?: boolean;
     projectCounts?: Record<string, number>;
     members?: ProjectMembersType;
     currentUser?: { id: string };
@@ -38,8 +45,6 @@ interface GanttChartProps {
 }
 
 const ITEMS_PER_PAGE = 50;
-const PROJECTS_PER_PAGE = 20;
-
 export function GanttChart({
     tasks,
     workspaceId,
@@ -47,24 +52,41 @@ export function GanttChart({
     className,
     onSubtaskClick,
     onSubTaskUpdate,
-    showProjectFilter,
     projects,
     groupByProject = false,
     projectCounts,
     members,
     currentUser,
+    hasMore,
+    onLoadMore,
+    onRequestSubtasks,
+    onRequestMoreSubtasks,
+    onRequestProjectTasks,
+    loadingSubtasks,
+    loadingProjects,
+    isLoading,
     permissions
 }: GanttChartProps & { groupByProject?: boolean }) {
     const [granularity, setGranularity] = useState<TimelineGranularity>('days');
     const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
     const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
+    const [isExpandAllMode, setIsExpandAllMode] = useState(false); // 🚀 Persistent expansion for lazy-loading
     const [showDetails, setShowDetails] = useState(true);
+    const [highlightedSubtaskId, setHighlightedSubtaskId] = useState<string | null>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-    // Pagination State
-    const [visibleProjectCount, setVisibleProjectCount] = useState(PROJECTS_PER_PAGE);
+    const onToggleSubtaskHighlight = useCallback((id: string) => {
+        setHighlightedSubtaskId(prev => (prev === id ? null : id));
+    }, []);
+
+    // 🚀 Performance: Memoized projectMap for O(1) metadata lookups
+    const projectMap = useMemo(() => {
+        const map = new Map<string, ProjectOption>();
+        projects?.forEach(p => map.set(p.id, p));
+        return map;
+    }, [projects]);
+
     const [visibleTasksPerProject, setVisibleTasksPerProject] = useState<Map<string, number>>(new Map());
-    const [visibleFlatCount, setVisibleFlatCount] = useState(ITEMS_PER_PAGE);
 
     // Initial expansion effects
     const initializedRef = useRef(false);
@@ -73,14 +95,13 @@ export function GanttChart({
             const firstTask = tasks.find(t => t.projectId);
             if (firstTask && firstTask.projectId) {
                 const pid = firstTask.projectId;
-                // Use setTimeout to avoid setState excessive warning during hydration if any
                 setTimeout(() => {
                     setExpandedProjects(new Set([pid]));
                 }, 0);
             }
             initializedRef.current = true;
         }
-    }, [groupByProject]); // Reduced dependency to just grouping mode
+    }, [groupByProject]);
 
     // 🚀 Performance: Virtualization & Windowing
     const [scrollX, setScrollX] = useState(0);
@@ -90,7 +111,6 @@ export function GanttChart({
         setScrollX(e.currentTarget.scrollLeft);
     };
 
-    // Track viewport size for horizontal clipping
     useEffect(() => {
         if (!scrollContainerRef.current) return;
         const updateWidth = () => setViewportWidth(scrollContainerRef.current?.clientWidth || 1200);
@@ -114,10 +134,10 @@ export function GanttChart({
         tasks.forEach(task => {
             if (task.projectId) {
                 if (!groups.has(task.projectId)) {
-                    const projectFromProps = projects?.find(p => p.id === task.projectId);
+                    const projectFromMap = projectMap.get(task.projectId);
                     groups.set(task.projectId, {
-                        name: projectFromProps?.name || task.projectName || "Unknown Project",
-                        color: projectFromProps?.color,
+                        name: projectFromMap?.name || "Unknown Project",
+                        color: projectFromMap?.color,
                         tasks: []
                     });
                 }
@@ -128,9 +148,8 @@ export function GanttChart({
         });
 
         const allGroups = Array.from(groups.entries());
-        // 🚀 Optimization: Keep only first 100 projects initially to prevent DOM explosion
-        // User can still scroll to Load More.
-        const paginatedGroups = allGroups.slice(0, visibleProjectCount).map(([pid, group]) => {
+        
+        const paginatedGroups = allGroups.map(([pid, group]) => {
             const limit = visibleTasksPerProject.get(pid) || ITEMS_PER_PAGE;
             return {
                 id: pid,
@@ -138,25 +157,23 @@ export function GanttChart({
                 allTasks: group.tasks,
                 visibleTasks: group.tasks.slice(0, limit),
                 totalTasks: group.tasks.length,
-                hasMoreTasks: limit < group.tasks.length
+                hasMoreTasks: limit < group.tasks.length,
+                highlightedSubtaskId,
+                onToggleSubtaskHighlight
             };
         });
 
         return {
             groups: paginatedGroups,
-            hasMoreProjects: visibleProjectCount < allGroups.length,
+            hasMoreProjects: hasMore, 
             noProjectTasks: noProjectTasks
         };
-    }, [tasks, groupByProject, projects, visibleProjectCount, visibleTasksPerProject]);
+    }, [tasks, groupByProject, projects, hasMore, visibleTasksPerProject, highlightedSubtaskId, onToggleSubtaskHighlight]);
 
     const visibleFlatTasks = useMemo(() => {
         if (groupByProject) return [];
-        return tasks.slice(0, visibleFlatCount);
-    }, [tasks, groupByProject, visibleFlatCount]);
-
-    const handleLoadMoreProjects = () => {
-        setVisibleProjectCount(prev => prev + PROJECTS_PER_PAGE);
-    };
+        return tasks;
+    }, [tasks, groupByProject]);
 
     const handleLoadMoreTasksForProject = (pid: string) => {
         setVisibleTasksPerProject(prev => {
@@ -167,23 +184,18 @@ export function GanttChart({
         });
     };
 
-    const handleLoadMoreFlat = () => {
-        setVisibleFlatCount(prev => prev + ITEMS_PER_PAGE);
-    };
-
-    // Infinite Scroll Implementation
     const projectsLoaderRef = useRef<HTMLDivElement>(null);
     const flatTasksLoaderRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    if (entry.target === projectsLoaderRef.current && groupedTasks?.hasMoreProjects) {
-                        handleLoadMoreProjects();
+                if (entry.isIntersecting && !isLoading) {
+                    if (entry.target === projectsLoaderRef.current && hasMore) {
+                        onLoadMore?.();
                     }
-                    if (entry.target === flatTasksLoaderRef.current && !groupByProject && tasks.length > visibleFlatCount) {
-                        handleLoadMoreFlat();
+                    if (entry.target === flatTasksLoaderRef.current && !groupByProject && hasMore) {
+                        onLoadMore?.();
                     }
                 }
             });
@@ -193,7 +205,7 @@ export function GanttChart({
         if (flatTasksLoaderRef.current) observer.observe(flatTasksLoaderRef.current);
 
         return () => observer.disconnect();
-    }, [groupedTasks?.hasMoreProjects, groupByProject, tasks.length, visibleFlatCount]);
+    }, [hasMore, groupByProject, onLoadMore, isLoading]);
 
     useEffect(() => {
         if (!scrollContainerRef.current) return;
@@ -211,6 +223,9 @@ export function GanttChart({
     }, [granularity]);
 
     const toggleTask = (taskId: string) => {
+        const isExpanding = !expandedTasks.has(taskId);
+        if (!isExpanding) setIsExpandAllMode(false);
+
         setExpandedTasks((prev) => {
             const next = new Set(prev);
             if (next.has(taskId)) {
@@ -223,6 +238,9 @@ export function GanttChart({
     };
 
     const toggleProject = (projectId: string) => {
+        const isExpanding = !expandedProjects.has(projectId);
+        if (!isExpanding) setIsExpandAllMode(false);
+
         setExpandedProjects((prev) => {
             const next = new Set(prev);
             if (next.has(projectId)) {
@@ -232,18 +250,65 @@ export function GanttChart({
             }
             return next;
         });
-    };
 
-    const expandAll = () => {
-        setExpandedTasks(new Set(tasks.map((t) => t.id)));
-        if (groupedTasks) {
-            const allProjectIds = new Set<string>();
-            groupedTasks.groups.forEach(g => allProjectIds.add(g.id));
-            setExpandedProjects(allProjectIds);
+        if (isExpanding) {
+            onRequestProjectTasks?.(projectId);
         }
     };
 
+    const handleSubtaskClick = (subtaskId: string) => {
+        if (!onSubtaskClick) return;
+
+        const allSubtasks = tasks.flatMap(t => t.subtasks || []);
+        const subtask = allSubtasks.find(s => s.id === subtaskId);
+
+        if (subtask) {
+            const project = projectMap.get(subtask.projectId);
+            if (project) {
+                (subtask as any).projectName = project.name;
+                (subtask as any).projectColor = project.color;
+            }
+        }
+
+        onSubtaskClick(subtaskId);
+    };
+
+    // 🚀 SYNC: Persistent expansion management
+    useEffect(() => {
+        if (!isExpandAllMode) {
+            return;
+        }
+
+        // 1. Expand all current projects
+        if (groupedTasks) {
+            const allProjectIds = new Set(groupedTasks.groups.map(g => g.id));
+            setExpandedProjects(prev => {
+                if (prev.size === allProjectIds.size && [...allProjectIds].every(id => prev.has(id))) return prev;
+                return new Set([...prev, ...allProjectIds]);
+            });
+
+            // Trigger fetches for projects with no items yet
+            groupedTasks.groups.forEach(g => {
+                if (g.allTasks.length === 0 && !loadingProjects?.has(g.id)) {
+                    onRequestProjectTasks?.(g.id);
+                }
+            });
+        }
+
+        // 2. Expand all current tasks
+        const allTaskIds = new Set(tasks.map(t => t.id));
+        setExpandedTasks(prev => {
+            if (prev.size === allTaskIds.size && [...allTaskIds].every(id => prev.has(id))) return prev;
+            return new Set([...prev, ...allTaskIds]);
+        });
+    }, [isExpandAllMode, tasks, groupedTasks, loadingSubtasks, loadingProjects]);
+
+    const expandAll = () => {
+        setIsExpandAllMode(true);
+    };
+
     const collapseAll = () => {
+        setIsExpandAllMode(false);
         setExpandedTasks(new Set());
         setExpandedProjects(new Set());
     };
@@ -270,88 +335,18 @@ export function GanttChart({
         );
     }
 
-    // 🚀 Global Coordinate Mapping for Dependency Lines
-    const globalSubtasksWithPositions = useMemo(() => {
-        const result: (GanttSubtask & { globalY: number })[] = [];
-        let currentY = 0;
-
-        // Pre-build a map of all subtasks for faster project lookup
-        const allSubtaskMap = new Map<string, GanttSubtask>();
-        tasks.forEach(t => t.subtasks?.forEach(s => allSubtaskMap.set(s.id, s)));
-
-        if (groupByProject && groupedTasks) {
-            groupedTasks.groups.forEach(group => {
-                currentY += 32; // Project header height
-
-                if (expandedProjects.has(group.id)) {
-                    group.visibleTasks.forEach(task => {
-                        currentY += 36; // Task header height
-
-                        if (expandedTasks.has(task.id)) {
-                            task.subtasks.forEach((st) => {
-                                // Filter dependencies to only show within the same project
-                                const projectFilteredDeps = st.dependsOnIds?.filter(depId => {
-                                    const depSubtask = allSubtaskMap.get(depId);
-                                    return depSubtask?.projectId === group.id;
-                                });
-
-                                result.push({
-                                    ...st,
-                                    dependsOnIds: projectFilteredDeps,
-                                    globalY: currentY + 28 // Center of 32px row
-                                });
-                                currentY += 32; // Subtask row height
-                            });
-                        }
-                    });
-                }
-            });
-
-            // No project tasks
-            groupedTasks.noProjectTasks.forEach(task => {
-                currentY += 36;
-                if (expandedTasks.has(task.id)) {
-                    task.subtasks.forEach(st => {
-                        result.push({
-                            ...st,
-                            globalY: currentY + 16
-                        });
-                        currentY += 32;
-                    });
-                }
-            });
-        } else {
-            // Flat mode
-            visibleFlatTasks.forEach(task => {
-                currentY += 36;
-                if (expandedTasks.has(task.id)) {
-                    task.subtasks.forEach(st => {
-                        result.push({
-                            ...st,
-                            globalY: currentY + 28
-                        });
-                        currentY += 32;
-                    });
-                }
-            });
-        }
-
-        return result;
-    }, [tasks, expandedTasks, expandedProjects, groupByProject, groupedTasks, visibleFlatTasks]);
-
-    // Timeline Grid with Tasks
     return (
         <div className={cn(
             "flex flex-col transition-all duration-300 ease-in-out",
-            showDetails ? "[--gantt-sidebar-width:650px]" : "[--gantt-sidebar-width:250px]",
+            showDetails ? "[--gantt-sidebar-width:710px]" : "[--gantt-sidebar-width:250px]",
             "[--col-name:250px]",
             showDetails ? "[--col-assignee:100px]" : "[--col-assignee:0px]",
+            showDetails ? "[--col-progress:60px]" : "[--col-progress:0px]",
             showDetails ? "[--col-status:80px]" : "[--col-status:0px]",
             showDetails ? "[--col-days:40px]" : "[--col-days:0px]",
             showDetails ? "[--col-dates:180px]" : "[--col-dates:0px]",
             className
         )}>
-            {/* Gantt Container */}
             <div
                 ref={scrollContainerRef}
                 onScroll={handleScroll}
@@ -371,7 +366,6 @@ export function GanttChart({
                     "--gantt-header-height": granularity === 'days' ? '72px' : '40px'
                 }}
             >
-                {/* Timeline Header */}
                 <TimelineHeader
                     startDate={timelineRange.start}
                     endDate={timelineRange.end}
@@ -388,9 +382,9 @@ export function GanttChart({
                     onToggleDetails={() => setShowDetails(!showDetails)}
                     scrollX={scrollX}
                     viewportWidth={viewportWidth}
+                    isBatchLoading={(loadingSubtasks?.size || 0) > 0 || (loadingProjects?.size || 0) > 0}
                 />
 
-                {/* Timeline Grid with Tasks */}
                 <TimelineGrid
                     startDate={timelineRange.start}
                     endDate={timelineRange.end}
@@ -403,30 +397,14 @@ export function GanttChart({
                         : tasks
                     }
                 >
-                    {/* Global Dependency Lines */}
-                    <div
-                        className="absolute top-0 right-0 pointer-events-none z-10"
-                        style={{
-                            width: 'var(--gantt-total-width)',
-                            marginLeft: 'var(--gantt-sidebar-width)'
-                        }}
-                    >
-                        <DependencyLines
-                            subtasks={globalSubtasksWithPositions}
-                            timelineStart={timelineRange.start}
-                            totalDays={totalDays}
-                            granularity={granularity}
-                        />
-                    </div>
                     {groupByProject && groupedTasks ? (
                         <>
-                            {/* Convert groups to array and paginate */}
                             {groupedTasks.groups.map((group) => (
                                 <ProjectRow
                                     key={group.id}
                                     id={group.id}
                                     name={group.name}
-                                    tasks={group.allTasks} // Pass all tasks for project bar calculation
+                                    tasks={group.allTasks}
                                     timelineStart={timelineRange.start}
                                     totalDays={totalDays}
                                     isExpanded={expandedProjects.has(group.id)}
@@ -436,6 +414,7 @@ export function GanttChart({
                                     showDetails={showDetails}
                                     onLoadMore={() => handleLoadMoreTasksForProject(group.id)}
                                     totalTasksCount={projectCounts ? (projectCounts[group.id] || 0) : group.totalTasks}
+                                    isLoading={loadingProjects?.has(group.id)}
                                 >
                                     {group.visibleTasks.map(task => (
                                         <TaskRow
@@ -446,7 +425,7 @@ export function GanttChart({
                                             granularity={granularity}
                                             isExpanded={expandedTasks.has(task.id)}
                                             onToggle={() => toggleTask(task.id)}
-                                            onSubtaskClick={onSubtaskClick}
+                                            onSubtaskClick={handleSubtaskClick}
                                             onSubTaskUpdate={onSubTaskUpdate}
                                             allTasks={tasks}
                                             workspaceId={workspaceId}
@@ -456,12 +435,16 @@ export function GanttChart({
                                             permissions={permissions}
                                             isNestedInProject={true}
                                             showDetails={showDetails}
-                                            projects={projects}
+                                            projectMap={projectMap}
+                                            highlightedSubtaskId={highlightedSubtaskId}
+                                            onToggleSubtaskHighlight={onToggleSubtaskHighlight}
+                                            onLoadMoreSubtasks={onRequestMoreSubtasks}
+                                            onInitialLoadSubtasks={onRequestSubtasks}
+                                            isLoading={loadingSubtasks?.has(task.id)}
                                         />
                                     ))}
                                 </ProjectRow>
                             ))}
-                            {/* Tasks without project */}
                             {groupedTasks.noProjectTasks.map(task => (
                                 <TaskRow
                                     key={task.id}
@@ -471,7 +454,7 @@ export function GanttChart({
                                     granularity={granularity}
                                     isExpanded={expandedTasks.has(task.id)}
                                     onToggle={() => toggleTask(task.id)}
-                                    onSubtaskClick={onSubtaskClick}
+                                    onSubtaskClick={handleSubtaskClick}
                                     onSubTaskUpdate={onSubTaskUpdate}
                                     allTasks={tasks}
                                     workspaceId={workspaceId}
@@ -480,17 +463,20 @@ export function GanttChart({
                                     currentUser={currentUser}
                                     permissions={permissions}
                                     showDetails={showDetails}
-                                    projects={projects}
+                                    projectMap={projectMap}
+                                    isLoading={loadingSubtasks?.has(task.id)}
+                                    onLoadMoreSubtasks={onRequestMoreSubtasks}
+                                    onInitialLoadSubtasks={onRequestSubtasks}
                                 />
                             ))}
 
-                            {/* Load More Projects Row */}
                             {groupedTasks.hasMoreProjects && (
                                 <>
-                                    <div ref={projectsLoaderRef} className="sticky left-0 z-30 w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] flex items-center justify-center p-2 bg-white dark:bg-neutral-900 border-b border-r border-neutral-200 dark:border-neutral-700">
-                                        <span className="text-xs text-muted-foreground">Loading more projects...</span>
-                                    </div>
-                                    <div className="bg-neutral-50/30 dark:bg-neutral-900/10 border-b border-neutral-200 dark:border-neutral-700" />
+                                    <GanttRowSkeleton 
+                                        ref={projectsLoaderRef} 
+                                        className="bg-neutral-50/10 dark:bg-neutral-800/5"
+                                    />
+
                                 </>
                             )}
                         </>
@@ -505,7 +491,7 @@ export function GanttChart({
                                     granularity={granularity}
                                     isExpanded={expandedTasks.has(task.id)}
                                     onToggle={() => toggleTask(task.id)}
-                                    onSubtaskClick={onSubtaskClick}
+                                    onSubtaskClick={handleSubtaskClick}
                                     onSubTaskUpdate={onSubTaskUpdate}
                                     allTasks={tasks}
                                     workspaceId={workspaceId}
@@ -514,17 +500,20 @@ export function GanttChart({
                                     currentUser={currentUser}
                                     permissions={permissions}
                                     showDetails={showDetails}
-                                    projects={projects}
+                                    projectMap={projectMap}
+                                    isLoading={loadingSubtasks?.has(task.id)}
+                                    onLoadMoreSubtasks={onRequestMoreSubtasks}
+                                    onInitialLoadSubtasks={onRequestSubtasks}
                                 />
                             ))}
 
-                            {/* Load More Flat Tasks Row */}
-                            {!groupByProject && (tasks.length > visibleFlatCount) && (
+                            {!groupByProject && hasMore && (
                                 <>
-                                    <div ref={flatTasksLoaderRef} className="sticky left-0 z-30 w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] flex items-center justify-center p-2 bg-white dark:bg-neutral-900 border-b border-r border-neutral-200 dark:border-neutral-700">
-                                        <span className="text-xs text-muted-foreground">Loading more tasks...</span>
-                                    </div>
-                                    <div className="bg-neutral-50/30 dark:bg-neutral-900/10 border-b border-neutral-200 dark:border-neutral-700" />
+                                    <GanttRowSkeleton 
+                                        ref={flatTasksLoaderRef} 
+                                        className="bg-neutral-50/10 dark:bg-neutral-800/5"
+                                    />
+
                                 </>
                             )}
                         </>
@@ -532,7 +521,6 @@ export function GanttChart({
                 </TimelineGrid>
             </div>
 
-            {/* Legend */}
             <div className="flex items-center gap-6 mt-4 px-1 text-xs text-muted-foreground flex-wrap">
                 <div className="flex items-center gap-2">
                     <div className="w-4 h-4 rounded-full bg-neutral-400/50" />
@@ -554,17 +542,6 @@ export function GanttChart({
                     <div className="w-0.5 h-4 bg-red-500 dark:bg-red-400" />
                     <span>Today</span>
                 </div>
-                <div className="flex items-center gap-2">
-                    <div
-                        className="w-4 h-3 rounded border border-red-500/50"
-                        style={{
-                            backgroundImage: `repeating-linear-gradient(15deg, transparent, transparent 2px, rgba(0,0,0,0.1) 2px, rgba(0,0,0,0.1) 4px)`,
-                            backgroundColor: '#e5e7eb'
-                        }}
-                    />
-                    <span>Overdue Duration</span>
-                </div>
-
             </div>
         </div>
     );

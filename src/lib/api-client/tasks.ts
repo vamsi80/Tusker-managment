@@ -162,6 +162,29 @@ export const tasksClient = {
       data: response.data,
     };
   },
+  
+  /**
+   * Pin or unpin a task (Surgical/Kanban)
+   */
+  pinTask: async (
+    taskId: string,
+    workspaceId: string,
+    projectId: string,
+    isPinned: boolean
+  ): Promise<ApiResponse> => {
+    const response = await apiFetch<{ success: boolean; message?: string }>(
+      `/tasks/${taskId}/kanban/pin`,
+      {
+        method: "POST",
+        body: JSON.stringify({ workspaceId, projectId, isPinned }),
+      }
+    );
+
+    return {
+      status: response.success ? "success" : "error",
+      message: response.message || (isPinned ? "Task pinned" : "Task unpinned"),
+    };
+  },
 
   /**
    * Update task dates (Surgical/Gantt)

@@ -122,6 +122,15 @@ export function buildSubTaskConditions(filters: TaskFilters): any {
     const conditions: any = {};
 
     // ============================================================
+    // PROJECT FILTER
+    // ============================================================
+    if (filters.projectId) {
+        conditions.projectId = filters.projectId;
+    } else if ((filters as any).projectIds) {
+        conditions.projectId = { in: (filters as any).projectIds };
+    }
+
+    // ============================================================
     // STATUS FILTER
     // ============================================================
     if (filters.status) {

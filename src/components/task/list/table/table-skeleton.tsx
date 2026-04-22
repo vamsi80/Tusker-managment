@@ -4,12 +4,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 interface TableLoadingSkeletonProps {
     visibleColumnsCount: number;
+    count?: number;
 }
 
-export function TableLoadingSkeleton({ visibleColumnsCount }: TableLoadingSkeletonProps) {
+export function TableLoadingSkeleton({ visibleColumnsCount, count = 3 }: TableLoadingSkeletonProps) {
     return (
         <>
-            {Array.from({ length: 3 }).map((_, i) => (
+            {Array.from({ length: count }).map((_, i) => (
                 <TableRow key={`skeleton-${i}`}>
                     <TableCell colSpan={visibleColumnsCount} className="p-4">
                         <div className="flex items-center gap-4">

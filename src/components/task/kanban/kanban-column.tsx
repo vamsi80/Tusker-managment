@@ -42,6 +42,7 @@ interface KanbanColumnProps {
     userId?: string;
     projectMembers?: any[];
     projects?: ProjectOption[];
+    projectMap?: Record<string, ProjectOption>;
 }
 
 /**
@@ -66,6 +67,7 @@ export const KanbanColumn = React.memo(function KanbanColumn({
     userId,
     projectMembers = [],
     projects,
+    projectMap,
 }: KanbanColumnProps) {
     const { setNodeRef, isOver } = useDroppable({
         id: column.id,
@@ -189,6 +191,7 @@ export const KanbanColumn = React.memo(function KanbanColumn({
                                             userId={userId}
                                             projectMembers={projectMembers}
                                             projects={projects}
+                                            projectMap={projectMap}
                                         />
                                     </div>
                                 </React.Fragment>
@@ -284,6 +287,7 @@ import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 const KanbanCardWrapper = React.memo(function KanbanCardWrapper({
     id,
     isDimmed,
+    projectMap,
     ...props
 }: {
     id: string;
@@ -296,6 +300,7 @@ const KanbanCardWrapper = React.memo(function KanbanCardWrapper({
     userId?: string;
     projectMembers?: any[];
     projects?: ProjectOption[];
+    projectMap?: Record<string, ProjectOption>;
 }) {
     const subTask = useTaskCacheStore(state => state.entities[id]);
     if (!subTask) return null;
@@ -304,6 +309,7 @@ const KanbanCardWrapper = React.memo(function KanbanCardWrapper({
         <div className={cn("transition-opacity duration-150", isDimmed && "opacity-30")}>
             <KanbanCard
                 subTask={subTask as KanbanSubTaskType}
+                projectMap={projectMap}
                 {...props}
             />
         </div>

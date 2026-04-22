@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect, memo, useCallback } from "react";
+import { useRef, useState, useEffect, memo, useCallback, useMemo } from "react";
 import type { SubTasksByStatusResponse, KanbanSubTaskType } from "@/data/task";
 import type { ProjectMembersType } from "@/data/project/get-project-members";
 import { cn } from "@/lib/utils";
@@ -22,26 +22,16 @@ import {
   DragOverEvent,
   DragOverlay,
   DragStartEvent,
-  closestCorners,
   pointerWithin,
   PointerSensor,
-  MouseSensor,
-  TouchSensor,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
 import { useTaskCacheStore } from "@/lib/store/task-cache-store";
-import { Loader2, MoreHorizontal } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { logger } from "@/lib/logger";
 import { UserPermissionsType } from "@/data/user/get-user-permissions";
-// Simple debounce implementation
-const debounce = (func: Function, wait: number) => {
-  let timeout: NodeJS.Timeout;
-  return (...args: any[]) => {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
-  };
-};
+import { useFilterStore } from "@/lib/store/filter-store";
 
 type TaskStatus =
   | "TO_DO"
@@ -52,13 +42,14 @@ type TaskStatus =
   | "COMPLETED";
 
 interface KanbanBoardProps {
-  initialData: Record<TaskStatus, SubTasksByStatusResponse>;
+  initialData: Record<TaskStatus, SubTasksByStatusResponse> | null;
+  isShell?: boolean;
   projectMembers: ProjectMembersType;
   workspaceId: string;
   projectId: string;
-  projects?: ProjectOption[]; // Optional for workspace-level
+  projects?: ProjectOption[];
   tags?: TagOption[];
-  level?: "project" | "workspace"; // Optional, defaults to "project"
+  level?: "project" | "workspace";
   projectManagers?: Record<string, any>;
   permissions?: UserPermissionsType;
   userId?: string;
@@ -71,37 +62,37 @@ const COLUMNS: {
   bgColor: string;
   borderColor: string;
 }[] = [
-    {
-      id: "TO_DO",
-      title: STATUS_LABELS.TO_DO,
-      ...STATUS_COLORS.TO_DO,
-    },
-    {
-      id: "IN_PROGRESS",
-      title: STATUS_LABELS.IN_PROGRESS,
-      ...STATUS_COLORS.IN_PROGRESS,
-    },
-    {
-      id: "REVIEW",
-      title: STATUS_LABELS.REVIEW,
-      ...STATUS_COLORS.REVIEW,
-    },
-    {
-      id: "COMPLETED",
-      title: STATUS_LABELS.COMPLETED,
-      ...STATUS_COLORS.COMPLETED,
-    },
-    {
-      id: "HOLD",
-      title: STATUS_LABELS.HOLD,
-      ...STATUS_COLORS.HOLD,
-    },
-    {
-      id: "CANCELLED",
-      title: STATUS_LABELS.CANCELLED,
-      ...STATUS_COLORS.CANCELLED,
-    },
-  ];
+  {
+    id: "TO_DO",
+    title: STATUS_LABELS.TO_DO,
+    ...STATUS_COLORS.TO_DO,
+  },
+  {
+    id: "IN_PROGRESS",
+    title: STATUS_LABELS.IN_PROGRESS,
+    ...STATUS_COLORS.IN_PROGRESS,
+  },
+  {
+    id: "REVIEW",
+    title: STATUS_LABELS.REVIEW,
+    ...STATUS_COLORS.REVIEW,
+  },
+  {
+    id: "COMPLETED",
+    title: STATUS_LABELS.COMPLETED,
+    ...STATUS_COLORS.COMPLETED,
+  },
+  {
+    id: "HOLD",
+    title: STATUS_LABELS.HOLD,
+    ...STATUS_COLORS.HOLD,
+  },
+  {
+    id: "CANCELLED",
+    title: STATUS_LABELS.CANCELLED,
+    ...STATUS_COLORS.CANCELLED,
+  },
+];
 
 export function KanbanBoard({
   initialData,
@@ -114,6 +105,7 @@ export function KanbanBoard({
   projectManagers,
   permissions,
   userId,
+  isShell = false,
 }: KanbanBoardProps) {
   const setKanbanTasksCache = useTaskCacheStore(
     (state) => state.setKanbanTasksCache,
@@ -125,10 +117,28 @@ export function KanbanBoard({
     (state) => state.invalidateProjectCache,
   );
   const kanbanLists = useTaskCacheStore((state) => state.kanbanLists);
+
+  const projectMap = useMemo(() => {
+    const map: Record<string, ProjectOption> = {};
+    projects?.forEach((p) => {
+      map[p.id] = p;
+    });
+    return map;
+  }, [projects]);
+
   const lastSyncRef = useRef<Record<string, number>>({});
 
   const renderCount = useRef(0);
   renderCount.current++;
+  const hasFetchedRef = useRef(
+    isShell &&
+      initialData &&
+      Object.values(initialData).some(
+        (col: any) =>
+          (col.tasks || col.subTasks) &&
+          (col.tasks?.length > 0 || col.subTasks?.length > 0),
+      ),
+  );
   logger.perf("KANBAN_RENDER", 0, { count: renderCount.current });
 
   // State for each column's data - INITIALIZE WITH PROPS ONLY FOR HYDRATION SAFETY
@@ -144,17 +154,55 @@ export function KanbanBoard({
     >
   >(() => {
     const map: any = {};
+    const contextId = projectId || "";
+    // Access cache directly for synchronous initial state if we are in a shell
+    const cacheState = useTaskCacheStore.getState();
+
     COLUMNS.forEach((col) => {
-      const serverCol = initialData[col.id];
+      const serverCol = initialData ? initialData[col.id] : null;
+      const cacheKey = `${workspaceId}-${contextId}-${col.id}`;
+      const cached = cacheState.getKanbanTasksCache(cacheKey);
+
+      // Default state for every column to prevent crashes
       map[col.id] = {
-        subTaskIds: serverCol.subTasks.map((t) => t.id),
-        totalCount: serverCol.totalCount,
-        hasMore: serverCol.hasMore,
-        nextCursor: serverCol.nextCursor,
+        subTaskIds: [],
+        totalCount: 0,
+        hasMore: false,
+        nextCursor: null,
       };
+
+      // 💉 Optimization: If we have cached data and initialData is a shell, use cache.
+      if (isShell && cached && cached.tasks.length > 0) {
+        map[col.id] = {
+          subTaskIds: Array.from(new Set(cached.tasks.map((t) => t.id))),
+          totalCount: cached.totalCount ?? 0,
+          hasMore: cached.hasMore,
+          nextCursor: cached.nextCursor,
+        };
+      } else if (serverCol) {
+        // Hydrate from server data if available
+        const colTasks =
+          (serverCol as any).tasks || (serverCol as any).subTasks || [];
+        map[col.id] = {
+          subTaskIds: Array.from(new Set(colTasks.map((t: any) => t.id))),
+          totalCount: serverCol.totalCount,
+          hasMore: serverCol.hasMore,
+          nextCursor: serverCol.nextCursor,
+        };
+      }
     });
     return map;
   });
+
+  // 🧹 Filter Reset Logic: Ensures a clean slate when navigating between different views
+  const { filters, setFilters, searchQuery, setSearchQuery, clearFilters } =
+    useFilterStore();
+
+  useEffect(() => {
+    return () => {
+      clearFilters();
+    };
+  }, [clearFilters, workspaceId, projectId]);
 
   // -------------------------------------------------------------------------
   // 🚀 SURGICAL SYNC: Listen for store updates (moves/surgical sync)
@@ -166,7 +214,8 @@ export function KanbanBoard({
 
     COLUMNS.forEach((col) => {
       const cacheKey = `${workspaceId}-${contextId}-${col.id}`;
-      const cachedList = kanbanLists[cacheKey];
+      // Access the unfiltered cache entry
+      const cachedList = kanbanLists[cacheKey]?.["__unfiltered__"];
 
       if (
         cachedList &&
@@ -176,12 +225,12 @@ export function KanbanBoard({
         const currentIds = columnData[col.id].subTaskIds;
         const matches =
           cachedList.ids.length === currentIds.length &&
-          cachedList.ids.every((id, i) => id === currentIds[i]);
+          cachedList.ids.every((id: string, i: number) => id === currentIds[i]);
 
         if (!matches) {
           nextState[col.id] = {
             ...nextState[col.id],
-            subTaskIds: cachedList.ids,
+            subTaskIds: Array.from(new Set(cachedList.ids)),
             totalCount: cachedList.totalCount ?? nextState[col.id].totalCount,
           };
           hasChanges = true;
@@ -202,12 +251,19 @@ export function KanbanBoard({
 
     // 0. IMMEDIATE SYNC: Upsert all initial server data into global entities
     // ensure we have the freshest versions available for relations and metadata
-    const allInitialTasks = Object.values(initialData).flatMap(
-      (d) => d.subTasks,
-    );
+    const allInitialTasks = initialData
+      ? COLUMNS.flatMap(
+          (col) =>
+            (initialData[col.id] as any)?.tasks ||
+            (initialData[col.id] as any)?.subTasks ||
+            [],
+        )
+      : [];
     if (allInitialTasks.length > 0) {
       upsertTasks(allInitialTasks);
     }
+
+    if (!initialData) return;
 
     const contextId = projectId || "";
     const hydratedData: any = { ...columnData };
@@ -217,28 +273,44 @@ export function KanbanBoard({
       const cacheKey = `${workspaceId}-${contextId}-${col.id}`;
       const cached = useTaskCacheStore.getState().getKanbanTasksCache(cacheKey);
 
-      // 1. Base Data Strategy:
       // ALWAYS prefer the list structure from the server (initialData) if it just arrived.
       // Use cache only for "nextCursor" or if we are navigating back without new props.
-      let tasks = initialData[col.id].subTasks;
+      let tasks =
+        (initialData[col.id] as any).tasks ||
+        (initialData[col.id] as any).subTasks ||
+        [];
 
       if (cached && cached.tasks.length > 0) {
-        if (initialData[col.id].totalCount === 0) {
+        if (initialData[col.id].totalCount === 0 && !isShell) {
           // Server explicitly says there are 0 tasks. DO NOT fallback to stale cache.
           tasks = [];
         } else if (tasks.length > 0 && cached.tasks.length > tasks.length) {
           // Cache has MORE items than the server provided page 1.
           // Verify if it's the SAME data set by checking if the base IDs match.
           const baseIdsMatch = tasks.every(
-            (t, i) => cached.tasks[i]?.id === t.id,
+            (t: any, i: number) => cached.tasks[i]?.id === t.id,
           );
           if (baseIdsMatch) {
             tasks = cached.tasks;
           }
-        } else if (tasks.length === 0 && initialData[col.id].totalCount > 0) {
-          // Edge case: SSR provided 0 tasks but totalCount > 0? Trust the cache.
+        } else if (
+          tasks.length === 0 &&
+          (initialData[col.id].totalCount > 0 || isShell)
+        ) {
+          // Edge case: SSR provided 0 tasks but totalCount > 0 OR it's a shell? Trust the cache.
           tasks = cached.tasks;
         }
+      } else if (
+        !cached &&
+        columnData[col.id].subTaskIds.length > 0 &&
+        isShell
+      ) {
+        // 🚀 SAFEGUARD: If cache is gone (invalidated) but we have live state, keep it!
+        // This prevents the "No tasks found" flicker when commenting or during transitions.
+        const entities = useTaskCacheStore.getState().entities;
+        tasks = columnData[col.id].subTaskIds
+          .map((id) => entities[id])
+          .filter(Boolean) as any;
       }
 
       // Sync these IDs into the global store immediately so the listener can find them
@@ -288,7 +360,7 @@ export function KanbanBoard({
       }
 
       hydratedData[col.id] = {
-        subTaskIds: tasks.map((t) => t.id),
+        subTaskIds: Array.from(new Set(tasks.map((t: any) => t.id))),
         totalCount: totalCount || (cached ? cached.totalCount : 0),
         hasMore: hasMore,
         nextCursor: nextCursor,
@@ -351,9 +423,6 @@ export function KanbanBoard({
     targetStatus: TaskStatus;
   } | null>(null);
 
-  const [filters, setFilters] = useState<TaskFilters>({});
-  const [searchQuery, setSearchQuery] = useState("");
-
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -379,9 +448,38 @@ export function KanbanBoard({
         (activeFilterCount === 0 ||
           (activeFilterCount === 1 && filters.projectId === projectId));
       const hasFilters = !isBaseProjectView;
-      const isBoardEmpty = Object.values(columnData).every((col) => col.subTaskIds.length === 0);
+      const isBoardEmpty = Object.values(columnData).every(
+        (col) => col.subTaskIds.length === 0,
+      );
 
-      if (!hasFilters && !isBoardEmpty) {
+      // 🛡️ Mount Guard: If we have initial data and filters are neutral, skip the first fetch
+      const isNeutral =
+        !searchQuery &&
+        Object.values(filters).every(
+          (v) =>
+            v === undefined || v === "" || (Array.isArray(v) && v.length === 0),
+        );
+
+      const hasInitialData =
+        initialData &&
+        Object.values(initialData).some(
+          (col: any) =>
+            (col.tasks || col.subTasks) &&
+            (col.tasks?.length > 0 || col.subTasks?.length > 0),
+        );
+
+      if (!hasFetchedRef.current && hasInitialData && isNeutral) {
+        hasFetchedRef.current = true;
+        setIsFiltering(false);
+        return;
+      }
+
+      // 🔄 Revalidation Logic:
+      // Fetch if (has filters) OR (board is empty) OR (previously filtered and now resetting) OR (first mount)
+      const shouldFetch =
+        hasFilters || isBoardEmpty || isCurrentlyFiltered || !hasFetchedRef.current;
+
+      if (!shouldFetch) {
         // Reset to initial unfiltered data ONLY if we were previously filtering
         if (isCurrentlyFiltered) {
           const contextId = projectId || "";
@@ -397,12 +495,16 @@ export function KanbanBoard({
             resetData[col.id] = {
               subTaskIds: (cached && cached.tasks.length > 0
                 ? cached.tasks
-                : initialData[col.id].subTasks
-              ).map((t) => t.id),
+                : (initialData?.[col.id] as any)?.tasks ||
+                  (initialData?.[col.id] as any)?.subTasks ||
+                  []
+              ).map((t: any) => t.id),
               totalCount: cached
                 ? (cached.totalCount ?? 0)
-                : initialData[col.id].totalCount,
-              hasMore: cached ? cached.hasMore : initialData[col.id].hasMore,
+                : initialData?.[col.id]?.totalCount || 0,
+              hasMore: cached
+                ? cached.hasMore
+                : initialData?.[col.id]?.hasMore || false,
               nextCursor: cached ? cached.nextCursor : undefined,
             };
           });
@@ -437,18 +539,20 @@ export function KanbanBoard({
 
       try {
         const targetProjectId = filters.projectId || projectId;
-
         const params = new URLSearchParams();
         params.set("w", workspaceId);
-        params.set("p", targetProjectId);
+        if (targetProjectId) params.set("p", targetProjectId);
         params.set("vm", "kanban");
-        params.set("l", "100");
+        params.set("excludeParents", "true");
+        params.set("l", "5");
         params.set("facets", "true");
         if (searchQuery) params.set("q", searchQuery);
         if (filters.assigneeId) params.set("a", filters.assigneeId);
         if (filters.tagId) params.set("t", filters.tagId);
-        if (filters.startDate) params.set("da", new Date(filters.startDate).toISOString());
-        if (filters.endDate) params.set("db", new Date(filters.endDate).toISOString());
+        if (filters.startDate)
+          params.set("da", new Date(filters.startDate).toISOString());
+        if (filters.endDate)
+          params.set("db", new Date(filters.endDate).toISOString());
         if (filters.parentTaskId) params.set("pt", filters.parentTaskId);
 
         const apiRes = await fetch(`/api/v1/tasks?${params.toString()}`);
@@ -457,11 +561,21 @@ export function KanbanBoard({
         if (isAborted) return;
 
         if (response.success && response.data) {
-          const counts = (response.data.facets as any)?.statusCounts || {};
+          // Log payload weight for optimization verification
+          const sizeInBytes = new TextEncoder().encode(
+            JSON.stringify(response.data),
+          ).length;
+          console.log(
+            `%c[KANBAN_WEIGHT] Data: ${(sizeInBytes / 1024).toFixed(2)} KB`,
+            "color: #10b981; font-weight: bold;",
+          );
+
+          const counts = (response.data.facets as any)?.status || {};
           const groupedData: any = {};
 
           COLUMNS.forEach((col) => {
-            const allColTasks = response.data.tasksByStatus[col.id] || [];
+            const serverCol = response.data.tasksByStatus[col.id];
+            const allColTasks = serverCol?.tasks || [];
             // Don't display parent as a card
             const colTasks = allColTasks.filter((t: any) => !t.isParent);
 
@@ -470,23 +584,12 @@ export function KanbanBoard({
               useTaskCacheStore.getState().upsertTasks(colTasks);
             }
 
-            // Use the statusCounts to compute if this SPECIFIC column has more items
-            // since this specific query fetches everything generically
-            const totalForCol = counts[col.id] || colTasks.length;
-            const hasMoreLocal = totalForCol > colTasks.length;
-
-            // Extract a custom cursor specifically for this column if needed
-            const lastTask = colTasks[colTasks.length - 1];
-            const nextCursor =
-              hasMoreLocal && lastTask
-                ? { id: lastTask.id, createdAt: lastTask.createdAt }
-                : null;
-
+            // Use the server-provided pagination state directly
             groupedData[col.id] = {
-              subTaskIds: colTasks.map((t: any) => t.id),
-              totalCount: totalForCol,
-              hasMore: hasMoreLocal,
-              nextCursor: nextCursor,
+              subTaskIds: Array.from(new Set(colTasks.map((t: any) => t.id))),
+              totalCount: counts[col.id] || colTasks.length,
+              hasMore: serverCol?.hasMore || false,
+              nextCursor: serverCol?.nextCursor || null,
             };
           });
           setColumnData(groupedData);
@@ -512,6 +615,8 @@ export function KanbanBoard({
             >,
           );
           setIsFiltering(false);
+          setIsCurrentlyFiltered(hasFilters);
+          hasFetchedRef.current = true; // Mark as fetched after successful background refresh
         }
       }
     }, 300); // Debounce
@@ -522,13 +627,10 @@ export function KanbanBoard({
     };
   }, [filters, searchQuery, workspaceId, projectId, initialData]);
 
-  const handleFilterChange = useCallback(
-    debounce((val: TaskFilters) => {
-      setIsFiltering(true);
-      setFilters(val);
-    }, 200) as (val: TaskFilters) => void,
-    [setFilters],
-  );
+  const handleFilterChange = (val: TaskFilters) => {
+    setIsFiltering(true);
+    setFilters(val);
+  };
 
   const handleSearchChange = (val: string) => {
     setIsFiltering(true);
@@ -544,15 +646,15 @@ export function KanbanBoard({
       const activeFilters =
         searchQuery || Object.keys(filters).length > 0
           ? {
-            ...filters,
-            startDate: filters.startDate
-              ? new Date(filters.startDate).toISOString()
-              : undefined,
-            endDate: filters.endDate
-              ? new Date(filters.endDate).toISOString()
-              : undefined,
-            search: searchQuery,
-          }
+              ...filters,
+              startDate: filters.startDate
+                ? new Date(filters.startDate).toISOString()
+                : undefined,
+              endDate: filters.endDate
+                ? new Date(filters.endDate).toISOString()
+                : undefined,
+              search: searchQuery,
+            }
           : undefined;
 
       const targetProjectId = filters.projectId || projectId;
@@ -561,7 +663,7 @@ export function KanbanBoard({
       const params = new URLSearchParams();
       params.set("w", workspaceId);
       params.set("s", status);
-      params.set("l", "30");
+      params.set("l", "10");
       params.set("vm", "kanban");
 
       if (targetProjectId) params.set("p", targetProjectId);
@@ -580,62 +682,70 @@ export function KanbanBoard({
         return;
       }
 
-      setColumnData((prev) => {
-        const counts = (response.data.facets as any)?.statusCounts || {};
-        const existingIds = prev[status].subTaskIds;
-        const allNewTasks = response.data.tasks || [];
+      // Log payload weight for Load More optimization verification
+      const sizeInBytes = new TextEncoder().encode(
+        JSON.stringify(response.data),
+      ).length;
+      console.log(
+        `%c[KANBAN_LOAD_MORE_WEIGHT] ${status}: ${(sizeInBytes / 1024).toFixed(2)} KB`,
+        "color: #3b82f6; font-weight: bold;",
+      );
 
-        // STRICT: Only tasks whose status matches AND are not parents
-        const newTasks = allNewTasks.filter(
-          (t: any) => !t.isParent && t.status === status,
-        );
+      const allNewTasks = response.data.tasks || [];
+      // STRICT: Only tasks whose status matches AND are not parents
+      const newTasks = allNewTasks.filter(
+        (t: any) => !t.isParent && t.status === status,
+      );
 
-        // Sync to global store
-        useTaskCacheStore.getState().upsertTasks(newTasks);
+      // Sync to global store outside of React's state updater to avoid "bad setState in render" error.
+      useTaskCacheStore.getState().upsertTasks(newTasks);
 
-        // Deduplicate using a Set
-        const idSet = new Set([
-          ...existingIds,
-          ...newTasks.map((t: any) => t.id),
-        ]);
-        const deduplicatedIds = Array.from(idSet);
-        const totalForCol = counts[status] || (prev[status].totalCount ?? 0);
+      // 1. Prepare data for update
+      const counts = (response.data.facets as any)?.status || {};
+      const colState = columnData[status];
+      const existingIds = colState.subTaskIds;
 
-        // Trust the server's pagination state directly to avoid infinite loops
-        const serverHasMore = response.data.hasMore || false;
-        const serverNextCursor = response.data.nextCursor || null;
+      // Deduplicate using a Set
+      const idSet = new Set([
+        ...existingIds,
+        ...newTasks.map((t: any) => t.id),
+      ]);
+      const deduplicatedIds = Array.from(idSet);
+      const totalForCol = counts[status] || (colState.totalCount ?? 0);
 
-        const newData = {
-          ...prev,
-          [status]: {
-            subTaskIds: deduplicatedIds,
-            totalCount: totalForCol,
-            hasMore: serverHasMore,
-            nextCursor: serverNextCursor,
-          },
-        };
+      const serverHasMore = response.data.hasMore || false;
+      const serverNextCursor = response.data.nextCursor || null;
 
-        // Update Cache (only if no filters)
-        const isFiltered = searchQuery || Object.keys(filters).length > 0;
-        if (!isFiltered) {
-          const contextId = projectId || "";
-          const cacheKey = `${workspaceId}-${contextId}-${status}`;
-          // We need all tasks for this column to update cache correctly
-          const entities = useTaskCacheStore.getState().entities;
-          const allTasksForCol = deduplicatedIds
-            .map((id) => entities[id])
-            .filter(Boolean);
+      // 2. Schedule Local State Update
+      setColumnData((prev) => ({
+        ...prev,
+        [status]: {
+          subTaskIds: deduplicatedIds,
+          totalCount: totalForCol,
+          hasMore: serverHasMore,
+          nextCursor: serverNextCursor,
+        },
+      }));
 
-          setKanbanTasksCache(cacheKey, {
-            tasks: allTasksForCol,
-            hasMore: response.data.hasMore,
-            nextCursor: response.data.nextCursor,
-            totalCount: response.data.totalCount ?? undefined,
-          });
-        }
+      // 3. Update Global Cache (strictly OUTSIDE of any state updater to avoid React cycle errors)
+      const isFiltered = searchQuery || Object.keys(filters).length > 0;
+      if (!isFiltered) {
+        const contextId = projectId || "";
+        const cacheKey = `${workspaceId}-${contextId}-${status}`;
 
-        return newData;
-      });
+        // Use updated task entities from the store
+        const entities = useTaskCacheStore.getState().entities;
+        const allTasksForCol = deduplicatedIds
+          .map((id) => entities[id])
+          .filter(Boolean);
+
+        setKanbanTasksCache(cacheKey, {
+          tasks: allTasksForCol,
+          hasMore: response.data.hasMore,
+          nextCursor: response.data.nextCursor,
+          totalCount: response.data.totalCount ?? undefined,
+        });
+      }
     } catch (error) {
       console.error(`Error loading more subtasks for ${status}:`, error);
       toast.error("Failed to load more subtasks");
@@ -739,14 +849,33 @@ export function KanbanBoard({
 
     const previousStatus = currentStatus;
 
-    moveSubTaskBetweenColumns(subTaskId, previousStatus, newStatus);
+    // 1. HARD BLOCK for IN_PROGRESS -> COMPLETED (Must go to REVIEW first)
+    if (previousStatus === "IN_PROGRESS" && newStatus === "COMPLETED") {
+      toast.error(
+        "In-Progress tasks must go to Review before being marked as Completed.",
+        { id: "status-block" },
+      );
+      return;
+    }
 
-    setPendingReviewMove({
-      subTaskId,
-      previousStatus,
-      targetStatus: newStatus,
-    });
-    setIsActivityDialogOpen(true);
+    const isMandatory =
+      ["HOLD", "CANCELLED", "REVIEW"].includes(newStatus) ||
+      ["HOLD", "CANCELLED"].includes(previousStatus) ||
+      (previousStatus === "REVIEW" &&
+        (newStatus === "TO_DO" || newStatus === "IN_PROGRESS")) ||
+      (previousStatus === "IN_PROGRESS" && newStatus === "TO_DO");
+
+    if (isMandatory) {
+      moveSubTaskBetweenColumns(subTaskId, previousStatus, newStatus);
+      setPendingReviewMove({
+        subTaskId,
+        previousStatus,
+        targetStatus: newStatus,
+      });
+      setIsActivityDialogOpen(true);
+    } else {
+      performStatusUpdate(subTaskId, newStatus, previousStatus);
+    }
     return;
   };
 
@@ -757,7 +886,6 @@ export function KanbanBoard({
   ) => {
     const fromIds = columnData[fromStatus].subTaskIds;
     const hasTask = fromIds.includes(subTaskId);
-
     if (!hasTask) return;
 
     const toIds = columnData[toStatus].subTaskIds;
@@ -771,19 +899,23 @@ export function KanbanBoard({
       ? columnData[toStatus].totalCount
       : columnData[toStatus].totalCount + 1;
 
-    setColumnData((prev) => ({
-      ...prev,
-      [fromStatus]: {
-        ...prev[fromStatus],
-        subTaskIds: newFromIds,
-        totalCount: newFromCount,
-      },
-      [toStatus]: {
-        ...prev[toStatus],
-        subTaskIds: newToIds,
-        totalCount: newToCount,
-      },
-    }));
+    setColumnData((prev) => {
+      // Functional update to ensure we don't overwrite concurrent changes
+      // but we use the pre-calculated IDs for consistency in this surgical move
+      return {
+        ...prev,
+        [fromStatus]: {
+          ...prev[fromStatus],
+          subTaskIds: newFromIds,
+          totalCount: newFromCount,
+        },
+        [toStatus]: {
+          ...prev[toStatus],
+          subTaskIds: newToIds,
+          totalCount: newToCount,
+        },
+      };
+    });
 
     // Fetch task object for cache sync
     const task = useTaskCacheStore.getState().entities[subTaskId];
@@ -887,10 +1019,15 @@ export function KanbanBoard({
     if (task.parentTaskId) {
       invalidateSubTaskCache(task.parentTaskId);
     }
-    if ("projectId" in task && (task as any).projectId) {
-      invalidateProjectCache((task as any).projectId);
-    } else if (projectId) {
-      invalidateProjectCache(projectId);
+
+    // Only invalidate project list cache if the task actually moved columns.
+    // This prevents the Kanban from emptying itself during comment-only updates.
+    if (fromStatus !== toStatus) {
+      if ("projectId" in task && (task as any).projectId) {
+        invalidateProjectCache((task as any).projectId);
+      } else if (projectId) {
+        invalidateProjectCache(projectId);
+      }
     }
   };
 
@@ -917,8 +1054,10 @@ export function KanbanBoard({
     attachmentData?: any,
   ) => {
     if (updatingTaskIds.has(subTaskId)) return;
-    // Optimistic move
-    moveSubTaskBetweenColumns(subTaskId, previousStatus, newStatus);
+    // Optimistic move only if status is actually changing
+    if (newStatus !== previousStatus) {
+      moveSubTaskBetweenColumns(subTaskId, previousStatus, newStatus);
+    }
     setUpdatingTaskIds((prev) => new Set(prev).add(subTaskId));
 
     const toastId = toast.loading("Updating subtask status...");
@@ -947,10 +1086,12 @@ export function KanbanBoard({
           id: toastId,
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       moveSubTaskBetweenColumns(subTaskId, newStatus, previousStatus);
-      toast.error("Failed to add activity. Let's try again.", {
-        id: "activity_error",
+      const errorMessage =
+        error?.message || "Failed to update subtask status. Let's try again.";
+      toast.error(errorMessage, {
+        id: toastId,
       });
       console.error("Error updating subtask status:", error);
     } finally {
@@ -1015,30 +1156,88 @@ export function KanbanBoard({
     }
   };
 
-  const getFilteredSubTaskIds = (status: TaskStatus) => {
-    return columnData[status].subTaskIds;
+  const handleActivityClose = () => {
+    if (pendingReviewMove) {
+      // Revert optimistic move if the dialog was closed without submission
+      moveSubTaskBetweenColumns(
+        pendingReviewMove.subTaskId,
+        pendingReviewMove.targetStatus,
+        pendingReviewMove.previousStatus,
+      );
+      setPendingReviewMove(null);
+    }
+    setIsActivityDialogOpen(false);
   };
 
-  const uniqueParentTasks: ParentTaskOption[] = Array.from(
-    new Map(
-      COLUMNS.flatMap((col) => {
-        const entities = useTaskCacheStore.getState().entities;
-        const allTasks = columnData[col.id].subTaskIds.map(
-          (id) => entities[id],
+  const getFilteredSubTaskIds = (status: TaskStatus) => {
+    return columnData[status]?.subTaskIds || [];
+  };
+
+  const uniqueParentTasks = useMemo(() => {
+    const parentMap = new Map<string, ParentTaskOption>();
+
+    // 1. Extract from currently loaded items in Kanban columns
+    COLUMNS.forEach((col) => {
+      const entities = useTaskCacheStore.getState().entities;
+      const subTaskIds = columnData[col.id]?.subTaskIds || [];
+      subTaskIds.forEach((id) => {
+        const st = entities[id] as any;
+        if (st?.parentTask?.id) {
+          parentMap.set(st.parentTask.id, {
+            id: st.parentTask.id,
+            name: st.parentTask.name,
+            taskSlug: st.parentTask.taskSlug,
+          });
+        }
+      });
+    });
+
+    // 2. Extract from global entities (all loaded roots/parents for this project)
+    const allEntities = Object.values(useTaskCacheStore.getState().entities);
+    allEntities.forEach((task: any) => {
+      if (task.isParent && task.projectId === projectId) {
+        parentMap.set(task.id, {
+          id: task.id,
+          name: task.name,
+          taskSlug: task.taskSlug,
+        });
+      }
+    });
+
+    return Array.from(parentMap.values());
+  }, [columnData, projectId]);
+
+  // handleRequestSubtasks: Triggers explicit expansion for a parent task.
+  // Although Kanban is flat, this hydrates the cache allowing filter-by-parent to work instantly.
+  const handleRequestSubtasks = useCallback(
+    async (parentId: string) => {
+      try {
+        const params = new URLSearchParams();
+        params.set("w", workspaceId);
+        params.set("p", projectId);
+        params.set("ids", parentId);
+        params.set("vm", "kanban");
+        params.set("sub", "true");
+
+        const res = await fetch(
+          `/api/v1/tasks/expansion/batch?${params.toString()}`,
         );
-        return allTasks
-          .filter((st) => st && (st as any).parentTask)
-          .map((st: any) => [
-            st.parentTask!.id,
-            {
-              id: st.parentTask!.id,
-              name: st.parentTask!.name,
-              taskSlug: st.parentTask!.taskSlug,
-            },
-          ]);
-      }),
-    ).values(),
-  ) as ParentTaskOption[];
+        const json = await res.json();
+
+        if (json.success && json.data?.[0]) {
+          const batchResult = json.data[0];
+          useTaskCacheStore.getState().upsertTasks(batchResult.subTasks || []);
+          useTaskCacheStore.getState().setCachedSubTasks(parentId, {
+            subTasks: batchResult.subTasks || [],
+            hasMore: batchResult.hasMore,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to request subtasks in Kanban:", err);
+      }
+    },
+    [workspaceId, projectId],
+  );
 
   const memberOptions = Array.from(
     new Map(
@@ -1143,6 +1342,7 @@ export function KanbanBoard({
                   permissions={permissions}
                   userId={userId}
                   projects={projects}
+                  projectMap={projectMap}
                 />
               );
             })}
@@ -1164,17 +1364,15 @@ export function KanbanBoard({
       </DndContext>
       <ActivityDialog
         isOpen={isActivityDialogOpen}
-        onClose={() => setIsActivityDialogOpen(false)}
+        onClose={handleActivityClose}
         onSubmit={handleActivitySubmit}
         subTaskName={
           pendingReviewMove
             ? useTaskCacheStore.getState().entities[pendingReviewMove.subTaskId]
-              ?.name || "Subtask"
+                ?.name || "Subtask"
             : ""
         }
       />
     </div>
   );
 }
-
-

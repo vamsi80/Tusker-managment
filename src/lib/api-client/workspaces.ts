@@ -135,11 +135,14 @@ export const workspacesClient = {
     },
 
     /**
-     * Get Kanban membership maps
+     * Get Project Assignment maps (members & leaders)
      */
-    getKanbanData: async (workspaceId: string): Promise<any> => {
-        const response = await apiFetch<{ success: boolean; data: any }>(`/workspaces/${workspaceId}/kanban`);
-        return response.data;
+    getAssignmentMaps: async (workspaceId: string): Promise<any> => {
+        const response = await apiFetch<{ success: boolean; data: any }>(`/workspaces/${workspaceId}/assignment-maps`);
+        return {
+            projectLeaders: response.data.projectLeaders || {},
+            projectAssignments: response.data.projectAssignments || {},
+        };
     },
 
     /**
@@ -148,5 +151,13 @@ export const workspacesClient = {
     getTaskCreationData: async (workspaceId: string): Promise<any> => {
         const response = await apiFetch<{ success: boolean; data: any }>(`/workspaces/${workspaceId}/task-creation-data`);
         return response.data;
+    },
+
+    /**
+     * Get workspace tags
+     */
+    getTags: async (workspaceId: string): Promise<any[]> => {
+        const response = await apiFetch<{ success: boolean; tags: any[] }>(`/tags?workspaceId=${workspaceId}`);
+        return response.tags || [];
     }
 };

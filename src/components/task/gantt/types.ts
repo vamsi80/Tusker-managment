@@ -35,12 +35,14 @@ export interface GanttSubtask {
   days?: number | null;
 
   createdById: string | null;
-  assignee?: { id: string; name: string; image?: string | null };
+  assignee?: { id: string; surname: string };
   assigneeId?: string | null;
   assigneeRole?: string;
 
   position: number;
+  updatedAt?: string; // dd MMM yyyy format
   dependsOnIds?: string[];
+  progress: number;
 }
 
 // ============================================================================
@@ -57,11 +59,16 @@ export interface GanttTask {
   status: string;
   start?: string; // Optional: DB provided
   end?: string; // Optional: DB provided
-  subtasks: GanttSubtask[];
-  assignee?: { id: string; name: string; image?: string | null };
+  subtasks?: GanttSubtask[]; // Optional/Undefined signals "not yet loaded"
+  assignee?: { id: string; surname: string };
   assigneeId?: string | null;
   createdById: string | null;
   parentTaskId: string | null;
+  updatedAt?: string;
+  progress: number;
+  subtaskCount?: number;
+  hasMoreSubtasks?: boolean;
+  subtaskCursor?: any;
 }
 
 // ============================================================================

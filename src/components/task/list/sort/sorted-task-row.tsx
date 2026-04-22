@@ -35,16 +35,15 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
         if (remainingDays === null) return "bg-gray-300";
 
         if (isOverdue) return "bg-red-500";
-        if (remainingDays <= 10) return "bg-red-500";
-        if (remainingDays <= 20) return "bg-orange-500";
-        if (remainingDays <= 30) return "bg-yellow-500";
+        if (remainingDays <= 7) return "bg-red-500";
+        if (remainingDays <= 10) return "bg-orange-500";
         return "bg-green-500";
     };
 
     const progressColor = getProgressColor();
 
-    const assigneeUser = (task.assignee as any)?.workspaceMember?.user;
-    const reviewerUser = (task.reviewer as any)?.workspaceMember?.user;
+    const assigneeUser = task.assignee;
+    const reviewerUser = task.reviewer;
 
     return (
         <TableRow
@@ -94,10 +93,12 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
                     {assigneeUser ? (
                         <div className="flex items-center gap-2 min-w-0">
                             <Avatar className="h-5 w-5 flex-shrink-0">
-                                <AvatarFallback className="text-[10px]">{assigneeUser.surname?.[0] || assigneeUser.name?.[0]}</AvatarFallback>
+                                <AvatarFallback className="text-[10px]">
+                                    {(assigneeUser.surname || (assigneeUser as any).workspaceMember?.user?.surname)?.[0]?.toUpperCase() || "?"}
+                                </AvatarFallback>
                             </Avatar>
                             <span className="text-sm truncate">
-                                {assigneeUser.surname || assigneeUser.name}
+                                {assigneeUser.surname}
                             </span>
                         </div>
                     ) : (
@@ -112,10 +113,12 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
                     {reviewerUser ? (
                         <div className="flex items-center gap-2 min-w-0">
                             <Avatar className="h-5 w-5 flex-shrink-0">
-                                <AvatarFallback className="text-[10px]">{reviewerUser.surname?.[0] || reviewerUser.name?.[0]}</AvatarFallback>
+                                <AvatarFallback className="text-[10px]">
+                                    {(reviewerUser.surname || (reviewerUser as any).workspaceMember?.user?.surname)?.[0]?.toUpperCase() || "?"}
+                                </AvatarFallback>
                             </Avatar>
                             <span className="text-sm truncate">
-                                {reviewerUser.surname || reviewerUser.name}
+                                {reviewerUser.surname}
                             </span>
                         </div>
                     ) : (
@@ -154,18 +157,12 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
             {columnVisibility.dueDate && (
                 <TableCell className="w-[90px] sm:w-[120px]">
                     <div className="text-sm">
-                        {task.startDate && task.days
-                            ? formatDate(
-                                new Date(
-                                    new Date(task.startDate).getTime() + task.days * 24 * 60 * 60 * 1000
-                                )
-                            )
-                            : "-"}
+                        {dueDate ? formatDate(dueDate) : "-"}
                     </div>
                 </TableCell>
             )}
 
-            {/* Progress */}
+            {/* Deadline */}
             {columnVisibility.progress && (
                 <TableCell className="w-[100px] sm:w-[150px]">
                     {remainingDays !== null ? (

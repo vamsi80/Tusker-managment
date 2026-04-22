@@ -1,10 +1,8 @@
 import { Suspense } from "react";
 import { getProjectBySlug } from "@/data/project/get-project-by-slug";
-import { getProjectMembers } from "@/data/project/get-project-members";
 import { ProjectDashboard } from "./_components/dashboard/project-dashboard";
 import { ReloadableView } from "./_components/shared/reloadable-view";
 import { ProjectTaskListView } from "./_components/list/project-task-list-view";
-import { getUserPermissions } from "@/data/user/get-user-permissions";
 import { requireUser } from "@/lib/auth/require-user";
 import { AppLoader } from "@/components/shared/app-loader";
 
@@ -69,24 +67,22 @@ export default async function ProjectPage({ params, searchParams }: iAppProps) {
   );
 }
 
-// Inline Data Loaders for Streaming Boundaries
 async function ProjectTaskListViewServer({ workspaceId, slug }: { workspaceId: string, slug: string }) {
   const [project, user] = await Promise.all([getProjectBySlug(workspaceId, slug), requireUser()]);
   if (!project) return null;
-  const [projectMembers, permissions] = await Promise.all([getProjectMembers(project.id), getUserPermissions(workspaceId, project.id, user.id)]);
-  return <ProjectTaskListView workspaceId={workspaceId} projectId={project.id} members={projectMembers} canCreateSubTask={permissions.canCreateSubTask} permissions={permissions} userId={user.id} />;
+  return <ProjectTaskListView workspaceId={workspaceId} projectId={project.id} userId={user.id} />;
 }
 
 async function ProjectKanbanViewServer({ workspaceId, slug }: { workspaceId: string, slug: string }) {
-  const project = await getProjectBySlug(workspaceId, slug);
+  const [project, user] = await Promise.all([getProjectBySlug(workspaceId, slug), requireUser()]);
   if (!project) return null;
   const { ProjectKanbanView } = await import("./_components/kanban/project-kanban-view");
-  return <ProjectKanbanView workspaceId={workspaceId} projectId={project.id} />;
+  return <ProjectKanbanView workspaceId={workspaceId} projectId={project.id} userId={user.id} />;
 }
 
 async function ProjectGanttViewServer({ workspaceId, slug }: { workspaceId: string, slug: string }) {
-  const project = await getProjectBySlug(workspaceId, slug);
+  const [project, user] = await Promise.all([getProjectBySlug(workspaceId, slug), requireUser()]);
   if (!project) return null;
   const { GanttServerWrapper } = await import("./_components/gantt/project-gantt-view");
-  return <GanttServerWrapper workspaceId={workspaceId} projectId={project.id} />;
+  return <GanttServerWrapper workspaceId={workspaceId} projectId={project.id} userId={user.id} />;
 }

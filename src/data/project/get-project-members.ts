@@ -20,8 +20,7 @@ export type NormalMember = {
         id: string;
         name: string | null;
         surname: string | null;
-        email?: string;
-        image?: string | null;
+        email?: string | null;
     };
     workspaceRole?: string;
 };

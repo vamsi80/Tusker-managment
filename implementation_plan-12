@@ -1,0 +1,48 @@
+# Implementation Plan - Strictly Minimal Parent Task Data (v3)
+
+This plan implements a "Structural Shell" pattern for parent tasks. All parent tasks, regardless of the entry point or strategy, will carry only the minimal data required for containment. Detailed metadata (Assignees, Reviewers, Descriptions, etc.) is strictly reserved for subtasks.
+
+## Proposed Changes
+
+### [query-builder.ts](file:///c:\VamsiKrishna\Github\Tusker-managment\src\lib\tasks\query-builder.ts)
+
+Update the `isMinimal` selection to be the source of truth for all parent task representations.
+
+#### [MODIFY] [query-builder.ts](file:///c:\VamsiKrishna\Github\Tusker-managment\src\lib\tasks\query-builder.ts)
+- Refine the `isMinimal` selection (lines 4-15) to include only:
+    - `id`, `name`, `taskSlug`, `isParent`, `projectId`, `parentTaskId`, `createdAt`.
+    - `startDate`, `dueDate`, `days`, `status` (Required for Gantt/List basics).
+    - `_count` (for subtask tracking).
+- This selection is now the **Standard Parent Model**.
+
+---
+
+### [tasks.service.ts](file:///c:\VamsiKrishna\Github\Tusker-managment\src\server\services\tasks.service.ts)
+
+Enforce the minimal selection across all service methods whenever a parent task is fetched.
+
+#### [MODIFY] [tasks.service.ts](file:///c:\VamsiKrishna\Github\Tusker-managment\src\server\services\tasks.service.ts)
+- **Root Fetches**: Update `_fetchProjectRoot` and `_fetchWorkspaceFilter` to always use `getTaskSelect(..., true)` when `isParent` is part of the filter or when fetching structural shells.
+- **Hierarchy Management**: Update `_fetchFilteredHierarchy` to use the minimal selection for all structural tasks in the tree.
+- **Strict Distinction**:
+    - **Parent Fetch**: `getTaskSelect(mode, true)`
+    - **Subtask Fetch**: `getTaskSelect(mode, false)`
+- **Expansion Logic**: Even in `expandSubtasks` or `batchExpand`, if the returned items are themselves parents (nested levels), they will also use the minimal structure.
+
+## Rules & Constraints
+
+- **Parents = Shells**: No relational objects (`assignee`, `reviewer`, `createdBy`, `tag`) or heavy text (`description`) will exist on parent tasks in any JSON response.
+- **Subtasks = Detail**: Subtasks carry the full relational data required for the detail rows and Kanban cards.
+- **No Exceptions**: This rule applies even during "Detail Expansion" if that expansion involves parent structural elements.
+
+## Verification Plan
+
+### Automated Tests
+- Inspect API responses for `/api/v1/tasks`.
+- **Validation 1**: Verify `parentTaskId: null` objects (Roots) have **NONE** of the relational metadata fields.
+- **Validation 2**: Verify `parentTaskId: NOT null` objects (Subtasks) have **ALL** metadata fields.
+
+### Manual Verification
+- **Gantt View**: Confirm that parent bars still render correctly based on the minimal dates.
+- **List View**: Confirm that parent rows are lightweight shells.
+- **Consistency**: Ensure that metadata injection on the client (if any) still works for subtask interaction.
