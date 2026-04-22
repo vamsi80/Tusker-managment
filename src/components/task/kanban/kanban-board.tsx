@@ -475,8 +475,9 @@ export function KanbanBoard({
       }
 
       // 🔄 Revalidation Logic:
-      // Fetch if (has filters) OR (board is empty) OR (this is the first mount and we want to refresh cache)
-      const shouldFetch = hasFilters || isBoardEmpty || !hasFetchedRef.current;
+      // Fetch if (has filters) OR (board is empty) OR (previously filtered and now resetting) OR (first mount)
+      const shouldFetch =
+        hasFilters || isBoardEmpty || isCurrentlyFiltered || !hasFetchedRef.current;
 
       if (!shouldFetch) {
         // Reset to initial unfiltered data ONLY if we were previously filtering
@@ -538,10 +539,9 @@ export function KanbanBoard({
 
       try {
         const targetProjectId = filters.projectId || projectId;
-
         const params = new URLSearchParams();
         params.set("w", workspaceId);
-        params.set("p", targetProjectId);
+        if (targetProjectId) params.set("p", targetProjectId);
         params.set("vm", "kanban");
         params.set("excludeParents", "true");
         params.set("l", "5");
@@ -615,6 +615,7 @@ export function KanbanBoard({
             >,
           );
           setIsFiltering(false);
+          setIsCurrentlyFiltered(hasFilters);
           hasFetchedRef.current = true; // Mark as fetched after successful background refresh
         }
       }
