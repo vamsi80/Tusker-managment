@@ -58,7 +58,7 @@ export async function editSubTask(data: SubTaskSchemaType, subTaskId: string): P
                 status: validation.data.status as any,
                 assigneeUserId: validation.data.assignee,
                 reviewerUserId: validation.data.reviewerId,
-                tagId: validation.data.tag || undefined,
+                tagIds: validation.data.tagIds,
                 startDate: validation.data.startDate,
                 dueDate: validation.data.dueDate,
                 days: validation.data.days,

@@ -21,9 +21,10 @@ import { cn } from "@/lib/utils";
 import { apiClient } from "@/lib/api-client";
 import { useProjectLayout } from "../project-layout-context";
 
-import { workspacesClient } from "@/lib/api-client/workspaces";
 import { useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
+import { APP_DATE_FORMAT } from "@/lib/utils";
 
 
 interface BulkUploadFormProps {
@@ -151,8 +152,8 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
                 allowBlank: true,
                 formulae: [emailRange],
                 showErrorMessage: true,
-                errorTitle: 'Invalid Member',
-                error: 'Please select a valid project member email.'
+                errorTitle: 'Invalid Selection',
+                error: 'Please select an email from the list.'
             };
 
             // Reviewer Email (Column 5)
@@ -161,10 +162,22 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
                 allowBlank: true,
                 formulae: [reviewerRange],
                 showErrorMessage: true,
-                errorTitle: 'Invalid Reviewer',
-                error: 'Please select a valid reviewer email (Owner/Admin/Lead/PM).'
+                errorTitle: 'Invalid Selection',
+                error: 'Please select an email from the list.'
             };
 
+            // Start Date (Column 6 / F)
+            worksheet.getCell(`F${i}`).dataValidation = {
+                type: 'date',
+                allowBlank: true,
+                operator: 'greaterThan',
+                formulae: [new Date(2020, 0, 1)], // Any date after 2020
+                showErrorMessage: true,
+                errorTitle: 'Invalid Date',
+                error: 'Please enter a valid date in format: 15 Apr 2026',
+                prompt: 'Enter date (e.g., 15 Apr 2026)',
+                showInputMessage: true
+            };
             // Status (Column 8)
             worksheet.getCell(`H${i}`).dataValidation = {
                 type: 'list',
@@ -501,8 +514,57 @@ ${tagList}
             setIsProcessing(true);
 
             try {
-                const text = await file.text();
-                const parsed = parseCSV(text);
+                let parsed: ParsedTask[] = [];
+                
+                if (file.name.endsWith('.xlsx')) {
+                    const ExcelJS = (await import('exceljs')).default;
+                    const workbook = new ExcelJS.Workbook();
+                    const buffer = await file.arrayBuffer();
+                    await workbook.xlsx.load(buffer);
+                    
+                    const worksheet = workbook.getWorksheet(1);
+                    if (!worksheet) throw new Error("Worksheet not found in Excel file");
+                    
+                    const rows: string[][] = [];
+                    worksheet.eachRow((row, rowNumber) => {
+                        if (rowNumber === 1) return; // Skip header
+                        const rowData: string[] = [];
+                        // Handle up to 12 columns (Task, Subtask, Desc, Assignee, Reviewer, Date, Days, Status, Tag1, Tag2, Tag3, Tag4)
+                        for (let i = 1; i <= 12; i++) {
+                            const cell = row.getCell(i);
+                            let value = cell.value;
+                            if (value instanceof Date) {
+                                value = format(value, APP_DATE_FORMAT);
+                            } else if (value && typeof value === 'object' && 'result' in value) {
+                                // Formula cell
+                                value = String(value.result);
+                            } else {
+                                value = value ? String(value) : '';
+                            }
+                            rowData.push(value);
+                        }
+                        rows.push(rowData);
+                    });
+                    
+                    parsed = rows.filter(r => r[0]).map(r => {
+                        const [taskName, subtaskName, description, assigneeEmail, reviewerEmail, startDate, days, status, tag1, tag2, tag3, tag4] = r;
+                        const tags = [tag1, tag2, tag3, tag4].filter(t => t && t.trim()).map(t => t.trim());
+                        return {
+                            taskName,
+                            subtaskName: subtaskName || undefined,
+                            description: description || undefined,
+                            assigneeEmail: assigneeEmail ? assigneeEmail.split(' ')[0].trim() : undefined,
+                            reviewerEmail: reviewerEmail ? reviewerEmail.split(' ')[0].trim() : undefined,
+                            startDate: startDate || undefined,
+                            days: days ? parseInt(days) : undefined,
+                            status: status || undefined,
+                            tags: tags.length > 0 ? tags : undefined,
+                        };
+                    });
+                } else {
+                    const text = await file.text();
+                    parsed = parseCSV(text);
+                }
 
                 if (parsed.length === 0) {
                     toast.error("No valid tasks found in the file");
@@ -514,12 +576,13 @@ ${tagList}
                 setView("preview");
                 toast.success(`Parsed ${parsed.length} items. Please review before uploading.`);
             } catch (err) {
+                console.error("Upload error:", err);
                 toast.error(err instanceof Error ? err.message : "Failed to parse file");
             } finally {
                 setIsProcessing(false);
             }
         }
-    }, [projectId]);
+    }, [projectId, parseCSV]);
 
 
     const onDropRejected = useCallback((fileRejections: FileRejection[]) => {

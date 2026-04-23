@@ -35,7 +35,7 @@ async function _getProcurementTasksInternal(
                         status: true,
                         startDate: true,
                         days: true,
-                        tag: {
+                        tags: {
                             select: {
                                 id: true,
                                 name: true,
@@ -44,13 +44,13 @@ async function _getProcurementTasksInternal(
                         assignee: {
                             select: {
                                 id: true,
-                                workspaceMember: { select: { user: { select: { name: true, surname: true, image: true } } } }
+                                workspaceMember: { select: { user: { select: { name: true, surname: true } } } }
                             }
                         },
                         createdBy: {
                             select: {
                                 id: true,
-                                workspaceMember: { select: { user: { select: { name: true, surname: true, image: true } } } }
+                                workspaceMember: { select: { user: { select: { name: true, surname: true } } } }
                             }
                         }
                     }
@@ -73,7 +73,6 @@ async function _getProcurementTasksInternal(
 
     const hasMore = totalCount > page * pageSize;
 
-    // Transform to flatten the structure slightly if needed, or return as is
     return {
         tasks: procurementItems.map(item => ({
             ...item.task,

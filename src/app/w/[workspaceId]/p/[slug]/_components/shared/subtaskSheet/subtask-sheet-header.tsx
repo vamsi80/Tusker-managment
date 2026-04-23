@@ -126,17 +126,21 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({ subTask, cu
                         )}
                     </div>
 
-                    {/* Tag */}
-                    <div className="flex items-center gap-2 sm:gap-3">
-                        <Tag className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <span className="text-xs sm:text-sm font-medium w-20 sm:w-24 shrink-0">Tag</span>
-                        {subTask.tag ? (
-                            <Badge variant="secondary" className="rounded-md text-[10px] sm:text-xs">
-                                {typeof subTask.tag === 'string' ? subTask.tag : subTask.tag.name}
-                            </Badge>
-                        ) : (
-                            <span className="text-xs sm:text-sm text-muted-foreground">No tag</span>
-                        )}
+                    {/* Tags */}
+                    <div className="flex items-start gap-2 sm:gap-3">
+                        <Tag className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                        <span className="text-xs sm:text-sm font-medium w-20 sm:w-24 shrink-0">Tags</span>
+                        <div className="flex flex-wrap gap-1.5">
+                            {subTask.tags && subTask.tags.length > 0 ? (
+                                subTask.tags.map(t => (
+                                    <Badge key={t.id} variant="secondary" className="rounded-md text-[10px] sm:text-xs whitespace-nowrap">
+                                        {t.name}
+                                    </Badge>
+                                ))
+                            ) : (
+                                <span className="text-xs sm:text-sm text-muted-foreground">No tags</span>
+                            )}
+                        </div>
                     </div>
 
                     {/* Status */}

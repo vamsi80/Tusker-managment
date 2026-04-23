@@ -35,7 +35,7 @@ async function _getTaskByIdInternal(
             startDate: true,
             dueDate: true,
             days: true,
-            tag: {
+            tags: {
                 select: {
                     id: true,
                     name: true,
@@ -95,7 +95,7 @@ async function _getTaskByIdInternal(
                         status: true,
                         startDate: true,
                         days: true,
-                        tag: {
+                        tags: {
                             select: {
                                 id: true,
                                 name: true,
@@ -123,7 +123,7 @@ async function _getTaskByIdInternal(
                         status: true,
                         startDate: true,
                         days: true,
-                        tag: {
+                        tags: {
                             select: {
                                 id: true,
                                 name: true,
