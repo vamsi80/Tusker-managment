@@ -24,6 +24,7 @@ model User {
   surname             String?
   phoneNumber         String?           @unique
   phoneNumberVerified Boolean           @default(false)
+  pushToken           String?
   activities          Activity[]
   workspaceOwner      Workspace[]
   workspaces          WorkspaceMember[]
@@ -222,14 +223,15 @@ model ClintMembers {
 }
 
 model Tag {
-  id              String    @id @default(uuid())
-  name            String
-  workspaceId     String
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  requirePurchase Boolean?  @default(false)
-  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  tasks           Task[]    @relation("TaskTags")
+  id                   String    @id @default(uuid())
+  name                 String
+  workspaceId          String
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  requirePurchase      Boolean?  @default(false)
+  workspace            Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  Task_Task_tagIdToTag Task[]    @relation("Task_tagIdToTag")
+  tasks                Task[]    @relation("TaskTags")
 
   @@unique([workspaceId, name])
 }
@@ -247,7 +249,6 @@ model Task {
   parentTaskId          String?
   startDate             DateTime?
   taskSlug              String             @unique
-  tags                  Tag[]              @relation("TaskTags")
   assigneeId            String?
   completedSubtaskCount Int                @default(0)
   dueDate               DateTime?
@@ -257,6 +258,7 @@ model Task {
   subtaskCount          Int                @default(0)
   workspaceId           String
   position              Int                @default(0)
+  tagId                 String?
   activities            Activity[]
   assignee              ProjectMember?     @relation("TaskAssignee", fields: [assigneeId], references: [id])
   createdBy             ProjectMember      @relation("TaskCreator", fields: [createdById], references: [id])
@@ -264,12 +266,14 @@ model Task {
   subTasks              Task[]             @relation("Task_subTasks")
   project               Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
   reviewer              ProjectMember?     @relation("TaskReviewer", fields: [reviewerId], references: [id])
+  Tag_Task_tagIdToTag   Tag?               @relation("Task_tagIdToTag", fields: [tagId], references: [id])
   comments              Comment[]
   dailyReportEntries    DailyReportEntry[]
   indentDetails         IndentDetails[]
   procurementTask       ProcurementTask?
   Task_TaskDependency_A Task[]             @relation("TaskDependency")
   Task_TaskDependency_B Task[]             @relation("TaskDependency")
+  tags                  Tag[]              @relation("TaskTags")
 
   @@index([projectId, status, isParent, createdAt(sort: Desc)])
   @@index([workspaceId, status, isParent])
