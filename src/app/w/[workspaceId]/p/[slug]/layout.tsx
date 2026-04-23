@@ -4,6 +4,8 @@ import { TaskPageWrapper } from "@/app/w/[workspaceId]/_components/shared/task-p
 import { ProjectLayoutProvider } from "./_components/project-layout-context";
 import { ProjectService } from "@/server/services/project.service";
 import { requireUser } from "@/lib/auth/require-user";
+import ProjectNotFound from "./_components/layout/project-not-found";
+
 
 async function ProjectHeaderLoader({
     workspaceId,
@@ -16,17 +18,9 @@ async function ProjectHeaderLoader({
     const project = await ProjectService.getProjectMetadata(workspaceId, slug, user.id);
 
     if (!project) {
-        return (
-            <div className="space-y-4">
-                <div className="p-6">
-                    <h1 className="text-2xl font-semibold">Access Denied</h1>
-                    <p className="text-muted-foreground">
-                        You don&apos;t have permission to access this project or it doesn&apos;t exist.
-                    </p>
-                </div>
-            </div>
-        );
+        return <ProjectNotFound workspaceId={workspaceId} />;
     }
+
 
     return (
         <ProjectHeader
@@ -57,17 +51,9 @@ export default async function ProjectLayout({
     const project = await ProjectService.getProjectMetadata(workspaceId, slug, user.id);
 
     if (!project) {
-        return (
-            <div className="space-y-4">
-                <div className="p-6">
-                    <h1 className="text-2xl font-semibold">Access Denied</h1>
-                    <p className="text-muted-foreground">
-                        You don&apos;t have permission to access this project or it doesn&apos;t exist.
-                    </p>
-                </div>
-            </div>
-        );
+        return <ProjectNotFound workspaceId={workspaceId} />;
     }
+
 
     return (
         <ProjectLayoutProvider workspaceId={workspaceId} projectId={project.id}>

@@ -140,14 +140,15 @@ export async function addProjectMembers(
             data: newMembers,
         });
 
-        // Invalidate caches in parallel (don't await array map to improve latency return)
-        Promise.all([
+        // Invalidate caches in parallel
+        await Promise.all([
             invalidateWorkspaceProjects(project.workspaceId),
             invalidateProjectMembers(projectId),
             ...newMemberUserIds.map((userId) =>
                 invalidateUserPermissions(userId, project.workspaceId, projectId)
             )
-        ]).catch(console.error);
+        ]);
+
 
         return {
             status: "success",
@@ -282,14 +283,15 @@ export async function removeProjectMembers(
             });
         }
 
-        // Invalidate caches in parallel (fire and forget for latency optimization, handle internal errors safely)
-        Promise.all([
+        // Invalidate caches in parallel
+        await Promise.all([
             invalidateWorkspaceProjects(project.workspaceId),
             invalidateProjectMembers(projectId),
             ...userIdsToRemove.map((userId) => {
                 return invalidateUserPermissions(userId, project.workspaceId, projectId);
             })
-        ]).catch(console.error);
+        ]);
+
 
         return {
             status: "success",
@@ -433,11 +435,12 @@ export async function updateProjectMemberRole(
         });
 
         // Invalidate caches in parallel block
-        Promise.all([
+        await Promise.all([
             invalidateWorkspaceProjects(project.workspaceId),
             invalidateProjectMembers(projectId),
             invalidateUserPermissions(memberUserId, project.workspaceId, projectId)
-        ]).catch(console.error);
+        ]);
+
 
         const memberName = targetMember.workspaceMember.user?.surname || "Member";
         return {
@@ -548,11 +551,12 @@ export async function toggleProjectMemberAccess(
         });
 
         // Invalidate caches in parallel (fire and forget cache dump)
-        Promise.all([
+        await Promise.all([
             invalidateWorkspaceProjects(project.workspaceId),
             invalidateProjectMembers(projectId),
             invalidateUserPermissions(memberUserId, project.workspaceId, projectId)
-        ]).catch(console.error);
+        ]);
+
 
         return {
             status: "success",
