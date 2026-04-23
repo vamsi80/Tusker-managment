@@ -161,6 +161,30 @@ workspaces.delete("/:workspaceId/members/:memberId", async (c) => {
 });
 
 /**
+ * POST /api/v1/workspaces/:workspaceId/members/:memberId/resend-invite
+ * Resend invitation email
+ */
+workspaces.post("/:workspaceId/members/:memberId/resend-invite", async (c) => {
+  const user = c.get("user");
+  const workspaceId = c.req.param("workspaceId");
+  const memberId = c.req.param("memberId");
+
+  // 1. Permission Check
+  const { isWorkspaceAdmin } = await getWorkspacePermissions(workspaceId);
+  if (!isWorkspaceAdmin) {
+    throw AppError.Forbidden("Only workspace admins can resend invitations.");
+  }
+
+  const result = await WorkspaceService.resendInvitation(
+    workspaceId,
+    memberId,
+    { id: user.id, name: user.name || "Admin" },
+  );
+
+  return c.json(result);
+});
+
+/**
  * PATCH /api/v1/workspaces/:workspaceId/members/:memberId
  * Update a member's role
  */

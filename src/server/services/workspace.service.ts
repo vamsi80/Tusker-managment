@@ -129,6 +129,12 @@ export class WorkspaceService {
             phoneNumber: true,
             email: true,
             image: true,
+            emailVerified: true,
+            _count: {
+                select: {
+                    accounts: true,
+                }
+            },
           },
         },
       },
@@ -163,7 +169,7 @@ export class WorkspaceService {
       where: { email },
       include: { workspaces: { where: { workspaceId } } }
     });
-    
+
     if (existingEmailUser && existingEmailUser.workspaces.length > 0) {
       throw new Error("This user is already a member of this workspace.");
     }
@@ -189,18 +195,18 @@ export class WorkspaceService {
       // BETTER-AUTH: We create the user record first. 
       // The Account record (password) will be created when they set the password.
       const authUserId = existingEmailUser?.id ?? crypto.randomUUID();
-      
+
       if (!existingEmailUser) {
-          await prisma.user.create({
-              data: {
-                  id: authUserId,
-                  email,
-                  name,
-                  surname: niceName ?? null,
-                  phoneNumber: cleanPhoneNumber,
-                  emailVerified: false,
-              }
-          });
+        await prisma.user.create({
+          data: {
+            id: authUserId,
+            email,
+            name,
+            surname: niceName ?? null,
+            phoneNumber: cleanPhoneNumber,
+            emailVerified: false,
+          }
+        });
       }
 
       // 2b. Generate Invitation Token
@@ -208,12 +214,12 @@ export class WorkspaceService {
       const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
 
       await prisma.verification.create({
-          data: {
-              id: crypto.randomUUID(),
-              identifier: email,
-              value: token,
-              expiresAt,
-          }
+        data: {
+          id: crypto.randomUUID(),
+          identifier: email,
+          value: token,
+          expiresAt,
+        }
       });
       if (!authUserId) {
         throw new Error("Failed to create auth user");
@@ -298,6 +304,67 @@ export class WorkspaceService {
   }
 
   /**
+   * Resend invitation email to a pending member
+   */
+  static async resendInvitation(workspaceId: string, memberId: string, actor: { id: string; name: string }) {
+    // 1. Fetch member and workspace info
+    const member = await prisma.workspaceMember.findUnique({
+      where: { id: memberId },
+      include: {
+        user: true,
+        workspace: { select: { name: true } }
+      }
+    });
+
+    if (!member || member.workspaceId !== workspaceId) {
+      throw new Error("Member not found in this workspace.");
+    }
+
+    if (member.user.emailVerified) {
+      throw new Error("User has already activated their account.");
+    }
+
+    // 2. Generate new token
+    const token = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
+
+    // Clean up old verification records for this email to avoid clutter
+    await prisma.verification.deleteMany({
+      where: { identifier: member.user.email }
+    });
+
+    await prisma.verification.create({
+      data: {
+        id: crypto.randomUUID(),
+        identifier: member.user.email,
+        value: token,
+        expiresAt,
+      }
+    });
+
+    // 3. Send Email
+    const { sendWorkspaceInvitationEmail } = await import("@/lib/auth");
+    await sendWorkspaceInvitationEmail({
+      email: member.user.email,
+      name: member.user.name || "Team Member",
+      workspaceId,
+      role: member.workspaceRole,
+      token,
+    });
+
+    // 4. Record Activity
+    await recordActivity({
+      userId: actor.id,
+      userName: actor.name,
+      action: `RESENT_INVITATION`,
+      entityId: member.id,
+      workspaceId,
+    });
+
+    return { status: "success", message: "Invitation email resent successfully" };
+  }
+
+  /**
    * Accept invitation and set password
    */
   static async acceptInvitation(values: any) {
@@ -305,25 +372,25 @@ export class WorkspaceService {
 
     // 1. Verify token
     const verification = await prisma.verification.findFirst({
-        where: {
-            identifier: email,
-            value: token,
-            expiresAt: { gt: new Date() }
-        }
+      where: {
+        identifier: email,
+        value: token,
+        expiresAt: { gt: new Date() }
+      }
     });
 
     if (!verification) {
-        throw new Error("Invalid or expired invitation token");
+      throw new Error("Invalid or expired invitation token");
     }
 
     // 2. Find user
     const user = await prisma.user.findUnique({
-        where: { email },
-        include: { accounts: true }
+      where: { email },
+      include: { accounts: true }
     });
 
     if (!user) {
-        throw new Error("User not found");
+      throw new Error("User not found");
     }
 
     // 3. Set password using Better Auth API or manual hash
@@ -331,47 +398,60 @@ export class WorkspaceService {
     // but Better Auth might fail if User already exists.
     // Recommended: Use setPassword if available, or manual create.
     // Since we are in the server, we can use the internal scrypt helper or just better-auth's setPassword
-    
+
     try {
-        // Better Auth setPassword requires a session or admin context
-        // We'll use the internal password hashing logic to create the Account record manually for maximum reliability in this flow
-        const { hashPassword } = await import("better-auth/crypto");
-        const hashedPassword = await hashPassword(password);
+      // Better Auth setPassword requires a session or admin context
+      // We'll use the internal password hashing logic to create the Account record manually for maximum reliability in this flow
+      const { hashPassword } = await import("better-auth/crypto");
+      const hashedPassword = await hashPassword(password);
 
-        await prisma.$transaction([
-            // Create or update account
-            prisma.account.upsert({
-                where: { id: user.id }, // Assuming ID is linked or deterministic
-                create: {
-                    id: crypto.randomUUID(),
-                    userId: user.id,
-                    accountId: user.id,
-                    providerId: "email-password",
-                    password: hashedPassword,
-                },
-                update: {
-                    password: hashedPassword,
-                }
-            }),
-            // Mark email as verified
-            prisma.user.update({
-                where: { id: user.id },
-                data: { 
-                    emailVerified: true,
-                    name: name || user.name,
-                    surname: niceName || user.surname
-                }
-            }),
-            // Delete verification token
-            prisma.verification.delete({
-                where: { id: verification.id }
-            })
-        ]);
+      await prisma.$transaction([
+        // Create or update account
+        prisma.account.upsert({
+          where: { id: user.id }, // Assuming ID is linked or deterministic
+          create: {
+            id: crypto.randomUUID(),
+            userId: user.id,
+            accountId: user.id,
+            providerId: "email-password",
+            password: hashedPassword,
+          },
+          update: {
+            password: hashedPassword,
+          }
+        }),
+        // Mark email as verified
+        prisma.user.update({
+          where: { id: user.id },
+          data: {
+            emailVerified: true,
+            name: name || user.name,
+            surname: niceName || user.surname
+          }
+        }),
+        // Delete verification token
+        prisma.verification.delete({
+          where: { id: verification.id }
+        })
+      ]);
 
-        return { success: true };
+      // 4. Invalidate Caches
+      // Find all workspaces this user is a member of to refresh their status everywhere
+      const userWorkspaces = await prisma.workspaceMember.findMany({
+          where: { userId: user.id },
+          select: { workspaceId: true }
+      });
+
+      for (const uw of userWorkspaces) {
+          await invalidateWorkspaceMembers(uw.workspaceId);
+      }
+      
+      await invalidateUserWorkspaces(user.id);
+
+      return { success: true };
     } catch (err) {
-        console.error("[WorkspaceService.acceptInvitation] Error:", err);
-        throw new Error("Failed to set password. Please try again.");
+      console.error("[WorkspaceService.acceptInvitation] Error:", err);
+      throw new Error("Failed to set password. Please try again.");
     }
   }
 
@@ -379,14 +459,14 @@ export class WorkspaceService {
    * Verify token for frontend loading state
    */
   static async verifyInvitationToken(token: string, email: string) {
-      const verification = await prisma.verification.findFirst({
-          where: {
-              identifier: email,
-              value: token,
-              expiresAt: { gt: new Date() }
-          }
-      });
-      return !!verification;
+    const verification = await prisma.verification.findFirst({
+      where: {
+        identifier: email,
+        value: token,
+        expiresAt: { gt: new Date() }
+      }
+    });
+    return !!verification;
   }
 
   /**

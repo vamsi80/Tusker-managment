@@ -8,6 +8,12 @@ interface EmailOptions {
   subject: string;
   html: string;
   from?: string;
+  attachments?: {
+    filename: string;
+    path?: string;
+    content?: Buffer | string;
+    cid?: string;
+  }[];
 }
 
 // Create reusable SMTP transporter
@@ -37,13 +43,14 @@ if (process.env.NEXT_PHASE !== 'phase-production-build') {
 /**
  * Send an email using the configured SMTP server
  */
-export async function sendEmail({ to, subject, html, from }: EmailOptions) {
+export async function sendEmail({ to, subject, html, from, attachments }: EmailOptions) {
   try {
     const info = await transporter.sendMail({
       from: from || `"Tusker Management" <${env.SMTP_FROM}>`,
       to: Array.isArray(to) ? to.join(', ') : to,
       subject,
       html,
+      attachments,
     });
 
     console.log('Email sent successfully:', info.messageId);

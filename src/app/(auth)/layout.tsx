@@ -7,19 +7,19 @@ import logo from '@/assets/logo.png'
 
 const AuthLayout = ({ children }: { children:ReactNode}) => {
   return (
-    <div className='relative flex  min-h-svh flex-col items-center justify-center'>
+    <div className='relative flex min-h-svh flex-col items-center pt-8 px-4'>
       
       <Link 
         href='/' 
         className={buttonVariants({
           variant: 'outline',
-          className: 'absolute top-4 left-4'
+          className: 'absolute top-4 left-4 hidden sm:flex'
         })}>
         <ArrowLeft  />
         Back
       </Link>
 
-      <div className='flex w-full max-w-sm flex-col gap-6'>
+      <div className='flex w-full max-w-md flex-col gap-6'>
         <Link href='/' className='flex items-center gap-2 self-center font-medium'>
           <Image 
             src={logo}
