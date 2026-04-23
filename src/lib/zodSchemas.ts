@@ -24,7 +24,7 @@ export const STATUS_OPTIONS = SubTaskStatus.map(value => ({
     label: STATUS_LABELS[value]
 }));
 
-export const workspaceMemberRole = ["OWNER", "ADMIN", "MEMBER", "VIEWER"] as const
+export const workspaceMemberRole = ["OWNER", "ADMIN", "MEMBER", "MANAGER", "VIEWER"] as const
 
 export const projectRole = ["LEAD", "MEMBER", "VIEWER"] as const
 
