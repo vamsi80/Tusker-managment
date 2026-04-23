@@ -3,8 +3,8 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { useState, useTransition, useEffect } from "react";
-import { Loader2, CheckCircle2, AlertCircle, Eye, EyeOff } from "lucide-react";
+import { useState, useTransition } from "react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
     Form,
@@ -21,7 +21,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { acceptInvitationSchema } from "@/lib/zodSchemas";
 import { apiClient } from "@/lib/api-client";
 import { tryCatch } from "@/hooks/try-catch";
-import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
 interface AcceptInvitationFormProps {
@@ -97,10 +96,10 @@ export function AcceptInvitationForm({ token, email, initialName = "" }: AcceptI
                                 <FormItem>
                                     <FormLabel>Full Name</FormLabel>
                                     <FormControl>
-                                        <Input 
-                                            placeholder="John Doe" 
-                                            {...field} 
-                                            disabled={!!initialName || isPending} 
+                                        <Input
+                                            placeholder="John Doe"
+                                            {...field}
+                                            disabled={!!initialName || isPending}
                                             className={cn(!!initialName && "bg-muted cursor-not-allowed")}
                                         />
                                     </FormControl>
@@ -117,11 +116,11 @@ export function AcceptInvitationForm({ token, email, initialName = "" }: AcceptI
                                     <FormLabel>New Password</FormLabel>
                                     <FormControl>
                                         <div className="relative">
-                                            <Input 
-                                                type={showPassword ? "text" : "password"} 
-                                                placeholder="••••••••" 
-                                                {...field} 
-                                                disabled={isPending} 
+                                            <Input
+                                                type={showPassword ? "text" : "password"}
+                                                placeholder="••••••••"
+                                                {...field}
+                                                disabled={isPending}
                                                 className="pr-10"
                                             />
                                             <Button
@@ -156,11 +155,11 @@ export function AcceptInvitationForm({ token, email, initialName = "" }: AcceptI
                                     <FormLabel>Confirm Password</FormLabel>
                                     <FormControl>
                                         <div className="relative">
-                                            <Input 
-                                                type={showPassword ? "text" : "password"} 
-                                                placeholder="••••••••" 
-                                                {...field} 
-                                                disabled={isPending} 
+                                            <Input
+                                                type={showPassword ? "text" : "password"}
+                                                placeholder="••••••••"
+                                                {...field}
+                                                disabled={isPending}
                                                 className="pr-10"
                                             />
                                             <Button
@@ -199,7 +198,6 @@ export function AcceptInvitationForm({ token, email, initialName = "" }: AcceptI
             </CardContent>
             <CardFooter className="flex justify-center flex-col gap-2">
                 <p className="text-xs text-muted-foreground text-center px-6 leading-relaxed">
-                    By creating an account, you agree to our Terms of Service and Privacy Policy.
                 </p>
             </CardFooter>
         </Card>

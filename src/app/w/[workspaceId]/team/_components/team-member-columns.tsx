@@ -5,16 +5,19 @@ import {
     // createSelectColumn,
     createActionsColumn,
     createBadgeColumn,
+    DataTableCellAction,
 } from "@/components/data-table/column-helpers";
-import { Eye, Edit, Trash } from "lucide-react";
+import { Eye, Edit, Trash, Mail } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { WorkspaceMemberRow } from "@/data/workspace";
+import { cn } from "@/lib/utils";
 
 export function createTeamMemberColumns(
     isAdmin: boolean,
     onView: (member: WorkspaceMemberRow) => void,
     onEdit: (member: WorkspaceMemberRow) => void,
-    onDelete: (member: WorkspaceMemberRow) => void
+    onDelete: (member: WorkspaceMemberRow) => void,
+    onResend: (member: WorkspaceMemberRow) => void
 ): ColumnDef<WorkspaceMemberRow>[] {
     const columns: ColumnDef<WorkspaceMemberRow>[] = [
         // createSelectColumn<WorkspaceMemberRow>(),
@@ -87,10 +90,18 @@ export function createTeamMemberColumns(
         {
             id: "status",
             header: "Status",
-            cell: () => {
+            cell: ({ row }) => {
+                const user = row.original.user;
+                const isVerified = user?.emailVerified || (user?._count?.accounts ?? 0) > 0;
+                
                 return (
-                    <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold border-transparent bg-primary text-primary-foreground">
-                        Active
+                    <div className={cn(
+                        "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+                        isVerified 
+                            ? "bg-green-500/10 text-green-500 hover:bg-green-500/20" 
+                            : "bg-amber-500/10 text-amber-500 hover:bg-amber-500/20"
+                    )}>
+                        {isVerified ? "Verified" : "Pending"}
                     </div>
                 );
             },
@@ -98,12 +109,7 @@ export function createTeamMemberColumns(
     ];
 
     // Add actions column
-    const actions: {
-        label: string;
-        onClick: (row: WorkspaceMemberRow) => void;
-        icon?: React.ReactNode;
-        variant?: "default" | "destructive";
-    }[] = [
+    const actions: DataTableCellAction<WorkspaceMemberRow>[] = [
             {
                 label: "View Details",
                 onClick: onView,
@@ -125,6 +131,28 @@ export function createTeamMemberColumns(
                 variant: "destructive",
             }
         );
+
+        // Add Resend Invitation if not verified
+        columns.forEach(col => {
+            if (col.id === "actions") {
+                // This is handled by creating the actions array below
+            }
+        });
+    }
+
+    // Dynamic actions based on member state
+    if (isAdmin) {
+        actions.push({
+            label: "Resend Invitation",
+            onClick: onResend,
+            icon: <Mail className="h-4 w-4" />,
+            // Only show if not verified
+            hidden: (row: WorkspaceMemberRow) => {
+            const user = row.user;
+            const isVerified = user?.emailVerified || (user?._count?.accounts ?? 0) > 0;
+            return !!isVerified;
+        }
+    });
     }
 
     const actionsColumn = createActionsColumn<WorkspaceMemberRow>(actions);

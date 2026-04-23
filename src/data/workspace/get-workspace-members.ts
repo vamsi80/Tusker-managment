@@ -15,9 +15,13 @@ export type WorkspaceMemberRow = {
     name?: string | null;
     surname?: string | null;
     email: string;
+    emailVerified: boolean;
     image?: string | null;
     contactNumber?: string | null;
     phoneNumber?: string | null;
+    _count?: {
+        accounts: number;
+    };
   };
 };
 
@@ -40,6 +44,12 @@ async function _fetchWorkspaceMembersInternal(workspaceId: string): Promise<Work
           surname: true,
           phoneNumber: true,
           email: true,
+          emailVerified: true,
+          _count: {
+              select: {
+                  accounts: true,
+              }
+          }
         },
       },
     },
@@ -59,7 +69,7 @@ async function _fetchWorkspaceMembersInternal(workspaceId: string): Promise<Work
 const getCachedWorkspaceMembers = (workspaceId: string) =>
   unstable_cache(
     async () => _fetchWorkspaceMembersInternal(workspaceId),
-    [`workspace-members-${workspaceId}`],
+    [`workspace-members-v2-${workspaceId}`],
     {
       tags: CacheTags.workspaceMembers(workspaceId),
       revalidate: 60, // 60 seconds

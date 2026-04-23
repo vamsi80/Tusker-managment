@@ -36,6 +36,7 @@ import { apiClient } from "@/lib/api-client";
 import { WorkspaceMemberRow } from "@/data/workspace";
 import { pusherClient } from "@/lib/pusher";
 import { TEAM_UPDATE, TeamEventData } from "@/lib/realtime";
+import { cn } from "@/lib/utils";
 
 
 interface TeamMembersProps {
@@ -127,14 +128,31 @@ export function TeamMembers({ data, isAdmin, workspaceId }: TeamMembersProps) {
         }
     };
 
+    const handleResendInvite = React.useCallback(async (member: WorkspaceMemberRow) => {
+        if (!member.user?.email) return;
+
+        toast.promise(
+            apiClient.workspaces.resendInvite(workspaceId, member.id),
+            {
+                loading: `Resending invitation to ${member.user.email}...`,
+                success: (result: any) => {
+                    if (result.status === "error") throw new Error(result.message);
+                    return result.message || "Invitation resent successfully";
+                },
+                error: (err) => err.message || "Failed to resend invitation",
+            }
+        );
+    }, [workspaceId]);
+
     const columns = React.useMemo(() =>
         createTeamMemberColumns(
             isAdmin,
             handleViewMember,
             handleEditMember,
-            handleDeleteMember
+            handleDeleteMember,
+            handleResendInvite
         ),
-        [isAdmin, handleViewMember, handleEditMember, handleDeleteMember]
+        [isAdmin, handleViewMember, handleEditMember, handleDeleteMember, handleResendInvite]
     );
 
     return (
@@ -149,7 +167,6 @@ export function TeamMembers({ data, isAdmin, workspaceId }: TeamMembersProps) {
                 showColumnToggle={true}
                 pageSize={10}
             />
-
 
             {/* View Member Dialog */}
             <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
@@ -199,9 +216,19 @@ export function TeamMembers({ data, isAdmin, workspaceId }: TeamMembersProps) {
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Status:</span>
-                                    <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold border-transparent bg-primary text-primary-foreground">
-                                        Active
-                                    </span>
+                                    {(() => {
+                                        const isVerified = memberToView.user?.emailVerified || (memberToView.user?._count?.accounts ?? 0) > 0;
+                                        return (
+                                            <span className={cn(
+                                                "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold border-transparent",
+                                                isVerified 
+                                                    ? "bg-green-500/10 text-green-500" 
+                                                    : "bg-amber-500/10 text-amber-500"
+                                            )}>
+                                                {isVerified ? "Verified" : "Pending"}
+                                            </span>
+                                        );
+                                    })()}
                                 </div>
                             </div>
                         </div>

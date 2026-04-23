@@ -103,6 +103,20 @@ export const workspacesClient = {
     },
 
     /**
+     * Resend an invitation email
+     */
+    resendInvite: async (workspaceId: string, memberId: string): Promise<ApiResponse> => {
+        const response = await apiFetch<{ status?: string; message: string; success?: boolean }>(`/workspaces/${workspaceId}/members/${memberId}/resend-invite`, {
+            method: "POST",
+        });
+
+        return {
+            status: (response.status as any) || (response.success ? "success" : "error"),
+            message: response.message || "Invitation resent",
+        };
+    },
+
+    /**
      * Get all workspaces for the current user
      */
     getAll: async (): Promise<{ workspaces: any[]; totalCount: number }> => {

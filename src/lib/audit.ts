@@ -15,7 +15,8 @@ export type AuditAction =
   | "SUBTASK_DELETED"
   | "COMMENT_CREATED"
   | "CHECKED_IN"
-  | "CHECKED_OUT";
+  | "CHECKED_OUT"
+  | "RESENT_INVITATION";
 
 interface RecordActivityOptions {
   userId: string;

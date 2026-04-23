@@ -73,17 +73,23 @@ export function createSelectColumn<T>(): ColumnDef<T> {
 /**
  * Row actions component to handle hydration
  */
+export interface DataTableCellAction<T> {
+    label: string;
+    onClick: (row: T) => void;
+    icon?: React.ReactNode;
+    variant?: "default" | "destructive";
+    hidden?: (row: T) => boolean;
+}
+
+/**
+ * Row actions component to handle hydration
+ */
 function RowActions<T>({
     row,
     actions
 }: {
     row: any;
-    actions: {
-        label: string;
-        onClick: (row: T) => void;
-        icon?: React.ReactNode;
-        variant?: "default" | "destructive";
-    }[]
+    actions: DataTableCellAction<T>[];
 }) {
     const mounted = useMounted();
 
@@ -97,6 +103,11 @@ function RowActions<T>({
         );
     }
 
+    // Filter out hidden actions
+    const visibleActions = actions.filter(action => !action.hidden?.(row.original));
+
+    if (visibleActions.length === 0) return null;
+
     return (
         <div className="flex w-full justify-center">
             <DropdownMenu>
@@ -109,7 +120,7 @@ function RowActions<T>({
                 <DropdownMenuContent align="end">
                     <DropdownMenuLabel>Actions</DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    {actions.map((action, index) => (
+                    {visibleActions.map((action, index) => (
                         <DropdownMenuItem
                             key={index}
                             onClick={(e) => {
@@ -139,6 +150,7 @@ export function createActionsColumn<T>(
         onClick: (row: T) => void;
         icon?: React.ReactNode;
         variant?: "default" | "destructive";
+        hidden?: (row: T) => boolean;
     }[]
 ): ColumnDef<T> {
     return {
