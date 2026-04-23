@@ -122,7 +122,7 @@ export const auth = betterAuth({
         after: async (session) => {
           // We import recordActivity inside the hook to avoid circular dependency
           const { recordActivity } = await import("./audit");
-          
+
           await recordActivity({
             userId: session.userId,
             action: "USER_LOGIN",
@@ -153,7 +153,7 @@ export async function sendWorkspaceInvitationEmail({
   token: string;
 }) {
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const appUrl = process.env.BETTER_AUTH_URL || "http://localhost:3000";
   const invitationUrl = `${appUrl}/accept-invitation?token=${token}&email=${encodeURIComponent(email)}`;
 
   await sendEmail({
