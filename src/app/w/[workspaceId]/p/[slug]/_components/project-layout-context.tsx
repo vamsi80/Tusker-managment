@@ -8,6 +8,7 @@ import type { UserPermissionsType } from "@/data/user/get-user-permissions";
 interface ProjectLayoutContextType {
     projectMembers: ProjectMembersType;
     projectPermissions: UserPermissionsType;
+    workspaceTags: any[];
     workspaceId: string;
     projectId: string;
     isLoading: boolean;
@@ -27,6 +28,7 @@ export function ProjectLayoutProvider({
 }) {
     const [projectMembers, setProjectMembers] = useState<ProjectMembersType>([]);
     const [projectPermissions, setProjectPermissions] = useState<UserPermissionsType | null>(null);
+    const [workspaceTags, setWorkspaceTags] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     const fetchProjectData = useCallback(async (isSilent = false) => {
@@ -38,6 +40,7 @@ export function ProjectLayoutProvider({
 
             setProjectMembers(res.data?.members || []);
             setProjectPermissions(res.data?.permissions || null);
+            setWorkspaceTags(res.data?.tags || []);
         } catch (error) {
             console.error("Failed to fetch project layout data:", error);
         } finally {
@@ -66,6 +69,7 @@ export function ProjectLayoutProvider({
             workspaceRole: null,
             userId: null,
         },
+        workspaceTags,
         workspaceId,
         projectId,
         isLoading,

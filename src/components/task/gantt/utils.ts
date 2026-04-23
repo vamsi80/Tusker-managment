@@ -1,6 +1,6 @@
 import { GanttTask, GanttSubtask, ComputedTaskDates, TimelineGranularity, } from "./types";
 import { parse } from "date-fns";
-import { APP_DATE_FORMAT } from "@/lib/utils";
+import { APP_DATE_FORMAT, formatIST } from "@/lib/utils";
 
 /**
  * Status color mapping for Gantt bars
@@ -262,11 +262,7 @@ function getWeekNumber(date: Date): number {
  * Format date for display
  */
 export function formatDate(date: Date): string {
-    return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-    });
+    return formatIST(date);
 }
 
 /**

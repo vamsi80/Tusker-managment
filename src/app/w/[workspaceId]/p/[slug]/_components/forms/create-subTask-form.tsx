@@ -110,7 +110,7 @@ export const CreateSubTaskForm = ({
             })(),
             assignee: "",
             status: "TO_DO",
-            tag: tags[0]?.id || "", // Use first tag's ID or empty string
+            tagIds: tags.length > 0 ? [tags[0].id] : [],
             projectId: projectId || (parentTasks.length > 0 ? parentTasks[0].projectId : "") || "",
             parentTaskId: parentTaskId || (parentTasks.length > 0 ? parentTasks[0].id : "") || "",
         },
@@ -378,26 +378,37 @@ export const CreateSubTaskForm = ({
                         {/* Tag Selection */}
                         <FormField
                             control={form.control}
-                            name="tag"
+                            name="tagIds"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Tag</FormLabel>
+                                    <FormLabel>Tags (Select multiple)</FormLabel>
                                     {tags.length > 0 ? (
                                         <div className="flex flex-wrap gap-2">
-                                            {tags.map((tag) => (
-                                                <div
-                                                    key={tag.id}
-                                                    className={cn(
-                                                        "flex flex-row items-center gap-2 cursor-pointer px-3 py-1.5 rounded-full border-2 transition-all",
-                                                        field.value === tag.id
-                                                            ? "border-primary bg-primary/10"
-                                                            : "border-muted hover:border-primary/50"
-                                                    )}
-                                                    onClick={() => field.onChange(tag.id)}
-                                                >
-                                                    <span className="text-xs font-normal">{tag.name}</span>
-                                                </div>
-                                            ))}
+                                            {tags.map((tag) => {
+                                                const isSelected = field.value?.includes(tag.id);
+                                                return (
+                                                    <div
+                                                        key={tag.id}
+                                                        className={cn(
+                                                            "flex flex-row items-center gap-2 cursor-pointer px-3 py-1.5 rounded-full border-2 transition-all",
+                                                            isSelected
+                                                                ? "border-primary bg-primary/10"
+                                                                : "border-muted hover:border-primary/50"
+                                                        )}
+                                                        onClick={() => {
+                                                            const current = field.value || [];
+                                                            if (isSelected) {
+                                                                field.onChange(current.filter(id => id !== tag.id));
+                                                            } else {
+                                                                field.onChange([...current, tag.id]);
+                                                            }
+                                                        }}
+                                                    >
+                                                        <span className="text-xs font-normal">{tag.name}</span>
+                                                        {isSelected && <Check className="h-3 w-3 text-primary" />}
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     ) : (
                                         <p className="text-sm text-muted-foreground">No tags available. Create tags in workspace settings.</p>

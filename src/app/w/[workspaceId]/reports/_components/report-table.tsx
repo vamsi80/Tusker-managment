@@ -71,7 +71,7 @@ export function ReportsTable({ initialData, workspaceId, members, initialDate, i
             if (report.date) {
                 dateStr = typeof report.date === "string"
                     ? report.date.split("T")[0]
-                    : formatIST(report.date, "yyyy-MM-dd");
+                    : formatIST(report.date);
             }
             if (!dateGroups[dateStr]) dateGroups[dateStr] = [];
             dateGroups[dateStr].push(report);
@@ -540,7 +540,7 @@ export function ReportsTable({ initialData, workspaceId, members, initialDate, i
                             <Calendar
                                 mode="single"
                                 selected={initialDate ? new Date(initialDate) : undefined}
-                                onSelect={(date) => updateFilters({ date: date ? formatIST(date, "yyyy-MM-dd") : undefined })}
+                                onSelect={(date) => updateFilters({ date: date ? formatIST(date, "d MMM yyyy") : undefined })}
                                 initialFocus
                             />
                         </PopoverContent>

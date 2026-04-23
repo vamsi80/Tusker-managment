@@ -383,29 +383,17 @@ export const SubTaskRow = memo(function SubTaskRow({
 
                 {columnVisibility.tag && (
                     <TableCell className="w-[100px] sm:w-[120px]">
-                        {subTask.tag ? (() => {
-                            // 1. Try to use the pre-fetched name directly (Fast & Bandwidth-efficient)
-                            const directName = typeof subTask.tag === 'object' ? (subTask.tag as any).name : null;
-
-                            // 2. Fallback to lookup by ID if name is missing
-                            const tagId = typeof subTask.tag === 'string' ? subTask.tag : (subTask.tag as any)?.id;
-                            const tagFromLookup = tags.find(t => t.id === (tagId || subTask.tagId));
-
-                            const tagName = directName || tagFromLookup?.name;
-
-                            if (tagName) {
-                                return (
-                                    <div className="flex items-center gap-1 min-w-0">
-                                        <Tag className="size-3 flex-shrink-0 hidden xs:block" />
-                                        <span className="text-[10px] sm:text-xs text-muted-foreground truncate">{tagName}</span>
-                                    </div>
-                                );
-                            }
-
-                            return <span className="text-muted-foreground text-xs text-center block">-</span>;
-                        })() : (
-                            <span className="text-muted-foreground text-xs text-center block">-</span>
-                        )}
+                        <div className="flex flex-wrap gap-1">
+                            {subTask.tags && (subTask.tags as any[]).length > 0 ? (
+                                (subTask.tags as any[]).map((t: any) => (
+                                    <Badge key={t.id} variant="secondary" className="text-[10px] py-0 px-1 whitespace-nowrap">
+                                        {t.name}
+                                    </Badge>
+                                ))
+                            ) : (
+                                <span className="text-muted-foreground text-xs text-center block w-full">-</span>
+                            )}
+                        </div>
                     </TableCell>
                 )}
 

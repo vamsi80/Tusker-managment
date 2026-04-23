@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { formatIST } from "@/lib/utils";
 
 /**
  * Hook to calculate due date from start date and days
@@ -120,11 +121,7 @@ export function useDueDateInfo(
         }
 
         // Format the due date
-        const formattedDueDate = dueDate.toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-        });
+        const formattedDueDate = formatIST(dueDate);
 
         // Determine status text and color
         let statusText: string;

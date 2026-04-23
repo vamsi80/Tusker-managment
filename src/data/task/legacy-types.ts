@@ -52,8 +52,6 @@ export type WorkspaceTaskType = {
         reviewer?: {
             id: string;
             surname: string | null;
-            name: string | null;
-            image: string | null;
         } | null;
     } | null;
     project?: {
@@ -65,17 +63,15 @@ export type WorkspaceTaskType = {
         projectMembers?: {
             workspaceMember: {
                 user: {
-                    name: string | null;
                     surname: string | null;
-                    image: string | null;
                 };
             };
         }[];
     } | null;
-    tag?: {
+    tags?: {
         id: string;
         name: string;
-    } | null;
+    }[];
     subtaskCount: number;
     completedSubtaskCount: number;
     _count: {

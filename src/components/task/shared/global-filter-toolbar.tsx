@@ -140,7 +140,7 @@ export function GlobalFilterToolbar({
             try {
                 return {
                     ...filter,
-                    value: formatIST(filter.value, "yyyy-MM-dd")
+                    value: formatIST(filter.value)
                 };
             } catch (e) {
                 return filter;

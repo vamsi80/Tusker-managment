@@ -133,7 +133,7 @@ tasks.post("/", async (c) => {
     throw AppError.ValidationError("Invalid task data");
   }
 
-  const { name, projectId } = validation.data;
+  const { name, projectId, tagIds } = validation.data;
 
   // Resolve workspace
   const project = await prisma.project.findUnique({
@@ -155,6 +155,7 @@ tasks.post("/", async (c) => {
     workspaceId: project.workspaceId,
     userId: user.id,
     permissions,
+    tagIds,
   });
 
   // Invalidate
@@ -207,7 +208,7 @@ tasks.post("/subtask", async (c) => {
     permissions,
     assigneeUserId: data.assignee,
     reviewerUserId: data.reviewerId,
-    tagId: data.tag,
+    tagIds: data.tagIds,
     startDate: data.startDate,
     dueDate: data.dueDate,
     days: data.days,
@@ -217,7 +218,7 @@ tasks.post("/subtask", async (c) => {
   // Invalidate
   await invalidateTaskMutation({
     projectId: data.projectId,
-    workspaceId: data.projectId,
+    workspaceId: project.workspaceId,
     userId: user.id,
     taskId: newSubTask.id,
   });
@@ -486,7 +487,7 @@ tasks.patch("/:taskId", async (c) => {
       ...data,
       assigneeUserId: (data as any).assignee,
       reviewerUserId: (data as any).reviewerId,
-      tagId: (data as any).tag,
+      tagIds: (data as any).tagIds,
     },
   });
 

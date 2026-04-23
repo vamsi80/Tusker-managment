@@ -150,6 +150,7 @@ export function transformToGanttTasks(inputTasks: any[]): GanttTask[] {
             parentTaskId: subtask.parentTaskId,
             description: subtask.description,
             tagId: subtask.tagId,
+            tags: subtask.tags || (subtask.tag ? [subtask.tag] : []),
             days: subtask.days,
             progress,
 
@@ -205,8 +206,8 @@ export function transformToGanttTasks(inputTasks: any[]): GanttTask[] {
         end: parentTask.dueDate
           ? formatLocalDate(new Date(parentTask.dueDate))
           : undefined,
-        subtasks: (parentTask.subTasks === undefined && (parentTask.subtaskCount > 0 || parentTask._count?.subTasks > 0)) 
-          ? undefined 
+        subtasks: (parentTask.subTasks === undefined && (parentTask.subtaskCount > 0 || parentTask._count?.subTasks > 0))
+          ? undefined
           : rawSubtasks,
         assigneeId: parentTask.assigneeId,
         status: parentTask.status || "TO_DO",
@@ -309,6 +310,7 @@ export function transformToGanttSubtasks(tasks: any[]): GanttSubtask[] {
         parentTaskId: subtask.parentTaskId,
         description: subtask.description,
         tagId: subtask.tagId,
+        tags: subtask.tags || (subtask.tag ? [subtask.tag] : []),
         days: subtask.days,
         progress,
         assigneeId: subtask.assigneeId,
