@@ -114,9 +114,9 @@ export const LoginForm = () => {
               window.location.href = callbackURL;
             },
             onError: (ctx) => {
-              const isNoPassword = ctx.error.code === "USER_HAS_NO_PASSWORD" || 
-                                 ctx.error.message.toLowerCase().includes("password") && 
-                                 (ctx.error.message.toLowerCase().includes("not set") || ctx.error.message.toLowerCase().includes("no"));
+              const isNoPassword = ctx.error.code === "USER_HAS_NO_PASSWORD" ||
+                ctx.error.message.toLowerCase().includes("password") &&
+                (ctx.error.message.toLowerCase().includes("not set") || ctx.error.message.toLowerCase().includes("no"));
 
               if (isNoPassword) {
                 toast.error("No password found for this account. Please create a password to login with email.", {
@@ -175,41 +175,41 @@ export const LoginForm = () => {
     });
   }
 
-  async function signInWithPhone() {
-    if (!phoneOtp || phoneOtp.length !== 6) {
-      toast.error("Please enter a valid 6-digit OTP");
-      return;
-    }
+  // async function signInWithPhone() {
+  //   if (!phoneOtp || phoneOtp.length !== 6) {
+  //     toast.error("Please enter a valid 6-digit OTP");
+  //     return;
+  //   }
 
-    startPhoneTransition(async () => {
-      try {
-        const callbackURL = workspaceId && role
-          ? `/api/v1/workspaces/verify?workspaceId=${workspaceId}&role=${role}`
-          : "/w";
+  //   startPhoneTransition(async () => {
+  //     try {
+  //       const callbackURL = workspaceId && role
+  //         ? `/api/v1/workspaces/verify?workspaceId=${workspaceId}&role=${role}`
+  //         : "/w";
 
-        await authClient.phoneNumber.verify({
-          phoneNumber,
-          code: phoneOtp,
-          fetchOptions: {
-            onSuccess: (ctx) => {
-              ensureUser(ctx.data.user.id);
-              toast.success("Signed in successfully!");
-              window.location.href = callbackURL;
-            },
-            onError: (ctx) => {
-              toast.error(ctx.error.message || "Failed to sign in");
-            },
-          },
-        });
-      } catch (error) {
-        toast.error("An error occurred during sign in");
-        console.error(error);
-      }
-    });
-  }
+  //       await authClient.phoneNumber.verify({
+  //         phoneNumber,
+  //         code: phoneOtp,
+  //         fetchOptions: {
+  //           onSuccess: (ctx) => {
+  //             ensureUser(ctx.data.user.id);
+  //             toast.success("Signed in successfully!");
+  //             window.location.href = callbackURL;
+  //           },
+  //           onError: (ctx) => {
+  //             toast.error(ctx.error.message || "Failed to sign in");
+  //           },
+  //         },
+  //       });
+  //     } catch (error) {
+  //       toast.error("An error occurred during sign in");
+  //       console.error(error);
+  //     }
+  //   });
+  // }
 
   return (
-    <Card>
+    <Card className="py-8">
       <CardHeader>
         <CardTitle className="text-xl">
           {workspaceId ? "Join Workspace" : "Welcome back!"}
@@ -217,13 +217,13 @@ export const LoginForm = () => {
         <CardDescription>
           {workspaceId
             ? "Sign in to join the workspace"
-            : "Login with your Github, Google or email account"}
+            : "Login with email and password"}
         </CardDescription>
       </CardHeader>
 
       <CardContent className="flex flex-col gap-4">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-4">
+          {/* <TabsList className="grid w-full grid-cols-2 mb-4">
             <TabsTrigger value="email">
               <Mail className="size-3.5 mr-2" />
               Email
@@ -232,8 +232,8 @@ export const LoginForm = () => {
               <Phone className="size-3.5 mr-2" />
               Phone
             </TabsTrigger>
-          </TabsList>
-          
+          </TabsList> */}
+
           <TabsContent value="email" className="space-y-4">
             <div className="grid gap-3">
               <div className="grid gap-2">
@@ -284,9 +284,9 @@ export const LoginForm = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="phone" className="space-y-4">
+          {/* <TabsContent value="phone" className="space-y-4">
             {!otpSent ? (
-               <div className="grid gap-3">
+              <div className="grid gap-3">
                 <div className="grid gap-2">
                   <Label htmlFor="phone">Phone Number</Label>
                   <Input
@@ -336,7 +336,7 @@ export const LoginForm = () => {
                   </InputOTP>
                   <p className="text-xs text-muted-foreground">
                     Code sent to {phoneNumber}
-                    <button 
+                    <button
                       onClick={() => { setOtpSent(false); setPhoneOtp(""); }}
                       className="ml-2 text-primary hover:underline font-medium"
                     >
@@ -360,14 +360,14 @@ export const LoginForm = () => {
                 </Button>
               </div>
             )}
-          </TabsContent>
+          </TabsContent> */}
         </Tabs>
 
         <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
           <span className="relative z-10 bg-card px-2 text-muted-foreground">Or</span>
         </div>
 
-        <div className="flex items-center justify-center gap-5">
+        {/* <div className="flex items-center justify-center gap-5">
           <Button
             disabled={githubPending}
             title="Sign in with GitHub"
@@ -393,7 +393,7 @@ export const LoginForm = () => {
               <GoogleIcon className="size-5" />
             )}
           </Button>
-        </div>
+        </div> */}
         <div className="text-center text-sm">
           Don&apos;t have an account?{" "}
           <Link href="/sign-up" className="underline underline-offset-4 hover:text-primary">

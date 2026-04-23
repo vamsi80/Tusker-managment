@@ -405,35 +405,57 @@ export class WorkspaceService {
       const { hashPassword } = await import("better-auth/crypto");
       const hashedPassword = await hashPassword(password);
 
-      await prisma.$transaction([
-        // Create or update account
-        prisma.account.upsert({
-          where: { id: user.id }, // Assuming ID is linked or deterministic
-          create: {
-            id: crypto.randomUUID(),
+      await prisma.$transaction(async (tx) => {
+        // 1. Find existing credential account
+        const existingAccount = await tx.account.findFirst({
+          where: {
             userId: user.id,
-            accountId: user.id,
-            providerId: "email-password",
-            password: hashedPassword,
-          },
-          update: {
-            password: hashedPassword,
+            providerId: "credential"
           }
-        }),
-        // Mark email as verified
-        prisma.user.update({
+        });
+
+        if (existingAccount) {
+          // Update existing account
+          await tx.account.update({
+            where: { id: existingAccount.id },
+            data: { password: hashedPassword }
+          });
+        } else {
+          // Create new credential account
+          await tx.account.create({
+            data: {
+              id: crypto.randomUUID(),
+              userId: user.id,
+              accountId: user.id,
+              providerId: "credential",
+              password: hashedPassword,
+            },
+          });
+        }
+
+        // 2. Mark email as verified and update profile info
+        await tx.user.update({
           where: { id: user.id },
           data: {
             emailVerified: true,
             name: name || user.name,
             surname: niceName || user.surname
           }
-        }),
-        // Delete verification token
-        prisma.verification.delete({
+        });
+
+        // 3. Delete verification token
+        await tx.verification.delete({
           where: { id: verification.id }
-        })
-      ]);
+        });
+
+        // 4. (Optional) Cleanup legacy 'email-password' accounts if they exist
+        await tx.account.deleteMany({
+          where: {
+            userId: user.id,
+            providerId: "email-password"
+          }
+        });
+      });
 
       // 4. Invalidate Caches
       // Find all workspaces this user is a member of to refresh their status everywhere

@@ -153,7 +153,7 @@ export async function sendWorkspaceInvitationEmail({
   token: string;
 }) {
 
-  const appUrl = process.env.BETTER_AUTH_URL || "http://localhost:3000";
+  const appUrl = env.BETTER_AUTH_URL || "http://localhost:3000";
   const invitationUrl = `${appUrl}/accept-invitation?token=${token}&email=${encodeURIComponent(email)}`;
 
   await sendEmail({
