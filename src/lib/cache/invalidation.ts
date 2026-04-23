@@ -1,4 +1,4 @@
-import { revalidateTag } from "next/cache";
+import { revalidateTag, revalidatePath } from "next/cache";
 import { CacheTags } from "@/data/cache-tags";
 
 // ============================================
@@ -11,6 +11,7 @@ import { CacheTags } from "@/data/cache-tags";
 export async function invalidateWorkspace(workspaceId: string) {
     const tags = CacheTags.workspace(workspaceId);
     tags.forEach(tag => revalidateTag(tag, "layout" as any));
+    revalidatePath(`/w/${workspaceId}`, "layout");
 }
 
 /**
@@ -19,6 +20,7 @@ export async function invalidateWorkspace(workspaceId: string) {
 export async function invalidateUserWorkspaces(userId: string) {
     const tags = CacheTags.userWorkspaces(userId);
     tags.forEach(tag => revalidateTag(tag, "layout" as any));
+    revalidatePath("/w", "layout");
 }
 
 /**
@@ -30,6 +32,7 @@ export async function invalidateWorkspaceMembers(workspaceId: string) {
         ...CacheTags.workspace(workspaceId), // Ensure full workspace data is also updated
     ];
     tags.forEach(tag => revalidateTag(tag, "layout" as any));
+    revalidatePath(`/w/${workspaceId}`, "layout");
 }
 
 /**
@@ -54,6 +57,7 @@ export async function invalidateWorkspaceAdminChecks(workspaceId: string) {
 export async function invalidateWorkspaceTags(workspaceId: string) {
     const tags = CacheTags.workspaceTags(workspaceId);
     tags.forEach(tag => revalidateTag(tag, "layout" as any));
+    revalidatePath(`/w/${workspaceId}`, "layout");
 }
 
 // ============================================
@@ -66,6 +70,7 @@ export async function invalidateWorkspaceTags(workspaceId: string) {
 export async function invalidateUserProjects(userId: string, workspaceId: string) {
     const tags = CacheTags.userProjects(userId, workspaceId);
     tags.forEach(tag => revalidateTag(tag, "layout" as any));
+    revalidatePath(`/w/${workspaceId}`, "layout");
 }
 
 /**
@@ -74,6 +79,7 @@ export async function invalidateUserProjects(userId: string, workspaceId: string
 export async function invalidateWorkspaceProjects(workspaceId: string) {
     const tags = CacheTags.workspaceProjects(workspaceId);
     tags.forEach(tag => revalidateTag(tag, "layout" as any));
+    revalidatePath(`/w/${workspaceId}`, "layout");
 }
 
 /**
@@ -103,6 +109,9 @@ export async function invalidateProjectMembers(projectId: string) {
         ...CacheTags.project(projectId)
     ];
     tags.forEach(tag => revalidateTag(tag, "layout" as any));
+    // Since we don't have workspaceId here, we use a generic path if possible, 
+    // or rely on the caller to handle path revalidation if they have more context.
+    // However, most calls are for the current project view.
 }
 
 /**
@@ -141,6 +150,7 @@ export async function invalidateAllProjectTasks() {
 export async function invalidateWorkspaceTasks(workspaceId: string, userId?: string) {
     const tags = CacheTags.workspaceTasks(workspaceId, userId);
     tags.forEach(tag => revalidateTag(tag, "layout" as any));
+    revalidatePath(`/w/${workspaceId}`, "layout");
 }
 
 /**
@@ -269,6 +279,7 @@ export async function invalidateAllActivities() {
 export async function invalidateUserPermissions(userId: string, workspaceId: string, projectId?: string) {
     const tags = CacheTags.userPermissions(userId, workspaceId, projectId);
     tags.forEach(tag => revalidateTag(tag, "layout" as any));
+    revalidatePath(`/w/${workspaceId}`, "layout");
 }
 
 // ============================================
@@ -282,6 +293,7 @@ export async function invalidateUserPermissions(userId: string, workspaceId: str
 export async function invalidateWorkspaceTaskCreationData(workspaceId: string, userId: string) {
     const tags = CacheTags.workspaceTaskCreationData(workspaceId, userId);
     tags.forEach(tag => revalidateTag(tag, "layout" as any));
+    revalidatePath(`/w/${workspaceId}`, "layout");
 }
 
 
@@ -347,4 +359,7 @@ export async function invalidateTaskMutation(params: {
     invalidations.push(invalidateWorkspaceTags(workspaceId));
 
     await Promise.all(invalidations);
+    revalidatePath(`/w/${workspaceId}`, "layout");
 }
+
+
