@@ -54,7 +54,7 @@ export async function createSubTask(values: SubTaskSchemaType): Promise<ApiRespo
             permissions,
             assigneeUserId: validation.data.assignee,
             reviewerUserId: validation.data.reviewerId,
-            tagId: validation.data.tag || undefined,
+            tagIds: validation.data.tagIds,
             startDate: validation.data.startDate,
             dueDate: validation.data.dueDate,
             days: validation.data.days,

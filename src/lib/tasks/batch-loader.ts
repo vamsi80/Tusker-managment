@@ -78,12 +78,11 @@ export async function hydrateTasks<T extends {
     assigneeId: string | null;
     reviewerId: string | null;
     createdById: string;
-    tagId: string | null;
     projectId: string;
 }>(
     tasks: T[],
     _userMap: Map<string, any>,
-    tagMap: Map<string, any>,
+    _tagMap: Map<string, any>,
     projectMap: Map<string, any>
 ) {
     // Collect unique ProjectMember IDs from all three fields
@@ -100,7 +99,6 @@ export async function hydrateTasks<T extends {
             assignee: null,
             reviewer: null,
             createdBy: null,
-            tag: task.tagId ? tagMap.get(task.tagId) ?? null : null,
             project: projectMap.get(task.projectId) ?? null,
         }));
     }
@@ -148,7 +146,6 @@ export async function hydrateTasks<T extends {
         assignee: task.assigneeId ? memberMap.get(task.assigneeId) ?? null : null,
         reviewer: task.reviewerId ? memberMap.get(task.reviewerId) ?? null : null,
         createdBy: memberMap.get(task.createdById) ?? null,
-        tag: task.tagId ? tagMap.get(task.tagId) ?? null : null,
         project: projectMap.get(task.projectId) ?? null,
     }));
 }

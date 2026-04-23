@@ -21,7 +21,7 @@ export async function syncTaskToProcurement(taskId: string) {
                 project: {
                     select: { workspaceId: true }
                 },
-                tag: {
+                tags: {
                     select: { requirePurchase: true }
                 }
             }
@@ -29,7 +29,7 @@ export async function syncTaskToProcurement(taskId: string) {
 
         if (!task) return;
 
-        const shouldBeInProcurement = task.tag?.requirePurchase === true;
+        const shouldBeInProcurement = task.tags.some(t => t.requirePurchase === true);
 
         if (shouldBeInProcurement) {
             // Upsert: Create if not exists, do nothing if exists (or update if we had fields to update)
@@ -74,7 +74,7 @@ export async function getWorkspaceProcurementTasks(workspaceId: string) {
                     id: true,
                     name: true,
                     status: true,
-                    tag: true,
+                    tags: { select: { name: true, requirePurchase: true } },
                     assignee: {
                         select: {
                             id: true,

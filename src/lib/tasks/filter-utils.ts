@@ -156,10 +156,9 @@ export function buildSubTaskConditions(filters: TaskFilters): any {
     // TAG FILTER
     // ============================================================
     if (filters.tagId) {
-        if (Array.isArray(filters.tagId) && filters.tagId.length > 0) {
-            conditions.tagId = { in: filters.tagId };
-        } else if (!Array.isArray(filters.tagId)) {
-            conditions.tagId = filters.tagId;
+        const tIds = Array.isArray(filters.tagId) ? filters.tagId : [filters.tagId];
+        if (tIds.length > 0) {
+            conditions.tags = { some: { id: { in: tIds } } };
         }
     }
 
