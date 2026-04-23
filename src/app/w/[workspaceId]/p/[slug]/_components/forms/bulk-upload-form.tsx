@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useCallback } from "react";
-import { Loader2, Download, FileSpreadsheet, Info, Upload, X, Check, FileText } from "lucide-react";
+import { Loader2, Download, FileSpreadsheet, Info, Upload, X, Check, FileText, Tag } from "lucide-react";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ import { useProjectLayout } from "../project-layout-context";
 
 import { workspacesClient } from "@/lib/api-client/workspaces";
 import { useEffect } from "react";
+import { Badge } from "@/components/ui/badge";
 
 
 interface BulkUploadFormProps {
@@ -38,7 +39,7 @@ interface ParsedTask {
     startDate?: string;
     days?: number;
     status?: string;
-    tag?: string;
+    tags?: string[];
 }
 
 export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
@@ -47,8 +48,7 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
     const [open, setOpen] = useState(false);
     const router = useRouter();
     const { setIsAddingTask } = useTaskContext();
-    const { projectMembers, workspaceId, revalidate } = useProjectLayout();
-    const [tags, setTags] = useState<{ id: string; name: string }[]>([]);
+    const { projectMembers, workspaceId, workspaceTags, revalidate } = useProjectLayout();
     const [fileName, setFileName] = useState<string>("");
     const [selectedReviewerId, setSelectedReviewerId] = useState<string>("");
     const [view, setView] = useState<"upload" | "preview">("upload");
@@ -56,21 +56,11 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
     const [parsedData, setParsedData] = useState<ParsedTask[]>([]);
 
 
-    const fetchTags = useCallback(async () => {
-        try {
-            const res = await workspacesClient.getTags(workspaceId);
-            setTags(res || []);
-        } catch (err) {
-            console.error("Failed to fetch tags", err);
-        }
-    }, [workspaceId]);
-
     useEffect(() => {
         if (open) {
             revalidate();
-            fetchTags();
         }
-    }, [open, revalidate, fetchTags]);
+    }, [open, revalidate]);
 
 
     const downloadTemplate = async () => {
@@ -80,11 +70,24 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
         // 1. Create main template sheet
         const worksheet = workbook.addWorksheet("Tasks Template");
 
-        // Add headers
-        const headers = ["Task Name", "Subtask Name", "Description", "Assignee Email", "Reviewer Email", "Start Date", "Days", "Status", "Tag"];
-        const headerRow = worksheet.addRow(headers);
+        // Define columns first (this also sets headers)
+        worksheet.columns = [
+            { header: 'Task Name', key: 'taskName', width: 25 },
+            { header: 'Subtask Name', key: 'subtaskName', width: 25 },
+            { header: 'Description', key: 'description', width: 30 },
+            { header: 'Assignee Email', key: 'assigneeEmail', width: 30 },
+            { header: 'Reviewer Email', key: 'reviewerEmail', width: 30 },
+            { header: 'Start Date', key: 'startDate', width: 20, style: { numFmt: 'd mmm yyyy' } },
+            { header: 'Days', key: 'days', width: 10 },
+            { header: 'Status', key: 'status', width: 15 },
+            { header: 'Tag 1', key: 'tag1', width: 15 },
+            { header: 'Tag 2', key: 'tag2', width: 15 },
+            { header: 'Tag 3', key: 'tag3', width: 15 },
+            { header: 'Tag 4', key: 'tag4', width: 15 }
+        ];
 
-        // Style headers
+        // Style the header row (Row 1)
+        const headerRow = worksheet.getRow(1);
         headerRow.eachCell((cell) => {
             cell.font = { bold: true };
             cell.fill = {
@@ -95,10 +98,15 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
             cell.alignment = { horizontal: 'center' };
         });
 
-        // Set column widths
-        worksheet.columns = [
-            { width: 25 }, { width: 25 }, { width: 30 }, { width: 30 }, { width: 30 }, { width: 15 }, { width: 10 }, { width: 20 }, { width: 20 }
+        // Add Example Rows matching the instructions
+        const exampleRows = [
+            ["Design Homepage", "", "", "", "", "", "", "", "", ""],
+            ["Design Homepage", "Create wireframe", "Design wireframe mockup", "john@example.com", "admin@example.com", "15 Apr 2026", 3, "COMPLETED", "DESIGN", ""],
+            ["Design Homepage", "Design components", "Create reusable UI components", "jane@example.com", "", "18 Apr 2026", 4, "IN_PROGRESS", "DESIGN", ""],
+            ["Procurement", "", "", "", "", "", "", "", "", ""],
+            ["Procurement", "Get quotes", "Collect vendor quotes", "vendor@example.com", "admin@example.com", "20 Apr 2026", 2, "TO_DO", "PROCUREMENT", "URGENT", "TAG-3", "TAG-4"]
         ];
+        worksheet.addRows(exampleRows);
 
         // 2. Create Reference Data sheet (can be hidden)
         const refSheet = workbook.addWorksheet("DataLists");
@@ -108,12 +116,12 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
         refSheet.getColumn(1).values = ["Status", ...statuses];
 
         // Add valid tags
-        const tagNames = tags.length > 0 ? tags.map(t => t.name) : ["DESIGN", "PROCUREMENT", "CONTRACTOR"];
+        const tagNames = workspaceTags.length > 0 ? workspaceTags.map(t => t.name) : ["DESIGN", "PROCUREMENT", "CONTRACTOR"];
         refSheet.getColumn(2).values = ["Tags", ...tagNames];
 
         // Add valid members
-        const memberEmails = projectMembers.length > 0 
-            ? projectMembers.map(m => m.user.surname ? `${m.user.email} (${m.user.surname})` : m.user.email) 
+        const memberEmails = projectMembers.length > 0
+            ? projectMembers.map(m => m.user.surname ? `${m.user.email} (${m.user.surname})` : m.user.email)
             : ["john@example.com (John)", "mike@example.com (Mike)"];
         refSheet.getColumn(3).values = ["Emails", ...memberEmails];
 
@@ -121,7 +129,10 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
         const reviewerEmails = projectMembers.length > 0
             ? projectMembers
                 .filter((m: any) => m.projectRole && ["OWNER", "ADMIN", "LEAD", "PROJECT_MANAGER"].includes(m.projectRole))
-                .map((m: any) => m.user.surname ? `${m.user.email} (${m.user.surname})` : m.user.email)
+                .map((m: any) => {
+                    const role = m.projectRole ? ` [${m.projectRole.replace('_', ' ')}]` : "";
+                    return m.user.surname ? `${m.user.email} (${m.user.surname}${role})` : `${m.user.email}${role}`;
+                })
             : memberEmails;
         refSheet.getColumn(4).values = ["Reviewers", ...reviewerEmails];
 
@@ -133,7 +144,7 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
         const reviewerRange = `DataLists!$D$2:$D$${reviewerEmails.length + 1}`;
 
         // 4. Apply Data Validation to 100 rows in main sheet
-        for (let i = 2; i <= 101; i++) {
+        for (let i = 2; i <= 106; i++) {
             // Assignee Email (Column 4)
             worksheet.getCell(`D${i}`).dataValidation = {
                 type: 'list',
@@ -164,7 +175,7 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
                 error: 'Please select a valid task status.'
             };
 
-            // Tag (Column 9)
+            // Tag 1 (Column 9)
             worksheet.getCell(`I${i}`).dataValidation = {
                 type: 'list',
                 allowBlank: true,
@@ -173,7 +184,62 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
                 errorTitle: 'Invalid Tag',
                 error: 'Please select a valid project tag.'
             };
+
+            // Tag 2 (Column 10)
+            worksheet.getCell(`J${i}`).dataValidation = {
+                type: 'list',
+                allowBlank: true,
+                formulae: [tagRange],
+                showErrorMessage: true,
+                errorTitle: 'Invalid Tag',
+                error: 'Please select a valid project tag.'
+            };
+
+            // Start Date (Column 6)
+            const dateCell = worksheet.getCell(`F${i}`);
+            dateCell.numFmt = 'd mmm yyyy';
+            dateCell.dataValidation = {
+                type: 'date',
+                operator: 'between',
+                formulae: [new Date(2000, 0, 1), new Date(2100, 11, 31)],
+                allowBlank: true,
+                showInputMessage: true,
+                promptTitle: 'Select Start Date',
+                prompt: 'Please enter a date (e.g., 15 Apr 2026). Excel will provide a calendar if supported.',
+                showErrorMessage: true,
+                errorTitle: 'Invalid Date',
+                error: 'Please enter a valid date in the format: 15 Apr 2026.'
+            };
+
+            // Tag 3 (Column 11)
+            worksheet.getCell(`K${i}`).dataValidation = {
+                type: 'list',
+                allowBlank: true,
+                formulae: [tagRange],
+                showErrorMessage: true,
+                errorTitle: 'Invalid Tag',
+                error: 'Please select a valid project tag.'
+            };
+
+            // Tag 4 (Column 12)
+            worksheet.getCell(`L${i}`).dataValidation = {
+                type: 'list',
+                allowBlank: true,
+                formulae: [tagRange],
+                showErrorMessage: true,
+                errorTitle: 'Invalid Tag',
+                error: 'Please select a valid project tag.'
+            };
         }
+
+        // Add a note/comment to the Start Date header for "Calendar" feel
+        const startDateCell = worksheet.getCell('F1');
+        startDateCell.note = {
+            texts: [
+                { font: { bold: true, size: 10, color: { argb: 'FF000000' } }, text: 'DATE PICKER\n' },
+                { font: { size: 9 }, text: 'Excel will show a date picker here. Please use d MMM yyyy format (e.g., 15 Apr 2026).' }
+            ]
+        };
 
         // Hide the reference sheet
         refSheet.state = 'hidden';
@@ -190,7 +256,7 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
     };
 
     const downloadInstructions = () => {
-        const tagList = tags.length > 0 ? tags.map((t: any) => `                * ${t.name}`).join('\n') : "                * DESIGN\n                * PROCUREMENT\n                * CONTRACTOR";
+        const tagList = workspaceTags.length > 0 ? workspaceTags.map((t: any) => `                * ${t.name}`).join('\n') : "                * DESIGN\n                * PROCUREMENT\n                * CONTRACTOR";
         const memberList = projectMembers.length > 0 ? projectMembers.map((m: any) => `                * ${m.user.email} (${m.user.surname})`).join('\n') : "                * (No members found in project)";
 
 
@@ -199,9 +265,9 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
 
             HOW TO USE THIS TEMPLATE:
             -------------------------
-            1. Download the template CSV file (bulk_upload_template.csv)
+            1. Download the Excel template file (bulk_upload_template.xlsx)
             2. Fill in your tasks and subtasks following the format below
-            3. Upload the completed CSV file
+            3. Upload the completed Excel file (or save as CSV if preferred)
 
             COLUMN DESCRIPTIONS:
             -------------------
@@ -231,8 +297,8 @@ ${memberList}
             - If left empty, defaults to task creator
 
             6. Start Date (OPTIONAL)
-            - Format: YYYY-MM-DD
-            - Example: "2024-01-15"
+            - Format: d MMM yyyy (e.g., 15 Apr 2026)
+            - Example: "15 Apr 2026"
 
             7. Days (OPTIONAL)
             - Number of days to complete the subtask
@@ -258,7 +324,7 @@ ${tagList}
             ✓ Subtasks must have both Task Name AND Subtask Name filled
             ✓ All subtasks with the same Task Name will be grouped under that parent task
             ✓ Assignee emails must match existing project members
-            ✓ Dates must be in YYYY-MM-DD format
+            ✓ Dates must be in '15 Apr 2026' format
             ✓ Status and Tag values are case-sensitive
 
             EXAMPLE STRUCTURE:
@@ -267,16 +333,16 @@ ${tagList}
             Task Name          | Subtask Name      | Description                    | Assignee Email      | Reviewer Email      | Start Date | Days | Status      | Tag
             -------------------|-------------------|--------------------------------|---------------------|---------------------|------------|------|-------------|-------------
             Design Homepage    |                   |                                |                     |                     |            |      |             |
-            Design Homepage    | Create wireframe  | Design wireframe mockup        | john@example.com    | admin@example.com   | 2024-01-15 | 3    | COMPLETED   | DESIGN
-            Design Homepage    | Design components | Create reusable UI components  | jane@example.com    |                     | 2024-01-18 | 4    | IN_PROGRESS | DESIGN
+            Design Homepage    | Create wireframe  | Design wireframe mockup        | john@example.com    | admin@example.com   | 15 Apr 2026 | 3    | COMPLETED   | DESIGN
+            Design Homepage    | Design components | Create reusable UI components  | jane@example.com    |                     | 18 Apr 2026 | 4    | IN_PROGRESS | DESIGN
             Procurement        |                   |                                |                     |                     |            |      |             |
-            Procurement        | Get quotes        | Collect vendor quotes          | vendor@example.com  | admin@example.com   | 2024-01-20 | 2    | TO_DO       | PROCUREMENT
+            Procurement        | Get quotes        | Collect vendor quotes          | vendor@example.com  | admin@example.com   | 20 Apr 2026 | 2    | TO_DO       | PROCUREMENT
 
             TIPS:
             -----
             • Delete the example rows from the template before adding your data
-            • Use a spreadsheet program (Excel, Google Sheets) to edit the CSV
-            • Save as CSV format before uploading
+            • Use a spreadsheet program (Excel, Google Sheets) to edit the file
+            • Upload the XLSX file or save as CSV format before uploading
             • Test with a small batch first to ensure correct formatting
 
             For support, contact your workspace administrator.
@@ -342,14 +408,16 @@ ${tagList}
         for (const line of dataLines) {
             const values = parseCSVLine(line);
 
-            // Pad the values array to ensure we have at least 9 elements
-            while (values.length < 9) {
+            // Pad the values array to ensure we have at least 10 elements
+            while (values.length < 10) {
                 values.push('');
             }
 
-            const [taskName, subtaskName, description, assigneeEmail, reviewerEmail, startDate, days, status, tag] = values;
+            const [taskName, subtaskName, description, assigneeEmail, reviewerEmail, startDate, days, status, tag1, tag2, tag3, tag4] = values;
 
             if (!taskName) continue;
+
+            const tags = [tag1, tag2, tag3, tag4].filter(t => t && t.trim()).map(t => t.trim());
 
             tasks.push({
                 taskName,
@@ -360,71 +428,71 @@ ${tagList}
                 startDate: startDate || undefined,
                 days: days ? parseInt(days) : undefined,
                 status: status || undefined,
-                tag: tag || undefined,
+                tags: tags.length > 0 ? tags : undefined,
             });
         }
 
         return tasks;
     };
 
-    const clearFile = () => {
-        setParsedData([]);
-        setFileName("");
-    };
+    // const clearFile = () => {
+    //     setParsedData([]);
+    //     setFileName("");
+    // };
 
-    const processFile = async (file: File) => {
-        setFileName(file.name);
+    // const processFile = async (file: File) => {
+    //     setFileName(file.name);
 
-        try {
-            const text = await file.text();
+    //     try {
+    //         const text = await file.text();
 
-            // Check if file contains too many non-printable/binary characters
-            const nonPrintableCount = (text.match(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F-\xFF]/g) || []).length;
-            const totalChars = text.length;
-            const nonPrintableRatio = totalChars > 0 ? nonPrintableCount / totalChars : 0;
+    //         // Check if file contains too many non-printable/binary characters
+    //         const nonPrintableCount = (text.match(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F-\xFF]/g) || []).length;
+    //         const totalChars = text.length;
+    //         const nonPrintableRatio = totalChars > 0 ? nonPrintableCount / totalChars : 0;
 
-            if (nonPrintableRatio > 0.2) {
-                toast.error(
-                    "❌ File Upload Failed: The file appears to be corrupted or contains binary data.\n\n" +
-                    "Cannot validate assignee emails or other data because the file cannot be read properly.\n\n" +
-                    "Please create a new CSV file:\n" +
-                    "• Use the template file (test-bulk-upload.csv)\n" +
-                    "• Or create a new file in Notepad/Google Sheets\n" +
-                    "• Save as UTF-8 CSV format",
-                    { duration: 8000 }
-                );
-                setParsedData([]);
-                setFileName("");
-                return;
-            }
+    //         if (nonPrintableRatio > 0.2) {
+    //             toast.error(
+    //                 "❌ File Upload Failed: The file appears to be corrupted or contains binary data.\n\n" +
+    //                 "Cannot validate assignee emails or other data because the file cannot be read properly.\n\n" +
+    //                 "Please create a new CSV file:\n" +
+    //                 "• Use the template file (test-bulk-upload.csv)\n" +
+    //                 "• Or create a new file in Notepad/Google Sheets\n" +
+    //                 "• Save as UTF-8 CSV format",
+    //                 { duration: 8000 }
+    //             );
+    //             setParsedData([]);
+    //             setFileName("");
+    //             return;
+    //         }
 
-            const hasCommas = text.includes(',');
-            const hasNewlines = text.includes('\n') || text.includes('\r');
+    //         const hasCommas = text.includes(',');
+    //         const hasNewlines = text.includes('\n') || text.includes('\r');
 
-            if (!hasCommas || !hasNewlines) {
-                toast.error("The file doesn't appear to be a valid CSV. Please ensure it's a comma-separated values file.");
-                setParsedData([]);
-                setFileName("");
-                return;
-            }
+    //         if (!hasCommas || !hasNewlines) {
+    //             toast.error("The file doesn't appear to be a valid CSV. Please ensure it's a comma-separated values file.");
+    //             setParsedData([]);
+    //             setFileName("");
+    //             return;
+    //         }
 
-            const parsed = parseCSV(text);
+    //         const parsed = parseCSV(text);
 
-            console.log('Parsed CSV:', parsed.length, 'rows');
+    //         console.log('Parsed CSV:', parsed.length, 'rows');
 
-            if (parsed.length === 0) {
-                toast.error("No valid data found in file");
-                return;
-            }
+    //         if (parsed.length === 0) {
+    //             toast.error("No valid data found in file");
+    //             return;
+    //         }
 
-            setParsedData(parsed);
-            toast.success(`Parsed ${parsed.length} rows successfully`);
-        } catch (error) {
-            toast.error(error instanceof Error ? error.message : "Failed to parse file");
-            setParsedData([]);
-            setFileName("");
-        }
-    };
+    //         setParsedData(parsed);
+    //         toast.success(`Parsed ${parsed.length} rows successfully`);
+    //     } catch (error) {
+    //         toast.error(error instanceof Error ? error.message : "Failed to parse file");
+    //         setParsedData([]);
+    //         setFileName("");
+    //     }
+    // };
 
     const onDrop = useCallback(async (acceptedFiles: File[]) => {
         if (acceptedFiles.length > 0) {
@@ -643,7 +711,7 @@ ${tagList}
                                             .filter((m: any) => ["OWNER", "ADMIN", "LEAD", "PROJECT_MANAGER"].includes(m.projectRole) || ["OWNER", "ADMIN"].includes(m.workspaceRole || ""))
                                             .map((member: any) => (
                                                 <SelectItem key={member.userId} value={member.userId}>
-                                                    {member.user.email} ({member.user.surname})
+                                                    {member.user.email} ({member.user.surname}{member.projectRole ? ` - ${member.projectRole.replace('_', ' ')}` : ""})
                                                 </SelectItem>
                                             ))
                                         }
@@ -693,7 +761,7 @@ ${tagList}
                                             <th className="p-2 text-left border-b font-medium min-w-[150px]">Task / Subtask</th>
                                             <th className="p-2 text-left border-b font-medium min-w-[180px]">Assignee Email</th>
                                             <th className="p-2 text-left border-b font-medium min-w-[180px]">Reviewer Email</th>
-                                            <th className="p-2 text-left border-b font-medium min-w-[120px]">Tag</th>
+                                            <th className="p-2 text-left border-b font-medium min-w-[150px]">Tags</th>
                                             <th className="p-2 text-left border-b font-medium w-[80px]">Days</th>
                                         </tr>
                                     </thead>
@@ -742,7 +810,7 @@ ${tagList}
                                                                 .filter((m: any) => ["OWNER", "ADMIN", "LEAD", "PROJECT_MANAGER"].includes(m.projectRole) || ["OWNER", "ADMIN"].includes(m.workspaceRole || ""))
                                                                 .map((m: any) => (
                                                                     <SelectItem key={m.userId} value={m.user.email} className="text-xs">
-                                                                        {m.user.email} ({m.user.surname})
+                                                                        {m.user.email} ({m.user.surname}{m.projectRole ? ` - ${m.projectRole.replace('_', ' ')}` : ""})
                                                                     </SelectItem>
                                                                 ))
                                                             }
@@ -750,22 +818,41 @@ ${tagList}
                                                     </Select>
                                                 </td>
                                                 <td className="p-2 border-b">
-                                                    <Select
-                                                        value={item.tag || "no-tag"}
-                                                        onValueChange={(val) => updateParsedDataItem(idx, "tag", val === "no-tag" ? "" : val)}
-                                                    >
-                                                        <SelectTrigger className="h-8 text-xs border-transparent group-hover:border-border transition-colors">
-                                                            <SelectValue />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="no-tag">No Tag</SelectItem>
-                                                            {tags.map((t: any) => (
-                                                                <SelectItem key={t.id} value={t.name} className="text-xs">
-                                                                    {t.name}
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
+                                                    <div className="flex flex-wrap gap-1 min-w-[140px]">
+                                                        {item.tags && item.tags.map((tagName, tagIdx) => (
+                                                            <Badge key={tagIdx} variant="secondary" className="text-[10px] py-0 px-1 whitespace-nowrap flex items-center gap-1">
+                                                                {tagName}
+                                                                <button
+                                                                    onClick={() => {
+                                                                        const newTags = item.tags?.filter((_, i) => i !== tagIdx);
+                                                                        updateParsedDataItem(idx, "tags", newTags);
+                                                                    }}
+                                                                    className="hover:text-destructive transition-colors"
+                                                                >
+                                                                    <X className="h-2 w-2" />
+                                                                </button>
+                                                            </Badge>
+                                                        ))}
+                                                        <Select
+                                                            onValueChange={(val) => {
+                                                                const currentTags = item.tags || [];
+                                                                if (!currentTags.includes(val)) {
+                                                                    updateParsedDataItem(idx, "tags", [...currentTags, val]);
+                                                                }
+                                                            }}
+                                                        >
+                                                            <SelectTrigger className="h-6 w-6 p-0 border-none bg-muted/50 hover:bg-muted rounded-full flex items-center justify-center">
+                                                                <Tag className="h-3 w-3" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {workspaceTags.map((t: any) => (
+                                                                    <SelectItem key={t.id} value={t.name} className="text-xs">
+                                                                        {t.name}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
                                                 </td>
                                                 <td className="p-2 border-b">
                                                     <input

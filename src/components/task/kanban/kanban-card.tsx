@@ -22,7 +22,7 @@ import {
   Tag,
 } from "lucide-react";
 import type { KanbanSubTaskType } from "@/data/task";
-import { cn } from "@/lib/utils";
+import { cn, formatIST } from "@/lib/utils";
 import { getColorFromString } from "@/lib/colors/project-colors";
 import { UserPermissionsType } from "@/data/user/get-user-permissions";
 import {
@@ -393,10 +393,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                       >
                         <Calendar className="h-3 w-3" />
                         <span>
-                          {new Date(dueDate).toLocaleDateString("en-GB", {
-                            day: "2-digit",
-                            month: "short",
-                          })}
+                          {formatIST(dueDate)}
                         </span>
                         {isOverdue && <AlertCircle className="h-3 w-3" />}
                       </div>
@@ -408,16 +405,14 @@ export const KanbanCard = React.memo(function KanbanCard({
                 </TooltipProvider>
               )}
 
-              {subTask.tag && (
-                <div className="flex items-center gap-1">
-                  <Tag className="h-2.5 w-2.5 text-muted-foreground" />
-                  <span
-                    className={cn(
-                      "text-[10px] font-medium text-muted-foreground",
-                    )}
-                  >
-                    {subTask.tag.name}
-                  </span>
+              {subTask.tags && subTask.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {subTask.tags.map((tag) => (
+                    <div key={tag.id} className="flex items-center gap-0.5 bg-muted/50 px-1.5 py-0.5 rounded text-[9px] font-medium text-muted-foreground border border-border/50">
+                      <Tag className="h-2 w-2" />
+                      <span>{tag.name}</span>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

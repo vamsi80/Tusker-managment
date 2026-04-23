@@ -229,7 +229,7 @@ model Tag {
   updatedAt       DateTime  @updatedAt
   requirePurchase Boolean?  @default(false)
   workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  tasks           Task[]
+  tasks           Task[]    @relation("TaskTags")
 
   @@unique([workspaceId, name])
 }
@@ -247,7 +247,7 @@ model Task {
   parentTaskId          String?
   startDate             DateTime?
   taskSlug              String             @unique
-  tagId                 String?
+  tags                  Tag[]              @relation("TaskTags")
   assigneeId            String?
   completedSubtaskCount Int                @default(0)
   dueDate               DateTime?
@@ -264,7 +264,6 @@ model Task {
   subTasks              Task[]             @relation("Task_subTasks")
   project               Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
   reviewer              ProjectMember?     @relation("TaskReviewer", fields: [reviewerId], references: [id])
-  tag                   Tag?               @relation(fields: [tagId], references: [id])
   comments              Comment[]
   dailyReportEntries    DailyReportEntry[]
   indentDetails         IndentDetails[]
@@ -273,7 +272,7 @@ model Task {
   Task_TaskDependency_B Task[]             @relation("TaskDependency")
 
   @@index([projectId, status, isParent, createdAt(sort: Desc)])
-  @@index([workspaceId, tagId, status, isParent])
+  @@index([workspaceId, status, isParent])
   @@index([workspaceId, projectId, status, isParent, dueDate, createdAt(sort: Desc)])
   @@index([parentTaskId, createdAt])
   @@index([workspaceId, parentTaskId, status, isParent, createdAt(sort: Desc)])

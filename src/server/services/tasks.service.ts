@@ -39,6 +39,7 @@ interface CreateTaskParams {
   workspaceId: string;
   userId: string;
   permissions: any;
+  tagIds?: string[];
 }
 
 interface CreateSubTaskParams {
@@ -51,7 +52,7 @@ interface CreateSubTaskParams {
   permissions: any;
   assigneeUserId?: string | null;
   reviewerUserId?: string | null;
-  tagId?: string;
+  tagIds?: string[];
   startDate?: string | null;
   dueDate?: string | null;
   days?: number;
@@ -68,6 +69,7 @@ export class TasksService {
     workspaceId,
     userId,
     permissions,
+    tagIds,
   }: CreateTaskParams) {
     const canSucceed =
       permissions.isWorkspaceAdmin || permissions.canCreateSubTask;
@@ -105,6 +107,7 @@ export class TasksService {
         workspaceId,
         createdById: projectMember.id,
         isParent: true, // Mark as parent identity
+        tags: tagIds && tagIds.length > 0 ? { connect: tagIds.map(id => ({ id })) } : undefined,
       },
       include: {
         _count: { select: { subTasks: true } },
@@ -1338,7 +1341,7 @@ export class TasksService {
     permissions,
     assigneeUserId,
     reviewerUserId,
-    tagId,
+    tagIds,
     startDate,
     dueDate,
     days,
@@ -1420,7 +1423,7 @@ export class TasksService {
           createdById: projectMember.id,
           assigneeId,
           reviewerId: reviewerId!,
-          tagId: tagId || null,
+          tags: tagIds && tagIds.length > 0 ? { connect: tagIds.map(id => ({ id })) } : undefined,
           startDate: parseIST(startDate),
           dueDate: parseIST(dueDate),
           days,
@@ -1435,7 +1438,7 @@ export class TasksService {
               },
             },
           },
-          tag: { select: { id: true, name: true } },
+          tags: { select: { id: true, name: true } },
           reviewer: {
             include: {
               workspaceMember: {
@@ -1685,7 +1688,7 @@ export class TasksService {
             },
           },
         },
-        tag: true,
+        tags: true,
         project: {
           select: { id: true, name: true, slug: true, workspaceId: true },
         },
@@ -1777,7 +1780,11 @@ export class TasksService {
     if (data.description !== undefined)
       updateData.description = data.description;
     if (data.status) updateData.status = data.status;
-    if (data.tagId !== undefined) updateData.tagId = data.tagId;
+    if (data.tagIds !== undefined) {
+      updateData.tags = {
+        set: data.tagIds.map(id => ({ id }))
+      };
+    }
     if (data.days !== undefined) updateData.days = data.days;
     if (data.startDate !== undefined)
       updateData.startDate = parseIST(data.startDate as any);

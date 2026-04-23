@@ -32,6 +32,7 @@ export interface GanttSubtask {
   parentTaskId: string | null;
   description?: string | null;
   tagId?: string | null;
+  tags?: { id: string; name: string }[];
   days?: number | null;
 
   createdById: string | null;
@@ -69,6 +70,7 @@ export interface GanttTask {
   subtaskCount?: number;
   hasMoreSubtasks?: boolean;
   subtaskCursor?: any;
+  tags?: { id: string; name: string }[];
 }
 
 // ============================================================================

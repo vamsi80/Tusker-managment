@@ -100,7 +100,7 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
 
     if (isList || isKanban || isSearch || isCalendar || isGantt) {
         if (!isGantt) {
-            select.tag = { select: { name: true } };
+        select.tags = { select: { id: true, name: true } };
         }
     }
 
@@ -356,8 +356,8 @@ export function buildProjectRootWhere(
         const tIds = Array.isArray(opts.tagId) ? opts.tagId : [opts.tagId];
         appendAnd(where, {
             OR: [
-                { tagId: { in: tIds } },
-                { subTasks: { some: { tagId: { in: tIds } } } }
+                { tags: { some: { id: { in: tIds } } } },
+                { subTasks: { some: { tags: { some: { id: { in: tIds } } } } } }
             ]
         });
     }
@@ -439,7 +439,7 @@ export function buildSubtaskExpansionWhere(
 
     // Tag filter
     if (opts.tagId && opts.tagId.length > 0) {
-        where.tagId = { in: opts.tagId };
+        where.tags = { some: { id: { in: opts.tagId } } };
     }
 
     const assigneeClauses: Prisma.TaskWhereInput[] = [];
@@ -459,7 +459,7 @@ export function buildSubtaskExpansionWhere(
 
     if (opts.tagId) {
         const tIds = Array.isArray(opts.tagId) ? opts.tagId : [opts.tagId];
-        where.tagId = { in: tIds };
+        where.tags = { some: { id: { in: tIds } } };
     }
 
     // Date filters
@@ -598,7 +598,7 @@ export function buildWorkspaceFilterWhere(
 
     if (opts.tagId) {
         const tIds = Array.isArray(opts.tagId) ? opts.tagId : [opts.tagId];
-        where.tagId = { in: tIds };
+        where.tags = { some: { id: { in: tIds } } };
     }
 
     if (opts.assigneeId) {

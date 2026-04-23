@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { format } from "date-fns"
+import { format, parse } from "date-fns"
  
 export const APP_DATE_FORMAT = "d MMM yyyy";
 
@@ -9,32 +9,51 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Formats a date string or object as DD/MM/YYYY using UTC components.
+ * Formats a date string or object as d MMM yyyy using UTC components.
  * This prevents 1-day shifts caused by local timezone offsets.
  */
 /**
- * Parses a local date-time string (YYYY-MM-DDTHH:mm or YYYY-MM-DD) as Indian Standard Time (IST)
+ * Parses a date string as Indian Standard Time (IST)
+ * Supports multiple formats: d MMM yyyy (priority), YYYY-MM-DD, and ISO strings
  */
 export function parseIST(dateStr: string | null | undefined): Date | null {
   if (!dateStr) return null;
-  // If it's already an ISO string with timezone, parse it directly
-  if (dateStr.includes('Z') || dateStr.includes('+')) {
-    const d = new Date(dateStr);
+  const trimmed = dateStr.trim();
+  if (!trimmed) return null;
+
+  // 1. Try native Date parsing for ISO strings
+  if (trimmed.includes('Z') || (trimmed.includes('+') && trimmed.includes('T'))) {
+    const d = new Date(trimmed);
     return isNaN(d.getTime()) ? null : d;
   }
-  
-  // If it's just YYYY-MM-DD (date only), add default time
-  let finalStr = dateStr;
-  if (!dateStr.includes('T') && dateStr.includes('-')) {
-    finalStr = `${dateStr}T00:00`;
-  }
-  
-  const d = new Date(`${finalStr}:00+05:30`);
-  return isNaN(d.getTime()) ? null : d;
+
+  // 2. Try "d MMM yyyy" (e.g., 15 Apr 2026)
+  try {
+    const d = parse(trimmed, 'd MMM yyyy', new Date());
+    if (!isNaN(d.getTime())) {
+      // Set to 05:30 offset (IST)
+      const year = d.getFullYear();
+      const month = d.getMonth();
+      const day = d.getDate();
+      return new Date(`${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00+05:30`);
+    }
+  } catch (e) {}
+
+  // 3. Try "yyyy-MM-dd"
+  try {
+    const d = parse(trimmed, 'yyyy-MM-dd', new Date());
+    if (!isNaN(d.getTime())) {
+      return new Date(`${trimmed}T00:00:00+05:30`);
+    }
+  } catch (e) {}
+
+  // 4. Final attempt with native Date
+  const finalD = new Date(trimmed);
+  return isNaN(finalD.getTime()) ? null : finalD;
 }
 
 /**
- * Formats a date string or object as DD/MM/YYYY HH:mm in IST.
+ * Formats a date string or object as d MMM yyyy HH:mm in IST.
  */
 export function formatDateUTC(date: string | Date | null | undefined, includeTime: boolean = true): string {
   if (!date) return "-";
@@ -61,7 +80,7 @@ export function formatDateUTC(date: string | Date | null | undefined, includeTim
   const hours = getPart('hour');
   const minutes = getPart('minute');
 
-  const dateStr = `${day} ${month} ${year}`;
+  const dateStr = format(d, APP_DATE_FORMAT);
   return includeTime ? `${dateStr} ${hours}:${minutes}` : dateStr;
 }
 

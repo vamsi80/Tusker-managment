@@ -198,16 +198,20 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
                 </TableCell>
             )}
 
-            {/* Tag */}
+            {/* Tags */}
             {columnVisibility.tag && (
                 <TableCell className="w-[100px] sm:w-[120px]">
-                    {task.tag ? (
-                        <Badge variant="secondary" className="text-xs">
-                            {task.tag.name}
-                        </Badge>
-                    ) : (
-                        <span className="text-muted-foreground text-sm">-</span>
-                    )}
+                    <div className="flex flex-wrap gap-1">
+                        {task.tags && task.tags.length > 0 ? (
+                            task.tags.map((t: any) => (
+                                <Badge key={t.id} variant="secondary" className="text-[10px] py-0 px-1 whitespace-nowrap">
+                                    {t.name}
+                                </Badge>
+                            ))
+                        ) : (
+                            <span className="text-muted-foreground text-sm">-</span>
+                        )}
+                    </div>
                 </TableCell>
             )}
 

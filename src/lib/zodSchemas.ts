@@ -262,6 +262,7 @@ export const taskSchema = z.object({
         .max(100, { message: "Title must be at most 100 character long" }),
     projectId: z.string().uuid({ message: "Invalid project id" }),
     reviewerId: z.string().optional().nullable().or(z.literal("")),
+    tagIds: z.array(z.string().uuid()).optional(),
 });
 
 export const subTaskSchema = z.object({
@@ -290,9 +291,7 @@ export const subTaskSchema = z.object({
         .string()
         .min(1, { message: "Due date is required" }),
     days: z.number().min(1, { message: "Number of days is required" }),
-    tag: z
-        .string()
-        .uuid({ message: "Tag is required" }),
+    tagIds: z.array(z.string().uuid()).min(1, { message: "At least one tag is required" }),
     projectId: z.string().uuid({ message: "Invalid project id" }),
     parentTaskId: z.string().uuid({ message: "Invalid parent task id" }),
 }).refine((data) => {
@@ -537,7 +536,7 @@ export const dailyReportEntrySchema = z.object({
 
 export const dailyReportSchema = z.object({
     workspaceId: z.string().uuid(),
-    date: z.string().optional(), // YYYY-MM-DD format from client
+    date: z.string().optional(), // d MMM yyyy format from client (e.g., 15 Apr 2026)
     entries: z.array(dailyReportEntrySchema).min(1, "At least one report entry is required."),
 });
 

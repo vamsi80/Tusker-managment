@@ -26,7 +26,7 @@ export async function bulkUploadTasksAndSubtasks(data: {
         startDate?: string;
         days?: number;
         status?: string;
-        tag?: string;
+        tags?: string[];
     }>;
 }): Promise<ApiResponse> {
     const user = await requireUser();
@@ -186,7 +186,7 @@ export async function bulkUploadTasksAndSubtasks(data: {
         if (invalidDates.length > 0) {
             return {
                 status: "error",
-                message: `Invalid date format found in the following rows. Please use YYYY-MM-DD format (e.g., 2024-12-20):\n${invalidDates.join('\n')}`,
+                message: `Invalid date format found in the following rows. Please use 'd MMM yyyy' format (e.g., 15 Apr 2026):\n${invalidDates.join('\n')}`,
             };
         }
 
@@ -263,10 +263,12 @@ export async function bulkUploadTasksAndSubtasks(data: {
                     ? parseIST(firstRow.startDate) || undefined
                     : undefined;
 
-                let parentTagId: string | undefined = undefined;
-                if (firstRow.tag) {
-                    const tagInfo = tagMap.get(firstRow.tag.toUpperCase());
-                    if (tagInfo) parentTagId = tagInfo.id;
+                const parentTagIds: string[] = [];
+                if (firstRow.tags && firstRow.tags.length > 0) {
+                    for (const tagName of firstRow.tags) {
+                        const tagInfo = tagMap.get(tagName.toUpperCase());
+                        if (tagInfo) parentTagIds.push(tagInfo.id);
+                    }
                 }
 
                 // Pre-calculate subtask counts for this parent
@@ -289,7 +291,9 @@ export async function bulkUploadTasksAndSubtasks(data: {
                         reviewerId: parentReviewerId,
                         startDate: parentStartDate,
                         days: firstRow.days,
-                        tagId: parentTagId,
+                        tags: {
+                            connect: parentTagIds.map(id => ({ id }))
+                        },
                         subtaskCount: subtaskCountVal,
                         completedSubtaskCount: completedSubtaskCountVal,
                         position: parentTaskIndex,
@@ -321,15 +325,19 @@ export async function bulkUploadTasksAndSubtasks(data: {
                             ? parseIST(subtaskRow.startDate) || undefined
                             : undefined;
 
-                        // Resolve tag ID
-                        let resolvedTagId: string | undefined = undefined;
+                        // Resolve tag IDs
+                        const resolvedTagIds: string[] = [];
                         let shouldAddToProcurement = false;
 
-                        if (subtaskRow.tag) {
-                            const tagInfo = tagMap.get(subtaskRow.tag.toUpperCase());
-                            if (tagInfo) {
-                                resolvedTagId = tagInfo.id;
-                                shouldAddToProcurement = tagInfo.requirePurchase === true;
+                        if (subtaskRow.tags && subtaskRow.tags.length > 0) {
+                            for (const tagName of subtaskRow.tags) {
+                                const tagInfo = tagMap.get(tagName.toUpperCase());
+                                if (tagInfo) {
+                                    resolvedTagIds.push(tagInfo.id);
+                                    if (tagInfo.requirePurchase === true) {
+                                        shouldAddToProcurement = true;
+                                    }
+                                }
                             }
                         }
 
@@ -349,7 +357,9 @@ export async function bulkUploadTasksAndSubtasks(data: {
                                 days: subtaskRow.days,
                                 dueDate: calculateDueDate(subtaskStartDate, subtaskRow.days),
                                 status: subtaskRow.status ? (subtaskRow.status as any) : undefined,
-                                tagId: resolvedTagId,
+                                tags: {
+                                    connect: resolvedTagIds.map(id => ({ id }))
+                                },
                                 position: subtaskPositionIndex,
                             },
                         });
@@ -398,7 +408,7 @@ export async function bulkUploadTasksAndSubtasks(data: {
                         }
                     }
                 },
-                tag: true,
+                tags: true,
                 _count: {
                     select: { subTasks: true }
                 }

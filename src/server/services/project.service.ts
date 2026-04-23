@@ -188,14 +188,18 @@ export class ProjectService {
    * Optimized for a single round-trip from the client's ProjectLayoutProvider
    */
   static async getProjectLayoutData(workspaceId: string, projectId: string, userId: string) {
-    const [members, permissions] = await Promise.all([
+    const { getWorkspaceTags } = await import("@/data/tag/get-tags");
+
+    const [members, permissions, tags] = await Promise.all([
       this.getMembers(projectId),
-      this.getPermissions(workspaceId, projectId, userId)
+      this.getPermissions(workspaceId, projectId, userId),
+      getWorkspaceTags(workspaceId)
     ]);
 
     return {
       members,
-      permissions
+      permissions,
+      tags
     };
   }
 

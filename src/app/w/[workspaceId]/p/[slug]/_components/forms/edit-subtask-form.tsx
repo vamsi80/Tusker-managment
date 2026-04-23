@@ -32,7 +32,7 @@ type SubTaskBase = {
     name: string;
     description: string | null;
     taskSlug: string;
-    tag: { id: string } | null;
+    tags: { id: string }[] | null;
     status: string | null;
     startDate: Date | string | null;
     dueDate: Date | string | null;
@@ -129,7 +129,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
             projectId: projectId || (subTask as any).projectId || "",
             parentTaskId: parentTaskId || (subTask as any).parentTaskId || "",
             assignee: (subTask.assignee as any)?.workspaceMember?.userId || (subTask as any).assigneeId || "",
-            tag: (typeof subTask.tag === 'string' ? subTask.tag : subTask.tag?.id) || (subTask as any).tagId || "",
+            tagIds: (subTask.tags?.map(t => t.id) || []),
             status: (subTask.status || "TO_DO") as any,
             startDate: getFormattedDate(subTask.startDate),
             dueDate: getFormattedDate(subTask.dueDate),
@@ -156,7 +156,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                 projectId: projectId || (subTask as any).projectId || "",
                 parentTaskId: parentTaskId || (subTask as any).parentTaskId || "",
                 assignee: (subTask.assignee as any)?.id || (subTask as any).assigneeId || "",
-                tag: (typeof subTask.tag === 'string' ? subTask.tag : subTask.tag?.id) || (subTask as any).tagId || "",
+                tagIds: (subTask.tags?.map(t => t.id) || []),
                 status: (subTask.status || "TO_DO") as any,
                 startDate: getFormattedDate(subTask.startDate),
                 dueDate: getFormattedDate(subTask.dueDate),
@@ -237,7 +237,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
             values.name !== subTask.name ||
             values.status !== (subTask.status || "TO_DO") ||
             values.assignee !== (subTask.assignee?.id || "") ||
-            values.tag !== ((typeof subTask.tag === 'string' ? subTask.tag : subTask.tag?.id) || (subTask as any).tagId || "") ||
+            JSON.stringify(values.tagIds) !== JSON.stringify(subTask.tags?.map(t => t.id) || []) ||
             values.startDate !== (subTask.startDate ? (() => {
                 const d = new Date(subTask.startDate);
                 const year = d.getFullYear();
@@ -289,7 +289,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                     onSubTaskUpdated({
                         name: values.name,
                         description: values.description,
-                        tag: values.tag ? { id: values.tag } : null,
+                        tags: values.tagIds.map(id => ({ id })),
                         startDate: values.startDate ? parseIST(values.startDate) : null,
                         dueDate: values.dueDate ? parseIST(values.dueDate) : null,
                         ...updatedData
@@ -448,26 +448,37 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                             {/* Tag Selection */}
                             <FormField
                                 control={form.control}
-                                name="tag"
+                                name="tagIds"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Tag</FormLabel>
+                                        <FormLabel>Tags (Select multiple)</FormLabel>
                                         {tags.length > 0 ? (
                                             <div className="flex flex-wrap gap-2">
-                                                {tags.map((tag) => (
-                                                    <div
-                                                        key={tag.id}
-                                                        className={cn(
-                                                            "flex flex-row items-center gap-2 cursor-pointer px-3 py-1.5 rounded-full border-2 transition-all",
-                                                            field.value === tag.id
-                                                                ? "border-primary bg-primary/10"
-                                                                : "border-muted hover:border-primary/50"
-                                                        )}
-                                                        onClick={() => field.onChange(tag.id)}
-                                                    >
-                                                        <span className="text-xs font-normal">{tag.name}</span>
-                                                    </div>
-                                                ))}
+                                                {tags.map((tag) => {
+                                                    const isSelected = field.value?.includes(tag.id);
+                                                    return (
+                                                        <div
+                                                            key={tag.id}
+                                                            className={cn(
+                                                                "flex flex-row items-center gap-2 cursor-pointer px-3 py-1.5 rounded-full border-2 transition-all",
+                                                                isSelected
+                                                                    ? "border-primary bg-primary/10"
+                                                                    : "border-muted hover:border-primary/50"
+                                                            )}
+                                                            onClick={() => {
+                                                                const current = field.value || [];
+                                                                if (isSelected) {
+                                                                    field.onChange(current.filter(id => id !== tag.id));
+                                                                } else {
+                                                                    field.onChange([...current, tag.id]);
+                                                                }
+                                                            }}
+                                                        >
+                                                            <span className="text-xs font-normal">{tag.name}</span>
+                                                            {isSelected && <Check className="h-3 w-3 text-primary" />}
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         ) : (
                                             <p className="text-sm text-muted-foreground">No tags available. Create tags in workspace settings.</p>

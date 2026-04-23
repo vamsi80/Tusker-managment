@@ -68,7 +68,7 @@ export function DailyReportModal({ workspaceId, isOpen, onClose, onSubmitted }: 
                 await submitDailyReport({
                     workspaceId,
                     entries,
-                    date: formatIST(new Date(), "yyyy-MM-dd")
+                    date: formatIST(new Date(), "d MMM yyyy")
                 });
                 toast.success("Daily report submitted successfully!");
                 onSubmitted?.();
