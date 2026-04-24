@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { HonoVariables } from "../types";
 import { WorkspaceService } from "@/server/services/workspace.service";
-import { workSpaceSchema, updateWorkspaceInfoSchema } from "@/lib/zodSchemas";
+import { workSpaceSchema, updateWorkspaceInfoSchema, updateMemberSchema } from "@/lib/zodSchemas";
 import { AppError } from "@/lib/errors/app-error";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 
@@ -68,7 +68,7 @@ workspaces.patch("/:workspaceId", async (c) => {
   }
 
   // Check permissions
-  const { isWorkspaceAdmin } = await getWorkspacePermissions(workspaceId);
+  const { isWorkspaceAdmin } = await getWorkspacePermissions(workspaceId, user.id);
   if (!isWorkspaceAdmin) {
     throw AppError.Forbidden(
       "You don't have permission to update this workspace",
@@ -124,7 +124,7 @@ workspaces.post("/:workspaceId/invite", async (c) => {
   const body = await c.req.json();
 
   // 1. Permission Check
-  const { isWorkspaceAdmin } = await getWorkspacePermissions(workspaceId);
+  const { isWorkspaceAdmin } = await getWorkspacePermissions(workspaceId, user.id);
   if (!isWorkspaceAdmin) {
     throw AppError.Forbidden("Only workspace admins can invite members.");
   }
@@ -140,6 +140,16 @@ workspaces.post("/:workspaceId/invite", async (c) => {
     message: "Member invited successfully",
     data: result,
   });
+});
+
+/**
+ * GET /api/v1/workspaces/:workspaceId/managers
+ * Get all members with MANAGER role in a workspace
+ */
+workspaces.get("/:workspaceId/managers", async (c) => {
+  const workspaceId = c.req.param("workspaceId");
+  const result = await WorkspaceService.getWorkspaceManagers(workspaceId);
+  return c.json({ success: true, data: result });
 });
 
 /**
@@ -170,7 +180,7 @@ workspaces.post("/:workspaceId/members/:memberId/resend-invite", async (c) => {
   const memberId = c.req.param("memberId");
 
   // 1. Permission Check
-  const { isWorkspaceAdmin } = await getWorkspacePermissions(workspaceId);
+  const { isWorkspaceAdmin } = await getWorkspacePermissions(workspaceId, user.id);
   if (!isWorkspaceAdmin) {
     throw AppError.Forbidden("Only workspace admins can resend invitations.");
   }
@@ -186,7 +196,7 @@ workspaces.post("/:workspaceId/members/:memberId/resend-invite", async (c) => {
 
 /**
  * PATCH /api/v1/workspaces/:workspaceId/members/:memberId
- * Update a member's role
+ * Update a member's information
  */
 workspaces.patch("/:workspaceId/members/:memberId", async (c) => {
   const user = c.get("user");
@@ -194,21 +204,21 @@ workspaces.patch("/:workspaceId/members/:memberId", async (c) => {
   const memberId = c.req.param("memberId");
   const body = await c.req.json();
 
-  const { role } = body;
-  if (!role) {
-    throw AppError.ValidationError("Role is required");
+  const validation = updateMemberSchema.safeParse(body);
+  if (!validation.success) {
+    throw AppError.ValidationError(validation.error.issues[0].message);
   }
 
   // Permission check
-  const { isWorkspaceAdmin } = await getWorkspacePermissions(workspaceId);
+  const { isWorkspaceAdmin } = await getWorkspacePermissions(workspaceId, user.id);
   if (!isWorkspaceAdmin) {
-    throw AppError.Forbidden("Only admins can change member roles");
+    throw AppError.Forbidden("Only admins can change member information");
   }
 
-  const result = await WorkspaceService.updateMemberRole(
+  const result = await WorkspaceService.updateMember(
     workspaceId,
     memberId,
-    role,
+    validation.data,
     user.id,
   );
 
