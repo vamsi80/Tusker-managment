@@ -454,7 +454,7 @@ export class TasksService {
                 isRestrictedMember: !hasFullAccess,
               }),
               select: getTaskSelect(opts.view_mode, false), // Subtasks are never minimal in expansion
-              orderBy: buildOrderBy(opts.sorts),
+              orderBy: buildOrderBy(opts.sorts, opts.view_mode),
               take: 200, // focus on performance: fetch subtasks for initial roots with a safe cap
             });
 
@@ -553,7 +553,7 @@ export class TasksService {
             where,
             take: perStatusLimit + 1,
             select: getTaskSelect(opts.view_mode, isMinimal),
-            orderBy: buildOrderBy(opts.sorts),
+            orderBy: buildOrderBy(opts.sorts, opts.view_mode),
           });
 
           const trueHasMore = tasks.length > perStatusLimit;
@@ -574,7 +574,7 @@ export class TasksService {
                   isAdmin,
                 }),
                 select: getTaskSelect(opts.view_mode, false), // subtasks never minimal
-                orderBy: buildOrderBy(opts.sorts),
+                orderBy: buildOrderBy(opts.sorts, opts.view_mode),
               });
               tasks.forEach((parent: any) => {
                 if (parent.isParent) {
@@ -707,7 +707,7 @@ export class TasksService {
               where: statusWhere,
               take: perStatusLimit + 1,
               select: getTaskSelect(opts.view_mode, isMinimal),
-              orderBy: buildOrderBy(opts.sorts),
+              orderBy: buildOrderBy(opts.sorts, opts.view_mode),
             });
           }),
         );
@@ -729,7 +729,7 @@ export class TasksService {
                 isAdmin,
               }),
               select: getTaskSelect(opts.view_mode),
-              orderBy: buildOrderBy(opts.sorts),
+              orderBy: buildOrderBy(opts.sorts, opts.view_mode),
             });
             tasks.forEach((parent: any) => {
               if (parent.isParent) {
@@ -869,7 +869,7 @@ export class TasksService {
       prisma.task.findMany({
         where,
         select: getTaskSelect(opts.view_mode, true, [dbField]), // TRUE for minimal parent select, include sort field
-        orderBy: buildOrderBy(opts.sorts),
+        orderBy: buildOrderBy(opts.sorts, opts.view_mode),
       }),
     ]);
 
@@ -939,7 +939,7 @@ export class TasksService {
         opts.view_mode,
         opts.view_mode === "gantt" || opts.isMinimal,
       ),
-      orderBy: buildOrderBy(opts.sorts),
+      orderBy: buildOrderBy(opts.sorts, opts.view_mode),
       take: limit + 5, // Extra buffer for the parent and potential overlap
     });
 
@@ -1050,7 +1050,7 @@ export class TasksService {
         dbFieldForSelect ? [dbFieldForSelect] : []
       ),
       take: limit + 1,
-      orderBy: buildOrderBy(opts.sorts),
+      orderBy: buildOrderBy(opts.sorts, opts.view_mode),
     });
 
     const hasMore = rawMatches.length > limit;
@@ -1109,7 +1109,7 @@ export class TasksService {
       const extraTasks = await prisma.task.findMany({
         where: { OR: orConditions },
         select: getTaskSelect(opts.view_mode),
-        orderBy: buildOrderBy(opts.sorts),
+        orderBy: buildOrderBy(opts.sorts, opts.view_mode),
         take: opts.view_mode === "gantt" ? 2000 : 500,
       });
 
@@ -1276,7 +1276,7 @@ export class TasksService {
       prisma.task.findMany({
         where,
         select: getTaskSelect(opts.view_mode, true, dbField ? [dbField] : []), // Use minimal select for filter queries
-        orderBy: buildOrderBy(opts.sorts),
+        orderBy: buildOrderBy(opts.sorts, opts.view_mode),
         take: limit + 1,
         skip: opts.skip || 0,
       }),
