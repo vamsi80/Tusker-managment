@@ -12,7 +12,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useState } from "react";
-import type { WorkspaceTaskCreationData } from "@/data/workspace/get-workspace-task-creation-data";
+import type { WorkspaceTaskCreationData } from "@/types/workspace";
 
 interface QuickCreateSubTaskProps {
   workspaceId: string;

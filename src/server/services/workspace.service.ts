@@ -1013,7 +1013,7 @@ export class WorkspaceService {
       permissions,
       unreadNotificationsCount,
       // We no longer send the full workspace list or heavy assignments in the initial RSC payload
-      workspaces: { workspaces: [], totalCount: 0 }, 
+      workspaces: { workspaces: [], totalCount: 0 },
     };
   }
 
@@ -1234,7 +1234,6 @@ export class WorkspaceService {
         user: {
           select: {
             id: true,
-            name: true,
             surname: true,
           },
         },
@@ -1243,7 +1242,7 @@ export class WorkspaceService {
 
     return managers.map((m) => ({
       id: m.id,
-      surname: m.user?.surname || m.user?.name || "Unknown",
+      surname: m.user?.surname || "Unknown",
     }));
   }
 }

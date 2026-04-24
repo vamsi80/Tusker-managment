@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { ReportsTable } from "./_components/report-table";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
-import { getWorkspaceMembers } from "@/data/workspace/get-workspace-members";
 import prisma from "@/lib/db";
 
 export default async function ReportsPage({
@@ -18,7 +17,6 @@ export default async function ReportsPage({
         return notFound();
     }
 
-    const { workspaceMembers } = await getWorkspaceMembers(workspaceId);
     const search = await searchParams;
     // Check if user is an admin or manager to allow visibility of other reports
     const canManageReports = isWorkspaceAdmin;
@@ -129,7 +127,6 @@ export default async function ReportsPage({
             <ReportsTable
                 initialData={rows}
                 workspaceId={workspaceId}
-                members={workspaceMembers}
                 initialDate={search.date}
                 initialUserId={search.userId}
                 isAdmin={canManageReports}
