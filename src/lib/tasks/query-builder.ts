@@ -221,11 +221,15 @@ export const SORT_MAP: Record<string, { dbField: string; nulls?: "last" | "first
     assignee: { dbField: "assigneeId", nulls: "last" },
     reviewer: { dbField: "reviewerId", nulls: "last" },
     deadline: { dbField: "dueDate", nulls: "last" },
+    position: { dbField: "position", nulls: "last" },
 };
 
-export function buildOrderBy(sorts?: Array<{ field: string; direction: "asc" | "desc" }>) {
+export function buildOrderBy(sorts?: Array<{ field: string; direction: "asc" | "desc" }>, view_mode?: string) {
     // Default task list order is newest-first so recently created parent tasks appear first.
     if (!sorts || sorts.length === 0) {
+        if (view_mode === "gantt" || view_mode === "list") {
+            return [{ position: "asc" as const }, { createdAt: "asc" as const }, { id: "asc" as const }];
+        }
         return [{ createdAt: "asc" as const }, { id: "asc" as const }];
     }
 

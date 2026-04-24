@@ -108,10 +108,6 @@ tasks.get("/", async (c) => {
     const isExpanding =
       q.sub === "true" || !!opts.filterParentTaskId || !!opts.ids;
     opts.includeSubTasks = isExpanding;
-  } else if (view_mode === "gantt") {
-    opts.sorts = q.sorts
-      ? opts.sorts
-      : [{ field: "startDate", direction: "asc" }];
   }
 
   // 3. Fetch

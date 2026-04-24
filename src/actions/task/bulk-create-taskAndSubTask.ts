@@ -260,8 +260,14 @@ export async function bulkUploadTasksAndSubtasks(data: {
         );
 
         // Process each task group in a transaction with increased timeout
+        const lastParentTask = await prisma.task.findFirst({
+            where: { projectId: data.projectId, isParent: true },
+            orderBy: { position: 'desc' },
+            select: { position: true }
+        });
+        
+        let parentTaskIndex = lastParentTask?.position || 0;
         let globalSubtaskIndex = 0;
-        let parentTaskIndex = 0;
 
         await prisma.$transaction(async (tx) => {
             for (const [taskName, taskGroup] of taskGroups.entries()) {
