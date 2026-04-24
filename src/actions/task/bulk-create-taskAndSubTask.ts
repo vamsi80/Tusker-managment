@@ -198,8 +198,11 @@ export async function bulkUploadTasksAndSubtasks(data: {
             // Skip rows with no task name (shouldn't happen due to frontend validation)
             if (!task.taskName?.trim()) continue;
             
-            const existing = taskGroups.get(task.taskName) || [];
-            taskGroups.set(task.taskName, [...existing, task]);
+            // Normalize task name to handle multiple spaces
+            const normalizedTaskName = task.taskName.trim().replace(/\s+/g, ' ');
+            
+            const existing = taskGroups.get(normalizedTaskName) || [];
+            taskGroups.set(normalizedTaskName, [...existing, task]);
         }
         
         // Filter out task groups that only contain empty placeholder rows
