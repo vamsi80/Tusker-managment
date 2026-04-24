@@ -44,9 +44,6 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
     { id: "tasks", title: "Tasks", url: `/w/${workspaceId}/tasks`, icon: CheckSquare },
   ];
 
-  const currentWorkspace = workspaces.workspaces.find((ws: any) => ws.id === workspaceId);
-  const isOwner = currentWorkspace?.workspaceRole === "OWNER";
-
   const footerNavItems: Array<{
     title: string;
     url: string;
@@ -108,7 +105,8 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarSeparator className="mx-0" />
+
+        <div className="py-2" />
 
         {projects && (
           <NavProjects

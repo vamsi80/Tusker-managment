@@ -1,18 +1,25 @@
 import { cache } from "react";
-import { WorkspaceService } from "@/server/services/workspace.service";
-import { requireUser } from "@/lib/auth/require-user";
+import { headers } from "next/headers";
+import app from "@/hono";
 
 /**
  * Lightweight workspace metadata for layouts
- * Now calls WorkspaceService directly for server-side efficiency.
+ * Refactored to call the Hono API internally for consistency.
  */
 export const getWorkspaceMetadata = cache(async (workspaceId: string) => {
     try {
-        const user = await requireUser();
-        const metadata = await WorkspaceService.getWorkspaceMetadata(workspaceId, user.id);
-        return metadata;
+        const res = await app.request(`/api/v1/workspaces/${workspaceId}/metadata`, {
+            headers: await headers(),
+        });
+
+        if (!res.ok) {
+            return null;
+        }
+
+        const result = await res.json();
+        return result.data;
     } catch (error) {
-        console.error("Error fetching workspace metadata via Service:", error);
+        console.error("Error fetching workspace metadata via Hono API:", error);
         return null;
     }
 });

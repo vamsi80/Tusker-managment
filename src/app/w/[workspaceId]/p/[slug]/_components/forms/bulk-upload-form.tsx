@@ -1,13 +1,10 @@
 "use client";
 
 import { useState, useTransition, useCallback } from "react";
-import { Loader2, Download, FileSpreadsheet, Info, Upload, X, Check, FileText, Tag } from "lucide-react";
-
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Loader2, Download, FileSpreadsheet, Upload, FileText } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-
 import { Label } from "@/components/ui/label";
 import { tryCatch } from "@/hooks/try-catch";
 import { useConfetti } from "@/hooks/use-confetti";
@@ -22,7 +19,6 @@ import { apiClient } from "@/lib/api-client";
 import { useProjectLayout } from "../project-layout-context";
 
 import { useEffect } from "react";
-import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { APP_DATE_FORMAT } from "@/lib/utils";
 
@@ -412,7 +408,13 @@ ${tagList}
         const lines = sanitizedText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(line => line.trim());
 
         if (lines.length < 2) {
-            throw new Error("CSV file is empty or invalid");
+            throw new Error("CSV file is empty or invalid - must contain header and at least one data row");
+        }
+
+        const headerLine = lines[0].toLowerCase();
+        const hasRequiredColumns = headerLine.includes('task name') && headerLine.includes('subtask name');
+        if (!hasRequiredColumns) {
+            throw new Error("Invalid CSV format - missing required columns. Please use the template file.");
         }
 
         const dataLines = lines.slice(1);
@@ -421,91 +423,93 @@ ${tagList}
         for (const line of dataLines) {
             const values = parseCSVLine(line);
 
-            // Pad the values array to ensure we have at least 10 elements
-            while (values.length < 10) {
+            // Pad the values array to ensure we have at least 12 elements (matching destructuring)
+            while (values.length < 12) {
                 values.push('');
             }
 
             const [taskName, subtaskName, description, assigneeEmail, reviewerEmail, startDate, days, status, tag1, tag2, tag3, tag4] = values;
 
-            if (!taskName) continue;
+            if (!taskName || !taskName.trim()) continue;
 
             const tags = [tag1, tag2, tag3, tag4].filter(t => t && t.trim()).map(t => t.trim());
 
             tasks.push({
-                taskName,
-                subtaskName: subtaskName || undefined,
-                description: description || undefined,
-                assigneeEmail: assigneeEmail ? assigneeEmail.split(' ')[0].trim() : undefined,
-                reviewerEmail: reviewerEmail ? reviewerEmail.split(' ')[0].trim() : undefined,
-                startDate: startDate || undefined,
-                days: days ? parseInt(days) : undefined,
-                status: status || undefined,
+                taskName: taskName.trim(),
+                subtaskName: subtaskName?.trim() || undefined,
+                description: description?.trim() || undefined,
+                assigneeEmail: assigneeEmail ? assigneeEmail.trim().split(/\s+/)[0].toLowerCase() : undefined,
+                reviewerEmail: reviewerEmail ? reviewerEmail.trim().split(/\s+/)[0].toLowerCase() : undefined,
+                startDate: startDate?.trim() || undefined,
+                days: days?.trim() ? parseInt(days.trim()) : undefined,
+                status: status?.trim() || undefined,
                 tags: tags.length > 0 ? tags : undefined,
             });
+        }
+
+        if (tasks.length === 0) {
+            throw new Error("No valid task data found in CSV file");
         }
 
         return tasks;
     };
 
-    // const clearFile = () => {
-    //     setParsedData([]);
-    //     setFileName("");
-    // };
+    const handleSubmit = async (dataToUpload: ParsedTask[]) => {
+        const exampleEmails = ["john@example.com", "jane@example.com", "vendor@example.com", "admin@example.com"];
+        const filteredData = dataToUpload.filter(task => {
+            const assignee = task.assigneeEmail?.toLowerCase();
+            const reviewer = task.reviewerEmail?.toLowerCase();
+            return !exampleEmails.includes(assignee || "") && !exampleEmails.includes(reviewer || "");
+        });
 
-    // const processFile = async (file: File) => {
-    //     setFileName(file.name);
+        if (filteredData.length === 0) {
+            toast.error("No valid tasks found (all rows were either empty or contained example emails)");
+            return;
+        }
 
-    //     try {
-    //         const text = await file.text();
+        console.log("📤 Uploading Tasks:", filteredData.length, filteredData);
 
-    //         // Check if file contains too many non-printable/binary characters
-    //         const nonPrintableCount = (text.match(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F-\xFF]/g) || []).length;
-    //         const totalChars = text.length;
-    //         const nonPrintableRatio = totalChars > 0 ? nonPrintableCount / totalChars : 0;
+        startTransition(async () => {
+            setIsAddingTask(true);
+            setIsProcessing(true);
+            try {
+                const { data: result, error } = await tryCatch<ApiResponse>(
+                    apiClient.tasks.bulkUpload(
+                        projectId,
+                        filteredData.map((task: ParsedTask) => ({
+                            ...task,
+                            reviewerEmail: task.reviewerEmail || projectMembers.find((m: any) => m.userId === selectedReviewerId)?.user.email
+                        })),
+                    )
+                );
 
-    //         if (nonPrintableRatio > 0.2) {
-    //             toast.error(
-    //                 "❌ File Upload Failed: The file appears to be corrupted or contains binary data.\n\n" +
-    //                 "Cannot validate assignee emails or other data because the file cannot be read properly.\n\n" +
-    //                 "Please create a new CSV file:\n" +
-    //                 "• Use the template file (test-bulk-upload.csv)\n" +
-    //                 "• Or create a new file in Notepad/Google Sheets\n" +
-    //                 "• Save as UTF-8 CSV format",
-    //                 { duration: 8000 }
-    //             );
-    //             setParsedData([]);
-    //             setFileName("");
-    //             return;
-    //         }
+                if (error) {
+                    console.error('❌ Bulk Upload Error:', error);
+                    toast.error(error.message || 'An unexpected error occurred');
+                    return;
+                }
 
-    //         const hasCommas = text.includes(',');
-    //         const hasNewlines = text.includes('\n') || text.includes('\r');
+                if (result && result.status === "success") {
+                    toast.success(result.message || "Tasks uploaded successfully");
+                    triggerConfetti();
 
-    //         if (!hasCommas || !hasNewlines) {
-    //             toast.error("The file doesn't appear to be a valid CSV. Please ensure it's a comma-separated values file.");
-    //             setParsedData([]);
-    //             setFileName("");
-    //             return;
-    //         }
+                    const newTasks = result.data as any[];
+                    if (newTasks && newTasks.length > 0) {
+                        useTaskCacheStore.getState().upsertTasks(newTasks);
+                    }
 
-    //         const parsed = parseCSV(text);
-
-    //         console.log('Parsed CSV:', parsed.length, 'rows');
-
-    //         if (parsed.length === 0) {
-    //             toast.error("No valid data found in file");
-    //             return;
-    //         }
-
-    //         setParsedData(parsed);
-    //         toast.success(`Parsed ${parsed.length} rows successfully`);
-    //     } catch (error) {
-    //         toast.error(error instanceof Error ? error.message : "Failed to parse file");
-    //         setParsedData([]);
-    //         setFileName("");
-    //     }
-    // };
+                    setOpen(false);
+                } else {
+                    toast.error(result?.message || 'Upload failed. Please try again.');
+                }
+            } catch (err) {
+                toast.error("An error occurred during upload");
+            } finally {
+                setIsAddingTask(false);
+                setIsProcessing(false);
+            }
+        });
+    };
 
     const onDrop = useCallback(async (acceptedFiles: File[]) => {
         if (acceptedFiles.length > 0) {
@@ -515,28 +519,27 @@ ${tagList}
 
             try {
                 let parsed: ParsedTask[] = [];
-                
+
                 if (file.name.endsWith('.xlsx')) {
                     const ExcelJS = (await import('exceljs')).default;
                     const workbook = new ExcelJS.Workbook();
                     const buffer = await file.arrayBuffer();
                     await workbook.xlsx.load(buffer);
-                    
+
                     const worksheet = workbook.getWorksheet(1);
                     if (!worksheet) throw new Error("Worksheet not found in Excel file");
-                    
+
                     const rows: string[][] = [];
                     worksheet.eachRow((row, rowNumber) => {
                         if (rowNumber === 1) return; // Skip header
                         const rowData: string[] = [];
-                        // Handle up to 12 columns (Task, Subtask, Desc, Assignee, Reviewer, Date, Days, Status, Tag1, Tag2, Tag3, Tag4)
+                        // Read all cells in the row (ExcelJS is 1-indexed)
                         for (let i = 1; i <= 12; i++) {
                             const cell = row.getCell(i);
                             let value = cell.value;
                             if (value instanceof Date) {
                                 value = format(value, APP_DATE_FORMAT);
                             } else if (value && typeof value === 'object' && 'result' in value) {
-                                // Formula cell
                                 value = String(value.result);
                             } else {
                                 value = value ? String(value) : '';
@@ -545,19 +548,19 @@ ${tagList}
                         }
                         rows.push(rowData);
                     });
-                    
+
                     parsed = rows.filter(r => r[0]).map(r => {
                         const [taskName, subtaskName, description, assigneeEmail, reviewerEmail, startDate, days, status, tag1, tag2, tag3, tag4] = r;
                         const tags = [tag1, tag2, tag3, tag4].filter(t => t && t.trim()).map(t => t.trim());
                         return {
-                            taskName,
-                            subtaskName: subtaskName || undefined,
-                            description: description || undefined,
-                            assigneeEmail: assigneeEmail ? assigneeEmail.split(' ')[0].trim() : undefined,
-                            reviewerEmail: reviewerEmail ? reviewerEmail.split(' ')[0].trim() : undefined,
-                            startDate: startDate || undefined,
-                            days: days ? parseInt(days) : undefined,
-                            status: status || undefined,
+                            taskName: taskName.trim(),
+                            subtaskName: subtaskName?.trim() || undefined,
+                            description: description?.trim() || undefined,
+                            assigneeEmail: assigneeEmail ? assigneeEmail.trim().split(/\s+/)[0].toLowerCase() : undefined,
+                            reviewerEmail: reviewerEmail ? reviewerEmail.trim().split(/\s+/)[0].toLowerCase() : undefined,
+                            startDate: startDate?.trim() || undefined,
+                            days: days?.trim() ? parseInt(days.trim()) : undefined,
+                            status: status?.trim() || undefined,
                             tags: tags.length > 0 ? tags : undefined,
                         };
                     });
@@ -568,13 +571,10 @@ ${tagList}
 
                 if (parsed.length === 0) {
                     toast.error("No valid tasks found in the file");
-                    setIsProcessing(false);
                     return;
                 }
 
-                setParsedData(parsed);
-                setView("preview");
-                toast.success(`Parsed ${parsed.length} items. Please review before uploading.`);
+                await handleSubmit(parsed);
             } catch (err) {
                 console.error("Upload error:", err);
                 toast.error(err instanceof Error ? err.message : "Failed to parse file");
@@ -582,8 +582,7 @@ ${tagList}
                 setIsProcessing(false);
             }
         }
-    }, [projectId, parseCSV]);
-
+    }, [projectId, projectMembers, selectedReviewerId]);
 
     const onDropRejected = useCallback((fileRejections: FileRejection[]) => {
         if (fileRejections.length) {
@@ -625,62 +624,8 @@ ${tagList}
         multiple: false,
         maxSize: 10 * 1024 * 1024,
         onDropRejected,
-        disabled: pending || parsedData.length > 0,
+        disabled: pending || isProcessing,
     });
-
-    const updateParsedDataItem = (index: number, field: keyof ParsedTask, value: any) => {
-        const newData = [...parsedData];
-        newData[index] = { ...newData[index], [field]: value };
-        setParsedData(newData);
-    };
-
-    const handleSubmit = async (e?: React.FormEvent) => {
-        if (e) e.preventDefault();
-
-        if (parsedData.length === 0) {
-            toast.error("Please upload a file first");
-            return;
-        }
-
-        startTransition(async () => {
-            setIsAddingTask(true);
-            const { data: result, error } = await tryCatch<ApiResponse>(
-                apiClient.tasks.bulkUpload(
-                    projectId,
-                    parsedData.map((task: ParsedTask) => ({
-                        ...task,
-                        reviewerEmail: task.reviewerEmail || projectMembers.find((m: any) => m.userId === selectedReviewerId)?.user.email
-                    })),
-                )
-
-            );
-
-            if (error) {
-                console.error('❌ Bulk Upload Error:', error);
-                toast.error(error.message || 'An unexpected error occurred');
-                setIsAddingTask(false);
-                return;
-            }
-
-            if (result && result.status === "success") {
-                toast.success(result.message || "Tasks uploaded successfully");
-                triggerConfetti();
-
-                const newTasks = result.data as any[];
-                if (newTasks && newTasks.length > 0) {
-                    useTaskCacheStore.getState().upsertTasks(newTasks);
-                }
-
-                setParsedData([]);
-                setFileName("");
-                setView("upload");
-                setOpen(false);
-            } else {
-                toast.error(result?.message || 'Upload failed. Please try again.');
-                setIsAddingTask(false);
-            }
-        });
-    };
 
     return (
         <Dialog open={open} onOpenChange={(v) => {
@@ -699,288 +644,125 @@ ${tagList}
             </DialogTrigger>
             <DialogContent className={cn(
                 "sm:max-w-[600px] transition-all duration-300",
-                view === "preview" && "sm:max-w-[1000px] max-h-[90vh]"
+                view === "preview" && "sm:max-w-[1200px] lg:max-w-[90vw] 2xl:max-w-7xl max-h-[95vh]"
             )}>
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Upload className="h-5 w-5 text-primary" />
                         {view === "upload" ? "Bulk Task Upload" : "Review Tasks"}
                     </DialogTitle>
-                    <DialogDescription>
-                        {view === "upload"
-                            ? "Upload a CSV or Excel file to create multiple tasks and subtasks at once."
-                            : `Review and edit the ${parsedData.length} items from "${fileName}" before uploading.`}
-                    </DialogDescription>
                 </DialogHeader>
 
-                {view === "upload" ? (
-                    <div className="space-y-6 py-4">
-                        {/* Instructions & Template Buttons */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div className="space-y-3 border rounded-lg p-4 bg-muted/30">
-                                <div className="flex items-center gap-2 mb-1">
-                                    <FileText className="h-4 w-4 text-primary" />
-                                    <h4 className="text-sm font-semibold">Instructions</h4>
-                                </div>
-                                <p className="text-xs text-muted-foreground leading-relaxed">
-                                    Read the requirements for the file format and valid values.
-                                </p>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="w-full text-xs h-8 bg-white dark:bg-gray-900 border-border/40 hover:bg-muted/60"
-                                    onClick={downloadInstructions}
-                                >
-                                    Download Instructions
-                                </Button>
+                <div className="space-y-6 py-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-3 border rounded-lg p-4 bg-muted/30">
+                            <div className="flex items-center gap-2 mb-1">
+                                <FileText className="h-4 w-4 text-primary" />
+                                <h4 className="text-sm font-semibold">Instructions</h4>
                             </div>
-
-                            <div className="space-y-3 border rounded-lg p-4 bg-muted/30">
-                                <div className="flex items-center gap-2 mb-1">
-                                    <Download className="h-4 w-4 text-green-600" />
-                                    <h4 className="text-sm font-semibold">Template File</h4>
-                                </div>
-                                <p className="text-xs text-muted-foreground leading-relaxed">
-                                    Download a sample file with the correct columns and examples.
-                                </p>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="w-full text-xs h-8 bg-white dark:bg-gray-900 border-border/40 hover:bg-muted/60"
-                                    onClick={downloadTemplate}
-                                >
-                                    Download Excel Template
-                                </Button>
-                            </div>
-                        </div>
-
-                        <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
-                            <div className="space-y-2">
-                                <Label className="text-sm font-semibold">Global Reviewer (Optional)</Label>
-                                <p className="text-xs text-muted-foreground">
-                                    This reviewer will be assigned to all tasks that don&apos;t have a reviewer email in the file.
-                                </p>
-                                <Select
-                                    value={selectedReviewerId}
-                                    onValueChange={setSelectedReviewerId}
-                                >
-                                    <SelectTrigger className="bg-white dark:bg-gray-800">
-                                        <SelectValue placeholder="Select a default reviewer" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {projectMembers
-                                            .filter((m: any) => ["OWNER", "ADMIN", "LEAD", "PROJECT_MANAGER"].includes(m.projectRole) || ["OWNER", "ADMIN"].includes(m.workspaceRole || ""))
-                                            .map((member: any) => (
-                                                <SelectItem key={member.userId} value={member.userId}>
-                                                    {member.user.email} ({member.user.surname}{member.projectRole ? ` - ${member.projectRole.replace('_', ' ')}` : ""})
-                                                </SelectItem>
-                                            ))
-                                        }
-                                    </SelectContent>
-
-                                </Select>
-                            </div>
-                        </div>
-
-                        {/* File Upload */}
-                        <div className="space-y-3">
-                            <Label>Upload File</Label>
-                            <div
-                                {...getRootProps()}
-                                className={cn(
-                                    "border-2 border-dashed rounded-xl p-10 flex flex-col items-center justify-center gap-3 transition-all cursor-pointer group",
-                                    isDragActive ? "border-primary bg-primary/5" : "border-border/60 hover:border-primary/50 hover:bg-muted/30",
-                                    isProcessing && "opacity-50 pointer-events-none"
-                                )}
+                            <p className="text-xs text-muted-foreground leading-relaxed">
+                                Read the requirements for the file format and valid values.
+                            </p>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="w-full text-xs h-8 bg-white dark:bg-gray-900 border-border/40 hover:bg-muted/60"
+                                onClick={downloadInstructions}
                             >
-                                <input {...getInputProps()} />
-                                <div className="p-3 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                                    {isProcessing ? (
-                                        <Loader2 className="h-8 w-8 text-primary animate-spin" />
-                                    ) : (
-                                        <Upload className="h-8 w-8 text-primary" />
-                                    )}
-                                </div>
-                                <div className="text-center">
-                                    <p className="text-sm font-medium">
-                                        {isDragActive ? "Drop the file here" : "Click or drag file to upload"}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                        CSV or XLSX files supported
-                                    </p>
-                                </div>
+                                Download Instructions
+                            </Button>
+                        </div>
+
+                        <div className="space-y-3 border rounded-lg p-4 bg-muted/30">
+                            <div className="flex items-center gap-2 mb-1">
+                                <Download className="h-4 w-4 text-green-600" />
+                                <h4 className="text-sm font-semibold">Template File</h4>
+                            </div>
+                            <p className="text-xs text-muted-foreground leading-relaxed">
+                                Download a sample file with the correct columns and examples.
+                            </p>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="w-full text-xs h-8 bg-white dark:bg-gray-900 border-border/40 hover:bg-muted/60"
+                                onClick={downloadTemplate}
+                            >
+                                Download Excel Template
+                            </Button>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
+                        <div className="space-y-2">
+                            <Label className="text-sm font-semibold">Global Reviewer (Optional)</Label>
+                            <p className="text-xs text-muted-foreground">
+                                This reviewer will be assigned to all tasks that don&apos;t have a reviewer email in the file.
+                            </p>
+                            <Select
+                                value={selectedReviewerId}
+                                onValueChange={setSelectedReviewerId}
+                            >
+                                <SelectTrigger className="bg-white dark:bg-gray-800">
+                                    <SelectValue placeholder="Select a default reviewer" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {projectMembers
+                                        .filter((m: any) => ["OWNER", "ADMIN", "LEAD", "PROJECT_MANAGER"].includes(m.projectRole) || ["OWNER", "ADMIN"].includes(m.workspaceRole || ""))
+                                        .map((member: any) => (
+                                            <SelectItem key={member.userId} value={member.userId}>
+                                                {member.user.email} ({member.user.surname}{member.projectRole ? ` - ${member.projectRole.replace('_', ' ')}` : ""})
+                                            </SelectItem>
+                                        ))
+                                    }
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    <div className="space-y-3">
+                        <Label>Upload File</Label>
+                        <div
+                            {...getRootProps()}
+                            className={cn(
+                                "border-2 border-dashed rounded-xl p-10 flex flex-col items-center justify-center gap-3 transition-all cursor-pointer group",
+                                isDragActive ? "border-primary bg-primary/5" : "border-border/60 hover:border-primary/50 hover:bg-muted/30",
+                                isProcessing && "opacity-50 pointer-events-none"
+                            )}
+                        >
+                            <input {...getInputProps()} />
+                            <div className="p-3 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                                {isProcessing ? (
+                                    <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                                ) : (
+                                    <Upload className="h-8 w-8 text-primary" />
+                                )}
+                            </div>
+                            <div className="text-center">
+                                <p className="text-sm font-medium">
+                                    {isDragActive ? "Drop the file here" : "Click or drag file to upload"}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    CSV or XLSX files supported
+                                </p>
                             </div>
                         </div>
                     </div>
-                ) : (
-                    <div className="space-y-4 py-4">
-                        <div className="border rounded-lg overflow-hidden bg-muted/10">
-                            <ScrollArea className="h-[400px] w-full">
-                                <table className="w-full text-sm border-collapse">
-                                    <thead className="bg-muted/50 sticky top-0 z-10">
-                                        <tr>
-                                            <th className="p-2 text-left border-b font-medium min-w-[150px]">Task / Subtask</th>
-                                            <th className="p-2 text-left border-b font-medium min-w-[180px]">Assignee Email</th>
-                                            <th className="p-2 text-left border-b font-medium min-w-[180px]">Reviewer Email</th>
-                                            <th className="p-2 text-left border-b font-medium min-w-[150px]">Tags</th>
-                                            <th className="p-2 text-left border-b font-medium w-[80px]">Days</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {parsedData.map((item: ParsedTask, idx: number) => (
-                                            <tr key={idx} className="hover:bg-muted/5 group">
-                                                <td className="p-2 border-b">
-                                                    <div className="font-medium truncate max-w-[140px]" title={item.taskName}>
-                                                        {item.taskName}
-                                                    </div>
-                                                    {item.subtaskName && (
-                                                        <div className="text-[10px] text-muted-foreground truncate max-w-[140px]" title={item.subtaskName}>
-                                                            ↳ {item.subtaskName}
-                                                        </div>
-                                                    )}
-                                                </td>
-                                                <td className="p-2 border-b">
-                                                    <Select
-                                                        value={item.assigneeEmail || "unassigned"}
-                                                        onValueChange={(val) => updateParsedDataItem(idx, "assigneeEmail", val === "unassigned" ? "" : val)}
-                                                    >
-                                                        <SelectTrigger className="h-8 text-xs border-transparent group-hover:border-border transition-colors">
-                                                            <SelectValue />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="unassigned">Unassigned</SelectItem>
-                                                            {projectMembers.map((m: any) => (
-                                                                <SelectItem key={m.userId} value={m.user.email} className="text-xs">
-                                                                    {m.user.email} ({m.user.surname})
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </td>
-                                                <td className="p-2 border-b">
-                                                    <Select
-                                                        value={item.reviewerEmail || "default"}
-                                                        onValueChange={(val) => updateParsedDataItem(idx, "reviewerEmail", val === "default" ? "" : val)}
-                                                    >
-                                                        <SelectTrigger className="h-8 text-xs border-transparent group-hover:border-border transition-colors">
-                                                            <SelectValue />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="default">Default Reviewer</SelectItem>
-                                                            {projectMembers
-                                                                .filter((m: any) => ["OWNER", "ADMIN", "LEAD", "PROJECT_MANAGER"].includes(m.projectRole) || ["OWNER", "ADMIN"].includes(m.workspaceRole || ""))
-                                                                .map((m: any) => (
-                                                                    <SelectItem key={m.userId} value={m.user.email} className="text-xs">
-                                                                        {m.user.email} ({m.user.surname}{m.projectRole ? ` - ${m.projectRole.replace('_', ' ')}` : ""})
-                                                                    </SelectItem>
-                                                                ))
-                                                            }
-                                                        </SelectContent>
-                                                    </Select>
-                                                </td>
-                                                <td className="p-2 border-b">
-                                                    <div className="flex flex-wrap gap-1 min-w-[140px]">
-                                                        {item.tags && item.tags.map((tagName, tagIdx) => (
-                                                            <Badge key={tagIdx} variant="secondary" className="text-[10px] py-0 px-1 whitespace-nowrap flex items-center gap-1">
-                                                                {tagName}
-                                                                <button
-                                                                    onClick={() => {
-                                                                        const newTags = item.tags?.filter((_, i) => i !== tagIdx);
-                                                                        updateParsedDataItem(idx, "tags", newTags);
-                                                                    }}
-                                                                    className="hover:text-destructive transition-colors"
-                                                                >
-                                                                    <X className="h-2 w-2" />
-                                                                </button>
-                                                            </Badge>
-                                                        ))}
-                                                        <Select
-                                                            onValueChange={(val) => {
-                                                                const currentTags = item.tags || [];
-                                                                if (!currentTags.includes(val)) {
-                                                                    updateParsedDataItem(idx, "tags", [...currentTags, val]);
-                                                                }
-                                                            }}
-                                                        >
-                                                            <SelectTrigger className="h-6 w-6 p-0 border-none bg-muted/50 hover:bg-muted rounded-full flex items-center justify-center">
-                                                                <Tag className="h-3 w-3" />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                {workspaceTags.map((t: any) => (
-                                                                    <SelectItem key={t.id} value={t.name} className="text-xs">
-                                                                        {t.name}
-                                                                    </SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
-                                                </td>
-                                                <td className="p-2 border-b">
-                                                    <input
-                                                        type="number"
-                                                        value={item.days || ""}
-                                                        onChange={(e) => updateParsedDataItem(idx, "days", parseInt(e.target.value) || 0)}
-                                                        className="w-full h-8 bg-transparent text-xs focus:outline-none border-b border-transparent group-hover:border-border transition-colors px-1"
-                                                    />
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
+                </div>
 
-                                </table>
-                                <ScrollBar orientation="horizontal" />
-                            </ScrollArea>
-                        </div>
-                        <div className="flex justify-between items-center text-xs text-muted-foreground px-1">
-                            <p>Tip: You can edit values directly in this table before uploading.</p>
-                            <p className="font-medium text-primary">{parsedData.length} total items</p>
-                        </div>
-                    </div>
-                )}
-
-                <DialogFooter className="gap-2 sm:gap-0 mt-4">
+                <DialogFooter className="mt-4">
                     <Button
                         type="button"
                         variant="ghost"
-                        onClick={() => {
-                            if (view === "preview") {
-                                setView("upload");
-                            } else {
-                                setOpen(false);
-                            }
-                        }}
-                        disabled={pending}
+                        onClick={() => setOpen(false)}
+                        disabled={pending || isProcessing}
                         className="h-9"
                     >
-                        {view === "preview" ? "Back to Upload" : "Cancel"}
-                    </Button>
-                    <Button
-                        type="button"
-                        onClick={() => handleSubmit()}
-                        disabled={pending || parsedData.length === 0}
-                        className={cn(
-                            "h-9 gap-2 transition-all min-w-[140px]",
-                            view === "preview" && "bg-green-600 hover:bg-green-700 text-white"
-                        )}
-                    >
-                        {pending ? (
-                            <>
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                <span>Uploading...</span>
-                            </>
-                        ) : (
-                            <>
-                                <Check className="h-4 w-4" />
-                                <span>{view === "upload" ? "Upload Tasks" : "Confirm & Create"}</span>
-                            </>
-                        )}
+                        Cancel
                     </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
     );
 };
-
-

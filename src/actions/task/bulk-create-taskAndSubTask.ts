@@ -116,45 +116,40 @@ export async function bulkUploadTasksAndSubtasks(data: {
                 message: "You are not a member of this project and don't have permission to join automatically.",
             };
         }
-
         const emailToMemberId = emailToProjectMemberId;
-        const invalidAssigneeEmails: string[] = [];
-        const invalidReviewerEmails: string[] = [];
-        const uniqueAssigneeEmails = new Set<string>();
-        const uniqueReviewerEmails = new Set<string>();
+        const invalidAssigneeRows: string[] = [];
+        const invalidReviewerRows: string[] = [];
 
-        for (const task of data.tasks) {
+        for (let i = 0; i < data.tasks.length; i++) {
+            const task = data.tasks[i];
+            const rowNum = i + 2; // +1 for 0-index, +1 for header
+
             if (task.assigneeEmail && task.assigneeEmail.trim()) {
-                uniqueAssigneeEmails.add(task.assigneeEmail.trim().toLowerCase());
+                const email = task.assigneeEmail.trim().toLowerCase();
+                if (!emailToMemberId.has(email)) {
+                    invalidAssigneeRows.push(`Row ${rowNum}: ${email}`);
+                }
             }
+
             if (task.reviewerEmail && task.reviewerEmail.trim()) {
-                uniqueReviewerEmails.add(task.reviewerEmail.trim().toLowerCase());
+                const email = task.reviewerEmail.trim().toLowerCase();
+                if (!emailToMemberId.has(email)) {
+                    invalidReviewerRows.push(`Row ${rowNum}: ${email}`);
+                }
             }
         }
 
-        for (const email of uniqueAssigneeEmails) {
-            if (!emailToMemberId.has(email)) {
-                invalidAssigneeEmails.push(email);
-            }
-        }
-
-        for (const email of uniqueReviewerEmails) {
-            if (!emailToMemberId.has(email)) {
-                invalidReviewerEmails.push(email);
-            }
-        }
-
-        if (invalidAssigneeEmails.length > 0) {
+        if (invalidAssigneeRows.length > 0) {
             return {
                 status: "error",
-                message: `The following assignee email(s) are not members of this project: ${invalidAssigneeEmails.join(', ')}. Please add them to the project first or remove them from the CSV file.`,
+                message: `The following assignee email(s) are not members of this project:\n${invalidAssigneeRows.join('\n')}\n\nPlease add them to the project first or remove them from your file.`,
             };
         }
 
-        if (invalidReviewerEmails.length > 0) {
+        if (invalidReviewerRows.length > 0) {
             return {
                 status: "error",
-                message: `The following reviewer email(s) are not members of this project: ${invalidReviewerEmails.join(', ')}. Please add them to the project first or remove them from the CSV file.`,
+                message: `The following reviewer email(s) are not members of this project:\n${invalidReviewerRows.join('\n')}\n\nPlease add them to the project first or remove them from your file.`,
             };
         }
 
@@ -197,11 +192,32 @@ export async function bulkUploadTasksAndSubtasks(data: {
             };
         }
 
-        // Group tasks by task name
+        // Group tasks by task name, filtering out any empty/invalid rows
         const taskGroups = new Map<string, typeof data.tasks>();
         for (const task of data.tasks) {
+            // Skip rows with no task name (shouldn't happen due to frontend validation)
+            if (!task.taskName?.trim()) continue;
+            
             const existing = taskGroups.get(task.taskName) || [];
             taskGroups.set(task.taskName, [...existing, task]);
+        }
+        
+        // Filter out task groups that only contain empty placeholder rows
+        // (rows with no subtask name, no description, no assignee, no dates)
+        for (const [taskName, taskGroup] of taskGroups.entries()) {
+            const hasValidRow = taskGroup.some(row => 
+                row.subtaskName?.trim() || 
+                row.description?.trim() || 
+                row.assigneeEmail?.trim() ||
+                row.reviewerEmail?.trim() ||
+                row.startDate?.trim() ||
+                row.days !== undefined ||
+                row.status?.trim() ||
+                (row.tags && row.tags.length > 0)
+            );
+            if (!hasValidRow) {
+                taskGroups.delete(taskName);
+            }
         }
 
         const createdItems: any[] = [];
@@ -300,7 +316,8 @@ export async function bulkUploadTasksAndSubtasks(data: {
                     },
                 });
 
-                createdItems.push({ type: 'task', name: taskName });
+                // Track created parent task ID
+                // (The subtask IDs and parent ID are added to createdItems below via createdTasks)
 
                 const createdTasks: any[] = [];
 

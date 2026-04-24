@@ -24,7 +24,7 @@ async function AttendanceContent({ workspaceId }: { workspaceId: string }) {
                     <h2 className="text-sm font-semibold">Daily Attendance</h2>
                     <p className="text-xs text-muted-foreground">Mark your presence for today with geolocation</p>
                 </div>
-                <Dialog>
+                {/* <Dialog>
                     <DialogTrigger asChild>
                         <Button size="sm" className="gap-2">
                             <LogIn className="h-4 w-4" />
@@ -34,9 +34,9 @@ async function AttendanceContent({ workspaceId }: { workspaceId: string }) {
                     <DialogContent className="p-0 border-none bg-transparent shadow-none max-w-sm">
                         <AttendanceLogger workspaceId={workspaceId} />
                     </DialogContent>
-                </Dialog>
+                </Dialog> */}
             </div>
-            
+
             {permissions.isWorkspaceAdmin && (
                 <AttendanceTable workspaceId={workspaceId} />
             )}
