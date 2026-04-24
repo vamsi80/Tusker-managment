@@ -21,6 +21,7 @@ import { useProjectLayout } from "../project-layout-context";
 import { useEffect } from "react";
 import { format } from "date-fns";
 import { APP_DATE_FORMAT } from "@/lib/utils";
+import { Progress } from "@/components/ui/progress";
 
 
 interface BulkUploadFormProps {
@@ -51,6 +52,7 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
     const [view, setView] = useState<"upload" | "preview">("upload");
     const [isProcessing, setIsProcessing] = useState(false);
     const [parsedData, setParsedData] = useState<ParsedTask[]>([]);
+    const [progress, setProgress] = useState(0);
 
 
     useEffect(() => {
@@ -383,7 +385,7 @@ ${tagList}
             const nextChar = line[i + 1];
 
             if (char === '"' && inQuotes && nextChar === '"') {
-                // Handle escaped quotes (""")
+                // Handle escaped quotes ("")
                 curValue += '"';
                 i++;
             } else if (char === '"') {
@@ -401,50 +403,70 @@ ${tagList}
         return result.map(v => sanitizeString(v));
     };
 
+    const mapValuesToTask = (values: string[]): ParsedTask => {
+        // Pad the values array to ensure we have at least 12 elements
+        while (values.length < 12) {
+            values.push('');
+        }
+
+        const [taskName, subtaskName, description, assigneeEmail, reviewerEmail, startDate, days, status, tag1, tag2, tag3, tag4] = values;
+
+        const tags = [tag1, tag2, tag3, tag4].filter(t => t && t.trim()).map(t => t.trim());
+
+        return {
+            taskName: taskName.trim().replace(/\s+/g, ' '),
+            subtaskName: subtaskName?.trim() || undefined,
+            description: description?.trim() || undefined,
+            assigneeEmail: assigneeEmail ? assigneeEmail.trim().split(/\s+/)[0].toLowerCase() : undefined,
+            reviewerEmail: reviewerEmail ? reviewerEmail.trim().split(/\s+/)[0].toLowerCase() : undefined,
+            startDate: startDate?.trim() || undefined,
+            days: days?.trim() ? parseInt(days.trim()) : undefined,
+            status: status?.trim() || undefined,
+            tags: tags.length > 0 ? tags : undefined,
+        };
+    };
+
     const parseCSV = (text: string): ParsedTask[] => {
         const sanitizedText = sanitizeString(text);
 
-        // Normalize line endings and split
-        const lines = sanitizedText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(line => line.trim());
+        // Correctly split into rows respecting newlines within quotes
+        const rows: string[] = [];
+        let currentPos = 0;
+        let inQuotes = false;
+        
+        for (let i = 0; i < sanitizedText.length; i++) {
+            const char = sanitizedText[i];
+            if (char === '"') inQuotes = !inQuotes;
+            if ((char === '\n' || char === '\r') && !inQuotes) {
+                const line = sanitizedText.substring(currentPos, i).trim();
+                if (line) rows.push(line);
+                if (char === '\r' && sanitizedText[i+1] === '\n') i++;
+                currentPos = i + 1;
+            }
+        }
+        const lastLine = sanitizedText.substring(currentPos).trim();
+        if (lastLine) rows.push(lastLine);
 
-        if (lines.length < 2) {
+        if (rows.length < 2) {
             throw new Error("CSV file is empty or invalid - must contain header and at least one data row");
         }
 
-        const headerLine = lines[0].toLowerCase();
+        const headerLine = rows[0].toLowerCase();
         const hasRequiredColumns = headerLine.includes('task name') && headerLine.includes('subtask name');
         if (!hasRequiredColumns) {
             throw new Error("Invalid CSV format - missing required columns. Please use the template file.");
         }
 
-        const dataLines = lines.slice(1);
+        const dataRows = rows.slice(1);
         const tasks: ParsedTask[] = [];
 
-        for (const line of dataLines) {
-            const values = parseCSVLine(line);
-
-            // Pad the values array to ensure we have at least 12 elements (matching destructuring)
-            while (values.length < 12) {
-                values.push('');
+        for (const row of dataRows) {
+            const values = parseCSVLine(row);
+            const task = mapValuesToTask(values);
+            
+            if (task.taskName) {
+                tasks.push(task);
             }
-
-            const [taskName, subtaskName, description, assigneeEmail, reviewerEmail, startDate, days, status, tag1, tag2, tag3, tag4] = values;
-
-            if (!taskName || !taskName.trim()) continue;
-
-            const tags = [tag1, tag2, tag3, tag4].filter(t => t && t.trim()).map(t => t.trim());
-
-            tasks.push({
-                taskName: taskName.trim(),
-                subtaskName: subtaskName?.trim() || undefined,
-                description: description?.trim() || undefined,
-                assigneeEmail: assigneeEmail ? assigneeEmail.trim().split(/\s+/)[0].toLowerCase() : undefined,
-                reviewerEmail: reviewerEmail ? reviewerEmail.trim().split(/\s+/)[0].toLowerCase() : undefined,
-                startDate: startDate?.trim() || undefined,
-                days: days?.trim() ? parseInt(days.trim()) : undefined,
-                status: status?.trim() || undefined,
-                tags: tags.length > 0 ? tags : undefined,
-            });
         }
 
         if (tasks.length === 0) {
@@ -467,11 +489,21 @@ ${tagList}
             return;
         }
 
-        console.log("📤 Uploading Tasks:", filteredData.length, filteredData);
-
+        console.log("📤 Uploading Tasks:", filteredData.length);
         startTransition(async () => {
             setIsAddingTask(true);
             setIsProcessing(true);
+            setProgress(5);
+            const toastId = toast.loading("Uploading tasks to database...");
+
+            // Simulate progress for the on-screen bar
+            const progressInterval = setInterval(() => {
+                setProgress(prev => {
+                    if (prev >= 95) return 95;
+                    return prev + Math.floor(Math.random() * 5) + 1;
+                });
+            }, 400);
+
             try {
                 const { data: result, error } = await tryCatch<ApiResponse>(
                     apiClient.tasks.bulkUpload(
@@ -483,14 +515,17 @@ ${tagList}
                     )
                 );
 
+                clearInterval(progressInterval);
+
                 if (error) {
                     console.error('❌ Bulk Upload Error:', error);
-                    toast.error(error.message || 'An unexpected error occurred');
+                    toast.error(error.message || 'An unexpected error occurred', { id: toastId });
                     return;
                 }
 
-                if (result && result.status === "success") {
-                    toast.success(result.message || "Tasks uploaded successfully");
+                if (result) {
+                    setProgress(100);
+                    toast.success('Tasks uploaded successfully!', { id: toastId });
                     triggerConfetti();
 
                     const newTasks = result.data as any[];
@@ -498,12 +533,17 @@ ${tagList}
                         useTaskCacheStore.getState().upsertTasks(newTasks);
                     }
 
-                    setOpen(false);
+                    setTimeout(() => {
+                        setOpen(false);
+                        router.refresh();
+                    }, 500);
                 } else {
-                    toast.error(result?.message || 'Upload failed. Please try again.');
+                    toast.error('Upload failed. Please try again.', { id: toastId });
                 }
             } catch (err) {
-                toast.error("An error occurred during upload");
+                clearInterval(progressInterval);
+                console.error('❌ Bulk Upload Exception:', err);
+                toast.error('An unexpected error occurred', { id: toastId });
             } finally {
                 setIsAddingTask(false);
                 setIsProcessing(false);
@@ -549,21 +589,7 @@ ${tagList}
                         rows.push(rowData);
                     });
 
-                    parsed = rows.filter(r => r[0]).map(r => {
-                        const [taskName, subtaskName, description, assigneeEmail, reviewerEmail, startDate, days, status, tag1, tag2, tag3, tag4] = r;
-                        const tags = [tag1, tag2, tag3, tag4].filter(t => t && t.trim()).map(t => t.trim());
-                        return {
-                            taskName: taskName.trim(),
-                            subtaskName: subtaskName?.trim() || undefined,
-                            description: description?.trim() || undefined,
-                            assigneeEmail: assigneeEmail ? assigneeEmail.trim().split(/\s+/)[0].toLowerCase() : undefined,
-                            reviewerEmail: reviewerEmail ? reviewerEmail.trim().split(/\s+/)[0].toLowerCase() : undefined,
-                            startDate: startDate?.trim() || undefined,
-                            days: days?.trim() ? parseInt(days.trim()) : undefined,
-                            status: status?.trim() || undefined,
-                            tags: tags.length > 0 ? tags : undefined,
-                        };
-                    });
+                    parsed = rows.map(r => mapValuesToTask(r));
                 } else {
                     const text = await file.text();
                     parsed = parseCSV(text);
@@ -574,7 +600,8 @@ ${tagList}
                     return;
                 }
 
-                await handleSubmit(parsed);
+                setParsedData(parsed);
+                // We stay on the upload view now as per user request
             } catch (err) {
                 console.error("Upload error:", err);
                 toast.error(err instanceof Error ? err.message : "Failed to parse file");
@@ -631,9 +658,9 @@ ${tagList}
         <Dialog open={open} onOpenChange={(v) => {
             setOpen(v);
             if (!v) {
-                setView("upload");
                 setParsedData([]);
                 setFileName("");
+                setProgress(0);
             }
         }}>
             <DialogTrigger asChild>
@@ -642,18 +669,42 @@ ${tagList}
                     <span>Bulk Upload</span>
                 </Button>
             </DialogTrigger>
-            <DialogContent className={cn(
-                "sm:max-w-[600px] transition-all duration-300",
-                view === "preview" && "sm:max-w-[1200px] lg:max-w-[90vw] 2xl:max-w-7xl max-h-[95vh]"
-            )}>
+            <DialogContent className="sm:max-w-[600px]">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Upload className="h-5 w-5 text-primary" />
-                        {view === "upload" ? "Bulk Task Upload" : "Review Tasks"}
+                        Bulk Task Upload
                     </DialogTitle>
                 </DialogHeader>
 
-                <div className="space-y-6 py-4">
+                <div className="relative space-y-6 py-4">
+                    {(isProcessing || pending) && (
+                        <div className="absolute inset-0 bg-background/80 z-[100] flex flex-col items-center justify-center p-6 text-center rounded-lg border shadow-lg">
+                            <div className="w-full max-w-xs space-y-6 bg-background p-4 rounded-lg">
+                                <div className="flex items-center justify-center">
+                                    <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                                </div>
+                                
+                                <div className="space-y-1">
+                                    <h3 className="text-sm font-bold text-foreground">
+                                        {progress === 100 ? "Success!" : "Processing..."}
+                                    </h3>
+                                    <p className="text-[10px] text-muted-foreground">
+                                        {progress < 100 ? "Uploading to database..." : "Finalizing..."}
+                                    </p>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <div className="flex justify-between text-[10px] font-medium px-1">
+                                        <span>Progress</span>
+                                        <span>{progress}%</span>
+                                    </div>
+                                    <Progress value={progress} className="h-1.5 w-full" />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-3 border rounded-lg p-4 bg-muted/30">
                             <div className="flex items-center gap-2 mb-1">
@@ -703,6 +754,7 @@ ${tagList}
                             <Select
                                 value={selectedReviewerId}
                                 onValueChange={setSelectedReviewerId}
+                                disabled={isProcessing}
                             >
                                 <SelectTrigger className="bg-white dark:bg-gray-800">
                                     <SelectValue placeholder="Select a default reviewer" />
@@ -733,25 +785,27 @@ ${tagList}
                         >
                             <input {...getInputProps()} />
                             <div className="p-3 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                                {isProcessing ? (
-                                    <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                                {fileName ? (
+                                    <FileSpreadsheet className="h-8 w-8 text-green-600" />
                                 ) : (
                                     <Upload className="h-8 w-8 text-primary" />
                                 )}
                             </div>
                             <div className="text-center">
                                 <p className="text-sm font-medium">
-                                    {isDragActive ? "Drop the file here" : "Click or drag file to upload"}
+                                    {fileName ? fileName : (isDragActive ? "Drop the file here" : "Click or drag file to upload")}
                                 </p>
                                 <p className="text-xs text-muted-foreground mt-1">
-                                    CSV or XLSX files supported
+                                    {fileName ? `${parsedData.length} items found` : "CSV or XLSX files supported"}
                                 </p>
                             </div>
                         </div>
                     </div>
+
+                    {/* Progress bar removed from here as it is now in the overlay */}
                 </div>
 
-                <DialogFooter className="mt-4">
+                <DialogFooter className="mt-4 flex items-center justify-between w-full">
                     <Button
                         type="button"
                         variant="ghost"
@@ -760,6 +814,25 @@ ${tagList}
                         className="h-9"
                     >
                         Cancel
+                    </Button>
+
+                    <Button
+                        type="button"
+                        onClick={() => handleSubmit(parsedData)}
+                        disabled={pending || isProcessing || parsedData.length === 0}
+                        className="h-9 gap-2 min-w-[120px]"
+                    >
+                        {isProcessing ? (
+                            <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <span>Uploading...</span>
+                            </>
+                        ) : (
+                            <>
+                                <Upload className="h-4 w-4" />
+                                <span>Submit</span>
+                            </>
+                        )}
                     </Button>
                 </DialogFooter>
             </DialogContent>
