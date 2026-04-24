@@ -347,6 +347,19 @@ export class WorkspaceService {
       where: { identifier: member.user.email }
     });
 
+    // ERASE OLD PASSWORD ATTEMPTS & SESSIONS: 
+    // If the user hasn't verified their email, we should delete their Account (password) 
+    // and any existing sessions to ensure they start fresh when they click the new link.
+    await prisma.account.deleteMany({
+      where: {
+        userId: member.userId,
+        providerId: "credential"
+      }
+    });
+    await prisma.session.deleteMany({
+      where: { userId: member.userId }
+    });
+
     await prisma.verification.create({
       data: {
         id: crypto.randomUUID(),
@@ -474,14 +487,14 @@ export class WorkspaceService {
       // 4. Invalidate Caches
       // Find all workspaces this user is a member of to refresh their status everywhere
       const userWorkspaces = await prisma.workspaceMember.findMany({
-          where: { userId: user.id },
-          select: { workspaceId: true }
+        where: { userId: user.id },
+        select: { workspaceId: true }
       });
 
       for (const uw of userWorkspaces) {
-          await invalidateWorkspaceMembers(uw.workspaceId);
+        await invalidateWorkspaceMembers(uw.workspaceId);
       }
-      
+
       await invalidateUserWorkspaces(user.id);
 
       return { success: true };
@@ -670,8 +683,8 @@ export class WorkspaceService {
       throw new Error("Member not found in this workspace");
     }
 
-    if (member.workspaceRole === "OWNER") {
-      throw new Error("Cannot change the information of the workspace owner");
+    if (member.workspaceRole === "OWNER" && data.role && data.role !== "OWNER") {
+      throw new Error("Cannot change the role of the workspace owner. Transfer ownership first.");
     }
 
     const userId = member.userId;
@@ -714,17 +727,20 @@ export class WorkspaceService {
       // Update WorkspaceMember
       const updatedMember = await tx.workspaceMember.update({
         where: { id: memberId },
-        data: { 
+        data: {
           workspaceRole: data.role as any,
           designation: data.designation,
           reportToId: data.reportToId
         },
       });
 
-      // Handle Email Change Side Effects
       if (isEmailChanged) {
-        // Delete all accounts (forces password reset/re-auth)
+        // Handle Email Change Side Effects
+        // Delete all accounts and sessions (forces full re-auth on all devices)
         await tx.account.deleteMany({
+          where: { userId },
+        });
+        await tx.session.deleteMany({
           where: { userId },
         });
 
@@ -769,7 +785,7 @@ export class WorkspaceService {
       where: { id: actorId },
       select: { surname: true, name: true },
     });
-    
+
     await recordActivity({
       userId: actorId,
       userName: actor?.surname || actor?.name || "Admin",
@@ -778,11 +794,11 @@ export class WorkspaceService {
       entityType: "MEMBER",
       entityId: memberId,
       newData: { ...data, emailChanged: isEmailChanged },
-      oldData: { 
-        name: member.user?.name, 
-        surname: member.user?.surname, 
-        email: member.user?.email, 
-        phoneNumber: member.user?.phoneNumber, 
+      oldData: {
+        name: member.user?.name,
+        surname: member.user?.surname,
+        email: member.user?.email,
+        phoneNumber: member.user?.phoneNumber,
         role: member.workspaceRole,
         designation: member.designation,
         reportToId: member.reportToId
@@ -1196,6 +1212,16 @@ export class WorkspaceService {
     // Invalidate caches
     await invalidateUserWorkspaces(userId);
     await invalidateWorkspaceMembers(workspaceId);
+
+    // Record activity and broadcast update
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, surname: true } });
+    await recordActivity({
+      userId,
+      userName: user?.surname || user?.name || "New Member",
+      workspaceId,
+      action: "MEMBER_UPDATED", // Or a new action like MEMBER_JOINED
+      broadcastEvent: "team_update",
+    });
 
     return { success: true, workspaceId };
   }

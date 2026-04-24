@@ -28,15 +28,14 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 import { WorkspaceMemberRow } from "@/data/workspace";
-import { pusherClient } from "@/lib/pusher";
-import { TEAM_UPDATE, TeamEventData } from "@/lib/realtime";
-import { cn } from "@/lib/utils";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { updateMemberSchema, UpdateMemberSchemaType, workspaceMemberRole } from "@/lib/zodSchemas";
@@ -57,9 +56,10 @@ interface TeamMembersProps {
     isAdmin: boolean;
     workspaceId: string;
     onRefresh: () => Promise<void>;
+    isRefreshing: boolean;
 }
 
-export function TeamMembers({ data, isAdmin, workspaceId, onRefresh }: TeamMembersProps) {
+export function TeamMembers({ data, isAdmin, workspaceId, onRefresh, isRefreshing }: TeamMembersProps) {
     const router = useRouter();
 
 
@@ -221,6 +221,18 @@ export function TeamMembers({ data, isAdmin, workspaceId, onRefresh }: TeamMembe
                 showPagination={true}
                 showColumnToggle={true}
                 pageSize={10}
+                extraToolbarContent={
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onRefresh()}
+                        disabled={isRefreshing}
+                        className="h-8 gap-2"
+                    >
+                        <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+                        <span className="hidden sm:inline text-xs">{isRefreshing ? "Refreshing..." : "Refresh"}</span>
+                    </Button>
+                }
             />
 
             {/* View Member Dialog */}

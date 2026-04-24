@@ -17,33 +17,36 @@ interface TeamManagementClientProps {
  * Fetches members and permissions via Hono (Zero-RSC).
  */
 export function TeamManagementClient({ workspaceId }: TeamManagementClientProps) {
-    const { data: layoutData, isLoading: layoutLoading, revalidate } = useWorkspaceLayout();
+    const { data: layoutData } = useWorkspaceLayout();
     const [isLoadingMembers, setIsLoadingMembers] = useState(true);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const [members, setMembers] = useState<any[]>([]);
 
     const fetchData = useCallback(async () => {
         try {
-            setIsLoadingMembers(true);
+            if (members.length === 0) setIsLoadingMembers(true);
+            setIsRefreshing(true);
             const membersRes = await workspacesClient.getMembers(workspaceId);
             setMembers(membersRes.data?.workspaceMembers || []);
         } catch (error) {
             console.error("Failed to fetch team data:", error);
         } finally {
             setIsLoadingMembers(false);
+            setIsRefreshing(false);
         }
-    }, [workspaceId]);
+    }, [workspaceId, members.length]);
 
     useEffect(() => {
         fetchData();
 
         // Listen for real-time team updates
-        const channel = pusherClient?.subscribe(`workspace-${workspaceId}`);
+        const channel = pusherClient?.subscribe(`team-${workspaceId}`);
         channel?.bind(TEAM_UPDATE, () => {
             fetchData();
         });
 
         return () => {
-            pusherClient?.unsubscribe(`workspace-${workspaceId}`);
+            pusherClient?.unsubscribe(`team-${workspaceId}`);
         };
     }, [workspaceId, fetchData]);
 
@@ -57,6 +60,7 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
             isAdmin={layoutData?.permissions?.isWorkspaceAdmin || false}
             workspaceId={workspaceId}
             onRefresh={fetchData}
+            isRefreshing={isRefreshing}
         />
     );
 }

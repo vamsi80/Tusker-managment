@@ -29,7 +29,16 @@ export default async function AcceptInvitationPage({ searchParams }: PageProps) 
     });
 
     if (session) {
-        return redirect("/");
+        // If they are logged in as the SAME person, they've already accepted
+        if (session.user.email.toLowerCase() === email?.toLowerCase()) {
+            return redirect("/");
+        }
+        
+        // AUTOMATIC SWITCH: If they are logged in as SOMEONE ELSE,
+        // we automatically log them out and redirect back to this page.
+        // This ensures the "Directly Open" functionality you requested.
+        const callbackURL = `/accept-invitation?token=${token}&email=${encodeURIComponent(email || "")}`;
+        return redirect(`/api/v1/auth/sign-out?callbackURL=${encodeURIComponent(callbackURL)}`);
     }
 
     // 2. Immediate validation of token/email presence
