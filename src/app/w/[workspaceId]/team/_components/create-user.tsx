@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState, useTransition } from "react";
+import React, { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { Loader2, Plus } from "lucide-react";
 import {
@@ -59,6 +59,19 @@ export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onO
     // const [isSubmitting, setIsSubmitting] = useState(false);
     const [pending, startTransition] = useTransition();
     const { triggerConfetti } = useConfetti();
+    const [managers, setManagers] = useState<{ id: string; surname: string }[]>([]);
+
+    React.useEffect(() => {
+        const fetchManagers = async () => {
+            const result = await apiClient.workspaces.getManagers(workspaceId);
+            if (result.status === "success") {
+                setManagers(result.data);
+            }
+        };
+        if (open) {
+            fetchManagers();
+        }
+    }, [workspaceId, open]);
 
     const form = useForm<InviteUserSchemaType>({
         resolver: zodResolver(inviteUserSchema),
@@ -69,6 +82,8 @@ export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onO
             phoneNumber: "",
             role: "MEMBER",
             workspaceId,
+            designation: "",
+            reportToId: "",
         },
     });
     // async function onSubmit(values: InviteUserSchemaType) {
@@ -187,8 +202,10 @@ export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onO
                                             <Input
                                                 placeholder="e.g. +91 98765 43210"
                                                 {...field}
+                                                value={field.value || ""}
                                                 type="tel"
                                                 inputMode="tel"
+                                                disabled={pending}
                                             />
                                         </FormControl>
                                         <FormDescription className="text-xs text-muted-foreground">
@@ -219,6 +236,57 @@ export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onO
                             )}
                         />
 
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField
+                                control={form.control}
+                                name="designation"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Designation</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                placeholder="e.g. Site Engineer"
+                                                {...field}
+                                                value={field.value || ""}
+                                                disabled={pending}
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <FormField
+                                control={form.control}
+                                name="reportToId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Report To</FormLabel>
+                                        <Select
+                                            onValueChange={field.onChange}
+                                            defaultValue={field.value || undefined}
+                                        >
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select Manager" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {managers.length > 0 ? managers.map((manager) => (
+                                                    <SelectItem key={manager.id} value={manager.id}>
+                                                        {manager.surname}
+                                                    </SelectItem>
+                                                )) : (
+                                                    <div className="p-2 text-xs text-muted-foreground">No managers found</div>
+                                                )}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+
 
                         <FormField
                             control={form.control}
@@ -236,7 +304,7 @@ export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onO
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                            {workspaceMemberRole.map((role) => (
+                                            {workspaceMemberRole.filter(role => role !== "OWNER").map((role) => (
                                                 <SelectItem key={role} value={role}>
                                                     {role}
                                                 </SelectItem>

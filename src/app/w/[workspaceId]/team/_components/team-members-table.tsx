@@ -37,15 +37,29 @@ import { WorkspaceMemberRow } from "@/data/workspace";
 import { pusherClient } from "@/lib/pusher";
 import { TEAM_UPDATE, TeamEventData } from "@/lib/realtime";
 import { cn } from "@/lib/utils";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { updateMemberSchema, UpdateMemberSchemaType, workspaceMemberRole } from "@/lib/zodSchemas";
+import {
+    Form,
+    FormControl,
+    FormDescription,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 
 
 interface TeamMembersProps {
     data: WorkspaceMemberRow[];
     isAdmin: boolean;
     workspaceId: string;
+    onRefresh: () => Promise<void>;
 }
 
-export function TeamMembers({ data, isAdmin, workspaceId }: TeamMembersProps) {
+export function TeamMembers({ data, isAdmin, workspaceId, onRefresh }: TeamMembersProps) {
     const router = useRouter();
 
 
@@ -63,10 +77,37 @@ export function TeamMembers({ data, isAdmin, workspaceId }: TeamMembersProps) {
     const [isDeleting, setIsDeleting] = useState(false);
     const [isUpdating, setIsUpdating] = useState(false);
     const [newRole, setNewRole] = useState<string>("");
+    const [managers, setManagers] = useState<{ id: string; surname: string }[]>([]);
+
+    React.useEffect(() => {
+        const fetchManagers = async () => {
+            const result = await apiClient.workspaces.getManagers(workspaceId);
+            if (result.status === "success") {
+                setManagers(result.data);
+            }
+        };
+        if (editDialogOpen) {
+            fetchManagers();
+        }
+    }, [workspaceId, editDialogOpen]);
 
     // Refresh logic is now handled globally via RealtimeNotificationListener
 
 
+
+    const editForm = useForm<UpdateMemberSchemaType>({
+        resolver: zodResolver(updateMemberSchema),
+        defaultValues: {
+            name: "",
+            surname: "",
+            email: "",
+            phoneNumber: "",
+            role: "MEMBER",
+            designation: "",
+            reportToId: "",
+            workspaceId: workspaceId,
+        },
+    });
 
     const handleViewMember = React.useCallback((member: WorkspaceMemberRow) => {
         setMemberToView(member);
@@ -75,27 +116,40 @@ export function TeamMembers({ data, isAdmin, workspaceId }: TeamMembersProps) {
 
     const handleEditMember = React.useCallback((member: WorkspaceMemberRow) => {
         setMemberToEdit(member);
-        setNewRole(member.workspaceRole);
+        editForm.reset({
+            name: member.user?.name || "",
+            surname: member.user?.surname || "",
+            email: member.user?.email || "",
+            phoneNumber: member.user?.phoneNumber || "",
+            role: member.workspaceRole as any,
+            designation: member.designation || "",
+            reportToId: member.reportToId || "",
+            workspaceId: workspaceId,
+        });
         setEditDialogOpen(true);
-    }, []);
+    }, [editForm]);
 
-    const handleEditConfirm = async () => {
-        if (!memberToEdit || !newRole) return;
+    const handleEditConfirm = async (values: UpdateMemberSchemaType) => {
+        if (!memberToEdit) return;
 
         setIsUpdating(true);
         try {
-            const result = await apiClient.workspaces.updateMemberRole(workspaceId, memberToEdit.id, newRole);
+            const result = await apiClient.workspaces.updateMember(workspaceId, memberToEdit.id, values);
 
             if (result.status === "success") {
                 toast.success(result.message);
+                if ((result as any).emailChanged) {
+                    toast.info("Email was changed. A new verification link has been sent.");
+                }
                 setEditDialogOpen(false);
                 setMemberToEdit(null);
+                await onRefresh();
                 router.refresh();
             } else {
                 toast.error(result.message);
             }
-        } catch (error) {
-            toast.error("Failed to update member role");
+        } catch (error: any) {
+            toast.error(error.message || "Failed to update member");
         } finally {
             setIsUpdating(false);
         }
@@ -117,6 +171,7 @@ export function TeamMembers({ data, isAdmin, workspaceId }: TeamMembersProps) {
                 toast.success(result.message);
                 setDeleteDialogOpen(false);
                 setMemberToDelete(null);
+                await onRefresh();
                 router.refresh();
             } else {
                 toast.error(result.message);
@@ -221,8 +276,8 @@ export function TeamMembers({ data, isAdmin, workspaceId }: TeamMembersProps) {
                                         return (
                                             <span className={cn(
                                                 "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold border-transparent",
-                                                isVerified 
-                                                    ? "bg-green-500/10 text-green-500" 
+                                                isVerified
+                                                    ? "bg-green-500/10 text-green-500"
                                                     : "bg-amber-500/10 text-amber-500"
                                             )}>
                                                 {isVerified ? "Verified" : "Pending"}
@@ -238,48 +293,156 @@ export function TeamMembers({ data, isAdmin, workspaceId }: TeamMembersProps) {
 
             {/* Edit Member Dialog */}
             <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-                <DialogContent className="sm:max-w-[425px]">
+                <DialogContent className="sm:max-w-[550px]">
                     <DialogHeader>
-                        <DialogTitle>Update Member Role</DialogTitle>
+                        <DialogTitle>Edit Member Details</DialogTitle>
                     </DialogHeader>
-                    {memberToEdit && (
-                        <div className="space-y-6 py-4">
-                            <div className="flex items-center gap-3">
-                                <Avatar className="h-10 w-10">
-                                    <AvatarImage src={memberToEdit.user?.image || ""} />
-                                    <AvatarFallback>{memberToEdit.user?.name?.charAt(0)}</AvatarFallback>
-                                </Avatar>
-                                <div>
-                                    <p className="text-sm font-medium">{memberToEdit.user?.name}</p>
-                                    <p className="text-xs text-muted-foreground">{memberToEdit.user?.email}</p>
-                                </div>
+                    <Form {...editForm}>
+                        <form onSubmit={editForm.handleSubmit(handleEditConfirm)} className="space-y-4 py-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <FormField
+                                    control={editForm.control}
+                                    name="name"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>First Name</FormLabel>
+                                            <FormControl>
+                                                <Input {...field} disabled={isUpdating} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={editForm.control}
+                                    name="surname"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Last Name</FormLabel>
+                                            <FormControl>
+                                                <Input {...field} value={field.value || ""} disabled={isUpdating} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
                             </div>
 
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Role</label>
-                                <Select value={newRole} onValueChange={setNewRole}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select a role" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="ADMIN">Admin</SelectItem>
-                                        <SelectItem value="MEMBER">Member</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <p className="text-[0.8rem] text-muted-foreground">
-                                    Admins can invite and remove members, and edit workspace settings.
-                                </p>
+                            <FormField
+                                control={editForm.control}
+                                name="email"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Email Address</FormLabel>
+                                        <FormControl>
+                                            <Input {...field} type="email" disabled={isUpdating} />
+                                        </FormControl>
+                                        <FormDescription>
+                                            Changing email will require the user to re-verify and set a new password.
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <FormField
+                                    control={editForm.control}
+                                    name="designation"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Designation</FormLabel>
+                                            <FormControl>
+                                                <Input {...field} value={field.value || ""} disabled={isUpdating} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={editForm.control}
+                                    name="reportToId"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Report To</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value || undefined}>
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select Manager" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    {managers.length > 0 ? managers.map((manager) => (
+                                                        <SelectItem key={manager.id} value={manager.id}>
+                                                            {manager.surname}
+                                                        </SelectItem>
+                                                    )) : (
+                                                        <div className="p-2 text-xs text-muted-foreground">No managers found</div>
+                                                    )}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
                             </div>
-                        </div>
-                    )}
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setEditDialogOpen(false)} disabled={isUpdating}>
-                            Cancel
-                        </Button>
-                        <Button onClick={handleEditConfirm} disabled={isUpdating || newRole === memberToEdit?.workspaceRole}>
-                            {isUpdating ? "Updating..." : "Save Changes"}
-                        </Button>
-                    </DialogFooter>
+
+                            <FormField
+                                control={editForm.control}
+                                name="phoneNumber"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Phone Number</FormLabel>
+                                        <FormControl>
+                                            <Input {...field} value={field.value || ""} disabled={isUpdating} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <FormField
+                                control={editForm.control}
+                                name="role"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Role</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select a role" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {workspaceMemberRole.filter(role => role !== "OWNER").map((role) => (
+                                                    <SelectItem key={role} value={role}>
+                                                        {role.charAt(0) + role.slice(1).toLowerCase()}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <DialogFooter className="pt-4">
+                                <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)} disabled={isUpdating}>
+                                    Cancel
+                                </Button>
+                                <Button type="submit" disabled={isUpdating}>
+                                    {isUpdating ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Saving...
+                                        </>
+                                    ) : (
+                                        "Save Changes"
+                                    )}
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </Form>
                 </DialogContent>
             </Dialog>
 

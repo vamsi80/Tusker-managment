@@ -10,6 +10,8 @@ export type WorkspaceMemberRow = {
   workspaceId: string;
   userId: string;
   workspaceRole: string;
+  designation?: string | null;
+  reportToId?: string | null;
   user?: {
     id: string;
     name?: string | null;
@@ -20,9 +22,15 @@ export type WorkspaceMemberRow = {
     contactNumber?: string | null;
     phoneNumber?: string | null;
     _count?: {
-        accounts: number;
+      accounts: number;
     };
-  };
+  } | null;
+  reportTo?: {
+    user: {
+      name: string | null;
+      surname: string | null;
+    };
+  } | null;
 };
 
 export type WorkspaceMembersResult = {
@@ -37,6 +45,8 @@ async function _fetchWorkspaceMembersInternal(workspaceId: string): Promise<Work
       workspaceId: true,
       userId: true,
       workspaceRole: true,
+      designation: true,
+      reportToId: true,
       user: {
         select: {
           id: true,
@@ -46,10 +56,20 @@ async function _fetchWorkspaceMembersInternal(workspaceId: string): Promise<Work
           email: true,
           emailVerified: true,
           _count: {
-              select: {
-                  accounts: true,
-              }
+            select: {
+              accounts: true,
+            }
           }
+        },
+      },
+      reportTo: {
+        select: {
+          user: {
+            select: {
+              name: true,
+              surname: true,
+            },
+          },
         },
       },
     },
@@ -60,6 +80,9 @@ async function _fetchWorkspaceMembersInternal(workspaceId: string): Promise<Work
     workspaceId: m.workspaceId,
     userId: m.userId,
     workspaceRole: m.workspaceRole,
+    designation: m.designation,
+    reportToId: m.reportToId,
+    reportTo: m.reportTo,
     user: m.user ?? undefined,
   }));
 
@@ -69,7 +92,7 @@ async function _fetchWorkspaceMembersInternal(workspaceId: string): Promise<Work
 const getCachedWorkspaceMembers = (workspaceId: string) =>
   unstable_cache(
     async () => _fetchWorkspaceMembersInternal(workspaceId),
-    [`workspace-members-v2-${workspaceId}`],
+    [`workspace-members-v4-${workspaceId}`],
     {
       tags: CacheTags.workspaceMembers(workspaceId),
       revalidate: 60, // 60 seconds

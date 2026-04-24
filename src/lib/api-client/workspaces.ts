@@ -87,17 +87,17 @@ export const workspacesClient = {
     },
 
     /**
-     * Update a member's role
+     * Update a member's information
      */
-    updateMemberRole: async (workspaceId: string, memberId: string, role: string): Promise<ApiResponse> => {
+    updateMember: async (workspaceId: string, memberId: string, values: any): Promise<ApiResponse> => {
         const response = await apiFetch<{ success: boolean; data: any }>(`/workspaces/${workspaceId}/members/${memberId}`, {
             method: "PATCH",
-            body: JSON.stringify({ role }),
+            body: JSON.stringify(values),
         });
 
         return {
             status: response.success ? "success" : "error",
-            message: response.success ? "Role updated successfully" : "Failed to update role",
+            message: response.success ? "Member updated successfully" : "Failed to update member",
             data: response.data,
         };
     },
@@ -113,6 +113,18 @@ export const workspacesClient = {
         return {
             status: (response.status as any) || (response.success ? "success" : "error"),
             message: response.message || "Invitation resent",
+        };
+    },
+
+    /**
+     * Get all managers in a workspace
+     */
+    getManagers: async (workspaceId: string): Promise<ApiResponse> => {
+        const response = await apiFetch<{ success: boolean; data: any[] }>(`/workspaces/${workspaceId}/managers`);
+        return {
+            status: response.success ? "success" : "error",
+            data: response.data,
+            message: response.success ? "Managers fetched" : "Failed to fetch managers",
         };
     },
 

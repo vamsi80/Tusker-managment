@@ -4,7 +4,6 @@ import { ColumnDef } from "@tanstack/react-table";
 import {
     // createSelectColumn,
     createActionsColumn,
-    createBadgeColumn,
     DataTableCellAction,
 } from "@/components/data-table/column-helpers";
 import { Eye, Edit, Trash, Mail } from "lucide-react";
@@ -62,6 +61,35 @@ export function createTeamMemberColumns(
         },
 
         {
+            accessorKey: "designation",
+            header: "Designation",
+            cell: ({ row }) => {
+                const designation = row.original.designation;
+                return (
+                    <div className="text-muted-foreground font-medium">
+                        {designation || "—"}
+                    </div>
+                );
+            },
+        },
+
+        {
+            id: "reportedTo",
+            header: "Reported To",
+            cell: ({ row }) => {
+                const manager = row.original.reportTo;
+                const managerName = manager
+                    ? `${manager.user.surname || manager.user.name || ""}`.trim()
+                    : "—";
+                return (
+                    <div className="text-muted-foreground italic">
+                        {managerName}
+                    </div>
+                );
+            },
+        },
+
+        {
             accessorKey: "workspaceRole",
             header: "Role",
             cell: ({ row }) => {
@@ -93,12 +121,12 @@ export function createTeamMemberColumns(
             cell: ({ row }) => {
                 const user = row.original.user;
                 const isVerified = user?.emailVerified || (user?._count?.accounts ?? 0) > 0;
-                
+
                 return (
                     <div className={cn(
                         "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-                        isVerified 
-                            ? "bg-green-500/10 text-green-500 hover:bg-green-500/20" 
+                        isVerified
+                            ? "bg-green-500/10 text-green-500 hover:bg-green-500/20"
                             : "bg-amber-500/10 text-amber-500 hover:bg-amber-500/20"
                     )}>
                         {isVerified ? "Verified" : "Pending"}
@@ -110,12 +138,12 @@ export function createTeamMemberColumns(
 
     // Add actions column
     const actions: DataTableCellAction<WorkspaceMemberRow>[] = [
-            {
-                label: "View Details",
-                onClick: onView,
-                icon: <Eye className="h-4 w-4" />,
-            },
-        ];
+        {
+            label: "View Details",
+            onClick: onView,
+            icon: <Eye className="h-4 w-4" />,
+        },
+    ];
 
     if (isAdmin) {
         actions.push(
@@ -148,11 +176,11 @@ export function createTeamMemberColumns(
             icon: <Mail className="h-4 w-4" />,
             // Only show if not verified
             hidden: (row: WorkspaceMemberRow) => {
-            const user = row.user;
-            const isVerified = user?.emailVerified || (user?._count?.accounts ?? 0) > 0;
-            return !!isVerified;
-        }
-    });
+                const user = row.user;
+                const isVerified = user?.emailVerified || (user?._count?.accounts ?? 0) > 0;
+                return !!isVerified;
+            }
+        });
     }
 
     const actionsColumn = createActionsColumn<WorkspaceMemberRow>(actions);

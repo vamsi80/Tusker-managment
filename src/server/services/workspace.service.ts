@@ -5,6 +5,7 @@ import {
   invalidateWorkspace,
   invalidateUserWorkspaces,
   invalidateWorkspaceMembers,
+  invalidateUserPermissions,
 } from "@/lib/cache/invalidation";
 import { revalidateTag } from "next/cache";
 import { CacheTags } from "@/data/cache-tags";
@@ -131,9 +132,19 @@ export class WorkspaceService {
             image: true,
             emailVerified: true,
             _count: {
-                select: {
-                    accounts: true,
-                }
+              select: {
+                accounts: true,
+              },
+            },
+          },
+        },
+        reportTo: {
+          select: {
+            user: {
+              select: {
+                name: true,
+                surname: true,
+              },
             },
           },
         },
@@ -160,7 +171,7 @@ export class WorkspaceService {
       throw new Error("Invalid input data");
     }
 
-    const { name, niceName, email, role, workspaceId, phoneNumber } =
+    const { name, niceName, email, role, workspaceId, phoneNumber, designation, reportToId } =
       parsed.data;
 
     // 1. Pre-flight checks (Validation BEFORE any side effects)
@@ -234,6 +245,8 @@ export class WorkspaceService {
               userId: authUserId,
               workspaceId,
               workspaceRole: role,
+              designation: designation || null,
+              reportToId: reportToId || null,
             },
           }),
         ]);
@@ -249,6 +262,7 @@ export class WorkspaceService {
       // 4. Invalidate caches
       await invalidateUserWorkspaces(authUserId);
       await invalidateWorkspaceMembers(workspaceId);
+      await invalidateUserPermissions(authUserId, workspaceId);
 
       // 5. Send Invitation Email (Refactored to include token)
       const { sendWorkspaceInvitationEmail } = await import("@/lib/auth");
@@ -592,6 +606,7 @@ export class WorkspaceService {
     // 4. Invalidate caches
     await invalidateUserWorkspaces(userIdToDelete);
     await invalidateWorkspaceMembers(workspaceId);
+    await invalidateUserPermissions(userIdToDelete, workspaceId);
 
     // 5. Record Activity
     await recordActivity({
@@ -613,18 +628,42 @@ export class WorkspaceService {
   }
 
   /**
-   * Update a member's role in the workspace
+   * Update a member's information in the workspace
    */
-  static async updateMemberRole(
+  static async updateMember(
     workspaceId: string,
     memberId: string,
-    role: string,
+    data: {
+      name: string;
+      surname?: string | null;
+      email: string;
+      phoneNumber?: string | null;
+      role: string;
+      designation?: string | null;
+      reportToId?: string | null;
+    },
     actorId: string,
   ) {
     // 1. Fetch member to check constraints
     const member = await prisma.workspaceMember.findUnique({
       where: { id: memberId },
-      include: { user: { select: { name: true, surname: true } } },
+      select: {
+        id: true,
+        userId: true,
+        workspaceId: true,
+        workspaceRole: true,
+        designation: true,
+        reportToId: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            surname: true,
+            email: true,
+            phoneNumber: true
+          }
+        }
+      }
     });
 
     if (!member || member.workspaceId !== workspaceId) {
@@ -632,36 +671,126 @@ export class WorkspaceService {
     }
 
     if (member.workspaceRole === "OWNER") {
-      throw new Error("Cannot change the role of the workspace owner");
+      throw new Error("Cannot change the information of the workspace owner");
     }
 
-    // 2. Update Role
-    const updated = await prisma.workspaceMember.update({
-      where: { id: memberId },
-      data: { workspaceRole: role as any },
+    const userId = member.userId;
+    const oldEmail = member.user?.email || "";
+    const isEmailChanged = data.email.toLowerCase() !== oldEmail.toLowerCase();
+
+    // 2. Conflict Checks
+    if (isEmailChanged) {
+      const existingEmail = await prisma.user.findUnique({
+        where: { email: data.email },
+      });
+      if (existingEmail) {
+        throw new Error("This email address is already in use by another user.");
+      }
+    }
+
+    if (data.phoneNumber && data.phoneNumber !== member.user?.phoneNumber) {
+      const existingPhone = await prisma.user.findUnique({
+        where: { phoneNumber: data.phoneNumber },
+      });
+      if (existingPhone) {
+        throw new Error("This phone number is already associated with another account.");
+      }
+    }
+
+    // 3. Execution Transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Update User
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          name: data.name,
+          surname: data.surname,
+          email: data.email,
+          phoneNumber: data.phoneNumber,
+          emailVerified: isEmailChanged ? false : undefined,
+        },
+      });
+
+      // Update WorkspaceMember
+      const updatedMember = await tx.workspaceMember.update({
+        where: { id: memberId },
+        data: { 
+          workspaceRole: data.role as any,
+          designation: data.designation,
+          reportToId: data.reportToId
+        },
+      });
+
+      // Handle Email Change Side Effects
+      if (isEmailChanged) {
+        // Delete all accounts (forces password reset/re-auth)
+        await tx.account.deleteMany({
+          where: { userId },
+        });
+
+        // Generate new verification token
+        const token = crypto.randomBytes(32).toString("hex");
+        const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
+
+        await tx.verification.deleteMany({
+          where: { identifier: data.email },
+        });
+
+        await tx.verification.create({
+          data: {
+            id: crypto.randomUUID(),
+            identifier: data.email,
+            value: token,
+            expiresAt,
+          },
+        });
+
+        // Send Email
+        const { sendWorkspaceInvitationEmail } = await import("@/lib/auth");
+        await sendWorkspaceInvitationEmail({
+          email: data.email,
+          name: data.name,
+          workspaceId,
+          role: data.role,
+          token,
+        });
+      }
+
+      return updatedMember;
     });
 
-    // 3. Invalidate caches
+    // 4. Invalidate caches
     await invalidateWorkspaceMembers(workspaceId);
+    await invalidateUserWorkspaces(userId);
+    await invalidateUserPermissions(userId, workspaceId);
 
-    // 4. Record Activity
+    // 5. Record Activity
     const actor = await prisma.user.findUnique({
       where: { id: actorId },
-      select: { surname: true },
+      select: { surname: true, name: true },
     });
+    
     await recordActivity({
       userId: actorId,
-      userName: actor?.surname || "Admin",
+      userName: actor?.surname || actor?.name || "Admin",
       workspaceId,
       action: "MEMBER_UPDATED",
       entityType: "MEMBER",
       entityId: memberId,
-      newData: { role },
-      oldData: { role: member.workspaceRole },
+      newData: { ...data, emailChanged: isEmailChanged },
+      oldData: { 
+        name: member.user?.name, 
+        surname: member.user?.surname, 
+        email: member.user?.email, 
+        phoneNumber: member.user?.phoneNumber, 
+        role: member.workspaceRole,
+        designation: member.designation,
+        reportToId: member.reportToId
+      },
       broadcastEvent: "team_update",
     });
 
-    return { success: true, data: updated };
+    return { success: true, data: result, emailChanged: isEmailChanged };
   }
 
   /**
@@ -767,6 +896,16 @@ export class WorkspaceService {
             name: true,
             surname: true,
             email: true,
+          },
+        },
+        reportTo: {
+          select: {
+            user: {
+              select: {
+                name: true,
+                surname: true,
+              },
+            },
           },
         },
       },
@@ -1059,5 +1198,34 @@ export class WorkspaceService {
     await invalidateWorkspaceMembers(workspaceId);
 
     return { success: true, workspaceId };
+  }
+
+  /**
+   * Get all members with MANAGER role in a workspace
+   */
+  static async getWorkspaceManagers(workspaceId: string) {
+    const managers = await prisma.workspaceMember.findMany({
+      where: {
+        workspaceId,
+        workspaceRole: {
+          in: ["MANAGER", "ADMIN", "OWNER"],
+        },
+      },
+      select: {
+        id: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            surname: true,
+          },
+        },
+      },
+    });
+
+    return managers.map((m) => ({
+      id: m.id,
+      surname: m.user?.surname || m.user?.name || "Unknown",
+    }));
   }
 }

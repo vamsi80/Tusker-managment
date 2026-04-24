@@ -47,11 +47,41 @@ export const inviteUserSchema = z.object({
         .max(100, { message: "Email must be at most 100 character long" }),
     phoneNumber: z
         .string()
-        .min(10, { message: "Phone Number must be at least 10 characters long" })
-        .max(15, { message: "Phone Number must be at most 15 characters long" }),
+        .max(15, { message: "Phone Number must be at most 15 characters long" })
+        .optional()
+        .nullable()
+        .or(z.literal("")),
+    designation: z.string().min(1, { message: "Designation is required" }),
+    reportToId: z.string().optional().nullable().or(z.literal("")),
     // role and workspaceId are required for the link
     role: z.enum(workspaceMemberRole, { message: "Role is required" }),
     workspaceId: z.string().uuid({ message: "Invalid workspace id" }),
+});
+
+export const updateMemberSchema = z.object({
+    name: z
+        .string()
+        .min(3, { message: "Name must be at least 3 characters long" })
+        .max(100, { message: "Name must be at most 100 characters long" }),
+    surname: z
+        .string()
+        .max(100, { message: "Surname must be at most 100 characters long" })
+        .optional()
+        .nullable()
+        .or(z.literal("")),
+    email: z
+        .string()
+        .email({ message: "Invalid email address" }),
+    phoneNumber: z
+        .string()
+        .max(15, { message: "Phone Number must be at most 15 characters long" })
+        .optional()
+        .nullable()
+        .or(z.literal("")),
+    designation: z.string().min(1, { message: "Designation is required" }),
+    reportToId: z.string().optional(),
+    role: z.enum(workspaceMemberRole),
+    workspaceId: z.string(),
 });
 
 export const acceptInvitationSchema = z.object({
@@ -507,6 +537,7 @@ export const createPOSchema = z.object({
 export const createPOFormSchema = createPOSchema;
 
 export type InviteUserSchemaType = z.infer<typeof inviteUserSchema>;
+export type UpdateMemberSchemaType = z.infer<typeof updateMemberSchema>;
 export type WorkSpaceSchemaType = z.infer<typeof workSpaceSchema>;
 export type ProjectSchemaType = z.infer<typeof projectSchema>;
 export type EditProjectSchemaType = z.infer<typeof editProjectSchema>;

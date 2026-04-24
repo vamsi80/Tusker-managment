@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { workspacesClient } from "@/lib/api-client/workspaces";
 import { AppLoader } from "@/components/shared/app-loader";
 import { TeamMembers } from "./team-members-table";
 import { useWorkspaceLayout } from "../../_components/workspace-layout-context";
+import { pusherClient } from "@/lib/pusher";
+import { TEAM_UPDATE } from "@/lib/realtime";
 
 interface TeamManagementClientProps {
     workspaceId: string;
@@ -19,25 +21,31 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
     const [isLoadingMembers, setIsLoadingMembers] = useState(true);
     const [members, setMembers] = useState<any[]>([]);
 
-    useEffect(() => {
-        async function fetchData() {
-            try {
-                setIsLoadingMembers(true);
-                // We still fetch members because they are not in the layout context
-                const membersRes = await workspacesClient.getMembers(workspaceId);
-                setMembers(membersRes.data?.workspaceMembers || []);
-                
-                // Background revalidation is now handled by the LayoutProvider's throttle policy
-                // No need to manually trigger it here on every navigation
-            } catch (error) {
-                console.error("Failed to fetch team data:", error);
-            } finally {
-                setIsLoadingMembers(false);
-            }
+    const fetchData = useCallback(async () => {
+        try {
+            setIsLoadingMembers(true);
+            const membersRes = await workspacesClient.getMembers(workspaceId);
+            setMembers(membersRes.data?.workspaceMembers || []);
+        } catch (error) {
+            console.error("Failed to fetch team data:", error);
+        } finally {
+            setIsLoadingMembers(false);
         }
-
-        fetchData();
     }, [workspaceId]);
+
+    useEffect(() => {
+        fetchData();
+
+        // Listen for real-time team updates
+        const channel = pusherClient?.subscribe(`workspace-${workspaceId}`);
+        channel?.bind(TEAM_UPDATE, () => {
+            fetchData();
+        });
+
+        return () => {
+            pusherClient?.unsubscribe(`workspace-${workspaceId}`);
+        };
+    }, [workspaceId, fetchData]);
 
     if (isLoadingMembers) {
         return <AppLoader />;
@@ -48,6 +56,7 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
             data={members}
             isAdmin={layoutData?.permissions?.isWorkspaceAdmin || false}
             workspaceId={workspaceId}
+            onRefresh={fetchData}
         />
     );
 }
