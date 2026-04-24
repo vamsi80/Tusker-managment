@@ -11,6 +11,13 @@ import { ChevronLeft, ChevronRight, Columns, Search, Plus, X, Filter } from "luc
 import { ColumnDef, ColumnFiltersState, SortingState, VisibilityState, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, getFacetedRowModel, getFacetedUniqueValues, useReactTable } from "@tanstack/react-table";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { useMounted } from "@/hooks/use-mounted";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
 export interface DataTableFilterField<TData> {
     label: string;
@@ -393,51 +400,126 @@ export function DataTable<TData, TValue>({
             </div>
 
             {/* Pagination */}
-            {
-                showPagination && (
-                    <div className="flex flex-col sm:flex-row items-center justify-start gap-4 mt-2">
-                        {/* Pagination Controls - Moved to Left */}
-                        <div className="flex items-center gap-4 sm:gap-6 order-1 w-full sm:w-auto justify-between sm:justify-start">
-                            <div className="flex items-center gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => table.previousPage()}
-                                    disabled={!table.getCanPreviousPage()}
-                                    className="h-8"
-                                >
-                                    <ChevronLeft className="h-4 w-4" />
-                                    <span className="sr-only sm:not-sr-only sm:ml-2">Previous</span>
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => table.nextPage()}
-                                    disabled={!table.getCanNextPage()}
-                                    className="h-8"
-                                >
-                                    <span className="sr-only sm:not-sr-only sm:mr-2">Next</span>
-                                    <ChevronRight className="h-4 w-4" />
-                                </Button>
-                            </div>
-                            <div className="text-sm text-muted-foreground whitespace-nowrap">
-                                Page {table.getState().pagination.pageIndex + 1} of{" "}
-                                {table.getPageCount()}
-                            </div>
+            {showPagination && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-2">
+                    <div className="flex items-center gap-4 sm:gap-6 order-2 sm:order-1 w-full sm:w-auto justify-between sm:justify-start">
+                        {/* Page Size Selector */}
+                        <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium whitespace-nowrap">Rows per page</p>
+                            <Select
+                                value={`${table.getState().pagination.pageSize}`}
+                                onValueChange={(value) => {
+                                    table.setPageSize(Number(value));
+                                }}
+                            >
+                                <SelectTrigger className="h-8 w-[70px]">
+                                    <SelectValue placeholder={table.getState().pagination.pageSize} />
+                                </SelectTrigger>
+                                <SelectContent side="top">
+                                    {[10, 20, 30, 40, 50].map((pageSize) => (
+                                        <SelectItem key={pageSize} value={`${pageSize}`}>
+                                            {pageSize}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
 
-                        {/* Row Selection Info - Moved to Right */}
-                        <div className="text-sm text-muted-foreground order-2 ml-auto">
-                            {table.getFilteredSelectedRowModel().rows.length > 0 && (
-                                <span>
-                                    {table.getFilteredSelectedRowModel().rows.length} of{" "}
-                                    {table.getFilteredRowModel().rows.length} row(s) selected.
-                                </span>
-                            )}
+                        {/* Page Count Info */}
+                        <div className="flex w-[100px] items-center justify-center text-sm font-medium whitespace-nowrap">
+                            Page {table.getState().pagination.pageIndex + 1} of{" "}
+                            {table.getPageCount()}
                         </div>
                     </div>
-                )
-            }
+
+                    <div className="flex items-center gap-2 order-1 sm:order-2 ml-auto">
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                className="hidden h-8 w-8 p-0 lg:flex"
+                                onClick={() => table.setPageIndex(0)}
+                                disabled={!table.getCanPreviousPage()}
+                            >
+                                <span className="sr-only">Go to first page</span>
+                                <ChevronLeft className="h-4 w-4" />
+                                <ChevronLeft className="h-4 w-4 -ml-2" />
+                            </Button>
+                            <Button
+                                variant="outline"
+                                className="h-8 w-8 p-0"
+                                onClick={() => table.previousPage()}
+                                disabled={!table.getCanPreviousPage()}
+                            >
+                                <span className="sr-only">Go to previous page</span>
+                                <ChevronLeft className="h-4 w-4" />
+                            </Button>
+
+                            {/* Buffer Pages / Page Numbers */}
+                            <div className="flex items-center gap-1">
+                                {(() => {
+                                    const currentPage = table.getState().pagination.pageIndex;
+                                    const pageCount = table.getPageCount();
+                                    const pages = [];
+
+                                    // Simple logic for 5 pages around current
+                                    let start = Math.max(0, currentPage - 2);
+                                    let end = Math.min(pageCount - 1, start + 4);
+
+                                    // Adjust start if end is at max
+                                    if (end - start < 4) {
+                                        start = Math.max(0, end - 4);
+                                    }
+
+                                    for (let i = start; i <= end; i++) {
+                                        pages.push(
+                                            <Button
+                                                key={i}
+                                                variant={currentPage === i ? "default" : "outline"}
+                                                size="sm"
+                                                className="h-8 w-8 p-0 hidden sm:flex"
+                                                onClick={() => table.setPageIndex(i)}
+                                            >
+                                                {i + 1}
+                                            </Button>
+                                        );
+                                    }
+                                    return pages;
+                                })()}
+                            </div>
+
+                            <Button
+                                variant="outline"
+                                className="h-8 w-8 p-0"
+                                onClick={() => table.nextPage()}
+                                disabled={!table.getCanNextPage()}
+                            >
+                                <span className="sr-only">Go to next page</span>
+                                <ChevronRight className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant="outline"
+                                className="hidden h-8 w-8 p-0 lg:flex"
+                                onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                                disabled={!table.getCanNextPage()}
+                            >
+                                <span className="sr-only">Go to last page</span>
+                                <ChevronRight className="h-4 w-4" />
+                                <ChevronRight className="h-4 w-4 -ml-2" />
+                            </Button>
+                        </div>
+                    </div>
+
+                    {/* Row Selection Info */}
+                    <div className="hidden sm:block text-sm text-muted-foreground order-3 ml-4">
+                        {table.getFilteredSelectedRowModel().rows.length > 0 && (
+                            <span>
+                                {table.getFilteredSelectedRowModel().rows.length} of{" "}
+                                {table.getFilteredRowModel().rows.length} row(s) selected.
+                            </span>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -52,12 +52,12 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
     url: string;
     icon: "Settings" | "BarChart3" | "LayoutDashboard";
   }> = [
-      {
-        title: isOwner ? "Member Board" : "My Board",
-        url: `/w/${workspaceId}/my-board`,
-        icon: "LayoutDashboard"
-      },
-      { title: "Reports", url: `/w/${workspaceId}/reports`, icon: "BarChart3" },
+      // {
+      //   title: isOwner ? "Member Board" : "My Board",
+      //   url: `/w/${workspaceId}/my-board`,
+      //   icon: "LayoutDashboard"
+      // },
+      // { title: "Reports", url: `/w/${workspaceId}/reports`, icon: "BarChart3" },
       { title: "Settings", url: `/w/${workspaceId}/settings`, icon: "Settings" },
     ];
 
@@ -86,17 +86,17 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                     tooltip={item.title}
                     disabled={router.isNavigating}
                   >
-                    <Link 
-                        href={item.url}
-                        onClick={(e) => {
-                            if (pathname !== item.url) {
-                                if (isMobile) {
-                                    setOpenMobile(false);
-                                }
-                                e.preventDefault();
-                                router.push(item.url);
-                            }
-                        }}
+                    <Link
+                      href={item.url}
+                      onClick={(e) => {
+                        if (pathname !== item.url) {
+                          if (isMobile) {
+                            setOpenMobile(false);
+                          }
+                          e.preventDefault();
+                          router.push(item.url);
+                        }
+                      }}
                     >
                       <item.icon />
                       <span>{item.title}</span>
