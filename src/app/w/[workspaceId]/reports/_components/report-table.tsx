@@ -16,20 +16,22 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { ReportDetailModal } from "./report-detail-sheet";
 import { Loader2, CalendarIcon, UserIcon, X, ChevronDown, Clock, Search, ChevronRight, ChevronsUpDown, ChevronsDownUp } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { WorkspaceMemberRow } from "@/data/workspace/get-workspace-members";
+import { apiClient } from "@/lib/api-client";
+import { WorkspaceMemberRow } from "@/types/workspace";
 import { loadMoreReportsAction } from "@/actions/daily-report/load-reports";
 
 interface Props {
     initialData: any[];
     workspaceId: string;
-    members: WorkspaceMemberRow[];
     initialDate?: string;
     initialUserId?: string;
     isAdmin: boolean;
     currentUserId: string;
 }
 
-export function ReportsTable({ initialData, workspaceId, members, initialDate, initialUserId, isAdmin, currentUserId }: Props) {
+export function ReportsTable({ initialData, workspaceId, initialDate, initialUserId, isAdmin, currentUserId }: Props) {
+    const [members, setMembers] = useState<WorkspaceMemberRow[]>([]);
+    const [isMembersLoading, setIsMembersLoading] = useState(true);
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -42,6 +44,20 @@ export function ReportsTable({ initialData, workspaceId, members, initialDate, i
     const [searchQuery, setSearchQuery] = useState("");
     const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
     const [expandedReports, setExpandedReports] = useState<Record<string, boolean>>({});
+
+    useEffect(() => {
+        async function fetchMembers() {
+            try {
+                const res = await apiClient.workspaces.getMembers(workspaceId);
+                setMembers(res.workspaceMembers || []);
+            } catch (error) {
+                console.error("Failed to fetch members:", error);
+            } finally {
+                setIsMembersLoading(false);
+            }
+        }
+        fetchMembers();
+    }, [workspaceId]);
 
     // Sync with initialData change (when server-side searchParams change)
     useEffect(() => {
@@ -487,13 +503,18 @@ export function ReportsTable({ initialData, workspaceId, members, initialDate, i
                                 <Button
                                     variant="outline"
                                     size="sm"
+                                    disabled={isMembersLoading}
                                     className={cn(
                                         "h-9 justify-start text-left font-normal border-dashed",
                                         !initialUserId && "text-muted-foreground"
                                     )}
                                 >
-                                    <UserIcon className="mr-2 h-4 w-4" />
-                                    {selectedMember ? `${selectedMember.user?.surname || ""}` : "All Assignees"}
+                                    {isMembersLoading ? (
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <UserIcon className="mr-2 h-4 w-4" />
+                                    )}
+                                    {isMembersLoading ? "Loading Members..." : (selectedMember ? `${selectedMember.user?.surname || ""}` : "All Assignees")}
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="p-0 w-[200px]" align="end">

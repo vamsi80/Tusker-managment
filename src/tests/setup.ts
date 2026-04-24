@@ -99,9 +99,7 @@ vi.mock("@/lib/colors/project-colors", () => ({
     getUniqueRandomColor: vi.fn(() => "#000000"),
 }));
 
-vi.mock("@/data/workspace/get-workspace-by-id", () => ({
-    getWorkspaceById: vi.fn(),
-}));
+// No longer mocking deleted get-workspace-by-id
 
 vi.mock("@/lib/auth/require-user", () => ({
     requireUser: vi.fn(),

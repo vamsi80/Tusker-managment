@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import type { WorkspaceData } from "@/data/workspace/get-workspace-by-id";
+import type { WorkspaceData } from "@/types/workspace";
 
 interface WorkspaceContextType {
     workspaceId: string;

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { WorkspaceData } from "@/data/workspace/get-workspace-by-id";
+import { WorkspaceData } from "@/types/workspace";
 import { apiClient } from "@/lib/api-client";
 import { updateWorkspaceInfoSchema, UpdateWorkspaceInfoType } from "@/lib/zodSchemas";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";

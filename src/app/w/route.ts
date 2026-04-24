@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { requireUser } from "../../lib/auth/require-user";
 import { AuthError } from "@/lib/errors/auth-errors";
-import { getWorkspaces } from "@/data/workspace/get-workspaces";
+import { WorkspaceService } from "@/server/services/workspace.service";
 
 export async function GET(request: NextRequest) {
   const origin = new URL(request.url).origin;
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${origin}/sign-in`);
     }
 
-    const { workspaces } = await getWorkspaces();
+    const { workspaces } = await WorkspaceService.getWorkspaces(session.id);
 
     if (!workspaces?.length) {
       return NextResponse.redirect(`${origin}/create-workspace?noWorkspace=1`);
