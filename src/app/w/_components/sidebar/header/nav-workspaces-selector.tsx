@@ -6,18 +6,17 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Check, ChevronsUpDown, Loader2, Plus } from "lucide-react";
+import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "../../../../../components/ui/sidebar";
 import { useRouter } from "next/navigation";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useMounted } from "@/hooks/use-mounted";
 import type { WorkspacesType } from "@/data/workspace/get-workspaces";
+import { apiClient } from "@/lib/api-client";
 
 interface Props {
-  // matches your getWorkspaces() return: WorkspacesResult
   data: WorkspacesType;
   workspaceId: string;
 }
@@ -29,14 +28,37 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
   const navigatingTo = useRef<string | null>(null);
   const mounted = useMounted();
 
-  const workspaces = data?.workspaces ?? []; // array of workspace items
-  // find current workspace item from workspaceId or default to first item
+  const [workspaces, setWorkspaces] = React.useState<any[]>(data?.workspaces ?? []);
+  const [isLoadingWorkspaces, setIsLoadingWorkspaces] = React.useState(false);
+
+  // Sync state if initial data changes (though unlikely to happen on server)
+  useEffect(() => {
+    if (data?.workspaces?.length > 0) {
+      setWorkspaces(data.workspaces);
+    }
+  }, [data?.workspaces]);
+
+  // Client-side fetch if list is empty
+  useEffect(() => {
+    if (mounted && workspaces.length === 0 && !isLoadingWorkspaces) {
+      setIsLoadingWorkspaces(true);
+      apiClient.workspaces.getAll()
+        .then((res) => {
+          if (res?.workspaces) {
+            setWorkspaces(res.workspaces);
+          }
+        })
+        .catch((err) => console.error("Failed to load workspaces:", err))
+        .finally(() => setIsLoadingWorkspaces(false));
+    }
+  }, [mounted, workspaces.length, isLoadingWorkspaces]);
+
+  // find current workspace item from workspaceId or metadata
   const selected = useMemo(() => {
-    if (!workspaces || workspaces.length === 0) return undefined;
-    return (
-      workspaces.find((w) => w.id === workspaceId) ??
-      workspaces[0]
-    );
+    const found = workspaces.find((w) => w.id === workspaceId);
+    if (found) return found;
+
+    return undefined; // Fallback handled in UI
   }, [workspaces, workspaceId]);
 
   useEffect(() => {
@@ -78,7 +100,7 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
 
                 <div className="flex flex-col ml-2">
                   <div className="font-semibold text-muted-foreground">
-                    {isPending ? "Switching..." : (selected?.name ?? "No Workspaces")}
+                    {isPending ? "Switching..." : (selected?.name || "Workspace")}
                   </div>
                 </div>
                 <ChevronsUpDown className="ml-auto" />
@@ -117,7 +139,6 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
                   </DropdownMenuItem>
                 );
               })}
-
             </DropdownMenuContent>
           </DropdownMenu>
         )}

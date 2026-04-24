@@ -1,36 +1,28 @@
-"use server";
 import { cache } from "react";
-import { WorkspaceService } from "@/server/services/workspace.service";
-import { requireUser } from "@/lib/auth/require-user";
+import { headers } from "next/headers";
+import app from "@/hono";
 
 /**
  * UNIFIED LAYOUT DATA FETCH
- * Now calls WorkspaceService directly for server-side efficiency.
+ * Refactored to call the Hono API internally for consistency.
  */
 export const getWorkspaceLayoutData = cache(async (workspaceId: string) => {
     try {
-        const user = await requireUser();
-        const layoutData = await WorkspaceService.getWorkspaceLayoutData(workspaceId, user.id);
+        const res = await app.request(`/api/v1/workspaces/${workspaceId}/layout`, {
+            headers: await headers(),
+        });
 
-        const { 
-            leadProjectIds, 
-            managedProjectIds, 
-            memberProjectIds, 
-            viewerProjectIds, 
-            ...leanPermissions 
-        } = layoutData.permissions;
+        if (!res.ok) {
+            throw new Error(`API Error: ${res.status}`);
+        }
 
-        return JSON.parse(JSON.stringify({
-            ...layoutData,
-            permissions: leanPermissions,
-            user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-            }
-        }));
+        const result = await res.json();
+        const layoutData = result.data;
+
+        // Note: The API already includes user info and lean permissions in its response
+        return JSON.parse(JSON.stringify(layoutData));
     } catch (error) {
-        console.error("Error fetching workspace layout data via Service:", error);
+        console.error("Error fetching workspace layout data via Hono API:", error);
         return {
             user: null,
             workspaces: { workspaces: [], totalCount: 0 },

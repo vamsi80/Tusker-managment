@@ -190,7 +190,7 @@ export function NavProjects({ projects, workspaceId, isAdmin, canCreateProject, 
             )}
           </div>
         </SidebarGroupLabel>
-        <SidebarMenu>
+        <SidebarMenu className="max-h-[40vh] overflow-y-auto custom-scrollbar px-1">
           {projects?.map((proj: UserProjectsType[number]) => {
             const href = `/w/${workspaceId}/p/${proj.slug}`;
             const isActive = pathname === href || pathname.startsWith(`${href}/`);

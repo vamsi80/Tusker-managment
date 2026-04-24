@@ -1,6 +1,6 @@
 import { cache } from "react";
-import { WorkspaceService } from "@/server/services/workspace.service";
-import { requireUser } from "@/lib/auth/require-user";
+import { headers } from "next/headers";
+import app from "@/hono";
 
 /**
  * Types for workspace list data
@@ -27,15 +27,22 @@ export function invalidateWorkspacesCache(userId: string) {
 
 /**
  * Public function — returns all workspaces for the current authenticated user
- * Now calls WorkspaceService directly for server-side efficiency.
+ * Refactored to call the Hono API internally for consistency.
  */
 export const getWorkspaces = cache(async (): Promise<WorkspacesResult> => {
   try {
-    const user = await requireUser();
-    const result = await WorkspaceService.getWorkspaces(user.id);
-    return result as WorkspacesResult;
+    const res = await app.request("/api/v1/workspaces", {
+      headers: await headers(),
+    });
+
+    if (!res.ok) {
+      return { workspaces: [], totalCount: 0 };
+    }
+
+    const result = await res.json();
+    return result.data as WorkspacesResult;
   } catch (error) {
-    console.error("Error fetching workspaces via Service:", error);
+    console.error("Error fetching workspaces via Hono API:", error);
     return { workspaces: [], totalCount: 0 };
   }
 });

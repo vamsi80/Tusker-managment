@@ -142,7 +142,6 @@ export class WorkspaceService {
           select: {
             user: {
               select: {
-                name: true,
                 surname: true,
               },
             },
@@ -989,39 +988,32 @@ export class WorkspaceService {
   }
 
   /**
-   * Unified Layout Data Fetch
-   * Optimized for zero-weight shell hydration.
+   * Unified Layout Data Fetch (LEAN)
+   * Optimized to minimize RSC payload by only fetching what's needed for the shell.
    */
   static async getWorkspaceLayoutData(workspaceId: string, userId: string) {
     const [
-      workspaces,
       metadata,
       reportStatus,
       projects,
       permissions,
       unreadNotificationsCount,
-      tags,
-      projectAssignments,
     ]: any[] = await Promise.all([
-      this.getWorkspaces(userId),
       this.getWorkspaceMetadata(workspaceId, userId),
       getDailyReportStatusForUser(workspaceId, userId),
       getUserProjects(workspaceId),
       getWorkspacePermissions(workspaceId, userId),
       this.getUnreadNotificationsCount(workspaceId, userId),
-      getWorkspaceTags(workspaceId),
-      this.getWorkspaceProjectAssignments(workspaceId),
     ]);
 
     return {
-      workspaces,
       metadata,
       reportStatus,
       projects,
       permissions,
       unreadNotificationsCount,
-      tags,
-      projectAssignments,
+      // We no longer send the full workspace list or heavy assignments in the initial RSC payload
+      workspaces: { workspaces: [], totalCount: 0 }, 
     };
   }
 
