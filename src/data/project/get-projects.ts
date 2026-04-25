@@ -23,8 +23,11 @@ import { CacheTags } from "@/data/cache-tags";
  * - Can see ONLY projects where they are added as ProjectMember
  */
 
-// Internal function that does the actual data fetching
-async function _getUserProjectsInternal(userId: string, workspaceId: string) {
+/**
+ * Internal function that does the actual data fetching.
+ * Exported for use in Hono API routes.
+ */
+export async function getWorkspaceProjectsForUser(userId: string, workspaceId: string) {
     const workspaceMember = await prisma.workspaceMember.findUnique({
         where: {
             userId_workspaceId: {
@@ -135,22 +138,77 @@ async function _getUserProjectsInternal(userId: string, workspaceId: string) {
             slug: project.slug,
             color: project.color,
             canManageMembers: isOwnerOrAdmin || isProjectManager || isCreator,
-            memberIds: project.projectMembers.map(m => m.workspaceMember.userId),
         };
     });
 }
+
+/**
+ * Lightweight version for sidebar/layout.
+ * Returns only id, name, slug, color.
+ */
+export async function getMinimalWorkspaceProjectsForUser(userId: string, workspaceId: string) {
+    const workspaceMember = await prisma.workspaceMember.findUnique({
+        where: {
+            userId_workspaceId: {
+                userId,
+                workspaceId,
+            },
+        },
+        select: {
+            id: true,
+            workspaceRole: true,
+        },
+    });
+
+    if (!workspaceMember) return [];
+
+    const isOwnerOrAdmin = workspaceMember.workspaceRole === "OWNER" || workspaceMember.workspaceRole === "ADMIN";
+    
+    const where: any = { workspaceId };
+    
+    if (!isOwnerOrAdmin) {
+        where.OR = [
+            { createdBy: userId },
+            {
+                projectMembers: {
+                    some: {
+                        workspaceMember: { userId },
+                        hasAccess: true,
+                    },
+                },
+            },
+        ];
+    }
+
+    return prisma.project.findMany({
+        where,
+        select: {
+            id: true,
+            name: true,
+            slug: true,
+            color: true,
+        },
+        orderBy: [
+            { createdAt: "desc" },
+            { id: "desc" },
+        ],
+    });
+}
+
+export type MinimalProjectData = Awaited<ReturnType<typeof getMinimalWorkspaceProjectsForUser>>[number];
 
 
 // Cached version with Next.js unstable_cache (persists across requests)
 const getCachedUserProjects = (userId: string, workspaceId: string) =>
     unstable_cache(
-        async () => _getUserProjectsInternal(userId, workspaceId),
+        async () => getWorkspaceProjectsForUser(userId, workspaceId),
         [`user-projects-${userId}-${workspaceId}`],
         {
             tags: CacheTags.userProjects(userId, workspaceId),
             revalidate: 60,
         }
     )();
+
 
 // React cache wrapper (deduplicates requests within the same render)
 export const getUserProjects = cache(async (workspaceId: string) => {

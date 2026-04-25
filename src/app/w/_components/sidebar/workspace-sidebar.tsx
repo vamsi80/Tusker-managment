@@ -12,16 +12,14 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarGroupContent,
-  SidebarSeparator,
   useSidebar
 } from "@/components/ui/sidebar";
 import { NavUser } from "./footer/nav-user";
-import { NavMain } from "./header/nav-main";
 import { NavProjects } from "./projectsList/nav-projects";
 import { NavWorkspacesSelector } from "./header/nav-workspaces-selector";
 import { NavFooter } from "./footer/nav-footer";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
-import { LayoutDashboard, Users, CheckSquare, Settings, BarChart3, AppWindow } from "lucide-react";
+import { LayoutDashboard, Users, CheckSquare } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSafeNavigation } from "@/hooks/use-safe-navigation";
@@ -35,7 +33,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const { isMobile, setOpenMobile } = useSidebar();
   const pathname = usePathname();
   const router = useSafeNavigation();
-  const { workspaces, projects, permissions } = data;
+  const { workspaces, permissions } = data;
 
   // Navigation items for the main workspace section
   const mainNavItems = [
@@ -105,19 +103,15 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
           </SidebarGroupContent>
         </SidebarGroup>
 
-
         <div className="py-2" />
 
-        {projects && (
-          <NavProjects
-            projects={projects}
-            workspaceId={workspaceId}
-            isAdmin={permissions?.isWorkspaceAdmin ?? false}
-            canCreateProject={permissions?.canCreateProject ?? permissions?.isWorkspaceAdmin ?? false}
-            userRole={permissions?.workspaceRole}
-            currentUserId={data.user?.id}
-          />
-        )}
+        <NavProjects
+          workspaceId={workspaceId}
+          isAdmin={permissions?.isWorkspaceAdmin ?? false}
+          canCreateProject={permissions?.canCreateProject ?? permissions?.isWorkspaceAdmin ?? false}
+          userRole={permissions?.workspaceRole}
+          currentUserId={permissions?.userId}
+        />
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border/50 p-4">

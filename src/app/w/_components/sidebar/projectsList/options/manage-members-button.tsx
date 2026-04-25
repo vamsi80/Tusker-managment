@@ -4,7 +4,8 @@ import { useState } from "react";
 import { Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ProjectRole } from "@/generated/prisma/client";
-import { WorkspaceMembersResult } from "@/data/workspace";
+import { type WorkspaceMembersResult } from "@/types/workspace";
+
 import { ManageProjectMembersDialog } from "./manage-members-dialog";
 
 interface ProjectMember {

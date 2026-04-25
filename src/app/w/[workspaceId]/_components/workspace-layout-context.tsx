@@ -71,7 +71,7 @@ export function WorkspaceLayoutProvider({
     // 🛡️ Data Integrity Guard: Only sync if initialData is valid.
     // We ignore "safe empty" objects (where isError is true) that may arrive 
     // during transient background re-validations (e.g. on window focus).
-    if (initialData && !(initialData as any).isError && (initialData as any).user) {
+    if (initialData && !(initialData as any).isError) {
       setData(initialData);
       setTags(initialData.tags || []);
       setIsLoading(false);
@@ -86,7 +86,6 @@ export function WorkspaceLayoutProvider({
   // Provide a safe default for when data is loading
   const contextValue: WorkspaceLayoutContextType = {
     data: data || {
-        user: null as any,
         workspaces: { workspaces: [], totalCount: 0 },
         metadata: null,
         reportStatus: null,
@@ -99,7 +98,7 @@ export function WorkspaceLayoutProvider({
             workspaceRole: null,
             userId: null,
         }
-    },
+    } as any,
     tags,
     workspaceId,
     isLoading,

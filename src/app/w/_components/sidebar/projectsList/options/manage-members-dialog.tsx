@@ -24,7 +24,8 @@ import { toast } from "sonner";
 import { tryCatch } from "@/hooks/try-catch";
 import { addProjectMembers, removeProjectMembers, updateProjectMemberRole } from "@/actions/project/manage-members";
 import type { ProjectRole } from "@/generated/prisma/client";
-import { WorkspaceMembersResult } from "@/data/workspace";
+import { type WorkspaceMembersResult } from "@/types/workspace";
+
 
 interface ProjectMember {
     id: string;
