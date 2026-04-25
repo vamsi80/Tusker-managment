@@ -43,8 +43,9 @@ export function NavFooter({
                         <SidebarMenuButton
                             tooltip={item.title}
                             asChild
+                            isActive={isActive}
                             disabled={router.isNavigating}
-                            className="transition-all duration-200 hover:bg-accent hover:text-accent-foreground"
+                            className="transition-all duration-200"
                         >
                             <Link 
                                 href={item.url} 

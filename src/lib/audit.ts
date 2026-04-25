@@ -16,7 +16,8 @@ export type AuditAction =
   | "COMMENT_CREATED"
   | "CHECKED_IN"
   | "CHECKED_OUT"
-  | "RESENT_INVITATION";
+  | "RESENT_INVITATION"
+  | "ATTENDANCE_SETTINGS_UPDATED";
 
 interface RecordActivityOptions {
   userId: string;
