@@ -26,6 +26,8 @@ import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
 import { pubsub, EVENTS } from "@/lib/pubsub";
 import { useSafeNavigation } from "@/hooks/use-safe-navigation";
 
+import { workspacesClient } from "@/lib/api-client/workspaces";
+
 export function NotificationCenter({ workspaceId, initialUnread = [], initialRead = [], initialPeopleCount = 0 }: { workspaceId: string, initialUnread?: any[], initialRead?: any[], initialPeopleCount?: number }) {
     const pathname = usePathname();
     const currentSearchParams = useSearchParams();
@@ -46,6 +48,22 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
 
     const { openSubTaskSheetLoading } = useSubTaskSheet();
     const router = useSafeNavigation();
+
+    // Fetch initial count on mount independently
+    useEffect(() => {
+        if (!workspaceId) return;
+        
+        const fetchCount = async () => {
+            try {
+                const count = await workspacesClient.getUnreadCount(workspaceId);
+                setPeopleCount(count);
+            } catch (err) {
+                console.error("[NOTIF_CENTER] Failed to fetch unread count:", err);
+            }
+        };
+
+        fetchCount();
+    }, [workspaceId]);
 
     // Listen for Real-time Notifications via PubSub
     useEffect(() => {

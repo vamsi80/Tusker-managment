@@ -33,7 +33,10 @@ model User {
   comments            Comment[]
   commentReads        CommentRead[]
   dailyReports        DailyReport[]
+  direct_message      direct_message[]
+  notification        notification[]
   sessions            Session[]
+  conversation        conversation[]    @relation("UserConversations")
 
   @@map("user")
 }
@@ -115,8 +118,10 @@ model Workspace {
   attendance       attendance[]
   auditLogs        AuditLog[]
   boardItems       Board[]
+  conversation     conversation[]
   dailyReports     DailyReport[]
   materials        Material[]
+  notification     notification[]
   procurementTasks ProcurementTask[]
   purchaseOrders   PurchaseOrder[]
   units            Unit[]
@@ -127,12 +132,14 @@ model WorkspaceMember {
   id                     String                 @id @default(uuid())
   userId                 String
   workspaceId            String
-  designation            String?
-  reportToId             String?
   createdAt              DateTime               @default(now())
   updatedAt              DateTime               @updatedAt
   workspaceRole          WorkspaceRole          @default(MEMBER)
+  designation            String?
+  reportToId             String?
   projectMembers         ProjectMember[]
+  reportTo               WorkspaceMember?       @relation("ReportTo", fields: [reportToId], references: [id])
+  subordinates           WorkspaceMember[]      @relation("ReportTo")
   user                   User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspace              Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   attendance             attendance[]
@@ -145,8 +152,6 @@ model WorkspaceMember {
   approvedPurchaseOrders PurchaseOrder[]        @relation("POApprover")
   createdPurchaseOrders  PurchaseOrder[]        @relation("POCreator")
   recordedPayments       PurchaseOrderPayment[] @relation("PaymentRecorder")
-  reportTo               WorkspaceMember?       @relation("ReportTo", fields: [reportToId], references: [id])
-  subordinates           WorkspaceMember[]      @relation("ReportTo")
   createdUnits           Unit[]
 
   @@unique([userId, workspaceId])
@@ -696,6 +701,46 @@ model AuditLog {
   @@index([userId])
   @@index([createdAt])
   @@map("audit_log")
+}
+
+model conversation {
+  id             String           @id
+  workspaceId    String
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime
+  Workspace      Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  direct_message direct_message[]
+  user           User[]           @relation("UserConversations")
+}
+
+model direct_message {
+  id             String       @id
+  content        String
+  createdAt      DateTime     @default(now())
+  senderId       String
+  conversationId String
+  conversation   conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+}
+
+model notification {
+  id          String    @id
+  userId      String
+  workspaceId String
+  title       String
+  body        String
+  type        String
+  isRead      Boolean   @default(false)
+  entityId    String?
+  entityType  String?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([userId, workspaceId])
 }
 
 enum IndentItemStatus {

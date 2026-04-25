@@ -14,7 +14,7 @@ import { auth } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { getDailyReportStatusForUser } from "@/data/daily-report/get-daily-report-status";
-import { getUserProjects, getMinimalWorkspaceProjectsForUser } from "@/data/project/get-projects";
+import { getUserProjects } from "@/data/project/get-projects";
 import { getWorkspaceTags } from "@/data/tag/get-tags";
 
 export class WorkspaceService {
@@ -995,26 +995,20 @@ export class WorkspaceService {
    */
   static async getWorkspaceLayoutData(workspaceId: string, userId: string) {
     const [
-      metadata,
       reportStatus,
       permissions,
-      unreadNotificationsCount,
       workspacesResult,
     ]: any[] = await Promise.all([
-      this.getWorkspaceMetadata(workspaceId, userId),
       getDailyReportStatusForUser(workspaceId, userId),
       getWorkspacePermissions(workspaceId, userId, true),
-      this.getUnreadNotificationsCount(workspaceId, userId),
       this.getWorkspaces(userId),
     ]);
 
     const workspacesData = workspacesResult.workspaces || [];
 
     return {
-      metadata,
       reportStatus,
       permissions,
-      unreadNotificationsCount,
       workspaces: { workspaces: workspacesData, totalCount: workspacesData.length },
     };
   }
@@ -1116,68 +1110,6 @@ export class WorkspaceService {
     return pmMap;
   }
 
-  /**
-   * Get data for task creation at workspace level
-   */
-  static async getWorkspaceTaskCreationData(
-    workspaceId: string,
-    userId: string,
-  ) {
-    const permissions = await getWorkspacePermissions(workspaceId);
-    if (!permissions.workspaceMemberId) {
-      return {
-        projects: [],
-        members: [],
-        tags: [],
-        parentTasks: [],
-        permissions: {
-          isWorkspaceAdmin: false,
-          canCreateTasks: false,
-          canCreateSubTasks: false,
-        },
-      };
-    }
-
-    const [projectsData, membersData, tagsData] = await Promise.all([
-      getUserProjects(workspaceId),
-      this.getMembers(workspaceId),
-      getWorkspaceTags(workspaceId),
-    ]);
-
-    const projectIds = projectsData.map((p) => p.id);
-    const parentTasksData = await prisma.task.findMany({
-      where: {
-        workspaceId,
-        projectId: { in: projectIds },
-        parentTaskId: null,
-      },
-      select: { id: true, name: true, projectId: true },
-      take: 50,
-      orderBy: { createdAt: "desc" },
-    });
-
-    return {
-      projects: projectsData.map((p) => ({ id: p.id, name: p.name })),
-      members: membersData.workspaceMembers.map((m) => ({
-        id: m.id,
-        workspaceMember: {
-          id: m.id,
-          user: { id: m.user?.id || "", surname: m.user?.surname || null },
-        },
-      })),
-      tags: tagsData.map((tag) => ({ id: tag.id, name: tag.name })),
-      parentTasks: parentTasksData.map((task) => ({
-        id: task.id,
-        name: task.name,
-        projectId: task.projectId!,
-      })),
-      permissions: {
-        isWorkspaceAdmin: permissions.isWorkspaceAdmin,
-        canCreateTasks: permissions.isWorkspaceAdmin,
-        canCreateSubTasks: true,
-      },
-    };
-  }
   /**
    * Verify an invitation and add the user to the workspace
    */

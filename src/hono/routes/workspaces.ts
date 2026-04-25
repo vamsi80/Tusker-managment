@@ -293,6 +293,20 @@ workspaces.get("/:workspaceId/layout", async (c) => {
 });
 
 /**
+ * GET /api/v1/workspaces/:workspaceId/notifications/unread-count
+ */
+workspaces.get("/:workspaceId/notifications/unread-count", async (c) => {
+  const user = c.get("user");
+  const workspaceId = c.req.param("workspaceId");
+
+  const count = await WorkspaceService.getUnreadNotificationsCount(
+    workspaceId,
+    user.id,
+  );
+  return c.json({ success: true, data: count });
+});
+
+/**
  * GET /api/v1/workspaces/:workspaceId/projects
  * Get all projects for a workspace (filtered by user access)
  */

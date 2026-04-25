@@ -55,20 +55,15 @@ export async function getWorkspaceProjectsForUser(userId: string, workspaceId: s
         name: true,
         slug: true,
         color: true,
-        description: true,
         createdBy: true,
-        _count: {
-            select: {
-                projectMembers: true
-            }
-        },
         projectMembers: {
-            select: {
-                id: true,
-                projectRole: true,
+            where: {
                 workspaceMember: {
-                    select: { userId: true }
+                    userId: userId
                 }
+            },
+            select: {
+                projectRole: true,
             }
         }
     } as const;
@@ -127,9 +122,8 @@ export async function getWorkspaceProjectsForUser(userId: string, workspaceId: s
     }
 
     return projects.map(project => {
-        const userProjectMember = project.projectMembers.find(m => m.workspaceMember.userId === userId);
+        const userProjectMember = project.projectMembers[0];
         const isProjectManager = userProjectMember?.projectRole === "PROJECT_MANAGER";
-        const isProjectLead = userProjectMember?.projectRole === "LEAD";
         const isCreator = project.createdBy === userId;
 
         return {
