@@ -15,7 +15,9 @@ import { Calendar as ShadcnCalendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiClient } from "@/lib/api-client";
 import { toast } from "sonner";
-import { UserMinus, Loader2 } from "lucide-react";
+import { UserMinus, Loader2, LogIn } from "lucide-react";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { AttendanceLogger } from "./attendance-logger";
 
 interface AttendanceRecord {
     id: string;
@@ -128,16 +130,19 @@ export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
                 const user = row.original.WorkspaceMember?.user;
                 if (!user) return <div className="text-sm italic text-muted-foreground">Unknown Member</div>;
 
+                const name = user.surname || "Member";
+                const initials = (user.name?.[0] || user.surname?.[0] || "M").toUpperCase();
+                const image = (user as any).image || "";
+
                 return (
                     <div className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8 border border-border/50">
-                            <AvatarFallback className="bg-primary/5 text-[10px] text-primary">
-                                {(user.name?.[0] || "") + (user.surname?.[0] || "")}
-                            </AvatarFallback>
+                        <Avatar className="h-9 w-9">
+                            <AvatarImage src={image} alt={name} />
+                            <AvatarFallback>{initials}</AvatarFallback>
                         </Avatar>
                         <div className="flex flex-col">
-                            <span className="text-sm font-medium leading-none mb-1">
-                                {user.surname}
+                            <span className="font-medium text-sm">
+                                {user.name} {user.surname}
                             </span>
                             <span className="text-xs text-muted-foreground truncate max-w-[140px]">
                                 {user.email}
@@ -326,6 +331,21 @@ export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
 
     const extraToolbarContent = (
         <div className="flex items-center gap-2">
+            <Dialog>
+                <DialogTrigger asChild>
+                    <Button
+                        size="sm"
+                        className="h-9 px-3 gap-2 bg-primary hover:bg-primary/90 shadow-sm transition-all active:scale-95"
+                    >
+                        <LogIn className="h-4 w-4" />
+                        <span className="font-medium text-sm hidden sm:inline">Mark Attendance</span>
+                    </Button>
+                </DialogTrigger>
+                <DialogContent className="p-0 border-none bg-transparent shadow-none max-w-sm">
+                    <AttendanceLogger workspaceId={workspaceId} />
+                </DialogContent>
+            </Dialog>
+
             <Button
                 variant="outline"
                 size="sm"
@@ -340,199 +360,199 @@ export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
                 )}
                 <span className="font-medium text-sm hidden sm:inline">Mark Absents</span>
             </Button>
-            
+
             <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
-            <PopoverTrigger asChild>
-                <Button
-                    variant="outline"
-                    className="gap-2 relative h-9 px-3 border shadow-sm hover:bg-accent/50 transition-colors"
+                <PopoverTrigger asChild>
+                    <Button
+                        variant="outline"
+                        className="gap-2 relative h-9 px-3 border shadow-sm hover:bg-accent/50 transition-colors"
+                    >
+                        <Filter className="h-4 w-4" />
+                        <span className="font-medium text-sm">Filter</span>
+                        {activeFilterCount > 0 && (
+                            <Badge
+                                variant="destructive"
+                                className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px] font-bold shadow-md animate-in zoom-in"
+                            >
+                                {activeFilterCount}
+                            </Badge>
+                        )}
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                    className="w-[calc(100vw-2rem)] sm:w-[500px] p-0 overflow-hidden rounded-xl border-none shadow-2xl shadow-black/20"
+                    align="end"
+                    side="bottom"
+                    sideOffset={8}
                 >
-                    <Filter className="h-4 w-4" />
-                    <span className="font-medium text-sm">Filter</span>
-                    {activeFilterCount > 0 && (
-                        <Badge
-                            variant="destructive"
-                            className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px] font-bold shadow-md animate-in zoom-in"
+                    {/* Header */}
+                    <div className="flex items-center justify-between border-b bg-muted/30 px-5 py-4">
+                        <div className="flex items-center gap-2">
+                            <Filter className="h-4 w-4 text-primary" />
+                            <h3 className="text-base font-bold text-foreground">Filter Records</h3>
+                        </div>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setIsFilterOpen(false)}
+                            className="h-8 w-8 p-0 rounded-full hover:bg-background/80"
                         >
-                            {activeFilterCount}
-                        </Badge>
-                    )}
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent
-                className="w-[calc(100vw-2rem)] sm:w-[500px] p-0 overflow-hidden rounded-xl border-none shadow-2xl shadow-black/20"
-                align="end"
-                side="bottom"
-                sideOffset={8}
-            >
-                {/* Header */}
-                <div className="flex items-center justify-between border-b bg-muted/30 px-5 py-4">
-                    <div className="flex items-center gap-2">
-                        <Filter className="h-4 w-4 text-primary" />
-                        <h3 className="text-base font-bold text-foreground">Filter Records</h3>
+                            <X className="h-4 w-4" />
+                        </Button>
                     </div>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setIsFilterOpen(false)}
-                        className="h-8 w-8 p-0 rounded-full hover:bg-background/80"
-                    >
-                        <X className="h-4 w-4" />
-                    </Button>
-                </div>
 
-                {/* Content - Scrollable */}
-                <div className="max-h-[65vh] overflow-y-auto p-5 custom-scrollbar bg-background/50 backdrop-blur-sm">
-                    {/* Filters Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                    {/* Content - Scrollable */}
+                    <div className="max-h-[65vh] overflow-y-auto p-5 custom-scrollbar bg-background/50 backdrop-blur-sm">
+                        {/* Filters Grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
 
-                        {/* Member Filter */}
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                                <h4 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/80">Member</h4>
-                                {tempFilters.memberId && (
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => setTempFilters(prev => ({ ...prev, memberId: undefined }))}
-                                        className="h-auto p-0 text-[10px] font-bold text-primary hover:text-primary/80 hover:bg-transparent"
-                                    >
-                                        CLEAR
-                                    </Button>
-                                )}
+                            {/* Member Filter */}
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/80">Member</h4>
+                                    {tempFilters.memberId && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setTempFilters(prev => ({ ...prev, memberId: undefined }))}
+                                            className="h-auto p-0 text-[10px] font-bold text-primary hover:text-primary/80 hover:bg-transparent"
+                                        >
+                                            CLEAR
+                                        </Button>
+                                    )}
+                                </div>
+                                <Select
+                                    value={tempFilters.memberId || "all"}
+                                    onValueChange={(val) => setTempFilters(prev => ({ ...prev, memberId: val === "all" ? undefined : val }))}
+                                >
+                                    <SelectTrigger className="h-10 bg-background/50 border-muted-foreground/20 focus:ring-primary/20">
+                                        <SelectValue placeholder="All Members" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Members</SelectItem>
+                                        {members.map(m => (
+                                            <SelectItem key={m.value} value={m.value} className="text-sm">
+                                                {m.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
-                            <Select
-                                value={tempFilters.memberId || "all"}
-                                onValueChange={(val) => setTempFilters(prev => ({ ...prev, memberId: val === "all" ? undefined : val }))}
-                            >
-                                <SelectTrigger className="h-10 bg-background/50 border-muted-foreground/20 focus:ring-primary/20">
-                                    <SelectValue placeholder="All Members" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Members</SelectItem>
-                                    {members.map(m => (
-                                        <SelectItem key={m.value} value={m.value} className="text-sm">
-                                            {m.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
 
-                        {/* Status Filter */}
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                                <h4 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/80">Status</h4>
-                                {tempFilters.status && (
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => setTempFilters(prev => ({ ...prev, status: undefined }))}
-                                        className="h-auto p-0 text-[10px] font-bold text-primary hover:text-primary/80 hover:bg-transparent"
-                                    >
-                                        CLEAR
-                                    </Button>
-                                )}
+                            {/* Status Filter */}
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/80">Status</h4>
+                                    {tempFilters.status && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setTempFilters(prev => ({ ...prev, status: undefined }))}
+                                            className="h-auto p-0 text-[10px] font-bold text-primary hover:text-primary/80 hover:bg-transparent"
+                                        >
+                                            CLEAR
+                                        </Button>
+                                    )}
+                                </div>
+                                <Select
+                                    value={tempFilters.status || "all"}
+                                    onValueChange={(val) => setTempFilters(prev => ({ ...prev, status: val === "all" ? undefined : val }))}
+                                >
+                                    <SelectTrigger className="h-10 bg-background/50 border-muted-foreground/20 focus:ring-primary/20">
+                                        <SelectValue placeholder="All Statuses" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Statuses</SelectItem>
+                                        <SelectItem value="PRESENT" className="text-sm">Present</SelectItem>
+                                        <SelectItem value="ABSENT" className="text-sm">Absent</SelectItem>
+                                        <SelectItem value="LATE" className="text-sm">Late</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
-                            <Select
-                                value={tempFilters.status || "all"}
-                                onValueChange={(val) => setTempFilters(prev => ({ ...prev, status: val === "all" ? undefined : val }))}
-                            >
-                                <SelectTrigger className="h-10 bg-background/50 border-muted-foreground/20 focus:ring-primary/20">
-                                    <SelectValue placeholder="All Statuses" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Statuses</SelectItem>
-                                    <SelectItem value="PRESENT" className="text-sm">Present</SelectItem>
-                                    <SelectItem value="ABSENT" className="text-sm">Absent</SelectItem>
-                                    <SelectItem value="LATE" className="text-sm">Late</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
 
-                        {/* Date Range Filter */}
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                                <h4 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/80">Date Range</h4>
-                                {(tempFilters.from || tempFilters.to) && (
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => setTempFilters(prev => ({
-                                            ...prev,
-                                            from: undefined,
-                                            to: undefined
-                                        }))}
-                                        className="h-auto p-0 text-[10px] font-bold text-primary hover:text-primary/80 hover:bg-transparent"
-                                    >
-                                        RESET
-                                    </Button>
-                                )}
-                            </div>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        className={cn(
-                                            "w-full justify-start text-left font-normal h-10 px-3 bg-background/50 border-muted-foreground/20 hover:bg-accent/30",
-                                            !tempFilters.from && !tempFilters.to && "text-muted-foreground"
-                                        )}
-                                    >
-                                        <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
-                                        <span className="truncate text-sm">
-                                            {tempFilters.from && tempFilters.to ? (
-                                                <>{format(tempFilters.from, "MMM d")} - {format(tempFilters.to, "MMM d")}</>
-                                            ) : tempFilters.from ? (
-                                                <>{format(tempFilters.from, "MMM d")} - ...</>
-                                            ) : (
-                                                "Pick dates"
+                            {/* Date Range Filter */}
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/80">Date Range</h4>
+                                    {(tempFilters.from || tempFilters.to) && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setTempFilters(prev => ({
+                                                ...prev,
+                                                from: undefined,
+                                                to: undefined
+                                            }))}
+                                            className="h-auto p-0 text-[10px] font-bold text-primary hover:text-primary/80 hover:bg-transparent"
+                                        >
+                                            RESET
+                                        </Button>
+                                    )}
+                                </div>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            className={cn(
+                                                "w-full justify-start text-left font-normal h-10 px-3 bg-background/50 border-muted-foreground/20 hover:bg-accent/30",
+                                                !tempFilters.from && !tempFilters.to && "text-muted-foreground"
                                             )}
-                                        </span>
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0 border-none shadow-2xl rounded-xl overflow-hidden" align="start">
-                                    <div className="bg-background">
-                                        <ShadcnCalendar
-                                            mode="range"
-                                            selected={{
-                                                from: tempFilters.from,
-                                                to: tempFilters.to,
-                                            }}
-                                            onSelect={(range) => {
-                                                setTempFilters(prev => ({
-                                                    ...prev,
-                                                    from: range?.from,
-                                                    to: range?.to,
-                                                }));
-                                            }}
-                                            initialFocus
-                                            className="p-3"
-                                        />
-                                    </div>
-                                </PopoverContent>
-                            </Popover>
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
+                                            <span className="truncate text-sm">
+                                                {tempFilters.from && tempFilters.to ? (
+                                                    <>{format(tempFilters.from, "MMM d")} - {format(tempFilters.to, "MMM d")}</>
+                                                ) : tempFilters.from ? (
+                                                    <>{format(tempFilters.from, "MMM d")} - ...</>
+                                                ) : (
+                                                    "Pick dates"
+                                                )}
+                                            </span>
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0 border-none shadow-2xl rounded-xl overflow-hidden" align="start">
+                                        <div className="bg-background">
+                                            <ShadcnCalendar
+                                                mode="range"
+                                                selected={{
+                                                    from: tempFilters.from,
+                                                    to: tempFilters.to,
+                                                }}
+                                                onSelect={(range) => {
+                                                    setTempFilters(prev => ({
+                                                        ...prev,
+                                                        from: range?.from,
+                                                        to: range?.to,
+                                                    }));
+                                                }}
+                                                initialFocus
+                                                className="p-3"
+                                            />
+                                        </div>
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                {/* Footer Actions */}
-                <div className="flex items-center gap-3 border-t bg-muted/20 px-5 py-4">
-                    <Button
-                        variant="ghost"
-                        onClick={handleResetFilters}
-                        className="flex-1 font-bold text-sm h-10 hover:bg-background/80"
-                    >
-                        Reset All
-                    </Button>
-                    <Button
-                        onClick={handleApplyFilters}
-                        className="flex-[2] font-bold text-sm h-10 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-95"
-                    >
-                        Apply Filters
-                    </Button>
-                </div>
-            </PopoverContent>
-        </Popover>
+                    {/* Footer Actions */}
+                    <div className="flex items-center gap-3 border-t bg-muted/20 px-5 py-4">
+                        <Button
+                            variant="ghost"
+                            onClick={handleResetFilters}
+                            className="flex-1 font-bold text-sm h-10 hover:bg-background/80"
+                        >
+                            Reset All
+                        </Button>
+                        <Button
+                            onClick={handleApplyFilters}
+                            className="flex-[2] font-bold text-sm h-10 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-95"
+                        >
+                            Apply Filters
+                        </Button>
+                    </div>
+                </PopoverContent>
+            </Popover>
         </div>
     );
 

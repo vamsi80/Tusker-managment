@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardDescription, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -53,8 +53,8 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
     const hasChanges = lateThreshold !== initialData.lateThreshold || overtimeThreshold !== initialData.overtimeThreshold;
 
     return (
-        <Card className="border-none shadow-md overflow-hidden bg-background/50 backdrop-blur-sm">
-            <CardHeader className="pb-4">
+        <div className="border-none overflow-hidden bg-background/50 backdrop-blur-sm">
+            <div className="pb-4">
                 <div className="flex items-center gap-2">
                     <div className="p-2 rounded-lg bg-primary/10">
                         <Clock className="h-5 w-5 text-primary" />
@@ -66,7 +66,7 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                         </CardDescription>
                     </div>
                 </div>
-            </CardHeader>
+            </div>
             <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
                     <div className="space-y-3">
@@ -128,6 +128,6 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                     </div>
                 )}
             </CardContent>
-        </Card>
+        </div>
     );
 }

@@ -3,10 +3,6 @@
 import { usePathname } from "next/navigation";
 import { AdminActionsClient } from "./admin-actions-client";
 import { useWorkspaceLayout } from "../../_components/workspace-layout-context";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { LogIn } from "lucide-react";
-import { AttendanceLogger } from "../attendance/_components/attendance-logger";
 
 interface TeamSectionHeaderProps {
     workspaceId: string;
@@ -19,8 +15,7 @@ interface TeamSectionHeaderProps {
 export function TeamSectionHeader({ workspaceId }: TeamSectionHeaderProps) {
     const { data: layoutData } = useWorkspaceLayout();
     const pathname = usePathname();
-    const isAdmin = layoutData?.permissions?.isWorkspaceAdmin || false;
-
+    const isAdmin = layoutData?.permissions?.isWorkspaceAdmin;
     const isAttendance = pathname.endsWith("/attendance");
 
     return (
@@ -30,19 +25,7 @@ export function TeamSectionHeader({ workspaceId }: TeamSectionHeaderProps) {
             </h1>
 
             <div className="flex items-center gap-2">
-                {isAttendance ? (
-                    <Dialog>
-                        <DialogTrigger asChild>
-                            <Button size="sm" className="gap-2">
-                                <LogIn className="h-4 w-4" />
-                                Mark Attendance
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="p-0 border-none bg-transparent shadow-none max-w-sm">
-                            <AttendanceLogger workspaceId={workspaceId} />
-                        </DialogContent>
-                    </Dialog>
-                ) : (
+                {!isAttendance && (
                     <AdminActionsClient workspaceId={workspaceId} isAdmin={isAdmin} />
                 )}
             </div>
