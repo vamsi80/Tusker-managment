@@ -31,11 +31,10 @@ interface SubTaskListProps {
     onSelectSubTask?: (subTaskId: string, checked: boolean) => void;
     level?: "workspace" | "project";
     tags?: { id: string; name: string; }[];
-    // Permission props
-    permissions?: UserPermissionsType; // For project view
+    permissions?: UserPermissionsType;
     userId?: string;
-    isWorkspaceAdmin?: boolean; // For workspace view
-    leadProjectIds?: string[]; // For workspace view
+    isWorkspaceAdmin?: boolean;
+    leadProjectIds?: string[];
     projects?: Array<{ id: string; canManageMembers?: boolean; memberIds?: string[] }>; // For workspace view
     projectMap?: Record<string, any>;
     scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
