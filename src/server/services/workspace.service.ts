@@ -14,7 +14,7 @@ import { auth } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { getDailyReportStatusForUser } from "@/data/daily-report/get-daily-report-status";
-import { getUserProjects } from "@/data/project/get-projects";
+import { getUserProjects, getMinimalWorkspaceProjectsForUser } from "@/data/project/get-projects";
 import { getWorkspaceTags } from "@/data/tag/get-tags";
 
 export class WorkspaceService {
@@ -955,7 +955,7 @@ export class WorkspaceService {
    * Get unread notifications count for a user in a workspace
    */
   static async getUnreadNotificationsCount(workspaceId: string, userId: string) {
-    const perms = await getWorkspacePermissions(workspaceId, userId);
+    const perms = await getWorkspacePermissions(workspaceId, userId, true);
     if (!perms.workspaceMemberId) return 0;
 
     const where: any = {
@@ -965,10 +965,12 @@ export class WorkspaceService {
     };
 
     if (!perms.isWorkspaceAdmin) {
-      const privilegedProjectIds = [
-        ...(perms.leadProjectIds || []),
-        ...(perms.managedProjectIds || [])
-      ];
+      // In lean mode, we might not have the project lists. 
+      // We fall back to direct task involvement if lists are missing.
+      const leadIds = (perms as any).leadProjectIds || [];
+      const managedIds = (perms as any).managedProjectIds || [];
+      const privilegedProjectIds = [...leadIds, ...managedIds];
+
       where.task.OR = [
         { assignee: { workspaceMember: { userId } } },
         { createdBy: { workspaceMember: { userId } } },
@@ -995,25 +997,25 @@ export class WorkspaceService {
     const [
       metadata,
       reportStatus,
-      projects,
       permissions,
       unreadNotificationsCount,
+      workspacesResult,
     ]: any[] = await Promise.all([
       this.getWorkspaceMetadata(workspaceId, userId),
       getDailyReportStatusForUser(workspaceId, userId),
-      getUserProjects(workspaceId),
-      getWorkspacePermissions(workspaceId, userId),
+      getWorkspacePermissions(workspaceId, userId, true),
       this.getUnreadNotificationsCount(workspaceId, userId),
+      this.getWorkspaces(userId),
     ]);
+
+    const workspacesData = workspacesResult.workspaces || [];
 
     return {
       metadata,
       reportStatus,
-      projects,
       permissions,
       unreadNotificationsCount,
-      // We no longer send the full workspace list or heavy assignments in the initial RSC payload
-      workspaces: { workspaces: [], totalCount: 0 },
+      workspaces: { workspaces: workspacesData, totalCount: workspacesData.length },
     };
   }
 

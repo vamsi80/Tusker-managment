@@ -1,6 +1,13 @@
 import { WorkSpaceSchemaType, UpdateWorkspaceInfoType, InviteUserSchemaType } from "@/lib/zodSchemas";
 import { type ApiResponse } from "./types";
 import { apiFetch } from "./fetch-wrapper";
+import { 
+    type WorkspaceData, 
+    type WorkspaceMemberRow, 
+    type WorkspaceListItem,
+    type WorkspaceMembersResult,
+    type WorkspacesResult 
+} from "@/types/workspace";
 
 export const workspacesClient = {
     /**
@@ -52,8 +59,8 @@ export const workspacesClient = {
     /**
      * Get workspace members
      */
-    getMembers: async (workspaceId: string): Promise<any> => {
-        return apiFetch<any>(`/workspaces/${workspaceId}/members`);
+    getMembers: async (workspaceId: string): Promise<WorkspaceMembersResult> => {
+        return apiFetch<WorkspaceMembersResult>(`/workspaces/${workspaceId}/members`);
     },
 
     /**
@@ -131,16 +138,16 @@ export const workspacesClient = {
     /**
      * Get all workspaces for the current user
      */
-    getAll: async (): Promise<{ workspaces: any[]; totalCount: number }> => {
-        const response = await apiFetch<{ success: boolean; data: any }>("/workspaces");
+    getAll: async (): Promise<WorkspacesResult> => {
+        const response = await apiFetch<{ success: boolean; data: WorkspacesResult }>("/workspaces");
         return response.data;
     },
 
     /**
      * Get workspace details by ID
      */
-    getById: async (workspaceId: string): Promise<any> => {
-        const response = await apiFetch<{ success: boolean; data: any }>(`/workspaces/${workspaceId}`);
+    getById: async (workspaceId: string): Promise<WorkspaceData> => {
+        const response = await apiFetch<{ success: boolean; data: WorkspaceData }>(`/workspaces/${workspaceId}`);
         return response.data;
     },
 
@@ -185,5 +192,14 @@ export const workspacesClient = {
     getTags: async (workspaceId: string): Promise<any[]> => {
         const response = await apiFetch<{ success: boolean; tags: any[] }>(`/tags?workspaceId=${workspaceId}`);
         return response.tags || [];
+    },
+
+    /**
+     * Get all projects for a workspace
+     */
+    getProjects: async (workspaceId: string): Promise<any[]> => {
+        const response = await apiFetch<{ success: boolean; data: any[] }>(`/workspaces/${workspaceId}/projects`);
+        return response.data || [];
     }
 };
+

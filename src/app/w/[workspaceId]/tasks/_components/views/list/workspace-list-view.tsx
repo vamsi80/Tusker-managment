@@ -6,6 +6,7 @@ import { getUserProjects } from "@/data/project/get-projects";
 import { requireUser } from "@/lib/auth/require-user";
 import { getTasks } from "@/data/task/get-tasks";
 import type { TaskWithSubTasks } from "@/components/task/shared/types";
+import { getWorkspaceProjectAssignments } from "@/data/workspace/get-workspace-kanban-data";
 
 const TaskTable = dynamic(() => import("@/components/task/list/task-table"), {
     loading: () => <div className="h-[60vh] w-full flex items-center justify-center text-muted-foreground animate-pulse">Loading Tasks...</div>
@@ -23,7 +24,7 @@ export async function WorkspaceListView({
 
     // Fetch initial tasks and metadata in parallel
     const viewStartTime = performance.now();
-    const [tagsData, projectMembers, permissions, projects, tasksData] = await Promise.all([
+    const [tagsData, projectMembers, permissions, projects, tasksData, projectAssignments] = await Promise.all([
         getWorkspaceTags(workspaceId),
         getProjectMembers({ workspaceId }),
         getWorkspacePermissions(workspaceId, user.id),
@@ -36,7 +37,8 @@ export async function WorkspaceListView({
             limit: 1,
             includeFacets: true,
             view_mode: "list"
-        }, user.id)
+        }, user.id),
+        getWorkspaceProjectAssignments(workspaceId)
     ]);
     const duration = performance.now() - viewStartTime;
     if (duration > 500) {
@@ -76,7 +78,7 @@ export async function WorkspaceListView({
                 name: p.name,
                 color: p.color,
                 canManageMembers: p.canManageMembers,
-                memberIds: (p as any).memberIds
+                memberIds: (projectAssignments[p.id] || []).map((m: any) => m.memberId)
             }))}
             leadProjectIds={permissions.leadProjectIds || []}
             isWorkspaceAdmin={permissions.isWorkspaceAdmin}

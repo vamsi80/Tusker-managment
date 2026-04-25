@@ -29,7 +29,7 @@ function setMemoryCached(key: string, data: any) {
 /**
  * Internal function to fetch workspace permissions
  */
-async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: string) {
+async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: string, lean: boolean = false) {
     try {
         const workspaceMember = await prisma.workspaceMember.findFirst({
             where: { workspaceId: workspaceId, userId: userId },
@@ -53,11 +53,13 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
                 workspaceMemberId: null,
                 workspaceRole: null,
                 userId: null,
-                leadProjectIds: [],
-                managedProjectIds: [],
-                memberProjectIds: [],
-                viewerProjectIds: []
-            };
+                ...(lean ? {} : {
+                    leadProjectIds: [],
+                    managedProjectIds: [],
+                    memberProjectIds: [],
+                    viewerProjectIds: []
+                })
+            } as any;
         }
 
         const isWorkspaceAdmin = workspaceMember.workspaceRole === "OWNER" || workspaceMember.workspaceRole === "ADMIN";
@@ -109,15 +111,17 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
             isProjectLead,
             isProjectManager,
             hasAccess,
-            leadProjectIds,
-            managedProjectIds,
-            memberProjectIds,
-            viewerProjectIds,
             workspaceMemberId: workspaceMember.id,
             workspaceRole: workspaceMember.workspaceRole,
             userId: workspaceMember.userId,
             userSurname: workspaceMember.user?.surname || null,
-        };
+            ...(lean ? {} : {
+                leadProjectIds,
+                managedProjectIds,
+                memberProjectIds,
+                viewerProjectIds,
+            })
+        } as any;
     } catch (error) {
         console.error("Error fetching workspace permissions:", error);
         return {
@@ -139,7 +143,7 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
 /**
  * Get workspace-level permissions for the current user
  */
-export const getWorkspacePermissions = cache(async (workspaceId: string, providedUserId?: string) => {
+export const getWorkspacePermissions = cache(async (workspaceId: string, providedUserId?: string, lean: boolean = false) => {
     // If userId is provided (e.g. from a Server Action), bypass requireUser to save ~1s
     const userId = providedUserId || (await requireUser()).id;
     const cacheKey = `ws-perms-${workspaceId}-${userId}`;
@@ -150,15 +154,15 @@ export const getWorkspacePermissions = cache(async (workspaceId: string, provide
 
     // 2. SERVER ACTION BYPASS: If providedUserId explicitly passed, skip Next.js disk cache overhead (~1s latency)
     if (providedUserId) {
-        const directResult = await _fetchWorkspacePermissionsInternal(workspaceId, userId);
+        const directResult = await _fetchWorkspacePermissionsInternal(workspaceId, userId, lean);
         setMemoryCached(cacheKey, directResult);
         return directResult;
     }
 
     // 3. SLOW PATH: Next.js Cache / Database (for pages/layouts)
     const fetchPerms = unstable_cache(
-        async () => _fetchWorkspacePermissionsInternal(workspaceId, userId),
-        [`workspace-perms-${workspaceId}-${userId}`],
+        async () => _fetchWorkspacePermissionsInternal(workspaceId, userId, lean),
+        [`workspace-perms-${workspaceId}-${userId}${lean ? '-lean' : ''}`],
         {
             tags: CacheTags.userPermissions(userId, workspaceId),
             revalidate: 60, // 1 minute

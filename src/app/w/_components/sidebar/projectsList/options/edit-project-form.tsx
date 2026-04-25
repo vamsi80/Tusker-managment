@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTransition, useEffect } from "react";
 import { Resolver, useForm, useWatch } from "react-hook-form";
-import { Check, Loader2, Save, SparkleIcon } from "lucide-react";
+import { Check, Loader2, Save } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
 import {
@@ -43,7 +43,8 @@ import {
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { editProject } from "@/actions/project/update-project";
-import { WorkspaceMembersResult } from "@/data/workspace";
+import { type WorkspaceMembersResult } from "@/types/workspace";
+
 
 interface EditProjectFormProps {
     project: FullProjectData;

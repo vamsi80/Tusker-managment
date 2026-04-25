@@ -8,7 +8,8 @@ import {
 } from "@/components/data-table/column-helpers";
 import { Eye, Edit, Trash, Mail } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { WorkspaceMemberRow } from "@/data/workspace";
+import { type WorkspaceMemberRow } from "@/types/workspace";
+
 import { cn } from "@/lib/utils";
 
 export function createTeamMemberColumns(
@@ -79,7 +80,7 @@ export function createTeamMemberColumns(
             cell: ({ row }) => {
                 const manager = row.original.reportTo;
                 const managerName = manager
-                    ? `${manager.user.surname || manager.user.name || ""}`.trim()
+                    ? `${manager.user.surname || ""}`.trim()
                     : "—";
                 return (
                     <div className="text-muted-foreground italic">

@@ -10,7 +10,7 @@ import { useRef, useEffect } from "react";
 import { useSafeNavigation } from "@/hooks/use-safe-navigation";
 import { deleteProject } from "@/actions/project/delete-project";
 import type { UserProjectsType } from "@/data/project/get-projects";
-import type { WorkspaceMembersResult } from "@/data/workspace/get-workspace-members";
+import type { WorkspaceMembersResult } from "@/types/workspace";
 import type { FullProjectData } from "@/data/project/get-full-project-data";
 import { apiClient } from "@/lib/api-client";
 import { Building2Icon, MoreHorizontal, Eye, Pencil, Trash2, Loader2, Users } from "lucide-react";
@@ -20,9 +20,14 @@ import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, Sideba
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, } from "@/components/ui/alert-dialog";
 import { CreateProjectForm } from "@/app/w/[workspaceId]/p/_components/create-project-form";
 import { useMounted } from "@/hooks/use-mounted";
+import { Skeleton } from "@/components/ui/skeleton";
+import { pusherClient } from "@/lib/pusher";
+import { TEAM_UPDATE, TeamEventData } from "@/lib/realtime";
+import { workspacesClient } from "@/lib/api-client/workspaces";
+import { MinimalProjectData } from "@/data/project/get-projects";
 
 interface iAppProps {
-  projects: UserProjectsType;
+  initialProjects?: MinimalProjectData[];
   workspaceId: string;
   isAdmin: boolean;
   canCreateProject?: boolean;
@@ -30,7 +35,10 @@ interface iAppProps {
   currentUserId?: string;
 }
 
-export function NavProjects({ projects, workspaceId, isAdmin, canCreateProject, userRole, currentUserId }: iAppProps) {
+export function NavProjects({ initialProjects = [], workspaceId, isAdmin, canCreateProject, userRole, currentUserId }: iAppProps) {
+  const [projects, setProjects] = useState<UserProjectsType | MinimalProjectData[]>(initialProjects);
+  const [isInitialLoading, setIsInitialLoading] = useState(initialProjects.length === 0);
+
   const { isMobile, setOpenMobile } = useSidebar();
   const pathname = usePathname();
   const router = useSafeNavigation();
@@ -43,6 +51,35 @@ export function NavProjects({ projects, workspaceId, isAdmin, canCreateProject, 
       navigatingTo.current = null;
     }
   }, [router.isNavigating, pathname]);
+
+  const fetchProjects = async (isSilent = false) => {
+    try {
+      if (!isSilent) setIsInitialLoading(true);
+      const data = await workspacesClient.getProjects(workspaceId);
+      setProjects(data as any);
+    } catch (error) {
+      console.error("Failed to fetch projects:", error);
+    } finally {
+      if (!isSilent) setIsInitialLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProjects();
+
+    if (!pusherClient) return;
+
+    const channel = pusherClient.subscribe(`team-${workspaceId}`);
+    channel.bind(TEAM_UPDATE, (data: TeamEventData) => {
+      if (data.type === "UPDATE" || data.type === "INVITE" || data.type === "DELETE") {
+        fetchProjects(true); // Silent refresh on real-time event
+      }
+    });
+
+    return () => {
+      pusherClient?.unsubscribe(`team-${workspaceId}`);
+    };
+  }, [workspaceId]);
 
   const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, url: string) => {
     e.preventDefault();
@@ -81,8 +118,8 @@ export function NavProjects({ projects, workspaceId, isAdmin, canCreateProject, 
     setIsLoadingMembers(true);
     try {
       const result = await apiClient.workspaces.getMembers(workspaceId);
-      if (result.success && result.data?.workspaceMembers) {
-        setMembers(result.data.workspaceMembers);
+      if (result && result.workspaceMembers) {
+        setMembers(result.workspaceMembers);
       } else {
         toast.error("Failed to load workspace members");
       }
@@ -172,6 +209,10 @@ export function NavProjects({ projects, workspaceId, isAdmin, canCreateProject, 
     await loadMembers();
   };
 
+  if (!mounted || isInitialLoading) {
+    return <NavProjectsSkeleton />;
+  }
+
   return (
     <>
       <SidebarGroup className="group-data-[collapsible=icon]:hidden">
@@ -191,7 +232,7 @@ export function NavProjects({ projects, workspaceId, isAdmin, canCreateProject, 
           </div>
         </SidebarGroupLabel>
         <SidebarMenu className="max-h-[40vh] overflow-y-auto custom-scrollbar px-1">
-          {projects?.map((proj: UserProjectsType[number]) => {
+          {projects?.map((proj: any) => {
             const href = `/w/${workspaceId}/p/${proj.slug}`;
             const isActive = pathname === href || pathname.startsWith(`${href}/`);
 
@@ -353,5 +394,25 @@ export function NavProjects({ projects, workspaceId, isAdmin, canCreateProject, 
         </AlertDialogContent>
       </AlertDialog>
     </>
+  );
+}
+
+function NavProjectsSkeleton() {
+  return (
+    <SidebarGroup className="group-data-[collapsible=icon]:hidden">
+      <SidebarGroupLabel>
+        <Skeleton className="h-4 w-20 bg-sidebar-border/50" />
+      </SidebarGroupLabel>
+      <SidebarMenu>
+        {[1, 2, 3, 4].map((i) => (
+          <SidebarMenuItem key={i}>
+            <div className="flex h-9 w-full items-center gap-2 px-2">
+              <Skeleton className="h-4 w-4 rounded-full bg-sidebar-border/50" />
+              <Skeleton className="h-4 flex-1 bg-sidebar-border/50" />
+            </div>
+          </SidebarMenuItem>
+        ))}
+      </SidebarMenu>
+    </SidebarGroup>
   );
 }

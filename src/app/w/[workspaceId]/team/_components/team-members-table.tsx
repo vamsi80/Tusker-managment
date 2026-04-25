@@ -35,7 +35,8 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
-import { WorkspaceMemberRow } from "@/data/workspace";
+import { type WorkspaceMemberRow } from "@/types/workspace";
+
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { updateMemberSchema, UpdateMemberSchemaType, workspaceMemberRole } from "@/lib/zodSchemas";

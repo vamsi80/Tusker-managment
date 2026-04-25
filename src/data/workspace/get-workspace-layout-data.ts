@@ -19,12 +19,11 @@ export const getWorkspaceLayoutData = cache(async (workspaceId: string) => {
         const result = await res.json();
         const layoutData = result.data;
 
-        // Note: The API already includes user info and lean permissions in its response
+        // Note: The API already includes lean permissions in its response
         return JSON.parse(JSON.stringify(layoutData));
     } catch (error) {
         console.error("Error fetching workspace layout data via Hono API:", error);
         return {
-            user: null,
             workspaces: { workspaces: [], totalCount: 0 },
             metadata: null,
             reportStatus: null,

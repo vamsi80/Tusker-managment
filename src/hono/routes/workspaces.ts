@@ -4,6 +4,7 @@ import { WorkspaceService } from "@/server/services/workspace.service";
 import { workSpaceSchema, updateWorkspaceInfoSchema, updateMemberSchema } from "@/lib/zodSchemas";
 import { AppError } from "@/lib/errors/app-error";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import { getWorkspaceProjectsForUser } from "@/data/project/get-projects";
 
 const workspaces = new Hono<{ Variables: HonoVariables }>();
 
@@ -285,7 +286,22 @@ workspaces.get("/:workspaceId/layout", async (c) => {
     workspaceId,
     user.id,
   );
-  return c.json({ success: true, data: { ...layoutData, user } });
+  return c.json({
+    success: true,
+    data: layoutData,
+  });
+});
+
+/**
+ * GET /api/v1/workspaces/:workspaceId/projects
+ * Get all projects for a workspace (filtered by user access)
+ */
+workspaces.get("/:workspaceId/projects", async (c) => {
+    const user = c.get("user");
+    const workspaceId = c.req.param("workspaceId");
+    
+    const projects = await getWorkspaceProjectsForUser(user.id, workspaceId);
+    return c.json({ success: true, data: projects });
 });
 
 /**

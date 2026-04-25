@@ -13,7 +13,8 @@ import { useConfetti } from "@/hooks/use-confetti";
 import { Resolver, useForm, useWatch } from "react-hook-form";
 import { Textarea } from "@/components/ui/textarea";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { WorkspaceMembersResult } from "@/data/workspace";
+import { type WorkspaceMembersResult } from "@/types/workspace";
+
 import { createProject } from "@/actions/project/create-project";
 import { projectSchema, ProjectSchemaType } from "@/lib/zodSchemas";
 import { Badge } from "@/components/ui/badge";
