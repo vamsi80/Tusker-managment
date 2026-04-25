@@ -363,4 +363,27 @@ workspaces.get("/:workspaceId/paginated-members", async (c) => {
   return c.json({ success: true, data: { members, nextCursor } });
 });
 
+/**
+ * PATCH /api/v1/workspaces/:workspaceId/attendance-settings
+ */
+workspaces.patch("/:workspaceId/attendance-settings", async (c) => {
+  const user = c.get("user");
+  const workspaceId = c.req.param("workspaceId");
+  const body = await c.req.json();
+
+  // Check permissions
+  const { isWorkspaceAdmin } = await getWorkspacePermissions(workspaceId, user.id);
+  if (!isWorkspaceAdmin) {
+    throw AppError.Forbidden("Only admins can update attendance settings");
+  }
+
+  const result = await WorkspaceService.updateAttendanceSettings(
+    workspaceId,
+    body,
+    user.id
+  );
+
+  return c.json({ success: true, data: result });
+});
+
 export default workspaces;

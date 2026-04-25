@@ -48,6 +48,7 @@ interface DataTableProps<TData, TValue> {
     enableRowSelection?: (row: any) => boolean;
     getRowClassName?: (row: any) => string;
     extraToolbarContent?: React.ReactNode;
+    onFilterChange?: (filters: ColumnFiltersState) => void;
 }
 
 export function DataTable<TData, TValue>({
@@ -70,6 +71,7 @@ export function DataTable<TData, TValue>({
     enableRowSelection,
     getRowClassName,
     extraToolbarContent,
+    onFilterChange,
 }: DataTableProps<TData, TValue> & { getRowId?: (row: TData) => string }) {
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -88,7 +90,11 @@ export function DataTable<TData, TValue>({
         getPaginationRowModel: showPagination ? getPaginationRowModel() : undefined,
         onSortingChange: setSorting,
         getSortedRowModel: getSortedRowModel(),
-        onColumnFiltersChange: setColumnFilters,
+        onColumnFiltersChange: (updater) => {
+            const newFilters = typeof updater === 'function' ? updater(columnFilters) : updater;
+            setColumnFilters(newFilters);
+            onFilterChange?.(newFilters);
+        },
         getFilteredRowModel: getFilteredRowModel(),
         getFacetedRowModel: getFacetedRowModel(),
         getFacetedUniqueValues: getFacetedUniqueValues(),

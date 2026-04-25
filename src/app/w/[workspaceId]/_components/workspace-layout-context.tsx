@@ -33,6 +33,7 @@ export function WorkspaceLayoutProvider({
   const [isNavigating, startTransition] = useTransition();
   const lastFetchTimeRef = React.useRef<number>(initialData ? Date.now() : 0);
   const THROTTLE_MS = 45000; // 45 seconds
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState(workspaceId);
 
   const fetchLayout = useCallback(async (isSilent = false) => {
     // 🛡️ Throttle check: Skip if we fetched very recently (e.g. within 45s)
@@ -49,6 +50,7 @@ export function WorkspaceLayoutProvider({
         setData(fetchedData);
         setTags(fetchedData.tags || []);
         lastFetchTimeRef.current = Date.now();
+        setActiveWorkspaceId(workspaceId);
       }
     } catch (error) {
       console.error("Failed to fetch workspace layout:", error);
@@ -67,21 +69,31 @@ export function WorkspaceLayoutProvider({
     });
   }, []);
 
+  // Handle Workspace Switching: Reset data if workspaceId changes
   useEffect(() => {
-    // 🛡️ Data Integrity Guard: Only sync if initialData is valid.
-    // We ignore "safe empty" objects (where isError is true) that may arrive 
-    // during transient background re-validations (e.g. on window focus).
+    if (workspaceId !== activeWorkspaceId) {
+        setData(null);
+        setTags([]);
+        setIsLoading(true);
+        setActiveWorkspaceId(workspaceId);
+    }
+  }, [workspaceId, activeWorkspaceId]);
+
+  useEffect(() => {
+    // 1. If we have initialData, use it
     if (initialData && !(initialData as any).isError) {
       setData(initialData);
       setTags(initialData.tags || []);
       setIsLoading(false);
-    } else if (!data && !initialData) {
-      // First load or no data at all
+      lastFetchTimeRef.current = Date.now();
+      return;
+    } 
+    
+    // 2. Fetch if we don't have data OR if the data we have is for a different workspace
+    if (!data || activeWorkspaceId !== workspaceId) {
       fetchLayout();
-    } else if (initialData && (initialData as any).isError) {
-       console.warn("[WorkspaceLayout] Ignoring transient background re-validation error to preserve UI state.");
     }
-  }, [workspaceId, initialData, fetchLayout, data]);
+  }, [workspaceId, initialData, fetchLayout, data, activeWorkspaceId]);
 
   // Provide a safe default for when data is loading
   const contextValue: WorkspaceLayoutContextType = {

@@ -9,7 +9,6 @@ import {
 
 export interface WorkspacesClient {
     create(values: WorkSpaceSchemaType): Promise<ApiResponse>;
-    update(workspaceId: string, values: Partial<UpdateWorkspaceInfoType>): Promise<ApiResponse>;
     delete(workspaceId: string): Promise<ApiResponse>;
     getMembers(workspaceId: string): Promise<WorkspaceMembersResult>;
     invite(workspaceId: string, values: InviteUserSchemaType): Promise<ApiResponse>;
@@ -26,6 +25,7 @@ export interface WorkspacesClient {
     getTaskCreationData(workspaceId: string): Promise<any>;
     getTags(workspaceId: string): Promise<any[]>;
     getProjects(workspaceId: string): Promise<any[]>;
+    update(workspaceId: string, values: Partial<UpdateWorkspaceInfoType>): Promise<ApiResponse>;
 }
 
 export const workspacesClient: WorkspacesClient = {
@@ -230,4 +230,3 @@ export const workspacesClient: WorkspacesClient = {
         return response.data || [];
     }
 };
-

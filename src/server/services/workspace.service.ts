@@ -1177,4 +1177,46 @@ export class WorkspaceService {
       surname: m.user?.surname || "Unknown",
     }));
   }
+
+  /**
+   * Update workspace attendance settings
+   */
+  static async updateAttendanceSettings(
+    workspaceId: string,
+    data: {
+      lateThreshold: string;
+      overtimeThreshold: string;
+    },
+    actorId: string,
+  ) {
+    const workspace = await prisma.workspace.update({
+      where: { id: workspaceId },
+      data: {
+        lateThreshold: data.lateThreshold,
+        overtimeThreshold: data.overtimeThreshold,
+      },
+    });
+
+    // Invalidate cache
+    await invalidateWorkspace(workspaceId);
+
+    // Record Activity
+    const actor = await prisma.user.findUnique({
+      where: { id: actorId },
+      select: { name: true, surname: true },
+    });
+    
+    await recordActivity({
+      userId: actorId,
+      userName: actor?.name || actor?.surname || "Admin",
+      workspaceId,
+      action: "ATTENDANCE_SETTINGS_UPDATED",
+      entityType: "WORKSPACE",
+      entityId: workspaceId,
+      newData: data,
+      broadcastEvent: "workspace_update",
+    });
+
+    return workspace;
+  }
 }

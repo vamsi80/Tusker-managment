@@ -111,6 +111,8 @@ model Workspace {
   pincode          String?
   state            String?
   website          String?
+  lateThreshold     String            @default("09:40")
+  overtimeThreshold String            @default("19:00")
   projects         Project[]
   tags             Tag[]
   owner            User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
@@ -653,8 +655,13 @@ model attendance {
   checkInLongitude  Float?
   checkOutLatitude  Float?
   checkOutLongitude Float?
+  checkInAddress    String?
+  checkOutAddress   String?
   status            AttendanceStatus @default(PRESENT)
+  isOvertime        Boolean          @default(false)
   notes             String?
+  lateThreshold     String?
+  overtimeThreshold String?
   createdAt         DateTime         @default(now())
   updatedAt         DateTime
   Workspace         Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)

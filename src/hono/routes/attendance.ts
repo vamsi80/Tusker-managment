@@ -11,18 +11,21 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
     if (!user || !user.id) return c.json({ success: false, error: "Unauthorized" }, 401);
     if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
 
-    const now = new Date();
-    const defaultStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const defaultEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
     const startDateStr = c.req.query("startDate");
     const endDateStr = c.req.query("endDate");
+    const memberId = c.req.query("memberId");
+    const status = c.req.query("status") as any;
 
-    const startDate = startDateStr ? new Date(startDateStr) : defaultStart;
-    const endDate = endDateStr ? new Date(endDateStr) : defaultEnd;
+    const startDate = startDateStr ? new Date(startDateStr) : undefined;
+    const endDate = endDateStr ? new Date(endDateStr) : undefined;
 
     try {
-        const records = await AttendanceService.getWorkspaceAttendance(workspaceId, startDate, endDate);
+        const records = await AttendanceService.getWorkspaceAttendance(
+            workspaceId, 
+            startDate, 
+            endDate, 
+            { memberId, status }
+        );
         return c.json({ success: true, data: records });
     } catch (error: any) {
         return c.json({ success: false, error: error.message }, 400);
@@ -52,7 +55,7 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
     if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
 
     try {
-        const { latitude, longitude } = await c.req.json();
+        const { latitude, longitude, address } = await c.req.json();
 
         // Geolocation restriction based on user requirement
         if (!latitude || !longitude) {
@@ -64,6 +67,7 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
             userId: user.id,
             latitude,
             longitude,
+            address,
         });
         return c.json({ success: true, data: result });
     } catch (error: any) {
@@ -79,7 +83,7 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
     if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
 
     try {
-        const { latitude, longitude } = await c.req.json();
+        const { latitude, longitude, address } = await c.req.json();
 
         // Geolocation restriction based on user requirement
         if (!latitude || !longitude) {
@@ -91,9 +95,44 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
             userId: user.id,
             latitude,
             longitude,
+            address,
         });
         return c.json({ success: true, data: result });
     } catch (error: any) {
         return c.json({ success: false, error: error.message }, (parseInt(error.statusCode) || 400) as any);
+    }
+})
+
+.post("/reconcile", async (c) => {
+    const user = c.get("user");
+    const workspaceId = c.req.header("x-workspace-id");
+    
+    if (!user || !user.id) return c.json({ success: false, error: "Unauthorized" }, 401);
+    if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
+
+    try {
+        const { date } = await c.req.json().catch(() => ({ date: null }));
+        const targetDate = date ? new Date(date) : new Date();
+        const result = await AttendanceService.reconcileAttendance(workspaceId, targetDate);
+        return c.json({ success: true, data: result });
+    } catch (error: any) {
+        return c.json({ success: false, error: error.message }, 400);
+    }
+})
+
+.patch("/:id", async (c) => {
+    const user = c.get("user");
+    const workspaceId = c.req.header("x-workspace-id");
+    const id = c.req.param("id");
+
+    if (!user || !user.id) return c.json({ success: false, error: "Unauthorized" }, 401);
+    if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
+
+    try {
+        const body = await c.req.json();
+        const result = await AttendanceService.updateAttendance(id, body, user.id, workspaceId);
+        return c.json({ success: true, data: result });
+    } catch (error: any) {
+        return c.json({ success: false, error: error.message }, 400);
     }
 });

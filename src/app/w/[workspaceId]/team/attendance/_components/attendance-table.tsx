@@ -4,12 +4,18 @@ import { useEffect, useState, useMemo } from "react";
 import { DataTable } from "@/components/data-table/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
-import { APP_DATE_FORMAT } from "@/lib/utils";
+import { APP_DATE_FORMAT, cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Clock, Calendar } from "lucide-react";
+import { MapPin, Clock, Filter, X, Calendar as CalendarIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useMounted } from "@/hooks/use-mounted";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
+import { Calendar as ShadcnCalendar } from "@/components/ui/calendar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { apiClient } from "@/lib/api-client";
+import { toast } from "sonner";
+import { UserMinus, Loader2 } from "lucide-react";
 
 interface AttendanceRecord {
     id: string;
@@ -17,16 +23,19 @@ interface AttendanceRecord {
     checkIn: string;
     checkOut: string | null;
     status: string;
+    isOvertime: boolean;
     checkInLatitude: number | null;
     checkInLongitude: number | null;
     checkOutLatitude: number | null;
     checkOutLongitude: number | null;
+    checkInAddress: string | null;
+    checkOutAddress: string | null;
     WorkspaceMember: {
+        id: string;
         user: {
             name: string;
             surname: string | null;
             email: string;
-            image: string | null;
         };
     };
 }
@@ -34,39 +43,94 @@ interface AttendanceRecord {
 export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
     const [loading, setLoading] = useState(true);
     const [records, setRecords] = useState<AttendanceRecord[]>([]);
+    const [members, setMembers] = useState<{ label: string; value: string }[]>([]);
+
+    // Main filters state (synced with API)
+    const [activeFilters, setActiveFilters] = useState<{
+        from: Date | undefined;
+        to: Date | undefined;
+        memberId: string | undefined;
+        status: string | undefined;
+    }>({
+        from: undefined,
+        to: undefined,
+        memberId: undefined,
+        status: undefined,
+    });
+
+    // Local state for the filter popover
+    const [tempFilters, setTempFilters] = useState(activeFilters);
+    const [isFilterOpen, setIsFilterOpen] = useState(false);
+
     const mounted = useMounted();
 
+    // Fetch members for filter
     useEffect(() => {
-        const fetchRecords = async () => {
+        const fetchMembers = async () => {
             try {
-                const res = await fetch(`/api/v1/attendance`, {
-                    headers: { "x-workspace-id": workspaceId }
-                });
-                const data = await res.json();
-                if (data.success) {
-                    setRecords(data.data);
+                const res = await apiClient.workspaces.getMembers(workspaceId);
+                if (res && res.workspaceMembers) {
+                    const options = res.workspaceMembers
+                        .filter(m => m.workspaceRole !== "OWNER" && m.workspaceRole !== "ADMIN")
+                        .map(m => ({
+                            label: m.user?.surname || m.user?.name || "Unknown Member",
+                            value: m.id
+                        }));
+                    setMembers(options);
                 }
             } catch (error) {
-                console.error("Failed to fetch attendance records:", error);
-            } finally {
-                setLoading(false);
+                console.error("Failed to fetch members:", error);
             }
         };
-
-        fetchRecords();
+        fetchMembers();
     }, [workspaceId]);
+
+    const fetchRecords = async () => {
+        try {
+            setLoading(true);
+            const params = new URLSearchParams();
+            if (activeFilters.from) params.append("startDate", activeFilters.from.toISOString());
+            if (activeFilters.to) params.append("endDate", activeFilters.to.toISOString());
+            if (activeFilters.memberId) params.append("memberId", activeFilters.memberId);
+            if (activeFilters.status) params.append("status", activeFilters.status);
+
+            const res = await fetch(`/api/v1/attendance?${params.toString()}`, {
+                headers: { "x-workspace-id": workspaceId }
+            });
+            const data = await res.json();
+            if (data.success) {
+                setRecords(data.data);
+            }
+        } catch (error) {
+            console.error("Failed to fetch attendance records:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchRecords();
+    }, [workspaceId, activeFilters]);
+
+    // Sync temp filters with active filters when popover opens
+    useEffect(() => {
+        if (isFilterOpen) {
+            setTempFilters(activeFilters);
+        }
+    }, [isFilterOpen, activeFilters]);
 
     const columns = useMemo<ColumnDef<AttendanceRecord>[]>(() => [
         {
-            id: "userName",
+            id: "memberId",
             accessorKey: "WorkspaceMember.user.name",
             header: "Member",
             cell: ({ row }) => {
-                const user = row.original.WorkspaceMember.user;
+                const user = row.original.WorkspaceMember?.user;
+                if (!user) return <div className="text-sm italic text-muted-foreground">Unknown Member</div>;
+
                 return (
                     <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8 border border-border/50">
-                            <AvatarImage src={user.image || ""} />
                             <AvatarFallback className="bg-primary/5 text-[10px] text-primary">
                                 {(user.name?.[0] || "") + (user.surname?.[0] || "")}
                             </AvatarFallback>
@@ -89,7 +153,7 @@ export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
             cell: ({ row }) => {
                 if (!mounted) return "...";
                 return (
-                    <div className="font-medium">
+                    <div className="font-medium text-sm">
                         {format(new Date(row.original.date), APP_DATE_FORMAT)}
                     </div>
                 );
@@ -103,7 +167,7 @@ export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
                 return (
                     <div className="flex flex-col items-start">
                         <div className="flex items-center gap-1.5 text-sm">
-                            <Clock className="h-3 w-3 text-emerald-500" />
+                            <Clock className="h-3.5 w-3.5 text-emerald-500" />
                             {format(new Date(row.original.checkIn), "hh:mm a")}
                         </div>
                     </div>
@@ -116,18 +180,19 @@ export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
             cell: ({ row }) => {
                 const lat = row.original.checkInLatitude;
                 const lng = row.original.checkInLongitude;
+                const address = row.original.checkInAddress;
                 if (!lat || !lng) return <div className="text-xs text-muted-foreground italic">None</div>;
                 return (
-                    <div className="flex justify-start">
+                    <div className="flex justify-start max-w-[150px]">
                         <a
                             href={`https://www.google.com/maps?q=${lat},${lng}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-1 text-[10px] text-primary hover:underline bg-primary/5 px-2 py-1 rounded"
-                            title={`Raw coordinates: ${lat}, ${lng}`}
+                            className="flex items-center gap-1.5 text-[10px] text-primary hover:underline bg-primary/5 px-2 py-1 rounded-md transition-colors hover:bg-primary/10 truncate"
+                            title={address || `Raw coordinates: ${lat}, ${lng}`}
                         >
-                            <MapPin className="h-3 w-3" />
-                            {lat.toFixed(6)}, {lng.toFixed(6)}
+                            <MapPin className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`}</span>
                         </a>
                     </div>
                 );
@@ -143,7 +208,7 @@ export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
                 return (
                     <div className="flex flex-col items-start">
                         <div className="flex items-center gap-1.5 text-sm">
-                            <Clock className="h-3 w-3 text-rose-500" />
+                            <Clock className="h-3.5 w-3.5 text-rose-500" />
                             {format(new Date(checkOut), "hh:mm a")}
                         </div>
                     </div>
@@ -156,18 +221,19 @@ export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
             cell: ({ row }) => {
                 const lat = row.original.checkOutLatitude;
                 const lng = row.original.checkOutLongitude;
+                const address = row.original.checkOutAddress;
                 if (!lat || !lng) return <div className="text-xs text-muted-foreground italic">None</div>;
                 return (
-                    <div className="flex justify-start">
+                    <div className="flex justify-start max-w-[150px]">
                         <a
                             href={`https://www.google.com/maps?q=${lat},${lng}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-1 text-[10px] text-primary hover:underline bg-primary/5 px-2 py-1 rounded"
-                            title={`Raw coordinates: ${lat}, ${lng}`}
+                            className="flex items-center gap-1.5 text-[10px] text-primary hover:underline bg-primary/5 px-2 py-1 rounded-md transition-colors hover:bg-primary/10 truncate"
+                            title={address || `Raw coordinates: ${lat}, ${lng}`}
                         >
-                            <MapPin className="h-3 w-3" />
-                            {lat.toFixed(6)}, {lng.toFixed(6)}
+                            <MapPin className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`}</span>
                         </a>
                     </div>
                 );
@@ -192,43 +258,294 @@ export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
                     default:
                         content = <Badge variant="outline">{status}</Badge>;
                 }
-                return <div className="flex justify-start">{content}</div>;
+                return (
+                    <div className="flex justify-start items-center gap-2">
+                        {content}
+                        {row.original.isOvertime && (
+                            <Badge className="bg-purple-500/10 text-purple-600 hover:bg-purple-500/20 border-purple-500/20 px-1.5 py-0 text-[10px] font-bold">
+                                OT
+                            </Badge>
+                        )}
+                    </div>
+                );
             },
         },
     ], [mounted]);
 
-    const filterFields = [
-        {
-            label: "Status",
-            value: "status",
-            options: [
-                { label: "Present", value: "PRESENT" },
-                { label: "Absent", value: "ABSENT" },
-                { label: "Late", value: "LATE" },
-            ],
-        },
-    ];
+    const handleApplyFilters = () => {
+        setActiveFilters(tempFilters);
+        setIsFilterOpen(false);
+    };
+
+    const handleResetFilters = () => {
+        const reset = {
+            from: undefined,
+            to: undefined,
+            memberId: undefined,
+            status: undefined,
+        };
+        setTempFilters(reset);
+        setActiveFilters(reset);
+        setIsFilterOpen(false);
+    };
+
+    const activeFilterCount = useMemo(() => {
+        let count = 0;
+        if (activeFilters.memberId) count++;
+        if (activeFilters.status) count++;
+        if (activeFilters.from || activeFilters.to) count++;
+        return count;
+    }, [activeFilters]);
+
+    const [isReconciling, setIsReconciling] = useState(false);
+
+    const handleReconcile = async () => {
+        try {
+            setIsReconciling(true);
+            const res = await fetch("/api/v1/attendance/reconcile", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "x-workspace-id": workspaceId
+                },
+                body: JSON.stringify({ date: new Date().toISOString() })
+            });
+            const data = await res.json();
+            if (data.success) {
+                toast.success(`Successfully reconciled. Marked ${data.data.count} members as absent.`);
+                fetchRecords();
+            } else {
+                toast.error(data.error || "Failed to reconcile attendance");
+            }
+        } catch (error) {
+            toast.error("An error occurred during reconciliation");
+        } finally {
+            setIsReconciling(false);
+        }
+    };
+
+    const extraToolbarContent = (
+        <div className="flex items-center gap-2">
+            <Button
+                variant="outline"
+                size="sm"
+                onClick={handleReconcile}
+                disabled={isReconciling}
+                className="h-9 px-3 gap-2 border-dashed border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+            >
+                {isReconciling ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                    <UserMinus className="h-4 w-4" />
+                )}
+                <span className="font-medium text-sm hidden sm:inline">Mark Absents</span>
+            </Button>
+            
+            <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+            <PopoverTrigger asChild>
+                <Button
+                    variant="outline"
+                    className="gap-2 relative h-9 px-3 border shadow-sm hover:bg-accent/50 transition-colors"
+                >
+                    <Filter className="h-4 w-4" />
+                    <span className="font-medium text-sm">Filter</span>
+                    {activeFilterCount > 0 && (
+                        <Badge
+                            variant="destructive"
+                            className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px] font-bold shadow-md animate-in zoom-in"
+                        >
+                            {activeFilterCount}
+                        </Badge>
+                    )}
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent
+                className="w-[calc(100vw-2rem)] sm:w-[500px] p-0 overflow-hidden rounded-xl border-none shadow-2xl shadow-black/20"
+                align="end"
+                side="bottom"
+                sideOffset={8}
+            >
+                {/* Header */}
+                <div className="flex items-center justify-between border-b bg-muted/30 px-5 py-4">
+                    <div className="flex items-center gap-2">
+                        <Filter className="h-4 w-4 text-primary" />
+                        <h3 className="text-base font-bold text-foreground">Filter Records</h3>
+                    </div>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setIsFilterOpen(false)}
+                        className="h-8 w-8 p-0 rounded-full hover:bg-background/80"
+                    >
+                        <X className="h-4 w-4" />
+                    </Button>
+                </div>
+
+                {/* Content - Scrollable */}
+                <div className="max-h-[65vh] overflow-y-auto p-5 custom-scrollbar bg-background/50 backdrop-blur-sm">
+                    {/* Filters Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+
+                        {/* Member Filter */}
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <h4 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/80">Member</h4>
+                                {tempFilters.memberId && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setTempFilters(prev => ({ ...prev, memberId: undefined }))}
+                                        className="h-auto p-0 text-[10px] font-bold text-primary hover:text-primary/80 hover:bg-transparent"
+                                    >
+                                        CLEAR
+                                    </Button>
+                                )}
+                            </div>
+                            <Select
+                                value={tempFilters.memberId || "all"}
+                                onValueChange={(val) => setTempFilters(prev => ({ ...prev, memberId: val === "all" ? undefined : val }))}
+                            >
+                                <SelectTrigger className="h-10 bg-background/50 border-muted-foreground/20 focus:ring-primary/20">
+                                    <SelectValue placeholder="All Members" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Members</SelectItem>
+                                    {members.map(m => (
+                                        <SelectItem key={m.value} value={m.value} className="text-sm">
+                                            {m.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Status Filter */}
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <h4 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/80">Status</h4>
+                                {tempFilters.status && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setTempFilters(prev => ({ ...prev, status: undefined }))}
+                                        className="h-auto p-0 text-[10px] font-bold text-primary hover:text-primary/80 hover:bg-transparent"
+                                    >
+                                        CLEAR
+                                    </Button>
+                                )}
+                            </div>
+                            <Select
+                                value={tempFilters.status || "all"}
+                                onValueChange={(val) => setTempFilters(prev => ({ ...prev, status: val === "all" ? undefined : val }))}
+                            >
+                                <SelectTrigger className="h-10 bg-background/50 border-muted-foreground/20 focus:ring-primary/20">
+                                    <SelectValue placeholder="All Statuses" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Statuses</SelectItem>
+                                    <SelectItem value="PRESENT" className="text-sm">Present</SelectItem>
+                                    <SelectItem value="ABSENT" className="text-sm">Absent</SelectItem>
+                                    <SelectItem value="LATE" className="text-sm">Late</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Date Range Filter */}
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <h4 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/80">Date Range</h4>
+                                {(tempFilters.from || tempFilters.to) && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setTempFilters(prev => ({
+                                            ...prev,
+                                            from: undefined,
+                                            to: undefined
+                                        }))}
+                                        className="h-auto p-0 text-[10px] font-bold text-primary hover:text-primary/80 hover:bg-transparent"
+                                    >
+                                        RESET
+                                    </Button>
+                                )}
+                            </div>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        className={cn(
+                                            "w-full justify-start text-left font-normal h-10 px-3 bg-background/50 border-muted-foreground/20 hover:bg-accent/30",
+                                            !tempFilters.from && !tempFilters.to && "text-muted-foreground"
+                                        )}
+                                    >
+                                        <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
+                                        <span className="truncate text-sm">
+                                            {tempFilters.from && tempFilters.to ? (
+                                                <>{format(tempFilters.from, "MMM d")} - {format(tempFilters.to, "MMM d")}</>
+                                            ) : tempFilters.from ? (
+                                                <>{format(tempFilters.from, "MMM d")} - ...</>
+                                            ) : (
+                                                "Pick dates"
+                                            )}
+                                        </span>
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0 border-none shadow-2xl rounded-xl overflow-hidden" align="start">
+                                    <div className="bg-background">
+                                        <ShadcnCalendar
+                                            mode="range"
+                                            selected={{
+                                                from: tempFilters.from,
+                                                to: tempFilters.to,
+                                            }}
+                                            onSelect={(range) => {
+                                                setTempFilters(prev => ({
+                                                    ...prev,
+                                                    from: range?.from,
+                                                    to: range?.to,
+                                                }));
+                                            }}
+                                            initialFocus
+                                            className="p-3"
+                                        />
+                                    </div>
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Footer Actions */}
+                <div className="flex items-center gap-3 border-t bg-muted/20 px-5 py-4">
+                    <Button
+                        variant="ghost"
+                        onClick={handleResetFilters}
+                        className="flex-1 font-bold text-sm h-10 hover:bg-background/80"
+                    >
+                        Reset All
+                    </Button>
+                    <Button
+                        onClick={handleApplyFilters}
+                        className="flex-[2] font-bold text-sm h-10 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-95"
+                    >
+                        Apply Filters
+                    </Button>
+                </div>
+            </PopoverContent>
+        </Popover>
+        </div>
+    );
 
     if (!mounted) return null;
 
     return (
-        <Card className="border-border/50 shadow-sm backdrop-blur-sm bg-card/50">
-            <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                    <Calendar className="h-5 w-5 text-primary" />
-                    Workspace Logs
-                </CardTitle>
-            </CardHeader>
-            <CardContent>
-                <DataTable
-                    columns={columns}
-                    data={records}
-                    isLoading={loading}
-                    searchKey="userName"
-                    searchPlaceholder="Search members..."
-                    filterFields={filterFields}
-                />
-            </CardContent>
-        </Card>
+        <DataTable
+            columns={columns}
+            data={records}
+            isLoading={loading}
+            searchKey="memberId"
+            searchPlaceholder="Search members..."
+            extraToolbarContent={extraToolbarContent}
+        />
     );
 }
