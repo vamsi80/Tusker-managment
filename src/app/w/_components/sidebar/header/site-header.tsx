@@ -30,7 +30,7 @@ export function SiteHeader() {
     let label = segment.charAt(0).toUpperCase() + segment.slice(1);
     if (segment === "w") label = "Workspace";
     if (segment === workspaceId) {
-        const currentWorkspace = data.workspaces?.workspaces?.find(w => w.id === workspaceId);
+        const currentWorkspace = data.workspaces?.workspaces?.find((w: any) => w.id === workspaceId);
         label = currentWorkspace?.name || "Dashboard";
     }
     if (segment === "p") label = "Projects";
