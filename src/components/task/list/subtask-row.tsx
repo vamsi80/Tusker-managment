@@ -383,13 +383,18 @@ export const SubTaskRow = memo(function SubTaskRow({
 
                 {columnVisibility.tag && (
                     <TableCell className="w-[100px] sm:w-[120px]">
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex items-center gap-1">
                             {subTask.tags && (subTask.tags as any[]).length > 0 ? (
-                                (subTask.tags as any[]).map((t: any) => (
-                                    <Badge key={t.id} variant="secondary" className="text-[10px] py-0 px-1 whitespace-nowrap">
-                                        {t.name}
+                                <>
+                                    <Badge variant="secondary" className="text-[10px] py-0 px-1 whitespace-nowrap truncate max-w-[80px]" title={(subTask.tags as any[])[0].name}>
+                                        {(subTask.tags as any[])[0].name}
                                     </Badge>
-                                ))
+                                    {(subTask.tags as any[]).length > 1 && (
+                                        <Badge variant="outline" className="text-[10px] py-0 px-1 whitespace-nowrap flex-shrink-0 text-muted-foreground bg-muted/30" title={(subTask.tags as any[]).slice(1).map(t => t.name).join(", ")}>
+                                            +{(subTask.tags as any[]).length - 1}
+                                        </Badge>
+                                    )}
+                                </>
                             ) : (
                                 <span className="text-muted-foreground text-xs text-center block w-full">-</span>
                             )}

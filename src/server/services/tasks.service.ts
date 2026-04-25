@@ -484,7 +484,7 @@ export class TasksService {
       const isSorting = opts.sorts && opts.sorts.length > 0;
 
       if (
-        (!isSorting || opts.view_mode === "gantt") &&
+        (!isSorting || opts.view_mode === "gantt" || opts.view_mode === "list") &&
         !opts.onlySubtasks &&
         !opts.excludeParents &&
         (hasExplicitFilters ||
@@ -820,8 +820,8 @@ export class TasksService {
             (opts.onlyParents || hierarchyMode === "parents"),
           excludeParents: opts.excludeParents,
           onlySubtasks:
-            !hasExplicitFilters &&
-            (isSorting || opts.onlySubtasks || hierarchyMode === "children"),
+            opts.onlySubtasks ||
+            (!hasExplicitFilters && hierarchyMode === "children"),
         },
       );
 
@@ -1233,7 +1233,7 @@ export class TasksService {
           : undefined,
       onlyParents: isSorting ? false : opts.onlyParents,
       excludeParents: opts.excludeParents,
-      onlySubtasks: isSorting ? true : opts.onlySubtasks,
+      onlySubtasks: opts.onlySubtasks,
       view_mode: opts.view_mode,
       ids: opts.ids,
     };
@@ -1275,7 +1275,7 @@ export class TasksService {
     const [rawTasks] = await Promise.all([
       prisma.task.findMany({
         where,
-        select: getTaskSelect(opts.view_mode, true, dbField ? [dbField] : []), // Use minimal select for filter queries
+        select: getTaskSelect(opts.view_mode, opts.onlySubtasks ? false : true, dbField ? [dbField] : []),
         orderBy: buildOrderBy(opts.sorts, opts.view_mode),
         take: limit + 1,
         skip: opts.skip || 0,

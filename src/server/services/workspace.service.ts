@@ -14,8 +14,6 @@ import { auth } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { getDailyReportStatusForUser } from "@/data/daily-report/get-daily-report-status";
-import { getUserProjects } from "@/data/project/get-projects";
-import { getWorkspaceTags } from "@/data/tag/get-tags";
 
 export class WorkspaceService {
   /**

@@ -139,12 +139,9 @@ export function SubTaskList({
         );
     }
 
-    // Sort subtasks by position for correct display order
-    const sortedSubTasks = [...task.subTasks].sort((a, b) => {
-        const posA = a.position ?? Number.MAX_SAFE_INTEGER;
-        const posB = b.position ?? Number.MAX_SAFE_INTEGER;
-        return posA - posB;
-    });
+    // When sorts are active, subtasks are already ordered by orderSubTasksForParent
+    // which applies the user's chosen sort field. Skip position-based re-sort.
+    const sortedSubTasks = task.subTasks;
 
     return (
         <>
