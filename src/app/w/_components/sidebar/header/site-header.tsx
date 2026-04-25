@@ -29,7 +29,10 @@ export function SiteHeader() {
     // Formatting logic for labels
     let label = segment.charAt(0).toUpperCase() + segment.slice(1);
     if (segment === "w") label = "Workspace";
-    if (segment === workspaceId) label = data.metadata?.name || "Dashboard";
+    if (segment === workspaceId) {
+        const currentWorkspace = data.workspaces?.workspaces?.find(w => w.id === workspaceId);
+        label = currentWorkspace?.name || "Dashboard";
+    }
     if (segment === "p") label = "Projects";
     
     return { label, url, isLast };
@@ -69,7 +72,6 @@ export function SiteHeader() {
         <div className="ml-auto flex items-center gap-3">
           <NotificationCenter
             workspaceId={workspaceId}
-            initialPeopleCount={data.unreadNotificationsCount || 0}
           />
           <ThemeToggle />
         </div>

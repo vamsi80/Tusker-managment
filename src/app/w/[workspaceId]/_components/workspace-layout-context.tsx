@@ -87,10 +87,8 @@ export function WorkspaceLayoutProvider({
   const contextValue: WorkspaceLayoutContextType = {
     data: data || {
         workspaces: { workspaces: [], totalCount: 0 },
-        metadata: null,
         reportStatus: null,
         projects: [],
-        unreadNotificationsCount: 0,
         permissions: {
             isWorkspaceAdmin: false,
             canCreateProject: false,

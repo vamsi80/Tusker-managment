@@ -168,6 +168,14 @@ export const workspacesClient = {
     },
 
     /**
+     * Get unread notification count
+     */
+    getUnreadCount: async (workspaceId: string): Promise<number> => {
+        const response = await apiFetch<{ success: boolean; data: number }>(`/workspaces/${workspaceId}/notifications/unread-count`);
+        return response.data || 0;
+    },
+
+    /**
      * Get Project Assignment maps (members & leaders)
      */
     getAssignmentMaps: async (workspaceId: string): Promise<any> => {
