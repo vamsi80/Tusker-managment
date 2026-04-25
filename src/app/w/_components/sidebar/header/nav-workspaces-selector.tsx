@@ -13,7 +13,7 @@ import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "../
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useMounted } from "@/hooks/use-mounted";
-import type { WorkspacesType } from "@/data/workspace/get-workspaces";
+import type { WorkspacesType } from "@/types/workspace";
 import { apiClient } from "@/lib/api-client";
 
 interface Props {

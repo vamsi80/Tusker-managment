@@ -34,7 +34,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { apiClient } from "@/lib/api-client";
+import { apiClient, type ApiResponse } from "@/lib/api-client";
 import { type WorkspaceMemberRow } from "@/types/workspace";
 
 import { useForm } from "react-hook-form";
@@ -82,7 +82,7 @@ export function TeamMembers({ data, isAdmin, workspaceId, onRefresh, isRefreshin
 
     React.useEffect(() => {
         const fetchManagers = async () => {
-            const result = await apiClient.workspaces.getManagers(workspaceId);
+            const result: ApiResponse = await apiClient.workspaces.getManagers(workspaceId);
             if (result.status === "success") {
                 setManagers(result.data);
             }
@@ -135,7 +135,7 @@ export function TeamMembers({ data, isAdmin, workspaceId, onRefresh, isRefreshin
 
         setIsUpdating(true);
         try {
-            const result = await apiClient.workspaces.updateMember(workspaceId, memberToEdit.id, values);
+            const result: ApiResponse = await apiClient.workspaces.updateMember(workspaceId, memberToEdit.id, values);
 
             if (result.status === "success") {
                 toast.success(result.message);
@@ -166,7 +166,7 @@ export function TeamMembers({ data, isAdmin, workspaceId, onRefresh, isRefreshin
 
         setIsDeleting(true);
         try {
-            const result = await apiClient.workspaces.removeMember(workspaceId, memberToDelete.id);
+            const result: ApiResponse = await apiClient.workspaces.removeMember(workspaceId, memberToDelete.id);
 
             if (result.status === "success") {
                 toast.success(result.message);

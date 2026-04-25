@@ -1,15 +1,34 @@
 import { WorkSpaceSchemaType, UpdateWorkspaceInfoType, InviteUserSchemaType } from "@/lib/zodSchemas";
 import { type ApiResponse } from "./types";
 import { apiFetch } from "./fetch-wrapper";
-import { 
-    type WorkspaceData, 
-    type WorkspaceMemberRow, 
-    type WorkspaceListItem,
+import {
+    type WorkspaceData,
     type WorkspaceMembersResult,
-    type WorkspacesResult 
+    type WorkspacesResult
 } from "@/types/workspace";
 
-export const workspacesClient = {
+export interface WorkspacesClient {
+    create(values: WorkSpaceSchemaType): Promise<ApiResponse>;
+    update(workspaceId: string, values: Partial<UpdateWorkspaceInfoType>): Promise<ApiResponse>;
+    delete(workspaceId: string): Promise<ApiResponse>;
+    getMembers(workspaceId: string): Promise<WorkspaceMembersResult>;
+    invite(workspaceId: string, values: InviteUserSchemaType): Promise<ApiResponse>;
+    removeMember(workspaceId: string, memberId: string): Promise<ApiResponse>;
+    updateMember(workspaceId: string, memberId: string, values: any): Promise<ApiResponse>;
+    resendInvite(workspaceId: string, memberId: string): Promise<ApiResponse>;
+    getManagers(workspaceId: string): Promise<ApiResponse>;
+    getAll(): Promise<WorkspacesResult>;
+    getById(workspaceId: string): Promise<WorkspaceData>;
+    getMetadata(workspaceId: string): Promise<any>;
+    getLayoutData(workspaceId: string): Promise<any>;
+    getUnreadCount(workspaceId: string): Promise<number>;
+    getAssignmentMaps(workspaceId: string): Promise<any>;
+    getTaskCreationData(workspaceId: string): Promise<any>;
+    getTags(workspaceId: string): Promise<any[]>;
+    getProjects(workspaceId: string): Promise<any[]>;
+}
+
+export const workspacesClient: WorkspacesClient = {
     /**
      * Create a new workspace
      */
@@ -60,7 +79,8 @@ export const workspacesClient = {
      * Get workspace members
      */
     getMembers: async (workspaceId: string): Promise<WorkspaceMembersResult> => {
-        return apiFetch<WorkspaceMembersResult>(`/workspaces/${workspaceId}/members`);
+        const response = await apiFetch<{ success: boolean; data: WorkspaceMembersResult }>(`/workspaces/${workspaceId}/members`);
+        return response.data;
     },
 
     /**

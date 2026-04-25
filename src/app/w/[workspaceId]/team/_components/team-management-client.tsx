@@ -7,6 +7,7 @@ import { TeamMembers } from "./team-members-table";
 import { useWorkspaceLayout } from "../../_components/workspace-layout-context";
 import { pusherClient } from "@/lib/pusher";
 import { TEAM_UPDATE } from "@/lib/realtime";
+import { WorkspaceMembersResult } from "@/types/workspace";
 
 interface TeamManagementClientProps {
     workspaceId: string;
@@ -26,8 +27,8 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
         try {
             if (members.length === 0) setIsLoadingMembers(true);
             setIsRefreshing(true);
-            const membersRes = await workspacesClient.getMembers(workspaceId);
-            setMembers(membersRes.data?.workspaceMembers || []);
+            const membersRes: WorkspaceMembersResult = await workspacesClient.getMembers(workspaceId);
+            setMembers(membersRes.workspaceMembers || []);
         } catch (error) {
             console.error("Failed to fetch team data:", error);
         } finally {
