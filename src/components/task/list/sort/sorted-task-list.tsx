@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Loader2 } from "lucide-react";
 import { SortedTaskRow } from "./sorted-task-row";
@@ -15,7 +15,7 @@ interface SortedTaskListProps {
     isLoadingMore: boolean;
     columnVisibility: ColumnVisibility;
     visibleColumnsCount: number;
-    sortedSentinelRef: React.RefObject<HTMLTableRowElement | null>;
+    onLoadMore: () => void;
     handleSubTaskClick: (task: any) => void;
 }
 
@@ -26,16 +26,41 @@ export function SortedTaskList({
     isLoadingMore,
     columnVisibility,
     visibleColumnsCount,
-    sortedSentinelRef,
+    onLoadMore,
     handleSubTaskClick,
 }: SortedTaskListProps) {
     // 1. Local optimistic state for instant UI deletion (without waiting for TaskTable re-render)
     const [localTasks, setLocalTasks] = useState(sortedTasks);
+    const sentinelRef = useRef<HTMLTableRowElement | null>(null);
+    const onLoadMoreRef = useRef(onLoadMore);
+
+    // Keep the callback ref current
+    useEffect(() => {
+        onLoadMoreRef.current = onLoadMore;
+    }, [onLoadMore]);
 
     // Sync upstream on actual updates
     useEffect(() => {
         setLocalTasks(sortedTasks);
     }, [sortedTasks]);
+
+    // IntersectionObserver lives here — guaranteed DOM access to sentinel
+    useEffect(() => {
+        const sentinel = sentinelRef.current;
+        if (!sentinel || !hasMore) return;
+
+        const obs = new IntersectionObserver(
+            (entries) => {
+                if (entries[0]?.isIntersecting) {
+                    onLoadMoreRef.current();
+                }
+            },
+            { rootMargin: "300px", threshold: 0 },
+        );
+
+        obs.observe(sentinel);
+        return () => obs.disconnect();
+    }, [localTasks.length, hasMore]);
 
     if (isLoading) {
         return <SingleTableSkeleton visibleColumnsCount={visibleColumnsCount} />;
@@ -56,10 +81,10 @@ export function SortedTaskList({
                 />
             ))}
 
-            {/* Sentinel is mounted so the IntersectionObserver ref stays valid across hasMore transitions. */}
+            {/* Sentinel — always mounted so the observer can re-attach */}
             <TableRow
                 className="hover:bg-transparent border-0"
-                ref={sortedSentinelRef as React.LegacyRef<HTMLTableRowElement>}
+                ref={sentinelRef}
             >
                 <TableCell colSpan={visibleColumnsCount} className="py-3">
                     {isLoadingMore && (

@@ -311,11 +311,11 @@ workspaces.get("/:workspaceId/notifications/unread-count", async (c) => {
  * Get all projects for a workspace (filtered by user access)
  */
 workspaces.get("/:workspaceId/projects", async (c) => {
-    const user = c.get("user");
-    const workspaceId = c.req.param("workspaceId");
-    
-    const projects = await getWorkspaceProjectsForUser(user.id, workspaceId);
-    return c.json({ success: true, data: projects });
+  const user = c.get("user");
+  const workspaceId = c.req.param("workspaceId");
+
+  const projects = await getWorkspaceProjectsForUser(user.id, workspaceId);
+  return c.json({ success: true, data: projects });
 });
 
 /**
@@ -340,26 +340,10 @@ workspaces.get("/:workspaceId/assignment-maps", async (c) => {
 });
 
 /**
- * GET /api/v1/workspaces/:workspaceId/task-creation-data
- * Get all data needed for workspace-level task creation
- */
-workspaces.get("/:workspaceId/task-creation-data", async (c) => {
-  const user = c.get("user");
-  const workspaceId = c.req.param("workspaceId");
-
-  const data = await WorkspaceService.getWorkspaceTaskCreationData(
-    workspaceId,
-    user.id,
-  );
-  return c.json({ success: true, data });
-});
-
-/**
  * GET /api/v1/workspaces/:workspaceId/paginated-members
  * Get paginated workspace members
  */
 workspaces.get("/:workspaceId/paginated-members", async (c) => {
-  const user = c.get("user");
   const workspaceId = c.req.param("workspaceId");
   const cursor = c.req.query("cursor");
   const limit = parseInt(c.req.query("limit") || "10");

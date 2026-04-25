@@ -51,6 +51,7 @@ import { FlatTaskList } from "./group/flat-task-list";
 import { EmptyState } from "./table/empty-state";
 import { SortedTaskList } from "./sort/sorted-task-list";
 
+
 interface TaskTableProps {
   initialTasks: TaskWithSubTasks[];
   initialHasMore: boolean;
@@ -150,7 +151,6 @@ function TaskTable({
   }, [projects]);
 
   const observerRef = useRef<IntersectionObserver | null>(null);
-  const sortedSentinelRef = useRef<HTMLTableRowElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const tasksRef = useRef<TaskWithSubTasks[]>([]);
   const loadMoreSortedRef = useRef<(() => Promise<void>) | null>(null);
@@ -281,6 +281,65 @@ function TaskTable({
     [initialTasks],
   );
 
+  // Helper to compare subtasks by a sort field
+  const compareByField = useCallback(
+    (a: any, b: any, field: SortField, direction: "asc" | "desc") => {
+      const dir = direction === "asc" ? 1 : -1;
+      let aVal: any;
+      let bVal: any;
+
+      switch (field) {
+        case "name":
+          aVal = (a.name || "").toLowerCase();
+          bVal = (b.name || "").toLowerCase();
+          return dir * aVal.localeCompare(bVal);
+        case "status": {
+          const statusOrder: Record<string, number> = {
+            TO_DO: 0,
+            IN_PROGRESS: 1,
+            REVIEW: 2,
+            HOLD: 3,
+            COMPLETED: 4,
+            CANCELLED: 5,
+          };
+          aVal = statusOrder[a.status] ?? 99;
+          bVal = statusOrder[b.status] ?? 99;
+          return dir * (aVal - bVal);
+        }
+        case "startDate":
+          aVal = a.startDate ? new Date(a.startDate).getTime() : 0;
+          bVal = b.startDate ? new Date(b.startDate).getTime() : 0;
+          return dir * (aVal - bVal);
+        case "deadline": {
+          // Deadline = startDate + days
+          const aDue = a.startDate && a.days
+            ? new Date(a.startDate).getTime() + a.days * 86400000
+            : a.startDate ? new Date(a.startDate).getTime() : 0;
+          const bDue = b.startDate && b.days
+            ? new Date(b.startDate).getTime() + b.days * 86400000
+            : b.startDate ? new Date(b.startDate).getTime() : 0;
+          return dir * (aDue - bDue);
+        }
+        case "dueDate": {
+          const aDue2 = a.startDate && a.days
+            ? new Date(a.startDate).getTime() + a.days * 86400000
+            : 0;
+          const bDue2 = b.startDate && b.days
+            ? new Date(b.startDate).getTime() + b.days * 86400000
+            : 0;
+          return dir * (aDue2 - bDue2);
+        }
+        case "createdAt":
+          aVal = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          bVal = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dir * (aVal - bVal);
+        default:
+          return 0;
+      }
+    },
+    [],
+  );
+
   const orderSubTasksForParent = useCallback(
     (parentTaskId: string, subTasks: any[], preferredSource?: any[]) => {
       const deduped = subTasks.filter(
@@ -288,6 +347,18 @@ function TaskTable({
           index === self.findIndex((candidate) => candidate.id === subTask.id),
       );
 
+      // If sorting is active, sort subtasks by the active sort field
+      if (sorts.length > 0) {
+        return deduped.sort((a, b) => {
+          for (const sort of sorts) {
+            const result = compareByField(a, b, sort.field, sort.direction);
+            if (result !== 0) return result;
+          }
+          return compareSubTasksFallback(a, b);
+        });
+      }
+
+      // Otherwise, use existing rank-based ordering
       const rankMap = new Map<string, number>();
       const canonicalSources = [
         preferredSource,
@@ -314,7 +385,7 @@ function TaskTable({
         return compareSubTasksFallback(a, b);
       });
     },
-    [compareSubTasksFallback, getCachedSubTasks],
+    [sorts, compareByField, compareSubTasksFallback, getCachedSubTasks],
   );
 
   const orderRootTasks = useCallback(
@@ -1040,28 +1111,7 @@ function TaskTable({
     return observerRef.current;
   };
 
-  useEffect(() => {
-    if (mode !== "hierarchy") return;
 
-    setExpanded({});
-    setProjectPagination({});
-    processedSubTasksRef.current.clear();
-    fetchingSubTasksRef.current.clear();
-
-    setTasks(hydrateTasks(initialTasks));
-
-    if (level === "project" && projectId) {
-      setProjectPagination((prev) => ({
-        ...prev,
-        [projectId]: {
-          page: 1,
-          nextCursor: initialNextCursor,
-          hasMore: initialHasMore,
-          isLoading: false,
-        },
-      }));
-    }
-  }, [mode, initialTasks, initialHasMore, initialNextCursor, projectId, level]);
 
   useEffect(() => {
     const isAbortedRef = { current: false };
@@ -1154,9 +1204,6 @@ function TaskTable({
     const fetchSorted = async () => {
       setIsSortedViewLoading(true);
 
-      const startTime = performance.now();
-      console.time("Filter Flat List Load");
-
       const params = new URLSearchParams();
       params.set("w", workspaceId);
       if (level === "project" && projectId) params.set("p", projectId);
@@ -1187,7 +1234,6 @@ function TaskTable({
       setIsSortedViewLoading(false);
     };
 
-    // Reset pagination before fresh fetch — do NOT clear tasks here to avoid flicker
     setSortedHasMore(false);
     setSortedNextCursor(null);
 
@@ -1199,12 +1245,7 @@ function TaskTable({
   }, [sortsKey, workspaceId, projectId, filters, searchQuery]);
 
   const loadMoreSorted = async () => {
-    if (!sortedHasMore || isLoadingMoreSorted) {
-      // console.log("[LoadMoreSorted] Skip:", { sortedHasMore, isLoadingMoreSorted });
-      return;
-    }
-
-    if (isLoadingMoreSorted || !sortedHasMore) return;
+    if (!sortedHasMore || isLoadingMoreSorted) return;
     setIsLoadingMoreSorted(true);
 
     try {
@@ -1230,13 +1271,10 @@ function TaskTable({
 
       if (res.success && res.data) {
         const newTasks = res.data.tasks || [];
-        // console.log(`[LoadMoreSorted] Success: ${newTasks.length} tasks, hasMore: ${res.data.hasMore}`);
-
         setSortedTasks((prev) => [...prev, ...newTasks]);
         setSortedHasMore(res.data.hasMore);
         setSortedNextCursor(res.data.nextCursor);
       } else {
-        console.error("[LoadMoreSorted] Server error:", res.error);
         toast.error("Failed to load more sorted tasks");
         setSortedHasMore(false);
       }
@@ -1252,25 +1290,25 @@ function TaskTable({
     loadMoreSortedRef.current = loadMoreSorted;
   }, [loadMoreSorted]);
 
-  // Dedicated IntersectionObserver for sorted scroll pagination.
-  // Re-creates on every tasks-length change AND whenever hasMore flips,
-  // so the observer fires even when the sentinel stays in the viewport.
+
+
+  // Re-order existing in-memory subtasks when sort changes
   useEffect(() => {
-    const sentinel = sortedSentinelRef.current;
-    if (!sentinel) return;
-
-    const obs = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && sortedHasMore) {
-          loadMoreSortedRef.current?.();
+    if (sorts.length === 0) return;
+    processedSubTasksRef.current.clear();
+    fetchingSubTasksRef.current.clear();
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (t.subTasks && t.subTasks.length > 1) {
+          return {
+            ...t,
+            subTasks: orderSubTasksForParent(t.id, t.subTasks),
+          };
         }
-      },
-      { rootMargin: "300px", threshold: 0 },
+        return t;
+      }),
     );
-
-    obs.observe(sentinel);
-    return () => obs.disconnect();
-  }, [sortedTasks.length, sortedHasMore]);
+  }, [sortsKey]);
 
   const [activeInlineProjectId, setActiveInlineProjectId] = useState<
     string | null
@@ -1563,6 +1601,7 @@ function TaskTable({
           params.set("da", new Date(filters.startDate).toISOString());
         if (filters.endDate)
           params.set("db", new Date(filters.endDate).toISOString());
+        if (sorts.length > 0) params.set("sorts", JSON.stringify(sorts));
 
         const fetchUrl = `/api/v1/tasks/expansion/batch?${params.toString()}`;
         console.log(`🔍 [CLIENT] Requesting subtasks expansion: ${fetchUrl}`);
@@ -1953,7 +1992,7 @@ function TaskTable({
                   isLoadingMore={isLoadingMoreSorted}
                   columnVisibility={columnVisibility}
                   visibleColumnsCount={visibleColumnsCount}
-                  sortedSentinelRef={sortedSentinelRef}
+                  onLoadMore={loadMoreSorted}
                   handleSubTaskClick={handleSubTaskClick}
                 />
               ) : groupedTasks ? (

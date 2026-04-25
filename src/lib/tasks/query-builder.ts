@@ -268,7 +268,7 @@ export function buildSeekCondition(
 
         if (lastFieldValue === null || lastFieldValue === undefined) {
             return {
-                AND: [{ [dbField]: null }, { id: { lt: lastId } }],
+                AND: [{ [dbField]: null }, { id: { [op]: lastId } }],
             };
         }
 

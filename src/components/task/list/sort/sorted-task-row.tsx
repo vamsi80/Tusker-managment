@@ -55,7 +55,7 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
 
             {/* Task Name with Parent Context */}
             <TableCell className="w-[180px] sm:w-[250px] md:w-[350px]">
-                <div className="space-y-1 max-w-[230px]">
+                <div className="max-w-[230px]">
                     <div
                         className="font-medium text-foreground truncate hover:underline"
                         title={task.name}
@@ -68,9 +68,23 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
                         {task.name}
                     </div>
                     {task.parentTask && (
-                        <div className="text-xs text-muted-foreground flex items-center gap-1">
-                            <span className="flex-shrink-0">↳ Parent:</span>
-                            <span className="font-medium truncate" title={task.parentTask.name}>
+                        <div className="flex items-center gap-1 mt-0.5">
+                            <svg
+                                width="14"
+                                height="14"
+                                viewBox="0 0 16 16"
+                                fill="none"
+                                className="flex-shrink-0 text-muted-foreground"
+                            >
+                                <path
+                                    d="M4 2V10H12"
+                                    stroke="currentColor"
+                                    strokeWidth="1.5"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                />
+                            </svg>
+                            <span className="text-xs text-muted-foreground truncate" title={task.parentTask.name}>
                                 {task.parentTask.name}
                             </span>
                         </div>
@@ -201,13 +215,18 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
             {/* Tags */}
             {columnVisibility.tag && (
                 <TableCell className="w-[100px] sm:w-[120px]">
-                    <div className="flex flex-wrap gap-1">
+                    <div className="flex items-center gap-1">
                         {task.tags && task.tags.length > 0 ? (
-                            task.tags.map((t: any) => (
-                                <Badge key={t.id} variant="secondary" className="text-[10px] py-0 px-1 whitespace-nowrap">
-                                    {t.name}
+                            <>
+                                <Badge variant="secondary" className="text-[10px] py-0 px-1 whitespace-nowrap truncate max-w-[80px]" title={task.tags[0].name}>
+                                    {task.tags[0].name}
                                 </Badge>
-                            ))
+                                {task.tags.length > 1 && (
+                                    <Badge variant="outline" className="text-[10px] py-0 px-1 whitespace-nowrap flex-shrink-0 text-muted-foreground bg-muted/30" title={task.tags.slice(1).map((t: any) => t.name).join(", ")}>
+                                        +{task.tags.length - 1}
+                                    </Badge>
+                                )}
+                            </>
                         ) : (
                             <span className="text-muted-foreground text-sm">-</span>
                         )}
