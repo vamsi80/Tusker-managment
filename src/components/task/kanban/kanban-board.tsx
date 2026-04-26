@@ -33,6 +33,8 @@ import { logger } from "@/lib/logger";
 import { UserPermissionsType } from "@/data/user/get-user-permissions";
 import { useFilterStore } from "@/lib/store/filter-store";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
+import { workspacesClient } from "@/lib/api-client/workspaces";
 
 
 export type TaskStatus =
@@ -49,8 +51,6 @@ interface KanbanBoardProps {
   projectMembers: ProjectMembersType;
   workspaceId: string;
   projectId: string;
-  projects?: ProjectOption[];
-  tags?: TagOption[];
   level?: "project" | "workspace";
   projectManagers?: Record<string, any>;
   permissions?: UserPermissionsType;
@@ -101,14 +101,33 @@ export function KanbanBoard({
   projectMembers,
   workspaceId,
   projectId,
-  projects,
-  tags,
   level = "project",
   projectManagers,
   permissions,
   userId,
   isShell = false,
 }: KanbanBoardProps) {
+  const { data: layoutData } = useWorkspaceLayout();
+  const projects = layoutData.projects || [];
+  const [tags, setTags] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchTags = async () => {
+      try {
+        const workspaceTags = await workspacesClient.getTags(workspaceId);
+        if (mounted) {
+          setTags(workspaceTags.map((t) => ({ id: t.id, name: t.name })));
+        }
+      } catch (error) {
+        console.error("Failed to fetch tags for KanbanBoard:", error);
+      }
+    };
+    fetchTags();
+    return () => {
+      mounted = false;
+    };
+  }, [workspaceId]);
   const isMobile = useIsMobile();
   const setKanbanTasksCache = useTaskCacheStore(
     (state) => state.setKanbanTasksCache,

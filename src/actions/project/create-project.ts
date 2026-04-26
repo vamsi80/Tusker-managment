@@ -199,9 +199,27 @@ export async function createProject(values: ProjectSchemaType): Promise<ApiRespo
         const { invalidateWorkspaceProjects } = await import("@/lib/cache/invalidation");
         await invalidateWorkspaceProjects(values.workspaceId);
 
+        // Real-time update
+        const { broadcastProjectUpdate } = await import("@/lib/realtime");
+        await broadcastProjectUpdate({
+            workspaceId: values.workspaceId,
+            type: "CREATE",
+            projectId: newProject.id,
+            payload: {
+                ...newProject,
+                // Add fields that the sidebar needs but might be missing in the raw project object
+                canManageMembers: true, // Creator can always manage members
+            }
+        });
+
         return {
             status: "success",
             message: "Project created successfully! You can now start adding tasks.",
+            data: {
+                id: newProject.id,
+                slug: newProject.slug,
+                name: newProject.name,
+            }
         };
     } catch (err) {
         console.error("Error creating project:", err);

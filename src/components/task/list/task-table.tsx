@@ -43,6 +43,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
+import { workspacesClient } from "@/lib/api-client/workspaces";
 
 import { TableLoading } from "./table/table-loading";
 import { LoadMoreSentinel } from "./table/load-more-sentinel";
@@ -62,16 +64,6 @@ interface TaskTableProps {
   workspaceId: string;
   projectId: string;
   canCreateSubTask: boolean;
-  showAdvancedFilters?: boolean;
-  tags?: { id: string; name: string }[];
-  projects?: {
-    id: string;
-    name: string;
-    canManageMembers?: boolean;
-    color?: string;
-    managedProjectIds?: string[];
-  }[];
-  leadProjectIds?: string[];
   isWorkspaceAdmin?: boolean;
   level?: "workspace" | "project";
   permissions?: UserPermissionsType;
@@ -81,8 +73,6 @@ interface TaskTableProps {
 }
 
 const DEFAULT_TAGS: { id: string; name: string }[] = [];
-const DEFAULT_PROJECTS: { id: string; name: string }[] = [];
-
 function TaskTable({
   initialTasks,
   members,
@@ -90,10 +80,6 @@ function TaskTable({
   workspaceId,
   projectId,
   canCreateSubTask,
-  showAdvancedFilters = false,
-  tags = DEFAULT_TAGS,
-  projects = DEFAULT_PROJECTS,
-  leadProjectIds = [],
   isWorkspaceAdmin = false,
   level = "project",
   permissions,
@@ -104,6 +90,28 @@ function TaskTable({
   projectCounts,
   isShell = false,
 }: TaskTableProps) {
+  const { data: layoutData } = useWorkspaceLayout();
+  const projects = layoutData.projects || [];
+  const [tags, setTags] = useState<{ id: string; name: string }[]>([]);
+  const leadProjectIds = layoutData.permissions?.leadProjectIds || [];
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchTags = async () => {
+      try {
+        const workspaceTags = await workspacesClient.getTags(workspaceId);
+        if (mounted) {
+          setTags(workspaceTags.map((t) => ({ id: t.id, name: t.name })));
+        }
+      } catch (error) {
+        console.error("Failed to fetch tags for TaskTable:", error);
+      }
+    };
+    fetchTags();
+    return () => {
+      mounted = false;
+    };
+  }, [workspaceId]);
   const { filters, setFilters, searchQuery, setSearchQuery, clearFilters } =
     useFilterStore();
   const debouncedSetFilters = useCallback(debounce(setFilters, 200), [
@@ -1332,8 +1340,8 @@ function TaskTable({
       const pagination = projectPagination[targetProjectId];
 
       if (
-        !isCurrentlyExpanded && 
-        hasNoTasksLoaded && 
+        !isCurrentlyExpanded &&
+        hasNoTasksLoaded &&
         (!pagination || pagination.hasMore)
       ) {
         console.log(`[ExpandProject] Project "${targetProjectId}" is empty. Triggering load...`);
@@ -1405,7 +1413,7 @@ function TaskTable({
   const filterOptions = React.useMemo(() => {
     const options = extractAllFilterOptions(
       tasks as any,
-      showAdvancedFilters ? "workspace" : "project",
+      level === "workspace" ? "workspace" : "project",
     );
 
     const assigneesForFilter =
@@ -1428,7 +1436,7 @@ function TaskTable({
       tags: tags,
       projects: projects,
     };
-  }, [tasks, showAdvancedFilters, members, assignees, tags, projects]);
+  }, [tasks, level, members, assignees, tags, projects]);
 
   // Calculate project task counts
   const projectTaskCounts = useMemo(() => {
@@ -1852,7 +1860,7 @@ function TaskTable({
       <div className="flex items-center gap-2">
         <GlobalFilterToolbar
           className="flex-1"
-          level={showAdvancedFilters ? "workspace" : "project"}
+          level={level === "workspace" ? "workspace" : "project"}
           view="list"
           filters={filters}
           searchQuery={searchQuery}

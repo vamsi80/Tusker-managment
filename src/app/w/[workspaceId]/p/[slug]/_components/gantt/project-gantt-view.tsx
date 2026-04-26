@@ -24,7 +24,7 @@ interface GanttServerWrapperProps {
  * Fetches Gantt-specific task data independently.
  */
 export function GanttServerWrapper({ workspaceId, projectId, userId }: GanttServerWrapperProps) {
-    const { tags, revalidate: revalidateWorkspace } = useWorkspaceLayout();
+    const { revalidate: revalidateWorkspace } = useWorkspaceLayout();
     const { projectMembers, projectPermissions, isLoading: isProjectLoading, revalidate: revalidateProject } = useProjectLayout();
 
     const [isLoadingTasks, setIsLoadingTasks] = useState(true);

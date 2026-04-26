@@ -13,15 +13,11 @@ const DailyReportModal = dynamic(() => import("./DailyReportModal").then(mod => 
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 
 export function DailyReportFAB() {
-    const { data, workspaceId } = useWorkspaceLayout();
-    const initialStatus = data.reportStatus?.status ?? "NOT_SUBMITTED";
+    const { workspaceId } = useWorkspaceLayout();
     const [isOpen, setIsOpen] = useState(false);
-    const [status, setStatus] = useState<"SUBMITTED" | "ABSENT" | "NOT_SUBMITTED" | "LOADING">(initialStatus);
+    const [status, setStatus] = useState<"SUBMITTED" | "ABSENT" | "NOT_SUBMITTED" | "LOADING">("LOADING");
 
     useEffect(() => {
-        // Only fetch if initialStatus is LOADING, otherwise trust the server
-        if (initialStatus !== "LOADING") return;
-
         let mounted = true;
         const fetchStatus = async () => {
             try {

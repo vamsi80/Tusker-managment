@@ -15,6 +15,7 @@ import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 import { toast } from "sonner";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 import { ProjectOption } from "@/components/task/shared/types";
+import { workspacesClient } from "@/lib/api-client/workspaces";
 
 interface ProjectGanttClientProps {
     workspaceId: string;
@@ -37,9 +38,28 @@ export function ProjectGanttClient({
     projectCounts,
     currentUser,
 }: ProjectGanttClientProps) {
-    const { data: layoutData, tags } = useWorkspaceLayout();
+    const { data: layoutData } = useWorkspaceLayout();
     const permissions = layoutData.permissions;
     const projects = layoutData.projects || [];
+    const [tags, setTags] = useState<{ id: string; name: string }[]>([]);
+
+    useEffect(() => {
+        let mounted = true;
+        const fetchTags = async () => {
+            try {
+                const workspaceTags = await workspacesClient.getTags(workspaceId);
+                if (mounted) {
+                    setTags(workspaceTags.map((t) => ({ id: t.id, name: t.name })));
+                }
+            } catch (error) {
+                console.error("Failed to fetch tags for ProjectGanttClient:", error);
+            }
+        };
+        fetchTags();
+        return () => {
+            mounted = false;
+        };
+    }, [workspaceId]);
 
     const { filters, setFilters, searchQuery, setSearchQuery, clearFilters } = useFilterStore();
     const [isPending, startTransition] = useTransition();

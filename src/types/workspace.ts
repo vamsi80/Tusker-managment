@@ -79,7 +79,6 @@ export type WorkspaceMembersResult = {
 export interface WorkspaceLayoutData {
   workspaces: WorkspacesResult;
   metadata?: any;
-  reportStatus: any;
   projects: any[];
   unreadNotificationsCount: number;
   permissions: {
@@ -93,7 +92,6 @@ export interface WorkspaceLayoutData {
     memberProjectIds?: string[];
     viewerProjectIds?: string[];
   };
-  tags?: any[];
   isError?: boolean;
 }
 

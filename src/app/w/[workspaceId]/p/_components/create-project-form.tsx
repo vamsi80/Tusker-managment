@@ -10,6 +10,7 @@ import { tryCatch } from "@/hooks/try-catch";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useConfetti } from "@/hooks/use-confetti";
+import { useWorkspaceLayout } from "../../_components/workspace-layout-context";
 import { Resolver, useForm, useWatch } from "react-hook-form";
 import { Textarea } from "@/components/ui/textarea";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -38,13 +39,20 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
     const [pending, startTransition] = useTransition();
     const router = useRouter();
     const { triggerConfetti } = useConfetti();
-    const mounted = useMounted();
+    const [mounted, setMounted] = useState(false);
+    const [open, setOpen] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     // Use explicit permission if provided, otherwise fallback to legacy isAdmin check
     const showCreateButton = canCreateProject ?? isAdmin;
 
     // Determine if user is MANAGER (auto-assigned as project manager)
     const isManager = userRole === "MANAGER";
+
+    const { revalidate } = useWorkspaceLayout();
 
     const form = useForm<ProjectSchemaType>({
         resolver: zodResolver(projectSchema) as unknown as Resolver<ProjectSchemaType>,
@@ -107,17 +115,27 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
                 toast.success(result.message);
                 triggerConfetti();
                 form.reset();
-                router.push(`/w/${workspaceId}`);
-            } else (
-                toast.error(result.message)
-            )
+                setOpen(false); // Close the dialog
+                
+                // Explicitly revalidate layout to update sidebar
+                revalidate(true);
+
+                // Redirect to the newly created project's page
+                if (result.data?.slug) {
+                    router.push(`/w/${workspaceId}/p/${result.data.slug}`);
+                } else {
+                    router.push(`/w/${workspaceId}`);
+                }
+            } else {
+                toast.error(result.message);
+            }
         });
     }
 
     // --- Updated CreateProjectDialog.tsx (JSX / TSX) ---
     return (
         <>
-            <Dialog>
+            <Dialog open={open} onOpenChange={setOpen}>
                 {showCreateButton && mounted && (
                     <DialogTrigger asChild>
                         <button className="cursor-pointer">
@@ -307,11 +325,11 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
                                     name="projectManagers"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Project Managers</FormLabel>
+                                            <FormLabel>Project Manager</FormLabel>
                                             <FormDescription className="text-xs text-muted-foreground mb-2">
                                                 {isManager
                                                     ? "As a workspace manager, you will be automatically assigned as the project manager."
-                                                    : "Select project managers who will have full project access. (Managers only)"
+                                                    : "Select a project manager who will have full project access. (Managers only)"
                                                 }
                                             </FormDescription>
                                             <div className="space-y-2">
@@ -336,12 +354,12 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
                                                                             const m = members?.find((m) => m.userId === userId);
                                                                             return (
                                                                                 <Badge key={userId} variant="secondary" className="px-1 font-normal">
-                                                                                    {m?.user?.surname}
+                                                                                    {m?.user?.surname || "Unknown"}
                                                                                 </Badge>
                                                                             );
                                                                         })
                                                                     ) : (
-                                                                        <span className="text-muted-foreground">Select project managers</span>
+                                                                        <span className="text-muted-foreground">Select project manager</span>
                                                                     )}
                                                                 </div>
                                                             </Button>
@@ -361,11 +379,10 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
                                                                             <CommandItem
                                                                                 key={member.userId}
                                                                                 onSelect={() => {
-                                                                                    const current = field.value || [];
                                                                                     if (isSelected) {
-                                                                                        field.onChange(current.filter(id => id !== member.userId));
+                                                                                        field.onChange([]);
                                                                                     } else {
-                                                                                        field.onChange([...current, member.userId]);
+                                                                                        field.onChange([member.userId]);
                                                                                     }
                                                                                 }}
                                                                             >

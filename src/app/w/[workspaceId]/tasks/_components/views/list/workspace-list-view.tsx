@@ -23,31 +23,23 @@ export async function WorkspaceListView({
 
     // Fetch initial tasks and metadata in parallel
     const viewStartTime = performance.now();
-    const [tagsData, projectMembers, permissions, projects, tasksData, projectAssignments] = await Promise.all([
-        getWorkspaceTags(workspaceId),
+    const [projectMembers, permissions, tasksData] = await Promise.all([
         ProjectService.getWorkspaceProjectMembers(workspaceId),
         getWorkspacePermissions(workspaceId),
-        ProjectService.getWorkspaceProjects(workspaceId, user.id),
         getTasks({
             workspaceId,
             hierarchyMode: "parents",
             includeSubTasks: false,
             page: 1,
-            limit: 1,
+            limit: 50, // Increased limit for better initial view
             includeFacets: true,
             view_mode: "list"
         }, user.id),
-        ProjectService.getWorkspaceProjectAssignments(workspaceId)
     ]);
     const duration = performance.now() - viewStartTime;
     if (duration > 500) {
         console.warn(`[PERF_WARN] WorkspaceListView rendered in ${duration.toFixed(2)}ms`);
     }
-
-    const tags = tagsData.map((tag: any) => ({
-        id: tag.id,
-        name: tag.name,
-    }));
 
     const formattedMembers = projectMembers;
 
@@ -70,17 +62,6 @@ export async function WorkspaceListView({
             workspaceId={workspaceId}
             projectId=""
             canCreateSubTask={permissions.hasAccess}
-            showAdvancedFilters={true}
-            tags={tags}
-            projects={projects.map((p: any) => ({
-                id: p.id,
-                name: p.name,
-                color: p.color,
-                canManageMembers: p.canManageMembers,
-                memberIds: (projectAssignments[p.id] || []).map((m: any) => m.memberId)
-            }))}
-            leadProjectIds={permissions.leadProjectIds || []}
-            isWorkspaceAdmin={permissions.isWorkspaceAdmin}
             level="workspace"
             userId={user.id}
             projectCounts={tasksData.facets?.projects || {}}
