@@ -17,7 +17,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { ListFilter, User, Layers, X } from "lucide-react";
-import type { ProjectMembersType } from "@/data/project/get-project-members";
+import type { ProjectMembersType } from "@/types/project";
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "CANCELLED" | "REVIEW" | "HOLD" | "COMPLETED";
 

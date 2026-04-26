@@ -7,7 +7,7 @@ import { GanttSubtask } from "./types";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { InlineAssigneePicker } from "../shared/inline-assignee-picker";
-import { ProjectMembersType } from "@/data/project/get-project-members";
+import { ProjectMembersType } from "@/types/project";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";

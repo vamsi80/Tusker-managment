@@ -5,7 +5,7 @@
  * used across task components (List, Kanban, Gantt, and shared components).
  */
 import type { WorkspaceTaskType, SubTaskType } from "@/data/task";
-import type { ProjectMembersType } from "@/data/project/get-project-members";
+import type { ProjectMembersType } from "@/types/project";
 
 // ============================================================================
 // FILTER TYPES

@@ -11,7 +11,7 @@ import { GanttTask, TimelineGranularity } from "./types";
 import { TimelineHeader, TimelineGrid } from "./timeline-grid";
 import { calculateTimelineRange, getDaysBetween } from "./utils";
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { ProjectMembersType } from "@/data/project/get-project-members";
+import { ProjectMembersType } from "@/types/project";
 import { GanttRowSkeleton } from "./gantt-row-skeleton";
 
 

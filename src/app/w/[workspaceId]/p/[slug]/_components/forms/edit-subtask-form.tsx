@@ -14,7 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { subTaskSchema, SubTaskSchemaType } from "@/lib/zodSchemas";
 import { tryCatch } from "@/hooks/try-catch";
 import { toast } from "sonner";
-import type { ProjectMembersType } from "@/data/project/get-project-members";
+import { ProjectMembersType } from "@/types/project";
+import { projectsClient } from "@/lib/api-client/projects";
 import slugify from "slugify";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -174,11 +175,8 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                 const targetId = selectedProjectId || projectId || "";
                 if (!targetId) return;
 
-                const response = await fetch(`/api/v1/projects/${targetId}/reviewers`);
-                if (response.ok) {
-                    const fetched = await response.json();
-                    setReviewers(fetched);
-                }
+                const fetched = await projectsClient.getReviewers(targetId);
+                setReviewers(fetched);
             } catch (err) {
                 console.error("Failed to fetch reviewers", err);
             }

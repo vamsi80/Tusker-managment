@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { getProjectBySlug } from "@/data/project/get-project-by-slug";
+import { ProjectService } from "@/server/services/project.service";
 import { ProjectDashboard } from "./_components/dashboard/project-dashboard";
 import { ReloadableView } from "./_components/shared/reloadable-view";
 import { ProjectTaskListView } from "./_components/list/project-task-list-view";
@@ -68,20 +68,20 @@ export default async function ProjectPage({ params, searchParams }: iAppProps) {
 }
 
 async function ProjectTaskListViewServer({ workspaceId, slug }: { workspaceId: string, slug: string }) {
-  const [project, user] = await Promise.all([getProjectBySlug(workspaceId, slug), requireUser()]);
+  const [project, user] = await Promise.all([ProjectService.getProjectBySlug(workspaceId, slug), requireUser()]);
   if (!project) return null;
   return <ProjectTaskListView workspaceId={workspaceId} projectId={project.id} userId={user.id} />;
 }
 
 async function ProjectKanbanViewServer({ workspaceId, slug }: { workspaceId: string, slug: string }) {
-  const [project, user] = await Promise.all([getProjectBySlug(workspaceId, slug), requireUser()]);
+  const [project, user] = await Promise.all([ProjectService.getProjectBySlug(workspaceId, slug), requireUser()]);
   if (!project) return null;
   const { ProjectKanbanView } = await import("./_components/kanban/project-kanban-view");
   return <ProjectKanbanView workspaceId={workspaceId} projectId={project.id} userId={user.id} />;
 }
 
 async function ProjectGanttViewServer({ workspaceId, slug }: { workspaceId: string, slug: string }) {
-  const [project, user] = await Promise.all([getProjectBySlug(workspaceId, slug), requireUser()]);
+  const [project, user] = await Promise.all([ProjectService.getProjectBySlug(workspaceId, slug), requireUser()]);
   if (!project) return null;
   const { GanttServerWrapper } = await import("./_components/gantt/project-gantt-view");
   return <GanttServerWrapper workspaceId={workspaceId} projectId={project.id} userId={user.id} />;

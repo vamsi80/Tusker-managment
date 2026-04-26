@@ -109,8 +109,8 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
           workspaceId={workspaceId}
           isAdmin={permissions?.isWorkspaceAdmin ?? false}
           canCreateProject={permissions?.canCreateProject ?? permissions?.isWorkspaceAdmin ?? false}
-          userRole={permissions?.workspaceRole}
-          currentUserId={permissions?.userId}
+          userRole={permissions?.workspaceRole ?? undefined}
+          currentUserId={permissions?.userId ?? undefined}
         />
       </SidebarContent>
 

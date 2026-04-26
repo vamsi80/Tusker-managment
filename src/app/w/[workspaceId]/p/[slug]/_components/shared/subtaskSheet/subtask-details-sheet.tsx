@@ -11,7 +11,8 @@ import { fetchCommentsAction, fetchActivitiesAction } from "@/actions/comment";
 // Import modular components
 import { SubtaskSheetHeader } from "./subtask-sheet-header";
 import { SubtaskSheetNavBar } from "./subtask-sheet-navbar";
-import { getProjectMembers, ProjectMembersType } from "@/data/project/get-project-members";
+import { ProjectMembersType } from "@/types/project";
+import { projectsClient } from "@/lib/api-client/projects";
 import dynamic from "next/dynamic";
 const MessagesTab = dynamic(() => import("./messages-tab").then(mod => mod.MessagesTab), { ssr: false });
 const ActivityTab = dynamic(() => import("./activity-tab").then(mod => mod.ActivityTab), { ssr: false });
@@ -243,7 +244,7 @@ export function SubTaskDetailsSheet({
     // Fetch members when projectId changes or sheet opens
     useEffect(() => {
         if (subTask?.projectId && isOpen) {
-            getProjectMembers(subTask.projectId).then(setMembers);
+            projectsClient.getMembers(subTask.projectId).then(setMembers);
         }
     }, [subTask?.projectId, isOpen]);
 

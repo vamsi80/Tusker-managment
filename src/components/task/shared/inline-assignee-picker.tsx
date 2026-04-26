@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useTaskCacheStore } from "@/lib/store/task-cache-store";
-import type { ProjectMembersType } from "@/data/project/get-project-members";
+import type { ProjectMembersType } from "@/types/project";
 import { apiClient } from "@/lib/api-client";
 
 // ─────────────────────────────────────────────────────────────────

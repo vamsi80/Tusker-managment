@@ -2,8 +2,8 @@
 
 import React, { createContext, useContext, ReactNode, useState, useEffect, useCallback } from "react";
 import { projectsClient } from "@/lib/api-client/projects";
-import type { ProjectMembersType } from "@/data/project/get-project-members";
-import type { UserPermissionsType } from "@/data/user/get-user-permissions";
+import { ProjectMembersType } from "@/types/project";
+import type { UserPermissionsType } from "@/types/workspace";
 
 interface ProjectLayoutContextType {
     projectMembers: ProjectMembersType;

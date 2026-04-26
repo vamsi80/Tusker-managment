@@ -10,10 +10,12 @@ import { WorkspaceLayoutProvider, useWorkspaceLayout } from "../../[workspaceId]
 import { WorkspaceSkeleton } from "../workspace-skeleton";
 import { TopLoader } from "@/components/shared/top-loader";
 
+import { WorkspaceLayoutData } from "@/types/workspace";
+
 interface WorkspaceShellProps {
   children: React.ReactNode;
   workspaceId: string;
-  initialData?: any;
+  initialData?: WorkspaceLayoutData;
 }
 
 export function WorkspaceShell({ children, workspaceId, initialData }: WorkspaceShellProps) {
@@ -25,7 +27,7 @@ export function WorkspaceShell({ children, workspaceId, initialData }: Workspace
 }
 
 function WorkspaceShellContent({ children }: { children: React.ReactNode }) {
-  const { isLoading, workspaceId } = useWorkspaceLayout();
+  const { isLoading } = useWorkspaceLayout();
 
   if (isLoading) {
     return <WorkspaceSkeleton />;

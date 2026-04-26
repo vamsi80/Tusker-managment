@@ -4,7 +4,7 @@ import { useMemo, useState, useRef, useEffect } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { computeTaskDates, calculateBarPosition, formatDateRange, getDaysBetween, getAggregateStatus, getStatusColor } from "./utils";
 import { SortableSubtaskList } from "./sortable-subtask-list";
-import { ProjectMembersType } from "@/data/project/get-project-members";
+import { ProjectMembersType } from "@/types/project";
 
 import { cn } from "@/lib/utils";
 import { GanttRowSkeleton } from "./gantt-row-skeleton";

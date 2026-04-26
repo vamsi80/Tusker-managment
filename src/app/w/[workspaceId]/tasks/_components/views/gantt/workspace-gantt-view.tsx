@@ -1,12 +1,10 @@
 import { getTasks } from "@/data/task/get-tasks";
 import { getWorkspaceTags } from "@/data/tag/get-tags";
-import { getUserProjects } from "@/data/project/get-projects";
+import { ProjectService } from "@/server/services/project.service";
 import dynamic from "next/dynamic";
-import { getProjectMembers } from "@/data/project/get-project-members";
 import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { requireUser } from "@/lib/auth/require-user";
-import { getWorkspaceProjectAssignments, getWorkspaceProjectLeaders } from "@/data/workspace/get-workspace-kanban-data";
 
 const WorkspaceGanttClient = dynamic(
     () => import("./workspace-gantt-client").then(mod => mod.WorkspaceGanttClient),
@@ -19,7 +17,7 @@ interface WorkspaceGanttViewProps {
 
 export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProps) {
     const userPromise = requireUser();
-    const membersPromise = getProjectMembers({ workspaceId });
+    const membersPromise = ProjectService.getWorkspaceProjectMembers(workspaceId);
 
     const user = await userPromise;
 
@@ -34,7 +32,7 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
             view_mode: "gantt"
         }, user.id),
         membersPromise,
-        getWorkspacePermissions(workspaceId, user.id),
+        getWorkspacePermissions(workspaceId),
     ]);
     const duration = performance.now() - viewStartTime;
     if (duration > 800) {
