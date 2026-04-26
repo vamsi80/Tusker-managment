@@ -20,7 +20,7 @@ export interface WorkspacesClient {
     getAll(): Promise<WorkspacesResult>;
     getById(workspaceId: string): Promise<WorkspaceData>;
     getMetadata(workspaceId: string): Promise<any>;
-    getLayoutData(workspaceId: string): Promise<WorkspaceLayoutData>;
+    getLayoutData(workspaceId: string, timestamp?: number): Promise<WorkspaceLayoutData>;
     getUnreadCount(workspaceId: string): Promise<number>;
     getAssignmentMaps(workspaceId: string): Promise<any>;
     getTaskCreationData(workspaceId: string): Promise<any>;
@@ -182,8 +182,9 @@ export const workspacesClient: WorkspacesClient = {
     /**
      * Get unified layout data
      */
-    getLayoutData: async (workspaceId: string): Promise<any> => {
-        const response = await apiFetch<{ success: boolean; data: any }>(`/workspaces/${workspaceId}/layout`);
+    getLayoutData: async (workspaceId: string, timestamp?: number): Promise<any> => {
+        const url = `/workspaces/${workspaceId}/layout${timestamp ? `?t=${timestamp}` : ""}`;
+        const response = await apiFetch<{ success: boolean; data: any }>(url);
         return response.data;
     },
 

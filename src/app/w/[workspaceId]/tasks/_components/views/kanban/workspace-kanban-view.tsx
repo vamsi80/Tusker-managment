@@ -33,17 +33,9 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
     const [
         permissions,
         projectMembers,
-        projects,
-        projectAssignments,
-        tags,
-        projectLeaders,
     ] = await Promise.all([
         getWorkspacePermissions(workspaceId),
         membersPromise,
-        projectsPromise,
-        assignmentsPromise,
-        tagsPromise,
-        leadersPromise,
     ]);
     const duration = performance.now() - viewStartTime;
     if (duration > 600) {
@@ -52,16 +44,6 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
 
     const initialData = null;
 
-    // Convert projects to ProjectOption format for filters
-    const projectOptions = projects.map((project: any) => ({
-        id: project.id,
-        name: project.name,
-        slug: project.slug,
-        color: project.color,
-        memberIds: (projectAssignments[project.id] || []).map((m: any) => m.id)
-    }));
-
-
     return (
         <KanbanBoard
             initialData={initialData as any}
@@ -69,10 +51,7 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
             projectMembers={projectMembers as any}
             workspaceId={workspaceId}
             projectId="" 
-            projects={projectOptions}
             level="workspace"
-            tags={tags.map((tag: any) => ({ id: tag.id, name: tag.name }))}
-            projectManagers={projectLeaders}
             permissions={permissions}
             userId={user.id}
         />

@@ -18,6 +18,7 @@ import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 import { ProjectMembersType } from "@/types/project";
 import { useFilterStore } from "@/lib/store/filter-store";
 import { useWorkspaceLayout } from "../../../../_components/workspace-layout-context";
+import { workspacesClient } from "@/lib/api-client/workspaces";
 
 interface WorkspaceGanttClientProps {
   workspaceId: string;
@@ -42,8 +43,26 @@ export function WorkspaceGanttClient({
 }: WorkspaceGanttClientProps) {
   const { data: layoutData } = useWorkspaceLayout();
   const projects = layoutData.projects || [];
-  const tags = layoutData.tags || [];
+  const [tags, setTags] = useState<{ id: string; name: string }[]>([]);
   const permissions = layoutData.permissions;
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchTags = async () => {
+      try {
+        const workspaceTags = await workspacesClient.getTags(workspaceId);
+        if (mounted) {
+          setTags(workspaceTags.map((t) => ({ id: t.id, name: t.name })));
+        }
+      } catch (error) {
+        console.error("Failed to fetch tags for WorkspaceGanttClient:", error);
+      }
+    };
+    fetchTags();
+    return () => {
+      mounted = false;
+    };
+  }, [workspaceId]);
 
   const { filters, setFilters, searchQuery, setSearchQuery, clearFilters } = useFilterStore();
   const [isPending, startTransition] = useTransition();

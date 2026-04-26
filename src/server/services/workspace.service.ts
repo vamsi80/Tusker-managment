@@ -994,12 +994,10 @@ export class WorkspaceService {
    */
   static async getWorkspaceLayoutData(workspaceId: string, userId: string) {
     const [
-      reportStatus,
       permissions,
       workspacesResult,
       projects,
     ]: any[] = await Promise.all([
-      getDailyReportStatusForUser(workspaceId, userId),
       getWorkspacePermissions(workspaceId, userId, false),
       this.getWorkspaces(userId),
       ProjectService.getWorkspaceProjects(workspaceId, userId),
@@ -1008,7 +1006,6 @@ export class WorkspaceService {
     const workspacesData = workspacesResult.workspaces || [];
 
     return {
-      reportStatus,
       permissions,
       workspaces: { workspaces: workspacesData, totalCount: workspacesData.length },
       projects: projects || [],

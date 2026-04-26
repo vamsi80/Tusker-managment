@@ -28,8 +28,7 @@ export async function ProjectTaskListView({
     const user = await requireUser();
 
     // 2. Fetch initial data in parallel for speed
-    const [tagsData, members, permissions, tasksData] = await Promise.all([
-        getWorkspaceTags(workspaceId),
+    const [members, permissions, tasksData] = await Promise.all([
         ProjectService.getMembers(projectId),
         ProjectService.getPermissions(workspaceId, projectId, user.id),
         getTasks({
@@ -42,11 +41,6 @@ export async function ProjectTaskListView({
             view_mode: "list"
         }, user.id)
     ]);
-
-    const tags = tagsData.map(tag => ({
-        id: tag.id,
-        name: tag.name,
-    }));
 
     // Handle union response safely
     const rawTasks = (tasksData as any).tasks || [];
@@ -70,7 +64,6 @@ export async function ProjectTaskListView({
             permissions={permissions}
             userId={user.id}
             level="project"
-            tags={tags}
         />
     );
 }

@@ -23,12 +23,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { CreateProjectForm } from "@/app/w/[workspaceId]/p/_components/create-project-form";
 import { useMounted } from "@/hooks/use-mounted";
 import { Skeleton } from "@/components/ui/skeleton";
-import { pusherClient } from "@/lib/pusher";
-import { TEAM_UPDATE, TeamEventData } from "@/lib/realtime";
 import { projectsClient } from "@/lib/api-client/projects";
+import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 
 interface iAppProps {
-  initialProjects?: MinimalProjectData[];
   workspaceId: string;
   isAdmin: boolean;
   canCreateProject?: boolean;
@@ -36,9 +34,12 @@ interface iAppProps {
   currentUserId?: string;
 }
 
-export function NavProjects({ initialProjects = [], workspaceId, isAdmin, canCreateProject, userRole, currentUserId }: iAppProps) {
-  const [projects, setProjects] = useState<ProjectListItem[] | MinimalProjectData[]>(initialProjects);
-  const [isInitialLoading, setIsInitialLoading] = useState(initialProjects.length === 0);
+export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, currentUserId }: iAppProps) {
+  const { data: layoutData, isLoading: isLayoutLoading, isRevalidating, revalidate } = useWorkspaceLayout();
+  const projects = layoutData.projects || [];
+  
+  // Keep isInitialLoading for skeleton logic if context is loading
+  const isInitialLoading = (isLayoutLoading && projects.length === 0) || isRevalidating;
 
   const { isMobile, setOpenMobile } = useSidebar();
   const pathname = usePathname();
@@ -52,35 +53,6 @@ export function NavProjects({ initialProjects = [], workspaceId, isAdmin, canCre
       navigatingTo.current = null;
     }
   }, [router.isNavigating, pathname]);
-
-  const fetchProjects = async (isSilent = false) => {
-    try {
-      if (!isSilent) setIsInitialLoading(true);
-      const data = await projectsClient.getWorkspaceProjects(workspaceId);
-      setProjects(data);
-    } catch (error) {
-      console.error("Failed to fetch projects:", error);
-    } finally {
-      if (!isSilent) setIsInitialLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchProjects();
-
-    if (!pusherClient) return;
-
-    const channel = pusherClient.subscribe(`team-${workspaceId}`);
-    channel.bind(TEAM_UPDATE, (data: TeamEventData) => {
-      if (data.type === "UPDATE" || data.type === "INVITE" || data.type === "DELETE") {
-        fetchProjects(true); // Silent refresh on real-time event
-      }
-    });
-
-    return () => {
-      pusherClient?.unsubscribe(`team-${workspaceId}`);
-    };
-  }, [workspaceId]);
 
   const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, url: string) => {
     e.preventDefault();
@@ -194,8 +166,9 @@ export function NavProjects({ initialProjects = [], workspaceId, isAdmin, canCre
         toast.success(result.message);
         setDeleteDialogOpen(false);
         setProjectToDelete(null);
+        // Trigger revalidation to show skeleton and update list
+        revalidate(true);
         router.push(`/w/${workspaceId}`);
-        router.refresh();
       } else {
         toast.error(result.message);
       }

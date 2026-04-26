@@ -6,11 +6,19 @@ import { pusherServer } from "./pusher";
  */
 
 export const TEAM_UPDATE = "team_update";
+export const PROJECT_UPDATE = "project_update";
 
 export type TeamEventData = {
     workspaceId: string;
     type: "INVITE" | "DELETE" | "UPDATE";
     payload: any;
+};
+
+export type ProjectEventData = {
+    workspaceId: string;
+    type: "CREATE" | "UPDATE" | "DELETE";
+    projectId?: string;
+    payload?: any;
 };
 
 /**
@@ -29,5 +37,24 @@ export const broadcastTeamUpdate = async (data: TeamEventData) => {
         );
     } catch (error) {
         console.error("[REALTIME_PUSHER_ERROR]", error);
+    }
+};
+
+/**
+ * Broadcast a project event to all connected clients via Pusher.
+ */
+export const broadcastProjectUpdate = async (data: ProjectEventData) => {
+    try {
+        if (!pusherServer) {
+            console.warn("[REALTIME] Pusher not configured, skipping broadcast.");
+            return;
+        }
+        await pusherServer.trigger(
+            `team-${data.workspaceId}`, // Using the same team channel for now to keep it simple
+            PROJECT_UPDATE,
+            data
+        );
+    } catch (error) {
+        console.error("[REALTIME_PROJECT_PUSHER_ERROR]", error);
     }
 };

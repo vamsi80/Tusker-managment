@@ -49,6 +49,14 @@ export async function deleteProject(projectId: string): Promise<ApiResponse> {
         await invalidateWorkspaceProjects(project.workspaceId);
         await invalidateProjectTasks(projectId);
 
+        // Real-time update
+        const { broadcastProjectUpdate } = await import("@/lib/realtime");
+        await broadcastProjectUpdate({
+            workspaceId: project.workspaceId,
+            type: "DELETE",
+            projectId: projectId,
+        });
+
         return {
             status: "success",
             message: "Project deleted successfully.",
