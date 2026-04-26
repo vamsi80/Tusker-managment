@@ -2,6 +2,7 @@ import { WorkSpaceSchemaType, UpdateWorkspaceInfoType, InviteUserSchemaType } fr
 import { type ApiResponse } from "./types";
 import { apiFetch } from "./fetch-wrapper";
 import {
+    WorkspaceLayoutData,
     type WorkspaceData,
     type WorkspaceMembersResult,
     type WorkspacesResult
@@ -19,12 +20,11 @@ export interface WorkspacesClient {
     getAll(): Promise<WorkspacesResult>;
     getById(workspaceId: string): Promise<WorkspaceData>;
     getMetadata(workspaceId: string): Promise<any>;
-    getLayoutData(workspaceId: string): Promise<any>;
+    getLayoutData(workspaceId: string): Promise<WorkspaceLayoutData>;
     getUnreadCount(workspaceId: string): Promise<number>;
     getAssignmentMaps(workspaceId: string): Promise<any>;
     getTaskCreationData(workspaceId: string): Promise<any>;
     getTags(workspaceId: string): Promise<any[]>;
-    getProjects(workspaceId: string): Promise<any[]>;
     update(workspaceId: string, values: Partial<UpdateWorkspaceInfoType>): Promise<ApiResponse>;
 }
 
@@ -222,11 +222,4 @@ export const workspacesClient: WorkspacesClient = {
         return response.tags || [];
     },
 
-    /**
-     * Get all projects for a workspace
-     */
-    getProjects: async (workspaceId: string): Promise<any[]> => {
-        const response = await apiFetch<{ success: boolean; data: any[] }>(`/workspaces/${workspaceId}/projects`);
-        return response.data || [];
-    }
 };

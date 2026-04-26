@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Plus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { ProjectMembersType } from "@/data/project/get-project-members";
+import type { ProjectMembersType } from "@/types/project";
 import type { SubTaskType } from "@/data/task";
 import { ColumnVisibility } from "../shared/column-visibility";
 import { SubTaskSkeleton } from "@/components/task/list/list-skeleton";

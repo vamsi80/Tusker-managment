@@ -1,7 +1,6 @@
 import dynamic from "next/dynamic";
 import { getWorkspaceTags } from "@/data/tag/get-tags";
-import { getProjectMembers } from "@/data/project/get-project-members";
-import { getUserPermissions } from "@/data/user/get-user-permissions";
+import { ProjectService } from "@/server/services/project.service";
 import { requireUser } from "@/lib/auth/require-user";
 import { getTasks } from "@/data/task/get-tasks";
 import type { TaskWithSubTasks } from "@/components/task/shared/types";
@@ -31,8 +30,8 @@ export async function ProjectTaskListView({
     // 2. Fetch initial data in parallel for speed
     const [tagsData, members, permissions, tasksData] = await Promise.all([
         getWorkspaceTags(workspaceId),
-        getProjectMembers({ workspaceId, projectId }),
-        getUserPermissions(workspaceId, projectId, user.id),
+        ProjectService.getMembers(projectId),
+        ProjectService.getPermissions(workspaceId, projectId, user.id),
         getTasks({
             workspaceId,
             projectId,

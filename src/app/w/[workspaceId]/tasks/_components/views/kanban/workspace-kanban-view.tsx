@@ -1,11 +1,10 @@
 import { getTasks } from "@/data/task/get-tasks";
 import { getWorkspaceTags } from "@/data/tag/get-tags";
-import { getUserProjects } from "@/data/project/get-projects";
+import { ProjectService } from "@/server/services/project.service";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { requireUser } from "@/lib/auth/require-user";
 import dynamic from "next/dynamic";
-import { getProjectMembers } from "@/data/project/get-project-members";
-import { getWorkspaceProjectAssignments, getWorkspaceProjectLeaders } from "@/data/workspace/get-workspace-kanban-data";
+
 
 const KanbanBoard = dynamic(
     () => import("@/components/task/kanban/kanban-board").then(mod => mod.KanbanBoard),
@@ -18,14 +17,14 @@ interface WorkspaceKanbanViewProps {
 
 export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewProps) {
     const userPromise = requireUser();
-    const membersPromise = getProjectMembers({ workspaceId });
-    const projectsPromise = getUserProjects(workspaceId);
+    const membersPromise = ProjectService.getWorkspaceProjectMembers(workspaceId);
     const tagsPromise = getWorkspaceTags(workspaceId);
-    const assignmentsPromise = getWorkspaceProjectAssignments(workspaceId);
-    const leadersPromise = getWorkspaceProjectLeaders(workspaceId);
+    const assignmentsPromise = ProjectService.getWorkspaceProjectAssignments(workspaceId);
+    const leadersPromise = ProjectService.getWorkspaceProjectLeaders(workspaceId);
 
     // 2. Wait for user safely before launching the dependent queries
     const user = await userPromise;
+    const projectsPromise = ProjectService.getWorkspaceProjects(workspaceId, user.id);
 
     const COLUMNS = ["TO_DO", "IN_PROGRESS", "REVIEW", "COMPLETED", "HOLD", "CANCELLED"] as const;
 
@@ -39,7 +38,7 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
         tags,
         projectLeaders,
     ] = await Promise.all([
-        getWorkspacePermissions(workspaceId, user.id),
+        getWorkspacePermissions(workspaceId),
         membersPromise,
         projectsPromise,
         assignmentsPromise,
@@ -54,7 +53,7 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
     const initialData = null;
 
     // Convert projects to ProjectOption format for filters
-    const projectOptions = projects.map(project => ({
+    const projectOptions = projects.map((project: any) => ({
         id: project.id,
         name: project.name,
         slug: project.slug,
@@ -72,7 +71,7 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
             projectId="" 
             projects={projectOptions}
             level="workspace"
-            tags={tags.map(tag => ({ id: tag.id, name: tag.name }))}
+            tags={tags.map((tag: any) => ({ id: tag.id, name: tag.name }))}
             projectManagers={projectLeaders}
             permissions={permissions}
             userId={user.id}

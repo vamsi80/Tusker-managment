@@ -9,12 +9,14 @@ import { usePathname } from "next/navigation";
 import { useRef, useEffect } from "react";
 import { useSafeNavigation } from "@/hooks/use-safe-navigation";
 import { deleteProject } from "@/actions/project/delete-project";
-import type { UserProjectsType } from "@/data/project/get-projects";
+import type { 
+  ProjectListItem, 
+  MinimalProjectData, 
+  FullProjectData, 
+} from "@/types/project";
 import type { WorkspaceMembersResult } from "@/types/workspace";
-import type { FullProjectData } from "@/data/project/get-full-project-data";
 import { apiClient } from "@/lib/api-client";
 import { Building2Icon, MoreHorizontal, Eye, Pencil, Trash2, Loader2, Users } from "lucide-react";
-import { getFullProjectDataAction } from "@/actions/project/get-full-data";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuAction, useSidebar } from "@/components/ui/sidebar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, } from "@/components/ui/alert-dialog";
@@ -23,8 +25,7 @@ import { useMounted } from "@/hooks/use-mounted";
 import { Skeleton } from "@/components/ui/skeleton";
 import { pusherClient } from "@/lib/pusher";
 import { TEAM_UPDATE, TeamEventData } from "@/lib/realtime";
-import { workspacesClient } from "@/lib/api-client/workspaces";
-import { MinimalProjectData } from "@/data/project/get-projects";
+import { projectsClient } from "@/lib/api-client/projects";
 
 interface iAppProps {
   initialProjects?: MinimalProjectData[];
@@ -36,7 +37,7 @@ interface iAppProps {
 }
 
 export function NavProjects({ initialProjects = [], workspaceId, isAdmin, canCreateProject, userRole, currentUserId }: iAppProps) {
-  const [projects, setProjects] = useState<UserProjectsType | MinimalProjectData[]>(initialProjects);
+  const [projects, setProjects] = useState<ProjectListItem[] | MinimalProjectData[]>(initialProjects);
   const [isInitialLoading, setIsInitialLoading] = useState(initialProjects.length === 0);
 
   const { isMobile, setOpenMobile } = useSidebar();
@@ -55,8 +56,8 @@ export function NavProjects({ initialProjects = [], workspaceId, isAdmin, canCre
   const fetchProjects = async (isSilent = false) => {
     try {
       if (!isSilent) setIsInitialLoading(true);
-      const data = await workspacesClient.getProjects(workspaceId);
-      setProjects(data as any);
+      const data = await projectsClient.getWorkspaceProjects(workspaceId);
+      setProjects(data);
     } catch (error) {
       console.error("Failed to fetch projects:", error);
     } finally {
@@ -117,9 +118,9 @@ export function NavProjects({ initialProjects = [], workspaceId, isAdmin, canCre
     if (members.length > 0 || isLoadingMembers) return;
     setIsLoadingMembers(true);
     try {
-      const result = await apiClient.workspaces.getMembers(workspaceId);
-      if (result && result.workspaceMembers) {
-        setMembers(result.workspaceMembers);
+      const result = await projectsClient.getWorkspaceMembers(workspaceId);
+      if (result) {
+        setMembers(result as any);
       } else {
         toast.error("Failed to load workspace members");
       }
@@ -140,16 +141,16 @@ export function NavProjects({ initialProjects = [], workspaceId, isAdmin, canCre
     if (isLoadingProject) return;
     setIsLoadingProject(true);
     try {
-      const [fullDataResult, membersResult] = await Promise.all([
-        getFullProjectDataAction(projectId),
+      const [fullData, membersResult] = await Promise.all([
+        projectsClient.getFullData(projectId),
         loadMembers()
       ]);
 
-      if (fullDataResult.success && fullDataResult.data) {
-        setProjectToEdit(fullDataResult.data);
+      if (fullData) {
+        setProjectToEdit(fullData);
         setEditDialogOpen(true);
       } else {
-        toast.error(fullDataResult.error || "Failed to load project data");
+        toast.error("Failed to load project data");
       }
     } catch (error) {
       console.error("Error loading project:", error);
@@ -163,16 +164,16 @@ export function NavProjects({ initialProjects = [], workspaceId, isAdmin, canCre
     if (isLoadingProject) return;
     setIsLoadingProject(true);
     try {
-      const [fullDataResult, membersResult] = await Promise.all([
-        getFullProjectDataAction(projectId),
+      const [fullData, membersResult] = await Promise.all([
+        projectsClient.getFullData(projectId),
         loadMembers()
       ]);
 
-      if (fullDataResult.success && fullDataResult.data) {
-        setProjectToManageMembers(fullDataResult.data);
+      if (fullData) {
+        setProjectToManageMembers(fullData);
         setManageMembersDialogOpen(true);
       } else {
-        toast.error(fullDataResult.error || "Failed to load project data");
+        toast.error("Failed to load project data");
       }
     } catch (error) {
       console.error("Error loading project:", error);

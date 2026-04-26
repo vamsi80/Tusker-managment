@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { CornerDownRight, GripVertical, Calendar, Tag, MoreHorizontal } from "lucide-react";
 import type { SubTaskType } from "@/data/task";
-import type { ProjectMembersType } from "@/data/project/get-project-members";
+import type { ProjectMembersType } from "@/types/project";
 import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatDateUTC } from "@/lib/utils";

@@ -2,7 +2,7 @@
 
 import { useRef, useState, useEffect, memo, useCallback, useMemo } from "react";
 import type { SubTasksByStatusResponse, KanbanSubTaskType } from "@/data/task";
-import type { ProjectMembersType } from "@/data/project/get-project-members";
+import type { ProjectMembersType } from "@/types/project";
 import { cn } from "@/lib/utils";
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 import { toast } from "sonner";

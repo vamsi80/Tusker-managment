@@ -15,7 +15,7 @@ import {
 import { toast } from "sonner";
 import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
-import type { ProjectMembersType } from "@/data/project/get-project-members";
+import { ProjectMembersType } from "@/types/project";
 import { useFilterStore } from "@/lib/store/filter-store";
 import { useWorkspaceLayout } from "../../../../_components/workspace-layout-context";
 

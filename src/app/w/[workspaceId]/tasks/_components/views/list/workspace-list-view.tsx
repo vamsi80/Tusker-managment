@@ -1,12 +1,11 @@
 import dynamic from "next/dynamic";
 import { getWorkspaceTags } from "@/data/tag/get-tags";
-import { getProjectMembers } from "@/data/project/get-project-members";
+import { ProjectService } from "@/server/services/project.service";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
-import { getUserProjects } from "@/data/project/get-projects";
 import { requireUser } from "@/lib/auth/require-user";
 import { getTasks } from "@/data/task/get-tasks";
 import type { TaskWithSubTasks } from "@/components/task/shared/types";
-import { getWorkspaceProjectAssignments } from "@/data/workspace/get-workspace-kanban-data";
+
 
 const TaskTable = dynamic(() => import("@/components/task/list/task-table"), {
     loading: () => <div className="h-[60vh] w-full flex items-center justify-center text-muted-foreground animate-pulse">Loading Tasks...</div>
@@ -26,9 +25,9 @@ export async function WorkspaceListView({
     const viewStartTime = performance.now();
     const [tagsData, projectMembers, permissions, projects, tasksData, projectAssignments] = await Promise.all([
         getWorkspaceTags(workspaceId),
-        getProjectMembers({ workspaceId }),
-        getWorkspacePermissions(workspaceId, user.id),
-        getUserProjects(workspaceId),
+        ProjectService.getWorkspaceProjectMembers(workspaceId),
+        getWorkspacePermissions(workspaceId),
+        ProjectService.getWorkspaceProjects(workspaceId, user.id),
         getTasks({
             workspaceId,
             hierarchyMode: "parents",
@@ -38,14 +37,14 @@ export async function WorkspaceListView({
             includeFacets: true,
             view_mode: "list"
         }, user.id),
-        getWorkspaceProjectAssignments(workspaceId)
+        ProjectService.getWorkspaceProjectAssignments(workspaceId)
     ]);
     const duration = performance.now() - viewStartTime;
     if (duration > 500) {
         console.warn(`[PERF_WARN] WorkspaceListView rendered in ${duration.toFixed(2)}ms`);
     }
 
-    const tags = tagsData.map(tag => ({
+    const tags = tagsData.map((tag: any) => ({
         id: tag.id,
         name: tag.name,
     }));
@@ -73,7 +72,7 @@ export async function WorkspaceListView({
             canCreateSubTask={permissions.hasAccess}
             showAdvancedFilters={true}
             tags={tags}
-            projects={projects.map(p => ({
+            projects={projects.map((p: any) => ({
                 id: p.id,
                 name: p.name,
                 color: p.color,

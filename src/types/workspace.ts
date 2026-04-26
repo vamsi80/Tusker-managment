@@ -1,6 +1,8 @@
+
 /**
  * Types for workspace data
  */
+export type WorkspaceRole = "ADMIN" | "OWNER" | "MANAGER" | "MEMBER" | "VIEWER";
 export type WorkspaceData = {
   id: string;
   name: string;
@@ -32,7 +34,7 @@ export type WorkspaceMemberRow = {
   id: string;
   workspaceId: string;
   userId: string;
-  workspaceRole: string;
+  workspaceRole: WorkspaceRole;
   designation?: string | null;
   reportToId?: string | null;
   user?: {
@@ -41,9 +43,8 @@ export type WorkspaceMemberRow = {
     surname?: string | null;
     email: string;
     emailVerified: boolean;
-    image?: string | null;
-    contactNumber?: string | null;
     phoneNumber?: string | null;
+    image?: string | null;
     _count?: {
       accounts: number;
     };
@@ -75,7 +76,30 @@ export type WorkspaceMembersResult = {
   workspaceMembers: WorkspaceMemberRow[];
 };
 
+export interface WorkspaceLayoutData {
+  workspaces: WorkspacesResult;
+  metadata?: any;
+  reportStatus: any;
+  projects: any[];
+  unreadNotificationsCount: number;
+  permissions: {
+    isWorkspaceAdmin: boolean;
+    canCreateProject: boolean;
+    workspaceMemberId: string | null;
+    workspaceRole: WorkspaceRole | null;
+    userId: string | null;
+    leadProjectIds: string[];
+    managedProjectIds: string[];
+    memberProjectIds?: string[];
+    viewerProjectIds?: string[];
+  };
+  tags?: any[];
+  isError?: boolean;
+}
+
 export type WorkspaceType = WorkspaceData;
 export type WorkspaceMembersType = WorkspaceMembersResult;
 export type WorkspacesType = WorkspacesResult;
 export type WorkspaceItemType = WorkspaceListItem;
+
+export type { WorkspacePermissionsType, UserPermissionsType } from "@/data/user/get-user-permissions";

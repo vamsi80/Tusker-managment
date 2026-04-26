@@ -1,13 +1,11 @@
 "use client";
 
-import React, { createContext, useContext, ReactNode, useState, useEffect, useCallback, useTransition } from "react";
-import type { getWorkspaceLayoutData } from "@/data/workspace/get-workspace-layout-data";
+import React, { createContext, useContext, ReactNode, useState, useEffect, useCallback, useTransition, useRef } from "react";
+import { WorkspaceLayoutData } from "@/types/workspace";
 import { workspacesClient } from "@/lib/api-client/workspaces";
 
-type LayoutData = Awaited<ReturnType<typeof getWorkspaceLayoutData>>;
-
 interface WorkspaceLayoutContextType {
-  data: LayoutData;
+  data: WorkspaceLayoutData;
   tags: any[];
   workspaceId: string;
   isLoading: boolean;
@@ -24,28 +22,30 @@ export function WorkspaceLayoutProvider({
   workspaceId,
 }: {
   children: ReactNode;
-  initialData?: LayoutData;
+  initialData?: WorkspaceLayoutData;
   workspaceId: string;
 }) {
-  const [data, setData] = useState<LayoutData | null>(initialData || null);
+  const [data, setData] = useState<WorkspaceLayoutData | null>(initialData || null);
   const [tags, setTags] = useState<any[]>(initialData?.tags || []);
   const [isLoading, setIsLoading] = useState(!initialData);
   const [isNavigating, startTransition] = useTransition();
   const lastFetchTimeRef = React.useRef<number>(initialData ? Date.now() : 0);
-  const THROTTLE_MS = 45000; // 45 seconds
+  const THROTTLE_MS = 15000; // 45 seconds
   const [activeWorkspaceId, setActiveWorkspaceId] = useState(workspaceId);
 
   const fetchLayout = useCallback(async (isSilent = false) => {
+    console.log("FETCH CALLED at", new Date().toISOString());
     // 🛡️ Throttle check: Skip if we fetched very recently (e.g. within 45s)
     if (isSilent && Date.now() - lastFetchTimeRef.current < THROTTLE_MS) {
-        return;
+      console.log("THROTTLED");
+      return;
     }
 
     try {
       if (!isSilent) setIsLoading(true);
-      
+
       const fetchedData = await workspacesClient.getLayoutData(workspaceId);
-      
+
       if (fetchedData) {
         setData(fetchedData);
         setTags(fetchedData.tags || []);
@@ -72,10 +72,10 @@ export function WorkspaceLayoutProvider({
   // Handle Workspace Switching: Reset data if workspaceId changes
   useEffect(() => {
     if (workspaceId !== activeWorkspaceId) {
-        setData(null);
-        setTags([]);
-        setIsLoading(true);
-        setActiveWorkspaceId(workspaceId);
+      setData(null);
+      setTags([]);
+      setIsLoading(true);
+      setActiveWorkspaceId(workspaceId);
     }
   }, [workspaceId, activeWorkspaceId]);
 
@@ -87,8 +87,8 @@ export function WorkspaceLayoutProvider({
       setIsLoading(false);
       lastFetchTimeRef.current = Date.now();
       return;
-    } 
-    
+    }
+
     // 2. Fetch if we don't have data OR if the data we have is for a different workspace
     if (!data || activeWorkspaceId !== workspaceId) {
       fetchLayout();
@@ -98,17 +98,21 @@ export function WorkspaceLayoutProvider({
   // Provide a safe default for when data is loading
   const contextValue: WorkspaceLayoutContextType = {
     data: data || {
-        workspaces: { workspaces: [], totalCount: 0 },
-        reportStatus: null,
-        projects: [],
-        permissions: {
-            isWorkspaceAdmin: false,
-            canCreateProject: false,
-            workspaceMemberId: null,
-            workspaceRole: null,
-            userId: null,
-        }
-    } as any,
+      workspaces: { workspaces: [], totalCount: 0 },
+      reportStatus: null,
+      projects: [],
+      unreadNotificationsCount: 0,
+      permissions: {
+        isWorkspaceAdmin: false,
+        canCreateProject: false,
+        workspaceMemberId: null,
+        workspaceRole: null,
+        userId: null,
+        leadProjectIds: [],
+        managedProjectIds: [],
+      },
+      tags: [],
+    } as WorkspaceLayoutData,
     tags,
     workspaceId,
     isLoading,

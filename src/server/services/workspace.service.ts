@@ -14,6 +14,7 @@ import { auth } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { getDailyReportStatusForUser } from "@/data/daily-report/get-daily-report-status";
+import { ProjectService } from "./project.service";
 
 export class WorkspaceService {
   /**
@@ -996,10 +997,12 @@ export class WorkspaceService {
       reportStatus,
       permissions,
       workspacesResult,
+      projects,
     ]: any[] = await Promise.all([
       getDailyReportStatusForUser(workspaceId, userId),
-      getWorkspacePermissions(workspaceId, userId, true),
+      getWorkspacePermissions(workspaceId, userId, false),
       this.getWorkspaces(userId),
+      ProjectService.getWorkspaceProjects(workspaceId, userId),
     ]);
 
     const workspacesData = workspacesResult.workspaces || [];
@@ -1008,6 +1011,7 @@ export class WorkspaceService {
       reportStatus,
       permissions,
       workspaces: { workspaces: workspacesData, totalCount: workspacesData.length },
+      projects: projects || [],
     };
   }
 

@@ -21,7 +21,7 @@ const debounce = (func: Function, wait: number) => {
     timeout = setTimeout(() => func(...args), wait);
   };
 };
-import type { ProjectMembersType } from "@/data/project/get-project-members";
+import type { ProjectMembersType } from "@/types/project";
 import type { SubTaskType } from "@/data/task";
 import {
   type TaskWithSubTasks,

@@ -135,4 +135,20 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
     } catch (error: any) {
         return c.json({ success: false, error: error.message }, 400);
     }
+})
+
+.patch("/settings", async (c) => {
+    const user = c.get("user");
+    const workspaceId = c.req.header("x-workspace-id");
+
+    if (!user || !user.id) return c.json({ success: false, error: "Unauthorized" }, 401);
+    if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
+
+    try {
+        const body = await c.req.json();
+        const result = await AttendanceService.updateSettings(workspaceId, body, user.id);
+        return c.json({ success: true, data: result });
+    } catch (error: any) {
+        return c.json({ success: false, error: error.message }, 400);
+    }
 });

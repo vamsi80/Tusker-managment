@@ -4,7 +4,6 @@ import { WorkspaceService } from "@/server/services/workspace.service";
 import { workSpaceSchema, updateWorkspaceInfoSchema, updateMemberSchema } from "@/lib/zodSchemas";
 import { AppError } from "@/lib/errors/app-error";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
-import { getWorkspaceProjectsForUser } from "@/data/project/get-projects";
 
 const workspaces = new Hono<{ Variables: HonoVariables }>();
 
@@ -306,38 +305,7 @@ workspaces.get("/:workspaceId/notifications/unread-count", async (c) => {
   return c.json({ success: true, data: count });
 });
 
-/**
- * GET /api/v1/workspaces/:workspaceId/projects
- * Get all projects for a workspace (filtered by user access)
- */
-workspaces.get("/:workspaceId/projects", async (c) => {
-  const user = c.get("user");
-  const workspaceId = c.req.param("workspaceId");
 
-  const projects = await getWorkspaceProjectsForUser(user.id, workspaceId);
-  return c.json({ success: true, data: projects });
-});
-
-/**
- * GET /api/v1/workspaces/:workspaceId/assignment-maps
- * Get project assignment maps (members & leaders)
- */
-workspaces.get("/:workspaceId/assignment-maps", async (c) => {
-  const workspaceId = c.req.param("workspaceId");
-
-  const [assignments, leaders] = await Promise.all([
-    WorkspaceService.getWorkspaceProjectAssignments(workspaceId),
-    WorkspaceService.getWorkspaceProjectLeaders(workspaceId),
-  ]);
-
-  return c.json({
-    success: true,
-    data: {
-      projectAssignments: assignments,
-      projectLeaders: leaders,
-    },
-  });
-});
 
 /**
  * GET /api/v1/workspaces/:workspaceId/paginated-members
@@ -363,27 +331,5 @@ workspaces.get("/:workspaceId/paginated-members", async (c) => {
   return c.json({ success: true, data: { members, nextCursor } });
 });
 
-/**
- * PATCH /api/v1/workspaces/:workspaceId/attendance-settings
- */
-workspaces.patch("/:workspaceId/attendance-settings", async (c) => {
-  const user = c.get("user");
-  const workspaceId = c.req.param("workspaceId");
-  const body = await c.req.json();
-
-  // Check permissions
-  const { isWorkspaceAdmin } = await getWorkspacePermissions(workspaceId, user.id);
-  if (!isWorkspaceAdmin) {
-    throw AppError.Forbidden("Only admins can update attendance settings");
-  }
-
-  const result = await WorkspaceService.updateAttendanceSettings(
-    workspaceId,
-    body,
-    user.id
-  );
-
-  return c.json({ success: true, data: result });
-});
 
 export default workspaces;

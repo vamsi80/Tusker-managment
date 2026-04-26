@@ -12,7 +12,8 @@ import { tryCatch } from "@/hooks/try-catch";
 import { toast } from "sonner";
 import slugify from "slugify";
 import { TableCell, TableRow } from "@/components/ui/table";
-import { ProjectMembersType, getProjectMembers } from "@/data/project/get-project-members";
+import { ProjectMembersType } from "@/types/project";
+import { projectsClient } from "@/lib/api-client/projects";
 import { SubTaskStatus, STATUS_OPTIONS, subTaskSchema } from "@/lib/zodSchemas";
 import { getStatusColors } from "@/lib/colors/status-colors";
 import { ColumnVisibility } from "../shared/column-visibility";
@@ -160,7 +161,7 @@ export function InlineSubTaskForm({
             if (projectId) {
                 try {
                     // Fetch real project members and filter out viewers
-                    const pMembers = await getProjectMembers(projectId);
+                    const pMembers = await projectsClient.getMembers(projectId);
                     if (pMembers && pMembers.length > 0) {
                         setAvailableMembers(pMembers.filter(m => m.projectRole !== "VIEWER"));
                     }
@@ -177,10 +178,7 @@ export function InlineSubTaskForm({
         const fetchData = async () => {
             try {
                 if (!projectId) return;
-                const response = await fetch(`/api/v1/projects/${projectId}/reviewers`);
-                if (!response.ok) throw new Error("Failed to fetch");
-
-                const fetchedReviewers = await response.json();
+                const fetchedReviewers = await projectsClient.getReviewers(projectId);
                 setReviewers(fetchedReviewers);
 
                 // For create mode, set current user as default reviewer if they're eligible

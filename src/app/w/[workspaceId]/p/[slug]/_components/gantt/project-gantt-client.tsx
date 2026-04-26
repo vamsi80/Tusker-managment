@@ -9,7 +9,7 @@ import { GanttChart } from "@/components/task/gantt/gantt-chart";
 import { GlobalFilterToolbar } from "@/components/task/shared/global-filter-toolbar";
 import { TagOption, TaskFilters } from "@/components/task/shared/types";
 import { transformToGanttTasks, transformToGanttSubtasks } from "@/components/task/gantt/transform-tasks";
-import { ProjectMembersType } from "@/data/project/get-project-members";
+import { ProjectMembersType } from "@/types/project";
 import { useFilterStore } from "@/lib/store/filter-store";
 import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 import { toast } from "sonner";
@@ -37,10 +37,9 @@ export function ProjectGanttClient({
     projectCounts,
     currentUser,
 }: ProjectGanttClientProps) {
-    const { data: layoutData } = useWorkspaceLayout();
-    const projects = (layoutData.projects || []) as ProjectOption[];
-    const tags = layoutData.tags || [];
+    const { data: layoutData, tags } = useWorkspaceLayout();
     const permissions = layoutData.permissions;
+    const projects = layoutData.projects || [];
 
     const { filters, setFilters, searchQuery, setSearchQuery, clearFilters } = useFilterStore();
     const [isPending, startTransition] = useTransition();
@@ -210,7 +209,7 @@ export function ProjectGanttClient({
             if (filters.assigneeId) params.append("a", JSON.stringify(filters.assigneeId));
             if (filters.tagId) params.append("t", JSON.stringify(filters.tagId));
             if (searchQuery) params.append("q", searchQuery);
-            
+
             if (filters.startDate) {
                 const da = filters.startDate instanceof Date ? filters.startDate.toISOString() : filters.startDate;
                 params.append("da", da);
@@ -238,8 +237,8 @@ export function ProjectGanttClient({
 
                 const transformedSubtasks = transformToGanttSubtasks(subTasks);
                 setTasks(prev => prev.map(t =>
-                    t.id === taskId ? { 
-                        ...t, 
+                    t.id === taskId ? {
+                        ...t,
                         subtasks: transformedSubtasks,
                         hasMoreSubtasks: batchResult.hasMore,
                         subtaskCursor: batchResult.nextCursor
@@ -403,6 +402,7 @@ export function ProjectGanttClient({
                     projectId={projectId}
                     onSubtaskClick={handleSubtaskClick}
                     onSubTaskUpdate={handleSubTaskUpdate}
+                    projects={projects}
                     projectCounts={projectCounts}
                     members={members}
                     currentUser={currentUser}
