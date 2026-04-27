@@ -157,4 +157,26 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
         } catch (error: any) {
             return c.json({ success: false, error: error.message }, 400);
         }
+    })
+
+    .post("/leave-request", async (c) => {
+        const user = c.get("user");
+        const workspaceId = c.req.header("x-workspace-id");
+
+        if (!user || !user.id) return c.json({ success: false, error: "Unauthorized" }, 401);
+        if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
+
+        try {
+            const { startDate, endDate, reason } = await c.req.json();
+            const result = await AttendanceService.createLeaveRequest({
+                workspaceId,
+                userId: user.id,
+                startDate: new Date(startDate),
+                endDate: new Date(endDate),
+                reason,
+            });
+            return c.json({ success: true, data: result });
+        } catch (error: any) {
+            return c.json({ success: false, error: error.message }, 400);
+        }
     });

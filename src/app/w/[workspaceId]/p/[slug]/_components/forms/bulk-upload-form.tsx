@@ -664,7 +664,7 @@ ${tagList}
             }
         }}>
             <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2 h-9 border-border/60 hover:bg-muted/50 transition-colors">
+                <Button variant="outline" size="sm" className="gap-2 h-9 border-border/60 hover:bg-muted/50 transition-colors cursor-pointer">
                     <FileSpreadsheet className="h-4 w-4" />
                     <span>Bulk Upload</span>
                 </Button>

@@ -533,6 +533,28 @@ export const createPOSchema = z.object({
         .min(1, { message: "At least one item is required" }),
 });
 
+export const dailyReportEntrySchema = z.object({
+    id: z.string().optional(),
+    taskId: z.string().nullable().optional(),
+    description: z.string().min(15, "Description must be at least 15 characters long."),
+});
+
+export const dailyReportSchema = z.object({
+    workspaceId: z.string().uuid(),
+    date: z.string().optional(),
+    entries: z.array(dailyReportEntrySchema).min(1, "At least one report entry is required."),
+});
+
+export const leaveRequestSchema = z.object({
+    dateRange: z.object({
+        from: z.date().min(new Date(), { message: "Start date cannot be in the past" }),
+        to: z.date().min(new Date(), { message: "End date cannot be in the past" }),
+    }),
+    reason: z.string().min(10, {
+        message: "Reason must be at least 10 characters.",
+    }),
+});
+
 // For backward compatibility / alias
 export const createPOFormSchema = createPOSchema;
 
@@ -558,19 +580,7 @@ export type CreatePOItemInput = z.infer<typeof createPOItemSchema>;
 // export type CreatePOFormData = z.infer<typeof createPOFormSchema>;
 export type CreatePOInput = z.infer<typeof createPOSchema>;
 export type UpdateWorkspaceInfoType = z.infer<typeof updateWorkspaceInfoSchema>;
-
-export const dailyReportEntrySchema = z.object({
-    id: z.string().optional(),
-    taskId: z.string().nullable().optional(), // 'other' explicitly maps to null
-    description: z.string().min(15, "Description must be at least 15 characters long."),
-});
-
-export const dailyReportSchema = z.object({
-    workspaceId: z.string().uuid(),
-    date: z.string().optional(), // d MMM yyyy format from client (e.g., 15 Apr 2026)
-    entries: z.array(dailyReportEntrySchema).min(1, "At least one report entry is required."),
-});
-
 export type DailyReportEntryType = z.infer<typeof dailyReportEntrySchema>;
 export type DailyReportFormType = z.infer<typeof dailyReportSchema>;
 export type ActivityFormType = z.infer<typeof activitySchema>;
+export type LeaveRequestFormType = z.infer<typeof leaveRequestSchema>;

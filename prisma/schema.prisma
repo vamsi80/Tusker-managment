@@ -131,6 +131,7 @@ model Workspace {
   purchaseOrders   PurchaseOrder[]
   units            Unit[]
   vendors          Vendor[]
+  leaveRequests    leave_request[]
 }
 
 model WorkspaceMember {
@@ -158,6 +159,7 @@ model WorkspaceMember {
   createdPurchaseOrders  PurchaseOrder[]        @relation("POCreator")
   recordedPayments       PurchaseOrderPayment[] @relation("PaymentRecorder")
   createdUnits           Unit[]
+  leaveRequests          leave_request[]
 
   @@unique([userId, workspaceId])
   @@index([workspaceId, workspaceRole])
@@ -808,6 +810,29 @@ enum ReportStatus {
 enum ReportEntryType {
   TASK
   OTHER
+}
+
+model leave_request {
+  id                String           @id @default(uuid())
+  workspaceId       String
+  workspaceMemberId String
+  startDate         DateTime         @db.Date
+  endDate           DateTime         @db.Date
+  reason            String
+  status            LeaveStatus      @default(PENDING)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  Workspace         Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  WorkspaceMember   WorkspaceMember  @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([workspaceMemberId])
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum AttendanceStatus {
