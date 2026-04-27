@@ -6,18 +6,18 @@ import { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { APP_DATE_FORMAT, cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Clock, Filter, X, Calendar as CalendarIcon } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useMounted } from "@/hooks/use-mounted";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { Calendar as ShadcnCalendar } from "@/components/ui/calendar";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiClient } from "@/lib/api-client";
 import { toast } from "sonner";
 import { UserMinus, Loader2, LogIn } from "lucide-react";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { AttendanceLogger } from "./attendance-logger";
+import { Calendar as ShadcnCalendar } from "@/components/ui/calendar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { MapPin, Clock, Filter, X, Calendar as CalendarIcon, Timer } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface AttendanceRecord {
     id: string;
@@ -53,11 +53,16 @@ export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
         to: Date | undefined;
         memberId: string | undefined;
         status: string | undefined;
-    }>({
-        from: undefined,
-        to: undefined,
-        memberId: undefined,
-        status: undefined,
+    }>(() => {
+        const today = new Date();
+        const start = new Date(today.setHours(0, 0, 0, 0));
+        const end = new Date(today.setHours(23, 59, 59, 999));
+        return {
+            from: start,
+            to: end,
+            memberId: undefined,
+            status: undefined,
+        };
     });
 
     // Local state for the filter popover
@@ -166,12 +171,12 @@ export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
         },
         {
             accessorKey: "checkIn",
-            header: "Check In",
+            header: "In",
             cell: ({ row }) => {
                 if (!mounted) return "...";
                 return (
                     <div className="flex flex-col items-start">
-                        <div className="flex items-center gap-1.5 text-sm">
+                        <div className="flex items-center gap-1.5 text-sm font-medium">
                             <Clock className="h-3.5 w-3.5 text-emerald-500" />
                             {format(new Date(row.original.checkIn), "hh:mm a")}
                         </div>
@@ -186,17 +191,17 @@ export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
                 const lat = row.original.checkInLatitude;
                 const lng = row.original.checkInLongitude;
                 const address = row.original.checkInAddress;
-                if (!lat || !lng) return <div className="text-xs text-muted-foreground italic">None</div>;
+                if (!lat || !lng) return <div className="text-xs text-muted-foreground italic">—</div>;
                 return (
-                    <div className="flex justify-start max-w-[150px]">
+                    <div className="flex justify-start max-w-[180px]">
                         <a
                             href={`https://www.google.com/maps?q=${lat},${lng}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-1.5 text-[10px] text-primary hover:underline bg-primary/5 px-2 py-1 rounded-md transition-colors hover:bg-primary/10 truncate"
+                            className="flex items-center gap-1.5 text-[10px] text-primary hover:underline bg-primary/5 px-2 py-1 rounded-md transition-colors hover:bg-primary/10 truncate group"
                             title={address || `Raw coordinates: ${lat}, ${lng}`}
                         >
-                            <MapPin className="h-3 w-3 shrink-0" />
+                            <MapPin className="h-3 w-3 shrink-0 text-rose-500 group-hover:scale-110 transition-transform" />
                             <span className="truncate">{address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`}</span>
                         </a>
                     </div>
@@ -205,14 +210,14 @@ export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
         },
         {
             accessorKey: "checkOut",
-            header: "Check Out",
+            header: "Out",
             cell: ({ row }) => {
                 if (!mounted) return "...";
                 const checkOut = row.original.checkOut;
                 if (!checkOut) return <div className="text-xs text-muted-foreground italic">—</div>;
                 return (
                     <div className="flex flex-col items-start">
-                        <div className="flex items-center gap-1.5 text-sm">
+                        <div className="flex items-center gap-1.5 text-sm font-medium">
                             <Clock className="h-3.5 w-3.5 text-rose-500" />
                             {format(new Date(checkOut), "hh:mm a")}
                         </div>
@@ -227,22 +232,46 @@ export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
                 const lat = row.original.checkOutLatitude;
                 const lng = row.original.checkOutLongitude;
                 const address = row.original.checkOutAddress;
-                if (!lat || !lng) return <div className="text-xs text-muted-foreground italic">None</div>;
+                if (!lat || !lng) return <div className="text-xs text-muted-foreground italic">—</div>;
                 return (
-                    <div className="flex justify-start max-w-[150px]">
+                    <div className="flex justify-start max-w-[180px]">
                         <a
                             href={`https://www.google.com/maps?q=${lat},${lng}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-1.5 text-[10px] text-primary hover:underline bg-primary/5 px-2 py-1 rounded-md transition-colors hover:bg-primary/10 truncate"
+                            className="flex items-center gap-1.5 text-[10px] text-primary hover:underline bg-primary/5 px-2 py-1 rounded-md transition-colors hover:bg-primary/10 truncate group"
                             title={address || `Raw coordinates: ${lat}, ${lng}`}
                         >
-                            <MapPin className="h-3 w-3 shrink-0" />
+                            <MapPin className="h-3 w-3 shrink-0 text-rose-500 group-hover:scale-110 transition-transform" />
                             <span className="truncate">{address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`}</span>
                         </a>
                     </div>
                 );
             },
+        },
+        {
+            id: "duration",
+            header: "Duration",
+            cell: ({ row }) => {
+                if (!mounted) return "...";
+                const checkIn = row.original.checkIn;
+                const checkOut = row.original.checkOut;
+
+                if (!checkIn || !checkOut) return <div className="text-xs text-muted-foreground italic">—</div>;
+
+                const start = new Date(checkIn);
+                const end = new Date(checkOut);
+                const diffMs = end.getTime() - start.getTime();
+                const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+                const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+                return (
+                    <div className="flex items-center gap-1.5 font-bold text-sm text-primary/80">
+                        <Timer className="h-3.5 w-3.5" />
+                        {diffHrs}h {diffMins}m
+                    </div>
+                );
+            }
         },
         {
             accessorKey: "status",
@@ -260,6 +289,12 @@ export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
                     case "LATE":
                         content = <Badge className="bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 border-amber-500/20">Late</Badge>;
                         break;
+                    case "HALF_DAY":
+                        content = <Badge className="bg-orange-500/10 text-orange-600 hover:bg-orange-500/20 border-orange-500/20">Half Day</Badge>;
+                        break;
+                    case "ON_LEAVE":
+                        content = <Badge className="bg-purple-500/10 text-purple-600 hover:bg-purple-500/20 border-purple-500/20">On Leave</Badge>;
+                        break;
                     default:
                         content = <Badge variant="outline">{status}</Badge>;
                 }
@@ -276,6 +311,18 @@ export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
             },
         },
     ], [mounted]);
+
+    const stats = useMemo(() => {
+        const counts = { present: 0, late: 0, halfDay: 0, absent: 0, leave: 0, total: records.length };
+        records.forEach(r => {
+            if (r.status === "PRESENT") counts.present++;
+            if (r.status === "LATE") counts.late++;
+            if (r.status === "HALF_DAY") counts.halfDay++;
+            if (r.status === "ABSENT") counts.absent++;
+            if (r.status === "ON_LEAVE") counts.leave++;
+        });
+        return counts;
+    }, [records]);
 
     const handleApplyFilters = () => {
         setActiveFilters(tempFilters);
@@ -466,6 +513,8 @@ export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
                                         <SelectItem value="PRESENT" className="text-sm">Present</SelectItem>
                                         <SelectItem value="ABSENT" className="text-sm">Absent</SelectItem>
                                         <SelectItem value="LATE" className="text-sm">Late</SelectItem>
+                                        <SelectItem value="HALF_DAY" className="text-sm">Half Day</SelectItem>
+                                        <SelectItem value="ON_LEAVE" className="text-sm">On Leave</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -559,13 +608,48 @@ export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
     if (!mounted) return null;
 
     return (
-        <DataTable
-            columns={columns}
-            data={records}
-            isLoading={loading}
-            searchKey="memberId"
-            searchPlaceholder="Search members..."
-            extraToolbarContent={extraToolbarContent}
-        />
+        <div className="space-y-6">
+            {/* Stats Strip */}
+            <div className="flex flex-wrap items-center justify-around gap-6 p-3 rounded-xl border bg-card/30 backdrop-blur-md shadow-sm">
+                <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-muted-foreground">Total:</span>
+                    <span className="text-lg font-bold tabular-nums">{stats.total}</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-emerald-600/70">On Time:</span>
+                    <span className="text-lg font-bold tabular-nums text-emerald-600">{stats.present}</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-amber-600/70">Late:</span>
+                    <span className="text-lg font-bold tabular-nums text-amber-600">{stats.late}</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-orange-600/70">Half Day:</span>
+                    <span className="text-lg font-bold tabular-nums text-orange-600">{stats.halfDay}</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-purple-600/70">Leave:</span>
+                    <span className="text-lg font-bold tabular-nums text-purple-600">{stats.leave}</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-rose-600/70">Absent:</span>
+                    <span className="text-lg font-bold tabular-nums text-rose-600">{stats.absent}</span>
+                </div>
+            </div>
+
+            <DataTable
+                columns={columns}
+                data={records}
+                isLoading={loading}
+                searchKey="memberId"
+                searchPlaceholder="Search members..."
+                extraToolbarContent={extraToolbarContent}
+            />
+        </div>
     );
 }

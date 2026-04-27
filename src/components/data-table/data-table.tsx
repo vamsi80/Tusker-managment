@@ -137,7 +137,7 @@ export function DataTable<TData, TValue>({
                         </div>
                     )}
 
-                    <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+                    <div className="flex items-center gap-2 pb-1 sm:pb-0">
 
                         {filterDisplay === "menu" && mounted ? (
                             <DropdownMenu>

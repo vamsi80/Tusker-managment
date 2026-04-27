@@ -3,28 +3,23 @@
 import Link from "next/link";
 import { toast } from "sonner";
 import { useState } from "react";
-import { EditProjectForm } from "./options/edit-project-form";
-import { ManageProjectMembersDialog } from "./options/manage-members-dialog";
-import { usePathname } from "next/navigation";
 import { useRef, useEffect } from "react";
+import { usePathname } from "next/navigation";
+import { useMounted } from "@/hooks/use-mounted";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { FullProjectData } from "@/types/project";
+import { projectsClient } from "@/lib/api-client/projects";
+import { EditProjectForm } from "./options/edit-project-form";
+import type { WorkspaceMembersResult } from "@/types/workspace";
 import { useSafeNavigation } from "@/hooks/use-safe-navigation";
 import { deleteProject } from "@/actions/project/delete-project";
-import type { 
-  ProjectListItem, 
-  MinimalProjectData, 
-  FullProjectData, 
-} from "@/types/project";
-import type { WorkspaceMembersResult } from "@/types/workspace";
-import { apiClient } from "@/lib/api-client";
+import { ManageProjectMembersDialog } from "./options/manage-members-dialog";
+import { CreateProjectForm } from "@/app/w/[workspaceId]/p/_components/create-project-form";
+import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 import { Building2Icon, MoreHorizontal, Eye, Pencil, Trash2, Loader2, Users } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuAction, useSidebar } from "@/components/ui/sidebar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, } from "@/components/ui/alert-dialog";
-import { CreateProjectForm } from "@/app/w/[workspaceId]/p/_components/create-project-form";
-import { useMounted } from "@/hooks/use-mounted";
-import { Skeleton } from "@/components/ui/skeleton";
-import { projectsClient } from "@/lib/api-client/projects";
-import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 
 interface iAppProps {
   workspaceId: string;
@@ -37,7 +32,7 @@ interface iAppProps {
 export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, currentUserId }: iAppProps) {
   const { data: layoutData, isLoading: isLayoutLoading, isRevalidating, revalidate } = useWorkspaceLayout();
   const projects = layoutData.projects || [];
-  
+
   // Keep isInitialLoading for skeleton logic if context is loading
   const isInitialLoading = (isLayoutLoading && projects.length === 0) || isRevalidating;
 
@@ -59,7 +54,7 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
     // 1. Block if already navigating globally OR if target is already being loaded locally
     // 2. Block if already on the target URL (pathname check)
     if (router.isNavigating || pathname === url || navigatingTo.current === url) return;
-    
+
     if (isMobile) {
       setOpenMobile(false);
     }
@@ -166,7 +161,6 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
         toast.success(result.message);
         setDeleteDialogOpen(false);
         setProjectToDelete(null);
-        // Trigger revalidation to show skeleton and update list
         revalidate(true);
         router.push(`/w/${workspaceId}`);
       } else {
@@ -245,7 +239,7 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
                           <span>View Project</span>
                         </Link>
                       </DropdownMenuItem>
-  
+
                       {/* Edit - PROJECT_MANAGER or Admin */}
                       {proj.canManageMembers && (
                         <DropdownMenuItem
@@ -261,7 +255,7 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
                           <span>{isLoadingProject ? "Loading..." : "Edit Project"}</span>
                         </DropdownMenuItem>
                       )}
-  
+
                       {/* Manage Members - PROJECT_MANAGER or Admin */}
                       {proj.canManageMembers && (
                         <DropdownMenuItem
@@ -277,11 +271,11 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
                           <span>{isLoadingProject ? "Loading..." : "Manage Members"}</span>
                         </DropdownMenuItem>
                       )}
-  
+
                       {proj.canManageMembers && (
                         <>
                           <DropdownMenuSeparator />
-  
+
                           {/* Delete - PROJECT_MANAGER or Admin */}
                           <DropdownMenuItem
                             className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive"

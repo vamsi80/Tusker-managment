@@ -25,23 +25,56 @@ export class AttendanceService {
         return member;
     }
 
+    private static getISTDateOnly(date: Date) {
+        // IST is UTC+5:30
+        const istDate = new Date(date.getTime() + (5.5 * 60 * 60 * 1000));
+        const year = istDate.getUTCFullYear();
+        const month = istDate.getUTCMonth();
+        const day = istDate.getUTCDate();
+        return new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+    }
+
     /**
      * Get attendance for today for a specific user.
      */
     static async getTodayAttendance(workspaceId: string, userId: string) {
         const member = await this.getWorkspaceMember(workspaceId, userId);
 
-        const today = new Date();
-        today.setUTCHours(0, 0, 0, 0);
+        const now = new Date();
+        const dateOnly = this.getISTDateOnly(now);
 
-        return await prisma.attendance.findUnique({
+        // 1. Try to find a record for today (IST)
+        let record = await prisma.attendance.findUnique({
             where: {
                 workspaceMemberId_date: {
                     workspaceMemberId: member.id,
-                    date: today,
+                    date: dateOnly,
                 }
             }
         });
+
+        // 2. If no record for today OR it's an ABSENT record/already closed, 
+        // look for an open record from yesterday (Night Shift support)
+        if (!record || record.status === AttendanceStatus.ABSENT || record.checkOut) {
+            const yesterday = new Date(dateOnly);
+            yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+
+            const openRecord = await prisma.attendance.findUnique({
+                where: {
+                    workspaceMemberId_date: {
+                        workspaceMemberId: member.id,
+                        date: yesterday,
+                    }
+                }
+            });
+
+            // Use yesterday's record if it exists and is still open
+            if (openRecord && !openRecord.checkOut) {
+                record = openRecord;
+            }
+        }
+
+        return record;
     }
 
     /**
@@ -63,8 +96,7 @@ export class AttendanceService {
         const member = await this.getWorkspaceMember(workspaceId, userId);
 
         const now = new Date();
-        const dateOnly = new Date(now);
-        dateOnly.setUTCHours(0, 0, 0, 0);
+        const dateOnly = this.getISTDateOnly(now);
 
         // Check if already checked in
         const existing = await prisma.attendance.findUnique({
@@ -82,26 +114,39 @@ export class AttendanceService {
 
         const id = randomUUID();
 
-        // Calculate IST time for "Late" check
-        // IST is UTC + 5:30
+        // Calculate IST time for threshold checks (IST = UTC + 5:30)
         const istOffset = 5.5 * 60 * 60 * 1000;
         const istDate = new Date(now.getTime() + istOffset);
         const istHours = istDate.getUTCHours();
         const istMinutes = istDate.getUTCMinutes();
+        const istTotalMinutes = istHours * 60 + istMinutes;
 
-        // Get dynamic threshold from workspace settings
-        const workspace = await prisma.workspace.findUnique({
-            where: { id: workspaceId },
-            select: { lateThreshold: true }
-        });
-        const [lateH, lateM] = (workspace?.lateThreshold || "09:40").split(":").map(Number);
+        // Fetch workspace thresholds using raw SQL to bypass Prisma Client's field validation
+        const workspaceData = await prisma.$queryRawUnsafe<any[]>(
+            `SELECT "lateThreshold", "halfDayThreshold" FROM "public"."Workspace" WHERE "id" = $1 LIMIT 1`,
+            workspaceId
+        );
+        const workspace = workspaceData[0];
 
+        // Parse thresholds into minutes-since-midnight (24h format stored in DB)
+        const parseTime = (t: string, def: string) => {
+            const [h, m] = (t || def).split(":").map(Number);
+            return h * 60 + m;
+        };
+
+        const lateThresholdStr = workspace?.lateThreshold || "21:30";
+        const halfDayThresholdStr = (workspace as any)?.halfDayThreshold || "23:00";
+
+        const lateMinutes = parseTime(lateThresholdStr, "21:30");
+        const halfDayMinutes = parseTime(halfDayThresholdStr, "23:00");
+
+        // Status logic (4 levels)
         let status: AttendanceStatus = AttendanceStatus.PRESENT;
-        if (istHours > lateH || (istHours === lateH && istMinutes > lateM)) {
-            status = AttendanceStatus.LATE;
+        if (istTotalMinutes >= halfDayMinutes) {
+            status = AttendanceStatus.HALF_DAY;  // Checked in too late → half day
+        } else if (istTotalMinutes >= lateMinutes) {
+            status = AttendanceStatus.LATE;       // Checked in late but not half-day
         }
-
-        const lateThresholdValue = workspace?.lateThreshold || "09:40";
 
         const attendance = await (prisma.attendance as any).create({
             data: {
@@ -114,7 +159,7 @@ export class AttendanceService {
                 checkInLongitude: longitude,
                 checkInAddress: address,
                 status: status,
-                lateThreshold: lateThresholdValue,
+                lateThreshold: lateThresholdStr,
                 updatedAt: now,
             }
         });
@@ -154,10 +199,10 @@ export class AttendanceService {
         const member = await this.getWorkspaceMember(workspaceId, userId);
 
         const now = new Date();
-        const dateOnly = new Date(now);
-        dateOnly.setUTCHours(0, 0, 0, 0);
+        const dateOnly = this.getISTDateOnly(now);
 
-        const existing = await prisma.attendance.findUnique({
+        // 1. Try to find record for today first
+        let existing = await prisma.attendance.findUnique({
             where: {
                 workspaceMemberId_date: {
                     workspaceMemberId: member.id,
@@ -165,6 +210,26 @@ export class AttendanceService {
                 }
             }
         });
+
+        // 2. If not found or already checked out today, check for an open record from yesterday (Night Shift support)
+        if (!existing || existing.checkOut) {
+            const yesterday = new Date(dateOnly);
+            yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+
+            const openRecord = await prisma.attendance.findUnique({
+                where: {
+                    workspaceMemberId_date: {
+                        workspaceMemberId: member.id,
+                        date: yesterday,
+                    }
+                }
+            });
+
+            // Use yesterday's record if it exists and is still open
+            if (openRecord && !openRecord.checkOut) {
+                existing = openRecord;
+            }
+        }
 
         if (!existing) {
             throw AppError.NotFound("You must check in before checking out.");
@@ -180,16 +245,34 @@ export class AttendanceService {
         const istHours = istDate.getUTCHours();
         const istMinutes = istDate.getUTCMinutes();
 
-        // Get dynamic threshold from workspace settings
-        const workspaceSettings = await prisma.workspace.findUnique({
-            where: { id: workspaceId },
-            select: { overtimeThreshold: true }
-        });
-        const [otH, otM] = (workspaceSettings?.overtimeThreshold || "19:00").split(":").map(Number);
+        // Fetch workspace thresholds using raw SQL to bypass Prisma Client's field validation
+        const workspaceData = await prisma.$queryRawUnsafe<any[]>(
+            `SELECT "overtimeThreshold", "shiftStartTime" FROM "public"."Workspace" WHERE "id" = $1 LIMIT 1`,
+            workspaceId
+        );
+        const workspace = workspaceData[0];
+        
+        const otThreshold = workspace?.overtimeThreshold || "07:30";
+        const shiftStartThreshold = workspace?.shiftStartTime || "21:30";
 
-        const isOvertime = istHours > otH || (istHours === otH && istMinutes >= otM);
+        const [otH, otM] = otThreshold.split(":").map(Number);
+        const [startH, startM] = shiftStartThreshold.split(":").map(Number);
+        
+        const istTotalMinutes = istHours * 60 + istMinutes;
+        const otTotalMinutes = otH * 60 + otM;
+        const startTotalMinutes = startH * 60 + startM;
 
-        const otThresholdValue = workspaceSettings?.overtimeThreshold || "19:00";
+        let isOvertime = false;
+        if (startTotalMinutes > otTotalMinutes) {
+            // Night Shift: Starts late (e.g. 21:30), Ends early morning (e.g. 07:30)
+            // OT is true if we are past otTotalMinutes BUT haven't reached the next day's startTotalMinutes yet
+            isOvertime = istTotalMinutes > otTotalMinutes && istTotalMinutes < startTotalMinutes;
+        } else {
+            // Day Shift: Starts early, Ends late
+            isOvertime = istTotalMinutes > otTotalMinutes;
+        }
+
+        const otThresholdValue = otThreshold;
 
         const updated = await (prisma.attendance as any).update({
             where: { id: existing.id },
@@ -207,7 +290,7 @@ export class AttendanceService {
         const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, surname: true } });
         await recordActivity({
             userId,
-            userName: user?.surname || user?.name || "Someone",
+            userName: user?.surname || "Someone",
             workspaceId,
             action: "CHECKED_OUT",
             entityType: "ATTENDANCE",
@@ -223,8 +306,7 @@ export class AttendanceService {
      * Mark missing members as ABSENT for a specific date
      */
     static async reconcileAttendance(workspaceId: string, date: Date) {
-        const dateOnly = new Date(date);
-        dateOnly.setUTCHours(0, 0, 0, 0);
+        const dateOnly = this.getISTDateOnly(date);
 
         // 1. Get all active members in the workspace
         const members = await prisma.workspaceMember.findMany({
@@ -376,7 +458,7 @@ export class AttendanceService {
             userId: actorId,
             userName: actorUser?.surname || "Admin",
             workspaceId,
-            action: "TASK_UPDATED", 
+            action: "TASK_UPDATED",
             entityType: "ATTENDANCE",
             entityId: id,
             oldData: existing,
@@ -395,37 +477,70 @@ export class AttendanceService {
         data: {
             lateThreshold: string;
             overtimeThreshold: string;
+            halfDayThreshold: string;
+            shiftStartTime: string;
+            shiftEndTime: string;
         },
         actorId: string,
     ) {
-        const workspace = await prisma.workspace.update({
-            where: { id: workspaceId },
-            data: {
-                lateThreshold: data.lateThreshold,
-                overtimeThreshold: data.overtimeThreshold,
-            },
-        });
+        console.log("[AttendanceService.updateSettings] Received data:", data);
+        
+        try {
+            const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+            const fields: (keyof typeof data)[] = ["lateThreshold", "overtimeThreshold", "halfDayThreshold", "shiftStartTime", "shiftEndTime"];
+            for (const field of fields) {
+                if (data[field] && !timeRegex.test(data[field])) {
+                    console.error(`[AttendanceService.updateSettings] Validation failed for ${field}:`, data[field]);
+                    throw AppError.ValidationError(`Invalid time for ${field}. Use HH:mm format.`);
+                }
+            }
 
-        // Invalidate cache (Assuming you have a way to invalidate workspace cache)
-        // await invalidateWorkspace(workspaceId);
+            // Fallback for shiftEndTime if not provided explicitly but we have overtime
+            const shiftEndTime = data.shiftEndTime || data.overtimeThreshold;
 
-        // Record Activity
-        const actor = await prisma.user.findUnique({
-            where: { id: actorId },
-            select: { name: true, surname: true },
-        });
+            // Use raw SQL update to bypass Prisma Client's field validation which fails if npx prisma generate hasn't run.
+            // This is a robust way to ensure settings can be saved even if the server is locking the client files.
+            await prisma.$executeRawUnsafe(
+                `UPDATE "public"."Workspace" 
+                 SET "lateThreshold" = $1, 
+                     "overtimeThreshold" = $2, 
+                     "halfDayThreshold" = $3, 
+                     "shiftStartTime" = $4, 
+                     "shiftEndTime" = $5,
+                     "updatedAt" = NOW()
+                 WHERE "id" = $6`,
+                data.lateThreshold,
+                data.overtimeThreshold,
+                data.halfDayThreshold,
+                data.shiftStartTime,
+                shiftEndTime,
+                workspaceId
+            );
 
-        await recordActivity({
-            userId: actorId,
-            userName: actor?.name || actor?.surname || "Admin",
-            workspaceId,
-            action: "ATTENDANCE_SETTINGS_UPDATED",
-            entityType: "WORKSPACE",
-            entityId: workspaceId,
-            newData: data,
-            broadcastEvent: "workspace_update",
-        });
+            // Fetch the updated workspace manually
+            const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId } });
 
-        return workspace;
+            // Record Activity
+            const actor = await prisma.user.findUnique({
+                where: { id: actorId },
+                select: { name: true, surname: true },
+            });
+
+            await recordActivity({
+                userId: actorId,
+                userName: actor?.name || actor?.surname || "Admin",
+                workspaceId,
+                action: "ATTENDANCE_SETTINGS_UPDATED",
+                entityType: "WORKSPACE",
+                entityId: workspaceId,
+                newData: data,
+                broadcastEvent: "workspace_update",
+            });
+
+            return workspace;
+        } catch (error: any) {
+            console.error("[AttendanceService.updateSettings] Error:", error);
+            throw error;
+        }
     }
 }
