@@ -111,8 +111,11 @@ model Workspace {
   pincode          String?
   state            String?
   website          String?
-  lateThreshold     String            @default("09:40")
-  overtimeThreshold String            @default("19:00")
+  lateThreshold     String            @default("21:30")
+  overtimeThreshold String            @default("07:00")
+  halfDayThreshold  String            @default("23:00")
+  shiftStartTime    String            @default("21:30")
+  shiftEndTime      String            @default("07:00")
   projects         Project[]
   tags             Tag[]
   owner            User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)

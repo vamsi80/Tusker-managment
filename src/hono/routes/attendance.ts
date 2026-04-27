@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { AttendanceService } from "@/server/services/attendance.service";
+import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { HonoVariables } from "../types";
 
 export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
@@ -120,35 +121,40 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
     }
 })
 
-.patch("/:id", async (c) => {
-    const user = c.get("user");
-    const workspaceId = c.req.header("x-workspace-id");
-    const id = c.req.param("id");
+    .patch("/settings", async (c) => {
+        const user = c.get("user");
+        const workspaceId = c.req.header("x-workspace-id");
 
-    if (!user || !user.id) return c.json({ success: false, error: "Unauthorized" }, 401);
-    if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
+        if (!user || !user.id) return c.json({ success: false, error: "Unauthorized" }, 401);
+        if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
 
-    try {
-        const body = await c.req.json();
-        const result = await AttendanceService.updateAttendance(id, body, user.id, workspaceId);
-        return c.json({ success: true, data: result });
-    } catch (error: any) {
-        return c.json({ success: false, error: error.message }, 400);
-    }
-})
+        try {
+            const { isWorkspaceAdmin } = await getWorkspacePermissions(workspaceId, user.id);
+            if (!isWorkspaceAdmin) {
+                return c.json({ success: false, error: "Only workspace admins can update settings" }, 403);
+            }
 
-.patch("/settings", async (c) => {
-    const user = c.get("user");
-    const workspaceId = c.req.header("x-workspace-id");
+            const body = await c.req.json();
+            const result = await AttendanceService.updateSettings(workspaceId, body, user.id);
+            return c.json({ success: true, data: result });
+        } catch (error: any) {
+            return c.json({ success: false, error: error.message }, 400);
+        }
+    })
 
-    if (!user || !user.id) return c.json({ success: false, error: "Unauthorized" }, 401);
-    if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
+    .patch("/:id", async (c) => {
+        const user = c.get("user");
+        const workspaceId = c.req.header("x-workspace-id");
+        const id = c.req.param("id");
 
-    try {
-        const body = await c.req.json();
-        const result = await AttendanceService.updateSettings(workspaceId, body, user.id);
-        return c.json({ success: true, data: result });
-    } catch (error: any) {
-        return c.json({ success: false, error: error.message }, 400);
-    }
-});
+        if (!user || !user.id) return c.json({ success: false, error: "Unauthorized" }, 401);
+        if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
+
+        try {
+            const body = await c.req.json();
+            const result = await AttendanceService.updateAttendance(id, body, user.id, workspaceId);
+            return c.json({ success: true, data: result });
+        } catch (error: any) {
+            return c.json({ success: false, error: error.message }, 400);
+        }
+    });
