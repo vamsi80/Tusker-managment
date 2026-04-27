@@ -42,9 +42,10 @@ interface InviteUserFormProps {
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
     hideTrigger?: boolean;
+    children?: React.ReactNode;
 }
 
-export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onOpenChange: controlledOnOpenChange, hideTrigger }: InviteUserFormProps) => {
+export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onOpenChange: controlledOnOpenChange, hideTrigger, children }: InviteUserFormProps) => {
     const router = useRouter();
     const [internalOpen, setInternalOpen] = useState(false);
     const isControlled = controlledOpen !== undefined;
@@ -134,10 +135,12 @@ export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onO
         <Dialog open={open} onOpenChange={setOpen}>
             {!hideTrigger && isAdmin && (
                 <DialogTrigger asChild>
-                    <Button>
-                        Invite New Member
-                        <Plus className="ml-2" size={16} />
-                    </Button>
+                    {children || (
+                        <Button>
+                            Invite New Member
+                            <Plus className="ml-2" size={16} />
+                        </Button>
+                    )}
                 </DialogTrigger>
             )}
             <DialogContent className="sm:max-w-[480px]">

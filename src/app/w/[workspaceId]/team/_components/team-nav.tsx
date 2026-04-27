@@ -5,6 +5,9 @@ import { cn } from "@/lib/utils";
 import { useTransition } from "react";
 import { Users, Clock, Settings2 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { LeaveRequestDialog } from "./leave-request-dialog";
+import { InviteUserForm } from "./create-user";
 
 interface TeamNavProps {
     workspaceId: string;
@@ -49,6 +52,11 @@ export function TeamNav({ workspaceId, isAdmin }: TeamNavProps) {
     return (
         <div className={cn("border-b mt-2", isPending && "opacity-60 pointer-events-none transition-opacity")}>
             <div className="flex h-10 items-center gap-4 overflow-x-auto scrollbar-hide">
+                <div className="flex items-center gap-2 px-3 border-r border-border/50 h-full flex-shrink-0">
+                    <Users className="h-3.5 w-3.5 text-primary" />
+                    <span className="text-sm font-bold">Team</span>
+                </div>
+
                 {navTabs.map((tab) => {
                     const isActive = tab.activeMatch(pathname);
                     const Icon = tab.icon;
@@ -59,7 +67,7 @@ export function TeamNav({ workspaceId, isAdmin }: TeamNavProps) {
                             prefetch={false}
                             onClick={(e) => handleNavChange(tab.href, e)}
                             className={cn(
-                                "flex h-full items-center gap-2 border-b-2 px-2 sm:px-3 text-sm font-medium transition-colors hover:text-primary whitespace-nowrap flex-shrink-0",
+                                "flex h-full items-center gap-2 border-b-2 px-2 sm:px-3 text-sm font-medium transition-colors hover:text-primary whitespace-nowrap flex-shrink-0 cursor-pointer",
                                 isActive
                                     ? "border-primary text-primary"
                                     : "border-transparent text-muted-foreground"
@@ -70,6 +78,32 @@ export function TeamNav({ workspaceId, isAdmin }: TeamNavProps) {
                         </Link>
                     );
                 })}
+
+                <div className="ml-auto flex items-center gap-2 pr-2">
+                    <LeaveRequestDialog workspaceId={workspaceId}>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 gap-1.5 text-[11px] font-bold uppercase tracking-wider border-border/60 hover:bg-muted/50 transition-all active:scale-95 cursor-pointer"
+                        >
+                            <Clock className="h-3.5 w-3.5" />
+                            Apply Leave
+                        </Button>
+                    </LeaveRequestDialog>
+
+                    {isAdmin && (
+                        <InviteUserForm workspaceId={workspaceId} isAdmin={isAdmin}>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 gap-1.5 text-[11px] font-bold uppercase tracking-wider border-border/60 hover:bg-muted/50 transition-all active:scale-95 cursor-pointer"
+                            >
+                                <Users className="h-3.5 w-3.5" />
+                                Invite Member
+                            </Button>
+                        </InviteUserForm>
+                    )}
+                </div>
             </div>
         </div>
     );

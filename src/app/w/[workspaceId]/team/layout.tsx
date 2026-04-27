@@ -1,6 +1,4 @@
 import { ReactNode } from "react";
-import { TeamSectionHeader } from "./_components/team-section-header";
-
 import { TeamNav } from "./_components/team-nav";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 
@@ -15,7 +13,7 @@ export default async function TeamLayout({ children, params }: TeamLayoutProps) 
 
     return (
         <div className="flex flex-col w-full">
-            <TeamSectionHeader workspaceId={workspaceId} />
+            {/* <TeamSectionHeader workspaceId={workspaceId} /> */}
             <TeamNav workspaceId={workspaceId} isAdmin={permissions.isWorkspaceAdmin} />
             <div className="mt-4">
                 {children}

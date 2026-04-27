@@ -543,4 +543,34 @@ export class AttendanceService {
             throw error;
         }
     }
+
+    /**
+     * Create a leave request
+     */
+    static async createLeaveRequest({
+        workspaceId,
+        userId,
+        startDate,
+        endDate,
+        reason,
+    }: {
+        workspaceId: string;
+        userId: string;
+        startDate: Date;
+        endDate: Date;
+        reason: string;
+    }) {
+        const member = await this.getWorkspaceMember(workspaceId, userId);
+
+        return await (prisma as any).leave_request.create({
+            data: {
+                workspaceId,
+                workspaceMemberId: member.id,
+                startDate,
+                endDate,
+                reason,
+                status: "PENDING",
+            },
+        });
+    }
 }
