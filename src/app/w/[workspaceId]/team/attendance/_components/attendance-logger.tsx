@@ -46,63 +46,30 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
     const requestLocation = (): Promise<{ lat: number; lng: number; accuracy: number }> => {
         return new Promise((resolve, reject) => {
             if (!navigator.geolocation) {
-                reject(new Error("Geolocation is not supported by your browser."));
+                reject(new Error("Geolocation is not supported."));
                 return;
             }
 
-            let watchId: number;
-            let bestPosition: GeolocationPosition | null = null;
-            const timeout = 10000; // 10 seconds total wait time
-
-            const clearAndResolve = () => {
-                navigator.geolocation.clearWatch(watchId);
-                if (bestPosition) {
-                    resolve({
-                        lat: bestPosition.coords.latitude,
-                        lng: bestPosition.coords.longitude,
-                        accuracy: bestPosition.coords.accuracy,
-                    });
-                } else {
-                    reject(new Error("Failed to get an accurate location."));
-                }
-            };
-
-            // Setup a fallback timeout to resolve with whatever we have
-            const timer = setTimeout(() => {
-                clearAndResolve();
-            }, timeout);
-
-            watchId = navigator.geolocation.watchPosition(
+            // Use a simpler getCurrentPosition for speed
+            navigator.geolocation.getCurrentPosition(
                 (position) => {
-                    if (!bestPosition || position.coords.accuracy < bestPosition.coords.accuracy) {
-                        bestPosition = position;
-                    }
-
-                    // If we get highly accurate location (e.g. within 20 meters), resolve immediately
-                    if (position.coords.accuracy < 20) {
-                        clearTimeout(timer);
-                        clearAndResolve();
-                    }
+                    resolve({
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude,
+                        accuracy: position.coords.accuracy,
+                    });
                 },
                 (error) => {
-                    clearTimeout(timer);
-                    navigator.geolocation.clearWatch(watchId);
-                    switch (error.code) {
-                        case error.PERMISSION_DENIED:
-                            reject(new Error("Location access is required. Please allow location access in your browser settings."));
-                            break;
-                        case error.POSITION_UNAVAILABLE:
-                            reject(new Error("Location information is unavailable."));
-                            break;
-                        case error.TIMEOUT:
-                            reject(new Error("Location request timed out."));
-                            break;
-                        default:
-                            reject(new Error("An unknown error occurred while getting location."));
-                            break;
-                    }
+                    let msg = "Failed to get location.";
+                    if (error.code === error.PERMISSION_DENIED) msg = "Location permission denied.";
+                    else if (error.code === error.TIMEOUT) msg = "Location request timed out.";
+                    reject(new Error(msg));
                 },
-                { enableHighAccuracy: true, timeout: timeout, maximumAge: 0 }
+                { 
+                    enableHighAccuracy: true, 
+                    timeout: 8000, 
+                    maximumAge: 60000 // Allow 1-minute old location for instant speed
+                }
             );
         });
     };
@@ -116,20 +83,29 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
         setAddress(null);
 
         try {
+            // 1. Get location (optimized for speed)
             const result = await requestLocation();
             setLocation({ lat: result.lat, lng: result.lng });
             setAccuracy(result.accuracy);
 
-            let detectedAddress = undefined;
-            try {
-                const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${result.lat}&lon=${result.lng}&addressdetails=1`);
-                const geoData = await geoRes.json();
-                if (geoData.display_name) {
-                    detectedAddress = geoData.display_name;
-                    setAddress(detectedAddress);
-                }
-            } catch (err) {
-                console.warn("Reverse geocoding failed", err);
+            // 2. Start geocoding but DON'T block the attendance record
+            let detectedAddress = "Location captured";
+            
+            // We'll try to get the address in parallel to speed things up
+            const geocodePromise = fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${result.lat}&lon=${result.lng}&zoom=18&addressdetails=1`)
+                .then(res => res.json())
+                .catch(() => null);
+
+            // 3. Immediately save attendance (don't wait for full address if it's slow)
+            // We wait a tiny bit (max 1s) for the address, otherwise we just use coordinates
+            const geoData = await Promise.race([
+                geocodePromise,
+                new Promise(resolve => setTimeout(() => resolve(null), 1500))
+            ]) as any;
+
+            if (geoData?.display_name) {
+                detectedAddress = geoData.display_name;
+                setAddress(detectedAddress);
             }
 
             const res = await fetch(`/api/v1/attendance/${action}`, {
