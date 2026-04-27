@@ -1,6 +1,4 @@
 import { ReactNode } from "react";
-import Link from "next/link";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TeamSectionHeader } from "./_components/team-section-header";
 
 import { TeamNav } from "./_components/team-nav";
@@ -16,10 +14,10 @@ export default async function TeamLayout({ children, params }: TeamLayoutProps) 
     const permissions = await getWorkspacePermissions(workspaceId);
 
     return (
-        <div className="flex flex-col gap-4 sm:gap-5 w-full">
+        <div className="flex flex-col w-full">
             <TeamSectionHeader workspaceId={workspaceId} />
             <TeamNav workspaceId={workspaceId} isAdmin={permissions.isWorkspaceAdmin} />
-            <div className="mt-2">
+            <div className="mt-4">
                 {children}
             </div>
         </div>

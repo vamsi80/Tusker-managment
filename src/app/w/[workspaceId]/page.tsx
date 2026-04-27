@@ -3,8 +3,8 @@
 import { useWorkspaceLayout } from "./_components/workspace-layout-context";
 
 export default function WorkSpacePage() {
-  const { data, workspaceId } = useWorkspaceLayout();
-  const currentWorkspace = data?.workspaces?.workspaces?.find((w: any) => w.id === workspaceId);
+  const { data } = useWorkspaceLayout();
+  const currentWorkspace = data?.workspaces?.workspaces?.[0];
   const workspaceName = currentWorkspace?.name ?? "Workspace";
 
   return (

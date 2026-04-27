@@ -40,7 +40,7 @@ export type WorkspaceMemberRow = {
   user?: {
     id: string;
     name?: string | null;
-    surname?: string | null;
+    surname: string;
     email: string;
     emailVerified: boolean;
     phoneNumber?: string | null;

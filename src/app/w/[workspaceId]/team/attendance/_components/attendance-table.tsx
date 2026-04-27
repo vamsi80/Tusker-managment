@@ -80,7 +80,7 @@ export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
                     const options = res.workspaceMembers
                         .filter(m => m.workspaceRole !== "OWNER" && m.workspaceRole !== "ADMIN")
                         .map(m => ({
-                            label: m.user?.surname || m.user?.name || "Unknown Member",
+                            label: m.user?.surname || "Member",
                             value: m.id
                         }));
                     setMembers(options);
