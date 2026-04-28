@@ -179,6 +179,16 @@ interface TaskCacheState {
     projectId: string,
   ) => void;
 
+  // Surgical Sync API
+  addTaskToProjectList: (
+    projectId: string,
+    task: any,
+    filters?: TaskFilters,
+    replaceId?: string,
+  ) => void;
+  addSubTaskToList: (parentTaskId: string, subTask: any, replaceId?: string) => void;
+  removeSubTaskFromList: (parentTaskId: string, subTaskId: string) => void;
+
   clearCache: () => void;
   ensureUser: (userId: string) => void;
 }
@@ -384,6 +394,134 @@ export const useTaskCacheStore = create<TaskCacheState>()(
           };
           return { kanbanLists: kanbanListsCopy };
         });
+      },
+
+      addTaskToProjectList: (projectId, task, filters, replaceId) => {
+        // 1. Always upsert the task entity itself
+        get().upsertTasks([task]);
+
+        set((state) => {
+          const projectListsCopy = { ...state.projectLists };
+          const pKey = projectId;
+          const projectEntry = projectListsCopy[pKey] || {};
+
+          // Update ALL filtered versions of this project's list to ensure consistency
+          Object.keys(projectEntry).forEach((hash) => {
+            const list = projectEntry[hash];
+            if (replaceId) {
+                // Replace the ID in situ to maintain position during optimistic sync
+                list.ids = list.ids.map(id => id === replaceId ? task.id : id);
+            } else {
+                // Prepend if not already there
+                if (!list.ids.includes(task.id)) {
+                  list.ids = [task.id, ...list.ids];
+                  list.totalCount = (list.totalCount || 0) + 1;
+                }
+            }
+            list.timestamp = Date.now();
+          });
+
+          projectListsCopy[pKey] = projectEntry;
+          return { projectLists: projectListsCopy };
+        });
+      },
+
+      addSubTaskToList: (parentTaskId, subTask, replaceId) => {
+        const state = get();
+        const currentList = state.subTaskLists[parentTaskId];
+
+        // 1. Always upsert the subtask entity itself
+        get().upsertTasks([subTask]);
+
+        // 2. Update parent's subtask count in entities (Only if not replacing)
+        const parent = state.entities[parentTaskId];
+        if (parent && !replaceId) {
+          get().upsertTasks([{
+            id: parentTaskId,
+            _count: {
+              ...(parent as any)._count,
+              subTasks: ((parent as any)._count?.subTasks || 0) + 1
+            }
+          } as any]);
+        }
+
+        // 3. Update the list metadata (create if not exists)
+        let newIds: string[];
+        const timestamp = Date.now();
+        
+        if (!currentList) {
+          // Initialize a fresh list if it doesn't exist
+          newIds = [subTask.id];
+          set((state) => ({
+            subTaskLists: {
+              ...state.subTaskLists,
+              [parentTaskId]: {
+                ids: newIds,
+                hasMore: false,
+                page: 1,
+                timestamp: timestamp,
+                totalCount: 1,
+              },
+            },
+          }));
+          return;
+        }
+
+        if (replaceId) {
+            // Replace the temp ID with the real ID in the exact same position to prevent jumps
+            newIds = currentList.ids.map(id => id === replaceId ? subTask.id : id);
+        } else {
+            newIds = [
+              subTask.id,
+              ...currentList.ids.filter((id) => id !== subTask.id),
+            ];
+        }
+
+        set((state) => ({
+          subTaskLists: {
+            ...state.subTaskLists,
+            [parentTaskId]: {
+              ...currentList,
+              ids: newIds,
+              totalCount: replaceId ? currentList.totalCount : (currentList.totalCount || 0) + 1,
+              timestamp: timestamp,
+            },
+          },
+        }));
+      },
+
+      removeSubTaskFromList: (parentTaskId, subTaskId) => {
+        const state = get();
+        const currentList = state.subTaskLists[parentTaskId];
+
+        // 1. Update parent's subtask count
+        const parent = state.entities[parentTaskId];
+        if (parent) {
+          get().upsertTasks([{
+            id: parentTaskId,
+            _count: {
+              ...(parent as any)._count,
+              subTasks: Math.max(0, ((parent as any)._count?.subTasks || 0) - 1)
+            }
+          } as any]);
+        }
+
+        // 2. Update the list metadata if it exists
+        if (!currentList || !currentList.ids.includes(subTaskId)) return;
+
+        const newIds = currentList.ids.filter((id) => id !== subTaskId);
+
+        set((state) => ({
+          subTaskLists: {
+            ...state.subTaskLists,
+            [parentTaskId]: {
+              ...currentList,
+              ids: newIds,
+              totalCount: Math.max(0, (currentList.totalCount || 0) - 1),
+              timestamp: Date.now(),
+            },
+          },
+        }));
       },
 
       setCachedSubTasks: (taskId, data) => {

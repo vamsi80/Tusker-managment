@@ -20,7 +20,7 @@ export function ProjectKanbanView({
     projectId,
     userId,
 }: ProjectKanbanViewProps) {
-    const { projectMembers, projectPermissions, isLoading: isProjectLoading, revalidate: revalidateProject } = useProjectLayout();
+    const { projectMembers, projectManagers, projectPermissions, isLoading: isProjectLoading, revalidate: revalidateProject } = useProjectLayout();
 
     useEffect(() => {
         revalidateProject();
@@ -41,19 +41,16 @@ export function ProjectKanbanView({
         }, { isShell: true } as any);
     }, [COLUMNS]);
 
-    const projectManagers = useMemo(() => ({
-        [projectId]: projectMembers
-            .filter(m =>
-                m.projectRole === "LEAD" ||
-                m.projectRole === "PROJECT_MANAGER" ||
-                m.workspaceRole === "OWNER" ||
-                m.workspaceRole === "ADMIN"
-            )
-            .map(m => ({
-                id: m.userId,
-                surname: m.user.surname,
-            }))
-    }), [projectId, projectMembers]);
+    useEffect(() => {
+        if (!isProjectLoading) {
+            console.log("DEBUG: Kanban Data for Project", {
+                projectId,
+                projectManagers,
+                projectMembersCount: projectMembers.length,
+                permissions: projectPermissions
+            });
+        }
+    }, [projectId, projectManagers, projectMembers, projectPermissions, isProjectLoading]);
 
     // Allow rendering if project loading is done
     if (isProjectLoading) {

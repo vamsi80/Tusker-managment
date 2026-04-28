@@ -42,7 +42,16 @@ interface AttendanceRecord {
     };
 }
 
-export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
+export function AttendanceTable({ 
+    workspaceId,
+    isWorkspaceAdmin,
+    workspaceRole
+}: { 
+    workspaceId: string;
+    isWorkspaceAdmin: boolean;
+    workspaceRole: "OWNER" | "ADMIN" | "MANAGER" | "MEMBER";
+}) {
+    const isPowerUser = isWorkspaceAdmin || workspaceRole === "MANAGER";
     const [loading, setLoading] = useState(true);
     const [records, setRecords] = useState<AttendanceRecord[]>([]);
     const [members, setMembers] = useState<{ label: string; value: string }[]>([]);
@@ -393,20 +402,22 @@ export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
                 </DialogContent>
             </Dialog>
 
-            <Button
-                variant="outline"
-                size="sm"
-                onClick={handleReconcile}
-                disabled={isReconciling}
-                className="h-9 px-3 gap-2 border-dashed border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
-            >
-                {isReconciling ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                    <UserMinus className="h-4 w-4" />
-                )}
-                <span className="font-medium text-sm hidden sm:inline">Mark Absents</span>
-            </Button>
+            {isPowerUser && (
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleReconcile}
+                    disabled={isReconciling}
+                    className="h-9 px-3 gap-2 border-dashed border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                >
+                    {isReconciling ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                        <UserMinus className="h-4 w-4" />
+                    )}
+                    <span className="font-medium text-sm hidden sm:inline">Mark Absents</span>
+                </Button>
+            )}
 
             <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
                 <PopoverTrigger asChild>
@@ -454,37 +465,39 @@ export function AttendanceTable({ workspaceId }: { workspaceId: string }) {
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
 
                             {/* Member Filter */}
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <h4 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/80">Member</h4>
-                                    {tempFilters.memberId && (
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => setTempFilters(prev => ({ ...prev, memberId: undefined }))}
-                                            className="h-auto p-0 text-[10px] font-bold text-primary hover:text-primary/80 hover:bg-transparent"
-                                        >
-                                            CLEAR
-                                        </Button>
-                                    )}
+                            {isPowerUser && (
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <h4 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/80">Member</h4>
+                                        {tempFilters.memberId && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => setTempFilters(prev => ({ ...prev, memberId: undefined }))}
+                                                className="h-auto p-0 text-[10px] font-bold text-primary hover:text-primary/80 hover:bg-transparent"
+                                            >
+                                                CLEAR
+                                            </Button>
+                                        )}
+                                    </div>
+                                    <Select
+                                        value={tempFilters.memberId || "all"}
+                                        onValueChange={(val) => setTempFilters(prev => ({ ...prev, memberId: val === "all" ? undefined : val }))}
+                                    >
+                                        <SelectTrigger className="h-10 bg-background/50 border-muted-foreground/20 focus:ring-primary/20">
+                                            <SelectValue placeholder="All Members" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All Members</SelectItem>
+                                            {members.map(m => (
+                                                <SelectItem key={m.value} value={m.value} className="text-sm">
+                                                    {m.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                 </div>
-                                <Select
-                                    value={tempFilters.memberId || "all"}
-                                    onValueChange={(val) => setTempFilters(prev => ({ ...prev, memberId: val === "all" ? undefined : val }))}
-                                >
-                                    <SelectTrigger className="h-10 bg-background/50 border-muted-foreground/20 focus:ring-primary/20">
-                                        <SelectValue placeholder="All Members" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All Members</SelectItem>
-                                        {members.map(m => (
-                                            <SelectItem key={m.value} value={m.value} className="text-sm">
-                                                {m.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                            )}
 
                             {/* Status Filter */}
                             <div className="space-y-3">

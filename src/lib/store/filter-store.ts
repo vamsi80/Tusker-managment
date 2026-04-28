@@ -32,44 +32,14 @@ export const useFilterStore = create<FilterState>()((set, get) => ({
     const prevFilters = get().filters;
     const newFilters =
       typeof filters === "function" ? filters(prevFilters) : filters;
-
-    // If filters are actually changing, invalidate caches
-    const prevHasFilters = hasActiveFilterValues(prevFilters);
-    const newHasFilters = hasActiveFilterValues(newFilters);
-
-    if (
-      prevHasFilters !== newHasFilters ||
-      JSON.stringify(prevFilters) !== JSON.stringify(newFilters)
-    ) {
-      // Dynamically import to avoid circular dependency
-      import("@/lib/store/task-cache-store")
-        .then(({ useTaskCacheStore }) => {
-          useTaskCacheStore.getState().clearCache();
-        })
-        .catch(console.error);
-    }
-
     set({ filters: newFilters });
   },
 
   setSearchQuery: (query) => {
-    const prevQuery = get().searchQuery;
-    if (prevQuery !== query) {
-      import("@/lib/store/task-cache-store")
-        .then(({ useTaskCacheStore }) => {
-          useTaskCacheStore.getState().clearCache();
-        })
-        .catch(console.error);
-    }
     set({ searchQuery: query });
   },
 
   clearFilters: () => {
-    import("@/lib/store/task-cache-store")
-      .then(({ useTaskCacheStore }) => {
-        useTaskCacheStore.getState().clearCache();
-      })
-      .catch(console.error);
     set({ filters: {}, searchQuery: "" });
   },
 }));

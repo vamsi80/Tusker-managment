@@ -14,9 +14,11 @@ async function AttendanceContent({ workspaceId }: { workspaceId: string }) {
 
     return (
         <div className="flex flex-col gap-6">
-            {permissions.isWorkspaceAdmin && (
-                <AttendanceTable workspaceId={workspaceId} />
-            )}
+            <AttendanceTable 
+                workspaceId={workspaceId} 
+                isWorkspaceAdmin={permissions.isWorkspaceAdmin}
+                workspaceRole={permissions.workspaceRole}
+            />
         </div>
     );
 }

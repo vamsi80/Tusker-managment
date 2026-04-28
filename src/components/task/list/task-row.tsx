@@ -107,16 +107,24 @@ export const TaskRow = memo(function TaskRow({
     };
 
     const handleOptimisticSubTaskUpdated = (subTaskId: string, updatedData: any) => {
-        useTaskCacheStore.getState().invalidateSubTaskCache(task.id);
+        // Use the store's upsert to maintain global consistency
+        useTaskCacheStore.getState().upsertTasks([{
+            id: subTaskId,
+            ...updatedData,
+            updatedAt: new Date().toISOString()
+        }]);
 
         setTask((prev) => ({
             ...prev,
-            subTasks: undefined,
+            subTasks: prev.subTasks?.map((st: any) =>
+                st.id === subTaskId ? { ...st, ...updatedData } : st
+            ),
         }));
     };
 
     const handleOptimisticSubTaskDeleted = (subTaskId: string) => {
-        useTaskCacheStore.getState().invalidateSubTaskCache(task.id);
+        // Use the store's surgical remove
+        useTaskCacheStore.getState().removeSubTaskFromList(task.id, subTaskId);
 
         const subTaskToDelete = task.subTasks?.find((st: any) => st.id === subTaskId);
         const wasCompleted = subTaskToDelete?.status === "COMPLETED";
@@ -132,16 +140,20 @@ export const TaskRow = memo(function TaskRow({
     };
 
     const handleOptimisticSubTaskCreated = (newSubTask: any, tempId?: string) => {
-        useTaskCacheStore.getState().invalidateSubTaskCache(task.id);
+        // 🚀 CRITICAL FIX: Use the global cache store for optimistic subtasks.
+        // We pass tempId to addSubTaskToList so it knows to REPLACE the temp ID instead of adding a duplicate.
+        useTaskCacheStore.getState().addSubTaskToList(task.id, newSubTask, tempId);
 
         setTask((prev) => {
             const currentSubTasks = prev.subTasks || [];
             if (tempId) {
+                // If we are replacing a temp ID with real data
                 return {
                     ...prev,
                     subTasks: currentSubTasks.map((st: any) =>
                         st.id === tempId ? newSubTask : st,
                     ),
+                    subtaskCount: prev.subtaskCount, // already incremented on temp creation
                 };
             }
             if (currentSubTasks.some((st: any) => st.id === newSubTask.id)) return prev;

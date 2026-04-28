@@ -10,6 +10,7 @@ import { InlineTaskForm } from "../inline-task-form";
 import { TableLoadingSkeleton } from "../table/table-skeleton";
 import { LoadMoreSentinel } from "../table/load-more-sentinel";
 import { EmptyState } from "../table/empty-state";
+import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 import type { TaskWithSubTasks } from "../../shared/types";
 import type { ColumnVisibility } from "../../shared/column-visibility";
 import type { UserPermissionsType } from "@/data/user/get-user-permissions";
@@ -130,6 +131,11 @@ export function ProjectTaskGroup({
     };
 
     const handleTaskCreated = (task: TaskWithSubTasks, tempId?: string) => {
+        // Surgical update for global cache
+        const store = useTaskCacheStore.getState();
+        store.addTaskToProjectList(task.projectId || projectId, task, undefined, tempId);
+        store.addTaskToProjectList("__global_filter__", task, undefined, tempId);
+
         setLocalTasks(prev => {
             let next;
             if (tempId) {
