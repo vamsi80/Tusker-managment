@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { useRemainingDays } from "@/hooks/use-due-date";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { getDelayColors, getDelayText } from "@/lib/colors/delay-colors";
 
 interface SortedTaskRowProps {
     task: any;
@@ -31,16 +32,8 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
     const statusColors = getStatusColors(task.status);
     const { remainingDays, isOverdue, dueDate } = useRemainingDays(task.startDate, task.days);
 
-    const getProgressColor = () => {
-        if (remainingDays === null) return "bg-gray-300";
-
-        if (isOverdue) return "bg-red-500";
-        if (remainingDays <= 7) return "bg-red-500";
-        if (remainingDays <= 10) return "bg-orange-500";
-        return "bg-green-500";
-    };
-
-    const progressColor = getProgressColor();
+    const delayStyles = getDelayColors(remainingDays, task.status);
+    const delayText = getDelayText(remainingDays, task.status);
 
     const assigneeUser = task.assignee;
     const reviewerUser = task.reviewer;
@@ -183,14 +176,9 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <div className="flex items-center gap-2 min-w-0 cursor-help">
-                                    <div className={cn("h-3 w-3 rounded-full flex-shrink-0", progressColor)} />
-                                    <div className="text-sm truncate">
-                                        {remainingDays > 0
-                                            ? `${remainingDays} day${remainingDays !== 1 ? 's' : ''} left`
-                                            : remainingDays === 0
-                                                ? 'Due today'
-                                                : `${Math.abs(remainingDays)} day${Math.abs(remainingDays) !== 1 ? 's' : ''} delayed`
-                                        }
+                                    <div className={cn("h-3 w-3 rounded-full flex-shrink-0", delayStyles.dotColor)} />
+                                    <div className={cn("text-sm truncate", delayStyles.color)}>
+                                        {delayText}
                                     </div>
                                 </div>
                             </TooltipTrigger>

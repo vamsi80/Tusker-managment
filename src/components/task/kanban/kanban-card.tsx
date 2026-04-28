@@ -45,6 +45,8 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { COLUMNS, TaskStatus } from "./kanban-board";
+import { useRemainingDays } from "@/hooks/use-due-date";
+import { getDelayColors, getDelayText } from "@/lib/colors/delay-colors";
 
 
 interface KanbanCardProps {
@@ -164,22 +166,14 @@ export const KanbanCard = React.memo(function KanbanCard({
     return false;
   };
 
-  const dueDate = subTask.dueDate
-    ? new Date(subTask.dueDate)
-    : (() => {
-      // Fallback to parent task dueDate if this is a subtask (flat view)
-      const parentDue = (subTask as any).parentTask?.dueDate;
-      return parentDue ? new Date(parentDue) : null;
-    })();
+  const { remainingDays, isOverdue, dueDate } = useRemainingDays(
+    subTask.startDate,
+    subTask.days,
+    subTask.dueDate
+  );
 
-  const startDate = subTask.startDate
-    ? new Date(subTask.startDate)
-    : (() => {
-      const parentStart = (subTask as any).parentTask?.startDate;
-      return parentStart ? new Date(parentStart) : null;
-    })();
-
-  const isOverdue = dueDate && new Date() > dueDate;
+  const delayStyles = getDelayColors(remainingDays, subTask.status);
+  const delayText = getDelayText(remainingDays, subTask.status);
 
   const handleNameClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -259,7 +253,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                       project?.color || getColorFromString(project?.name || ""),
                   }}
                 />
-                <span className="truncate font-medium">{project?.name}</span>
+                <span className="truncate font-medium">{project?.name || "No Project"}</span>
               </div>
 
               {subTask.parentTask && (
@@ -280,44 +274,42 @@ export const KanbanCard = React.memo(function KanbanCard({
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div className="flex items-center">
-                        <Avatar className="h-5 w-5 border border-amber-200 dark:border-amber-800 shadow-sm transition-transform hover:scale-110 cursor-help">
-                          {(firstManager?.image || firstManager?.user?.image) ? (
-                            <AvatarImage src={firstManager?.image || firstManager?.user?.image} alt={firstManager?.surname || firstManager?.name || "Manager"} />
-                          ) : null}
-                          <AvatarFallback className="text-[9px] bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 font-bold uppercase">
-                            {(firstManager?.surname || firstManager?.name || firstManager?.user?.surname || firstManager?.user?.name)?.[0] || "?"}
-                          </AvatarFallback>
-                        </Avatar>
-                      </div>
+                      <Avatar className="h-5 w-5 border border-amber-200 dark:border-amber-800 shadow-sm transition-transform hover:scale-110 cursor-help">
+                        {(firstManager?.image || firstManager?.user?.image) ? (
+                          <AvatarImage src={firstManager?.image || firstManager?.user?.image} alt={firstManager?.surname || firstManager?.name || "Manager"} />
+                        ) : null}
+                        <AvatarFallback className="text-[9px] bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 font-bold uppercase">
+                          {(firstManager?.surname || firstManager?.name || firstManager?.user?.surname || firstManager?.user?.name)?.[0] || "?"}
+                        </AvatarFallback>
+                      </Avatar>
                     </TooltipTrigger>
                     <TooltipContent
                       side="left"
-                      className="text-xs p-2 space-y-0.5 min-w-[120px]"
+                      className="text-xs p-3 space-y-3 min-w-[180px] shadow-xl border-primary/10"
                     >
-                      <div className="pb-1.5 border-b">
-                        <p className="font-semibold text-[9px] text-muted-foreground uppercase tracking-wider">
+                      <div className="space-y-1">
+                        <p className="font-semibold text-[9px] text-accent uppercase tracking-wider">
                           Project Manager
                         </p>
                         <p className="font-medium text-[11px] text-primary">
                           {firstManager?.surname || firstManager?.name || firstManager?.user?.surname || firstManager?.user?.name || "Unassigned"}
                         </p>
                       </div>
-                      <div className="pt-1.5 space-y-1.5">
+                      <div className="pt-2 border-t space-y-2">
                         <div>
-                          <p className="font-semibold text-[9px] text-muted-foreground uppercase tracking-wider">
+                          <p className="font-semibold text-[9px] text-accent uppercase tracking-wider">
                             Project
                           </p>
                           <p className="font-medium text-[11px] text-primary">
-                            {project?.name}
+                            {project?.name || "Unassigned Project"}
                           </p>
                         </div>
                         {subTask.parentTask && (
                           <div>
-                            <p className="font-semibold text-[9px] text-muted-foreground uppercase tracking-wider">
+                            <p className="font-semibold text-[9px] text-accent uppercase tracking-wider">
                               Parent Task
                             </p>
-                            <p className="font-medium text-[11px] text-primary line-clamp-1">
+                            <p className="font-medium text-[11px] text-primary line-clamp-2">
                               {subTask.parentTask.name}
                             </p>
                           </div>
@@ -416,38 +408,35 @@ export const KanbanCard = React.memo(function KanbanCard({
                 <span className="text-xs font-medium">{activityCount}</span>
               </div>
 
-              {(startDate || dueDate) && (
+              {remainingDays !== null && (
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div
                         className={cn(
-                          "flex items-center gap-1 text-[10px] font-medium cursor-help px-1.5 py-0.5 rounded-sm transition-colors",
-                          isOverdue
-                            ? "bg-destructive/10 text-destructive dark:text-red-400"
-                            : "bg-muted/50 text-muted-foreground",
+                          "flex items-center gap-1.5 text-[10px] font-medium cursor-help px-1.5 py-0.5 rounded-full transition-colors border bg-muted/30",
+                          delayStyles.borderColor
                         )}
                       >
-                        <Calendar className="h-3 w-3" />
-                        <span>
-                          {subTask.days || (startDate && dueDate ? Math.ceil((dueDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) : 0)} Days
+                        <div className={cn("h-2 w-2 rounded-full", delayStyles.dotColor)} />
+                        <span className={delayStyles.color}>
+                          {delayText}
                         </span>
-                        {isOverdue && <AlertCircle className="h-3 w-3" />}
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="text-[11px] p-2 min-w-[140px]">
                       <div className="space-y-1.5">
-                        {startDate && (
+                        {subTask.startDate && (
                           <div className="flex items-center justify-between gap-4">
-                            <span className="text-amber-600 dark:text-amber-400 font-bold uppercase tracking-tighter text-[9px]">Start</span>
-                            <span className="font-medium">{formatIST(startDate, "PPP")}</span>
+                            <span className="text-muted-foreground font-bold uppercase tracking-tighter text-[9px]">Start</span>
+                            <span className="font-medium">{formatIST(subTask.startDate, "PPP")}</span>
                           </div>
                         )}
                         {dueDate && (
                           <div className="flex items-center justify-between gap-4 pt-1 border-t border-border/50">
                             <span className={cn(
                               "font-bold uppercase tracking-tighter text-[9px]",
-                              isOverdue ? "text-destructive" : "text-blue-600 dark:text-blue-400"
+                              isOverdue ? "text-destructive" : "text-primary/60"
                             )}>Due</span>
                             <span className={cn("font-medium", isOverdue && "text-destructive underline decoration-dotted")}>
                               {formatIST(dueDate, "PPP")}

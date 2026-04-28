@@ -12,7 +12,8 @@ import type { SubTaskType } from "@/data/task";
 import type { ProjectMembersType } from "@/types/project";
 import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { Badge } from "@/components/ui/badge";
-import { cn, formatDateUTC } from "@/lib/utils";
+import { cn, formatDateUTC, formatIST } from "@/lib/utils";
+import { getDelayColors, getDelayText } from "@/lib/colors/delay-colors";
 import { EditSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/edit-subtask-form";
 import { DeleteSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/delete-subtask-form";
 import { InlineSubTaskForm } from "./inline-subtask-form";
@@ -99,17 +100,8 @@ export const SubTaskRow = memo(function SubTaskRow({
     // Use custom hook for remaining days calculation, passing persisted dueDate if available
     const { remainingDays, isOverdue, dueDate } = useRemainingDays(subTask.startDate, subTask.days, subTask.dueDate);
 
-    const getProgressColor = () => {
-        if (remainingDays === null) return "bg-gray-300";
-
-        // color based on absolute days remaining
-        if (isOverdue) return "bg-red-500";
-        if (remainingDays <= 7) return "bg-red-500";
-        if (remainingDays <= 10) return "bg-orange-500";
-        return "bg-green-500";
-    };
-
-    const progressColor = getProgressColor();
+    const delayStyles = getDelayColors(remainingDays, subTask.status);
+    const delayText = getDelayText(remainingDays, subTask.status);
 
     // 👤 Robust Surname Resolver: Prioritizes pre-fetched data, falls back to member list lookup
     const getUserDisplayName = (userObj: any) => {
@@ -363,16 +355,11 @@ export const SubTaskRow = memo(function SubTaskRow({
 
                 {columnVisibility.progress && (
                     <TableCell className="w-[100px] sm:w-[150px]">
-                        {remainingDays !== null ? (
+                        {remainingDays !== null || subTask.status === "COMPLETED" || subTask.status === "CANCELLED" ? (
                             <div className="flex items-center gap-2 min-w-0">
-                                <div className={`h-2.5 w-2.5 rounded-full flex-shrink-0 ${progressColor}`} />
-                                <span className="text-[10px] sm:text-xs text-muted-foreground truncate">
-                                    {remainingDays > 0
-                                        ? `${remainingDays}d left`
-                                        : remainingDays === 0
-                                            ? 'Due today'
-                                            : `${Math.abs(remainingDays)}d late`
-                                    }
+                                <div className={cn("h-2.5 w-2.5 rounded-full flex-shrink-0", delayStyles.dotColor)} />
+                                <span className={cn("text-[10px] sm:text-xs truncate font-medium", delayStyles.color)}>
+                                    {delayText}
                                 </span>
                             </div>
                         ) : (
