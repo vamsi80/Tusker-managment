@@ -14,12 +14,12 @@ export function DataLoadReporter() {
   const label = "Workspace Layout";
   useEffect(() => {
     if (!data) return;
-    
+
     try {
       const json = JSON.stringify(data);
       const sizeInBytes = json.length;
       const sizeInKB = (sizeInBytes / 1024).toFixed(2);
-      
+
       console.log(`%c[Zero-Weight] ${label} Payload: ${sizeInKB} KB`, "color: #10b981; font-weight: bold;");
     } catch (err) {
       console.warn(`[Zero-Weight] Failed to measure ${label} payload size:`, err);

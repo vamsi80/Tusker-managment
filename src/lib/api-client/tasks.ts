@@ -162,7 +162,7 @@ export const tasksClient = {
       data: response.data,
     };
   },
-  
+
   /**
    * Pin or unpin a task (Surgical/Kanban)
    */
@@ -282,4 +282,13 @@ export const tasksClient = {
       data: response.data,
     };
   },
+
+  /**
+   * Get a task by its slug or ID
+   */
+  getTaskBySlug: async (workspaceId: string, slug: string): Promise<any> => {
+    return apiFetch<any>(`/tasks/slug/${slug}?w=${workspaceId}`);
+  },
 };
+
+

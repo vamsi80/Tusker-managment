@@ -1680,6 +1680,97 @@ export class TasksService {
   }
 
   /**
+   * Get core members involved in a task (Admins, PMs, Assignee, Reviewer)
+   * Optimized for the SubTask Sheet to avoid fetching full member lists.
+   */
+  static async getTaskCommentContext(workspaceId: string, slugOrId: string) {
+    const task = await prisma.task.findFirst({
+      where: {
+        workspaceId,
+        OR: [{ id: slugOrId }, { taskSlug: slugOrId }],
+      },
+      select: {
+        id: true,
+        projectId: true,
+        assigneeId: true,
+        reviewerId: true,
+      },
+    });
+
+    if (!task) throw AppError.NotFound("Task not found");
+
+    // Fetch Workspace Admins and Project Managers
+    const involvedMembers = await prisma.workspaceMember.findMany({
+      where: {
+        workspaceId,
+        OR: [
+          { workspaceRole: { in: ["ADMIN", "OWNER"] } },
+          {
+            projectMembers: {
+              some: {
+                projectId: task.projectId,
+                projectRole: "PROJECT_MANAGER",
+              },
+            },
+          },
+          { id: task.assigneeId || undefined },
+          { id: task.reviewerId || undefined },
+        ],
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            surname: true,
+            image: true,
+          },
+        },
+        projectMembers: {
+          where: { projectId: task.projectId },
+          select: { id: true, projectRole: true },
+        },
+      },
+    });
+
+    // Map to ProjectMemberUI format
+    const involvedUsers = involvedMembers.map((m) => ({
+      id: m.userId,
+      userId: m.userId,
+      projectMemberId: m.projectMembers[0]?.id || "",
+      projectRole: (m.projectMembers[0]?.projectRole as any) || "MEMBER",
+      workspaceRole: m.workspaceRole,
+      user: {
+        id: m.user.id,
+        name: m.user.name,
+        surname: m.user.surname,
+        image: m.user.image,
+      },
+    }));
+
+    return { involvedUsers };
+  }
+
+  /**
+   * Get a task by slug or ID with full relations for the SubTask Sheet
+   */
+  static async getTaskBySlugOrId(workspaceId: string, slugOrId: string) {
+    const task = await prisma.task.findFirst({
+      where: {
+        workspaceId,
+        OR: [{ id: slugOrId }, { taskSlug: slugOrId }],
+      },
+      select: getTaskSelect("subtask", false, ["description", "position"]),
+    });
+
+    if (!task) {
+      throw AppError.NotFound("Task not found");
+    }
+
+    return task;
+  }
+
+  /**
    * Get a task by ID with full relations
    */
   static async getTaskById(taskId: string) {

@@ -22,10 +22,8 @@ import {
 } from "@/components/ui/tabs";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
-import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
 import { pubsub, EVENTS } from "@/lib/pubsub";
 import { useSafeNavigation } from "@/hooks/use-safe-navigation";
-
 import { workspacesClient } from "@/lib/api-client/workspaces";
 
 export function NotificationCenter({ workspaceId, initialUnread = [], initialRead = [], initialPeopleCount = 0 }: { workspaceId: string, initialUnread?: any[], initialRead?: any[], initialPeopleCount?: number }) {
@@ -46,13 +44,12 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
 
     const { data: session } = authClient.useSession();
 
-    const { openSubTaskSheetLoading } = useSubTaskSheet();
     const router = useSafeNavigation();
 
     // Fetch initial count on mount independently
     useEffect(() => {
         if (!workspaceId) return;
-        
+
         const fetchCount = async () => {
             try {
                 const count = await workspacesClient.getUnreadCount(workspaceId);
@@ -95,18 +92,15 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
     }, [workspaceId, session?.user?.id, isOpen]);
 
     const handleNotificationClick = async (notif: any) => {
-        // 1. Instant UI Feedback: Open the sheet in loading state
-        openSubTaskSheetLoading();
-
-        // 2. Synchronize URL programmatically
+        // 1. Synchronize URL programmatically
         const params = new URLSearchParams(currentSearchParams.toString());
         params.set("subtask", notif.taskSlug);
-        
+
         if (!router.isNavigating) {
             router.push(`${pathname}?${params.toString()}`);
         }
 
-        // 3. Mark as read and close popover
+        // 2. Mark as read and close popover
         if (notif.isNew !== false) {
             handleMarkRead(notif.taskId);
         } else {

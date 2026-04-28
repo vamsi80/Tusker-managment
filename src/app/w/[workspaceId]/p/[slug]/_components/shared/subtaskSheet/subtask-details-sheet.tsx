@@ -9,12 +9,10 @@ import { Tabs } from "@/components/ui/tabs";
 import { fetchCommentsAction, fetchActivitiesAction } from "@/actions/comment";
 import { pubsub, EVENTS } from "@/lib/pubsub";
 import { useTaskCacheStore } from "@/lib/store/task-cache-store";
-
 // Import modular components
 import { SubtaskSheetHeader } from "./subtask-sheet-header";
 import { SubtaskSheetNavBar } from "./subtask-sheet-navbar";
 import { ProjectMembersType } from "@/types/project";
-import { projectsClient } from "@/lib/api-client/projects";
 import dynamic from "next/dynamic";
 const MessagesTab = dynamic(() => import("./messages-tab").then(mod => mod.MessagesTab), { ssr: false });
 const ActivityTab = dynamic(() => import("./activity-tab").then(mod => mod.ActivityTab), { ssr: false });
@@ -114,7 +112,7 @@ export function SubTaskDetailsSheet({
     // 🧠 MEMORY-FIRST APPROACH: Use the global cache as the source of truth for the task entity
     // This ensures that if the task was updated via real-time events, we show the latest version.
     const cachedTask = useTaskCacheStore((state) => subTask?.id ? state.entities[subTask.id] : null);
-    
+
     // Merge provided prop with cached entity, prioritizing the cache for latest updates
     const task = (cachedTask || subTask) as TaskByIdType | null;
 
@@ -236,7 +234,7 @@ export function SubTaskDetailsSheet({
     useEffect(() => {
         if (activeTab === "review" && subTask && !isLoadingActivity) {
             const lastUpdated = subTask.updatedAt ? new Date(subTask.updatedAt).getTime() : 0;
-            
+
             // Re-fetch ONLY if we haven't loaded yet OR if the task was updated since we last loaded
             if (activitiesLoadedAtRef.current < lastUpdated || activitiesLoadedAtRef.current === 0) {
                 activitiesLoadedAtRef.current = Date.now();
@@ -250,40 +248,9 @@ export function SubTaskDetailsSheet({
         }
     }, [activeTab, subTask?.id, subTask?.updatedAt, isLoadingActivity, loadActivities]);
 
-    // Fetch members when projectId changes or sheet opens
-    useEffect(() => {
-        if (subTask?.projectId && isOpen) {
-            projectsClient.getMembers(subTask.projectId).then(setMembers);
-        }
-    }, [subTask?.projectId, isOpen]);
 
-    // Fetch tags when sheet opens
-    useEffect(() => {
-        if (!isOpen) return;
 
-        const fetchTags = async () => {
-            try {
-                // Get workspaceId from URL path /w/[workspaceId]/p/[slug]
-                const pathParts = pathname.split('/');
-                const wIdx = pathParts.indexOf('w');
-                const workspaceId = wIdx !== -1 ? pathParts[wIdx + 1] : subTask?.workspaceId;
 
-                if (!workspaceId) return;
-
-                const response = await fetch(`/api/v1/tags?workspaceId=${workspaceId}`);
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.success && data.tags) {
-                        setTags(data.tags);
-                    }
-                }
-            } catch (err) {
-                console.error("Failed to fetch tags", err);
-            }
-        };
-
-        fetchTags();
-    }, [isOpen, pathname, subTask?.workspaceId]);
 
     // 🚀 REAL-TIME COMMENT SYNC
     useEffect(() => {
@@ -352,7 +319,7 @@ export function SubTaskDetailsSheet({
                                     activityCount={activities.length}
                                 />
 
-                                 {/* Tab Content */}
+                                {/* Tab Content */}
                                 {activeTab === "messages" && (
                                     <MessagesTab
                                         taskId={task.id}

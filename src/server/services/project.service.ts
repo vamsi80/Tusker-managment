@@ -1,10 +1,10 @@
 import prisma from "@/lib/db";
 import { AppError } from "@/lib/errors/app-error";
 import { ProjectRole as PrismaProjectRole } from "@/generated/prisma";
-import { 
-  ProjectMember, 
-  MinimalProjectData, 
-  ProjectListItem, 
+import {
+  ProjectMember,
+  MinimalProjectData,
+  ProjectListItem,
   FullProjectData,
   ProjectRole,
   ProjectMemberUI
@@ -115,9 +115,9 @@ export class ProjectService {
     if (!workspaceMember) return [];
 
     const isOwnerOrAdmin = workspaceMember.workspaceRole === "OWNER" || workspaceMember.workspaceRole === "ADMIN";
-    
+
     const where: any = { workspaceId };
-    
+
     if (!isOwnerOrAdmin) {
       where.OR = [
         { createdBy: userId },
@@ -650,7 +650,7 @@ export class ProjectService {
           workspaceRole: { in: ["OWNER", "ADMIN"] },
         },
         select: {
-          user: { select: { id: true, surname: true, name: true, image: true } },
+          user: { select: { id: true, surname: true } },
         },
       }),
       prisma.project.findMany({
