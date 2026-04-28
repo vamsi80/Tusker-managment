@@ -1,23 +1,23 @@
 "use client";
 
-import { useMemo, useState, useRef, useEffect } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
-import { computeTaskDates, calculateBarPosition, formatDateRange, getDaysBetween, getAggregateStatus, getStatusColor } from "./utils";
-import { SortableSubtaskList } from "./sortable-subtask-list";
-import { ProjectMembersType } from "@/types/project";
-
 import { cn } from "@/lib/utils";
+import { GanttTask } from "./types";
+import { ProjectOption } from "../shared/types";
+import { ProjectMembersType } from "@/types/project";
 import { GanttRowSkeleton } from "./gantt-row-skeleton";
-
-import { Button } from "@/components/ui/button";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { useMemo, useState, useRef, useEffect } from "react";
+import { SortableSubtaskList } from "./sortable-subtask-list";
 import {
     Tooltip,
     TooltipContent,
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { GanttTask } from "./types";
-import { ProjectOption } from "../shared/types";
+import { computeTaskDates, calculateBarPosition, formatDateRange, getDaysBetween, getAggregateStatus, formatDate } from "./utils";
+import { getStatusColors } from "@/lib/colors/status-colors";
+import { useRemainingDays } from "@/hooks/use-due-date";
+import { getDelayColors, getDelayText } from "@/lib/colors/delay-colors";
 
 // ...
 // ... (imports)
@@ -95,63 +95,43 @@ export function TaskRow({
     const currentProject = projectMap.get(task.projectId || projectId || "");
     const resolvedProjectColor = task.projectColor || currentProject?.color;
 
-    const statusColor = useMemo(() => getStatusColor(aggregateStatus, resolvedProjectColor), [aggregateStatus, resolvedProjectColor]);
-
     const isSettled = aggregateStatus === 'COMPLETED' || aggregateStatus === 'CANCELLED' || aggregateStatus === 'HOLD';
 
+    const { remainingDays, isOverdue: isDueDateOverdue } = useRemainingDays(
+        start,
+        (task as any).days,
+        end
+    );
+
+    const delayStyles = getDelayColors(remainingDays, task.status);
+    const delayText = getDelayText(remainingDays, task.status);
+    const statusColors = getStatusColors(aggregateStatus);
+
     const isDelayed = useMemo(() => {
-        if (!end) return false;
-        
-        // For parent tasks, if it's settled, use the latest updatedAt of subtasks or the task itself
+        if (!end || isSettled) return false;
+
+        // For non-settled tasks, compare task end with today
         const referenceDate = new Date();
-        if (isSettled) {
-            let latestUpdate = task.updatedAt ? new Date(task.updatedAt) : new Date(0);
-            if (task.subtasks) {
-                task.subtasks.forEach(s => {
-                    if (s.updatedAt) {
-                        const d = new Date(s.updatedAt);
-                        if (d > latestUpdate) latestUpdate = d;
-                    }
-                });
-            }
-            if (latestUpdate.getTime() > 0) {
-                referenceDate.setTime(latestUpdate.getTime());
-            }
-        }
-            
+
         referenceDate.setHours(0, 0, 0, 0);
         const taskEnd = new Date(end);
         taskEnd.setHours(0, 0, 0, 0);
-        
+
         return taskEnd < referenceDate;
-    }, [isSettled, task.updatedAt, task.subtasks, end]);
+    }, [isSettled, end]);
 
     const delayWidthPercent = useMemo(() => {
-        if (!isDelayed || !end) return 0;
-        
+        if (!isDelayed || !end || isSettled) return 0;
+
         const referenceDate = new Date();
-        if (isSettled) {
-            let latestUpdate = task.updatedAt ? new Date(task.updatedAt) : new Date(0);
-            if (task.subtasks) {
-                task.subtasks.forEach(s => {
-                    if (s.updatedAt) {
-                        const d = new Date(s.updatedAt);
-                        if (d > latestUpdate) latestUpdate = d;
-                    }
-                });
-            }
-            if (latestUpdate.getTime() > 0) {
-                referenceDate.setTime(latestUpdate.getTime());
-            }
-        }
-            
+
         referenceDate.setHours(0, 0, 0, 0);
         const taskEnd = new Date(end);
         taskEnd.setHours(0, 0, 0, 0);
-        
+
         const delayDays = getDaysBetween(taskEnd, referenceDate);
         return (delayDays / totalDays) * 100;
-    }, [isDelayed, isSettled, task.updatedAt, task.subtasks, end, totalDays]);
+    }, [isDelayed, isSettled, end, totalDays]);
 
     const hasSubtasks = (task.subtasks && task.subtasks.length > 0) || (task.subtaskCount !== undefined && task.subtaskCount > 0);
     const isLoaded = task.subtasks !== undefined;
@@ -165,14 +145,14 @@ export function TaskRow({
     // 🚀 SYNC: Automatically show all subtasks if they were just loaded from server (e.g. Expand All or Load More)
     useEffect(() => {
         if (task.subtasks && task.subtasks.length > visibleSubtaskCount) {
-             setVisibleSubtaskCount(task.subtasks.length);
+            setVisibleSubtaskCount(task.subtasks.length);
         }
     }, [task.subtasks?.length]);
 
 
     // Get visible subtasks
     const visibleSubtasks = (task.subtasks || []).slice(0, visibleSubtaskCount);
-    
+
     // 🧠 Evaluation logic for mixed client/server pagination
     const hasMoreInMemory = visibleSubtaskCount < (task.subtasks?.length || 0);
     const hasMoreOnServer = !!task.hasMoreSubtasks;
@@ -265,7 +245,7 @@ export function TaskRow({
                             </span>
                         )}
                         {isLoading && (
-                             <span className="text-[10px] text-muted-foreground ml-auto animate-pulse">Loading...</span>
+                            <span className="text-[10px] text-muted-foreground ml-auto animate-pulse">Loading...</span>
                         )}
                     </div>
 
@@ -315,7 +295,7 @@ export function TaskRow({
                                             left: `${position.left}%`,
                                             width: `${position.width}%`,
                                             minWidth: '12px',
-                                            backgroundColor: statusColor,
+                                            backgroundColor: statusColors.hex,
                                             opacity: 0.8
 
                                         }}
@@ -337,9 +317,15 @@ export function TaskRow({
                                     <div className="space-y-1">
                                         <div className="flex items-center gap-2">
                                             <p className="font-semibold text-sm">{task.name}</p>
-                                            {isDelayed && !isSettled && (
-                                                <span className="px-1.5 py-0.5 text-xs bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded flex items-center gap-1 font-bold animate-pulse">
-                                                    OVERDUE
+                                            {remainingDays !== null && (
+                                                <span className={cn(
+                                                    "px-1.5 py-0.5 text-[10px] rounded flex items-center gap-1 font-bold border",
+                                                    delayStyles.bgColor,
+                                                    delayStyles.color,
+                                                    delayStyles.borderColor,
+                                                    !isSettled && isDelayed && "animate-pulse"
+                                                )}>
+                                                    {delayText.toUpperCase()}
                                                 </span>
                                             )}
                                         </div>
@@ -348,15 +334,15 @@ export function TaskRow({
                                         </p>
                                         {start && end && (
                                             <p className="text-xs text-muted-foreground whitespace-nowrap">
-                                                {getDaysBetween(start, end) + 1} days 
-                                                {isDelayed && ` (+${Math.round((delayWidthPercent / 100) * totalDays)}d delay)`}
+                                                {getDaysBetween(start, end) + 1} days
+                                                {isDelayed && !isSettled && ` (+${Math.round((delayWidthPercent / 100) * totalDays)}d delay)`}
                                             </p>
                                         )}
                                         <div className="flex items-center gap-2 pt-1 border-t border-neutral-200 dark:border-neutral-700 mt-1">
                                             <div className="flex-1 h-1.5 bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden">
-                                                <div 
-                                                    className="h-full bg-blue-500 rounded-full" 
-                                                    style={{ width: `${task.progress}%` }} 
+                                                <div
+                                                    className="h-full bg-blue-500 rounded-full"
+                                                    style={{ width: `${task.progress}%` }}
                                                 />
                                             </div>
                                             <span className="text-[10px] font-bold">{task.progress}%</span>
@@ -365,25 +351,25 @@ export function TaskRow({
                                 </TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
-                    ): null}
+                    ) : null}
 
                     {/* Parent Delay Extension Bar */}
                     {position && delayWidthPercent > 0 && (
-                        <div 
+                        <div
                             className="absolute top-[10px] h-3 rounded-r-full z-0 overflow-hidden"
                             style={{
                                 left: `${position.left + position.width}%`,
                                 width: `${delayWidthPercent}%`,
                                 backgroundImage: `repeating-linear-gradient(
                                     ${isSettled ? '-45deg' : '45deg'},
-                                    ${statusColor}1A,
-                                    ${statusColor}1A 4px,
-                                    ${statusColor}66 4px,
-                                    ${statusColor}66 8px
+                                    ${statusColors.hex}1A,
+                                    ${statusColors.hex}1A 4px,
+                                    ${statusColors.hex}66 4px,
+                                    ${statusColors.hex}66 8px
                                 )`,
-                                border: `1px solid ${statusColor}80`,
+                                border: `1px solid ${statusColors.hex}80`,
                                 borderLeft: 'none',
-                                backgroundColor: `${statusColor}0D`
+                                backgroundColor: `${statusColors.hex}0D`
                             }}
                             title={`Delayed by ${Math.round((delayWidthPercent / 100) * totalDays)} days`}
                         />
@@ -416,8 +402,8 @@ export function TaskRow({
                     )}
 
                     {(needsInitialLoad || canLoadMore || isLoading) && (
-                        <GanttRowSkeleton 
-                            ref={subtaskLoaderRef} 
+                        <GanttRowSkeleton
+                            ref={subtaskLoaderRef}
                             className="bg-neutral-50/10 dark:bg-neutral-800/5 h-8"
                         />
                     )}
