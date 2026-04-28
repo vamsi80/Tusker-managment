@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar, Tag, User, FileCheck, Edit } from "lucide-react";
 import { cn, formatIST } from "@/lib/utils";
 import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
-import { memo } from "react";
+import { memo, useState } from "react";
 import { EditSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/edit-subtask-form";
 import { InlineAssigneePicker } from "@/components/task/shared/inline-assignee-picker";
 
@@ -34,6 +34,7 @@ interface SubtaskSheetHeaderProps {
  * - Status badge
  */
 export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({ subTask, currentUserId, members = [], onSubTaskAssigned, isAdmin, isProjectManager, tags = [] }: SubtaskSheetHeaderProps) {
+    const [isExpanded, setIsExpanded] = useState(false);
     // Assignee is directly on the task object (user fields) in both SubTaskType and TaskByIdType
     // But we handle potential workspaceMember nesting just in case legacy types are passed
     const assignee = (subTask.assignee as any)?.workspaceMember?.user || subTask.assignee;
@@ -55,6 +56,26 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({ subTask, cu
                     <h2 className="text-xl sm:text-2xl font-bold break-words leading-tight text-foreground">
                         {subTask.name}
                     </h2>
+
+                    {/* Description with Read More/Less */}
+                    {subTask.description && (
+                        <div className="mt-3">
+                            <p className={cn(
+                                "text-sm text-muted-foreground leading-relaxed",
+                                !isExpanded && "line-clamp-2"
+                            )}>
+                                {subTask.description}
+                            </p>
+                            {subTask.description.length > 100 && (
+                                <button
+                                    onClick={() => setIsExpanded(!isExpanded)}
+                                    className="text-xs font-medium text-primary hover:underline mt-1 focus:outline-none"
+                                >
+                                    {isExpanded ? "Read Less" : "Read More"}
+                                </button>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* Edit Button for authorized users */}

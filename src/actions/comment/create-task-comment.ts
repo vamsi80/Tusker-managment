@@ -166,7 +166,16 @@ export async function createTaskCommentAction(
             action: "COMMENT_CREATED",
             entityType: "TASK",
             entityId: taskId,
-            newData: { text: content },
+            newData: { 
+                text: content,
+                comment: {
+                    ...comment,
+                    user: {
+                        id: comment.user.id,
+                        surname: comment.user.surname
+                    }
+                } 
+            },
             targetUserIds, // Limit broadcast to involved people
         });
 
