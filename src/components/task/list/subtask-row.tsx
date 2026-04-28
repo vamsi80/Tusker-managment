@@ -210,7 +210,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                     (subTask as any).isOptimistic && "opacity-60 grayscale-[0.5]"
                 )}
             >
-                <TableCell className="pl-4 sm:pl-4 w-[50px] sticky left-0 z-0 bg-background">
+                <TableCell className="pl-4 sm:pl-4 w-[50px]">
                     <div className="flex items-center">
                         <div className="w-3 shrink-0" />
                         <div className="h-6 w-6 flex items-center justify-center shrink-0">
@@ -219,7 +219,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                     </div>
                 </TableCell>
 
-                <TableCell className="w-[80px] sm:w-[120px] md:w-[220px] sticky left-[50px] z-0 bg-background">
+                <TableCell className="w-[80px] sm:w-[120px] md:w-[220px]">
                     <span
                         className="truncate text-muted-foreground text-sm block cursor-pointer hover:text-foreground transition-colors"
                         onMouseEnter={() => {

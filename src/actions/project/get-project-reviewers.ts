@@ -28,7 +28,7 @@ export async function getProjectReviewers(projectId: string): Promise<ProjectRev
     const projectLeaders = await prisma.projectMember.findMany({
         where: {
             projectId: projectId,
-            projectRole: { in: ["PROJECT_MANAGER", "LEAD"] }
+            projectRole: { in: ["PROJECT_MANAGER", "LEAD", "MEMBER"] }
         },
         include: {
             workspaceMember: {

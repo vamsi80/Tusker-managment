@@ -528,19 +528,63 @@ export class ProjectService {
    * Get available reviewers for a project
    */
   static async getProjectReviewers(projectId: string) {
-    const members = await this.getMembers(projectId);
-    return members
-      .filter(m =>
-        ["OWNER", "ADMIN"].includes(m.workspaceRole || "") ||
-        ["LEAD", "PROJECT_MANAGER"].includes(m.projectRole)
-      )
-      .map(m => ({
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { workspaceId: true }
+    });
+
+    if (!project) return [];
+
+    // 1. Get Workspace Admins and Owners (Always eligible)
+    const admins = await prisma.workspaceMember.findMany({
+      where: {
+        workspaceId: project.workspaceId,
+        workspaceRole: { in: ["OWNER", "ADMIN"] }
+      },
+      include: { user: true }
+    });
+
+    // 2. Get All Project Members (LEAD, PM, and now MEMBER)
+    const projectMembers = await prisma.projectMember.findMany({
+      where: {
+        projectId: projectId,
+        projectRole: { in: ["PROJECT_MANAGER", "LEAD", "MEMBER"] }
+      },
+      include: {
+        workspaceMember: {
+          include: {
+            user: {
+              select: { id: true, surname: true }
+            }
+          }
+        }
+      }
+    });
+
+    const reviewerMap = new Map<string, any>();
+
+    // Add admins first
+    admins.forEach(m => {
+      reviewerMap.set(m.userId, {
         id: m.userId,
-        surname: m.user.surname,
-        role: (["OWNER", "ADMIN"].includes(m.workspaceRole || ""))
-          ? (m.workspaceRole as string)
-          : m.projectRole
-      }));
+        surname: m.user.surname || "",
+        role: m.workspaceRole
+      });
+    });
+
+    // Add project members if not already added as admins
+    projectMembers.forEach(pm => {
+      const userId = pm.workspaceMember.userId;
+      if (!reviewerMap.has(userId)) {
+        reviewerMap.set(userId, {
+          id: userId,
+          surname: pm.workspaceMember.user?.surname || "",
+          role: pm.projectRole
+        });
+      }
+    });
+
+    return Array.from(reviewerMap.values());
   }
 
   /**

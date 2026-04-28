@@ -7,6 +7,8 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Tabs } from "@/components/ui/tabs";
 import { fetchCommentsAction, fetchActivitiesAction } from "@/actions/comment";
+import { pubsub, EVENTS } from "@/lib/pubsub";
+import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 
 // Import modular components
 import { SubtaskSheetHeader } from "./subtask-sheet-header";
@@ -108,6 +110,13 @@ export function SubTaskDetailsSheet({
     const [currentUserId, setCurrentUserId] = useState<string | null>(initialCurrentUserId);
     const [members, setMembers] = useState<ProjectMembersType>([]);
     const [tags, setTags] = useState<{ id: string; name: string }[]>([]);
+
+    // 🧠 MEMORY-FIRST APPROACH: Use the global cache as the source of truth for the task entity
+    // This ensures that if the task was updated via real-time events, we show the latest version.
+    const cachedTask = useTaskCacheStore((state) => subTask?.id ? state.entities[subTask.id] : null);
+    
+    // Merge provided prop with cached entity, prioritizing the cache for latest updates
+    const task = (cachedTask || subTask) as TaskByIdType | null;
 
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -276,25 +285,53 @@ export function SubTaskDetailsSheet({
         fetchTags();
     }, [isOpen, pathname, subTask?.workspaceId]);
 
+    // 🚀 REAL-TIME COMMENT SYNC
+    useEffect(() => {
+        if (!isOpen || !subTask?.id) return;
+
+        const unsubscribe = pubsub.subscribe(EVENTS.APP_ACTIVITY_LOG, (data: any) => {
+            const isComment = data.action === "COMMENT_CREATED";
+            const isForThisTask = data.entityId === subTask.id;
+            const isNotMe = data.userId !== currentUserId;
+
+            if (isComment && isForThisTask && isNotMe) {
+                const newComment = data.newData?.comment;
+                if (newComment) {
+                    // Update local state
+                    setComments(prev => {
+                        // Avoid duplicates
+                        if (prev.some(c => c.id === newComment.id)) return prev;
+                        const updated = [...prev, newComment];
+                        // Update cache too
+                        commentCache.set(subTask.id, updated);
+                        return updated;
+                    });
+                }
+            }
+        });
+
+        return () => unsubscribe();
+    }, [isOpen, subTask?.id, currentUserId]);
+
     return (
         <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <SheetContent className="w-full sm:max-w-2xl p-0 flex flex-col h-full bg-background border-l">
                 <SheetTitle className="sr-only">{subTask?.name || "SubTask Details"}</SheetTitle>
                 <SheetDescription className="sr-only">
-                    {subTask ? `Details and activity for subtask ${subTask.name}` : "Loading subtask details..."}
+                    {task ? `Details and activity for subtask ${task.name}` : "Loading subtask details..."}
                 </SheetDescription>
-                {subTask ? (
+                {task ? (
                     <>
                         {/* Header Component */}
                         <SubtaskSheetHeader
-                            subTask={subTask}
+                            subTask={task}
                             currentUserId={currentUserId}
                             members={members}
                             tags={tags}
                             isAdmin={isAdmin || members.find(m => m.userId === currentUserId)?.workspaceRole === 'ADMIN' || members.find(m => m.userId === currentUserId)?.workspaceRole === 'OWNER'}
                             isProjectManager={isProjectManager || members.find(m => m.userId === currentUserId)?.projectRole === 'PROJECT_MANAGER'}
                             onSubTaskAssigned={(memberObj) => {
-                                onSubTaskAssigned?.(subTask.id, {
+                                onSubTaskAssigned?.(task.id, {
                                     assignee: {
                                         workspaceMember: {
                                             user: memberObj
@@ -315,10 +352,10 @@ export function SubTaskDetailsSheet({
                                     activityCount={activities.length}
                                 />
 
-                                {/* Tab Content */}
+                                 {/* Tab Content */}
                                 {activeTab === "messages" && (
                                     <MessagesTab
-                                        taskId={subTask.id}
+                                        taskId={task.id}
                                         comments={comments}
                                         setComments={setComments}
                                         currentUserId={currentUserId}
