@@ -14,7 +14,11 @@ export class ApiError extends Error {
  * Standard fetch wrapper for the Hono API
  */
 export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const baseUrl = "/api/v1";
+    const isServer = typeof window === "undefined";
+    const baseUrl = isServer && process.env.NEXT_PUBLIC_APP_URL 
+        ? `${process.env.NEXT_PUBLIC_APP_URL}/api/v1`
+        : "/api/v1";
+        
     const url = endpoint.startsWith("http") ? endpoint : `${baseUrl}${endpoint}`;
 
     const headers = new Headers(options.headers);

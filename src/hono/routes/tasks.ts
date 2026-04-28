@@ -116,6 +116,36 @@ tasks.get("/", async (c) => {
 });
 
 /**
+ * GET /api/v1/tasks/slug/:slug
+ * Fetch a single task by its slug or ID with relations.
+ */
+tasks.get("/slug/:slug", async (c) => {
+  const workspaceId = c.req.query("w");
+  const slug = c.req.param("slug");
+
+  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+
+  const task = await TasksService.getTaskBySlugOrId(workspaceId, slug);
+  return c.json({ success: true, data: task });
+});
+
+/**
+ * GET /api/v1/tasks/slug/:slug/comment-context
+ * Fetch core members involved in a task (Admins, PMs, Assignee).
+ */
+tasks.get("/slug/:slug/comment-context", async (c) => {
+  const workspaceId = c.req.query("w");
+  const slug = c.req.param("slug");
+
+  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+
+  const context = await TasksService.getTaskCommentContext(workspaceId, slug);
+  return c.json({ success: true, data: context });
+});
+
+
+
+/**
  * POST /api/v1/tasks
  * Create a base task
  */

@@ -8,7 +8,8 @@ const SubTaskDetailsSheet = dynamic(() => import("@/app/w/[workspaceId]/p/[slug]
     loading: () => null
 });
 import { useSearchParams, useParams } from "next/navigation";
-import { fetchSubTaskBySlugAction } from "@/actions/task/fetch-subtask-by-slug";
+import { apiClient } from "@/lib/api-client";
+
 
 export function GlobalSubTaskSheet() {
     const { isOpen, subTask, openSubTaskSheet, openSubTaskSheetLoading, closeSubTaskSheet, patchSubTask } = useSubTaskSheet();
@@ -20,31 +21,26 @@ export function GlobalSubTaskSheet() {
     const lastFetchedSlug = useRef<string | null>(null);
 
     useEffect(() => {
-        // If there's a subtask in URL but it's not the one in our context
         if (subTaskSlug && workspaceId) {
             const currentSlug = subTask?.taskSlug || subTask?.id;
 
             if (currentSlug !== subTaskSlug && lastFetchedSlug.current !== subTaskSlug) {
                 lastFetchedSlug.current = subTaskSlug;
 
-                // Instantly open the sheet to show a generic loading fallback
                 openSubTaskSheetLoading();
 
                 const loadTask = async () => {
-                    const result = await fetchSubTaskBySlugAction(workspaceId, subTaskSlug);
-                    if (result.success && result.subTask) {
-                        openSubTaskSheet(result.subTask);
+                    const result = await apiClient.tasks.getTaskBySlug(workspaceId, subTaskSlug);
+                    if (result.success && result.data) {
+                        openSubTaskSheet(result.data);
                     } else if (result.error) {
                         console.error("Failed to fetch subtask context:", result.error);
-                        // If we can't find it, we should probably clear the param to avoid infinite re-tries
-                        // but let's just log for now to avoid side-effects
                     }
                 };
 
                 loadTask();
             }
         } else if (!subTaskSlug && isOpen) {
-            // URL cleared (e.g. back button), close the sheet
             closeSubTaskSheet();
             lastFetchedSlug.current = null;
         }

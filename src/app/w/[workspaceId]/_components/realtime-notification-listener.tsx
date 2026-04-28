@@ -7,15 +7,6 @@ import { pubsub, EVENTS } from "@/lib/pubsub";
 import { authClient } from "@/lib/auth-client";
 import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 
-// Simple debounce implementation
-const debounce = (func: Function, wait: number) => {
-  let timeout: NodeJS.Timeout;
-  return (...args: any[]) => {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
-  };
-};
-
 export function RealtimeNotificationListener() {
   const router = useRouter();
   const params = useParams();
