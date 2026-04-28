@@ -997,10 +997,16 @@ export class WorkspaceService {
       permissions,
       workspacesResult,
       projects,
+      tags,
+      projectManagers,
+      unreadNotificationsCount,
     ]: any[] = await Promise.all([
       getWorkspacePermissions(workspaceId, userId, false),
       this.getWorkspaces(userId),
       ProjectService.getWorkspaceProjects(workspaceId, userId),
+      ProjectService.getWorkspaceTags(workspaceId),
+      ProjectService.getWorkspaceProjectLeaders(workspaceId),
+      this.getUnreadNotificationsCount(workspaceId, userId),
     ]);
 
     const workspacesData = workspacesResult.workspaces || [];
@@ -1009,6 +1015,9 @@ export class WorkspaceService {
       permissions,
       workspaces: { workspaces: workspacesData, totalCount: workspacesData.length },
       projects: projects || [],
+      tags: tags || [],
+      projectManagers: projectManagers || {},
+      unreadNotificationsCount: unreadNotificationsCount || 0,
     };
   }
 

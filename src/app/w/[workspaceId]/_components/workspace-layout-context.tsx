@@ -175,6 +175,8 @@ export function WorkspaceLayoutProvider({
     data: data || {
       workspaces: { workspaces: [], totalCount: 0 },
       projects: [],
+      tags: [],
+      projectManagers: {},
       unreadNotificationsCount: 0,
       permissions: {
         isWorkspaceAdmin: false,
@@ -184,6 +186,8 @@ export function WorkspaceLayoutProvider({
         userId: null,
         leadProjectIds: [],
         managedProjectIds: [],
+        memberProjectIds: [],
+        viewerProjectIds: [],
       },
     } as WorkspaceLayoutData,
     workspaceId,

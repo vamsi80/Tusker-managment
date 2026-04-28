@@ -33,9 +33,11 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
     const [
         permissions,
         projectMembers,
+        projectManagers,
     ] = await Promise.all([
         getWorkspacePermissions(workspaceId),
         membersPromise,
+        leadersPromise,
     ]);
     const duration = performance.now() - viewStartTime;
     if (duration > 600) {
@@ -52,6 +54,7 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
             workspaceId={workspaceId}
             projectId="" 
             level="workspace"
+            projectManagers={projectManagers}
             permissions={permissions}
             userId={user.id}
         />

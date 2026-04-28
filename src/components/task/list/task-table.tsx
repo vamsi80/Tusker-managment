@@ -192,36 +192,49 @@ function TaskTable({
       const getCache = useTaskCacheStore.getState().getCachedSubTasks;
 
       const result = taskList.map((t) => {
-        // If it already has subtasks (from a fresh server result if that ever happens), keep them
-        if (t.subTasks !== undefined) return t;
+        const isRealtime = debugLabel === "realtime-sync";
 
-        // ✅ Bug 2 Fix: Skip memory + global cache entirely when filters are active.
-        // Hydrating stale unfiltered subtasks here would overwrite fresh filtered results
-        // and feed Bug 3 (gate blocks re-fetch because subTasks !== undefined).
-        if (!filtersActive && !options?.skipMemorySubtasks) {
-          // Check memory first (preserves state during fast filter toggles)
-          const inMemory = memoryMap.get(t.id);
-          if (inMemory) {
-            return {
-              ...t,
-              subTasks: inMemory.subTasks,
-              subTasksHasMore: inMemory.subTasksHasMore,
-              subTasksNextCursor: inMemory.subTasksNextCursor,
-            };
-          }
+        // 🚀 MERGE ENTITY FROM CACHE:
+        // This is crucial! When a subtask is created, the global store updates the parent's `_count.subTasks`.
+        // If we don't merge it here, TaskTable passes the stale API task down, blowing away TaskRow's optimistic count.
+        const entityFromCache = useTaskCacheStore.getState().entities[t.id];
+        let currentT = t;
+        if (entityFromCache) {
+            currentT = { 
+                ...t, 
+                ...entityFromCache, 
+                updatedAt: entityFromCache.updatedAt ? new Date(entityFromCache.updatedAt) : (t as any).updatedAt,
+                _count: { ...(t as any)._count, ...entityFromCache._count } 
+            } as any;
+        }
 
-          // Check global cache
-          const cached = getCache(t.id);
-          if (cached) {
+        // If it already has subtasks and we're NOT doing a real-time sync, keep them to avoid unnecessary work
+        if (currentT.subTasks !== undefined && !isRealtime) return currentT;
+
+        if ((!filtersActive || isRealtime) && !options?.skipMemorySubtasks) {
+          // 🚀 REAL-TIME OPTIMIZATION: On sync, prioritize the global cache as it's the direct recipient of Pusher events
+          const cached = getCache(currentT.id);
+          if (cached && (isRealtime || currentT.subTasks === undefined)) {
             return {
-              ...t,
+              ...currentT,
               subTasks: cached.subTasks,
               subTasksHasMore: cached.hasMore,
               subTasksNextCursor: cached.nextCursor,
             };
           }
+
+          // Check memory second (preserves state during fast filter toggles)
+          const inMemory = memoryMap.get(currentT.id);
+          if (inMemory && currentT.subTasks === undefined) {
+            return {
+              ...currentT,
+              subTasks: inMemory.subTasks,
+              subTasksHasMore: inMemory.subTasksHasMore,
+              subTasksNextCursor: inMemory.subTasksNextCursor,
+            };
+          }
         }
-        return t;
+        return currentT;
       });
 
       // 🔬 DEBUG: Log what was resolved vs what couldn't be hydrated
@@ -504,6 +517,15 @@ function TaskTable({
     };
   }, [clearFilters, workspaceId, projectId]);
 
+  // 🔄 Real-time Cache Sync: Subscribes to the cache store to ensure surgical updates
+  // from RealtimeNotificationListener are reflected in the UI instantly.
+  useEffect(() => {
+    const unsub = useTaskCacheStore.subscribe(() => {
+        setTasks((prev) => hydrateTasks(prev, "realtime-sync"));
+    });
+    return unsub;
+  }, [hydrateTasks]);
+
   const mode = useMemo(() => {
     return sorts.length > 0 ? "sorted" : "hierarchy";
   }, [sorts]);
@@ -560,6 +582,15 @@ function TaskTable({
         hasFetchedRef.current = true;
 
         const apiRes = await fetch(`/api/v1/tasks?${params.toString()}`);
+        
+        if (!apiRes.ok) {
+          if (apiRes.status === 401) {
+            if (!isAbortedRef.current) toast.error("Session expired. Please log in again.");
+            return;
+          }
+          throw new Error(`API returned ${apiRes.status}`);
+        }
+
         const response = await apiRes.json();
 
         if (isAbortedRef.current) return;
@@ -579,7 +610,6 @@ function TaskTable({
               "filter-apply",
             ),
           );
-
           if (result.facets?.projects) {
             const facetProjects = result.facets.projects as Record<
               string,
@@ -634,10 +664,14 @@ function TaskTable({
               },
             }));
           }
+        } else {
+          if (!isAbortedRef.current) toast.error(response.error || "Failed to load tasks");
         }
       } catch (err) {
-        console.error("Failed to filter tasks:", err);
-        if (!isAbortedRef.current) toast.error("Failed to load tasks");
+        if (!isAbortedRef.current) {
+          console.error("Failed to filter tasks:", err);
+          toast.error("Network error or session expired.");
+        }
       } finally {
         // 🚀 BUG FIX: We must clear the lock using the SAME key we used at the start.
         // Re-calculating params here is error-prone and caused stale locks when 

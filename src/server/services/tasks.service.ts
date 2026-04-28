@@ -20,6 +20,7 @@ import {
   toUTCDateOnly,
   addOneDayUTC,
   SORT_MAP,
+  buildAssigneeFilter,
 } from "@/lib/tasks/query-builder";
 
 export type TaskStatus =
@@ -207,6 +208,8 @@ export class TasksService {
     if (task._count) {
       task.subtaskCount = task._count.subTasks;
       delete task._count;
+    } else if (!task.subtaskCount && task.isParent) {
+      task.subtaskCount = 0;
     }
 
     if (!task.isParent) {
@@ -240,6 +243,8 @@ export class TasksService {
     if (task._count) {
       task.subtaskCount = task._count.subTasks;
       delete task._count;
+    } else if (task.isParent && task.subtaskCount !== undefined) {
+      // Keep existing subtaskCount if _count is missing
     }
 
     if (!task.isParent) {
@@ -358,6 +363,14 @@ export class TasksService {
     const { projectId, hierarchyMode, filterParentTaskId } = opts;
     let strategy = "NONE";
 
+    // 🚀 NEW: Determine if we should show a restricted subtask count (Assigned to Me)
+    // If the user is a workspace admin, or a lead/manager of the current project, show ALL subtasks count.
+    // Otherwise, show only subtasks assigned to them.
+    const isManagerOfCurrentProject = projectId && fullAccessProjectIds.includes(projectId);
+    const subtaskFilter = (!isAdmin && !isManagerOfCurrentProject)
+      ? buildAssigneeFilter(userId)
+      : undefined;
+
     try {
       const toArray = <T>(v: T | T[] | undefined): T[] | undefined =>
         v === undefined ? undefined : Array.isArray(v) ? v : [v];
@@ -407,6 +420,7 @@ export class TasksService {
           fullAccessProjectIds,
           restrictedProjectIds,
           { ...opts, isMinimal },
+          subtaskFilter,
         );
         return { ...result, totalCount: null, facets: emptyFacets };
       }
@@ -431,6 +445,7 @@ export class TasksService {
           fullAccessProjectIds,
           restrictedProjectIds,
           opts,
+          subtaskFilter,
         );
 
         if (opts.includeSubTasks && result.tasks.length > 0) {
@@ -502,6 +517,7 @@ export class TasksService {
           fullAccessProjectIds,
           restrictedProjectIds,
           opts,
+          subtaskFilter,
         );
 
         return { ...result, facets: (result as any).facets || emptyFacets };
@@ -552,7 +568,7 @@ export class TasksService {
           const tasks = await prisma.task.findMany({
             where,
             take: perStatusLimit + 1,
-            select: getTaskSelect(opts.view_mode, isMinimal),
+            select: getTaskSelect(opts.view_mode, isMinimal, undefined, subtaskFilter),
             orderBy: buildOrderBy(opts.sorts, opts.view_mode),
           });
 
@@ -573,7 +589,7 @@ export class TasksService {
                   userId,
                   isAdmin,
                 }),
-                select: getTaskSelect(opts.view_mode, false), // subtasks never minimal
+                select: getTaskSelect(opts.view_mode, false, undefined, subtaskFilter), // subtasks never minimal
                 orderBy: buildOrderBy(opts.sorts, opts.view_mode),
               });
               tasks.forEach((parent: any) => {
@@ -706,7 +722,7 @@ export class TasksService {
             return prisma.task.findMany({
               where: statusWhere,
               take: perStatusLimit + 1,
-              select: getTaskSelect(opts.view_mode, isMinimal),
+              select: getTaskSelect(opts.view_mode, isMinimal, undefined, subtaskFilter),
               orderBy: buildOrderBy(opts.sorts, opts.view_mode),
             });
           }),
@@ -728,7 +744,7 @@ export class TasksService {
                 userId,
                 isAdmin,
               }),
-              select: getTaskSelect(opts.view_mode),
+              select: getTaskSelect(opts.view_mode, false, undefined, subtaskFilter),
               orderBy: buildOrderBy(opts.sorts, opts.view_mode),
             });
             tasks.forEach((parent: any) => {
@@ -823,6 +839,7 @@ export class TasksService {
             opts.onlySubtasks ||
             (!hasExplicitFilters && hierarchyMode === "children"),
         },
+        subtaskFilter,
       );
 
       return filterResult;
@@ -848,6 +865,7 @@ export class TasksService {
     fullAccessProjectIds: string[],
     restrictedProjectIds: string[],
     opts: any,
+    subtaskFilter?: any,
   ) {
     const limit = opts.limit ?? 50;
 
@@ -868,7 +886,7 @@ export class TasksService {
     const [rawTasks] = await Promise.all([
       prisma.task.findMany({
         where,
-        select: getTaskSelect(opts.view_mode, true, [dbField]), // TRUE for minimal parent select, include sort field
+        select: getTaskSelect(opts.view_mode, true, [dbField], subtaskFilter), // TRUE for minimal parent select, include sort field
         orderBy: buildOrderBy(opts.sorts, opts.view_mode),
       }),
     ]);
@@ -901,6 +919,7 @@ export class TasksService {
     fullAccessProjectIds: string[],
     restrictedProjectIds: string[],
     opts: any,
+    subtaskFilter?: any,
   ) {
     const limit = opts.limit ?? 30;
 
@@ -938,6 +957,8 @@ export class TasksService {
       select: getTaskSelect(
         opts.view_mode,
         opts.view_mode === "gantt" || opts.isMinimal,
+        undefined,
+        subtaskFilter
       ),
       orderBy: buildOrderBy(opts.sorts, opts.view_mode),
       take: limit + 5, // Extra buffer for the parent and potential overlap
@@ -969,6 +990,7 @@ export class TasksService {
     fullAccessProjectIds: string[],
     restrictedProjectIds: string[],
     opts: any,
+    subtaskFilter?: any,
   ) {
     const limit = opts.limit ?? 50;
 
@@ -1047,7 +1069,8 @@ export class TasksService {
       select: getTaskSelect(
         opts.view_mode,
         opts.view_mode === "gantt" || opts.isMinimal,
-        dbFieldForSelect ? [dbFieldForSelect] : []
+        dbFieldForSelect ? [dbFieldForSelect] : [],
+        subtaskFilter
       ),
       take: limit + 1,
       orderBy: buildOrderBy(opts.sorts, opts.view_mode),
@@ -1108,7 +1131,7 @@ export class TasksService {
       }
       const extraTasks = await prisma.task.findMany({
         where: { OR: orConditions },
-        select: getTaskSelect(opts.view_mode),
+        select: getTaskSelect(opts.view_mode, false, undefined, subtaskFilter),
         orderBy: buildOrderBy(opts.sorts, opts.view_mode),
         take: opts.view_mode === "gantt" ? 2000 : 500,
       });
@@ -1207,6 +1230,7 @@ export class TasksService {
     fullAccessProjectIds: string[],
     restrictedProjectIds: string[],
     opts: any,
+    subtaskFilter?: any,
   ) {
     const limit = opts.limit ?? 50;
 
@@ -1275,7 +1299,7 @@ export class TasksService {
     const [rawTasks] = await Promise.all([
       prisma.task.findMany({
         where,
-        select: getTaskSelect(opts.view_mode, opts.onlySubtasks ? false : true, dbField ? [dbField] : []),
+        select: getTaskSelect(opts.view_mode, opts.onlySubtasks ? false : true, dbField ? [dbField] : [], subtaskFilter),
         orderBy: buildOrderBy(opts.sorts, opts.view_mode),
         take: limit + 1,
         skip: opts.skip || 0,

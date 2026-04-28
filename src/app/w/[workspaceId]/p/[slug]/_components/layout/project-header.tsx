@@ -55,7 +55,14 @@ function ProjectHeader({
                 )}
             </div>
 
-            <ProjectNav workspaceId={workspaceId} slug={slug} />
+            <ProjectNav
+                workspaceId={workspaceId}
+                slug={slug}
+                projectId={projectId}
+                projectName={projectName}
+                projectColor={projectColor}
+                canPerformBulkOperations={canPerformBulkOperations}
+            />
         </>
     );
 }

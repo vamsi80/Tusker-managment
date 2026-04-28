@@ -1,4 +1,5 @@
 import prisma from "@/lib/db";
+import { AppError } from "@/lib/errors/app-error";
 import { ProjectRole as PrismaProjectRole } from "@/generated/prisma";
 import { 
   ProjectMember, 
@@ -503,17 +504,23 @@ export class ProjectService {
   /**
    * Aggregated Layout Data Fetch
    */
-  static async getProjectLayoutData(workspaceId: string, projectId: string, userId: string) {
-    const [members, permissions, tags] = await Promise.all([
+  static async getProjectLayoutData(workspaceIdOrSlug: string, projectId: string, userId: string) {
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { workspaceId: true }
+    });
+
+    if (!project) throw AppError.NotFound("Project not found");
+    const workspaceId = project.workspaceId;
+
+    const [members, permissions] = await Promise.all([
       this.getMembers(projectId),
       this.getPermissions(workspaceId, projectId, userId),
-      this.getWorkspaceTags(workspaceId)
     ]);
 
     return {
       members,
       permissions,
-      tags
     };
   }
 
@@ -588,7 +595,7 @@ export class ProjectService {
           projectId: true,
           workspaceMember: {
             select: {
-              user: { select: { id: true, surname: true } },
+              user: { select: { id: true, surname: true, name: true, image: true } },
             },
           },
         },
@@ -599,7 +606,7 @@ export class ProjectService {
           workspaceRole: { in: ["OWNER", "ADMIN"] },
         },
         select: {
-          user: { select: { id: true, surname: true, image: true } },
+          user: { select: { id: true, surname: true, name: true, image: true } },
         },
       }),
       prisma.project.findMany({
@@ -622,7 +629,10 @@ export class ProjectService {
     projectMembers.forEach((pm) => {
       const user = pm.workspaceMember?.user;
       if (user) {
-        if (!pmMap[pm.projectId]) pmMap[pm.projectId] = [];
+        if (!pmMap[pm.projectId]) {
+          // Initialize with workspace admins if project was not in the initial list
+          pmMap[pm.projectId] = workspaceAdmins.map((wa) => wa.user).filter(Boolean) as any;
+        }
         // Add to the front of the list, unless already there
         if (!pmMap[pm.projectId].some((u) => u.id === user.id)) {
           pmMap[pm.projectId].unshift(user as any);

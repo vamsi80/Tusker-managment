@@ -1,13 +1,15 @@
 "use client";
 
-import React, { createContext, useContext, ReactNode, useState, useEffect, useCallback } from "react";
+import { createContext, useContext, ReactNode, useState, useEffect, useCallback } from "react";
 import { projectsClient } from "@/lib/api-client/projects";
 import { ProjectMembersType } from "@/types/project";
 import type { UserPermissionsType } from "@/types/workspace";
+import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 
 interface ProjectLayoutContextType {
     projectMembers: ProjectMembersType;
     projectPermissions: UserPermissionsType;
+    projectManagers: Record<string, any[]>;
     workspaceTags: any[];
     workspaceId: string;
     projectId: string;
@@ -26,21 +28,20 @@ export function ProjectLayoutProvider({
     workspaceId: string;
     projectId: string;
 }) {
+    const { data: workspaceData } = useWorkspaceLayout();
     const [projectMembers, setProjectMembers] = useState<ProjectMembersType>([]);
     const [projectPermissions, setProjectPermissions] = useState<UserPermissionsType | null>(null);
-    const [workspaceTags, setWorkspaceTags] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     const fetchProjectData = useCallback(async (isSilent = false) => {
         if (!projectId) return;
-        
+
         try {
             if (!isSilent) setIsLoading(true);
             const res = await projectsClient.getLayoutData(workspaceId, projectId);
 
-            setProjectMembers(res.data?.members || []);
-            setProjectPermissions(res.data?.permissions || null);
-            setWorkspaceTags(res.data?.tags || []);
+            setProjectMembers(res.members || []);
+            setProjectPermissions(res.permissions || null);
         } catch (error) {
             console.error("Failed to fetch project layout data:", error);
         } finally {
@@ -58,6 +59,7 @@ export function ProjectLayoutProvider({
 
     const contextValue: ProjectLayoutContextType = {
         projectMembers,
+        projectManagers: workspaceData.projectManagers || {},
         projectPermissions: projectPermissions || {
             isWorkspaceAdmin: false,
             isProjectManager: false,
@@ -69,7 +71,7 @@ export function ProjectLayoutProvider({
             workspaceRole: null,
             userId: null,
         },
-        workspaceTags,
+        workspaceTags: workspaceData.tags || [],
         workspaceId,
         projectId,
         isLoading,

@@ -576,6 +576,15 @@ export function KanbanBoard({
         if (filters.parentTaskId) params.set("pt", filters.parentTaskId);
 
         const apiRes = await fetch(`/api/v1/tasks?${params.toString()}`);
+        
+        if (!apiRes.ok) {
+          if (apiRes.status === 401) {
+             if (!isAborted) toast.error("Session expired. Please log in again.");
+             return;
+          }
+          throw new Error(`API returned ${apiRes.status}`);
+        }
+
         const response = await apiRes.json();
 
         if (isAborted) return;
@@ -621,11 +630,13 @@ export function KanbanBoard({
             search: searchQuery,
           });
         } else {
-          toast.error("Failed to apply filters");
+          if (!isAborted) toast.error(response.error || "Failed to apply filters");
         }
       } catch (err) {
-        console.error("Error filtering subtasks", err);
-        if (!isAborted) toast.error("Failed to apply filters");
+        if (!isAborted) {
+            console.error("Error filtering subtasks", err);
+            toast.error("Network error. Please check your connection.");
+        }
       } finally {
         if (!isAborted) {
           setLoadingColumns(
@@ -1413,6 +1424,10 @@ export function KanbanBoard({
                 subTask={activeSubTask}
                 columnColor="text-slate-700"
                 isDragging
+                projectManagers={projectManagers}
+                projectMembers={projectMembers}
+                projects={projects}
+                projectMap={projectMap}
               />
             </div>
           ) : null}

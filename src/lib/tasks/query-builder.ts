@@ -1,6 +1,6 @@
 import { Prisma } from "@/generated/prisma";
 
-export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = false, extraFields?: string[]): Prisma.TaskSelect {
+export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = false, extraFields?: string[], subtaskFilter?: Prisma.TaskWhereInput): Prisma.TaskSelect {
     const isList = view_mode === "list" || view_mode === "default" || !view_mode;
     const isKanban = view_mode === "kanban";
     const isGantt = view_mode === "gantt";
@@ -18,7 +18,7 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
             createdAt: true,
             _count: {
                 select: {
-                    subTasks: true
+                    subTasks: subtaskFilter ? { where: subtaskFilter } : true
                 }
             }
         };
@@ -93,7 +93,7 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
         select._count = {
             select: {
                 activities: true,
-                subTasks: !isKanban
+                subTasks: subtaskFilter ? { where: subtaskFilter } : !isKanban
             }
         };
     }

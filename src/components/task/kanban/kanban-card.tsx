@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -108,11 +108,40 @@ export const KanbanCard = React.memo(function KanbanCard({
   const project = subTask.project || (subTask.projectId && projectMap ? projectMap[subTask.projectId] : null);
 
   // Get Project Managers from the hoisted map (effective way)
-  const assignedManagers = (
-    projectManagers && subTask.projectId
-      ? projectManagers[subTask.projectId] || []
-      : []
-  ) as any[];
+  const assignedManagers = useMemo(() => {
+    if (!projectManagers || typeof projectManagers !== 'object') return [];
+
+    // 1. Primary lookup by specific project ID
+    if (subTask.projectId && projectManagers[subTask.projectId]) {
+      return projectManagers[subTask.projectId];
+    }
+
+    // 2. Fallback: Use resolved project metadata ID if subTask.projectId is missing
+    if (project?.id && projectManagers[project.id]) {
+      return projectManagers[project.id];
+    }
+
+    // 3. Last Resort Fallback: If there's only one project in the map, use its managers
+    // (This is common in Project View where the map only contains current project)
+    const keys = Object.keys(projectManagers);
+    if (keys.length === 1) {
+      return projectManagers[keys[0]];
+    }
+
+    return [];
+  }, [projectManagers, subTask.projectId, project?.id]);
+
+  useEffect(() => {
+    if (assignedManagers.length === 0 && projectManagers && Object.keys(projectManagers).length > 0) {
+      console.warn(`[KanbanCard] No managers found for task ${subTask.name}`, {
+        taskId: subTask.id,
+        subTaskProjectId: subTask.projectId,
+        resolvedProjectId: project?.id,
+        availableProjectIds: Object.keys(projectManagers)
+      });
+    }
+  }, [assignedManagers, projectManagers, subTask.id, subTask.name, subTask.projectId, project?.id]);
+
   const firstManager = assignedManagers?.[0] || null;
 
   // 🚀 Speculative Pre-fetching for "Instant" feel
@@ -138,11 +167,16 @@ export const KanbanCard = React.memo(function KanbanCard({
   const dueDate = subTask.dueDate
     ? new Date(subTask.dueDate)
     : (() => {
-      if (!subTask.startDate || !subTask.days) return null;
-      const start = new Date(subTask.startDate);
-      const due = new Date(start);
-      due.setDate(due.getDate() + subTask.days);
-      return due;
+      // Fallback to parent task dueDate if this is a subtask (flat view)
+      const parentDue = (subTask as any).parentTask?.dueDate;
+      return parentDue ? new Date(parentDue) : null;
+    })();
+
+  const startDate = subTask.startDate
+    ? new Date(subTask.startDate)
+    : (() => {
+      const parentStart = (subTask as any).parentTask?.startDate;
+      return parentStart ? new Date(parentStart) : null;
     })();
 
   const isOverdue = dueDate && new Date() > dueDate;
@@ -246,44 +280,47 @@ export const KanbanCard = React.memo(function KanbanCard({
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div className="flex items-center rounded-full bg-amber-50/50 dark:bg-amber-950/30 border border-amber-100/50 dark:border-amber-900/50 hover:bg-amber-100 transition-colors cursor-default">
-                        <Avatar className="h-4 w-4 border border-amber-200 dark:border-amber-800 shadow-sm">
-                          <AvatarFallback className="text-[8px] bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
-                            {(firstManager?.surname || firstManager?.user?.surname)?.[0]?.toUpperCase() || "?"}
+                      <div className="flex items-center">
+                        <Avatar className="h-5 w-5 border border-amber-200 dark:border-amber-800 shadow-sm transition-transform hover:scale-110 cursor-help">
+                          {(firstManager?.image || firstManager?.user?.image) ? (
+                            <AvatarImage src={firstManager?.image || firstManager?.user?.image} alt={firstManager?.surname || firstManager?.name || "Manager"} />
+                          ) : null}
+                          <AvatarFallback className="text-[9px] bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 font-bold uppercase">
+                            {(firstManager?.surname || firstManager?.name || firstManager?.user?.surname || firstManager?.user?.name)?.[0] || "?"}
                           </AvatarFallback>
                         </Avatar>
                       </div>
                     </TooltipTrigger>
                     <TooltipContent
                       side="left"
-                      className="text-xs p-2 space-y-0.5"
+                      className="text-xs p-2 space-y-0.5 min-w-[120px]"
                     >
                       <div className="pb-1.5 border-b">
-                        <p className="font-semibold text-[10px] uppercase tracking-wider">
-                          Project
-                        </p>
-                        <p className="font-medium text-[11px] text-primary">
-                          {project?.name}
-                        </p>
-                      </div>
-                      {subTask.parentTask && (
-                        <div className="pb-1.5 border-b">
-                          <p className="font-semibold text-[10px] uppercase tracking-wider">
-                            Parent Task
-                          </p>
-                          <p className="font-medium text-[11px] text-primary">
-                            {subTask.parentTask.name}
-                          </p>
-                        </div>
-                      )}
-                      <div>
-                        <p className="font-semibold text-[10px] uppercase tracking-wider">
+                        <p className="font-semibold text-[9px] text-muted-foreground uppercase tracking-wider">
                           Project Manager
                         </p>
-                        {firstManager && (
-                          <p className="font-medium text-[11px] text-primary">
-                            {firstManager.surname}
+                        <p className="font-medium text-[11px] text-primary">
+                          {firstManager?.surname || firstManager?.name || firstManager?.user?.surname || firstManager?.user?.name || "Unassigned"}
+                        </p>
+                      </div>
+                      <div className="pt-1.5 space-y-1.5">
+                        <div>
+                          <p className="font-semibold text-[9px] text-muted-foreground uppercase tracking-wider">
+                            Project
                           </p>
+                          <p className="font-medium text-[11px] text-primary">
+                            {project?.name}
+                          </p>
+                        </div>
+                        {subTask.parentTask && (
+                          <div>
+                            <p className="font-semibold text-[9px] text-muted-foreground uppercase tracking-wider">
+                              Parent Task
+                            </p>
+                            <p className="font-medium text-[11px] text-primary line-clamp-1">
+                              {subTask.parentTask.name}
+                            </p>
+                          </div>
                         )}
                       </div>
                     </TooltipContent>
@@ -379,27 +416,50 @@ export const KanbanCard = React.memo(function KanbanCard({
                 <span className="text-xs font-medium">{activityCount}</span>
               </div>
 
-              {dueDate && (
+              {(startDate || dueDate) && (
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div
                         className={cn(
-                          "flex items-center gap-1 text-[10px] font-medium cursor-help",
+                          "flex items-center gap-1 text-[10px] font-medium cursor-help px-1.5 py-0.5 rounded-sm transition-colors",
                           isOverdue
-                            ? "text-destructive dark:text-red-400"
-                            : "text-muted-foreground",
+                            ? "bg-destructive/10 text-destructive dark:text-red-400"
+                            : "bg-muted/50 text-muted-foreground",
                         )}
                       >
                         <Calendar className="h-3 w-3" />
                         <span>
-                          {formatIST(dueDate)}
+                          {subTask.days || (startDate && dueDate ? Math.ceil((dueDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) : 0)} Days
                         </span>
                         {isOverdue && <AlertCircle className="h-3 w-3" />}
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent side="top">
-                      <p className="text-xs font-medium">Due Date</p>
+                    <TooltipContent side="top" className="text-[11px] p-2 min-w-[140px]">
+                      <div className="space-y-1.5">
+                        {startDate && (
+                          <div className="flex items-center justify-between gap-4">
+                            <span className="text-amber-600 dark:text-amber-400 font-bold uppercase tracking-tighter text-[9px]">Start</span>
+                            <span className="font-medium">{formatIST(startDate, "PPP")}</span>
+                          </div>
+                        )}
+                        {dueDate && (
+                          <div className="flex items-center justify-between gap-4 pt-1 border-t border-border/50">
+                            <span className={cn(
+                              "font-bold uppercase tracking-tighter text-[9px]",
+                              isOverdue ? "text-destructive" : "text-blue-600 dark:text-blue-400"
+                            )}>Due</span>
+                            <span className={cn("font-medium", isOverdue && "text-destructive underline decoration-dotted")}>
+                              {formatIST(dueDate, "PPP")}
+                            </span>
+                          </div>
+                        )}
+                        {isOverdue && (
+                          <div className="bg-destructive/10 text-destructive text-[10px] font-bold p-1 rounded-sm text-center mt-1 uppercase tracking-wider">
+                            Overdue
+                          </div>
+                        )}
+                      </div>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>

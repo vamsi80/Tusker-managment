@@ -21,11 +21,20 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
     const endDate = endDateStr ? new Date(endDateStr) : undefined;
 
     try {
+        const { workspaceRole, workspaceMemberId } = await getWorkspacePermissions(workspaceId, user.id);
+        
+        // If user is a MEMBER, they can ONLY see their own records.
+        // ADMIN, OWNER, and MANAGER can see all records or filter as they wish.
+        let effectiveMemberId = memberId;
+        if (workspaceRole === "MEMBER") {
+            effectiveMemberId = workspaceMemberId;
+        }
+
         const records = await AttendanceService.getWorkspaceAttendance(
             workspaceId, 
             startDate, 
             endDate, 
-            { memberId, status }
+            { memberId: effectiveMemberId, status }
         );
         return c.json({ success: true, data: records });
     } catch (error: any) {

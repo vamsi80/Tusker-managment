@@ -80,6 +80,8 @@ export interface WorkspaceLayoutData {
   workspaces: WorkspacesResult;
   metadata?: any;
   projects: any[];
+  tags: any[];
+  projectManagers: Record<string, any[]>;
   unreadNotificationsCount: number;
   permissions: {
     isWorkspaceAdmin: boolean;

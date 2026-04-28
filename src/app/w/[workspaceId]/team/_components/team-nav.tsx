@@ -80,7 +80,7 @@ export function TeamNav({ workspaceId, isAdmin }: TeamNavProps) {
                 })}
 
                 <div className="ml-auto flex items-center gap-2 pr-2">
-                    <LeaveRequestDialog workspaceId={workspaceId}>
+                    {/* <LeaveRequestDialog workspaceId={workspaceId}>
                         <Button
                             variant="outline"
                             size="sm"
@@ -89,7 +89,7 @@ export function TeamNav({ workspaceId, isAdmin }: TeamNavProps) {
                             <Clock className="h-3.5 w-3.5" />
                             Apply Leave
                         </Button>
-                    </LeaveRequestDialog>
+                    </LeaveRequestDialog> */}
 
                     {isAdmin && (
                         <InviteUserForm workspaceId={workspaceId} isAdmin={isAdmin}>

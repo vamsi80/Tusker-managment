@@ -3,7 +3,7 @@
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
 import { invalidateTaskComments } from "@/lib/cache/invalidation";
-import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import { getUserPermissions } from "@/data/user/get-user-permissions";
 
 export interface CreateTaskCommentResult {
     success: boolean;
@@ -69,7 +69,7 @@ export async function createTaskCommentAction(
         }
 
         const workspaceId = task.project.workspaceId;
-        const perms = await getWorkspacePermissions(workspaceId);
+        const perms = await getUserPermissions(workspaceId, task.projectId, user.id);
 
         if (!perms.workspaceMemberId) {
             return { success: false, error: "Access denied" };
@@ -79,13 +79,14 @@ export async function createTaskCommentAction(
         // - Admin/Owner: Full access
         // - Project Lead/PM of this project: Can comment
         // - Task participants (Assignee, Creator, Reviewer): Can comment
-        const isProjectAuthority = perms.isWorkspaceAdmin ||
-            (perms.leadProjectIds || []).includes(task.projectId) ||
-            (perms.managedProjectIds || []).includes(task.projectId);
+        const isProjectAuthority = perms.isWorkspaceAdmin || perms.isProjectLead || perms.isProjectManager;
 
-        const isTaskParticipant = task.assigneeId === user.id ||
-            task.createdById === user.id ||
-            task.reviewerId === user.id;
+        const projectMemberId = perms.projectMember?.id;
+        const isTaskParticipant = projectMemberId && (
+            task.assigneeId === projectMemberId ||
+            task.createdById === projectMemberId ||
+            task.reviewerId === projectMemberId
+        );
 
         if (!isProjectAuthority && !isTaskParticipant) {
             return { success: false, error: "You don't have permission to message in this project" };
