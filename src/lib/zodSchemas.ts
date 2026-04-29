@@ -546,6 +546,7 @@ export const dailyReportSchema = z.object({
 });
 
 export const leaveRequestSchema = z.object({
+    type: z.enum(["CASUAL", "SICK"], { message: "Please select a leave type" }),
     dateRange: z.object({
         from: z.date().min(new Date(), { message: "Start date cannot be in the past" }),
         to: z.date().min(new Date(), { message: "End date cannot be in the past" }),

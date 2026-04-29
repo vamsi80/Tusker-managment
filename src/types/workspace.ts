@@ -89,6 +89,7 @@ export interface WorkspaceLayoutData {
     workspaceMemberId: string | null;
     workspaceRole: WorkspaceRole | null;
     userId: string | null;
+    reportingManagerName: string | null;
     leadProjectIds: string[];
     managedProjectIds: string[];
     memberProjectIds?: string[];

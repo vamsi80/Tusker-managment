@@ -39,9 +39,23 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
                         id: true,
                         surname: true,
                     }
+                },
+                reportTo: {
+                    select: {
+                        user: {
+                            select: {
+                                name: true,
+                                surname: true,
+                            }
+                        }
+                    }
                 }
             }
         });
+
+        const reportingManagerName = workspaceMember?.reportTo?.user 
+            ? `${workspaceMember.reportTo.user.name || ""} ${workspaceMember.reportTo.user.surname || ""}`.trim()
+            : null;
 
         if (!workspaceMember) {
             return {
@@ -53,6 +67,7 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
                 workspaceMemberId: null,
                 workspaceRole: null,
                 userId: null,
+                reportingManagerName: null,
                 ...(lean ? {} : {
                     leadProjectIds: [],
                     managedProjectIds: [],
@@ -115,6 +130,7 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
             workspaceRole: workspaceMember.workspaceRole,
             userId: workspaceMember.userId,
             userSurname: workspaceMember.user?.surname || null,
+            reportingManagerName,
             ...(lean ? {} : {
                 leadProjectIds,
                 managedProjectIds,
@@ -134,6 +150,7 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
             workspaceRole: null,
             userId: null,
             userSurname: null,
+            reportingManagerName: null,
             leadProjectIds: [],
             managedProjectIds: [],
         };

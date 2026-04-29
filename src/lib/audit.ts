@@ -17,7 +17,10 @@ export type AuditAction =
   | "CHECKED_IN"
   | "CHECKED_OUT"
   | "RESENT_INVITATION"
-  | "ATTENDANCE_SETTINGS_UPDATED";
+  | "ATTENDANCE_SETTINGS_UPDATED"
+  | "LEAVE_REQUESTED"
+  | "LEAVE_APPROVED"
+  | "LEAVE_REJECTED";
 
 interface RecordActivityOptions {
   userId: string;

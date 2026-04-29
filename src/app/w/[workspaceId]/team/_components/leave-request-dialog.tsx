@@ -4,8 +4,9 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { formatIST, cn } from "@/lib/utils";
-import { CalendarIcon, Loader2, Send } from "lucide-react";
+import { CalendarIcon, Loader2, Send, UserCheck } from "lucide-react";
 import { toast } from "sonner";
+import { useWorkspaceLayout } from "../../_components/workspace-layout-context";
 
 import {
     Dialog,
@@ -31,6 +32,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { leaveRequestSchema, LeaveRequestFormType } from "@/lib/zodSchemas";
 
 interface LeaveRequestDialogProps {
@@ -42,10 +44,13 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
     const [open, setOpen] = useState(false);
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const { data } = useWorkspaceLayout();
+    const reportingManager = data.permissions.reportingManagerName || "Not Assigned";
 
     const form = useForm<LeaveRequestFormType>({
         resolver: zodResolver(leaveRequestSchema),
         defaultValues: {
+            type: "CASUAL",
             reason: "",
         },
     });
@@ -60,6 +65,7 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
                     "x-workspace-id": workspaceId,
                 },
                 body: JSON.stringify({
+                    type: values.type,
                     startDate: values.dateRange.from.toISOString(),
                     endDate: values.dateRange.to.toISOString(),
                     reason: values.reason,
@@ -94,7 +100,7 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
                 )}
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px] overflow-hidden rounded-2xl border-none shadow-2xl">
-                <DialogHeader className="bg-primary/5 p-6 pb-4">
+                <DialogHeader className="bg-primary/5 p-2 pb-4">
                     <DialogTitle className="text-xl font-bold flex items-center gap-2">
                         <Send className="h-5 w-5 text-primary" />
                         New Leave Request
@@ -103,9 +109,47 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
                         Fill out the details below to apply for a leave. Your manager will review it.
                     </DialogDescription>
                 </DialogHeader>
-                <div className="p-6 pt-2">
+                <div className="pt-2">
+                    <div className="mb-4 p-3 bg-muted/30 rounded-xl border border-muted-foreground/10 flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                            <UserCheck className="h-5 w-5 text-primary" />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Reporting Manager</span>
+                            <span className="text-sm font-semibold">{reportingManager}</span>
+                        </div>
+                    </div>
+
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                             <FormField
+                                control={form.control}
+                                name="type"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Leave Type</FormLabel>
+                                        <div className="flex gap-2">
+                                            {["CASUAL", "SICK"].map((t) => (
+                                                <Button
+                                                    key={t}
+                                                    type="button"
+                                                    variant={field.value === t ? "default" : "outline"}
+                                                    size="sm"
+                                                    className={cn(
+                                                        "flex-1 h-10 font-bold transition-all",
+                                                        field.value === t && "shadow-md shadow-primary/20"
+                                                    )}
+                                                    onClick={() => field.onChange(t)}
+                                                >
+                                                    {t}
+                                                </Button>
+                                            ))}
+                                        </div>
+                                        <FormMessage className="text-[10px]" />
+                                    </FormItem>
+                                )}
+                            />
+
                             <FormField
                                 control={form.control}
                                 name="dateRange"
@@ -143,9 +187,9 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
                                                 <div className="bg-background">
                                                     <div className="bg-primary/5 p-3 border-b flex items-center justify-between">
                                                         <h4 className="text-[10px] font-bold uppercase tracking-wider text-primary">Select Date Range</h4>
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            size="sm" 
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
                                                             className="h-6 px-2 text-[10px] font-bold text-primary hover:bg-primary/10"
                                                             onClick={() => setIsCalendarOpen(false)}
                                                         >
@@ -167,9 +211,9 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
                                                             * Click the first day, then the last day.
                                                         </p>
                                                         <div className="flex items-center gap-2">
-                                                            <Button 
-                                                                variant="ghost" 
-                                                                size="sm" 
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
                                                                 className="h-7 px-2 text-[10px] font-bold text-destructive hover:bg-destructive/10"
                                                                 onClick={(e) => {
                                                                     e.preventDefault();
@@ -178,9 +222,9 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
                                                             >
                                                                 Clear
                                                             </Button>
-                                                            <Button 
-                                                                variant="default" 
-                                                                size="sm" 
+                                                            <Button
+                                                                variant="default"
+                                                                size="sm"
                                                                 className="h-7 px-4 text-[10px] font-bold shadow-md shadow-primary/20"
                                                                 onClick={(e) => {
                                                                     e.preventDefault();

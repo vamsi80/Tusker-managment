@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import prisma from "@/lib/db";
 import { AttendanceService } from "@/server/services/attendance.service";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { HonoVariables } from "../types";
@@ -20,6 +21,13 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
     const startDate = startDateStr ? new Date(startDateStr) : undefined;
     const endDate = endDateStr ? new Date(endDateStr) : undefined;
 
+    // Adjust for IST if dates are provided to match the @db.Date storage logic
+    const normalizedStart = startDate ? new Date(startDate.getTime() + (5.5 * 60 * 60 * 1000)) : undefined;
+    if (normalizedStart) normalizedStart.setUTCHours(0, 0, 0, 0);
+    
+    const normalizedEnd = endDate ? new Date(endDate.getTime() + (5.5 * 60 * 60 * 1000)) : undefined;
+    if (normalizedEnd) normalizedEnd.setUTCHours(23, 59, 59, 999);
+
     try {
         const { workspaceRole, workspaceMemberId } = await getWorkspacePermissions(workspaceId, user.id);
         
@@ -32,8 +40,8 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
 
         const records = await AttendanceService.getWorkspaceAttendance(
             workspaceId, 
-            startDate, 
-            endDate, 
+            normalizedStart, 
+            normalizedEnd, 
             { memberId: effectiveMemberId, status }
         );
         return c.json({ success: true, data: records });
@@ -168,6 +176,49 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
         }
     })
 
+    .get("/leave-request", async (c) => {
+        const user = c.get("user");
+        const workspaceId = c.req.header("x-workspace-id");
+
+        if (!user || !user.id) return c.json({ success: false, error: "Unauthorized" }, 401);
+        if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
+
+        try {
+            const { workspaceRole, workspaceMemberId } = await getWorkspacePermissions(workspaceId, user.id);
+            
+            const where: any = { workspaceId };
+            if (workspaceRole === "MEMBER") {
+                where.workspaceMemberId = workspaceMemberId;
+            }
+
+            const leaves = await (prisma as any).leave_request.findMany({
+                where,
+                include: {
+                    WorkspaceMember: {
+                        select: {
+                            id: true,
+                            reportToId: true,
+                            casualLeaveBalance: true,
+                            sickLeaveBalance: true,
+                            user: {
+                                select: {
+                                    name: true,
+                                    surname: true,
+                                    email: true,
+                                    image: true,
+                                }
+                            }
+                        }
+                    }
+                },
+                orderBy: { createdAt: "desc" }
+            });
+            return c.json({ success: true, data: leaves });
+        } catch (error: any) {
+            return c.json({ success: false, error: error.message }, 400);
+        }
+    })
+
     .post("/leave-request", async (c) => {
         const user = c.get("user");
         const workspaceId = c.req.header("x-workspace-id");
@@ -176,14 +227,37 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
         if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
 
         try {
-            const { startDate, endDate, reason } = await c.req.json();
+            const { startDate, endDate, reason, type } = await c.req.json();
             const result = await AttendanceService.createLeaveRequest({
                 workspaceId,
                 userId: user.id,
                 startDate: new Date(startDate),
                 endDate: new Date(endDate),
                 reason,
+                type,
             });
+            return c.json({ success: true, data: result });
+        } catch (error: any) {
+            return c.json({ success: false, error: error.message }, 400);
+        }
+    })
+
+    .patch("/leave-request/:id", async (c) => {
+        const user = c.get("user");
+        const workspaceId = c.req.header("x-workspace-id");
+        const id = c.req.param("id");
+
+        if (!user || !user.id) return c.json({ success: false, error: "Unauthorized" }, 401);
+        if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
+
+        try {
+            const { isWorkspaceAdmin } = await getWorkspacePermissions(workspaceId, user.id);
+            if (!isWorkspaceAdmin) {
+                return c.json({ success: false, error: "Only admins can approve/reject leaves" }, 403);
+            }
+
+            const { status } = await c.req.json();
+            const result = await AttendanceService.updateLeaveStatus(id, status, user.id, workspaceId);
             return c.json({ success: true, data: result });
         } catch (error: any) {
             return c.json({ success: false, error: error.message }, 400);

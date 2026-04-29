@@ -116,6 +116,8 @@ model Workspace {
   halfDayThreshold  String            @default("23:00")
   shiftStartTime    String            @default("21:30")
   shiftEndTime      String            @default("07:00")
+  sickLeaveLimit    Int               @default(12)
+  casualLeaveAccrualDays Int          @default(20)
   projects         Project[]
   tags             Tag[]
   owner            User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
@@ -132,6 +134,7 @@ model Workspace {
   units            Unit[]
   vendors          Vendor[]
   leaveRequests    leave_request[]
+  publicHolidays   public_holiday[]
 }
 
 model WorkspaceMember {
@@ -143,6 +146,9 @@ model WorkspaceMember {
   workspaceRole          WorkspaceRole          @default(MEMBER)
   designation            String?
   reportToId             String?
+  casualLeaveBalance     Float                  @default(0)
+  sickLeaveBalance       Float                  @default(12)
+  accruedDaysCount       Int                    @default(0)
   projectMembers         ProjectMember[]
   reportTo               WorkspaceMember?       @relation("ReportTo", fields: [reportToId], references: [id])
   subordinates           WorkspaceMember[]      @relation("ReportTo")
@@ -812,10 +818,16 @@ enum ReportEntryType {
   OTHER
 }
 
+enum LeaveType {
+  SICK
+  CASUAL
+}
+
 model leave_request {
   id                String           @id @default(uuid())
   workspaceId       String
   workspaceMemberId String
+  type              LeaveType        @default(CASUAL)
   startDate         DateTime         @db.Date
   endDate           DateTime         @db.Date
   reason            String
@@ -846,4 +858,16 @@ enum AttendanceStatus {
 enum BoardStatus {
   DONE
   NOT_DONE
+}
+
+model public_holiday {
+  id          String    @id @default(uuid())
+  workspaceId String
+  name        String
+  date        DateTime  @db.Date
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, date])
 }

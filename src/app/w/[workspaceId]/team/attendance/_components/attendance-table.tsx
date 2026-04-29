@@ -34,6 +34,8 @@ interface AttendanceRecord {
     checkOutAddress: string | null;
     WorkspaceMember: {
         id: string;
+        casualLeaveBalance: number;
+        sickLeaveBalance: number;
         user: {
             name: string;
             surname: string | null;
@@ -42,11 +44,11 @@ interface AttendanceRecord {
     };
 }
 
-export function AttendanceTable({ 
+export function AttendanceTable({
     workspaceId,
     isWorkspaceAdmin,
     workspaceRole
-}: { 
+}: {
     workspaceId: string;
     isWorkspaceAdmin: boolean;
     workspaceRole: "OWNER" | "ADMIN" | "MANAGER" | "MEMBER";
@@ -54,7 +56,8 @@ export function AttendanceTable({
     const isPowerUser = isWorkspaceAdmin || workspaceRole === "MANAGER";
     const [loading, setLoading] = useState(true);
     const [records, setRecords] = useState<AttendanceRecord[]>([]);
-    const [members, setMembers] = useState<{ label: string; value: string }[]>([]);
+    const [allMembers, setAllMembers] = useState<any[]>([]);
+    const [memberOptions, setMemberOptions] = useState<{ label: string; value: string }[]>([]);
 
     // Main filters state (synced with API)
     const [activeFilters, setActiveFilters] = useState<{
@@ -86,13 +89,14 @@ export function AttendanceTable({
             try {
                 const res = await apiClient.workspaces.getMembers(workspaceId);
                 if (res && res.workspaceMembers) {
+                    setAllMembers(res.workspaceMembers);
                     const options = res.workspaceMembers
                         .filter(m => m.workspaceRole !== "OWNER" && m.workspaceRole !== "ADMIN")
                         .map(m => ({
-                            label: m.user?.surname || "Member",
+                            label: `${m.user?.surname || ""} ${m.user?.name || ""}`.trim() || "Member",
                             value: m.id
                         }));
-                    setMembers(options);
+                    setMemberOptions(options);
                 }
             } catch (error) {
                 console.error("Failed to fetch members:", error);
@@ -183,11 +187,13 @@ export function AttendanceTable({
             header: "In",
             cell: ({ row }) => {
                 if (!mounted) return "...";
+                const checkIn = row.original.checkIn;
+                if (!checkIn) return <div className="text-xs text-muted-foreground italic">—</div>;
                 return (
                     <div className="flex flex-col items-start">
                         <div className="flex items-center gap-1.5 text-sm font-medium">
                             <Clock className="h-3.5 w-3.5 text-emerald-500" />
-                            {format(new Date(row.original.checkIn), "hh:mm a")}
+                            {format(new Date(checkIn), "hh:mm a")}
                         </div>
                     </div>
                 );
@@ -332,6 +338,11 @@ export function AttendanceTable({
         });
         return counts;
     }, [records]);
+
+    const selectedMember = useMemo(() => {
+        if (!activeFilters.memberId) return null;
+        return allMembers.find(m => m.id === activeFilters.memberId);
+    }, [allMembers, activeFilters.memberId]);
 
     const handleApplyFilters = () => {
         setActiveFilters(tempFilters);
@@ -489,7 +500,7 @@ export function AttendanceTable({
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="all">All Members</SelectItem>
-                                            {members.map(m => (
+                                            {memberOptions.map((m) => (
                                                 <SelectItem key={m.value} value={m.value} className="text-sm">
                                                     {m.label}
                                                 </SelectItem>
@@ -621,48 +632,79 @@ export function AttendanceTable({
     if (!mounted) return null;
 
     return (
-        <div className="space-y-6">
-            {/* Stats Strip */}
-            <div className="flex flex-wrap items-center justify-around gap-6 p-3 rounded-xl border bg-card/30 backdrop-blur-md shadow-sm">
-                <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-muted-foreground">Total:</span>
-                    <span className="text-lg font-bold tabular-nums">{stats.total}</span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-emerald-600/70">On Time:</span>
-                    <span className="text-lg font-bold tabular-nums text-emerald-600">{stats.present}</span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-amber-600/70">Late:</span>
-                    <span className="text-lg font-bold tabular-nums text-amber-600">{stats.late}</span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-orange-600/70">Half Day:</span>
-                    <span className="text-lg font-bold tabular-nums text-orange-600">{stats.halfDay}</span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-purple-600/70">Leave:</span>
-                    <span className="text-lg font-bold tabular-nums text-purple-600">{stats.leave}</span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-rose-600/70">Absent:</span>
-                    <span className="text-lg font-bold tabular-nums text-rose-600">{stats.absent}</span>
-                </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            <div className="lg:col-span-10 space-y-6">
+                <DataTable
+                    columns={columns}
+                    data={records}
+                    isLoading={loading}
+                    searchKey="memberId"
+                    searchPlaceholder="Search members..."
+                    extraToolbarContent={extraToolbarContent}
+                />
             </div>
 
-            <DataTable
-                columns={columns}
-                data={records}
-                isLoading={loading}
-                searchKey="memberId"
-                searchPlaceholder="Search members..."
-                extraToolbarContent={extraToolbarContent}
-            />
+            <div className="lg:col-span-2 sticky top-6">
+                <div className="space-y-6">
+                    {/* Main Stats Card */}
+                    <div className="p-4 rounded-lg border bg-card/30 backdrop-blur-md border-muted-foreground/20 relative overflow-hidden group">
+                        <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-6 flex items-center gap-2">
+                            <Filter className="h-4 w-4" />
+                            Summary
+                        </h3>
+
+                        <div>
+                            <div className="flex items-center justify-between rounded-lg">
+                                <span className="text-sm font-semibold text-muted-foreground">Total:</span>
+                                <span className="text-lg font-normal tabular-nums">{stats.total}</span>
+                            </div>
+                            <div className="flex items-center justify-between rounded-lg">
+                                <span className="text-sm font-semibold text-emerald-600/70">On Time:</span>
+                                <span className="text-lg font-normal tabular-nums text-emerald-600">{stats.present}</span>
+                            </div>
+                            <div className="flex items-center justify-between rounded-lg">
+                                <span className="text-sm font-semibold text-amber-600/70">Late:</span>
+                                <span className="text-lg font-normal tabular-nums text-amber-600">{stats.late}</span>
+                            </div>
+                            <div className="flex items-center justify-between rounded-lg">
+                                <span className="text-sm font-semibold text-orange-600/70">Half Day:</span>
+                                <span className="text-lg font-normal tabular-nums text-orange-600">{stats.halfDay}</span>
+                            </div>
+                            <div className="flex items-center justify-between rounded-lg">
+                                <span className="text-sm font-semibold text-purple-600/70">Leave:</span>
+                                <span className="text-lg font-normal tabular-nums text-purple-600">{stats.leave}</span>
+                            </div>
+                            <div className="flex items-center justify-between rounded-lg">
+                                <span className="text-sm font-semibold text-rose-600/70">Absent:</span>
+                                <span className="text-lg font-normal tabular-nums text-rose-600">{stats.absent}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Member Specific Balances */}
+                    {selectedMember && (
+                        <div className="p-4 rounded-lg border bg-card/30 backdrop-blur-md border-muted-foreground/20">
+                            <h3 className="text-sm font-normal uppercase tracking-widest text-muted-foreground/80 mb-4 flex items-center gap-2">
+                                Leave Balances
+                            </h3>
+                            <div className="space-y-0">
+                                <div className="flex items-center justify-between">
+                                    <div className="text-[13px] font-semibold uppercase tracking-tighter text-purple-600/70 mb-1">Casual Leave</div>
+                                    <div className="text-lg font-normal text-purple-600">
+                                        {Math.max(0, selectedMember.casualLeaveBalance || 0)}
+                                    </div>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <div className="text-[13px] font-semibold uppercase tracking-tighter text-blue-600/70 mb-1">Sick Leave</div>
+                                    <div className="text-lg font-normal text-blue-600">
+                                        {Math.max(0, selectedMember.sickLeaveBalance || 0)}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
         </div>
     );
 }
