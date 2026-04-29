@@ -108,7 +108,7 @@ export class AttendanceService {
             }
         });
 
-        if (existing) {
+        if (existing && existing.status !== AttendanceStatus.ABSENT && existing.status !== AttendanceStatus.ON_LEAVE) {
             throw AppError.Conflict("You have already checked in today.");
         }
 
@@ -148,8 +148,14 @@ export class AttendanceService {
             status = AttendanceStatus.LATE;       // Checked in late but not half-day
         }
 
-        const attendance = await (prisma.attendance as any).create({
-            data: {
+        const attendance = await (prisma.attendance as any).upsert({
+            where: {
+                workspaceMemberId_date: {
+                    workspaceMemberId: member.id,
+                    date: dateOnly,
+                }
+            },
+            create: {
                 id,
                 workspaceId,
                 workspaceMemberId: member.id,
@@ -161,8 +167,41 @@ export class AttendanceService {
                 status: status,
                 lateThreshold: lateThresholdStr,
                 updatedAt: now,
+            },
+            update: {
+                checkIn: now,
+                checkInLatitude: latitude,
+                checkInLongitude: longitude,
+                checkInAddress: address,
+                status: status,
+                lateThreshold: lateThresholdStr,
+                updatedAt: now,
             }
         });
+
+        // Casual Leave Accrual Logic
+        if (status === AttendanceStatus.PRESENT || status === AttendanceStatus.LATE) {
+            const workspace = await prisma.workspace.findUnique({
+                where: { id: workspaceId },
+                select: { casualLeaveAccrualDays: true }
+            });
+            const threshold = workspace?.casualLeaveAccrualDays || 20;
+
+            const updatedMember = await prisma.workspaceMember.update({
+                where: { id: member.id },
+                data: { accruedDaysCount: { increment: 1 } }
+            });
+
+            if (updatedMember.accruedDaysCount >= threshold) {
+                await prisma.workspaceMember.update({
+                    where: { id: member.id },
+                    data: {
+                        casualLeaveBalance: { increment: 1 },
+                        accruedDaysCount: 0
+                    }
+                });
+            }
+        }
 
         // Record Audit Activity
         const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, surname: true } });
@@ -312,7 +351,6 @@ export class AttendanceService {
         const members = await prisma.workspaceMember.findMany({
             where: {
                 workspaceId,
-                // Only include roles that should have attendance (e.g., exclude OWNERS if needed, but keeping all for now)
                 workspaceRole: {
                     in: [WorkspaceRole.MEMBER, WorkspaceRole.ADMIN, WorkspaceRole.MANAGER]
                 }
@@ -337,15 +375,35 @@ export class AttendanceService {
 
         if (missingMembers.length === 0) return { count: 0 };
 
-        // 4. Create ABSENT records
-        const data = missingMembers.map(m => ({
-            id: randomUUID(),
-            workspaceId,
-            workspaceMemberId: m.id,
-            date: dateOnly,
-            status: AttendanceStatus.ABSENT,
-            updatedAt: new Date(),
-        }));
+        // 4. Fetch approved leave requests for this date
+        // Note: Prisma doesn't have a direct "overlaps" for date ranges easily without complex raw SQL, 
+        // but we can check if dateOnly is between startDate and endDate.
+        const approvedLeaves = await (prisma as any).leave_request.findMany({
+            where: {
+                workspaceId,
+                status: "APPROVED",
+                startDate: { lte: dateOnly },
+                endDate: { gte: dateOnly }
+            },
+            select: {
+                workspaceMemberId: true
+            }
+        });
+
+        const leaveMemberIds = new Set(approvedLeaves.map((l: any) => l.workspaceMemberId));
+
+        // 5. Create records (ON_LEAVE or ABSENT)
+        const data = missingMembers.map(m => {
+            const isOnLeave = leaveMemberIds.has(m.id);
+            return {
+                id: randomUUID(),
+                workspaceId,
+                workspaceMemberId: m.id,
+                date: dateOnly,
+                status: isOnLeave ? AttendanceStatus.ON_LEAVE : AttendanceStatus.ABSENT,
+                updatedAt: new Date(),
+            };
+        });
 
         await prisma.attendance.createMany({
             data
@@ -363,8 +421,8 @@ export class AttendanceService {
         endDate?: Date,
         filters?: { memberId?: string; status?: AttendanceStatus }
     ) {
-        // Find all records for the workspace, with optional date range
-        return await prisma.attendance.findMany({
+        // 1. Fetch existing attendance records
+        const records = await prisma.attendance.findMany({
             where: {
                 workspaceId,
                 ...(startDate && endDate ? {
@@ -394,6 +452,75 @@ export class AttendanceService {
                 date: 'desc'
             }
         });
+
+        // 2. If filtering for "ON_LEAVE" or no status filter, find approved leaves that don't have attendance records yet
+        // This ensures people on leave show up even if the daily reconciliation hasn't run.
+        if (!filters?.status || filters.status === AttendanceStatus.ON_LEAVE) {
+            const approvedLeaves = await (prisma as any).leave_request.findMany({
+                where: {
+                    workspaceId,
+                    status: "APPROVED",
+                    ...(startDate && endDate ? {
+                        startDate: { lte: endDate },
+                        endDate: { gte: startDate },
+                    } : {}),
+                    ...(filters?.memberId ? { workspaceMemberId: filters.memberId } : {})
+                },
+                include: {
+                    WorkspaceMember: {
+                        include: {
+                            user: {
+                                select: {
+                                    name: true,
+                                    surname: true,
+                                    email: true,
+                                    image: true,
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            const syntheticRecords: any[] = [];
+            const existingKeys = new Set(records.map(r => `${r.workspaceMemberId}_${r.date.toISOString().split('T')[0]}`));
+
+            for (const leave of approvedLeaves) {
+                // Determine the range to generate (clamped to the requested startDate/endDate)
+                let current = new Date(Math.max(new Date(leave.startDate).getTime(), startDate?.getTime() || 0));
+                const last = new Date(Math.min(new Date(leave.endDate).getTime(), endDate?.getTime() || Infinity));
+                
+                // Safety break for extremely large ranges
+                let iterations = 0;
+
+                while (current <= last && iterations < 100) {
+                    const dateOnly = this.getISTDateOnly(current);
+                    const key = `${leave.workspaceMemberId}_${dateOnly.toISOString().split('T')[0]}`;
+                    
+                    if (!existingKeys.has(key)) {
+                        syntheticRecords.push({
+                            id: `leave-${leave.id}-${dateOnly.toISOString()}`,
+                            date: dateOnly,
+                            checkIn: null,
+                            checkOut: null,
+                            status: AttendanceStatus.ON_LEAVE,
+                            workspaceId,
+                            workspaceMemberId: leave.workspaceMemberId,
+                            WorkspaceMember: leave.WorkspaceMember,
+                            isOvertime: false
+                        });
+                        existingKeys.add(key);
+                    }
+                    current.setDate(current.getDate() + 1);
+                    iterations++;
+                }
+            }
+            
+            const combined = [...records, ...syntheticRecords];
+            return combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        }
+
+        return records;
     }
 
     /**
@@ -480,6 +607,9 @@ export class AttendanceService {
             halfDayThreshold: string;
             shiftStartTime: string;
             shiftEndTime: string;
+            sickLeaveLimit?: number;
+            casualLeaveAccrualDays?: number;
+            publicHolidays?: { name: string; date: string }[];
         },
         actorId: string,
     ) {
@@ -489,8 +619,9 @@ export class AttendanceService {
             const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
             const fields: (keyof typeof data)[] = ["lateThreshold", "overtimeThreshold", "halfDayThreshold", "shiftStartTime", "shiftEndTime"];
             for (const field of fields) {
-                if (data[field] && !timeRegex.test(data[field])) {
-                    console.error(`[AttendanceService.updateSettings] Validation failed for ${field}:`, data[field]);
+                const val = data[field];
+                if (typeof val === "string" && val && !timeRegex.test(val)) {
+                    console.error(`[AttendanceService.updateSettings] Validation failed for ${field}:`, val);
                     throw AppError.ValidationError(`Invalid time for ${field}. Use HH:mm format.`);
                 }
             }
@@ -498,46 +629,69 @@ export class AttendanceService {
             // Fallback for shiftEndTime if not provided explicitly but we have overtime
             const shiftEndTime = data.shiftEndTime || data.overtimeThreshold;
 
-            // Use raw SQL update to bypass Prisma Client's field validation which fails if npx prisma generate hasn't run.
-            // This is a robust way to ensure settings can be saved even if the server is locking the client files.
-            await prisma.$executeRawUnsafe(
-                `UPDATE "public"."Workspace" 
-                 SET "lateThreshold" = $1, 
-                     "overtimeThreshold" = $2, 
-                     "halfDayThreshold" = $3, 
-                     "shiftStartTime" = $4, 
-                     "shiftEndTime" = $5,
-                     "updatedAt" = NOW()
-                 WHERE "id" = $6`,
-                data.lateThreshold,
-                data.overtimeThreshold,
-                data.halfDayThreshold,
-                data.shiftStartTime,
-                shiftEndTime,
-                workspaceId
-            );
+            // Use transaction to ensure all updates succeed or fail together
+            return await prisma.$transaction(async (tx) => {
+                // Update Workspace settings
+                await tx.$executeRawUnsafe(
+                    `UPDATE "public"."Workspace" 
+                     SET "lateThreshold" = $1, 
+                         "overtimeThreshold" = $2, 
+                         "halfDayThreshold" = $3, 
+                         "shiftStartTime" = $4, 
+                         "shiftEndTime" = $5,
+                         "sickLeaveLimit" = $6,
+                         "casualLeaveAccrualDays" = $7,
+                         "updatedAt" = NOW()
+                     WHERE "id" = $8`,
+                    data.lateThreshold,
+                    data.overtimeThreshold,
+                    data.halfDayThreshold,
+                    data.shiftStartTime,
+                    shiftEndTime,
+                    data.sickLeaveLimit ?? 12,
+                    data.casualLeaveAccrualDays ?? 20,
+                    workspaceId
+                );
 
-            // Fetch the updated workspace manually
-            const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId } });
+                // Update Public Holidays if provided
+                if (data.publicHolidays) {
+                    // Simple sync: delete existing and re-insert
+                    await tx.public_holiday.deleteMany({
+                        where: { workspaceId }
+                    });
 
-            // Record Activity
-            const actor = await prisma.user.findUnique({
-                where: { id: actorId },
-                select: { name: true, surname: true },
+                    if (data.publicHolidays.length > 0) {
+                        await tx.public_holiday.createMany({
+                            data: data.publicHolidays.map(h => ({
+                                workspaceId,
+                                name: h.name,
+                                date: new Date(h.date),
+                            }))
+                        });
+                    }
+                }
+
+                const workspace = await tx.workspace.findUnique({ where: { id: workspaceId } });
+
+                // Record Activity
+                const actor = await tx.user.findUnique({
+                    where: { id: actorId },
+                    select: { name: true, surname: true },
+                });
+
+                await recordActivity({
+                    userId: actorId,
+                    userName: actor?.name || actor?.surname || "Admin",
+                    workspaceId,
+                    action: "ATTENDANCE_SETTINGS_UPDATED",
+                    entityType: "WORKSPACE",
+                    entityId: workspaceId,
+                    newData: data,
+                    broadcastEvent: "workspace_update",
+                });
+
+                return workspace;
             });
-
-            await recordActivity({
-                userId: actorId,
-                userName: actor?.name || actor?.surname || "Admin",
-                workspaceId,
-                action: "ATTENDANCE_SETTINGS_UPDATED",
-                entityType: "WORKSPACE",
-                entityId: workspaceId,
-                newData: data,
-                broadcastEvent: "workspace_update",
-            });
-
-            return workspace;
         } catch (error: any) {
             console.error("[AttendanceService.updateSettings] Error:", error);
             throw error;
@@ -553,12 +707,14 @@ export class AttendanceService {
         startDate,
         endDate,
         reason,
+        type,
     }: {
         workspaceId: string;
         userId: string;
         startDate: Date;
         endDate: Date;
         reason: string;
+        type: "CASUAL" | "SICK";
     }) {
         const member = await this.getWorkspaceMember(workspaceId, userId);
 
@@ -569,8 +725,115 @@ export class AttendanceService {
                 startDate,
                 endDate,
                 reason,
+                type,
                 status: "PENDING",
             },
         });
+    }
+
+    /**
+     * Update leave request status (Approve/Reject)
+     */
+    static async updateLeaveStatus(id: string, status: "APPROVED" | "REJECTED", actorId: string, workspaceId: string) {
+        const [leave, actorMember] = await Promise.all([
+            (prisma as any).leave_request.findUnique({
+                where: { id },
+                include: { 
+                    WorkspaceMember: true,
+                    Workspace: true
+                }
+            }),
+            prisma.workspaceMember.findFirst({
+                where: { workspaceId, userId: actorId }
+            })
+        ]);
+
+        if (!leave) throw AppError.NotFound("Leave request not found.");
+        if (!actorMember) throw AppError.Unauthorized("You are not a member of this workspace.");
+
+        // Permission Check: Owner/Admin can approve anyone. Managers can only approve their subordinates.
+        const isWorkspaceAdmin = actorMember.workspaceRole === "OWNER" || actorMember.workspaceRole === "ADMIN";
+        const isReportingManager = leave.WorkspaceMember.reportToId === actorMember.id;
+
+        if (!isWorkspaceAdmin && !isReportingManager) {
+            throw AppError.Unauthorized("Only owners, admins, or the designated reporting manager can process this leave request.");
+        }
+
+        if (leave.status !== "PENDING") throw AppError.ValidationError("This leave request has already been processed.");
+
+        if (status === "APPROVED") {
+            const start = new Date(leave.startDate);
+            const end = new Date(leave.endDate);
+            const diffTime = Math.abs(end.getTime() - start.getTime());
+            const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+            if (leave.type === "CASUAL") {
+                await prisma.workspaceMember.update({
+                    where: { id: leave.workspaceMemberId },
+                    data: { casualLeaveBalance: { decrement: days } }
+                });
+            } else if (leave.type === "SICK") {
+                await prisma.workspaceMember.update({
+                    where: { id: leave.workspaceMemberId },
+                    data: { sickLeaveBalance: { decrement: days } }
+                });
+            }
+        }
+
+        const updated = await (prisma as any).leave_request.update({
+            where: { id },
+            data: { status }
+        });
+
+        // If approved, sync with attendance records for each day of the leave
+        if (status === "APPROVED") {
+            const start = new Date(leave.startDate);
+            const end = new Date(leave.endDate);
+            const current = new Date(start);
+
+            while (current <= end) {
+                const dateOnly = this.getISTDateOnly(current);
+                await (prisma.attendance as any).upsert({
+                    where: {
+                        workspaceMemberId_date: {
+                            workspaceMemberId: leave.workspaceMemberId,
+                            date: dateOnly
+                        }
+                    },
+                    create: {
+                        id: randomUUID(),
+                        workspaceId,
+                        workspaceMemberId: leave.workspaceMemberId,
+                        date: dateOnly,
+                        status: AttendanceStatus.ON_LEAVE,
+                        updatedAt: new Date()
+                    },
+                    update: {
+                        // If they are already PRESENT/LATE, we don't override it. 
+                        // But if they are ABSENT or don't have a record, mark as ON_LEAVE.
+                        status: {
+                            set: AttendanceStatus.ON_LEAVE
+                        },
+                        updatedAt: new Date()
+                    }
+                });
+                current.setDate(current.getDate() + 1);
+            }
+        }
+
+        // Record Activity
+        const actor = await prisma.user.findUnique({ where: { id: actorId }, select: { surname: true } });
+        await recordActivity({
+            userId: actorId,
+            userName: actor?.surname || "Admin",
+            workspaceId,
+            action: status === "APPROVED" ? "LEAVE_APPROVED" : "LEAVE_REJECTED",
+            entityType: "LEAVE_REQUEST",
+            entityId: id,
+            newData: updated,
+            broadcastEvent: "team_update",
+        });
+
+        return updated;
     }
 }

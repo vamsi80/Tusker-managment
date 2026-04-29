@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useTransition } from "react";
-import { Users, Clock, Settings2 } from "lucide-react";
+import { Users, Clock, Settings2, Calendar } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { LeaveRequestDialog } from "./leave-request-dialog";
@@ -32,6 +32,12 @@ export function TeamNav({ workspaceId, isAdmin }: TeamNavProps) {
             href: `${baseUrl}/attendance`,
             icon: Clock,
             activeMatch: (path: string) => path === `${baseUrl}/attendance`
+        },
+        {
+            name: "Leaves",
+            href: `${baseUrl}/leaves`,
+            icon: Calendar,
+            activeMatch: (path: string) => path === `${baseUrl}/leaves`
         },
         ...(isAdmin ? [{
             name: "Settings",
@@ -80,7 +86,7 @@ export function TeamNav({ workspaceId, isAdmin }: TeamNavProps) {
                 })}
 
                 <div className="ml-auto flex items-center gap-2 pr-2">
-                    {/* <LeaveRequestDialog workspaceId={workspaceId}>
+                    <LeaveRequestDialog workspaceId={workspaceId}>
                         <Button
                             variant="outline"
                             size="sm"
@@ -89,7 +95,7 @@ export function TeamNav({ workspaceId, isAdmin }: TeamNavProps) {
                             <Clock className="h-3.5 w-3.5" />
                             Apply Leave
                         </Button>
-                    </LeaveRequestDialog> */}
+                    </LeaveRequestDialog>
 
                     {isAdmin && (
                         <InviteUserForm workspaceId={workspaceId} isAdmin={isAdmin}>
