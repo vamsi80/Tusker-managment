@@ -182,11 +182,17 @@ export function InlineSubTaskForm({
                 const fetchedReviewers = await projectsClient.getReviewers(projectId);
                 setReviewers(fetchedReviewers);
 
-                // For create mode, set current user as default reviewer if they're eligible
-                if (mode === "create" && !reviewer && userId) {
-                    const isReviewerEligible = (fetchedReviewers as ProjectReviewer[]).some(r => r.id === userId);
-                    if (isReviewerEligible) {
-                        setReviewer(userId);
+                // For create mode, set Project Manager as default reviewer if available
+                if (mode === "create" && !reviewer) {
+                    const projectManager = (fetchedReviewers as ProjectReviewer[]).find(r => r.role === "PROJECT_MANAGER");
+                    if (projectManager) {
+                        setReviewer(projectManager.id);
+                    } else if (userId) {
+                        // Fallback to current user if no PM found but they are eligible
+                        const isReviewerEligible = (fetchedReviewers as ProjectReviewer[]).some(r => r.id === userId);
+                        if (isReviewerEligible) {
+                            setReviewer(userId);
+                        }
                     }
                 }
             } catch (err) {
@@ -355,17 +361,17 @@ export function InlineSubTaskForm({
     return (
         <TableRow className={cn(
             mode === "edit" ? "bg-primary/5 hover:bg-primary/10" : "bg-muted/20 hover:bg-muted/30",
-            "h-8 [&_td]:p-0"
+            "h-10 transition-colors"
         )}>
             {/* Drag Handle - Empty with hierarchy gap */}
-            <TableCell className="w-[50px] sticky left-0 z-20 bg-background">
+            <TableCell className="w-[50px] pl-4 sm:pl-4">
                 <div className="flex items-center">
                     <div className="w-8 shrink-0" />
                 </div>
             </TableCell>
 
             {/* SubTask Name Input */}
-            <TableCell className="w-[80px] sm:w-[120px] md:w-[220px] sticky left-[50px] z-20 bg-background pl-0">
+            <TableCell className="w-[80px] sm:w-[120px] md:w-[220px] px-2">
                 <div className="flex flex-col">
                     <Input
                         placeholder="SubTask name..."
@@ -394,7 +400,7 @@ export function InlineSubTaskForm({
 
             {/* Description - Popover with Textarea */}
             {columnVisibility.description && (
-                <TableCell className="w-[200px]">
+                <TableCell className="w-[200px] px-2">
                     <Popover>
                         <PopoverTrigger asChild>
                             <Button
@@ -429,7 +435,7 @@ export function InlineSubTaskForm({
 
             {/* Assignee */}
             {columnVisibility.assignee && (
-                <TableCell className="w-[100px] max-w-[100px]">
+                <TableCell className="w-[100px] max-w-[100px] px-2">
                     <Select value={assignee} onValueChange={setAssignee} disabled={pending}>
                         <SelectTrigger className="h-8 w-full">
                             <SelectValue placeholder="Select assignee..." className="truncate" />
@@ -451,7 +457,7 @@ export function InlineSubTaskForm({
 
             {/* Reviewer */}
             {columnVisibility.reviewer && (
-                <TableCell className="w-[100px] max-w-[100px]">
+                <TableCell className="w-[100px] max-w-[100px] px-2">
                     <Select value={reviewer} onValueChange={setReviewer} disabled={pending}>
                         <SelectTrigger className="h-8 w-full">
                             <SelectValue placeholder="Select reviewer..." className="truncate" />
@@ -471,7 +477,7 @@ export function InlineSubTaskForm({
 
             {/* Status */}
             {columnVisibility.status && (
-                <TableCell className="w-[120px] max-w-[120px]">
+                <TableCell className="w-[120px] max-w-[120px] px-2">
                     <Select value={status} onValueChange={(value) => setStatus(value as typeof SubTaskStatus[number])} disabled={pending}>
                         <SelectTrigger className="h-8 w-full">
                             <SelectValue className="truncate" />
@@ -508,7 +514,7 @@ export function InlineSubTaskForm({
 
             {/* Start Date */}
             {columnVisibility.startDate && (
-                <TableCell className="w-[120px]">
+                <TableCell className="w-[120px] px-2">
                     <DateTimePicker
                         value={startDate}
                         onChange={handleStartDateChange}
@@ -519,7 +525,7 @@ export function InlineSubTaskForm({
 
             {/* Deadline */}
             {columnVisibility.dueDate && (
-                <TableCell className="w-[120px]">
+                <TableCell className="w-[120px] px-2">
                     <DateTimePicker
                         value={dueDate}
                         onChange={handleDueDateChange}
@@ -550,7 +556,7 @@ export function InlineSubTaskForm({
             )}
 
             {columnVisibility.tag && (
-                <TableCell className="w-[180px] max-w-[180px]">
+                <TableCell className="w-[180px] max-w-[180px] px-2">
                     <MultiSelectTags
                         options={tags}
                         selected={tagIds}
@@ -561,7 +567,7 @@ export function InlineSubTaskForm({
                 </TableCell>
             )}
 
-            <TableCell className="w-[50px] px-0">
+            <TableCell className="w-[80px] px-2">
                 <div className="flex items-center justify-center gap-0.5">
                     {subTaskName.trim().length >= 3 && (
                         <Button
