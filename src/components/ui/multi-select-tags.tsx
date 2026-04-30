@@ -56,7 +56,7 @@ export function MultiSelectTags({
             role="combobox"
             aria-expanded={open}
             className={cn(
-              "w-full justify-between h-auto min-h-10 py-2 px-3 transition-all duration-200",
+              "w-full justify-between h-auto min-h-8 py-1 px-2 transition-all duration-200",
               "border-muted-foreground/20 hover:border-primary/50 hover:bg-accent/50",
               "focus-visible:ring-offset-0 focus-visible:ring-1 focus-visible:ring-primary/30",
               open && "border-primary/50 ring-1 ring-primary/30 bg-accent/50"
@@ -95,7 +95,7 @@ export function MultiSelectTags({
                   </Badge>
                 ))
               ) : (
-                <span className="text-muted-foreground/60 text-sm">{placeholder}</span>
+                <span className="text-muted-foreground/60 text-xs">{placeholder}</span>
               )}
             </div>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity" />

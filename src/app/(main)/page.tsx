@@ -23,15 +23,6 @@ export default function Home() {
             >
               Explore workspace
             </Link>
-            <Link
-              className={buttonVariants({
-                size: "lg",
-                variant: "outline"
-              })}
-              href="/sign-in"
-            >
-              Log In
-            </Link>
           </div>
         </div>
       </section>
