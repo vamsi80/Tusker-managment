@@ -93,12 +93,12 @@ interface TaskCacheState {
   ) => void;
   getCachedSubTasks: (taskId: string) =>
     | {
-        subTasks: any[];
-        hasMore: boolean;
-        page: number;
-        nextCursor?: any;
-        timestamp: number;
-      }
+      subTasks: any[];
+      hasMore: boolean;
+      page: number;
+      nextCursor?: any;
+      timestamp: number;
+    }
     | undefined;
 
   // Filter-aware project cache methods
@@ -118,13 +118,13 @@ interface TaskCacheState {
     filters?: TaskFilters,
   ) =>
     | {
-        tasks: any[];
-        hasMore: boolean;
-        page: number;
-        nextCursor?: any;
-        totalCount?: number;
-        timestamp: number;
-      }
+      tasks: any[];
+      hasMore: boolean;
+      page: number;
+      nextCursor?: any;
+      totalCount?: number;
+      timestamp: number;
+    }
     | undefined;
 
   // Filter-aware kanban cache methods
@@ -144,13 +144,13 @@ interface TaskCacheState {
     filters?: TaskFilters,
   ) =>
     | {
-        tasks: any[];
-        hasMore: boolean;
-        page: number;
-        nextCursor?: any;
-        totalCount?: number;
-        timestamp: number;
-      }
+      tasks: any[];
+      hasMore: boolean;
+      page: number;
+      nextCursor?: any;
+      totalCount?: number;
+      timestamp: number;
+    }
     | undefined;
 
   // Command API: Invalidate and sync
@@ -227,22 +227,17 @@ export const useTaskCacheStore = create<TaskCacheState>()(
 
             const merged = { ...older, ...newer };
 
-            // RELATION PRESERVATION (Always keep the richest version of complex objects)
-            if (older.project && !newer.project) {
-              merged.project = older.project;
-            } else if (newer.project && older.project) {
-              merged.project = { ...older.project, ...newer.project };
-            }
+            // RELATION PRESERVATION: Only keep older relations if they are MISSING (undefined) in the newer version.
+            // If they are explicitly 'null', it means they were unassigned, so we keep the null.
+            if (older.project && newer.project === undefined) merged.project = older.project;
+            else if (newer.project && older.project) merged.project = { ...older.project, ...newer.project };
 
-            if (older.assignee && !newer.assignee)
-              merged.assignee = older.assignee;
-            if (older.reviewer && !newer.reviewer)
-              merged.reviewer = older.reviewer;
-            if (older.tag && !newer.tag) merged.tag = older.tag;
-            if (older.createdBy && !newer.createdBy)
-              merged.createdBy = older.createdBy;
-            if (older.subTasks && !newer.subTasks)
-              merged.subTasks = older.subTasks;
+            if (older.assignee && newer.assignee === undefined) merged.assignee = older.assignee;
+            if (older.reviewer && newer.reviewer === undefined) merged.reviewer = older.reviewer;
+            if (older.tags && newer.tags === undefined) merged.tags = older.tags;
+            if (older.tag && newer.tag === undefined) merged.tag = older.tag;
+            if (older.createdBy && newer.createdBy === undefined) merged.createdBy = older.createdBy;
+            if (older.subTasks && newer.subTasks === undefined) merged.subTasks = older.subTasks;
 
             newEntities[t.id] = merged;
           }
@@ -278,13 +273,13 @@ export const useTaskCacheStore = create<TaskCacheState>()(
         const task = state.entities[subTaskId];
         const updatedEntities = task
           ? {
-              ...state.entities,
-              [subTaskId]: {
-                ...task,
-                status: toStatus,
-                updatedAt: new Date().toISOString(),
-              },
-            }
+            ...state.entities,
+            [subTaskId]: {
+              ...task,
+              status: toStatus,
+              updatedAt: new Date().toISOString(),
+            },
+          }
           : state.entities;
 
         // Update Lists - work with unfiltered cache
@@ -409,14 +404,14 @@ export const useTaskCacheStore = create<TaskCacheState>()(
           Object.keys(projectEntry).forEach((hash) => {
             const list = projectEntry[hash];
             if (replaceId) {
-                // Replace the ID in situ to maintain position during optimistic sync
-                list.ids = list.ids.map(id => id === replaceId ? task.id : id);
+              // Replace the ID in situ to maintain position during optimistic sync
+              list.ids = list.ids.map(id => id === replaceId ? task.id : id);
             } else {
-                // Prepend if not already there
-                if (!list.ids.includes(task.id)) {
-                  list.ids = [task.id, ...list.ids];
-                  list.totalCount = (list.totalCount || 0) + 1;
-                }
+              // Prepend if not already there
+              if (!list.ids.includes(task.id)) {
+                list.ids = [task.id, ...list.ids];
+                list.totalCount = (list.totalCount || 0) + 1;
+              }
             }
             list.timestamp = Date.now();
           });
@@ -448,7 +443,7 @@ export const useTaskCacheStore = create<TaskCacheState>()(
         // 3. Update the list metadata (create if not exists)
         let newIds: string[];
         const timestamp = Date.now();
-        
+
         if (!currentList) {
           // Initialize a fresh list if it doesn't exist
           newIds = [subTask.id];
@@ -468,13 +463,13 @@ export const useTaskCacheStore = create<TaskCacheState>()(
         }
 
         if (replaceId) {
-            // Replace the temp ID with the real ID in the exact same position to prevent jumps
-            newIds = currentList.ids.map(id => id === replaceId ? subTask.id : id);
+          // Replace the temp ID with the real ID in the exact same position to prevent jumps
+          newIds = currentList.ids.map(id => id === replaceId ? subTask.id : id);
         } else {
-            newIds = [
-              subTask.id,
-              ...currentList.ids.filter((id) => id !== subTask.id),
-            ];
+          newIds = [
+            subTask.id,
+            ...currentList.ids.filter((id) => id !== subTask.id),
+          ];
         }
 
         set((state) => ({

@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useState, useTransition, useEffect } from "react";
 import { Resolver, useForm, useWatch } from "react-hook-form";
 import { Loader2, Pencil, SparkleIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -14,7 +15,7 @@ import { tryCatch } from "@/hooks/try-catch";
 import { toast } from "sonner";
 import slugify from "slugify";
 import { apiClient } from "@/lib/api-client";
-import { ProjectReviewer } from "@/actions/project/get-project-reviewers";
+import { ProjectReviewer } from "@/types/project";
 import { TaskWithSubTasks } from "../list/types";
 import { useReloadView } from "@/hooks/use-reload-view";
 
@@ -47,6 +48,7 @@ export function EditTaskDialog({
     const [pending, startTransition] = useTransition();
     const [open, setOpen] = useState(false);
     const [autoSlugEnabled, setAutoSlugEnabled] = useState(true);
+    const router = useRouter();
     const reloadView = useReloadView();
 
     const form = useForm<TaskSchemaType>({
@@ -57,6 +59,7 @@ export function EditTaskDialog({
             projectId: task.projectId,
         },
     });
+    const [reviewers, setReviewers] = useState<ProjectReviewer[]>([]);
 
     useEffect(() => {
         if (open) {
@@ -64,6 +67,7 @@ export function EditTaskDialog({
             fetch(`/api/v1/projects/${targetId}/reviewers`)
                 .then(res => res.json())
                 .then((fetchedReviewers: ProjectReviewer[]) => {
+                    setReviewers(fetchedReviewers);
 
                     // Default to Task Creator if no reviewer set
                     if (!form.getValues("reviewerId")) {
@@ -142,7 +146,7 @@ export function EditTaskDialog({
                 }
 
                 // Reload all views to show the updated task
-                reloadView();
+                router.refresh();
             } else {
                 toast.error(result.message);
             }

@@ -194,18 +194,34 @@ function TaskTable({
       const result = taskList.map((t) => {
         const isRealtime = debugLabel === "realtime-sync";
 
-        // 🚀 MERGE ENTITY FROM CACHE:
-        // This is crucial! When a subtask is created, the global store updates the parent's `_count.subTasks`.
-        // If we don't merge it here, TaskTable passes the stale API task down, blowing away TaskRow's optimistic count.
+        // 🚀 SMART ENTITY MERGE:
+        // Prioritize the version with the most recent 'updatedAt' timestamp.
+        // This prevents an old cached entity (e.g. from localStorage) from overwriting 
+        // a fresh API result that contains newly added relations like 'reviewer'.
         const entityFromCache = useTaskCacheStore.getState().entities[t.id];
         let currentT = t;
+        
         if (entityFromCache) {
+          const incomingTime = t.updatedAt ? new Date(t.updatedAt).getTime() : 0;
+          const cachedTime = entityFromCache.updatedAt ? new Date(entityFromCache.updatedAt).getTime() : 0;
+          
+          if (cachedTime > incomingTime) {
+            // Cache is newer (likely from an optimistic update or recent realtime event)
             currentT = { 
-                ...t, 
-                ...entityFromCache, 
-                updatedAt: entityFromCache.updatedAt ? new Date(entityFromCache.updatedAt) : (t as any).updatedAt,
-                _count: { ...(t as any)._count, ...entityFromCache._count } 
+              ...t, 
+              ...entityFromCache, 
+              updatedAt: entityFromCache.updatedAt ? new Date(entityFromCache.updatedAt) : (t as any).updatedAt,
+              _count: { ...(t as any)._count, ...entityFromCache._count } 
             } as any;
+          } else {
+            // Server is newer or equal (API/RSC is the source of truth)
+            // But we still merge counts/metadata that might only exist in cache (like optimistic subTaskCounts)
+            currentT = {
+              ...entityFromCache,
+              ...t,
+              _count: { ...entityFromCache._count, ...(t as any)._count }
+            } as any;
+          }
         }
 
         // If it already has subtasks and we're NOT doing a real-time sync, keep them to avoid unnecessary work
@@ -1565,6 +1581,21 @@ function TaskTable({
   // 🔥 MASTER SUBTASK LOADER: The Single Source of Truth
 
   // 1. Lazy Subtask Loader Callback (Passed to TaskRow)
+  const handleOptimisticSubTaskUpdated = useCallback((subTaskId: string, updatedData: any) => {
+    setTasks((prev) => {
+      return prev.map(t => {
+        if (!t.subTasks) return t;
+        const hasSubTask = t.subTasks.some(st => st.id === subTaskId);
+        if (!hasSubTask) return t;
+        
+        return {
+          ...t,
+          subTasks: t.subTasks.map(st => st.id === subTaskId ? { ...st, ...updatedData } : st)
+        };
+      });
+    });
+  }, []);
+
   const handleRequestSubtasks = useCallback(
     async (taskId: string) => {
       if (
@@ -2091,6 +2122,7 @@ function TaskTable({
                         activeInlineProjectId={activeInlineProjectId}
                         setActiveInlineProjectId={setActiveInlineProjectId}
                         onEnsureProjectLoad={ensureFilteredProjectLoad}
+                        onSubTaskUpdated={handleOptimisticSubTaskUpdated}
                         onUpdateParentTaskLists={(updatedProjectTasks) => {
                           // Maintain newest-first: updated tasks should stay in their relative created order.
                           // For simplicity in a flat array, we just update the specific matching tasks in the main list.

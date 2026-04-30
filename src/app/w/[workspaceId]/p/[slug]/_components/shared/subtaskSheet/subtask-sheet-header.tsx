@@ -18,6 +18,8 @@ interface SubtaskSheetHeaderProps {
     members?: any[];
     /** Called when the assignee is updated inline from the sheet */
     onSubTaskAssigned?: (memberObj: { id: string; name: string | null; surname: string | null }) => void;
+    /** Called when the task is updated via the edit form */
+    onSubTaskUpdated?: (updatedTask: Partial<TaskByIdType>) => void;
     isAdmin?: boolean;
     isProjectManager?: boolean;
     tags?: { id: string; name: string; }[];
@@ -33,7 +35,16 @@ interface SubtaskSheetHeaderProps {
  * - Tag
  * - Status badge
  */
-export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({ subTask, currentUserId, members = [], onSubTaskAssigned, isAdmin, isProjectManager, tags = [] }: SubtaskSheetHeaderProps) {
+export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({ 
+    subTask, 
+    currentUserId, 
+    members = [], 
+    onSubTaskAssigned, 
+    onSubTaskUpdated,
+    isAdmin, 
+    isProjectManager, 
+    tags = [] 
+}: SubtaskSheetHeaderProps) {
     const [isExpanded, setIsExpanded] = useState(false);
     // Assignee is directly on the task object (user fields) in both SubTaskType and TaskByIdType
     // But we handle potential workspaceMember nesting just in case legacy types are passed
@@ -87,6 +98,7 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({ subTask, cu
                             parentTaskId={subTask.parentTaskId!}
                             tags={tags}
                             members={members}
+                            onSubTaskUpdated={onSubTaskUpdated}
                             trigger={
                                 <Button variant="outline" size="sm" className="h-8 gap-2">
                                     <Edit className="h-4 w-4" />

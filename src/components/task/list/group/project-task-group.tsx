@@ -52,6 +52,7 @@ interface ProjectTaskGroupProps {
     activeInlineProjectId: string | null;
     setActiveInlineProjectId: (id: string | null) => void;
     onUpdateParentTaskLists: (updatedList: TaskWithSubTasks[]) => void;
+    onSubTaskUpdated?: (subTaskId: string, updatedData: any) => void;
     onEnsureProjectLoad?: (projectId: string) => void;
 }
 
@@ -92,6 +93,7 @@ export function ProjectTaskGroup({
     setActiveInlineProjectId,
     projectMap,
     onUpdateParentTaskLists,
+    onSubTaskUpdated,
     onEnsureProjectLoad,
 }: ProjectTaskGroupProps) {
     // 1. Maintain a local, optimistic mirror of the tasks for this project
@@ -117,6 +119,55 @@ export function ProjectTaskGroup({
                     ? { ...t, name: updatedTask.name, taskSlug: updatedTask.taskSlug }
                     : t
             );
+            flushToParent(next);
+            return next;
+        });
+    };
+
+    const handleSubTaskUpdated = (subTaskId: string, updatedData: any) => {
+        setLocalTasks(prev => {
+            const next = prev.map(t => ({
+                ...t,
+                subTasks: t.subTasks?.map(st => st.id === subTaskId ? { ...st, ...updatedData } : st)
+            }));
+            
+            // Also notify global store for cross-view consistency
+            useTaskCacheStore.getState().upsertTasks([updatedData]);
+            
+            // Bubble up if needed
+            if (onSubTaskUpdated) onSubTaskUpdated(subTaskId, updatedData);
+            
+            flushToParent(next);
+            return next;
+        });
+    };
+
+    const handleSubTaskDeleted = (subTaskId: string) => {
+        setLocalTasks(prev => {
+            const next = prev.map(t => ({
+                ...t,
+                subTasks: t.subTasks?.filter(st => st.id !== subTaskId)
+            }));
+            flushToParent(next);
+            return next;
+        });
+    };
+
+    const handleSubTaskCreated = (subTask: any, parentId: string, tempId?: string) => {
+        setLocalTasks(prev => {
+            const next = prev.map(t => {
+                if (t.id !== parentId) return t;
+                
+                const currentSubTasks = t.subTasks || [];
+                let newSubTasks;
+                if (tempId) {
+                    newSubTasks = currentSubTasks.map(st => st.id === tempId ? subTask : st);
+                } else {
+                    newSubTasks = [subTask, ...currentSubTasks];
+                }
+                
+                return { ...t, subTasks: newSubTasks };
+            });
             flushToParent(next);
             return next;
         });
@@ -197,6 +248,9 @@ export function ProjectTaskGroup({
                             isLoadingMore={!!loadingMoreSubTasks[task.id]}
                             onLoadMore={() => onLoadMoreSubTasks(task.id)}
                             onSubTaskClick={handleSubTaskClick}
+                            onSubTaskUpdated={handleSubTaskUpdated}
+                            onSubTaskDeleted={handleSubTaskDeleted}
+                            onSubTaskCreated={(st, tempId) => handleSubTaskCreated(st, task.id, tempId)}
                             permissions={permissions}
                             userId={userId}
                             isWorkspaceAdmin={isWorkspaceAdmin}

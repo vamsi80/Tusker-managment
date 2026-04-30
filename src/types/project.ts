@@ -7,6 +7,7 @@ export type ProjectRole = "LEAD" | "MEMBER" | "VIEWER" | "PROJECT_MANAGER";
 export type ProjectMemberUI = {
   id: string; // userId
   userId: string;
+  projectId?: string;
   projectRole: ProjectRole;
   projectMemberId: string;
   user: {
@@ -58,3 +59,9 @@ export interface FullProjectData extends MinimalProjectData {
   contactPerson?: string | null;
   phoneNumber?: string | null;
 }
+
+export type ProjectReviewer = {
+  id: string;
+  surname: string;
+  role: string;
+};

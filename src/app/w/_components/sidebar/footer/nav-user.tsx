@@ -35,16 +35,14 @@ export function NavUser() {
                 <Avatar className="h-8 w-8 rounded-lg">
                   <AvatarImage src={session?.user?.image || ""} alt={session?.user?.name} />
                   <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
-                    {session?.user.name && session.user.name.length > 0
-                      ? session.user.name.charAt(0).toLocaleUpperCase()
-                      : session?.user.email.charAt(0).toLocaleUpperCase()}
+                    {(session?.user as any)?.surname?.charAt(0).toLocaleUpperCase() || 
+                      session?.user.name?.charAt(0).toLocaleUpperCase() || 
+                      session?.user.email.charAt(0).toLocaleUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">
-                    {session?.user.name && session.user.name.length > 0
-                      ? session.user.name
-                      : session?.user.email.split("@")[0]}
+                    {(session?.user as any)?.surname || session?.user.name || session?.user.email.split("@")[0]}
                   </span>
                   <span className="text-muted-foreground truncate text-xs">
                     {session?.user?.email}
@@ -64,16 +62,14 @@ export function NavUser() {
                   <Avatar className="h-8 w-8 rounded-lg">
                     <AvatarImage src={session?.user?.image || ""} alt={session?.user?.name} />
                     <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
-                      {session?.user.name && session.user.name.length > 0
-                        ? session.user.name.charAt(0).toLocaleUpperCase()
-                        : session?.user.email.charAt(0).toLocaleUpperCase()}
+                      {(session?.user as any)?.surname?.charAt(0).toLocaleUpperCase() || 
+                        session?.user.name?.charAt(0).toLocaleUpperCase() || 
+                        session?.user.email.charAt(0).toLocaleUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-medium">
-                      {session?.user.name && session.user.name.length > 0
-                        ? session.user.name
-                        : session?.user.email.split("@")[0]}
+                      {(session?.user as any)?.surname || session?.user.name || session?.user.email.split("@")[0]}
                     </span>
                     <span className="text-muted-foreground truncate text-xs">
                       {session?.user.email}

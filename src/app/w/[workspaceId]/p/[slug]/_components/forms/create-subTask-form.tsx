@@ -20,12 +20,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { useRouter } from "next/navigation";
 import { apiClient, type ApiResponse } from "@/lib/api-client";
-import { useReloadView } from "@/hooks/use-reload-view";
-import { ProjectReviewer } from "@/actions/project/get-project-reviewers";
+import { ProjectReviewer } from "@/types/project";
 import { parseIST } from "@/lib/utils";
 import { DateTimePicker } from "@/components/ui/date-picker";
+import { MultiSelectTags } from "@/components/ui/multi-select-tags";
 
 interface iAppProps {
     members: ProjectMembersType;
@@ -38,7 +37,6 @@ interface iAppProps {
     parentTasks?: { id: string; name: string; projectId: string; }[];
     projects?: { id: string; name: string; }[];
     customTrigger?: React.ReactNode;
-    /** When provided, the dialog is controlled externally (e.g. from QuickCreateSubTask) */
     dialogOpen?: boolean;
     onDialogOpenChange?: (open: boolean) => void;
 }
@@ -60,22 +58,14 @@ export const CreateSubTaskForm = ({
     const [pending, startTransition] = useTransition();
     const { triggerConfetti } = useConfetti();
     const [internalOpen, setInternalOpen] = useState(false);
-
-    // Support both controlled (from parent) and uncontrolled dialog
     const isExternalDialog = dialogOpen !== undefined;
     const open = isExternalDialog ? dialogOpen : internalOpen;
     const setOpen = isExternalDialog ? (onDialogOpenChange ?? setInternalOpen) : setInternalOpen;
     const [autoSlugEnabled, setAutoSlugEnabled] = useState(true);
-
-    // Initialize selectedProjectId from projectId or first parent task's projectId
     const initialProjectId = projectId || (parentTasks.length > 0 ? parentTasks[0].projectId : "");
     const [selectedProjectId, setSelectedProjectId] = useState<string>(initialProjectId);
-
-    // const router = useRouter();
-    const reloadView = useReloadView();
     const [reviewers, setReviewers] = useState<ProjectReviewer[]>([]);
-
-    // Memoize filtered parent tasks to prevent infinite loops
+    const [projectMembers, setProjectMembers] = useState<ProjectMembersType>([]);
     const filteredParentTasks = useMemo(() => {
         if (level === "workspace" && selectedProjectId) {
             return parentTasks.filter(task => task.projectId === selectedProjectId);
@@ -117,25 +107,25 @@ export const CreateSubTaskForm = ({
         },
     });
 
-    const watchedStartDate = useWatch({ control: form.control, name: "startDate" });
-    const watchedDueDate = useWatch({ control: form.control, name: "dueDate" });
-    const watchedDays = useWatch({ control: form.control, name: "days" });
-
-    // Fetch reviewers
     useEffect(() => {
         if (!open) return;
-        const fetchReviewers = async () => {
-            try {
-                const targetId = selectedProjectId || projectId || "";
-                if (!targetId) return;
+        const fetchData = async () => {
+            const targetId = selectedProjectId || projectId || "";
+            if (!targetId) return;
 
-                const fetched = await projectsClient.getReviewers(targetId);
-                setReviewers(fetched);
+            try {
+                // Fetch Reviewers (filtered by server to Admins/Owners/PMs/Leads)
+                const fetchedReviewers = await projectsClient.getReviewers(targetId);
+                setReviewers(fetchedReviewers);
+
+                // Fetch Project Members (for assignee selection)
+                const fetchedMembers = await projectsClient.getMembers(targetId);
+                setProjectMembers(fetchedMembers);
             } catch (err) {
-                console.error("Failed to fetch reviewers", err);
+                console.error("Failed to fetch project data", err);
             }
         };
-        fetchReviewers();
+        fetchData();
     }, [open, selectedProjectId, projectId]);
 
     const syncDueDate = (startDate: string, days: number) => {
@@ -227,13 +217,10 @@ export const CreateSubTaskForm = ({
                 form.reset();
                 setOpen(false);
 
-                // Notify parent to add subtask to state immediately
+                // Replace the optimistic subtask with the real one
                 if (onSubTaskCreated && createdData) {
                     onSubTaskCreated(createdData);
                 }
-
-                // Reload all views to show the new subtask
-                reloadView();
             } else {
                 toast.error(message);
             }
@@ -379,38 +366,15 @@ export const CreateSubTaskForm = ({
                             name="tagIds"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Tags (Select multiple)</FormLabel>
-                                    {tags.length > 0 ? (
-                                        <div className="flex flex-wrap gap-2">
-                                            {tags.map((tag) => {
-                                                const isSelected = field.value?.includes(tag.id);
-                                                return (
-                                                    <div
-                                                        key={tag.id}
-                                                        className={cn(
-                                                            "flex flex-row items-center gap-2 cursor-pointer px-3 py-1.5 rounded-full border-2 transition-all",
-                                                            isSelected
-                                                                ? "border-primary bg-primary/10"
-                                                                : "border-muted hover:border-primary/50"
-                                                        )}
-                                                        onClick={() => {
-                                                            const current = field.value || [];
-                                                            if (isSelected) {
-                                                                field.onChange(current.filter(id => id !== tag.id));
-                                                            } else {
-                                                                field.onChange([...current, tag.id]);
-                                                            }
-                                                        }}
-                                                    >
-                                                        <span className="text-xs font-normal">{tag.name}</span>
-                                                        {isSelected && <Check className="h-3 w-3 text-primary" />}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    ) : (
-                                        <p className="text-sm text-muted-foreground">No tags available. Create tags in workspace settings.</p>
-                                    )}
+                                    <FormLabel>Tags</FormLabel>
+                                    <FormControl>
+                                        <MultiSelectTags
+                                            options={tags}
+                                            selected={field.value || []}
+                                            onChange={field.onChange}
+                                            placeholder="Select tags..."
+                                        />
+                                    </FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}
@@ -445,10 +409,10 @@ export const CreateSubTaskForm = ({
                                     <FormItem>
                                         <FormLabel>Days</FormLabel>
                                         <FormControl>
-                                            <Input 
-                                                type="number" 
-                                                min={1} 
-                                                {...field} 
+                                            <Input
+                                                type="number"
+                                                min={1}
+                                                {...field}
                                                 onChange={(e) => {
                                                     const val = parseInt(e.target.value) || 1;
                                                     field.onChange(val);
@@ -527,9 +491,10 @@ export const CreateSubTaskForm = ({
                                                     <CommandList>
                                                         <CommandEmpty>No members found.</CommandEmpty>
                                                         <CommandGroup>
-                                                            {members?.filter((member) => {
+                                                            {(projectMembers.length > 0 ? projectMembers : members)?.filter((member) => {
                                                                 const role = member.projectRole;
-                                                                return role !== "VIEWER"; // Adjust logic if needed
+                                                                const wsRole = member.workspaceRole;
+                                                                return role !== "VIEWER" && wsRole !== "OWNER";
                                                             }).map((member) => {
                                                                 const user = member.user;
                                                                 const userName = `${user.surname || ''}`;

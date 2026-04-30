@@ -1607,26 +1607,29 @@ export class TasksService {
       (subTask.status === "REVIEW" &&
         (newStatus === "TO_DO" || newStatus === "IN_PROGRESS")) ||
       (subTask.status === "IN_PROGRESS" && newStatus === "TO_DO");
+
     if (isMandatoryTransition && !comment && !attachmentData) {
       throw AppError.ValidationError(
         "A comment or attachment link is required for this status transition.",
       );
     }
 
+    // Business rule: We record an activity for every status change.
+    const activityText = (comment || "").trim() || `Status updated from ${subTask.status} to ${newStatus}`;
+
     // 4. Atomic Database Update
     const updated = await prisma.$transaction(async (tx) => {
       // Create activity if any content is provided
-      if (comment || attachmentData) {
-        await tx.activity.create({
-          data: {
-            subTaskId: subTaskId,
-            authorId: userId,
-            workspaceId: workspaceId,
-            text: (comment || "").trim(),
-            attachment: attachmentData,
-          },
-        });
-      }
+      // Create activity record for every status change to ensure real-time audit trails
+      await tx.activity.create({
+        data: {
+          subTaskId: subTaskId,
+          authorId: userId,
+          workspaceId: workspaceId,
+          text: activityText,
+          attachment: attachmentData,
+        },
+      });
 
       // Update parent task completed count if needed
       if (subTask.parentTaskId) {
@@ -1652,29 +1655,32 @@ export class TasksService {
       });
     });
 
-    // 5. Record Activity & Broadcast (Asynchronous)
-    try {
-      const targetUserIds = await getTaskInvolvedUserIds(subTaskId);
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { name: true, surname: true },
-      });
+    // 5. Record Activity & Broadcast (Background - Non-blocking)
+    // We don't await this to keep the API response snappy
+    (async () => {
+      try {
+        const targetUserIds = await getTaskInvolvedUserIds(subTaskId);
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { name: true, surname: true },
+        });
 
-      await recordActivity({
-        userId,
-        userName: user?.surname || user?.name || "Someone",
-        workspaceId,
-        action: "SUBTASK_UPDATED",
-        entityType: "SUBTASK",
-        entityId: subTaskId,
-        oldData: { status: subTask.status, name: subTask.name },
-        newData: { status: newStatus },
-        broadcastEvent: "team_update",
-        targetUserIds,
-      });
-    } catch (e) {
-      console.error("[SERVICE_ERROR] Failed to record activity:", e);
-    }
+        await recordActivity({
+          userId,
+          userName: user?.surname || user?.name || "Someone",
+          workspaceId,
+          action: "SUBTASK_UPDATED",
+          entityType: "SUBTASK",
+          entityId: subTaskId,
+          oldData: { status: subTask.status, name: subTask.name },
+          newData: { status: newStatus },
+          broadcastEvent: "team_update",
+          targetUserIds,
+        });
+      } catch (e) {
+        console.error("[SERVICE_ERROR] Failed to record activity in background:", e);
+      }
+    })();
 
     return updated;
   }
@@ -1929,6 +1935,7 @@ export class TasksService {
       const result = await tx.task.update({
         where: { id: taskId },
         data: updateData,
+        select: getTaskSelect("list"),
       });
 
       // If status changed and it's a subtask, update parent completed count

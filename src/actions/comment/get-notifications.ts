@@ -125,6 +125,7 @@ export async function getNotificationsAction(workspaceId: string, limit: number 
                 author: {
                     select: {
                         name: true,
+                        surname: true,
                         image: true,
                     }
                 },
@@ -170,7 +171,8 @@ export async function getNotificationsAction(workspaceId: string, limit: number 
                         content: comment.content,
                         createdAt: comment.createdAt,
                         user: {
-                            name: `${comment.user.name ?? ''} ${comment.user.surname ?? ''}`.trim(),
+                            name: comment.user.name,
+                            surname: comment.user.surname,
                             image: (comment.user as any).image
                         }
                     },
@@ -198,6 +200,7 @@ export async function getNotificationsAction(workspaceId: string, limit: number 
                         createdAt: rc.createdAt,
                         user: {
                             name: rc.author.name,
+                            surname: rc.author.surname,
                             image: (rc.author as any).image
                         }
                     },
@@ -217,6 +220,7 @@ export async function getNotificationsAction(workspaceId: string, limit: number 
                     createdAt: rc.createdAt,
                     user: {
                         name: rc.author.name,
+                        surname: rc.author.surname,
                         image: (rc.author as any).image
                     }
                 };

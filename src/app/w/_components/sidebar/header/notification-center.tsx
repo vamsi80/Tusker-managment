@@ -352,7 +352,7 @@ function NotificationItem({ notif, isRead }: { notif: any, isRead?: boolean }) {
                 </div>
 
                 <p className="text-[13px] leading-none py-0.5">
-                    <span className="font-semibold">{notif.latestComment.user.name}</span>
+                    <span className="font-semibold">{notif.latestComment.user.surname}</span>
                     {notif.count > 1 && (
                         <span className={`ml-2 text-[9px] px-1.5 py-0.5 rounded-full font-bold align-middle ${isRead ? 'bg-muted text-muted-foreground' : 'bg-primary/10 text-primary'}`}>
                             +{notif.count - 1} more

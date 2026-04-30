@@ -25,8 +25,9 @@ import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { Badge } from "@/components/ui/badge";
 import { useReloadView } from "@/hooks/use-reload-view";
 import { parseIST } from "@/lib/utils";
-import { ProjectReviewer } from "@/actions/project/get-project-reviewers";
+import { ProjectReviewer } from "@/types/project";
 import { DateTimePicker } from "@/components/ui/date-picker";
+import { MultiSelectTags } from "@/components/ui/multi-select-tags";
 
 type SubTaskBase = {
     id: string;
@@ -89,12 +90,12 @@ export function EditSubTaskForm<T extends SubTaskBase>({
     const setOpen = controlledOnOpenChange || setUncontrolledOpen;
     const [selectedProjectId, setSelectedProjectId] = useState<string>(projectId || "");
     const router = useRouter();
-    const reloadView = useReloadView();
     const params = useParams();
     const workspaceId = (params.workspaceId as string) || (subTask as any).workspaceId || "";
     // Note: 'projectId' from URL is a slug, we need the UUID. 
     // Usually 'subTask.projectId' or 'projectId' prop works.
     const [reviewers, setReviewers] = useState<ProjectReviewer[]>([]);
+    const [projectMembers, setProjectMembers] = useState<ProjectMembersType>([]);
 
     // Memoize filtered parent tasks to prevent infinite loops
     const filteredParentTasks = useMemo(() => {
@@ -129,12 +130,12 @@ export function EditSubTaskForm<T extends SubTaskBase>({
             taskSlug: subTask.taskSlug || "",
             projectId: projectId || (subTask as any).projectId || "",
             parentTaskId: parentTaskId || (subTask as any).parentTaskId || "",
-            assignee: (subTask.assignee as any)?.workspaceMember?.userId || (subTask as any).assigneeId || "",
+            assignee: (subTask.assignee as any)?.id || (subTask as any).assigneeId || "",
             tagIds: (subTask.tags?.map(t => t.id) || []),
             status: (subTask.status || "TO_DO") as any,
             startDate: getFormattedDate(subTask.startDate),
             dueDate: getFormattedDate(subTask.dueDate),
-            reviewerId: (subTask.reviewer as any)?.workspaceMember?.userId || (subTask as any).reviewerId || "",
+            reviewerId: (subTask.reviewer as any)?.id || (subTask as any).reviewerId || "",
             days: (subTask as any).days || 1,
         },
     });
@@ -142,14 +143,6 @@ export function EditSubTaskForm<T extends SubTaskBase>({
     // CRITICAL: Reset the form when subTask changes or dialog opens
     useEffect(() => {
         if (open) {
-            console.group("🛠️ [EditSubTaskForm] Form Initialization");
-            console.log("Subtask Data:", subTask);
-            console.log("Tags Prop:", tags);
-            console.log("Members Prop:", members);
-            console.log("Project ID:", projectId);
-            console.log("Parent Task ID:", parentTaskId);
-            console.groupEnd();
-
             form.reset({
                 name: subTask.name || "",
                 description: subTask.description || "",
@@ -165,24 +158,29 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                 days: (subTask as any).days || 1,
             });
         }
-    }, [subTask, open, form, projectId, parentTaskId, tags, members]);
+    }, [subTask, open, form, projectId, parentTaskId]);
 
-    // Fetch reviewers via API route to avoid the "Action Refresh" loop
+    // Fetch reviewers and project members whenever project changes
     useEffect(() => {
         if (!open) return;
-        const fetchReviewers = async () => {
-            try {
-                const targetId = selectedProjectId || projectId || "";
-                if (!targetId) return;
+        const fetchData = async () => {
+            const targetId = selectedProjectId || projectId || (subTask as any).projectId || "";
+            if (!targetId) return;
 
-                const fetched = await projectsClient.getReviewers(targetId);
-                setReviewers(fetched);
+            try {
+                // Fetch Reviewers (filtered by server to Admins/Owners/PMs/Leads)
+                const fetchedReviewers = await projectsClient.getReviewers(targetId);
+                setReviewers(fetchedReviewers);
+
+                // Fetch Project Members (for assignee selection)
+                const fetchedMembers = await projectsClient.getMembers(targetId);
+                setProjectMembers(fetchedMembers);
             } catch (err) {
-                console.error("Failed to fetch reviewers", err);
+                console.error("Failed to fetch project data", err);
             }
         };
-        fetchReviewers();
-    }, [open, selectedProjectId, projectId]);
+        fetchData();
+    }, [open, selectedProjectId, projectId, subTask]);
 
     const syncDueDate = (startDate: string, days: number) => {
         if (!startDate) return;
@@ -230,32 +228,21 @@ export function EditSubTaskForm<T extends SubTaskBase>({
 
 
     function onSubmit(values: SubTaskSchemaType) {
+        // Helper to sort tag IDs for consistent comparison
+        const sortTags = (tagIds: string[]) => [...tagIds].sort();
+
         // Check if there are any actual changes
         const hasChanges =
             values.name !== subTask.name ||
+            values.description !== (subTask.description || "") ||
             values.status !== (subTask.status || "TO_DO") ||
-            values.assignee !== (subTask.assignee?.id || "") ||
-            JSON.stringify(values.tagIds) !== JSON.stringify(subTask.tags?.map(t => t.id) || []) ||
-            values.startDate !== (subTask.startDate ? (() => {
-                const d = new Date(subTask.startDate);
-                const year = d.getFullYear();
-                const month = String(d.getMonth() + 1).padStart(2, '0');
-                const day = String(d.getDate()).padStart(2, '0');
-                const hours = String(d.getHours()).padStart(2, '0');
-                const minutes = String(d.getMinutes()).padStart(2, '0');
-                return `${year}-${month}-${day}T${hours}:${minutes}`;
-            })() : "") ||
-            values.dueDate !== ((subTask as any).dueDate ? (() => {
-                const d = new Date((subTask as any).dueDate);
-                const year = d.getFullYear();
-                const month = String(d.getMonth() + 1).padStart(2, '0');
-                const day = String(d.getDate()).padStart(2, '0');
-                const hours = String(d.getHours()).padStart(2, '0');
-                const minutes = String(d.getMinutes()).padStart(2, '0');
-                return `${year}-${month}-${day}T${hours}:${minutes}`;
-            })() : "") ||
-            values.reviewerId !== ((subTask as any).reviewerId || "") ||
-            values.days !== ((subTask as any).days || 1);
+            values.assignee !== ((subTask.assignee as any)?.id || (subTask as any).assigneeId || "") ||
+            JSON.stringify(sortTags(values.tagIds)) !== JSON.stringify(sortTags(subTask.tags?.map(t => t.id) || [])) ||
+            values.startDate !== getFormattedDate(subTask.startDate) ||
+            values.dueDate !== getFormattedDate(subTask.dueDate) ||
+            values.reviewerId !== ((subTask.reviewer as any)?.id || (subTask as any).reviewerId || "") ||
+            values.days !== ((subTask as any).days || 1) ||
+            values.projectId !== ((subTask as any).projectId || "");
 
         if (!hasChanges) {
             toast.info("No changes detected");
@@ -284,18 +271,10 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                 toast.success(responseMessage);
 
                 if (onSubTaskUpdated) {
-                    onSubTaskUpdated({
-                        name: values.name,
-                        description: values.description,
-                        tags: values.tagIds.map(id => ({ id })),
-                        startDate: values.startDate ? parseIST(values.startDate) : null,
-                        dueDate: values.dueDate ? parseIST(values.dueDate) : null,
-                        ...updatedData
-                    } as any);
+                    onSubTaskUpdated(updatedData);
                 }
 
                 setOpen(false);
-                reloadView();
             } else {
                 toast.error(responseMessage || "Failed to update subtask");
             }
@@ -449,38 +428,15 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                 name="tagIds"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Tags (Select multiple)</FormLabel>
-                                        {tags.length > 0 ? (
-                                            <div className="flex flex-wrap gap-2">
-                                                {tags.map((tag) => {
-                                                    const isSelected = field.value?.includes(tag.id);
-                                                    return (
-                                                        <div
-                                                            key={tag.id}
-                                                            className={cn(
-                                                                "flex flex-row items-center gap-2 cursor-pointer px-3 py-1.5 rounded-full border-2 transition-all",
-                                                                isSelected
-                                                                    ? "border-primary bg-primary/10"
-                                                                    : "border-muted hover:border-primary/50"
-                                                            )}
-                                                            onClick={() => {
-                                                                const current = field.value || [];
-                                                                if (isSelected) {
-                                                                    field.onChange(current.filter(id => id !== tag.id));
-                                                                } else {
-                                                                    field.onChange([...current, tag.id]);
-                                                                }
-                                                            }}
-                                                        >
-                                                            <span className="text-xs font-normal">{tag.name}</span>
-                                                            {isSelected && <Check className="h-3 w-3 text-primary" />}
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        ) : (
-                                            <p className="text-sm text-muted-foreground">No tags available. Create tags in workspace settings.</p>
-                                        )}
+                                        <FormLabel>Tags</FormLabel>
+                                        <FormControl>
+                                            <MultiSelectTags
+                                                options={tags}
+                                                selected={field.value || []}
+                                                onChange={field.onChange}
+                                                placeholder="Select tags..."
+                                            />
+                                        </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
@@ -611,10 +567,11 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                                         <CommandList>
                                                             <CommandEmpty>No members found.</CommandEmpty>
                                                             <CommandGroup>
-                                                                {members?.filter((member) => {
-                                                                    const role = member.projectRole;
-                                                                    return role !== "VIEWER";
-                                                                }).map((member) => {
+                                                                 {(projectMembers.length > 0 ? projectMembers : members)?.filter((member) => {
+                                                                     const role = member.projectRole;
+                                                                     const wsRole = member.workspaceRole;
+                                                                     return role !== "VIEWER" && wsRole !== "OWNER";
+                                                                 }).map((member) => {
                                                                     const user = member.user;
                                                                     const userName = `${user.surname}`;
                                                                     const userId = user.id;

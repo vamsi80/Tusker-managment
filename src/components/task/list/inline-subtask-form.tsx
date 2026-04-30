@@ -18,9 +18,10 @@ import { SubTaskStatus, STATUS_OPTIONS, subTaskSchema } from "@/lib/zodSchemas";
 import { getStatusColors } from "@/lib/colors/status-colors";
 import { ColumnVisibility } from "../shared/column-visibility";
 import { SubTaskType } from "@/data/task";
-import { ProjectReviewer } from "@/actions/project/get-project-reviewers";
+import { ProjectReviewer } from "@/types/project";
 import { cn, parseIST } from "@/lib/utils";
 import { DateTimePicker } from "@/components/ui/date-picker";
+import { MultiSelectTags } from "@/components/ui/multi-select-tags";
 
 interface InlineSubTaskFormProps {
     workspaceId: string;
@@ -435,7 +436,7 @@ export function InlineSubTaskForm({
                         </SelectTrigger>
                         <SelectContent>
                             {availableMembers
-                                .filter(m => m.projectRole !== "VIEWER")
+                                .filter(m => m.projectRole !== "VIEWER" && m.workspaceRole !== "OWNER")
                                 .map((member) => (
                                     <SelectItem key={member.userId} value={member.userId}>
                                         <span className="truncate block">
@@ -548,79 +549,15 @@ export function InlineSubTaskForm({
                 </TableCell>
             )}
 
-            {/* Tag Selection - Multi Select with Popover */}
             {columnVisibility.tag && (
-                <TableCell className="w-[120px] max-w-[120px]">
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 w-full justify-start text-xs font-normal px-2 overflow-hidden"
-                                disabled={pending}
-                            >
-                                <div className="flex gap-1 truncate items-center">
-                                    {tagIds.length > 0 ? (
-                                        <div className="flex -space-x-1 overflow-hidden">
-                                            {tagIds.slice(0, 2).map((id) => (
-                                                <div
-                                                    key={id}
-                                                    className="h-4 w-4 rounded-full border border-background bg-primary/20 flex items-center justify-center text-[10px]"
-                                                    title={tags.find(t => t.id === id)?.name}
-                                                >
-                                                    {tags.find(t => t.id === id)?.name.charAt(0)}
-                                                </div>
-                                            ))}
-                                            {tagIds.length > 2 && (
-                                                <div className="h-4 w-4 rounded-full border border-background bg-muted flex items-center justify-center text-[8px]">
-                                                    +{tagIds.length - 2}
-                                                </div>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <span className="text-muted-foreground truncate">Tags...</span>
-                                    )}
-                                </div>
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[200px] p-2" align="start">
-                            <div className="space-y-1">
-                                <p className="text-[10px] font-medium text-muted-foreground uppercase px-1 mb-2">Select Tags</p>
-                                <div className="max-h-[200px] overflow-y-auto space-y-0.5">
-                                    {tags.map((t) => {
-                                        const isSelected = tagIds.includes(t.id);
-                                        return (
-                                            <div
-                                                key={t.id}
-                                                className={cn(
-                                                    "flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer text-xs transition-colors",
-                                                    isSelected ? "bg-primary/10 text-primary" : "hover:bg-muted"
-                                                )}
-                                                onClick={() => {
-                                                    if (isSelected) {
-                                                        setTagIds(tagIds.filter(id => id !== t.id));
-                                                    } else {
-                                                        setTagIds([...tagIds, t.id]);
-                                                    }
-                                                }}
-                                            >
-                                                <div className={cn(
-                                                    "h-3 w-3 rounded-sm border flex items-center justify-center transition-colors",
-                                                    isSelected ? "bg-primary border-primary" : "border-muted-foreground/30"
-                                                )}>
-                                                    {isSelected && <Check className="h-2 w-2 text-primary-foreground" />}
-                                                </div>
-                                                <span className="truncate">{t.name}</span>
-                                            </div>
-                                        );
-                                    })}
-                                    {tags.length === 0 && (
-                                        <p className="text-[10px] text-muted-foreground px-1 py-4 text-center">No tags found</p>
-                                    )}
-                                </div>
-                            </div>
-                        </PopoverContent>
-                    </Popover>
+                <TableCell className="w-[180px] max-w-[180px]">
+                    <MultiSelectTags
+                        options={tags}
+                        selected={tagIds}
+                        onChange={setTagIds}
+                        placeholder="Tags..."
+                        className="w-full"
+                    />
                 </TableCell>
             )}
 
