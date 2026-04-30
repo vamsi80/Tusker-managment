@@ -57,18 +57,18 @@ export async function getTaskInvolvedUserIds(taskId: string): Promise<string[]> 
     // 2. Add individual commenters
     task.comments.forEach(c => involvedUserIds.add(c.userId));
 
-    // 3. Add Workspace Owners and Admins
+    // 3. Add Workspace Owners and Admins (Mandatory)
     const workspaceAuthorities = await prisma.workspaceMember.findMany({
       where: {
         workspaceId,
-        workspaceRole: { in: ["OWNER", "ADMIN", "MANAGER"] },
+        workspaceRole: { in: ["OWNER", "ADMIN"] },
       },
       select: { userId: true },
     });
     workspaceAuthorities.forEach(m => involvedUserIds.add(m.userId));
 
-    // 4. Add Project Managers
-    const projectManagers = await prisma.projectMember.findMany({
+    // 4. Add Project Leads and Managers (Mandatory)
+    const projectAuthorities = await prisma.projectMember.findMany({
       where: {
         projectId,
         projectRole: { in: ["PROJECT_MANAGER", "LEAD"] },
@@ -79,35 +79,36 @@ export async function getTaskInvolvedUserIds(taskId: string): Promise<string[]> 
         },
       },
     });
-    projectManagers.forEach(m => {
+    projectAuthorities.forEach(m => {
       if (m.workspaceMember?.userId) {
         involvedUserIds.add(m.workspaceMember.userId);
       }
     });
 
     // 5. Add Task participants (Creator, Assignee, Reviewer)
-    const projectMemberIds = [
-      task.createdById,
-      task.assigneeId,
-      task.reviewerId,
-    ].filter((id): id is string => !!id);
-
-    if (projectMemberIds.length > 0) {
-      const participants = await prisma.projectMember.findMany({
-        where: { id: { in: projectMemberIds } },
-        select: {
-          workspaceMember: {
-            select: { userId: true },
-          },
-        },
-      });
-
-      participants.forEach(m => {
-        if (m.workspaceMember?.userId) {
-          involvedUserIds.add(m.workspaceMember.userId);
+    // We fetch the workspaceMember directly to get the User IDs
+    const participants = await prisma.projectMember.findMany({
+      where: {
+        id: { 
+          in: [
+            task.createdById, 
+            task.assigneeId, 
+            task.reviewerId
+          ].filter((id): id is string => !!id) 
         }
-      });
-    }
+      },
+      select: {
+        workspaceMember: {
+          select: { userId: true },
+        },
+      },
+    });
+
+    participants.forEach(m => {
+      if (m.workspaceMember?.userId) {
+        involvedUserIds.add(m.workspaceMember.userId);
+      }
+    });
 
     return Array.from(involvedUserIds);
   } catch (error) {

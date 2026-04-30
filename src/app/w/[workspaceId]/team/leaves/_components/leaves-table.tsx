@@ -126,7 +126,7 @@ export function LeavesTable({
                                 </Avatar>
                                 <div className="flex flex-col">
                                     <span className="font-semibold text-sm group-hover:text-primary transition-colors">
-                                        {user.name} {user.surname}
+                                        {user.surname}
                                     </span>
                                     <div className="flex items-center gap-2">
                                         <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded uppercase font-bold">

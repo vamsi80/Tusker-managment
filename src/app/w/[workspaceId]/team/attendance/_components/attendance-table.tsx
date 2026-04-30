@@ -160,7 +160,7 @@ export function AttendanceTable({
                         </Avatar>
                         <div className="flex flex-col">
                             <span className="font-medium text-sm">
-                                {user.name} {user.surname}
+                                {user.surname}
                             </span>
                             <span className="text-xs text-muted-foreground truncate max-w-[140px]">
                                 {user.email}

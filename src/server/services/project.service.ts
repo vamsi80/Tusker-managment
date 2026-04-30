@@ -182,6 +182,7 @@ export class ProjectService {
       where: { project: { workspaceId } },
       select: {
         id: true,
+        projectId: true,
         projectRole: true,
         workspaceMember: {
           select: {
@@ -208,8 +209,9 @@ export class ProjectService {
         uniqueMembers.set(userId, {
           id: userId,
           userId: userId,
+          projectId: m.projectId,
           projectMemberId: m.id,
-          projectRole: m.projectRole as PrismaProjectRole,
+          projectRole: m.projectRole as ProjectRole,
           user: {
             ...m.workspaceMember.user,
             image: m.workspaceMember.user.image ?? null
@@ -404,6 +406,7 @@ export class ProjectService {
       where: { projectId },
       select: {
         id: true,
+        projectId: true,
         projectRole: true,
         workspaceMember: {
           select: {
@@ -426,6 +429,7 @@ export class ProjectService {
     return projectMembers.map(m => ({
       id: m.workspaceMember.userId,
       userId: m.workspaceMember.userId,
+      projectId: m.projectId,
       projectMemberId: m.id,
       projectRole: m.projectRole as PrismaProjectRole,
       user: {
@@ -544,11 +548,11 @@ export class ProjectService {
       include: { user: true }
     });
 
-    // 2. Get All Project Members (LEAD, PM, and now MEMBER)
+    // 2. Get All Project Members (LEAD and PM only)
     const projectMembers = await prisma.projectMember.findMany({
       where: {
         projectId: projectId,
-        projectRole: { in: ["PROJECT_MANAGER", "LEAD", "MEMBER"] }
+        projectRole: { in: ["PROJECT_MANAGER", "LEAD"] }
       },
       include: {
         workspaceMember: {

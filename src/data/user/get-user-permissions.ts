@@ -44,7 +44,6 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
                     select: {
                         user: {
                             select: {
-                                name: true,
                                 surname: true,
                             }
                         }
@@ -53,9 +52,7 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
             }
         });
 
-        const reportingManagerName = workspaceMember?.reportTo?.user 
-            ? `${workspaceMember.reportTo.user.name || ""} ${workspaceMember.reportTo.user.surname || ""}`.trim()
-            : null;
+        const reportingManagerName = workspaceMember?.reportTo?.user?.surname || null;
 
         if (!workspaceMember) {
             return {

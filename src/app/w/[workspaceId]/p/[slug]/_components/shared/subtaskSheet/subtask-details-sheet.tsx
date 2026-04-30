@@ -9,6 +9,8 @@ import { Tabs } from "@/components/ui/tabs";
 import { fetchCommentsAction, fetchActivitiesAction } from "@/actions/comment";
 import { pubsub, EVENTS } from "@/lib/pubsub";
 import { useTaskCacheStore } from "@/lib/store/task-cache-store";
+import { projectsClient } from "@/lib/api-client/projects";
+import { workspacesClient } from "@/lib/api-client/workspaces";
 // Import modular components
 import { SubtaskSheetHeader } from "./subtask-sheet-header";
 import { SubtaskSheetNavBar } from "./subtask-sheet-navbar";
@@ -154,6 +156,47 @@ export function SubTaskDetailsSheet({
         }
     }, [isOpen]);
 
+    // 🏷️ Metadata Hydration: Fetch project members and tags when the sheet opens
+    // This solves the issue where workspace-level edits show incorrect assignees
+    // or empty tags because the parent context (GlobalSubTaskSheet) is stateless.
+    useEffect(() => {
+        if (!isOpen || !task?.projectId) return;
+
+        let mounted = true;
+        const fetchMetadata = async () => {
+            try {
+                // Determine workspaceId from the path or the task
+                const workspaceIdMatch = pathname.match(/\/w\/([^\/]+)/);
+                const workspaceId = workspaceIdMatch ? workspaceIdMatch[1] : (task as any).workspaceId;
+
+                if (!workspaceId) return;
+
+                const [projectMembers, workspaceTags] = await Promise.all([
+                    projectsClient.getMembers(task.projectId),
+                    workspacesClient.getTags(workspaceId)
+                ]);
+
+                if (mounted) {
+                    setMembers(projectMembers);
+                    setTags(workspaceTags.map(t => ({ id: t.id, name: t.name })));
+                }
+            } catch (error) {
+                console.error("Failed to fetch subtask metadata:", error);
+            }
+        };
+
+        fetchMetadata();
+        return () => { mounted = false; };
+    }, [isOpen, task?.projectId, pathname]);
+
+    const upsertTasks = useTaskCacheStore((state) => state.upsertTasks);
+
+    const handleSubTaskUpdated = useCallback((updatedData: Partial<TaskByIdType>) => {
+        if (task?.id) {
+            upsertTasks([{ id: task.id, ...updatedData }] as any);
+        }
+    }, [task?.id, upsertTasks]);
+
     // URL synchronization is now handled globally via context hooks
     // to ensure consistency across all opening/closing methods.
 
@@ -297,6 +340,7 @@ export function SubTaskDetailsSheet({
                             tags={tags}
                             isAdmin={isAdmin || members.find(m => m.userId === currentUserId)?.workspaceRole === 'ADMIN' || members.find(m => m.userId === currentUserId)?.workspaceRole === 'OWNER'}
                             isProjectManager={isProjectManager || members.find(m => m.userId === currentUserId)?.projectRole === 'PROJECT_MANAGER'}
+                            onSubTaskUpdated={handleSubTaskUpdated}
                             onSubTaskAssigned={(memberObj) => {
                                 onSubTaskAssigned?.(task.id, {
                                     assignee: {

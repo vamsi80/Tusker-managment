@@ -100,10 +100,19 @@ export function InlineAssigneePicker({
 
     const upsertTasks = useTaskCacheStore(state => state.upsertTasks);
 
-    // 1. Filter by project membership if allowedUserIds is provided
-    const members = allowedUserIds
-        ? allMembers.filter(m => allowedUserIds.includes(m.userId))
-        : allMembers;
+    // 1. Filter by project membership and allowed IDs
+    const members = allMembers.filter(m => {
+        // Filter by allowedUserIds if explicitly provided
+        if (allowedUserIds && !allowedUserIds.includes(m.userId)) return false;
+
+        // Filter by projectId match to ensure project-level isolation
+        const targetProjectId = subTask.projectId || projectId;
+        if (m.projectId && targetProjectId && m.projectId !== targetProjectId) {
+            return false;
+        }
+
+        return true;
+    });
 
     // 2. Filter to non-VIEWER project members only
     const assignableMembers = members.filter(

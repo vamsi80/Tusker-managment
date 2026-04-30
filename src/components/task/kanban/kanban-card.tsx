@@ -428,24 +428,22 @@ export const KanbanCard = React.memo(function KanbanCard({
                       <div className="space-y-1.5">
                         {subTask.startDate && (
                           <div className="flex items-center justify-between gap-4">
-                            <span className="text-muted-foreground font-bold uppercase tracking-tighter text-[9px]">Start</span>
-                            <span className="font-medium">{formatIST(subTask.startDate, "PPP")}</span>
+                            <span className="text-amber-500 font-bold uppercase tracking-tighter text-[9px]">Start</span>
+                            <span className="font-medium text-white/90">{formatIST(subTask.startDate, "dd MMM yyyy")}</span>
                           </div>
                         )}
                         {dueDate && (
                           <div className="flex items-center justify-between gap-4 pt-1 border-t border-border/50">
                             <span className={cn(
                               "font-bold uppercase tracking-tighter text-[9px]",
-                              isOverdue ? "text-destructive" : "text-primary/60"
+                              isOverdue ? "text-red-500" : "text-amber-500"
                             )}>Due</span>
-                            <span className={cn("font-medium", isOverdue && "text-destructive underline decoration-dotted")}>
-                              {formatIST(dueDate, "PPP")}
+                            <span className={cn(
+                              "font-medium text-white/90",
+                              isOverdue && "text-red-400 underline decoration-dotted"
+                            )}>
+                              {formatIST(dueDate, "dd MMM yyyy")}
                             </span>
-                          </div>
-                        )}
-                        {isOverdue && (
-                          <div className="bg-destructive/10 text-destructive text-[10px] font-bold p-1 rounded-sm text-center mt-1 uppercase tracking-wider">
-                            Overdue
                           </div>
                         )}
                       </div>

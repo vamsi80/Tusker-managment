@@ -184,6 +184,7 @@ export function WorkspaceLayoutProvider({
         workspaceMemberId: null,
         workspaceRole: null,
         userId: null,
+        reportingManagerName: null,
         leadProjectIds: [],
         managedProjectIds: [],
         memberProjectIds: [],

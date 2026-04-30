@@ -369,7 +369,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                 )}
 
                 {columnVisibility.tag && (
-                    <TableCell className="w-[100px] sm:w-[120px]">
+                    <TableCell className="w-[120px] sm:w-[150px]">
                         <div className="flex items-center gap-1">
                             {subTask.tags && (subTask.tags as any[]).length > 0 ? (
                                 <>

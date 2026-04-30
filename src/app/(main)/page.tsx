@@ -9,11 +9,11 @@ export default function Home() {
       <section className="relative py-20 px-4">
         <div className="flex flex-col items-center justify-center text-center gap-6">
           <Badge variant={"outline"}>Welcome to Tusker management</Badge>
-          <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-gray-900 sm:text-5xl">
-            Elevate you Experience
+          <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-gray-900 sm:text-5xl text-balance">
+            Elevate Your Project Experience
           </h1>
-          <p className="max-w-[700px] mt-6 text-lg text-gray-600">
-            Discover a world of knowledge with our interactive learning platform. Explore courses, track your progress, and achieve your goals with ease.
+          <p className="max-w-[700px] mt-6 text-lg text-muted-foreground">
+            Streamline your workflow and boost productivity with our intuitive task management platform. Organize projects, track real-time progress, and collaborate with your team effortlessly.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 mt-6">

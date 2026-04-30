@@ -185,14 +185,15 @@ tasks.post("/", async (c) => {
   });
 
   // Invalidate
-  await invalidateTaskMutation({
+  // Invalidate in background to keep API response snappy
+  invalidateTaskMutation({
     projectId,
     workspaceId: project.workspaceId,
     userId: user.id,
     taskId: newTask.id,
-  });
+  }).catch((err) => console.error("[CACHE_ERROR] Invalidation failed:", err));
 
-  return c.json({ success: true, data: newTask });
+  return c.json({ success: true, data: TasksService.mapToFlatMetadata(newTask) });
 });
 
 /**
@@ -242,14 +243,15 @@ tasks.post("/subtask", async (c) => {
   });
 
   // Invalidate
-  await invalidateTaskMutation({
+  // Invalidate in background
+  invalidateTaskMutation({
     projectId: data.projectId,
     workspaceId: project.workspaceId,
     userId: user.id,
     taskId: newSubTask.id,
-  });
+  }).catch((err) => console.error("[CACHE_ERROR] Invalidation failed:", err));
 
-  return c.json({ success: true, data: newSubTask });
+  return c.json({ success: true, data: TasksService.mapToFlatMetadata(newSubTask) });
 });
 
 // --- 1. SPECIAL / GLOBAL ROUTES (Must be before :taskId to prevent conflicts) ---
@@ -345,12 +347,12 @@ tasks.patch("/:taskId/assignee", async (c) => {
     userName: (user as any).surname,
   });
 
-  await invalidateTaskMutation({
+  invalidateTaskMutation({
     projectId,
     workspaceId,
     userId: user.id,
     taskId,
-  });
+  }).catch((err) => console.error("[CACHE_ERROR] Invalidation failed:", err));
   return c.json(result);
 });
 
@@ -381,13 +383,13 @@ tasks.patch("/:taskId/status", async (c) => {
     attachmentData,
   });
 
-  await invalidateTaskMutation({
+  invalidateTaskMutation({
     projectId,
     workspaceId,
     userId: user.id,
     taskId,
-  });
-  return c.json({ success: true, data: result });
+  }).catch((err) => console.error("[CACHE_ERROR] Invalidation failed:", err));
+  return c.json({ success: true, data: TasksService.mapToFlatMetadata(result) });
 });
 
 /**
@@ -416,13 +418,13 @@ tasks.post("/:taskId/kanban/move", async (c) => {
     attachmentData,
   });
 
-  await invalidateTaskMutation({
+  invalidateTaskMutation({
     projectId,
     workspaceId,
     userId: user.id,
     taskId,
-  });
-  return c.json({ success: true, data: result });
+  }).catch((err) => console.error("[CACHE_ERROR] Invalidation failed:", err));
+  return c.json({ success: true, data: TasksService.mapToFlatMetadata(result) });
 });
 
 /**
@@ -476,12 +478,12 @@ tasks.patch("/:taskId/dates", async (c) => {
     permissions,
   });
 
-  await invalidateTaskMutation({
+  invalidateTaskMutation({
     projectId,
     workspaceId,
     userId: user.id,
     taskId,
-  });
+  }).catch((err) => console.error("[CACHE_ERROR] Invalidation failed:", err));
   return c.json({ success: true, data: updated });
 });
 
@@ -517,14 +519,14 @@ tasks.patch("/:taskId", async (c) => {
     },
   });
 
-  await invalidateTaskMutation({
+  invalidateTaskMutation({
     projectId,
     workspaceId,
     userId: user.id,
     taskId,
-  });
+  }).catch((err) => console.error("[CACHE_ERROR] Invalidation failed:", err));
 
-  return c.json({ success: true, data: updated });
+  return c.json({ success: true, data: TasksService.mapToFlatMetadata(updated) });
 });
 
 /**
@@ -550,12 +552,12 @@ tasks.delete("/:taskId", async (c) => {
   });
 
   // Invalidate
-  await invalidateTaskMutation({
+  invalidateTaskMutation({
     projectId,
     workspaceId,
     userId: user.id,
     taskId,
-  });
+  }).catch((err) => console.error("[CACHE_ERROR] Invalidation failed:", err));
 
   return c.json({ success: true, message: "Task deleted" });
 });
@@ -594,12 +596,12 @@ tasks.post("/:taskId/dependencies", async (c) => {
   });
 
   // Invalidate
-  await invalidateTaskMutation({
+  invalidateTaskMutation({
     projectId,
     workspaceId,
     userId: user.id,
     taskId,
-  });
+  }).catch((err) => console.error("[CACHE_ERROR] Invalidation failed:", err));
 
   return c.json(result);
 });
@@ -629,12 +631,12 @@ tasks.delete("/:taskId/dependencies/:dependsOnId", async (c) => {
   });
 
   // Invalidate
-  await invalidateTaskMutation({
+  invalidateTaskMutation({
     projectId,
     workspaceId,
     userId: user.id,
     taskId,
-  });
+  }).catch((err) => console.error("[CACHE_ERROR] Invalidation failed:", err));
 
   return c.json(result);
 });
