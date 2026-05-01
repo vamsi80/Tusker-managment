@@ -20,6 +20,10 @@ import { AppError } from "../lib/errors/app-error";
 const app = new Hono<{ Variables: HonoVariables }>().basePath("/api/v1");
 
 // Global Middleware
+app.use("*", async (c, next) => {
+    console.log(`[HONO_REQUEST] ${c.req.method} ${c.req.url}`);
+    await next();
+});
 app.use("*", logger());
 
 // CORS Configuration
@@ -59,6 +63,18 @@ app.onError((err, c) => {
         },
         500
     );
+});
+
+/**
+ * 404 Handler
+ */
+app.notFound((c) => {
+    console.error(`[HONO_404] ${c.req.method} ${c.req.url}`);
+    return c.json({
+        success: false,
+        error: "Not Found",
+        message: `Route not found: ${c.req.method} ${c.req.url}`
+    }, 404);
 });
 
 /**

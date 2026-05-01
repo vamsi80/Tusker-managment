@@ -7,13 +7,10 @@ import {
   invalidateWorkspaceMembers,
   invalidateUserPermissions,
 } from "@/lib/cache/invalidation";
-import { revalidateTag } from "next/cache";
-import { CacheTags } from "@/data/cache-tags";
 import { inviteUserSchema, InviteUserSchemaType } from "@/lib/zodSchemas";
 import { auth } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
-import { getDailyReportStatusForUser } from "@/data/daily-report/get-daily-report-status";
 import { ProjectService } from "./project.service";
 
 export class WorkspaceService {
@@ -40,9 +37,8 @@ export class WorkspaceService {
       },
     });
 
-    // Invalidate caches
-    (revalidateTag as any)(CacheTags.userWorkspaces(data.ownerId)[0], "layout");
-    (revalidateTag as any)("workspaces", "layout");
+    // Invalidate caches - Handled via Client Store Real-time
+    await invalidateUserWorkspaces(data.ownerId);
 
     return workspace;
   }
@@ -105,55 +101,66 @@ export class WorkspaceService {
       where: { id: workspaceId },
     });
 
-    // Invalidate caches
-    (revalidateTag as any)(CacheTags.userWorkspaces(ownerId)[0], "layout");
-    (revalidateTag as any)("workspaces", "layout");
-    const tags = CacheTags.workspace(workspaceId);
-    tags.forEach((tag) => revalidateTag(tag, "layout" as any));
+    // Invalidate caches - Handled via Client Store Real-time
+    await invalidateUserWorkspaces(ownerId);
+    await invalidateWorkspace(workspaceId);
 
     return { success: true };
   }
 
   /**
-   * Get workspace members
+   * Get workspace members (paginated)
    */
-  static async getMembers(workspaceId: string) {
-    const workspaceMembers = await prisma.workspaceMember.findMany({
-      where: { workspaceId },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            surname: true,
-            phoneNumber: true,
-            email: true,
-            image: true,
-            emailVerified: true,
-            _count: {
-              select: {
-                accounts: true,
+  static async getMembers(workspaceId: string, page: number = 1, limit: number = 10) {
+    const skip = (page - 1) * limit;
+
+    const [workspaceMembers, totalCount] = await Promise.all([
+      prisma.workspaceMember.findMany({
+        where: { workspaceId },
+        skip,
+        take: limit,
+        orderBy: { createdAt: "desc" },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              surname: true,
+              phoneNumber: true,
+              email: true,
+              emailVerified: true,
+            },
+          },
+          reportTo: {
+            select: {
+              user: {
+                select: {
+                  surname: true,
+                },
               },
             },
           },
         },
-        reportTo: {
-          select: {
-            user: {
-              select: {
-                surname: true,
-              },
-            },
-          },
-        },
-      },
-    });
+      }),
+      prisma.workspaceMember.count({
+        where: { workspaceId }
+      })
+    ]);
 
     return {
       workspaceMembers: workspaceMembers.map((m) => ({
-        ...m,
-        user: m.user ?? undefined,
+        id: m.id,
+        name: m.user?.name ?? "",
+        surname: m.user?.surname ?? "",
+        email: m.user?.email ?? "",
+        phoneNumber: m.user?.phoneNumber ?? null,
+        designation: m.designation ?? null,
+        workspaceRole: m.workspaceRole,
+        reportToName: m.reportTo?.user?.surname ?? null,
+        status: m.user?.emailVerified || (m.user as any)?._count?.accounts > 0 ? "Verified" : "Pending",
+        emailVerified: m.user?.emailVerified ?? false,
       })),
+      totalCount,
     };
   }
 
@@ -953,8 +960,8 @@ export class WorkspaceService {
   /**
    * Get unread notifications count for a user in a workspace
    */
-  static async getUnreadNotificationsCount(workspaceId: string, userId: string) {
-    const perms = await getWorkspacePermissions(workspaceId, userId, true);
+  static async getUnreadNotificationsCount(workspaceId: string, userId: string, preFetchedPermissions?: any) {
+    const perms = preFetchedPermissions || await getWorkspacePermissions(workspaceId, userId, true);
     if (!perms.workspaceMemberId) return 0;
 
     const where: any = {
@@ -993,21 +1000,31 @@ export class WorkspaceService {
    * Optimized to minimize RSC payload by only fetching what's needed for the shell.
    */
   static async getWorkspaceLayoutData(workspaceId: string, userId: string) {
+    const startTime = Date.now();
+    console.log(`[WorkspaceLayoutData] Starting fetch for ${workspaceId} (User: ${userId})`);
+
+    // Step 1: Fetch permissions first to avoid redundant calls in other methods
+    const permissions = await getWorkspacePermissions(workspaceId, userId, false);
+    const step1Time = Date.now();
+    console.log(`[WorkspaceLayoutData] Permissions fetched in ${step1Time - startTime}ms`);
+
+    // Step 2: Fetch the rest concurrently using the pre-fetched permissions
     const [
-      permissions,
       workspacesResult,
       projects,
       tags,
       projectManagers,
       unreadNotificationsCount,
     ]: any[] = await Promise.all([
-      getWorkspacePermissions(workspaceId, userId, false),
       this.getWorkspaces(userId),
       ProjectService.getWorkspaceProjects(workspaceId, userId),
       ProjectService.getWorkspaceTags(workspaceId),
       ProjectService.getWorkspaceProjectLeaders(workspaceId),
-      this.getUnreadNotificationsCount(workspaceId, userId),
+      this.getUnreadNotificationsCount(workspaceId, userId, permissions),
     ]);
+
+    const endTime = Date.now();
+    console.log(`[WorkspaceLayoutData] Total fetch completed in ${endTime - startTime}ms (Step 2: ${endTime - step1Time}ms)`);
 
     const workspacesData = workspacesResult.workspaces || [];
 
@@ -1215,7 +1232,7 @@ export class WorkspaceService {
       where: { id: actorId },
       select: { name: true, surname: true },
     });
-    
+
     await recordActivity({
       userId: actorId,
       userName: actor?.name || actor?.surname || "Admin",

@@ -8,6 +8,7 @@ import { useWorkspaceLayout } from "../../_components/workspace-layout-context";
 import { pusherClient } from "@/lib/pusher";
 import { TEAM_UPDATE } from "@/lib/realtime";
 import { WorkspaceMembersResult } from "@/types/workspace";
+import { useRealtimeMemberSync } from "@/lib/store/workspace-member-store";
 
 interface TeamManagementClientProps {
     workspaceId: string;
@@ -22,13 +23,17 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
     const [isLoadingMembers, setIsLoadingMembers] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [members, setMembers] = useState<any[]>([]);
+    const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(10);
+    const [totalCount, setTotalCount] = useState(0);
 
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async (targetPage: number, targetLimit: number) => {
         try {
             if (members.length === 0) setIsLoadingMembers(true);
             setIsRefreshing(true);
-            const membersRes: WorkspaceMembersResult = await workspacesClient.getMembers(workspaceId);
+            const membersRes: WorkspaceMembersResult = await workspacesClient.getMembers(workspaceId, targetPage, targetLimit);
             setMembers(membersRes.workspaceMembers || []);
+            setTotalCount(membersRes.totalCount || 0);
         } catch (error) {
             console.error("Failed to fetch team data:", error);
         } finally {
@@ -37,19 +42,13 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
         }
     }, [workspaceId, members.length]);
 
+    // Fetch data when page or limit changes
     useEffect(() => {
-        fetchData();
+        fetchData(page, limit);
+    }, [fetchData, page, limit]);
 
-        // Listen for real-time team updates
-        const channel = pusherClient?.subscribe(`team-${workspaceId}`);
-        channel?.bind(TEAM_UPDATE, () => {
-            fetchData();
-        });
-
-        return () => {
-            pusherClient?.unsubscribe(`team-${workspaceId}`);
-        };
-    }, [workspaceId, fetchData]);
+    // Use unified real-time sync hook to refresh both global store and local table
+    useRealtimeMemberSync(workspaceId, () => fetchData(page, limit));
 
     if (isLoadingMembers) {
         return <AppLoader />;
@@ -60,8 +59,18 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
             data={members}
             isAdmin={layoutData?.permissions?.isWorkspaceAdmin || false}
             workspaceId={workspaceId}
-            onRefresh={fetchData}
+            onRefresh={() => fetchData(page, limit)}
             isRefreshing={isRefreshing}
+            pagination={{
+                page,
+                limit,
+                totalCount,
+                onPageChange: (newPage) => setPage(newPage),
+                onLimitChange: (newLimit) => {
+                    setLimit(newLimit);
+                    setPage(1); // Reset to first page when limit changes
+                }
+            }}
         />
     );
 }

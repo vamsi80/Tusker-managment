@@ -24,19 +24,16 @@ export function createTeamMemberColumns(
 
         {
             id: "memberName",
-            accessorKey: "user.name",
+            accessorKey: "name",
             header: "Member",
             cell: ({ row }) => {
-                const user = row.original.user;
-                const name = user?.name || "";
-                const email = user?.email;
-                const image = user?.image || "";
+                const name = row.original.name || "";
+                const email = row.original.email;
                 const initials = name.charAt(0).toUpperCase();
 
                 return (
                     <div className="flex items-center gap-3">
                         <Avatar className="h-9 w-9">
-                            <AvatarImage src={image} alt={name} />
                             <AvatarFallback>{initials}</AvatarFallback>
                         </Avatar>
                         <div className="flex flex-col">
@@ -49,10 +46,10 @@ export function createTeamMemberColumns(
         },
 
         {
-            accessorKey: "user.surname",
+            accessorKey: "surname",
             header: "Surname",
             cell: ({ row }) => {
-                const surname = row.original.user?.surname;
+                const surname = row.original.surname;
                 return (
                     <div className="text-muted-foreground">
                         {surname || "—"}
@@ -76,12 +73,10 @@ export function createTeamMemberColumns(
 
         {
             id: "reportedTo",
+            accessorKey: "reportToName",
             header: "Reported To",
             cell: ({ row }) => {
-                const manager = row.original.reportTo;
-                const managerName = manager
-                    ? `${manager.user.surname || ""}`.trim()
-                    : "—";
+                const managerName = row.original.reportToName || "—";
                 return (
                     <div className="text-muted-foreground italic">
                         {managerName}
@@ -104,10 +99,10 @@ export function createTeamMemberColumns(
         },
 
         {
-            accessorKey: "user.phoneNumber",
+            accessorKey: "phoneNumber",
             header: "Phone",
             cell: ({ row }) => {
-                const phone = row.original.user?.phoneNumber;
+                const phone = row.original.phoneNumber;
                 return (
                     <div className="text-muted-foreground">
                         {phone || "—"}
@@ -118,10 +113,11 @@ export function createTeamMemberColumns(
 
         {
             id: "status",
+            accessorKey: "status",
             header: "Status",
             cell: ({ row }) => {
-                const user = row.original.user;
-                const isVerified = user?.emailVerified || (user?._count?.accounts ?? 0) > 0;
+                const status = row.original.status || "Pending";
+                const isVerified = status === "Verified";
 
                 return (
                     <div className={cn(
@@ -130,7 +126,7 @@ export function createTeamMemberColumns(
                             ? "bg-green-500/10 text-green-500 hover:bg-green-500/20"
                             : "bg-amber-500/10 text-amber-500 hover:bg-amber-500/20"
                     )}>
-                        {isVerified ? "Verified" : "Pending"}
+                        {status}
                     </div>
                 );
             },
@@ -176,11 +172,7 @@ export function createTeamMemberColumns(
             onClick: onResend,
             icon: <Mail className="h-4 w-4" />,
             // Only show if not verified
-            hidden: (row: WorkspaceMemberRow) => {
-                const user = row.user;
-                const isVerified = user?.emailVerified || (user?._count?.accounts ?? 0) > 0;
-                return !!isVerified;
-            }
+            hidden: (row: WorkspaceMemberRow) => row.status === "Verified"
         });
     }
 

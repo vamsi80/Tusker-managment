@@ -108,8 +108,11 @@ workspaces.delete("/:workspaceId", async (c) => {
  */
 workspaces.get("/:workspaceId/members", async (c) => {
   const workspaceId = c.req.param("workspaceId");
+  console.log(`[HONO_WORKSPACES] GET /members workspaceId: ${workspaceId}`);
+  const page = parseInt(c.req.query("page") || "1");
+  const limit = parseInt(c.req.query("limit") || "10");
 
-  const members = await WorkspaceService.getMembers(workspaceId);
+  const members = await WorkspaceService.getMembers(workspaceId, page, limit);
 
   return c.json({ success: true, data: members });
 });

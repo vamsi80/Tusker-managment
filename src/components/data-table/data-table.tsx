@@ -39,6 +39,9 @@ interface DataTableProps<TData, TValue> {
     showPagination?: boolean;
     showColumnToggle?: boolean;
     pageSize?: number;
+    pageIndex?: number;
+    rowCount?: number;
+    manualPagination?: boolean;
     onAdd?: () => void;
     addButtonLabel?: string;
     filterFields?: DataTableFilterField<TData>[];
@@ -49,6 +52,7 @@ interface DataTableProps<TData, TValue> {
     getRowClassName?: (row: any) => string;
     extraToolbarContent?: React.ReactNode;
     onFilterChange?: (filters: ColumnFiltersState) => void;
+    onPaginationChange?: (pagination: { pageIndex: number; pageSize: number }) => void;
 }
 
 export function DataTable<TData, TValue>({
@@ -61,6 +65,9 @@ export function DataTable<TData, TValue>({
     showPagination = true,
     showColumnToggle = true,
     pageSize = 10,
+    pageIndex = 0,
+    rowCount,
+    manualPagination = false,
     onAdd,
     addButtonLabel = "Add New",
     filterDisplay = "default",
@@ -72,6 +79,7 @@ export function DataTable<TData, TValue>({
     getRowClassName,
     extraToolbarContent,
     onFilterChange,
+    onPaginationChange,
 }: DataTableProps<TData, TValue> & { getRowId?: (row: TData) => string }) {
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -87,7 +95,16 @@ export function DataTable<TData, TValue>({
         data,
         columns,
         getCoreRowModel: getCoreRowModel(),
-        getPaginationRowModel: showPagination ? getPaginationRowModel() : undefined,
+        getPaginationRowModel: (showPagination && !manualPagination) ? getPaginationRowModel() : undefined,
+        manualPagination,
+        rowCount,
+        onPaginationChange: (updater) => {
+            if (onPaginationChange) {
+                const current = { pageIndex, pageSize };
+                const next = typeof updater === 'function' ? updater(current) : updater;
+                onPaginationChange(next);
+            }
+        },
         onSortingChange: setSorting,
         getSortedRowModel: getSortedRowModel(),
         onColumnFiltersChange: (updater) => {
@@ -107,10 +124,9 @@ export function DataTable<TData, TValue>({
             columnFilters,
             columnVisibility,
             rowSelection,
-        },
-        initialState: {
             pagination: {
-                pageSize: pageSize,
+                pageIndex,
+                pageSize,
             },
         },
     });

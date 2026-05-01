@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { DataTable } from "@/components/data-table/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { APP_DATE_FORMAT, cn } from "@/lib/utils";
+import { WorkspaceMemberRow } from "@/types/workspace";
 import { Badge } from "@/components/ui/badge";
 import { useMounted } from "@/hooks/use-mounted";
 import { Button } from "@/components/ui/button";
@@ -18,6 +20,7 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MapPin, Clock, Filter, X, Calendar as CalendarIcon, Timer } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useWorkspaceMemberStore, useRealtimeMemberSync, EMPTY_ARRAY } from "@/lib/store/workspace-member-store";
 
 interface AttendanceRecord {
     id: string;
@@ -56,8 +59,6 @@ export function AttendanceTable({
     const isPowerUser = isWorkspaceAdmin || workspaceRole === "MANAGER";
     const [loading, setLoading] = useState(true);
     const [records, setRecords] = useState<AttendanceRecord[]>([]);
-    const [allMembers, setAllMembers] = useState<any[]>([]);
-    const [memberOptions, setMemberOptions] = useState<{ label: string; value: string }[]>([]);
 
     // Main filters state (synced with API)
     const [activeFilters, setActiveFilters] = useState<{
@@ -83,34 +84,46 @@ export function AttendanceTable({
 
     const mounted = useMounted();
 
-    // Fetch members for filter
+    // Subscribe ONLY to the specific members we need to prevent redundant re-renders
+    // Using useShallow and EMPTY_ARRAY from store to avoid infinite re-render loops
+    const members = useWorkspaceMemberStore(
+        useShallow((state) => state.membersByWorkspace[workspaceId] || EMPTY_ARRAY)
+    );
+
+    // Subscribe to real-time updates for this workspace
+    useRealtimeMemberSync(workspaceId);
+
+    // Fetch members for filter via global store (prevents redundant triggers)
     useEffect(() => {
-        const fetchMembers = async () => {
-            try {
-                const res = await apiClient.workspaces.getMembers(workspaceId);
-                if (res && res.workspaceMembers) {
-                    setAllMembers(res.workspaceMembers);
-                    const options = res.workspaceMembers
-                        .filter(m => m.workspaceRole !== "OWNER" && m.workspaceRole !== "ADMIN")
-                        .map(m => ({
-                            label: `${m.user?.surname || ""} ${m.user?.name || ""}`.trim() || "Member",
-                            value: m.id
-                        }));
-                    setMemberOptions(options);
-                }
-            } catch (error) {
-                console.error("Failed to fetch members:", error);
-            }
-        };
-        fetchMembers();
+        useWorkspaceMemberStore.getState().fetchMembers(workspaceId);
     }, [workspaceId]);
+
+    // Memoize options to prevent unnecessary re-renders of filter components
+    const memberOptions = useMemo(() => {
+        if (!members.length) return [];
+        return members
+            .filter(m => m.workspaceRole !== "OWNER" && m.workspaceRole !== "ADMIN")
+            .map(m => ({
+                label: `${m.surname || ""}`.trim(),
+                value: m.id
+            }));
+    }, [members]);
+
+    const isValidDate = (d: any) => d instanceof Date && !isNaN(d.getTime());
 
     const fetchRecords = async () => {
         try {
+            console.log(`[AttendanceTable] Fetching records with filters:`, {
+                workspaceId,
+                from: activeFilters.from?.toISOString(),
+                to: activeFilters.to?.toISOString(),
+                memberId: activeFilters.memberId,
+                status: activeFilters.status
+            });
             setLoading(true);
             const params = new URLSearchParams();
-            if (activeFilters.from) params.append("startDate", activeFilters.from.toISOString());
-            if (activeFilters.to) params.append("endDate", activeFilters.to.toISOString());
+            if (activeFilters.from && isValidDate(activeFilters.from)) params.append("startDate", activeFilters.from.toISOString());
+            if (activeFilters.to && isValidDate(activeFilters.to)) params.append("endDate", activeFilters.to.toISOString());
             if (activeFilters.memberId) params.append("memberId", activeFilters.memberId);
             if (activeFilters.status) params.append("status", activeFilters.status);
 
@@ -119,10 +132,15 @@ export function AttendanceTable({
             });
             const data = await res.json();
             if (data.success) {
-                setRecords(data.data);
+                console.log(`[AttendanceTable] Records successfully loaded: ${data.data?.length || 0} items`);
+                setRecords(data.data || []);
+            } else {
+                console.error("[AttendanceTable] API returned error:", data.error);
+                toast.error(data.error || "Failed to load records");
             }
         } catch (error) {
-            console.error("Failed to fetch attendance records:", error);
+            console.error("[AttendanceTable] Fetch exception:", error);
+            toast.error("Failed to load attendance records");
         } finally {
             setLoading(false);
         }
@@ -175,11 +193,17 @@ export function AttendanceTable({
             header: "Date",
             cell: ({ row }) => {
                 if (!mounted) return "...";
-                return (
-                    <div className="font-medium text-sm">
-                        {format(new Date(row.original.date), APP_DATE_FORMAT)}
-                    </div>
-                );
+                try {
+                    const d = new Date(row.original.date);
+                    if (!isValidDate(d)) return <span className="text-xs text-muted-foreground italic">Invalid Date</span>;
+                    return (
+                        <div className="font-medium text-sm">
+                            {format(d, APP_DATE_FORMAT)}
+                        </div>
+                    );
+                } catch (e) {
+                    return <span className="text-xs text-rose-500 italic">Error</span>;
+                }
             },
         },
         {
@@ -189,14 +213,20 @@ export function AttendanceTable({
                 if (!mounted) return "...";
                 const checkIn = row.original.checkIn;
                 if (!checkIn) return <div className="text-xs text-muted-foreground italic">—</div>;
-                return (
-                    <div className="flex flex-col items-start">
-                        <div className="flex items-center gap-1.5 text-sm font-medium">
-                            <Clock className="h-3.5 w-3.5 text-emerald-500" />
-                            {format(new Date(checkIn), "hh:mm a")}
+                try {
+                    const d = new Date(checkIn);
+                    if (!isValidDate(d)) return <div className="text-xs text-muted-foreground italic">—</div>;
+                    return (
+                        <div className="flex flex-col items-start">
+                            <div className="flex items-center gap-1.5 text-sm font-medium">
+                                <Clock className="h-3.5 w-3.5 text-emerald-500" />
+                                {format(d, "hh:mm a")}
+                            </div>
                         </div>
-                    </div>
-                );
+                    );
+                } catch (e) {
+                    return <div className="text-xs text-muted-foreground italic">—</div>;
+                }
             },
         },
         {
@@ -230,14 +260,20 @@ export function AttendanceTable({
                 if (!mounted) return "...";
                 const checkOut = row.original.checkOut;
                 if (!checkOut) return <div className="text-xs text-muted-foreground italic">—</div>;
-                return (
-                    <div className="flex flex-col items-start">
-                        <div className="flex items-center gap-1.5 text-sm font-medium">
-                            <Clock className="h-3.5 w-3.5 text-rose-500" />
-                            {format(new Date(checkOut), "hh:mm a")}
+                try {
+                    const d = new Date(checkOut);
+                    if (!isValidDate(d)) return <div className="text-xs text-muted-foreground italic">—</div>;
+                    return (
+                        <div className="flex flex-col items-start">
+                            <div className="flex items-center gap-1.5 text-sm font-medium">
+                                <Clock className="h-3.5 w-3.5 text-rose-500" />
+                                {format(d, "hh:mm a")}
+                            </div>
                         </div>
-                    </div>
-                );
+                    );
+                } catch (e) {
+                    return <div className="text-xs text-muted-foreground italic">—</div>;
+                }
             },
         },
         {
@@ -274,18 +310,27 @@ export function AttendanceTable({
 
                 if (!checkIn || !checkOut) return <div className="text-xs text-muted-foreground italic">—</div>;
 
-                const start = new Date(checkIn);
-                const end = new Date(checkOut);
-                const diffMs = end.getTime() - start.getTime();
-                const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
-                const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                try {
+                    const start = new Date(checkIn);
+                    const end = new Date(checkOut);
+                    
+                    if (!isValidDate(start) || !isValidDate(end)) return <div className="text-xs text-muted-foreground italic">—</div>;
 
-                return (
-                    <div className="flex items-center gap-1.5 font-bold text-sm text-primary/80">
-                        <Timer className="h-3.5 w-3.5" />
-                        {diffHrs}h {diffMins}m
-                    </div>
-                );
+                    const diffMs = end.getTime() - start.getTime();
+                    if (isNaN(diffMs) || diffMs < 0) return <div className="text-xs text-muted-foreground italic">—</div>;
+
+                    const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+                    const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+                    return (
+                        <div className="flex items-center gap-1.5 font-bold text-sm text-primary/80">
+                            <Clock className="h-3.5 w-3.5" />
+                            {diffHrs}h {diffMins}m
+                        </div>
+                    );
+                } catch (e) {
+                    return <div className="text-xs text-muted-foreground italic">—</div>;
+                }
             }
         },
         {
@@ -341,8 +386,8 @@ export function AttendanceTable({
 
     const selectedMember = useMemo(() => {
         if (!activeFilters.memberId) return null;
-        return allMembers.find(m => m.id === activeFilters.memberId);
-    }, [allMembers, activeFilters.memberId]);
+        return members.find((m: any) => m.id === activeFilters.memberId);
+    }, [members, activeFilters.memberId]);
 
     const handleApplyFilters = () => {
         setActiveFilters(tempFilters);

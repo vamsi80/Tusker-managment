@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState } from "react";
 import { DataTable } from "@/components/data-table/data-table";
 import { createTeamMemberColumns } from "./team-member-columns";
 import {
@@ -58,9 +58,16 @@ interface TeamMembersProps {
     workspaceId: string;
     onRefresh: () => Promise<void>;
     isRefreshing: boolean;
+    pagination?: {
+        page: number;
+        limit: number;
+        totalCount: number;
+        onPageChange: (page: number) => void;
+        onLimitChange: (limit: number) => void;
+    };
 }
 
-export function TeamMembers({ data, isAdmin, workspaceId, onRefresh, isRefreshing }: TeamMembersProps) {
+export function TeamMembers({ data, isAdmin, workspaceId, onRefresh, isRefreshing, pagination }: TeamMembersProps) {
     const router = useRouter();
 
 
@@ -118,10 +125,10 @@ export function TeamMembers({ data, isAdmin, workspaceId, onRefresh, isRefreshin
     const handleEditMember = React.useCallback((member: WorkspaceMemberRow) => {
         setMemberToEdit(member);
         editForm.reset({
-            name: member.user?.name || "",
-            surname: member.user?.surname || "",
-            email: member.user?.email || "",
-            phoneNumber: member.user?.phoneNumber || "",
+            name: member.name || "",
+            surname: member.surname || "",
+            email: member.email || "",
+            phoneNumber: member.phoneNumber || "",
             role: member.workspaceRole as any,
             designation: member.designation || "",
             reportToId: member.reportToId || "",
@@ -185,12 +192,12 @@ export function TeamMembers({ data, isAdmin, workspaceId, onRefresh, isRefreshin
     };
 
     const handleResendInvite = React.useCallback(async (member: WorkspaceMemberRow) => {
-        if (!member.user?.email) return;
+        if (!member.email) return;
 
         toast.promise(
             apiClient.workspaces.resendInvite(workspaceId, member.id),
             {
-                loading: `Resending invitation to ${member.user.email}...`,
+                loading: `Resending invitation to ${member.email}...`,
                 success: (result: any) => {
                     if (result.status === "error") throw new Error(result.message);
                     return result.message || "Invitation resent successfully";
@@ -221,7 +228,19 @@ export function TeamMembers({ data, isAdmin, workspaceId, onRefresh, isRefreshin
                 onRowClick={handleViewMember}
                 showPagination={true}
                 showColumnToggle={true}
-                pageSize={10}
+                manualPagination={!!pagination}
+                rowCount={pagination?.totalCount}
+                pageIndex={(pagination?.page || 1) - 1}
+                pageSize={pagination?.limit || 10}
+                onPaginationChange={(p) => {
+                    if (pagination) {
+                        if (p.pageSize !== pagination.limit) {
+                            pagination.onLimitChange(p.pageSize);
+                        } else {
+                            pagination.onPageChange(p.pageIndex + 1);
+                        }
+                    }
+                }}
                 extraToolbarContent={
                     <Button
                         variant="outline"
@@ -247,19 +266,18 @@ export function TeamMembers({ data, isAdmin, workspaceId, onRefresh, isRefreshin
                             <div className="flex items-center gap-4">
                                 <Avatar className="h-16 w-16">
                                     <AvatarImage
-                                        src={memberToView.user?.image || ""}
-                                        alt={memberToView.user?.name || ""}
+                                        alt={memberToView.name || ""}
                                     />
                                     <AvatarFallback className="text-xl">
-                                        {memberToView.user?.name?.charAt(0) || "?"}
+                                        {memberToView.name?.charAt(0) || "?"}
                                     </AvatarFallback>
                                 </Avatar>
                                 <div>
                                     <h3 className="text-lg font-semibold">
-                                        {memberToView.user?.name}
+                                        {memberToView.name}
                                     </h3>
                                     <p className="text-sm text-muted-foreground">
-                                        {memberToView.user?.email}
+                                        {memberToView.email}
                                     </p>
                                 </div>
                             </div>
@@ -267,7 +285,7 @@ export function TeamMembers({ data, isAdmin, workspaceId, onRefresh, isRefreshin
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Surname:</span>
                                     <span className="font-medium">
-                                        {memberToView.user?.surname || "N/A"}
+                                        {memberToView.surname || "N/A"}
                                     </span>
                                 </div>
                                 <div className="flex justify-between">
@@ -279,13 +297,13 @@ export function TeamMembers({ data, isAdmin, workspaceId, onRefresh, isRefreshin
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Phone:</span>
                                     <span className="font-medium">
-                                        {memberToView.user?.phoneNumber || "N/A"}
+                                        {memberToView.phoneNumber || "N/A"}
                                     </span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Status:</span>
                                     {(() => {
-                                        const isVerified = memberToView.user?.emailVerified || (memberToView.user?._count?.accounts ?? 0) > 0;
+                                        const isVerified = memberToView.status === "Verified";
                                         return (
                                             <span className={cn(
                                                 "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold border-transparent",
@@ -293,7 +311,7 @@ export function TeamMembers({ data, isAdmin, workspaceId, onRefresh, isRefreshin
                                                     ? "bg-green-500/10 text-green-500"
                                                     : "bg-amber-500/10 text-amber-500"
                                             )}>
-                                                {isVerified ? "Verified" : "Pending"}
+                                                {memberToView.status}
                                             </span>
                                         );
                                     })()}
@@ -467,7 +485,7 @@ export function TeamMembers({ data, isAdmin, workspaceId, onRefresh, isRefreshin
                         <AlertDialogDescription>
                             Are you sure you want to remove{" "}
                             <span className="font-semibold">
-                                {memberToDelete?.user?.name}
+                                {memberToDelete?.name}
                             </span>{" "}
                             from this workspace? They will lose access to all projects
                             and tasks in this workspace.

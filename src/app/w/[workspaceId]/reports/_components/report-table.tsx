@@ -6,7 +6,6 @@ import { DataTable } from "@/components/data-table/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -15,10 +14,8 @@ import { cn } from "@/lib/utils";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { ReportDetailModal } from "./report-detail-sheet";
 import { Loader2, CalendarIcon, UserIcon, X, ChevronDown, Clock, Search, ChevronRight, ChevronsUpDown, ChevronsDownUp } from "lucide-react";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { apiClient } from "@/lib/api-client";
-import { WorkspaceMemberRow } from "@/types/workspace";
 import { loadMoreReportsAction } from "@/actions/daily-report/load-reports";
+import { useWorkspaceMemberStore, useRealtimeMemberSync } from "@/lib/store/workspace-member-store";
 
 interface Props {
     initialData: any[];
@@ -30,8 +27,6 @@ interface Props {
 }
 
 export function ReportsTable({ initialData, workspaceId, initialDate, initialUserId, isAdmin, currentUserId }: Props) {
-    const [members, setMembers] = useState<WorkspaceMemberRow[]>([]);
-    const [isMembersLoading, setIsMembersLoading] = useState(true);
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -45,19 +40,16 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
     const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
     const [expandedReports, setExpandedReports] = useState<Record<string, boolean>>({});
 
+    const { membersByWorkspace, fetchMembers, isLoading: storeLoading } = useWorkspaceMemberStore();
+    const members = membersByWorkspace[workspaceId] || [];
+    const isMembersLoading = storeLoading[workspaceId] ?? true;
+
+    // Subscribe to real-time updates for this workspace
+    useRealtimeMemberSync(workspaceId);
+
     useEffect(() => {
-        async function fetchMembers() {
-            try {
-                const res = await apiClient.workspaces.getMembers(workspaceId);
-                setMembers(res.workspaceMembers || []);
-            } catch (error) {
-                console.error("Failed to fetch members:", error);
-            } finally {
-                setIsMembersLoading(false);
-            }
-        }
-        fetchMembers();
-    }, [workspaceId]);
+        fetchMembers(workspaceId);
+    }, [workspaceId, fetchMembers]);
 
     // Sync with initialData change (when server-side searchParams change)
     useEffect(() => {
@@ -116,14 +108,14 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
 
             result[dateStr] = membersToConsider.map(member => {
                 const existing = userReportMap.get(member.userId) ||
-                    (member.user?.id ? userReportMap.get(member.user.id) : null) ||
-                    (member.user?.email ? userReportMap.get(member.user.email) : null);
+                    (member.id ? userReportMap.get(member.id) : null) ||
+                    (member.email ? userReportMap.get(member.email) : null);
 
                 return existing || {
-                    id: `virtual-${dateStr}-${member.userId}`,
+                    id: `virtual-${dateStr}-${member.id}`,
                     workspaceId,
-                    userId: member.userId,
-                    user: member.user,
+                    userId: member.id,
+                    user: member,
                     status: "NOT_SUBMITTED",
                     submittedAt: null,
                     date: dateStr,
@@ -514,7 +506,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
                                     ) : (
                                         <UserIcon className="mr-2 h-4 w-4" />
                                     )}
-                                    {isMembersLoading ? "Loading Members..." : (selectedMember ? `${selectedMember.user?.surname || ""}` : "All Assignees")}
+                                    {isMembersLoading ? "Loading Members..." : (selectedMember ? `${selectedMember.surname || ""}` : "All Assignees")}
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="p-0 w-[200px]" align="end">
@@ -533,7 +525,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
                                                     key={m.userId}
                                                     onSelect={() => updateFilters({ userId: m.userId })}
                                                 >
-                                                    {m.user?.surname}
+                                                    {m.surname}
                                                 </CommandItem>
                                             ))}
                                         </CommandGroup>
