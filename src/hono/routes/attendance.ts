@@ -9,6 +9,7 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
 .get("/", async (c) => {
     const user = c.get("user");
     const workspaceId = c.req.header("x-workspace-id");
+    console.log(`[HONO_ATTENDANCE] GET / workspaceId: ${workspaceId}, userId: ${user?.id}`);
 
     if (!user || !user.id) return c.json({ success: false, error: "Unauthorized" }, 401);
     if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
@@ -53,6 +54,7 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
 .get("/today", async (c) => {
     const user = c.get("user");
     const workspaceId = c.req.header("x-workspace-id");
+    console.log(`[HONO_ATTENDANCE] GET /today workspaceId: ${workspaceId}, userId: ${user?.id}`);
 
     if (!user || !user.id) return c.json({ success: false, error: "Unauthorized" }, 401);
     if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);

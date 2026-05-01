@@ -11,7 +11,7 @@ import {
 export interface WorkspacesClient {
     create(values: WorkSpaceSchemaType): Promise<ApiResponse>;
     delete(workspaceId: string): Promise<ApiResponse>;
-    getMembers(workspaceId: string): Promise<WorkspaceMembersResult>;
+    getMembers(workspaceId: string, page?: number, limit?: number): Promise<WorkspaceMembersResult>;
     invite(workspaceId: string, values: InviteUserSchemaType): Promise<ApiResponse>;
     removeMember(workspaceId: string, memberId: string): Promise<ApiResponse>;
     updateMember(workspaceId: string, memberId: string, values: any): Promise<ApiResponse>;
@@ -76,10 +76,10 @@ export const workspacesClient: WorkspacesClient = {
     },
 
     /**
-     * Get workspace members
+     * Get workspace members (paginated)
      */
-    getMembers: async (workspaceId: string): Promise<WorkspaceMembersResult> => {
-        const response = await apiFetch<{ success: boolean; data: WorkspaceMembersResult }>(`/workspaces/${workspaceId}/members`);
+    getMembers: async (workspaceId: string, page: number = 1, limit: number = 10): Promise<WorkspaceMembersResult> => {
+        const response = await apiFetch<{ success: boolean; data: WorkspaceMembersResult }>(`/workspaces/${workspaceId}/members?page=${page}&limit=${limit}`);
         return response.data;
     },
 

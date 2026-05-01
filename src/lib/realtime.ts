@@ -31,7 +31,7 @@ export const broadcastTeamUpdate = async (data: TeamEventData) => {
             return;
         }
         await pusherServer.trigger(
-            `team-${data.workspaceId}`, // Channel name
+            `workspace-${data.workspaceId}`, // Channel name
             TEAM_UPDATE,                // Event name
             data                        // Data payload
         );
@@ -50,7 +50,7 @@ export const broadcastProjectUpdate = async (data: ProjectEventData) => {
             return;
         }
         await pusherServer.trigger(
-            `team-${data.workspaceId}`, // Using the same team channel for now to keep it simple
+            `workspace-${data.workspaceId}`, // Use the unified workspace channel
             PROJECT_UPDATE,
             data
         );

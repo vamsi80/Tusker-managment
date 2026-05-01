@@ -37,24 +37,16 @@ export type WorkspaceMemberRow = {
   workspaceRole: WorkspaceRole;
   designation?: string | null;
   reportToId?: string | null;
-  user?: {
-    id: string;
-    name?: string | null;
-    surname: string;
-    email: string;
-    emailVerified: boolean;
-    phoneNumber?: string | null;
-    image?: string | null;
-    _count?: {
-      accounts: number;
-    };
-  } | null;
-  reportTo?: {
-    user: {
-      surname: string | null;
-    };
-  } | null;
+  name?: string;
+  surname?: string;
+  email?: string;
+  phoneNumber?: string | null;
+  reportToName?: string | null;
+  status?: string;
+  casualLeaveBalance?: number;
+  sickLeaveBalance?: number;
 };
+
 
 export type WorkspaceListItem = {
   id: string;
@@ -74,6 +66,7 @@ export type WorkspacesResult = {
 
 export type WorkspaceMembersResult = {
   workspaceMembers: WorkspaceMemberRow[];
+  totalCount: number;
 };
 
 export interface WorkspaceLayoutData {

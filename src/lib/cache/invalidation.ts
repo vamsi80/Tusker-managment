@@ -7,11 +7,10 @@ import { CacheTags } from "@/data/cache-tags";
 
 /**
  * Invalidate workspace data cache
+ * Note: UI revalidation is now handled via Pusher + WorkspaceLayoutStore
  */
 export async function invalidateWorkspace(workspaceId: string) {
-    const tags = CacheTags.workspace(workspaceId);
-    tags.forEach(tag => revalidateTag(tag, "layout" as any));
-    revalidatePath(`/w/${workspaceId}`, "layout");
+    // Handled by client-side real-time sync
 }
 
 /**
@@ -25,14 +24,12 @@ export async function invalidateUserWorkspaces(userId: string) {
 
 /**
  * Invalidate workspace members cache
+ * Note: UI revalidation is now handled via Pusher + Zustand Store
  */
 export async function invalidateWorkspaceMembers(workspaceId: string) {
-    const tags = [
-        ...CacheTags.workspaceMembers(workspaceId),
-        ...CacheTags.workspace(workspaceId), // Ensure full workspace data is also updated
-    ];
-    tags.forEach(tag => revalidateTag(tag, "layout" as any));
-    revalidatePath(`/w/${workspaceId}`, "layout");
+    // We no longer need revalidatePath here as the WorkspaceLayoutStore 
+    // and WorkspaceMemberStore handle real-time updates via Pusher.
+    // This eliminates the 33kB RSC payload on every member update.
 }
 
 /**
@@ -68,18 +65,14 @@ export async function invalidateWorkspaceTags(workspaceId: string) {
  * Invalidate user projects cache for a specific user
  */
 export async function invalidateUserProjects(userId: string, workspaceId: string) {
-    const tags = CacheTags.userProjects(userId, workspaceId);
-    tags.forEach(tag => revalidateTag(tag, "layout" as any));
-    revalidatePath(`/w/${workspaceId}`, "layout");
+    // Handled by client-side real-time sync
 }
 
 /**
  * Invalidate all projects cache for a workspace
  */
 export async function invalidateWorkspaceProjects(workspaceId: string) {
-    const tags = CacheTags.workspaceProjects(workspaceId);
-    tags.forEach(tag => revalidateTag(tag, "layout" as any));
-    revalidatePath(`/w/${workspaceId}`, "layout");
+    // Handled by client-side real-time sync
 }
 
 /**
@@ -277,9 +270,7 @@ export async function invalidateAllActivities() {
  * Invalidate user permissions cache
  */
 export async function invalidateUserPermissions(userId: string, workspaceId: string, projectId?: string) {
-    const tags = CacheTags.userPermissions(userId, workspaceId, projectId);
-    tags.forEach(tag => revalidateTag(tag, "layout" as any));
-    revalidatePath(`/w/${workspaceId}`, "layout");
+    // Handled by client-side real-time sync
 }
 
 // ============================================
