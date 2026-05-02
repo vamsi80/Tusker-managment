@@ -4,6 +4,10 @@ import prisma from "@/lib/db";
 import { AppError } from "@/lib/errors/app-error";
 import { recordActivity } from "@/lib/audit";
 import { randomUUID } from "crypto";
+import { unstable_cache } from "next/cache";
+import { CacheTags } from "@/data/cache-tags";
+import { invalidateWorkspaceAttendance } from "@/lib/cache/invalidation";
+import { broadcastAttendanceUpdate } from "@/lib/realtime";
 import { AttendanceStatus, WorkspaceRole } from "@/generated/prisma/client";
 
 export class AttendanceService {
@@ -179,6 +183,14 @@ export class AttendanceService {
             }
         });
 
+        // 🚀 SYNCHRONIZED HYBRID: Clear cache and notify clients
+        await invalidateWorkspaceAttendance(workspaceId);
+        await broadcastAttendanceUpdate({
+            workspaceId,
+            type: "CHECK_IN",
+            payload: attendance
+        });
+
         // Casual Leave Accrual Logic
         if (status === AttendanceStatus.PRESENT || status === AttendanceStatus.LATE) {
             const workspace = await prisma.workspace.findUnique({
@@ -326,6 +338,14 @@ export class AttendanceService {
             }
         });
 
+        // 🚀 SYNCHRONIZED HYBRID: Clear cache and notify clients
+        await invalidateWorkspaceAttendance(workspaceId);
+        await broadcastAttendanceUpdate({
+            workspaceId,
+            type: "CHECK_OUT",
+            payload: updated
+        });
+
         const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, surname: true } });
         await recordActivity({
             userId,
@@ -423,113 +443,119 @@ export class AttendanceService {
         page: number = 1,
         pageSize: number = 10
     ) {
-        const skip = (page - 1) * pageSize;
-        const take = pageSize;
+        return await unstable_cache(
+            async () => {
+                const skip = (page - 1) * pageSize;
+                const take = pageSize;
 
-        const where = {
-            workspaceId,
-            ...(startDate && endDate ? {
-                date: {
-                    gte: startDate,
-                    lte: endDate,
-                },
-            } : {}),
-            ...(filters?.memberId ? { workspaceMemberId: filters.memberId } : {}),
-            ...(filters?.status ? { status: filters.status } : {}),
-        };
-
-        // 1. Fetch existing attendance records (paginated)
-        const [records, totalCount] = await Promise.all([
-            prisma.attendance.findMany({
-                where,
-                include: {
-                    WorkspaceMember: {
-                        include: {
-                            user: {
-                                select: {
-                                    name: true,
-                                    surname: true,
-                                    email: true,
-                                }
-                            }
-                        }
-                    }
-                },
-                orderBy: {
-                    date: 'desc'
-                },
-                skip,
-                take
-            }),
-            prisma.attendance.count({ where })
-        ]);
-
-        // 2. If filtering for "ON_LEAVE" or no status filter, find approved leaves that don't have attendance records yet
-        if (!filters?.status || filters.status === AttendanceStatus.ON_LEAVE) {
-            const approvedLeaves = await (prisma as any).leave_request.findMany({
-                where: {
+                const where = {
                     workspaceId,
-                    status: "APPROVED",
                     ...(startDate && endDate ? {
-                        startDate: { lte: endDate },
-                        endDate: { gte: startDate },
+                        date: {
+                            gte: startDate,
+                            lte: endDate,
+                        },
                     } : {}),
-                    ...(filters?.memberId ? { workspaceMemberId: filters.memberId } : {})
-                },
-                include: {
-                    WorkspaceMember: {
+                    ...(filters?.memberId ? { workspaceMemberId: filters.memberId } : {}),
+                    ...(filters?.status ? { status: filters.status } : {}),
+                };
+
+                // 1. Fetch existing attendance records (paginated)
+                const [records, totalCount] = await Promise.all([
+                    prisma.attendance.findMany({
+                        where,
                         include: {
-                            user: {
-                                select: {
-                                    surname: true,
-                                    email: true,
+                            WorkspaceMember: {
+                                include: {
+                                    user: {
+                                        select: {
+                                            name: true,
+                                            surname: true,
+                                            email: true,
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        orderBy: {
+                            date: 'desc'
+                        },
+                        skip,
+                        take
+                    }),
+                    prisma.attendance.count({ where })
+                ]);
+
+                // 2. If filtering for "ON_LEAVE" or no status filter, find approved leaves that don't have attendance records yet
+                if (!filters?.status || filters.status === AttendanceStatus.ON_LEAVE) {
+                    const approvedLeaves = await (prisma as any).leave_request.findMany({
+                        where: {
+                            workspaceId,
+                            status: "APPROVED",
+                            ...(startDate && endDate ? {
+                                startDate: { lte: endDate },
+                                endDate: { gte: startDate },
+                            } : {}),
+                            ...(filters?.memberId ? { workspaceMemberId: filters.memberId } : {})
+                        },
+                        include: {
+                            WorkspaceMember: {
+                                include: {
+                                    user: {
+                                        select: {
+                                            surname: true,
+                                            email: true,
+                                        }
+                                    }
                                 }
                             }
                         }
+                    });
+
+                    const syntheticRecords: any[] = [];
+                    const existingKeys = new Set(records.map(r => `${r.workspaceMemberId}_${r.date.toISOString().split('T')[0]}`));
+
+                    for (const leave of approvedLeaves) {
+                        let current = new Date(Math.max(new Date(leave.startDate).getTime(), startDate?.getTime() || 0));
+                        const last = new Date(Math.min(new Date(leave.endDate).getTime(), endDate?.getTime() || Infinity));
+                        let iterations = 0;
+
+                        while (current <= last && iterations < 100) {
+                            const dateOnly = this.getISTDateOnly(current);
+                            const key = `${leave.workspaceMemberId}_${dateOnly.toISOString().split('T')[0]}`;
+
+                            if (!existingKeys.has(key)) {
+                                syntheticRecords.push({
+                                    id: `leave-${leave.id}-${dateOnly.toISOString()}`,
+                                    date: dateOnly,
+                                    checkIn: null,
+                                    checkOut: null,
+                                    status: AttendanceStatus.ON_LEAVE,
+                                    workspaceId,
+                                    workspaceMemberId: leave.workspaceMemberId,
+                                    WorkspaceMember: leave.WorkspaceMember,
+                                    isOvertime: false
+                                });
+                                existingKeys.add(key);
+                            }
+                            current.setDate(current.getDate() + 1);
+                            iterations++;
+                        }
                     }
+
+                    const combined = [...records, ...syntheticRecords];
+                    const sorted = combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+                    return { data: sorted, totalCount: totalCount + syntheticRecords.length };
                 }
-            });
 
-            const syntheticRecords: any[] = [];
-            const existingKeys = new Set(records.map(r => `${r.workspaceMemberId}_${r.date.toISOString().split('T')[0]}`));
-
-            for (const leave of approvedLeaves) {
-                let current = new Date(Math.max(new Date(leave.startDate).getTime(), startDate?.getTime() || 0));
-                const last = new Date(Math.min(new Date(leave.endDate).getTime(), endDate?.getTime() || Infinity));
-                let iterations = 0;
-
-                while (current <= last && iterations < 100) {
-                    const dateOnly = this.getISTDateOnly(current);
-                    const key = `${leave.workspaceMemberId}_${dateOnly.toISOString().split('T')[0]}`;
-
-                    if (!existingKeys.has(key)) {
-                        syntheticRecords.push({
-                            id: `leave-${leave.id}-${dateOnly.toISOString()}`,
-                            date: dateOnly,
-                            checkIn: null,
-                            checkOut: null,
-                            status: AttendanceStatus.ON_LEAVE,
-                            workspaceId,
-                            workspaceMemberId: leave.workspaceMemberId,
-                            WorkspaceMember: leave.WorkspaceMember,
-                            isOvertime: false
-                        });
-                        existingKeys.add(key);
-                    }
-                    current.setDate(current.getDate() + 1);
-                    iterations++;
-                }
+                return { data: records, totalCount };
+            },
+            [`attendance-${workspaceId}-${startDate?.toISOString()}-${endDate?.toISOString()}-${filters?.memberId}-${filters?.status}-${page}-${pageSize}`],
+            {
+                tags: (CacheTags as any).attendance(workspaceId, filters?.memberId)
             }
-
-            const combined = [...records, ...syntheticRecords];
-            const sorted = combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-            // To keep pagination consistent with synthetic records added, we'd need a more complex merge-then-paginate approach.
-            // For now, we'll return the merged result and the total count.
-            return { data: sorted, totalCount: totalCount + syntheticRecords.length };
-        }
-
-        return { data: records, totalCount };
+        )();
     }
 
     /**

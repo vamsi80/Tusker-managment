@@ -7,6 +7,7 @@ import { pusherServer } from "./pusher";
 
 export const TEAM_UPDATE = "team_update";
 export const PROJECT_UPDATE = "project_update";
+export const ATTENDANCE_UPDATE = "attendance_update";
 
 export type TeamEventData = {
     workspaceId: string;
@@ -19,6 +20,12 @@ export type ProjectEventData = {
     type: "CREATE" | "UPDATE" | "DELETE";
     projectId?: string;
     payload?: any;
+};
+
+export type AttendanceEventData = {
+    workspaceId: string;
+    type: "CHECK_IN" | "CHECK_OUT" | "UPDATE";
+    payload: any;
 };
 
 /**
@@ -56,5 +63,24 @@ export const broadcastProjectUpdate = async (data: ProjectEventData) => {
         );
     } catch (error) {
         console.error("[REALTIME_PROJECT_PUSHER_ERROR]", error);
+    }
+};
+
+/**
+ * Broadcast an attendance event to all connected clients via Pusher.
+ */
+export const broadcastAttendanceUpdate = async (data: AttendanceEventData) => {
+    try {
+        if (!pusherServer) {
+            console.warn("[REALTIME] Pusher not configured, skipping broadcast.");
+            return;
+        }
+        await pusherServer.trigger(
+            `workspace-${data.workspaceId}`,
+            ATTENDANCE_UPDATE,
+            data
+        );
+    } catch (error) {
+        console.error("[REALTIME_ATTENDANCE_PUSHER_ERROR]", error);
     }
 };

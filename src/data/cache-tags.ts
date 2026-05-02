@@ -262,6 +262,28 @@ export const CacheTags = {
         `workspace-task-creation-data-${workspaceId}-${userId}`,
         `workspace-tasks-${workspaceId}`,
     ],
+
+    // ============================================
+    // ATTENDANCE & LEAVE TAGS
+    // ============================================
+
+    /**
+     * Tag for attendance data
+     */
+    attendance: (workspaceId: string, userId?: string) => {
+        const tags = [`attendance-workspace-${workspaceId}`];
+        if (userId) tags.push(`attendance-user-${userId}`);
+        return tags;
+    },
+
+    /**
+     * Tag for leave requests
+     */
+    leaves: (workspaceId: string, userId?: string) => {
+        const tags = [`leaves-workspace-${workspaceId}`];
+        if (userId) tags.push(`leaves-user-${userId}`);
+        return tags;
+    },
 } as const;
 
 /**

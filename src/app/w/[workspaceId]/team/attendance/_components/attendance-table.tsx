@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { DataTable } from "@/components/data-table/data-table";
 import { ColumnDef } from "@tanstack/react-table";
@@ -20,6 +20,8 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MapPin, Clock, Filter, X, Calendar as CalendarIcon, Timer } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { pusherClient } from "@/lib/pusher";
+import { ATTENDANCE_UPDATE } from "@/lib/realtime";
 import { useWorkspaceMemberStore, useRealtimeMemberSync, EMPTY_ARRAY } from "@/lib/store/workspace-member-store";
 
 interface AttendanceRecord {
@@ -100,6 +102,8 @@ export function AttendanceTable({
         useWorkspaceMemberStore.getState().fetchSlimMembers(workspaceId);
     }, [workspaceId]);
 
+
+
     // Memoize options from slim members
     const memberOptions = useMemo(() => {
         if (!slimMembers.length) return [];
@@ -112,7 +116,7 @@ export function AttendanceTable({
 
     const isValidDate = (d: any) => d instanceof Date && !isNaN(d.getTime());
 
-    const fetchRecords = async () => {
+    const fetchRecords = useCallback(async () => {
         try {
             console.log(`[AttendanceTable] Fetching records with filters:`, {
                 workspaceId,
@@ -148,11 +152,27 @@ export function AttendanceTable({
         } finally {
             setLoading(false);
         }
-    };
+    }, [activeFilters, pageIndex, pageSize, workspaceId]);
 
     useEffect(() => {
         fetchRecords();
-    }, [workspaceId, activeFilters, pageIndex, pageSize]);
+    }, [fetchRecords]);
+
+    // 🚀 REAL-TIME ATTENDANCE SYNC: Listen for check-ins/outs
+    useEffect(() => {
+        if (!workspaceId || !pusherClient) return;
+
+        const channel = pusherClient.subscribe(`workspace-${workspaceId}`);
+        channel.bind(ATTENDANCE_UPDATE, (data: any) => {
+            console.log(`[RealtimeAttendance] Update received:`, data.type);
+            // Refresh the table records to show the new check-in/out
+            fetchRecords();
+        });
+
+        return () => {
+            pusherClient?.unsubscribe(`workspace-${workspaceId}`);
+        };
+    }, [workspaceId, fetchRecords]);
 
     // Sync temp filters with active filters when popover opens
     useEffect(() => {

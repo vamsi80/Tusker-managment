@@ -23,6 +23,22 @@ export async function invalidateUserWorkspaces(userId: string) {
 }
 
 /**
+ * Invalidate workspace attendance cache
+ */
+export async function invalidateWorkspaceAttendance(workspaceId: string, userId?: string) {
+    const tags = (CacheTags as any).attendance(workspaceId, userId);
+    tags.forEach((tag: string) => revalidateTag(tag, "layout" as any));
+}
+
+/**
+ * Invalidate workspace leaves cache
+ */
+export async function invalidateWorkspaceLeaves(workspaceId: string, userId?: string) {
+    const tags = (CacheTags as any).leaves(workspaceId, userId);
+    tags.forEach((tag: string) => revalidateTag(tag, "layout" as any));
+}
+
+/**
  * Invalidate workspace members cache
  * Note: UI revalidation is now handled via Pusher + Zustand Store
  */
