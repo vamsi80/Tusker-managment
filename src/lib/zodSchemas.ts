@@ -79,7 +79,7 @@ export const updateMemberSchema = z.object({
         .nullable()
         .or(z.literal("")),
     designation: z.string().min(1, { message: "Designation is required" }),
-    reportToId: z.string().optional(),
+    reportToId: z.string().optional().nullable().or(z.literal("")),
     role: z.enum(workspaceMemberRole),
     workspaceId: z.string(),
 });

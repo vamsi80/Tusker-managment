@@ -157,6 +157,9 @@ export class WorkspaceService {
         designation: m.designation ?? null,
         workspaceRole: m.workspaceRole,
         reportToName: m.reportTo?.user?.surname ?? null,
+        reportToId: m.reportToId,
+        workspaceId: m.workspaceId,
+        userId: m.userId,
         status: m.user?.emailVerified || (m.user as any)?._count?.accounts > 0 ? "Verified" : "Pending",
         emailVerified: m.user?.emailVerified ?? false,
       })),
@@ -765,7 +768,7 @@ export class WorkspaceService {
         data: {
           workspaceRole: data.role as any,
           designation: data.designation,
-          reportToId: data.reportToId
+          reportToId: data.reportToId && data.reportToId.trim() !== "" ? data.reportToId : null
         },
       });
 
