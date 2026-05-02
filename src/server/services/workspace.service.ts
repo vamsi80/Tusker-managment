@@ -165,6 +165,36 @@ export class WorkspaceService {
   }
 
   /**
+   * Get all workspace members but ONLY minimal fields for filters.
+   * This is extremely fast even with 1000+ members.
+   */
+  static async getMembersSlim(workspaceId: string) {
+    const members = await prisma.workspaceMember.findMany({
+      where: { workspaceId },
+      select: {
+        id: true,
+        casualLeaveBalance: true,
+        sickLeaveBalance: true,
+        user: {
+          select: {
+            surname: true,
+            email: true,
+          }
+        }
+      },
+      orderBy: { user: { surname: "asc" } }
+    });
+
+    return members.map(m => ({
+      id: m.id,
+      surname: m.user?.surname || "Member",
+      email: m.user?.email,
+      casualLeaveBalance: m.casualLeaveBalance,
+      sickLeaveBalance: m.sickLeaveBalance
+    }));
+  }
+
+  /**
    * Invite a new member to the workspace
    */
   static async inviteMember(

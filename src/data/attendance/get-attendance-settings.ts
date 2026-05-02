@@ -1,4 +1,3 @@
-import { cache } from "react";
 import prisma from "@/lib/db";
 
 export type PublicHoliday = {
@@ -32,7 +31,7 @@ const DEFAULT_SETTINGS: AttendanceSettingsData = {
 /**
  * Fetches attendance-specific thresholds for a workspace (Team Settings)
  */
-export const getAttendanceSettings = cache(async (workspaceId: string): Promise<AttendanceSettingsData> => {
+export const getAttendanceSettings = async (workspaceId: string): Promise<AttendanceSettingsData> => {
     try {
         const [workspaceResult, holidays] = await Promise.all([
             prisma.$queryRawUnsafe<any[]>(
@@ -66,4 +65,4 @@ export const getAttendanceSettings = cache(async (workspaceId: string): Promise<
         console.error("Error fetching attendance settings:", error);
         return DEFAULT_SETTINGS;
     }
-});
+};

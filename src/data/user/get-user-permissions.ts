@@ -1,26 +1,8 @@
 "use server";
 
-import { cache } from "react";
-import { unstable_cache } from "next/cache";
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
 import { CacheTags } from "@/data/cache-tags";
-
-const PERMISSION_MEMORY_CACHE = new Map<string, { data: any, timestamp: number }>();
-const MEMORY_TTL = 15000; // 15 seconds
-
-function getMemoryCached<T>(key: string): T | null {
-    const cached = PERMISSION_MEMORY_CACHE.get(key);
-    if (cached && Date.now() - cached.timestamp < MEMORY_TTL) {
-        return cached.data;
-    }
-    return null;
-}
-
-function setMemoryCached(key: string, data: any) {
-    PERMISSION_MEMORY_CACHE.set(key, { data, timestamp: Date.now() });
-    if (PERMISSION_MEMORY_CACHE.size > 500) PERMISSION_MEMORY_CACHE.clear();
-}
 
 /**
  * Get workspace-level permissions for the current user
@@ -173,36 +155,11 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
 /**
  * Get workspace-level permissions for the current user
  */
-export const getWorkspacePermissions = cache(async (workspaceId: string, providedUserId?: string, lean: boolean = false) => {
+export const getWorkspacePermissions = async (workspaceId: string, providedUserId?: string, lean: boolean = false) => {
     // If userId is provided (e.g. from a Server Action), bypass requireUser to save ~1s
     const userId = providedUserId || (await requireUser()).id;
-    const cacheKey = `ws-perms-${workspaceId}-${userId}`;
-
-    // 1. FAST PATH: Memory Cache (0.1ms)
-    const memoryCached = getMemoryCached<any>(cacheKey);
-    if (memoryCached) return memoryCached;
-
-    // 2. SERVER ACTION BYPASS: If providedUserId explicitly passed, skip Next.js disk cache overhead (~1s latency)
-    if (providedUserId) {
-        const directResult = await _fetchWorkspacePermissionsInternal(workspaceId, userId, lean);
-        setMemoryCached(cacheKey, directResult);
-        return directResult;
-    }
-
-    // 3. SLOW PATH: Next.js Cache / Database (for pages/layouts)
-    const fetchPerms = unstable_cache(
-        async () => _fetchWorkspacePermissionsInternal(workspaceId, userId, lean),
-        [`workspace-perms-${workspaceId}-${userId}${lean ? '-lean' : ''}`],
-        {
-            tags: CacheTags.userPermissions(userId, workspaceId),
-            revalidate: 60, // 1 minute
-        }
-    );
-
-    const result = await fetchPerms();
-    setMemoryCached(cacheKey, result);
-    return result;
-});
+    return await _fetchWorkspacePermissionsInternal(workspaceId, userId, lean);
+};
 
 /**
  * Get project-level permissions for the current user
@@ -244,6 +201,8 @@ async function _getUserPermissionsInternal(workspaceId: string, projectId: strin
                 workspaceMemberId: null,
                 workspaceRole: null,
                 userId: null,
+                userSurname: null,
+                projectMember: null,
             };
         }
 
@@ -285,6 +244,8 @@ async function _getUserPermissionsInternal(workspaceId: string, projectId: strin
             workspaceMemberId: null,
             workspaceRole: null,
             userId: null,
+            userSurname: null,
+            projectMember: null,
         };
     }
 }
@@ -292,36 +253,11 @@ async function _getUserPermissionsInternal(workspaceId: string, projectId: strin
 /**
  * Get project-level permissions for the current user
  */
-export const getUserPermissions = cache(async (workspaceId: string, projectId: string, providedUserId?: string) => {
+export const getUserPermissions = async (workspaceId: string, projectId: string, providedUserId?: string) => {
     // If userId is provided (e.g. from a Server Action), bypass requireUser to save ~1s
     const userId = providedUserId || (await requireUser()).id;
-    const cacheKey = `proj-perms-${projectId}-${userId}`;
-
-    // 1. FAST PATH: Memory Cache (0.1ms)
-    const memoryCached = getMemoryCached<any>(cacheKey);
-    if (memoryCached) return memoryCached;
-
-    // 2. SERVER ACTION BYPASS: If providedUserId explicitly passed, bypass Next.js disk cache overhead (~1s latency)
-    if (providedUserId) {
-        const directResult = await _getUserPermissionsInternal(workspaceId, projectId, userId);
-        setMemoryCached(cacheKey, directResult);
-        return directResult;
-    }
-
-    // 3. SLOW PATH: Next.js Cache / Database (for pages/layouts)
-    const fetchPerms = unstable_cache(
-        async () => _getUserPermissionsInternal(workspaceId, projectId, userId),
-        [`project-perms-${projectId}-${userId}`],
-        {
-            tags: CacheTags.userPermissions(userId, workspaceId),
-            revalidate: 60, // 1 minute
-        }
-    );
-
-    const result = await fetchPerms();
-    setMemoryCached(cacheKey, result);
-    return result;
-});
+    return await _getUserPermissionsInternal(workspaceId, projectId, userId);
+};
 
 export type WorkspacePermissionsType = Awaited<ReturnType<typeof getWorkspacePermissions>>;
 export type UserPermissionsType = Awaited<ReturnType<typeof getUserPermissions>>;

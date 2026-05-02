@@ -448,6 +448,7 @@ export class ProjectService {
     const [workspaceMember, projectMember] = await Promise.all([
       prisma.workspaceMember.findFirst({
         where: { workspaceId, userId },
+        include: { user: { select: { surname: true } } }
       }),
       prisma.projectMember.findFirst({
         where: {
@@ -467,13 +468,15 @@ export class ProjectService {
         canPerformBulkOperations: false,
         workspaceMemberId: null,
         workspaceRole: null,
-        userId,
+        userId: null,
+        userSurname: null,
+        projectMember: null,
       };
     }
 
     const isWorkspaceAdmin = workspaceMember.workspaceRole === "OWNER" || workspaceMember.workspaceRole === "ADMIN";
-    const isProjectManager = projectMember?.projectRole === "PROJECT_MANAGER";
-    const isProjectLead = projectMember?.projectRole === "LEAD";
+    const isProjectManager = isWorkspaceAdmin || projectMember?.projectRole === "PROJECT_MANAGER";
+    const isProjectLead = isWorkspaceAdmin || projectMember?.projectRole === "LEAD";
     const isMember = !isWorkspaceAdmin && !isProjectManager && !isProjectLead && !!projectMember;
     const canCreateSubTask = isWorkspaceAdmin || isProjectManager || isProjectLead;
     const canPerformBulkOperations = isWorkspaceAdmin || isProjectManager || isProjectLead;
@@ -488,6 +491,7 @@ export class ProjectService {
       workspaceMemberId: workspaceMember.id,
       workspaceRole: workspaceMember.workspaceRole,
       userId: workspaceMember.userId,
+      userSurname: workspaceMember.user?.surname || null,
       projectMember: projectMember ? {
         id: projectMember.id,
         projectRole: projectMember.projectRole,

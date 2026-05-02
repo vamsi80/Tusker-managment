@@ -28,18 +28,14 @@ interface LeaveRequest {
     status: "PENDING" | "APPROVED" | "REJECTED";
     type: "CASUAL" | "SICK";
     createdAt: string;
-    WorkspaceMember: {
-        id: string;
-        reportToId: string | null;
-        casualLeaveBalance: number;
-        sickLeaveBalance: number;
-        user: {
-            name: string;
-            surname: string | null;
-            email: string;
-            image: string | null;
-        };
-    };
+    surname: string;
+    name: string;
+    email: string;
+    image: string | null;
+    workspaceMemberId: string;
+    reportToId: string | null;
+    casualLeaveBalance: number;
+    sickLeaveBalance: number;
 }
 
 export function LeavesTable({
@@ -56,19 +52,21 @@ export function LeavesTable({
     const isOwnerOrAdmin = workspaceRole === "OWNER" || workspaceRole === "ADMIN";
     const [loading, setLoading] = useState(true);
     const [requests, setRequests] = useState<LeaveRequest[]>([]);
+    const [totalCount, setTotalCount] = useState(0);
+    const [pageIndex, setPageIndex] = useState(0);
+    const [pageSize, setPageSize] = useState(10);
     const mounted = useMounted();
 
     const fetchRequests = async () => {
         try {
             setLoading(true);
-            const res = await fetch(`/api/v1/attendance/leave-request`, {
+            const res = await fetch(`/api/v1/attendance/leave-request?page=${pageIndex + 1}&pageSize=${pageSize}`, {
                 headers: { "x-workspace-id": workspaceId }
             });
             const data = await res.json();
-            // Note: I need to make sure the GET /leave-request exists or update the existing GET / to handle leaves
-            // Actually, I'll update the GET /api/v1/attendance/leave-request to return all leaves for workspace
             if (data.success) {
                 setRequests(data.data);
+                setTotalCount(data.totalCount || 0);
             }
         } catch (error) {
             console.error("Failed to fetch leave requests:", error);
@@ -79,7 +77,7 @@ export function LeavesTable({
 
     useEffect(() => {
         fetchRequests();
-    }, [workspaceId]);
+    }, [workspaceId, pageIndex, pageSize]);
 
     const handleUpdateStatus = async (id: string, status: "APPROVED" | "REJECTED") => {
         try {
@@ -109,12 +107,9 @@ export function LeavesTable({
             header: "Member",
             cell: ({ row }) => {
                 const leave = row.original;
-                const user = leave.WorkspaceMember?.user;
-                if (!user) return <div className="text-sm italic text-muted-foreground">Unknown</div>;
-
-                const name = user.surname || user.name || "Member";
-                const initials = (user.name?.[0] || user.surname?.[0] || "M").toUpperCase();
-                const image = user.image || "";
+                const name = leave.surname || leave.name || "Member";
+                const initials = (leave.name?.[0] || leave.surname?.[0] || "M").toUpperCase();
+                const image = leave.image || "";
 
                 return (
                     <Dialog>
@@ -126,11 +121,11 @@ export function LeavesTable({
                                 </Avatar>
                                 <div className="flex flex-col">
                                     <span className="font-semibold text-sm group-hover:text-primary transition-colors">
-                                        {user.surname}
+                                        {leave.surname}
                                     </span>
                                     <div className="flex items-center gap-2">
                                         <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded uppercase font-bold">
-                                            Bal: {leave.type === "CASUAL" ? `C:${leave.WorkspaceMember.casualLeaveBalance}` : `S:${leave.WorkspaceMember.sickLeaveBalance}`}
+                                            Bal: {leave.type === "CASUAL" ? `C:${leave.casualLeaveBalance}` : `S:${leave.sickLeaveBalance}`}
                                         </span>
                                     </div>
                                 </div>
@@ -144,8 +139,8 @@ export function LeavesTable({
                                         <AvatarFallback className="text-xl font-black">{initials}</AvatarFallback>
                                     </Avatar>
                                     <div>
-                                        <DialogTitle className="text-2xl font-black">{user.name} {user.surname}</DialogTitle>
-                                        <p className="text-sm text-muted-foreground font-medium">{user.email}</p>
+                                        <DialogTitle className="text-2xl font-black">{leave.name} {leave.surname}</DialogTitle>
+                                        <p className="text-sm text-muted-foreground font-medium">{leave.email}</p>
                                     </div>
                                 </DialogHeader>
 
@@ -176,7 +171,7 @@ export function LeavesTable({
                                     </div>
                                 </div>
 
-                                {leave.status === "PENDING" && (isOwnerOrAdmin || leave.WorkspaceMember.reportToId === currentMemberId) && (
+                                {leave.status === "PENDING" && (isOwnerOrAdmin || leave.reportToId === currentMemberId) && (
                                     <div className="flex gap-3 pt-4">
                                         <Button
                                             className="flex-1 rounded-2xl h-12 bg-emerald-600 hover:bg-emerald-700 font-bold"
@@ -279,7 +274,7 @@ export function LeavesTable({
             header: () => <div className="text-right">Actions</div>,
             cell: ({ row }) => {
                 const leave = row.original;
-                const canManage = isOwnerOrAdmin || leave.WorkspaceMember.reportToId === currentMemberId;
+                const canManage = isOwnerOrAdmin || leave.reportToId === currentMemberId;
 
                 if (!canManage || leave.status !== "PENDING") return null;
 
@@ -317,6 +312,14 @@ export function LeavesTable({
                 isLoading={loading}
                 searchKey="reason"
                 searchPlaceholder="Search by reason..."
+                pageIndex={pageIndex}
+                pageSize={pageSize}
+                rowCount={totalCount}
+                manualPagination={true}
+                onPaginationChange={(p) => {
+                    setPageIndex(p.pageIndex);
+                    setPageSize(p.pageSize);
+                }}
             />
         </div>
     );
