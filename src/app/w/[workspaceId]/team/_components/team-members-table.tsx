@@ -396,7 +396,7 @@ export function TeamMembers({ data, isAdmin, workspaceId, onRefresh, isRefreshin
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Report To</FormLabel>
-                                            <Select onValueChange={field.onChange} defaultValue={field.value || undefined}>
+                                            <Select onValueChange={field.onChange} value={field.value || undefined}>
                                                 <FormControl>
                                                     <SelectTrigger>
                                                         <SelectValue placeholder="Select Manager" />
@@ -438,7 +438,7 @@ export function TeamMembers({ data, isAdmin, workspaceId, onRefresh, isRefreshin
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Role</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <Select onValueChange={field.onChange} value={field.value}>
                                             <FormControl>
                                                 <SelectTrigger>
                                                     <SelectValue placeholder="Select a role" />
