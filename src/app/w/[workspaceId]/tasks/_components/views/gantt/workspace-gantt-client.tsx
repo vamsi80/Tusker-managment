@@ -135,6 +135,7 @@ export function WorkspaceGanttClient({
     if (filters.status) params.append("s", filters.status);
     if (filters.assigneeId) params.append("a", filters.assigneeId);
     if (filters.tagId) params.append("t", filters.tagId);
+    if (filters.dueDateFilter) params.append("dt", filters.dueDateFilter);
     if (searchQuery) params.append("q", searchQuery);
 
     const fetchKey = `gantt-fetch-${params.toString()}`;
@@ -233,6 +234,7 @@ export function WorkspaceGanttClient({
       if (filters.status) params.append("s", JSON.stringify(filters.status));
       if (filters.assigneeId) params.append("a", JSON.stringify(filters.assigneeId));
       if (filters.tagId) params.append("t", JSON.stringify(filters.tagId));
+      if (filters.dueDateFilter) params.append("dt", filters.dueDateFilter);
       if (searchQuery) params.append("q", searchQuery);
       if (filters.startDate) params.set("da", new Date(filters.startDate).toISOString());
       if (filters.endDate) params.set("db", new Date(filters.endDate).toISOString());
@@ -344,6 +346,7 @@ export function WorkspaceGanttClient({
       if (filters.status) params.append("s", JSON.stringify(filters.status));
       if (filters.assigneeId) params.append("a", JSON.stringify(filters.assigneeId));
       if (filters.tagId) params.append("t", JSON.stringify(filters.tagId));
+      if (filters.dueDateFilter) params.append("dt", filters.dueDateFilter);
       if (searchQuery) params.append("q", searchQuery);
       if (filters.startDate) params.set("da", new Date(filters.startDate).toISOString());
       if (filters.endDate) params.set("db", new Date(filters.endDate).toISOString());

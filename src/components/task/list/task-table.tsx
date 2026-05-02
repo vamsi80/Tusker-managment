@@ -584,6 +584,8 @@ function TaskTable({
           params.set("da", new Date(filters.startDate).toISOString());
         if (filters.endDate)
           params.set("db", new Date(filters.endDate).toISOString());
+        if (filters.dueDateFilter)
+          params.set("dt", filters.dueDateFilter);
         if (sorts.length > 0) params.set("sorts", JSON.stringify(sorts));
         if (searchQuery) {
           params.set("q", searchQuery);

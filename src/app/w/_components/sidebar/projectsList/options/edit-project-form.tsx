@@ -323,7 +323,7 @@ export const EditProjectForm = ({
                                                                     );
                                                                     return (
                                                                         <Badge key={userId} variant="secondary" className="px-1 font-normal">
-                                                                            {m?.user?.surname}
+                                                                            {m?.surname}
                                                                         </Badge>
                                                                     );
                                                                 })
@@ -343,7 +343,7 @@ export const EditProjectForm = ({
                                                             {members
                                                                 ?.filter((m) => m.workspaceRole === "MANAGER")
                                                                 .map((member) => {
-                                                                    const userName = `${member.user?.surname}`;
+                                                                    const userName = `${member.surname}`;
                                                                     const isSelected = field.value?.includes(member.userId);
 
                                                                     return (

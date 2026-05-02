@@ -116,7 +116,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
                 triggerConfetti();
                 form.reset();
                 setOpen(false); // Close the dialog
-                
+
                 // Explicitly revalidate layout to update sidebar
                 revalidate(true);
 
@@ -338,7 +338,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
                                                     <Input
                                                         value={(() => {
                                                             const currentMember = members?.find((m) => m.userId === currentUserId);
-                                                            return currentMember?.user?.surname || "You";
+                                                            return currentMember?.surname || "You";
                                                         })()}
                                                         disabled
                                                         className="bg-muted cursor-not-allowed"
@@ -354,7 +354,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
                                                                             const m = members?.find((m) => m.userId === userId);
                                                                             return (
                                                                                 <Badge key={userId} variant="secondary" className="px-1 font-normal">
-                                                                                    {m?.user?.surname || "Unknown"}
+                                                                                    {m?.surname || "Unknown"}
                                                                                 </Badge>
                                                                             );
                                                                         })
@@ -372,7 +372,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
 
                                                                 <CommandGroup className="max-h-64 overflow-y-auto">
                                                                     {members?.filter(m => m.workspaceRole === "MANAGER").map((member) => {
-                                                                        const userName = `${member.user?.surname}`;
+                                                                        const userName = `${member.surname}`;
                                                                         const isSelected = field.value?.includes(member.userId);
 
                                                                         return (

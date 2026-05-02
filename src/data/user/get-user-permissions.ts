@@ -84,6 +84,22 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
 
         if (isWorkspaceAdmin) {
             // 🚀 Admin Override: Grant access to ALL projects in the workspace
+            // If lean, we skip fetching all project IDs because it's only needed for deep filtering
+            if (lean) {
+                return {
+                    isWorkspaceAdmin,
+                    canCreateProject,
+                    isProjectLead: true,
+                    isProjectManager: true,
+                    hasAccess: true,
+                    workspaceMemberId: workspaceMember.id,
+                    workspaceRole: workspaceMember.workspaceRole,
+                    userId: workspaceMember.userId,
+                    userSurname: workspaceMember.user?.surname || null,
+                    reportingManagerName,
+                } as any;
+            }
+
             const allProjects = await prisma.project.findMany({
                 where: { workspaceId },
                 select: { id: true }

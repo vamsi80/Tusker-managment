@@ -545,9 +545,7 @@ export class TasksService {
               tagId: toArray(opts.tagId),
               search: opts.search,
               dueAfter: opts.dueAfter,
-              dueBefore: opts.dueBefore
-                ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!)
-                : undefined,
+              dueBefore: opts.dueBefore,
               isAdmin,
               fullAccessProjectIds,
               restrictedProjectIds,
@@ -646,10 +644,8 @@ export class TasksService {
                 assigneeId: toArray(opts.assigneeId),
                 tagId: toArray(opts.tagId),
                 search: opts.search,
-                dueAfter: toUTCDateOnly(opts.dueAfter),
-                dueBefore: opts.dueBefore
-                  ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!)
-                  : undefined,
+                dueAfter: opts.dueAfter,
+                dueBefore: opts.dueBefore,
                 isAdmin,
                 fullAccessProjectIds,
                 restrictedProjectIds,
@@ -700,9 +696,7 @@ export class TasksService {
                 tagId: toArray(opts.tagId),
                 search: opts.search,
                 dueAfter: opts.dueAfter,
-                dueBefore: opts.dueBefore
-                  ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!)
-                  : undefined,
+                dueBefore: opts.dueBefore,
                 isAdmin,
                 fullAccessProjectIds,
                 restrictedProjectIds,
@@ -1010,10 +1004,8 @@ export class TasksService {
         assigneeId: toArray(opts.assigneeId),
         status: toArray(opts.status),
         tagId: toArray(opts.tagId),
-        dueAfter: toUTCDateOnly(opts.dueAfter),
-        dueBefore: opts.dueBefore
-          ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!)
-          : undefined,
+        dueAfter: opts.dueAfter,
+        dueBefore: opts.dueBefore,
         search: opts.search,
         isAdmin,
         fullAccessProjectIds,
@@ -1047,10 +1039,8 @@ export class TasksService {
           assigneeId: toArray(opts.assigneeId),
           status: toArray(opts.status),
           tagId: toArray(opts.tagId),
-          dueAfter: toUTCDateOnly(opts.dueAfter),
-          dueBefore: opts.dueBefore
-            ? addOneDayUTC(toUTCDateOnly(opts.dueBefore)!)
-            : undefined,
+          dueAfter: opts.dueAfter,
+          dueBefore: opts.dueBefore,
           isAdmin,
           fullAccessProjectIds,
           restrictedProjectIds,
