@@ -95,6 +95,7 @@ export class ProjectService {
         slug: project.slug,
         color: project.color,
         canManageMembers: isOwnerOrAdmin || isProjectManager || isCreator,
+        projectRole: userProjectMember?.projectRole as ProjectRole,
       };
     });
   }

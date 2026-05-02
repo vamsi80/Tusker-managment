@@ -132,6 +132,7 @@ export function ProjectGanttClient({
         if (filters.status) params.append("s", filters.status);
         if (filters.assigneeId) params.append("a", filters.assigneeId);
         if (filters.tagId) params.append("t", filters.tagId);
+        if (filters.dueDateFilter) params.append("dt", filters.dueDateFilter);
         if (filters.startDate) params.append("da", filters.startDate instanceof Date ? filters.startDate.toISOString() : filters.startDate);
         if (filters.endDate) params.append("db", filters.endDate instanceof Date ? filters.endDate.toISOString() : filters.endDate);
         if (searchQuery) params.append("q", searchQuery);

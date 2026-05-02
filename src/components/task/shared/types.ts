@@ -95,6 +95,8 @@ export interface SortConfig {
     direction: SortDirection;
 }
 
+export type DueDateFilter = "today" | "4days" | "week" | "month" | "delayed";
+
 /**
  * Task filters interface
  * Used for filtering tasks across all views
@@ -114,6 +116,9 @@ export interface TaskFilters {
 
     /** End date filter (to) */
     endDate?: Date | string;
+
+    /** Due date shortcut filter */
+    dueDateFilter?: DueDateFilter;
 
     /** Tag ID filter (alias for tag) */
     tagId?: string;
@@ -282,6 +287,7 @@ export function getFilterConfig(view: ViewType, level: ViewLevel): FilterConfig 
             showDateRangeFilter: true,
             showTagFilter: true,
             showSearch: true,
+            showParentTaskFilter: level === "project",
         },
         kanban: {
             showProjectFilter: level === "workspace",
@@ -299,6 +305,7 @@ export function getFilterConfig(view: ViewType, level: ViewLevel): FilterConfig 
             showDateRangeFilter: true, // Timeline focus
             showTagFilter: true,
             showSearch: true,
+            showParentTaskFilter: level === "project",
         },
     };
 
@@ -325,6 +332,9 @@ export function getActiveFilters(filters: TaskFilters): ActiveFilter[] {
     }
     if (filters.endDate) {
         active.push({ key: "endDate", label: "End Date", value: String(filters.endDate) });
+    }
+    if (filters.dueDateFilter) {
+        active.push({ key: "dueDateFilter", label: "Due", value: filters.dueDateFilter });
     }
     if (filters.tagId) {
         active.push({ key: "tagId", label: "Tag", value: filters.tagId });

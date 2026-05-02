@@ -99,7 +99,7 @@ export const ManageProjectMembersDialog = ({
                         return {
                             id: `temp-${userId}`,
                             userId,
-                            userName: wm.user?.name || wm.user?.surname || "Unknown",
+                            userName: wm.surname || "Unknown",
                             projectRole: "MEMBER" as ProjectRole,
                         };
                     })
@@ -207,7 +207,7 @@ export const ManageProjectMembersDialog = ({
                                             <CommandEmpty>No members found.</CommandEmpty>
                                             <CommandGroup className="max-h-64 overflow-auto">
                                                 {availableMembers.map((member) => {
-                                                    const userName = member.user?.surname || "Unknown";
+                                                    const userName = member.surname || "Unknown";
                                                     const isSelected = selectedMembersToAdd.includes(
                                                         member.userId
                                                     );

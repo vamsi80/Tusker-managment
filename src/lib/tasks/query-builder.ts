@@ -325,6 +325,7 @@ export function buildProjectRootWhere(
         search?: string;
         dueAfter?: Date;
         dueBefore?: Date;
+        dueDateType?: string;
     }
 ): Prisma.TaskWhereInput {
     const where: Prisma.TaskWhereInput = {
@@ -367,10 +368,11 @@ export function buildProjectRootWhere(
     }
 
     if (opts.dueAfter || opts.dueBefore) {
-        const dateFilter = {
+        let dateFilter: any = {
             ...(opts.dueAfter ? { gte: opts.dueAfter } : {}),
-            ...(opts.dueBefore ? { lt: opts.dueBefore } : {}),
+            ...(opts.dueBefore ? { lt: new Date(new Date(opts.dueBefore).getTime() + 24 * 60 * 60 * 1000) } : {}),
         };
+
         appendAnd(where, {
             OR: [
                 { dueDate: dateFilter },
@@ -422,6 +424,7 @@ export function buildSubtaskExpansionWhere(
         search?: string;
         dueAfter?: Date;
         dueBefore?: Date;
+        dueDateType?: string;
         cursor?: TaskCursor;
         userId?: string;
         isAdmin?: boolean;
@@ -468,10 +471,11 @@ export function buildSubtaskExpansionWhere(
 
     // Date filters
     if (opts.dueAfter || opts.dueBefore) {
-        where.dueDate = {
+        const dateFilter: any = {
             ...(opts.dueAfter ? { gte: opts.dueAfter } : {}),
-            ...(opts.dueBefore ? { lt: opts.dueBefore } : {}),
+            ...(opts.dueBefore ? { lt: new Date(new Date(opts.dueBefore).getTime() + 24 * 60 * 60 * 1000) } : {}),
         };
+        where.dueDate = dateFilter;
     }
 
     // Search filter
@@ -506,6 +510,7 @@ export interface WorkspaceFilterOpts {
     tagId?: string | string[];
     dueBefore?: Date;
     dueAfter?: Date;
+    dueDateType?: string;
     search?: string;
     cursor?: TaskCursor;
     isAdmin?: boolean;
@@ -614,10 +619,11 @@ export function buildWorkspaceFilterWhere(
     }
 
     if (opts.dueAfter || opts.dueBefore) {
-        where.dueDate = {
+        const dateFilter: any = {
             ...(opts.dueAfter ? { gte: opts.dueAfter } : {}),
-            ...(opts.dueBefore ? { lt: opts.dueBefore } : {}),
+            ...(opts.dueBefore ? { lt: new Date(new Date(opts.dueBefore).getTime() + 24 * 60 * 60 * 1000) } : {}),
         };
+        where.dueDate = dateFilter;
     }
 
     if (opts.search && opts.search.trim().length > 0) {

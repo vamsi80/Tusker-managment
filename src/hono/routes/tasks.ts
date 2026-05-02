@@ -78,6 +78,7 @@ tasks.get("/", async (c) => {
     search,
     dueAfter,
     dueBefore,
+    dueDateType: q.dt || q.dueDateType || undefined,
     cursor,
     limit,
     view_mode: view_mode as any,

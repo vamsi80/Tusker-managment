@@ -88,7 +88,16 @@ export function GlobalFilterToolbar({
     const config = getFilterConfig(view, level);
 
     const rawActiveFilters = getActiveFilters(filters);
-    const activeFilters = rawActiveFilters.map(filter => {
+    const activeFilters = rawActiveFilters.filter(filter => {
+        if (filter.key === 'projectId') return config.showProjectFilter;
+        if (filter.key === 'status') return config.showStatusFilter;
+        if (filter.key === 'assigneeId') return config.showAssigneeFilter;
+        if (filter.key === 'startDate' || filter.key === 'endDate' || filter.key === 'dueDateFilter') return config.showDateRangeFilter;
+        if (filter.key === 'tagId') return config.showTagFilter;
+        if (filter.key === 'parentTaskId') return !!config.showParentTaskFilter;
+        if (filter.key === 'search') return config.showSearch;
+        return true;
+    }).map(filter => {
         if (filter.key === 'assigneeId' && members) {
             const assignee = members.find(m => m.id === filter.value);
             if (assignee) {
@@ -146,6 +155,20 @@ export function GlobalFilterToolbar({
                 return filter;
             }
         }
+        
+        if (filter.key === 'dueDateFilter') {
+            const labels: Record<string, string> = {
+                today: "Today",
+                "4days": "In 4 days",
+                week: "In a week",
+                month: "In a month",
+                delayed: "Delayed"
+            };
+            return {
+                ...filter,
+                value: labels[filter.value] || filter.value
+            };
+        }
 
         return filter;
     });
@@ -158,12 +181,45 @@ export function GlobalFilterToolbar({
         });
     };
 
+    const applyPreset = (preset: 'today' | '4days' | 'week' | 'month' | 'delayed') => {
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        
+        let start: Date | undefined = todayStart;
+        let end: Date | undefined = undefined;
+
+        if (preset === 'today') {
+            end = new Date(todayStart);
+        } else if (preset === '4days') {
+            end = new Date(todayStart);
+            end.setDate(end.getDate() + 4);
+        } else if (preset === 'week') {
+            end = new Date(todayStart);
+            end.setDate(end.getDate() + 7);
+        } else if (preset === 'month') {
+            end = new Date(todayStart);
+            end.setMonth(end.getMonth() + 1);
+        } else if (preset === 'delayed') {
+            start = undefined;
+            end = new Date(todayStart);
+            end.setDate(end.getDate() - 1);
+        }
+
+        onFilterChange({
+            ...filters,
+            startDate: start?.toISOString(),
+            endDate: end?.toISOString(),
+            dueDateFilter: preset,
+        });
+    };
+
     const removeFilter = (key: keyof TaskFilters) => {
         if (key === 'startDate' || key === 'endDate') {
             onFilterChange({
                 ...filters,
                 startDate: undefined,
                 endDate: undefined,
+                dueDateFilter: undefined,
             });
         } else {
             handleFilterChange(key, undefined);
@@ -250,6 +306,7 @@ export function GlobalFilterToolbar({
                                                                 ...filters,
                                                                 startDate: undefined,
                                                                 endDate: undefined,
+                                                                dueDateFilter: undefined,
                                                             });
                                                         }}
                                                         className="h-auto p-0 text-xs text-blue-600 hover:text-blue-700 hover:bg-transparent"
@@ -286,23 +343,46 @@ export function GlobalFilterToolbar({
                                                     </Button>
                                                 </PopoverTrigger>
                                                 <PopoverContent className="w-auto p-0 border-none shadow-2xl overflow-hidden rounded-xl" align="start">
-                                                    <div className="bg-background">
-                                                        <ShadcnCalendar
-                                                            mode="range"
-                                                            selected={{
-                                                                from: filters.startDate ? new Date(filters.startDate) : undefined,
-                                                                to: filters.endDate ? new Date(filters.endDate) : undefined,
-                                                            }}
-                                                            onSelect={(range) => {
-                                                                onFilterChange({
-                                                                    ...filters,
-                                                                    startDate: range?.from ? range.from.toISOString() : undefined,
-                                                                    endDate: range?.to ? range.to.toISOString() : undefined,
-                                                                });
-                                                            }}
-                                                            numberOfMonths={1}
-                                                            initialFocus
-                                                        />
+                                                    <div className="flex bg-background">
+                                                        <div className="flex flex-col border-r p-2 gap-1 min-w-[120px]">
+                                                            <h5 className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">Presets</h5>
+                                                            {[
+                                                                { id: 'today', label: 'Today' },
+                                                                { id: '4days', label: 'In 4 Days' },
+                                                                { id: 'week', label: 'In a Week' },
+                                                                { id: 'month', label: 'In a Month' },
+                                                                { id: 'delayed', label: 'Delayed' },
+                                                            ].map((p) => (
+                                                                <Button
+                                                                    key={p.id}
+                                                                    variant={filters.dueDateFilter === p.id ? "secondary" : "ghost"}
+                                                                    size="sm"
+                                                                    className="justify-start h-8 text-xs font-medium px-2 py-1"
+                                                                    onClick={() => applyPreset(p.id as any)}
+                                                                >
+                                                                    {p.label}
+                                                                </Button>
+                                                            ))}
+                                                        </div>
+                                                        <div className="p-1">
+                                                            <ShadcnCalendar
+                                                                mode="range"
+                                                                selected={{
+                                                                    from: filters.startDate ? new Date(filters.startDate) : undefined,
+                                                                    to: filters.endDate ? new Date(filters.endDate) : undefined,
+                                                                }}
+                                                                onSelect={(range) => {
+                                                                    onFilterChange({
+                                                                        ...filters,
+                                                                        startDate: range?.from ? range.from.toISOString() : undefined,
+                                                                        endDate: range?.to ? range.to.toISOString() : undefined,
+                                                                        dueDateFilter: undefined, // Clear preset if manual range selected
+                                                                    });
+                                                                }}
+                                                                numberOfMonths={1}
+                                                                initialFocus
+                                                            />
+                                                        </div>
                                                     </div>
                                                 </PopoverContent>
                                             </Popover>

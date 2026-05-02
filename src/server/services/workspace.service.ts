@@ -960,7 +960,7 @@ export class WorkspaceService {
   /**
    * Get unread notifications count for a user in a workspace
    */
-  static async getUnreadNotificationsCount(workspaceId: string, userId: string, preFetchedPermissions?: any) {
+  static async getUnreadNotificationsCount(workspaceId: string, userId: string, preFetchedPermissions?: any, preFetchedProjectIds?: string[]) {
     const perms = preFetchedPermissions || await getWorkspacePermissions(workspaceId, userId, true);
     if (!perms.workspaceMemberId) return 0;
 
@@ -971,11 +971,11 @@ export class WorkspaceService {
     };
 
     if (!perms.isWorkspaceAdmin) {
-      // In lean mode, we might not have the project lists. 
-      // We fall back to direct task involvement if lists are missing.
-      const leadIds = (perms as any).leadProjectIds || [];
-      const managedIds = (perms as any).managedProjectIds || [];
-      const privilegedProjectIds = [...leadIds, ...managedIds];
+      // Use provided project IDs if available (faster), otherwise fall back to perms
+      const privilegedProjectIds = preFetchedProjectIds || [
+        ...((perms as any).leadProjectIds || []),
+        ...((perms as any).managedProjectIds || [])
+      ];
 
       where.task.OR = [
         { assignee: { workspaceMember: { userId } } },
@@ -1003,25 +1003,73 @@ export class WorkspaceService {
     const startTime = Date.now();
     console.log(`[WorkspaceLayoutData] Starting fetch for ${workspaceId} (User: ${userId})`);
 
-    // Step 1: Fetch permissions first to avoid redundant calls in other methods
-    const permissions = await getWorkspacePermissions(workspaceId, userId, false);
-    const step1Time = Date.now();
-    console.log(`[WorkspaceLayoutData] Permissions fetched in ${step1Time - startTime}ms`);
+    // Step 1: Fetch permissions and workspace admins concurrently
+    // Admins are needed both for permissions and as default leaders for all projects
+    const [permissions, workspaceAdmins] = await Promise.all([
+      getWorkspacePermissions(workspaceId, userId, false),
+      prisma.workspaceMember.findMany({
+        where: {
+          workspaceId,
+          workspaceRole: { in: ["OWNER", "ADMIN"] },
+        },
+        select: {
+          user: { select: { id: true, surname: true, image: true } },
+        },
+      }),
+    ]);
 
-    // Step 2: Fetch the rest concurrently using the pre-fetched permissions
+    const step1Time = Date.now();
+    console.log(`[WorkspaceLayoutData] Step 1 (Perms + Admins) completed in ${step1Time - startTime}ms`);
+
+    // Step 2: Fetch the rest concurrently using pre-fetched data
     const [
       workspacesResult,
       projects,
       tags,
-      projectManagers,
+      explicitProjectLeads,
       unreadNotificationsCount,
     ]: any[] = await Promise.all([
       this.getWorkspaces(userId),
       ProjectService.getWorkspaceProjects(workspaceId, userId),
       ProjectService.getWorkspaceTags(workspaceId),
-      ProjectService.getWorkspaceProjectLeaders(workspaceId),
+      prisma.projectMember.findMany({
+        where: {
+          project: { workspaceId },
+          projectRole: { in: ["PROJECT_MANAGER", "LEAD"] },
+          hasAccess: true,
+        },
+        select: {
+          projectId: true,
+          workspaceMember: {
+            select: {
+              user: { select: { id: true, surname: true, image: true } },
+            },
+          },
+        },
+      }),
       this.getUnreadNotificationsCount(workspaceId, userId, permissions),
     ]);
+
+    // Step 3: Efficiently construct the project leaders map
+    // This avoids fetching projects again and avoids duplicating admin objects for every project in the query
+    const pmMap: Record<string, Array<{ id: string; surname: string | null; image?: string | null }>> = {};
+    const adminUsers = workspaceAdmins.map(wa => wa.user).filter(Boolean) as any[];
+
+    // Initialize with workspace admins for all projects
+    projects.forEach((p: any) => {
+      pmMap[p.id] = [...adminUsers];
+    });
+
+    // Add explicit project managers/leads
+    explicitProjectLeads.forEach((pm: any) => {
+      const user = pm.workspaceMember?.user;
+      if (user && pmMap[pm.projectId]) {
+        // Add to the front of the list if not already present (admins already added)
+        if (!pmMap[pm.projectId].some((u) => u.id === user.id)) {
+          pmMap[pm.projectId].unshift(user);
+        }
+      }
+    });
 
     const endTime = Date.now();
     console.log(`[WorkspaceLayoutData] Total fetch completed in ${endTime - startTime}ms (Step 2: ${endTime - step1Time}ms)`);
@@ -1033,7 +1081,7 @@ export class WorkspaceService {
       workspaces: { workspaces: workspacesData, totalCount: workspacesData.length },
       projects: projects || [],
       tags: tags || [],
-      projectManagers: projectManagers || {},
+      projectManagers: pmMap,
       unreadNotificationsCount: unreadNotificationsCount || 0,
     };
   }
@@ -1074,66 +1122,7 @@ export class WorkspaceService {
     return projectAssignments;
   }
 
-  /**
-   * Get Project Leaders Map
-   * Returns a map of projectId -> { id, surname, image }[]
-   */
-  static async getWorkspaceProjectLeaders(workspaceId: string) {
-    const [projectMembers, workspaceAdmins, projects] = await Promise.all([
-      prisma.projectMember.findMany({
-        where: {
-          project: { workspaceId },
-          projectRole: { in: ["PROJECT_MANAGER", "LEAD"] },
-          hasAccess: true,
-        },
-        select: {
-          projectId: true,
-          workspaceMember: {
-            select: {
-              user: { select: { id: true, surname: true } },
-            },
-          },
-        },
-      }),
-      prisma.workspaceMember.findMany({
-        where: {
-          workspaceId,
-          workspaceRole: { in: ["OWNER", "ADMIN"] },
-        },
-        select: {
-          user: { select: { id: true, surname: true, image: true } },
-        },
-      }),
-      prisma.project.findMany({
-        where: { workspaceId },
-        select: { id: true },
-      }),
-    ]);
 
-    const pmMap: Record<
-      string,
-      Array<{ id: string; surname: string | null }>
-    > = {};
-
-    // 1. Initialize map with projects and workspace admins as default leaders
-    projects.forEach((p) => {
-      pmMap[p.id] = workspaceAdmins.map((wa) => wa.user).filter(Boolean) as any;
-    });
-
-    // 2. Add explicit project managers/leads (at the front if they exist)
-    projectMembers.forEach((pm) => {
-      const user = pm.workspaceMember?.user;
-      if (user) {
-        if (!pmMap[pm.projectId]) pmMap[pm.projectId] = [];
-        // Add to the front of the list, unless already there
-        if (!pmMap[pm.projectId].some((u) => u.id === user.id)) {
-          pmMap[pm.projectId].unshift(user as any);
-        }
-      }
-    });
-
-    return pmMap;
-  }
 
   /**
    * Verify an invitation and add the user to the workspace
