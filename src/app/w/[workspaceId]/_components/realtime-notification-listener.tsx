@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useTransition, useMemo } from "react";
+import { useEffect, useTransition } from "react";
 import { toast } from "sonner";
 import { useParams, useRouter } from "next/navigation";
 import { pubsub, EVENTS } from "@/lib/pubsub";
@@ -8,9 +8,13 @@ import { authClient } from "@/lib/auth-client";
 import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 
 export function RealtimeNotificationListener() {
+  // Version check for debugging stale code
+  if (typeof window !== "undefined") {
+    (window as any).__SURGICAL_VERSION__ = "V2";
+  }
+
   const router = useRouter();
   const params = useParams();
-  const [isPending, startTransition] = useTransition();
   const { data: session } = authClient.useSession();
   const workspaceId = params?.workspaceId as string;
   const projectId = params?.projectId as string;
@@ -35,71 +39,102 @@ export function RealtimeNotificationListener() {
      */
     const handleSurgicalSync = (data: any) => {
       const isActor = data.userId === session?.user?.id;
-      if (isActor) return;
 
       // Standardize action/type
       const action = data.action || (data.type === "CREATE" ? "TASK_CREATED" : data.type === "UPDATE" ? "TASK_UPDATED" : data.type === "DELETE" ? "TASK_DELETED" : "");
-      const payload = data.newData || data.payload || data.metadata?.payload || data.metadata;
+      const payload = data.newData || data.payload || data.metadata?.payload || data.metadata || data;
       const entityId = data.entityId || payload?.id;
 
-      if (!entityId || !payload) {
-        const structuralActions = ["TASK_CREATED", "SUBTASK_CREATED", "TASK_DELETED", "SUBTASK_DELETED", "MEMBER_INVITED", "MEMBER_REMOVED"];
-        if (structuralActions.includes(action)) {
-          startTransition(() => {
-            router.refresh();
-          });
-        }
-        return;
-      }
-
       // 🚀 SURGICAL SYNC LOGIC
-      const isStructural = action.includes("CREATED") || action.includes("DELETED");
+      const isStructural =
+        action.includes("CREATED") ||
+        action.includes("DELETED") ||
+        action.includes("LEAVE") ||
+        action.includes("CHECKED") ||
+        action === "MEMBER_INVITED" ||
+        action === "MEMBER_REMOVED";
+
       const isUpdate = action.includes("UPDATED") || action === "COMMENT_CREATED";
 
-      if (isStructural) {
-        if (action === "TASK_CREATED") {
-          addTask(payload, workspaceId, payload.projectId || projectId);
-          addTaskToProject(payload.projectId || projectId, payload);
-          addTaskToProject("__global_filter__", payload);
-        } else if (action === "SUBTASK_CREATED") {
-          if (payload.parentTaskId) {
-            addSubTask(payload.parentTaskId, payload);
-            addTaskToProject(payload.projectId || projectId, payload);
-            addTaskToProject("__global_filter__", payload);
+      if (isStructural || action === "MEMBER_UPDATED") {
+        console.log(`[REALTIME_SYNC][SURGICAL_V2] 🚀 Dispatching surgical event: ${action}`, { 
+          id: entityId, 
+          hasRecord: !!payload 
+        });
+
+        window.dispatchEvent(new CustomEvent("realtime-sync-refresh", {
+          detail: {
+            action,
+            record: payload, // Use the extracted payload
+            oldRecord: data.oldData,
+            raw: data
           }
-        } else if (action === "TASK_DELETED") {
-          removeTask(entityId, payload.status || "TO_DO", workspaceId, payload.projectId || projectId);
-        } else if (action === "SUBTASK_DELETED") {
-          if (payload.parentTaskId) {
-            removeSubTask(payload.parentTaskId, entityId);
-          }
-        }
+        }));
       }
 
-      if (isUpdate) {
-        // Handle Kanban column moves
-        if (payload.status && payload.previousStatus) {
-          moveTask(entityId, payload.previousStatus, payload.status, workspaceId, projectId);
+      // If we have data, perform surgical store updates for immediate responsiveness
+      if (entityId && payload) {
+        if (!isActor) {
+          console.log(`[REALTIME_SYNC] ⚡ Surgical update received: ${action} for entity ${entityId}`);
+        }
+        if (isStructural) {
+          if (action === "TASK_CREATED") {
+            addTask(payload, workspaceId, payload.projectId || projectId);
+            addTaskToProject(payload.projectId || projectId, payload);
+            addTaskToProject("__global_filter__", payload);
+          } else if (action === "SUBTASK_CREATED") {
+            if (payload.parentTaskId) {
+              addSubTask(payload.parentTaskId, payload);
+              addTaskToProject(payload.projectId || projectId, payload);
+              addTaskToProject("__global_filter__", payload);
+
+              const parent = useTaskCacheStore.getState().entities[payload.parentTaskId];
+              if (parent) {
+                upsertTasks([{
+                  id: payload.parentTaskId,
+                  updatedAt: new Date().toISOString(),
+                  _count: {
+                    ...(parent as any)._count,
+                    subTasks: ((parent as any)._count?.subTasks || 0) + 1
+                  },
+                  subtaskCount: (parent.subtaskCount || 0) + 1
+                }]);
+              }
+            }
+          } else if (action === "TASK_DELETED") {
+            removeTask(entityId, payload.status || "TO_DO", workspaceId, payload.projectId || projectId);
+          } else if (action === "SUBTASK_DELETED") {
+            if (payload.parentTaskId) {
+              removeSubTask(payload.parentTaskId, entityId);
+            }
+          }
         }
 
-        // General property update
-        upsertTasks([{
-          ...payload,
-          id: entityId,
-          updatedAt: new Date().toISOString(),
-        }]);
+        if (isUpdate) {
+          // Handle Kanban column moves
+          if (payload.status && payload.previousStatus) {
+            moveTask(entityId, payload.previousStatus, payload.status, workspaceId, projectId);
+          }
 
-        // Comment counter increment
-        if (action === "COMMENT_CREATED") {
-          const currentTask = useTaskCacheStore.getState().entities[entityId];
-          if (currentTask) {
-            upsertTasks([{
-              id: entityId,
-              _count: {
-                ...currentTask._count,
-                activities: (currentTask._count?.activities || 0) + 1,
-              },
-            }]);
+          // General property update
+          upsertTasks([{
+            ...payload,
+            id: entityId,
+            updatedAt: new Date().toISOString(),
+          }]);
+
+          // Comment counter increment
+          if (action === "COMMENT_CREATED") {
+            const currentTask = useTaskCacheStore.getState().entities[entityId];
+            if (currentTask) {
+              upsertTasks([{
+                id: entityId,
+                _count: {
+                  ...currentTask._count,
+                  activities: (currentTask._count?.activities || 0) + 1,
+                },
+              }]);
+            }
           }
         }
       }
@@ -107,8 +142,10 @@ export function RealtimeNotificationListener() {
 
     // 2. Subscribe to events
     const unsubscribeActivity = pubsub.subscribe(EVENTS.APP_ACTIVITY_LOG, (data: any) => {
+      const isActor = data.userId === session?.user?.id;
+
       // 1. Show Toast (Non-intrusive)
-      if (data.message && data.userId !== session?.user?.id) {
+      if (data.message && !isActor) {
         toast.info(data.message, {
           description: data.action.replace(/_/g, " ").toLowerCase(),
           duration: 5000,
@@ -127,8 +164,6 @@ export function RealtimeNotificationListener() {
     return () => {
       unsubscribeActivity();
       unsubscribeTeam();
-      // NOTE: We don't call pubsub.cleanup() here because it unsubscribes Pusher 
-      // which should survive project-level navigations as long as workspace is same.
     };
   }, [
     workspaceId,

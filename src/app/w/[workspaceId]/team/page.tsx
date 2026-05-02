@@ -1,4 +1,5 @@
 import { TeamManagementClient } from "./_components/team-management-client";
+
 export const dynamic = "force-dynamic";
 
 interface TeamPageProps {

@@ -52,7 +52,7 @@ interface AttendanceRecord {
 export function AttendanceTable({
     workspaceId,
     isWorkspaceAdmin,
-    workspaceRole
+    workspaceRole,
 }: {
     workspaceId: string;
     isWorkspaceAdmin: boolean;
@@ -82,6 +82,73 @@ export function AttendanceTable({
             status: undefined,
         };
     });
+
+    // Helper to flatten Prisma records into the shape the table expects
+    const flattenRecord = (r: any) => {
+        if (!r) return r;
+        // If it's already flat (has memberSurname), return it
+        if (r.memberSurname) return r;
+        // If it's nested (Prisma), flatten it
+        return {
+            ...r,
+            memberSurname: r.WorkspaceMember?.user?.surname || "User",
+            memberEmail: r.WorkspaceMember?.user?.email || "",
+            workspaceMember: r.WorkspaceMember
+        };
+    };
+
+    useEffect(() => {
+        const handler = (e: any) => {
+            const { action, record, oldRecord } = e.detail || {};
+            const flatRecord = flattenRecord(record);
+            
+            console.log(`[AttendanceTable][SURGICAL_V2] 🔄 Event received: ${action}`, { 
+                record: flatRecord, 
+                original: record 
+            });
+
+            // 1. Handle New Check-ins
+            if (flatRecord && action === "CHECKED_IN") {
+                setRecords(prev => {
+                    if (prev.some(r => r.id === flatRecord.id)) return prev;
+                    return [flatRecord, ...prev];
+                });
+                setTotalCount(prev => prev + 1);
+                return;
+            }
+
+            // 2. Handle Updates (Check-outs, etc.)
+            const updateActions = ["CHECKED_OUT", "ATTENDANCE_UPDATED"];
+            if (flatRecord && updateActions.includes(action)) {
+                setRecords(prev => prev.map(r => r.id === flatRecord.id ? flatRecord : r));
+                return;
+            }
+
+            // 3. Handle Deletions
+            if (action === "ATTENDANCE_DELETED") {
+                const deletedId = record?.id || oldRecord?.id;
+                if (deletedId) {
+                    setRecords(prev => prev.filter(r => r.id !== deletedId));
+                    setTotalCount(prev => Math.max(0, prev - 1));
+                    return;
+                }
+            }
+
+            // ⛔ BLOCK Fallback for all known attendance actions to prevent the fetch
+            if (action?.startsWith("ATTENDANCE_") || action?.startsWith("CHECKED_")) {
+                console.log(`[AttendanceTable] ✅ Surgical update complete for ${action}. No fetch required.`);
+                return;
+            }
+
+            // Fallback for unknown structural changes
+            if (action === "team_update" || !action) {
+                console.log(`[AttendanceTable] ⚠️ Unknown action, falling back to fetch...`);
+                fetchRecords(true, true); 
+            }
+        };
+        window.addEventListener("realtime-sync-refresh", handler);
+        return () => window.removeEventListener("realtime-sync-refresh", handler);
+    }, [workspaceId, pageIndex, pageSize, activeFilters]);
 
     // Local state for the filter popover
     const [tempFilters, setTempFilters] = useState(activeFilters);
@@ -116,16 +183,17 @@ export function AttendanceTable({
 
     const isValidDate = (d: any) => d instanceof Date && !isNaN(d.getTime());
 
-    const fetchRecords = useCallback(async () => {
+    const fetchRecords = useCallback(async (force = false, silent = false) => {
         try {
             console.log(`[AttendanceTable] Fetching records with filters:`, {
                 workspaceId,
                 from: activeFilters.from?.toISOString(),
                 to: activeFilters.to?.toISOString(),
                 memberId: activeFilters.memberId,
-                status: activeFilters.status
+                status: activeFilters.status,
+                silent
             });
-            setLoading(true);
+            if (!silent) setLoading(true);
             const params = new URLSearchParams();
             if (activeFilters.from && isValidDate(activeFilters.from)) params.append("startDate", activeFilters.from.toISOString());
             if (activeFilters.to && isValidDate(activeFilters.to)) params.append("endDate", activeFilters.to.toISOString());
@@ -152,27 +220,19 @@ export function AttendanceTable({
         } finally {
             setLoading(false);
         }
-    }, [activeFilters, pageIndex, pageSize, workspaceId]);
+    }, [
+        workspaceId, 
+        pageIndex, 
+        pageSize, 
+        activeFilters.from?.getTime(), 
+        activeFilters.to?.getTime(), 
+        activeFilters.memberId, 
+        activeFilters.status
+    ]);
 
     useEffect(() => {
         fetchRecords();
     }, [fetchRecords]);
-
-    // 🚀 REAL-TIME ATTENDANCE SYNC: Listen for check-ins/outs
-    useEffect(() => {
-        if (!workspaceId || !pusherClient) return;
-
-        const channel = pusherClient.subscribe(`workspace-${workspaceId}`);
-        channel.bind(ATTENDANCE_UPDATE, (data: any) => {
-            console.log(`[RealtimeAttendance] Update received:`, data.type);
-            // Refresh the table records to show the new check-in/out
-            fetchRecords();
-        });
-
-        return () => {
-            pusherClient?.unsubscribe(`workspace-${workspaceId}`);
-        };
-    }, [workspaceId, fetchRecords]);
 
     // Sync temp filters with active filters when popover opens
     useEffect(() => {

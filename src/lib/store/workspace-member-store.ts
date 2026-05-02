@@ -117,8 +117,8 @@ export function useRealtimeMemberSync(workspaceId: string, onUpdate?: () => void
     const { refreshMembers } = useWorkspaceMemberStore();
 
     useEffect(() => {
-        console.log(`[RealtimeMemberSync] Subscribing to workspace-${workspaceId}`);
-        const channel = pusherClient?.subscribe(`workspace-${workspaceId}`);
+        console.log(`[RealtimeMemberSync] Subscribing to team-${workspaceId}`);
+        const channel = pusherClient?.subscribe(`team-${workspaceId}`);
         channel?.bind(TEAM_UPDATE, () => {
             console.log(`[RealtimeMemberSync] TEAM_UPDATE received for ${workspaceId}`);
             useWorkspaceMemberStore.getState().refreshMembers(workspaceId);
@@ -126,8 +126,8 @@ export function useRealtimeMemberSync(workspaceId: string, onUpdate?: () => void
         });
 
         return () => {
-            console.log(`[RealtimeMemberSync] Unsubscribing from workspace-${workspaceId}`);
-            pusherClient?.unsubscribe(`workspace-${workspaceId}`);
+            console.log(`[RealtimeMemberSync] Unsubscribing from team-${workspaceId}`);
+            pusherClient?.unsubscribe(`team-${workspaceId}`);
         };
     }, [workspaceId]);
 }

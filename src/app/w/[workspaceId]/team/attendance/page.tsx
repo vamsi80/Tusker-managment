@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
 
 interface AttendancePageProps {
     params: Promise<{ workspaceId: string }>;
+    searchParams: Promise<{ page?: string; pageSize?: string; from?: string; to?: string; memberId?: string; status?: string }>;
 }
 
 async function AttendanceContent({ workspaceId }: { workspaceId: string }) {

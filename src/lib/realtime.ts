@@ -8,6 +8,7 @@ import { pusherServer } from "./pusher";
 export const TEAM_UPDATE = "team_update";
 export const PROJECT_UPDATE = "project_update";
 export const ATTENDANCE_UPDATE = "attendance_update";
+export const TASK_UPDATE = "task_update";
 
 export type TeamEventData = {
     workspaceId: string;
@@ -19,6 +20,14 @@ export type ProjectEventData = {
     workspaceId: string;
     type: "CREATE" | "UPDATE" | "DELETE";
     projectId?: string;
+    payload?: any;
+};
+
+export type TaskEventData = {
+    workspaceId: string;
+    type: "CREATE" | "UPDATE" | "DELETE";
+    taskId: string;
+    projectId: string;
     payload?: any;
 };
 
@@ -38,9 +47,9 @@ export const broadcastTeamUpdate = async (data: TeamEventData) => {
             return;
         }
         await pusherServer.trigger(
-            `workspace-${data.workspaceId}`, // Channel name
-            TEAM_UPDATE,                // Event name
-            data                        // Data payload
+            `team-${data.workspaceId}`, // Consistent with pubsub.ts
+            TEAM_UPDATE,
+            data
         );
     } catch (error) {
         console.error("[REALTIME_PUSHER_ERROR]", error);
@@ -57,12 +66,31 @@ export const broadcastProjectUpdate = async (data: ProjectEventData) => {
             return;
         }
         await pusherServer.trigger(
-            `workspace-${data.workspaceId}`, // Use the unified workspace channel
+            `team-${data.workspaceId}`,
             PROJECT_UPDATE,
             data
         );
     } catch (error) {
         console.error("[REALTIME_PROJECT_PUSHER_ERROR]", error);
+    }
+};
+
+/**
+ * Broadcast a task event to all connected clients via Pusher.
+ */
+export const broadcastTaskUpdate = async (data: TaskEventData) => {
+    try {
+        if (!pusherServer) {
+            console.warn("[REALTIME] Pusher not configured, skipping broadcast.");
+            return;
+        }
+        await pusherServer.trigger(
+            `team-${data.workspaceId}`,
+            TASK_UPDATE,
+            data
+        );
+    } catch (error) {
+        console.error("[REALTIME_TASK_PUSHER_ERROR]", error);
     }
 };
 
@@ -76,7 +104,7 @@ export const broadcastAttendanceUpdate = async (data: AttendanceEventData) => {
             return;
         }
         await pusherServer.trigger(
-            `workspace-${data.workspaceId}`,
+            `team-${data.workspaceId}`,
             ATTENDANCE_UPDATE,
             data
         );

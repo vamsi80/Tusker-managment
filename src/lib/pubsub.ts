@@ -35,22 +35,16 @@ class RealtimeService {
 
       // Bind to core activity log
       channel.bind("activity_log", (data: any) => {
-        // console.log("[REALTIME_SERVICE] Broadasting activity_log:", data.action);
         this.publish(EVENTS.APP_ACTIVITY_LOG, data);
       });
 
-      // Bind to team updates (refreshes/surgical sync)
-      channel.bind("team_update", (data: any) => {
-        this.publish(EVENTS.TEAM_UPDATE, data);
-      });
-
-      // Bind to specific entity updates (standardizing on TEAM_UPDATE logic)
-      channel.bind("task_update", (data: any) => {
-        this.publish(EVENTS.TEAM_UPDATE, data);
-      });
-
-      channel.bind("subtask_update", (data: any) => {
-        this.publish(EVENTS.TEAM_UPDATE, data);
+      // Bind to standard updates (refreshes/surgical sync)
+      const standardEvents = ["team_update", "task_update", "subtask_update", "project_update", "attendance_update"];
+      standardEvents.forEach(eventName => {
+        channel.bind(eventName, (data: any) => {
+          console.log(`[REALTIME_SERVICE] 📥 Received ${eventName}:`, data.action || data.type);
+          this.publish(EVENTS.TEAM_UPDATE, data);
+        });
       });
 
       // 2. Subscribe to PERSONAL channel for targeted toasts

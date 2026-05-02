@@ -113,72 +113,66 @@ export function ProjectTaskGroup({
     };
 
     const handleTaskUpdated = (taskId: string, updatedTask: { name: string; taskSlug: string }) => {
-        setLocalTasks(prev => {
-            const next = prev.map(t =>
-                t.id === taskId
-                    ? { ...t, name: updatedTask.name, taskSlug: updatedTask.taskSlug }
-                    : t
-            );
-            flushToParent(next);
-            return next;
-        });
+        const next = localTasks.map(t =>
+            t.id === taskId
+                ? { ...t, name: updatedTask.name, taskSlug: updatedTask.taskSlug }
+                : t
+        );
+        setLocalTasks(next);
+        flushToParent(next);
     };
 
     const handleSubTaskUpdated = (subTaskId: string, updatedData: any) => {
-        setLocalTasks(prev => {
-            const next = prev.map(t => ({
-                ...t,
-                subTasks: t.subTasks?.map(st => st.id === subTaskId ? { ...st, ...updatedData } : st)
-            }));
-            
-            // Also notify global store for cross-view consistency
-            useTaskCacheStore.getState().upsertTasks([updatedData]);
-            
-            // Bubble up if needed
-            if (onSubTaskUpdated) onSubTaskUpdated(subTaskId, updatedData);
-            
-            flushToParent(next);
-            return next;
-        });
+        const next = localTasks.map(t => ({
+            ...t,
+            subTasks: t.subTasks?.map(st => st.id === subTaskId ? { ...st, ...updatedData } : st)
+        }));
+        
+        // Also notify global store for cross-view consistency
+        useTaskCacheStore.getState().upsertTasks([updatedData]);
+        
+        // Bubble up if needed
+        if (onSubTaskUpdated) onSubTaskUpdated(subTaskId, updatedData);
+        
+        setLocalTasks(next);
+        flushToParent(next);
     };
 
     const handleSubTaskDeleted = (subTaskId: string) => {
-        setLocalTasks(prev => {
-            const next = prev.map(t => ({
-                ...t,
-                subTasks: t.subTasks?.filter(st => st.id !== subTaskId)
-            }));
-            flushToParent(next);
-            return next;
-        });
+        const next = localTasks.map(t => ({
+            ...t,
+            subTasks: t.subTasks?.filter(st => st.id !== subTaskId)
+        }));
+        setLocalTasks(next);
+        flushToParent(next);
     };
 
     const handleSubTaskCreated = (subTask: any, parentId: string, tempId?: string) => {
-        setLocalTasks(prev => {
-            const next = prev.map(t => {
-                if (t.id !== parentId) return t;
-                
-                const currentSubTasks = t.subTasks || [];
-                let newSubTasks;
-                if (tempId) {
-                    newSubTasks = currentSubTasks.map(st => st.id === tempId ? subTask : st);
-                } else {
-                    newSubTasks = [subTask, ...currentSubTasks];
-                }
-                
-                return { ...t, subTasks: newSubTasks };
-            });
-            flushToParent(next);
-            return next;
+        const next = localTasks.map(t => {
+            if (t.id !== parentId) return t;
+            
+            const currentSubTasks = t.subTasks || [];
+            let newSubTasks;
+            if (tempId) {
+                newSubTasks = currentSubTasks.map(st => st.id === tempId ? subTask : st);
+            } else {
+                newSubTasks = [subTask, ...currentSubTasks];
+            }
+            
+            return { ...t, subTasks: newSubTasks };
         });
+
+        // Also notify global store for cross-view consistency and hydration persistence
+        useTaskCacheStore.getState().addSubTaskToList(parentId, subTask, tempId);
+
+        setLocalTasks(next);
+        flushToParent(next);
     };
 
     const handleTaskDeleted = (taskId: string) => {
-        setLocalTasks(prev => {
-            const next = prev.filter(t => t.id !== taskId);
-            flushToParent(next);
-            return next;
-        });
+        const next = localTasks.filter(t => t.id !== taskId);
+        setLocalTasks(next);
+        flushToParent(next);
     };
 
     const handleTaskCreated = (task: TaskWithSubTasks, tempId?: string) => {

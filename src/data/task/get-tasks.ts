@@ -38,12 +38,33 @@ export interface GetTasksOptions {
     sorts?: Array<{ field: string; direction: "asc" | "desc" }>;
 }
 
+import { unstable_cache } from "next/cache";
+import { CacheTags } from "@/data/cache-tags";
+
 /**
  * Server-side entry point for fetching tasks.
  * Now wraps TasksService.listTasks to ensure consistent logic between Hono and RSC.
  */
 export async function getTasks(opts: GetTasksOptions, userId: string) {
-    return TasksService.listTasks(opts, userId);
+    const fetcher = async () => {
+        return TasksService.listTasks(opts, userId);
+    };
+
+    const tags = [
+        ...CacheTags.workspaceTasks(opts.workspaceId, userId),
+    ];
+    if (opts.projectId) {
+        tags.push(`project-tasks-${opts.projectId}`);
+    }
+
+    return unstable_cache(
+        fetcher,
+        [`getTasks-${userId}-${JSON.stringify(opts)}`],
+        {
+            tags,
+            revalidate: 3600 // 1 hour fallback
+        }
+    )();
 }
 
 /**
