@@ -30,6 +30,14 @@ export type WorkspaceData = {
   members?: any[];
 };
 
+export type SlimMember = {
+  id: string;
+  surname: string;
+  email?: string;
+  casualLeaveBalance?: number;
+  sickLeaveBalance?: number;
+};
+
 export type WorkspaceMemberRow = {
   id: string;
   workspaceId: string;

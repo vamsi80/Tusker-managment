@@ -59,6 +59,9 @@ export function AttendanceTable({
     const isPowerUser = isWorkspaceAdmin || workspaceRole === "MANAGER";
     const [loading, setLoading] = useState(true);
     const [records, setRecords] = useState<AttendanceRecord[]>([]);
+    const [totalCount, setTotalCount] = useState(0);
+    const [pageIndex, setPageIndex] = useState(0);
+    const [pageSize, setPageSize] = useState(10);
 
     // Main filters state (synced with API)
     const [activeFilters, setActiveFilters] = useState<{
@@ -84,30 +87,28 @@ export function AttendanceTable({
 
     const mounted = useMounted();
 
-    // Subscribe ONLY to the specific members we need to prevent redundant re-renders
-    // Using useShallow and EMPTY_ARRAY from store to avoid infinite re-render loops
-    const members = useWorkspaceMemberStore(
-        useShallow((state) => state.membersByWorkspace[workspaceId] || EMPTY_ARRAY)
+    // Use the slim members list for filters to ensure ALL members are available without performance burden
+    const slimMembers = useWorkspaceMemberStore(
+        useShallow((state) => state.slimMembersByWorkspace[workspaceId] || EMPTY_ARRAY)
     );
 
     // Subscribe to real-time updates for this workspace
     useRealtimeMemberSync(workspaceId);
 
-    // Fetch members for filter via global store (prevents redundant triggers)
+    // Fetch slim members for filter (robust & fast)
     useEffect(() => {
-        useWorkspaceMemberStore.getState().fetchMembers(workspaceId);
+        useWorkspaceMemberStore.getState().fetchSlimMembers(workspaceId);
     }, [workspaceId]);
 
-    // Memoize options to prevent unnecessary re-renders of filter components
+    // Memoize options from slim members
     const memberOptions = useMemo(() => {
-        if (!members.length) return [];
-        return members
-            .filter(m => m.workspaceRole !== "OWNER" && m.workspaceRole !== "ADMIN")
+        if (!slimMembers.length) return [];
+        return slimMembers
             .map(m => ({
                 label: `${m.surname || ""}`.trim(),
                 value: m.id
             }));
-    }, [members]);
+    }, [slimMembers]);
 
     const isValidDate = (d: any) => d instanceof Date && !isNaN(d.getTime());
 
@@ -126,6 +127,8 @@ export function AttendanceTable({
             if (activeFilters.to && isValidDate(activeFilters.to)) params.append("endDate", activeFilters.to.toISOString());
             if (activeFilters.memberId) params.append("memberId", activeFilters.memberId);
             if (activeFilters.status) params.append("status", activeFilters.status);
+            params.append("page", (pageIndex + 1).toString());
+            params.append("pageSize", pageSize.toString());
 
             const res = await fetch(`/api/v1/attendance?${params.toString()}`, {
                 headers: { "x-workspace-id": workspaceId }
@@ -134,6 +137,7 @@ export function AttendanceTable({
             if (data.success) {
                 console.log(`[AttendanceTable] Records successfully loaded: ${data.data?.length || 0} items`);
                 setRecords(data.data || []);
+                setTotalCount(data.totalCount || 0);
             } else {
                 console.error("[AttendanceTable] API returned error:", data.error);
                 toast.error(data.error || "Failed to load records");
@@ -148,7 +152,7 @@ export function AttendanceTable({
 
     useEffect(() => {
         fetchRecords();
-    }, [workspaceId, activeFilters]);
+    }, [workspaceId, activeFilters, pageIndex, pageSize]);
 
     // Sync temp filters with active filters when popover opens
     useEffect(() => {
@@ -386,8 +390,8 @@ export function AttendanceTable({
 
     const selectedMember = useMemo(() => {
         if (!activeFilters.memberId) return null;
-        return members.find((m: any) => m.id === activeFilters.memberId);
-    }, [members, activeFilters.memberId]);
+        return slimMembers.find((m: any) => m.id === activeFilters.memberId);
+    }, [slimMembers, activeFilters.memberId]);
 
     const handleApplyFilters = () => {
         setActiveFilters(tempFilters);
@@ -686,6 +690,14 @@ export function AttendanceTable({
                     searchKey="memberId"
                     searchPlaceholder="Search members..."
                     extraToolbarContent={extraToolbarContent}
+                    pageIndex={pageIndex}
+                    pageSize={pageSize}
+                    rowCount={totalCount}
+                    manualPagination={true}
+                    onPaginationChange={(p) => {
+                        setPageIndex(p.pageIndex);
+                        setPageSize(p.pageSize);
+                    }}
                 />
             </div>
 

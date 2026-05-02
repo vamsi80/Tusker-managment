@@ -6,7 +6,7 @@ import { LeavesTable } from "./_components/leaves-table";
 import { LeaveRequestDialog } from "../_components/leave-request-dialog";
 import { requireUser } from "@/lib/auth/require-user";
 import { AppError } from "@/lib/errors/app-error";
-import { getMemberBalances } from "@/data/attendance/get-leaves";
+import { AttendanceService } from "@/server/services/attendance.service";
 import { Card, CardContent } from "@/components/ui/card";
 import { Coffee, Thermometer, TrendingUp, Plus } from "lucide-react";
 
@@ -21,7 +21,7 @@ async function LeavesContent({ workspaceId }: { workspaceId: string }) {
 
     const [permissions, balances] = await Promise.all([
         getWorkspacePermissions(workspaceId, user.id),
-        getMemberBalances(workspaceId, user.id)
+        AttendanceService.getMemberBalances(workspaceId, user.id)
     ]);
 
     return (

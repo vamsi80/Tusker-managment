@@ -172,6 +172,7 @@ model WorkspaceMember {
   @@index([userId, createdAt(sort: Desc)])
   @@index([workspaceId, userId])
   @@index([workspaceRole])
+  @@index([userId])
 }
 
 model Project {
@@ -837,7 +838,7 @@ model leave_request {
   Workspace         Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   WorkspaceMember   WorkspaceMember  @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
 
-  @@index([workspaceId])
+  @@index([workspaceId, createdAt(sort: Desc)])
   @@index([workspaceMemberId])
 }
 

@@ -70,6 +70,8 @@ export function ProjectLayoutProvider({
             workspaceMemberId: null,
             workspaceRole: null,
             userId: null,
+            userSurname: null,
+            projectMember: null,
         },
         workspaceTags: workspaceData.tags || [],
         workspaceId,

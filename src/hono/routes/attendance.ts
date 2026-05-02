@@ -39,13 +39,18 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
             effectiveMemberId = workspaceMemberId;
         }
 
-        const records = await AttendanceService.getWorkspaceAttendance(
+        const page = parseInt(c.req.query("page") || "1");
+        const pageSize = parseInt(c.req.query("pageSize") || "10");
+
+        const result = await AttendanceService.getWorkspaceAttendance(
             workspaceId, 
             normalizedStart, 
             normalizedEnd, 
-            { memberId: effectiveMemberId, status }
+            { memberId: effectiveMemberId, status },
+            page,
+            pageSize
         );
-        return c.json({ success: true, data: records });
+        return c.json({ success: true, ...result });
     } catch (error: any) {
         return c.json({ success: false, error: error.message }, 400);
     }
@@ -187,35 +192,28 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
 
         try {
             const { workspaceRole, workspaceMemberId } = await getWorkspacePermissions(workspaceId, user.id);
+            const memberId = workspaceRole === "MEMBER" ? workspaceMemberId : undefined;
             
-            const where: any = { workspaceId };
-            if (workspaceRole === "MEMBER") {
-                where.workspaceMemberId = workspaceMemberId;
-            }
+            const page = parseInt(c.req.query("page") || "1");
+            const pageSize = parseInt(c.req.query("pageSize") || "10");
 
-            const leaves = await (prisma as any).leave_request.findMany({
-                where,
-                include: {
-                    WorkspaceMember: {
-                        select: {
-                            id: true,
-                            reportToId: true,
-                            casualLeaveBalance: true,
-                            sickLeaveBalance: true,
-                            user: {
-                                select: {
-                                    name: true,
-                                    surname: true,
-                                    email: true,
-                                    image: true,
-                                }
-                            }
-                        }
-                    }
-                },
-                orderBy: { createdAt: "desc" }
-            });
-            return c.json({ success: true, data: leaves });
+            const { leaves, totalCount } = await AttendanceService.getWorkspaceLeaves(workspaceId, memberId, page, pageSize);
+            return c.json({ success: true, data: leaves, totalCount });
+        } catch (error: any) {
+            return c.json({ success: false, error: error.message }, 400);
+        }
+    })
+
+    .get("/leave-balance", async (c) => {
+        const user = c.get("user");
+        const workspaceId = c.req.header("x-workspace-id");
+
+        if (!user || !user.id) return c.json({ success: false, error: "Unauthorized" }, 401);
+        if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
+
+        try {
+            const result = await AttendanceService.getMemberBalances(workspaceId, user.id);
+            return c.json({ success: true, data: result });
         } catch (error: any) {
             return c.json({ success: false, error: error.message }, 400);
         }

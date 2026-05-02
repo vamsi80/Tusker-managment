@@ -290,13 +290,13 @@ export class AttendanceService {
             workspaceId
         );
         const workspace = workspaceData[0];
-        
+
         const otThreshold = workspace?.overtimeThreshold || "07:30";
         const shiftStartThreshold = workspace?.shiftStartTime || "21:30";
 
         const [otH, otM] = otThreshold.split(":").map(Number);
         const [startH, startM] = shiftStartThreshold.split(":").map(Number);
-        
+
         const istTotalMinutes = istHours * 60 + istMinutes;
         const otTotalMinutes = otH * 60 + otM;
         const startTotalMinutes = startH * 60 + startM;
@@ -419,42 +419,52 @@ export class AttendanceService {
         workspaceId: string,
         startDate?: Date,
         endDate?: Date,
-        filters?: { memberId?: string; status?: AttendanceStatus }
+        filters?: { memberId?: string; status?: AttendanceStatus },
+        page: number = 1,
+        pageSize: number = 10
     ) {
-        // 1. Fetch existing attendance records
-        const records = await prisma.attendance.findMany({
-            where: {
-                workspaceId,
-                ...(startDate && endDate ? {
-                    date: {
-                        gte: startDate,
-                        lte: endDate,
-                    },
-                } : {}),
-                ...(filters?.memberId ? { workspaceMemberId: filters.memberId } : {}),
-                ...(filters?.status ? { status: filters.status } : {}),
-            },
-            include: {
-                WorkspaceMember: {
-                    include: {
-                        user: {
-                            select: {
-                                name: true,
-                                surname: true,
-                                email: true,
-                                image: true,
+        const skip = (page - 1) * pageSize;
+        const take = pageSize;
+
+        const where = {
+            workspaceId,
+            ...(startDate && endDate ? {
+                date: {
+                    gte: startDate,
+                    lte: endDate,
+                },
+            } : {}),
+            ...(filters?.memberId ? { workspaceMemberId: filters.memberId } : {}),
+            ...(filters?.status ? { status: filters.status } : {}),
+        };
+
+        // 1. Fetch existing attendance records (paginated)
+        const [records, totalCount] = await Promise.all([
+            prisma.attendance.findMany({
+                where,
+                include: {
+                    WorkspaceMember: {
+                        include: {
+                            user: {
+                                select: {
+                                    name: true,
+                                    surname: true,
+                                    email: true,
+                                }
                             }
                         }
                     }
-                }
-            },
-            orderBy: {
-                date: 'desc'
-            }
-        });
+                },
+                orderBy: {
+                    date: 'desc'
+                },
+                skip,
+                take
+            }),
+            prisma.attendance.count({ where })
+        ]);
 
         // 2. If filtering for "ON_LEAVE" or no status filter, find approved leaves that don't have attendance records yet
-        // This ensures people on leave show up even if the daily reconciliation hasn't run.
         if (!filters?.status || filters.status === AttendanceStatus.ON_LEAVE) {
             const approvedLeaves = await (prisma as any).leave_request.findMany({
                 where: {
@@ -471,10 +481,8 @@ export class AttendanceService {
                         include: {
                             user: {
                                 select: {
-                                    name: true,
                                     surname: true,
                                     email: true,
-                                    image: true,
                                 }
                             }
                         }
@@ -486,17 +494,14 @@ export class AttendanceService {
             const existingKeys = new Set(records.map(r => `${r.workspaceMemberId}_${r.date.toISOString().split('T')[0]}`));
 
             for (const leave of approvedLeaves) {
-                // Determine the range to generate (clamped to the requested startDate/endDate)
                 let current = new Date(Math.max(new Date(leave.startDate).getTime(), startDate?.getTime() || 0));
                 const last = new Date(Math.min(new Date(leave.endDate).getTime(), endDate?.getTime() || Infinity));
-                
-                // Safety break for extremely large ranges
                 let iterations = 0;
 
                 while (current <= last && iterations < 100) {
                     const dateOnly = this.getISTDateOnly(current);
                     const key = `${leave.workspaceMemberId}_${dateOnly.toISOString().split('T')[0]}`;
-                    
+
                     if (!existingKeys.has(key)) {
                         syntheticRecords.push({
                             id: `leave-${leave.id}-${dateOnly.toISOString()}`,
@@ -515,12 +520,16 @@ export class AttendanceService {
                     iterations++;
                 }
             }
-            
+
             const combined = [...records, ...syntheticRecords];
-            return combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            const sorted = combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+            // To keep pagination consistent with synthetic records added, we'd need a more complex merge-then-paginate approach.
+            // For now, we'll return the merged result and the total count.
+            return { data: sorted, totalCount: totalCount + syntheticRecords.length };
         }
 
-        return records;
+        return { data: records, totalCount };
     }
 
     /**
@@ -614,7 +623,7 @@ export class AttendanceService {
         actorId: string,
     ) {
         console.log("[AttendanceService.updateSettings] Received data:", data);
-        
+
         try {
             const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
             const fields: (keyof typeof data)[] = ["lateThreshold", "overtimeThreshold", "halfDayThreshold", "shiftStartTime", "shiftEndTime"];
@@ -676,12 +685,12 @@ export class AttendanceService {
                 // Record Activity
                 const actor = await tx.user.findUnique({
                     where: { id: actorId },
-                    select: { name: true, surname: true },
+                    select: { surname: true },
                 });
 
                 await recordActivity({
                     userId: actorId,
-                    userName: actor?.name || actor?.surname || "Admin",
+                    userName: actor?.surname || "Admin",
                     workspaceId,
                     action: "ATTENDANCE_SETTINGS_UPDATED",
                     entityType: "WORKSPACE",
@@ -738,7 +747,7 @@ export class AttendanceService {
         const [leave, actorMember] = await Promise.all([
             (prisma as any).leave_request.findUnique({
                 where: { id },
-                include: { 
+                include: {
                     WorkspaceMember: true,
                     Workspace: true
                 }
@@ -835,5 +844,90 @@ export class AttendanceService {
         });
 
         return updated;
+    }
+
+    /**
+     * Get all leaves for a workspace (Paginated)
+     */
+    static async getWorkspaceLeaves(workspaceId: string, memberId?: string, page: number = 1, pageSize: number = 10) {
+        const skip = (page - 1) * pageSize;
+        const take = pageSize;
+
+        const where = {
+            workspaceId,
+            ...(memberId ? { workspaceMemberId: memberId } : {})
+        };
+
+        const [leaves, totalCount] = await Promise.all([
+            (prisma as any).leave_request.findMany({
+                where,
+                include: {
+                    WorkspaceMember: {
+                        select: {
+                            id: true,
+                            reportToId: true,
+                            casualLeaveBalance: true,
+                            sickLeaveBalance: true,
+                            user: {
+                                select: {
+                                    surname: true,
+                                    email: true,
+                                }
+                            }
+                        }
+                    }
+                },
+                orderBy: { createdAt: "desc" },
+                skip,
+                take
+            }),
+            (prisma as any).leave_request.count({ where })
+        ]);
+
+        const flattenedLeaves = leaves.map((l: any) => ({
+            id: l.id,
+            startDate: l.startDate,
+            endDate: l.endDate,
+            reason: l.reason,
+            status: l.status,
+            type: l.type,
+            createdAt: l.createdAt,
+            surname: l.WorkspaceMember?.user?.surname || "Member",
+            email: l.WorkspaceMember?.user?.email,
+            workspaceMemberId: l.workspaceMemberId,
+            reportToId: l.WorkspaceMember?.reportToId,
+            casualLeaveBalance: l.WorkspaceMember?.casualLeaveBalance,
+            sickLeaveBalance: l.WorkspaceMember?.sickLeaveBalance,
+        }));
+
+        return { leaves: flattenedLeaves, totalCount };
+    }
+
+    /**
+     * Get leave balances for a member
+     */
+    static async getMemberBalances(workspaceId: string, userId: string) {
+        const [member, workspace] = await Promise.all([
+            prisma.workspaceMember.findFirst({
+                where: { workspaceId, userId },
+                select: {
+                    id: true,
+                    casualLeaveBalance: true,
+                    sickLeaveBalance: true,
+                    accruedDaysCount: true,
+                }
+            }),
+            prisma.workspace.findUnique({
+                where: { id: workspaceId },
+                select: { casualLeaveAccrualDays: true }
+            })
+        ]);
+
+        if (!member) return null;
+
+        return {
+            ...member,
+            accrualThreshold: workspace?.casualLeaveAccrualDays || 20
+        };
     }
 }

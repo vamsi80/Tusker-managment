@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { WorkspaceMemberRow } from '@/types/workspace';
+import { WorkspaceMemberRow, SlimMember } from '@/types/workspace';
 import { apiClient } from '@/lib/api-client';
 import { useEffect } from 'react';
 import { pusherClient } from '@/lib/pusher';
@@ -7,14 +7,16 @@ import { TEAM_UPDATE } from '@/lib/realtime';
 
 interface WorkspaceMemberState {
     membersByWorkspace: Record<string, WorkspaceMemberRow[]>;
+    slimMembersByWorkspace: Record<string, SlimMember[]>;
     isLoading: Record<string, boolean>;
     fetchMembers: (workspaceId: string, force?: boolean) => Promise<void>;
+    fetchSlimMembers: (workspaceId: string) => Promise<void>;
     refreshMembers: (workspaceId: string) => Promise<void>;
     clearMembers: (workspaceId: string) => void;
     setMembers: (workspaceId: string, members: WorkspaceMemberRow[]) => void;
 }
 
-export const EMPTY_ARRAY: WorkspaceMemberRow[] = [];
+export const EMPTY_ARRAY: any[] = [];
 
 /**
  * Global store for workspace members to prevent redundant API calls across different pages/components.
@@ -22,7 +24,28 @@ export const EMPTY_ARRAY: WorkspaceMemberRow[] = [];
  */
 export const useWorkspaceMemberStore = create<WorkspaceMemberState>((set, get) => ({
     membersByWorkspace: {},
+    slimMembersByWorkspace: {},
     isLoading: {},
+
+    fetchSlimMembers: async (workspaceId: string) => {
+        if (!workspaceId) return;
+        const { slimMembersByWorkspace } = get();
+        
+        // Don't refetch if we already have them
+        if (slimMembersByWorkspace[workspaceId]) return;
+
+        try {
+            const members = await apiClient.workspaces.getMembersSlim(workspaceId);
+            set((state) => ({
+                slimMembersByWorkspace: {
+                    ...state.slimMembersByWorkspace,
+                    [workspaceId]: members
+                }
+            }));
+        } catch (error) {
+            console.error("Failed to fetch slim members:", error);
+        }
+    },
 
     fetchMembers: async (workspaceId: string, force = false) => {
         if (!workspaceId) {
@@ -43,8 +66,8 @@ export const useWorkspaceMemberStore = create<WorkspaceMemberState>((set, get) =
         }));
 
         try {
-            // Fetch all members for filters (high limit to avoid pagination issues in store)
-            const res = await apiClient.workspaces.getMembers(workspaceId, 1, 1000);
+            // Fetch members with pagination (10 per page as requested)
+            const res = await apiClient.workspaces.getMembers(workspaceId, 1, 10);
             if (res && res.workspaceMembers) {
                 set((state) => ({
                     membersByWorkspace: {

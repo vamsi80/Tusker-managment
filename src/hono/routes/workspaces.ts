@@ -103,9 +103,15 @@ workspaces.delete("/:workspaceId", async (c) => {
 });
 
 /**
- * GET /api/v1/workspaces/:workspaceId/members
- * Get workspace members
+ * GET /api/v1/workspaces/:workspaceId/members/slim
+ * Get all members with minimal fields (for filters)
  */
+workspaces.get("/:workspaceId/members/slim", async (c) => {
+  const workspaceId = c.req.param("workspaceId");
+  const members = await WorkspaceService.getMembersSlim(workspaceId);
+  return c.json({ success: true, data: members });
+});
+
 workspaces.get("/:workspaceId/members", async (c) => {
   const workspaceId = c.req.param("workspaceId");
   console.log(`[HONO_WORKSPACES] GET /members workspaceId: ${workspaceId}`);
