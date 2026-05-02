@@ -211,7 +211,8 @@ function TaskTable({
               ...t, 
               ...entityFromCache, 
               updatedAt: entityFromCache.updatedAt ? new Date(entityFromCache.updatedAt) : (t as any).updatedAt,
-              _count: { ...(t as any)._count, ...entityFromCache._count } 
+              _count: { ...(t as any)._count, ...entityFromCache._count },
+              subtaskCount: Math.max((t as any).subtaskCount || 0, (entityFromCache as any).subtaskCount || 0)
             } as any;
           } else {
             // Server is newer or equal (API/RSC is the source of truth)
@@ -219,7 +220,8 @@ function TaskTable({
             currentT = {
               ...entityFromCache,
               ...t,
-              _count: { ...entityFromCache._count, ...(t as any)._count }
+              _count: { ...entityFromCache._count, ...(t as any)._count },
+              subtaskCount: Math.max((t as any).subtaskCount || 0, (entityFromCache as any).subtaskCount || 0)
             } as any;
           }
         }
@@ -231,6 +233,7 @@ function TaskTable({
           // 🚀 REAL-TIME OPTIMIZATION: On sync, prioritize the global cache as it's the direct recipient of Pusher events
           const cached = getCache(currentT.id);
           if (cached && (isRealtime || currentT.subTasks === undefined)) {
+            // Force update from cache if it's a real-time event or if subtasks are missing
             return {
               ...currentT,
               subTasks: cached.subTasks,
@@ -254,15 +257,18 @@ function TaskTable({
       });
 
       // 🔬 DEBUG: Log what was resolved vs what couldn't be hydrated
-      const noSubtaskIds = result
+      const noSubtaskNames = result
         .filter((t) => t.isParent && t.subTasks === undefined)
-        .map((t) => t.name);
-      const hasSubtaskIds = result
+        .map((t) => `${t.name}(${t.id.substring(0,4)})`);
+      const hasSubtaskNames = result
         .filter((t) => t.isParent && t.subTasks !== undefined)
         .map((t) => `${t.name}(${(t.subTasks as any)?.length}st)`);
-      console.log(
-        `[Hydrate${debugLabel ? ` @ ${debugLabel}` : ""}] MemoryCacheSize=${memoryMap.size} | Loaded=${hasSubtaskIds.join(", ")} | Missing=${noSubtaskIds.join(", ")}`,
-      );
+      
+      if (debugLabel === "realtime-sync" || noSubtaskNames.length > 0) {
+        console.log(
+          `[Hydrate${debugLabel ? ` @ ${debugLabel}` : ""}] MemoryCacheSize=${memoryMap.size} | Loaded=${hasSubtaskNames.join(", ")} | Missing=${noSubtaskNames.join(", ")}`,
+        );
+      }
 
       return result;
     },

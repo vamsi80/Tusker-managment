@@ -27,10 +27,71 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
     const [limit, setLimit] = useState(10);
     const [totalCount, setTotalCount] = useState(0);
 
-    const fetchData = useCallback(async (targetPage: number, targetLimit: number) => {
+    // Helper to flatten Prisma records into the shape the UI expects
+    const flattenRecord = (r: any) => {
+        if (!r) return r;
+        // Ensure user object exists or is flattened correctly
+        return r;
+    };
+
+    useEffect(() => {
+        const handler = (e: any) => {
+            const { action, record, oldRecord } = e.detail || {};
+            const flatRecord = flattenRecord(record);
+            
+            console.log(`[TeamManagementClient][SURGICAL_V2] 🔄 Event received: ${action}`, { 
+                record: flatRecord, 
+                original: record 
+            });
+
+            // 1. Handle New Members
+            if (flatRecord && action === "MEMBER_INVITED") {
+                setMembers(prev => {
+                    if (prev.some(m => m.id === flatRecord.id)) return prev;
+                    return [flatRecord, ...prev];
+                });
+                setTotalCount(prev => prev + 1);
+                return;
+            }
+
+            // 2. Handle Updates
+            if (flatRecord && action === "MEMBER_UPDATED") {
+                setMembers(prev => prev.map(m => m.id === flatRecord.id ? flatRecord : m));
+                return;
+            }
+
+            // 3. Handle Deletions
+            if (action === "MEMBER_REMOVED") {
+                const memberId = record?.id || oldRecord?.id;
+                if (memberId) {
+                    setMembers(prev => prev.filter(m => m.id !== memberId));
+                    setTotalCount(prev => Math.max(0, prev - 1));
+                    return;
+                }
+            }
+
+            // ⛔ BLOCK Fallback for all known member actions to prevent the fetch
+            if (action?.startsWith("MEMBER_")) {
+                console.log(`[TeamManagementClient] ✅ Surgical update complete for ${action}. No fetch required.`);
+                return;
+            }
+
+            // Fallback for unknown structural changes
+            if (action === "team_update" || !action) {
+                console.log(`[TeamManagementClient] ⚠️ Unknown action, falling back to fetch...`);
+                fetchData(page, limit, true, true); 
+            }
+        };
+        window.addEventListener("realtime-sync-refresh", handler);
+        return () => window.removeEventListener("realtime-sync-refresh", handler);
+    }, [workspaceId, page, limit]);
+
+    const fetchData = useCallback(async (targetPage: number, targetLimit: number, force = false, silent = false) => {
         try {
-            if (members.length === 0) setIsLoadingMembers(true);
-            setIsRefreshing(true);
+            if (!silent) {
+                if (members.length === 0) setIsLoadingMembers(true);
+                setIsRefreshing(true);
+            }
             const membersRes: WorkspaceMembersResult = await workspacesClient.getMembers(workspaceId, targetPage, targetLimit);
             setMembers(membersRes.workspaceMembers || []);
             setTotalCount(membersRes.totalCount || 0);
@@ -40,15 +101,12 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
             setIsLoadingMembers(false);
             setIsRefreshing(false);
         }
-    }, [workspaceId, members.length]);
+    }, [workspaceId]);
 
     // Fetch data when page or limit changes
     useEffect(() => {
         fetchData(page, limit);
     }, [fetchData, page, limit]);
-
-    // Use unified real-time sync hook to refresh both global store and local table
-    useRealtimeMemberSync(workspaceId, () => fetchData(page, limit));
 
     if (isLoadingMembers) {
         return <AppLoader />;

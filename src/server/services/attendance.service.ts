@@ -753,7 +753,7 @@ export class AttendanceService {
     }) {
         const member = await this.getWorkspaceMember(workspaceId, userId);
 
-        return await (prisma as any).leave_request.create({
+        const leaveRequest = await (prisma as any).leave_request.create({
             data: {
                 workspaceId,
                 workspaceMemberId: member.id,
@@ -764,6 +764,21 @@ export class AttendanceService {
                 status: "PENDING",
             },
         });
+
+        // Record Activity for real-time sync
+        const user = await prisma.user.findUnique({ where: { id: userId }, select: { surname: true } });
+        await recordActivity({
+            userId,
+            userName: user?.surname || "Member",
+            workspaceId,
+            action: "LEAVE_REQUESTED",
+            entityType: "LEAVE_REQUEST",
+            entityId: leaveRequest.id,
+            newData: leaveRequest,
+            broadcastEvent: "team_update",
+        });
+
+        return leaveRequest;
     }
 
     /**

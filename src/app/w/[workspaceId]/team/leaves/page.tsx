@@ -21,7 +21,7 @@ async function LeavesContent({ workspaceId }: { workspaceId: string }) {
 
     const [permissions, balances] = await Promise.all([
         getWorkspacePermissions(workspaceId, user.id),
-        AttendanceService.getMemberBalances(workspaceId, user.id)
+        AttendanceService.getMemberBalances(workspaceId, user.id),
     ]);
 
     return (

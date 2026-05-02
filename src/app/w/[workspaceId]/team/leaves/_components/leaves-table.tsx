@@ -57,9 +57,77 @@ export function LeavesTable({
     const [pageSize, setPageSize] = useState(10);
     const mounted = useMounted();
 
-    const fetchRequests = async () => {
+    // Helper to flatten Prisma records into the shape the table expects
+    const flattenRecord = (r: any) => {
+        if (!r) return r;
+        // If it's already flat (has surname), return it
+        if (r.surname) return r;
+        // If it's nested (Prisma), flatten it
+        return {
+            ...r,
+            surname: r.WorkspaceMember?.user?.surname || "User",
+            email: r.WorkspaceMember?.user?.email || "",
+            casualLeaveBalance: r.WorkspaceMember?.casualLeaveBalance || 0,
+            sickLeaveBalance: r.WorkspaceMember?.sickLeaveBalance || 0,
+        };
+    };
+
+    useEffect(() => {
+        const handler = (e: any) => {
+            const { action, record, oldRecord } = e.detail || {};
+            const flatRecord = flattenRecord(record);
+            
+            console.log(`[LeavesTable][SURGICAL_V2] 🔄 Event received: ${action}`, { 
+                record: flatRecord, 
+                original: record 
+            });
+
+            // 1. Handle New Requests
+            if (flatRecord && action === "LEAVE_REQUESTED") {
+                setRequests(prev => {
+                    if (prev.some(r => r.id === flatRecord.id)) return prev;
+                    return [flatRecord, ...prev];
+                });
+                setTotalCount(prev => prev + 1);
+                return;
+            }
+
+            // 2. Handle Updates
+            const updateActions = ["LEAVE_UPDATED", "LEAVE_STATUS_CHANGED", "LEAVE_APPROVED", "LEAVE_REJECTED"];
+            if (flatRecord && updateActions.includes(action)) {
+                setRequests(prev => prev.map(r => r.id === flatRecord.id ? flatRecord : r));
+                return;
+            }
+
+            // 3. Handle Deletions
+            if (action === "LEAVE_DELETED") {
+                const deletedId = record?.id || oldRecord?.id;
+                if (deletedId) {
+                    setRequests(prev => prev.filter(r => r.id !== deletedId));
+                    setTotalCount(prev => Math.max(0, prev - 1));
+                    return;
+                }
+            }
+
+            // ⛔ BLOCK Fallback for all known leave actions to prevent the 10-item fetch
+            if (action?.startsWith("LEAVE_")) {
+                console.log(`[LeavesTable] ✅ Surgical update complete for ${action}. No fetch required.`);
+                return;
+            }
+
+            // Fallback only for generic/unknown changes
+            if (action === "team_update" || !action) {
+                console.log(`[LeavesTable] ⚠️ Unknown action, falling back to fetch...`);
+                fetchRequests(true, true); 
+            }
+        };
+        window.addEventListener("realtime-sync-refresh", handler);
+        return () => window.removeEventListener("realtime-sync-refresh", handler);
+    }, [workspaceId, pageIndex, pageSize]);
+
+    const fetchRequests = async (force = false, silent = false) => {
         try {
-            setLoading(true);
+            if (!silent) setLoading(true);
             const res = await fetch(`/api/v1/attendance/leave-request?page=${pageIndex + 1}&pageSize=${pageSize}`, {
                 headers: { "x-workspace-id": workspaceId }
             });
@@ -92,7 +160,7 @@ export function LeavesTable({
             const data = await res.json();
             if (data.success) {
                 toast.success(`Leave request ${status.toLowerCase()} successfully`);
-                fetchRequests();
+                // Rely on real-time event for UI update
             } else {
                 toast.error(data.error || `Failed to ${status.toLowerCase()} leave request`);
             }

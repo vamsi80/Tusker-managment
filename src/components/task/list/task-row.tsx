@@ -67,7 +67,7 @@ export const TaskRow = memo(function TaskRow({
         setTask(initialTask);
     }, [initialTask]);
 
-    const subtaskCount = task.subtaskCount || (task as any)._count?.subTasks || 0;
+    const subtaskCount = Math.max(task.subtaskCount || 0, (task as any)._count?.subTasks || 0);
     const rowRef = useRef<HTMLTableRowElement>(null);
 
     useEffect(() => {
@@ -160,7 +160,7 @@ export const TaskRow = memo(function TaskRow({
 
             return {
                 ...prev,
-                subTasks: [...currentSubTasks, newSubTask],
+                subTasks: [newSubTask, ...currentSubTasks],
                 subtaskCount: (prev.subtaskCount || 0) + 1,
                 completedSubtaskCount:
                     newSubTask.status === "COMPLETED"

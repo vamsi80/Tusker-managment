@@ -424,6 +424,7 @@ export const useTaskCacheStore = create<TaskCacheState>()(
       addSubTaskToList: (parentTaskId, subTask, replaceId) => {
         const state = get();
         const currentList = state.subTaskLists[parentTaskId];
+        console.log(`[CACHE] ➕ Adding subtask ${subTask.id.substring(0,4)} to parent ${parentTaskId.substring(0,4)}${replaceId ? ` (replacing ${replaceId.substring(0,4)})` : ""}`);
 
         // 1. Always upsert the subtask entity itself
         get().upsertTasks([subTask]);
@@ -539,8 +540,10 @@ export const useTaskCacheStore = create<TaskCacheState>()(
         const list = get().subTaskLists[taskId];
         if (!list) return undefined;
         const entities = get().entities;
+        const subTasks = list.ids.map((id) => entities[id]).filter(Boolean);
+        console.log(`[CACHE] 📦 Retreived ${subTasks.length} subtasks for ${taskId.substring(0,4)}`);
         return {
-          subTasks: list.ids.map((id) => entities[id]).filter(Boolean),
+          subTasks,
           hasMore: list.hasMore,
           page: list.page,
           nextCursor: list.nextCursor,

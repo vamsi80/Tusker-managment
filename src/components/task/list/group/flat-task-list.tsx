@@ -9,6 +9,7 @@ import { InlineTaskForm } from "../inline-task-form";
 import type { TaskWithSubTasks } from "../../shared/types";
 import type { ColumnVisibility } from "../../shared/column-visibility";
 import type { UserPermissionsType } from "@/data/user/get-user-permissions";
+import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 
 interface FlatTaskListProps {
     initialTasks: TaskWithSubTasks[];
@@ -86,38 +87,75 @@ export function FlatTaskList({
     }, [onUpdateParentTaskLists]);
 
     const handleTaskUpdated = useCallback((taskId: string, updatedTask: { name: string; taskSlug: string }) => {
-        setLocalTasks(prev => {
-            const next = prev.map(t =>
-                t.id === taskId
-                    ? { ...t, name: updatedTask.name, taskSlug: updatedTask.taskSlug }
-                    : t
-            );
-            flushToParent(next);
-            return next;
-        });
-    }, [flushToParent]);
+        const next = localTasks.map(t =>
+            t.id === taskId
+                ? { ...t, name: updatedTask.name, taskSlug: updatedTask.taskSlug }
+                : t
+        );
+        setLocalTasks(next);
+        flushToParent(next);
+    }, [localTasks, flushToParent]);
 
     const handleTaskDeleted = useCallback((taskId: string) => {
-        setLocalTasks(prev => {
-            const next = prev.filter(t => t.id !== taskId);
-            flushToParent(next);
-            return next;
-        });
-    }, [flushToParent]);
+        const next = localTasks.filter(t => t.id !== taskId);
+        setLocalTasks(next);
+        flushToParent(next);
+    }, [localTasks, flushToParent]);
 
     const handleTaskCreated = useCallback((task: TaskWithSubTasks, tempId?: string) => {
-        setLocalTasks(prev => {
-            let next;
-            if (tempId) {
-                next = prev.map(t => t.id === tempId ? task : t);
-            } else {
-                next = [task, ...prev];
-            }
-            flushToParent(next);
-            return next;
-        });
+        let next;
+        if (tempId) {
+            next = localTasks.map(t => t.id === tempId ? task : t);
+        } else {
+            next = [task, ...localTasks];
+        }
+        setLocalTasks(next);
+        flushToParent(next);
         setActiveInlineProjectId(null);
-    }, [flushToParent, setActiveInlineProjectId]);
+    }, [localTasks, flushToParent, setActiveInlineProjectId]);
+
+    const handleSubTaskUpdated = useCallback((subTaskId: string, updatedData: any) => {
+        const next = localTasks.map(t => ({
+            ...t,
+            subTasks: t.subTasks?.map(st => st.id === subTaskId ? { ...st, ...updatedData } : st)
+        }));
+
+        // Also notify global store for cross-view consistency
+        useTaskCacheStore.getState().upsertTasks([updatedData]);
+        setLocalTasks(next);
+        flushToParent(next);
+    }, [localTasks, flushToParent]);
+
+    const handleSubTaskDeleted = useCallback((subTaskId: string) => {
+        const next = localTasks.map(t => ({
+            ...t,
+            subTasks: t.subTasks?.filter(st => st.id !== subTaskId)
+        }));
+        setLocalTasks(next);
+        flushToParent(next);
+    }, [localTasks, flushToParent]);
+
+    const handleSubTaskCreated = useCallback((subTask: any, parentId: string, tempId?: string) => {
+        const next = localTasks.map(t => {
+            if (t.id !== parentId) return t;
+
+            const currentSubTasks = t.subTasks || [];
+            let newSubTasks;
+            if (tempId) {
+                newSubTasks = currentSubTasks.map(st => st.id === tempId ? subTask : st);
+            } else {
+                newSubTasks = [subTask, ...currentSubTasks];
+            }
+
+            return { ...t, subTasks: newSubTasks };
+        });
+
+        // Also notify global store for cross-view consistency and hydration persistence
+        useTaskCacheStore.getState().addSubTaskToList(parentId, subTask, tempId);
+        
+        setLocalTasks(next);
+        flushToParent(next);
+    }, [localTasks, flushToParent]);
 
     return (
         <>
@@ -162,6 +200,9 @@ export function FlatTaskList({
                         isLoadingMore={!!loadingMoreSubTasks[task.id]}
                         onLoadMore={() => onLoadMoreSubTasks(task.id)}
                         onSubTaskClick={handleSubTaskClick}
+                        onSubTaskUpdated={handleSubTaskUpdated}
+                        onSubTaskDeleted={handleSubTaskDeleted}
+                        onSubTaskCreated={(st, tempId) => handleSubTaskCreated(st, task.id, tempId)}
                         permissions={permissions}
                         userId={userId}
                         isWorkspaceAdmin={isWorkspaceAdmin}
