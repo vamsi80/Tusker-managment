@@ -72,4 +72,72 @@ export const projectsClient = {
   getReviewers: async (projectId: string): Promise<any[]> => {
     return apiFetch<any>(`/projects/${projectId}/reviewers`);
   },
+
+  /**
+   * Create a new project
+   */
+  create: async (values: any): Promise<any> => {
+    return apiFetch<any>("/projects", {
+      method: "POST",
+      body: JSON.stringify(values),
+    });
+  },
+
+  /**
+   * Update a project
+   */
+  update: async (projectId: string, values: any): Promise<any> => {
+    return apiFetch<any>(`/projects/${projectId}`, {
+      method: "PATCH",
+      body: JSON.stringify(values),
+    });
+  },
+
+  /**
+   * Delete a project
+   */
+  delete: async (projectId: string): Promise<any> => {
+    return apiFetch<any>(`/projects/${projectId}`, {
+      method: "DELETE",
+    });
+  },
+
+  /**
+   * Add members to a project
+   */
+  addMembers: async (projectId: string, memberUserIds: string[]): Promise<any> => {
+    return apiFetch<any>(`/projects/${projectId}/members`, {
+      method: "POST",
+      body: JSON.stringify({ memberUserIds }),
+    });
+  },
+
+  /**
+   * Remove members from a project
+   */
+  removeMembers: async (projectId: string, memberUserIds: string[]): Promise<any> => {
+    return apiFetch<any>(`/projects/${projectId}/members`, {
+      method: "DELETE",
+      body: JSON.stringify({ memberUserIds }),
+    });
+  },
+
+  /**
+   * Update member role
+   */
+  updateMemberRole: async (projectId: string, userId: string, role: string): Promise<any> => {
+    return apiFetch<any>(`/projects/${projectId}/members/${userId}/role`, {
+      method: "PATCH",
+      body: JSON.stringify({ role }),
+    });
+  },
+
+  /**
+   * Toggle member access
+   */
+  toggleMemberAccess: async (projectId: string, userId: string): Promise<any> => {
+    return apiFetch<any>(`/projects/${projectId}/members/${userId}/toggle-access`, {
+      method: "POST",
+    });
+  },
 };

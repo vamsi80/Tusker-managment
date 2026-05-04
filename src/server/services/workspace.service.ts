@@ -11,7 +11,7 @@ import { inviteUserSchema, InviteUserSchemaType } from "@/lib/zodSchemas";
 import { auth } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
-import { ProjectService } from "./project.service";
+import { ProjectService } from "./project";
 
 export class WorkspaceService {
   /**

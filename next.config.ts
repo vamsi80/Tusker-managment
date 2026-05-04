@@ -61,6 +61,7 @@ const nextConfig: NextConfig = {
       protocol: "https",
     }]
   },
+  transpilePackages: ['better-auth'],
 };
 
 export default withBundleAnalyzer(nextConfig);

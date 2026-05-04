@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { ProjectService } from "@/server/services/project.service";
+import { ProjectService } from "@/server/services/project";
 import { ProjectDashboard } from "./_components/dashboard/project-dashboard";
 import { ReloadableView } from "./_components/shared/reloadable-view";
 import { ProjectTaskListView } from "./_components/list/project-task-list-view";

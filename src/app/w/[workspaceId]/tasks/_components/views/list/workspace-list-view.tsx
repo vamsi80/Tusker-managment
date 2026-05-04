@@ -1,6 +1,6 @@
 import dynamic from "next/dynamic";
 import { getWorkspaceTags } from "@/data/tag/get-tags";
-import { ProjectService } from "@/server/services/project.service";
+import { ProjectService } from "@/server/services/project";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { requireUser } from "@/lib/auth/require-user";
 import { getTasks } from "@/data/task/get-tasks";

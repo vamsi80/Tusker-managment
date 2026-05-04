@@ -1,9 +1,100 @@
 import { Hono } from "hono";
 import { HonoVariables } from "../types";
 import { AppError } from "@/lib/errors/app-error";
-import { ProjectService } from "@/server/services/project.service";
+import { ProjectService } from "@/server/services/project";
+import { zValidator } from "@hono/zod-validator";
+import { projectSchema, editProjectSchema } from "@/lib/zodSchemas";
 
 const projects = new Hono<{ Variables: HonoVariables }>();
+
+/**
+ * POST /api/v1/projects
+ * Create a new project.
+ */
+projects.post("/", zValidator("json", projectSchema), async (c) => {
+  const user = c.get("user");
+  const values = c.req.valid("json");
+  
+  const data = await ProjectService.createProject(user.id, values);
+  return c.json({ success: true, data });
+});
+
+/**
+ * PATCH /api/v1/projects/:projectId
+ * Update a project.
+ */
+projects.patch("/:projectId", zValidator("json", editProjectSchema), async (c) => {
+  const user = c.get("user");
+  const values = c.req.valid("json");
+  
+  await ProjectService.updateProject(user.id, values);
+  return c.json({ success: true, message: "Project updated successfully" });
+});
+
+/**
+ * DELETE /api/v1/projects/:projectId
+ * Delete a project.
+ */
+projects.delete("/:projectId", async (c) => {
+  const user = c.get("user");
+  const projectId = c.req.param("projectId");
+  
+  await ProjectService.deleteProject(user.id, projectId);
+  return c.json({ success: true, message: "Project deleted successfully" });
+});
+
+/**
+ * POST /api/v1/projects/:projectId/members
+ * Add members to a project.
+ */
+projects.post("/:projectId/members", async (c) => {
+  const user = c.get("user");
+  const projectId = c.req.param("projectId");
+  const { memberUserIds } = await c.req.json();
+  
+  await ProjectService.addMembers(user.id, projectId, memberUserIds);
+  return c.json({ success: true, message: "Members added successfully" });
+});
+
+/**
+ * DELETE /api/v1/projects/:projectId/members
+ * Remove members from a project.
+ */
+projects.delete("/:projectId/members", async (c) => {
+  const user = c.get("user");
+  const projectId = c.req.param("projectId");
+  const { memberUserIds } = await c.req.json();
+  
+  await ProjectService.removeMembers(user.id, projectId, memberUserIds);
+  return c.json({ success: true, message: "Members removed successfully" });
+});
+
+/**
+ * PATCH /api/v1/projects/:projectId/members/:userId/role
+ * Update member role.
+ */
+projects.patch("/:projectId/members/:userId/role", async (c) => {
+  const user = c.get("user");
+  const projectId = c.req.param("projectId");
+  const targetUserId = c.req.param("userId");
+  const { role } = await c.req.json();
+  
+  await ProjectService.updateMemberRole(user.id, projectId, targetUserId, role);
+  return c.json({ success: true, message: "Member role updated successfully" });
+});
+
+/**
+ * POST /api/v1/projects/:projectId/members/:userId/toggle-access
+ * Toggle member access.
+ */
+projects.post("/:projectId/members/:userId/toggle-access", async (c) => {
+  const user = c.get("user");
+  const projectId = c.req.param("projectId");
+  const targetUserId = c.req.param("userId");
+  
+  await ProjectService.toggleMemberAccess(user.id, projectId, targetUserId);
+  return c.json({ success: true, message: "Member access toggled successfully" });
+});
 
 /**
  * GET /api/v1/projects

@@ -42,7 +42,7 @@ import {
     CommandItem,
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import { editProject } from "@/actions/project/update-project";
+import { projectsClient } from "@/lib/api-client/projects";
 import { type WorkspaceMembersResult } from "@/types/workspace";
 
 
@@ -102,7 +102,7 @@ export const EditProjectForm = ({
     function onSubmit(data: EditProjectSchemaType) {
         if (pending) return;
         startTransition(async () => {
-            const { data: result, error } = await tryCatch(editProject(data));
+            const { data: result, error } = await tryCatch(projectsClient.update(project.id, data));
 
             if (error) {
                 toast.error(error.message);
@@ -110,12 +110,12 @@ export const EditProjectForm = ({
                 return;
             }
 
-            if (result.status === "success") {
-                toast.success(result.message);
+            if (result.success) {
+                toast.success(result.message || "Project updated successfully!");
                 onOpenChange(false);
                 router.refresh();
             } else {
-                toast.error(result.message);
+                toast.error(result.message || "Failed to update project");
             }
         });
     }

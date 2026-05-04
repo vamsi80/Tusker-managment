@@ -1,6 +1,6 @@
 import { getTasks } from "@/data/task/get-tasks";
 import { getWorkspaceTags } from "@/data/tag/get-tags";
-import { ProjectService } from "@/server/services/project.service";
+import { ProjectService } from "@/server/services/project";
 import dynamic from "next/dynamic";
 import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";

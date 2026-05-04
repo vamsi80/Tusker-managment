@@ -1,7 +1,7 @@
 import { ProjectNav } from "./_components/layout/project-nav";
 import { TaskPageWrapper } from "@/app/w/[workspaceId]/_components/shared/task-page-wrapper";
 import { ProjectLayoutProvider } from "./_components/project-layout-context";
-import { ProjectService } from "@/server/services/project.service";
+import { ProjectService } from "@/server/services/project";
 import { requireUser } from "@/lib/auth/require-user";
 import ProjectNotFound from "./_components/layout/project-not-found";
 
