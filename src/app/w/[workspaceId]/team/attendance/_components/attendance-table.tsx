@@ -71,16 +71,11 @@ export function AttendanceTable({
         to: Date | undefined;
         memberId: string | undefined;
         status: string | undefined;
-    }>(() => {
-        const today = new Date();
-        const start = new Date(today.setHours(0, 0, 0, 0));
-        const end = new Date(today.setHours(23, 59, 59, 999));
-        return {
-            from: start,
-            to: end,
-            memberId: undefined,
-            status: undefined,
-        };
+    }>({
+        from: undefined,
+        to: undefined,
+        memberId: undefined,
+        status: undefined,
     });
 
     // Helper to flatten Prisma records into the shape the table expects
@@ -202,7 +197,8 @@ export function AttendanceTable({
             params.append("page", (pageIndex + 1).toString());
             params.append("pageSize", pageSize.toString());
 
-            const res = await fetch(`/api/v1/attendance?${params.toString()}`, {
+            const url = `/api/v1/attendance?${params.toString()}${force ? '&refresh=true' : ''}`;
+            const res = await fetch(url, {
                 headers: { "x-workspace-id": workspaceId }
             });
             const data = await res.json();

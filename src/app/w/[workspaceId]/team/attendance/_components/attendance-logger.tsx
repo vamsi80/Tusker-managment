@@ -65,44 +65,71 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
                     else if (error.code === error.TIMEOUT) msg = "Location request timed out.";
                     reject(new Error(msg));
                 },
-                { 
-                    enableHighAccuracy: true, 
-                    timeout: 8000, 
-                    maximumAge: 60000 // Allow 1-minute old location for instant speed
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0 // Force fresh location, no caching (harder to spoof)
                 }
             );
         });
     };
 
+    const [networkLocation, setNetworkLocation] = useState<{ city: string; region: string; country: string } | null>(null);
     const [address, setAddress] = useState<string | null>(null);
     const [accuracy, setAccuracy] = useState<number | null>(null);
+    const [isVerifying, setIsVerifying] = useState(false);
 
     const handleAttendanceAction = async (action: "check-in" | "check-out") => {
         setIsLoading(true);
+        setIsVerifying(true);
         setLocationError(null);
         setAddress(null);
+        setNetworkLocation(null);
 
         try {
-            // 1. Get location (optimized for speed)
+            // 1. Get GPS location (Optimized & Fresh)
             const result = await requestLocation();
             setLocation({ lat: result.lat, lng: result.lng });
             setAccuracy(result.accuracy);
 
-            // 2. Start geocoding but DON'T block the attendance record
-            let detectedAddress = "Location captured";
-            
-            // We'll try to get the address in parallel to speed things up
+            // 2. Parallel check: Get Network (IP-based) location to detect Fake GPS
+            // This is harder to spoof than GPS as it's tied to the ISP
+            const networkPromise = fetch('https://ipapi.co/json/')
+                .then(res => res.json())
+                .catch(() => null);
+
+            // 3. Geocoding for the GPS coordinates
             const geocodePromise = fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${result.lat}&lon=${result.lng}&zoom=18&addressdetails=1`)
                 .then(res => res.json())
                 .catch(() => null);
 
-            // 3. Immediately save attendance (don't wait for full address if it's slow)
-            // We wait a tiny bit (max 1s) for the address, otherwise we just use coordinates
-            const geoData = await Promise.race([
-                geocodePromise,
-                new Promise(resolve => setTimeout(() => resolve(null), 1500))
+            const [netData, geoData] = await Promise.all([
+                networkPromise,
+                Promise.race([
+                    geocodePromise,
+                    new Promise(resolve => setTimeout(() => resolve(null), 1500))
+                ])
             ]) as any;
 
+            setIsVerifying(false);
+
+            if (netData?.city) {
+                setNetworkLocation({
+                    city: netData.city,
+                    region: netData.region,
+                    country: netData.country_name
+                });
+
+                // Simple check: If GPS says one city but IP says another (gross spoofing check)
+                // Note: IP location can be inaccurate (e.g., nearby city), so we check for gross mismatch
+                if (geoData?.address?.city && netData.city &&
+                    geoData.address.city.toLowerCase() !== netData.city.toLowerCase() &&
+                    !geoData.address.city.toLowerCase().includes(netData.city.toLowerCase())) {
+                    console.warn("GPS/Network mismatch detected. Possible location spoofing.");
+                }
+            }
+
+            let detectedAddress = "Location captured";
             if (geoData?.display_name) {
                 detectedAddress = geoData.display_name;
                 setAddress(detectedAddress);
@@ -118,6 +145,7 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
                     latitude: result.lat,
                     longitude: result.lng,
                     address: detectedAddress,
+                    networkLocation: netData ? `${netData.city}, ${netData.region}, ${netData.country_name}` : null,
                 }),
             });
 
@@ -139,6 +167,7 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
             toast.error(error.message || `Failed to ${action}`);
         } finally {
             setIsLoading(false);
+            setIsVerifying(false);
         }
     };
 
@@ -165,17 +194,39 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
                     </div>
                 )}
 
-                {address && (
-                    <div className="bg-primary/5 border border-primary/10 rounded-lg p-3 space-y-1">
-                        <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Detected Location</span>
-                            {accuracy && (
-                                <span className="text-[10px] text-muted-foreground">
-                                    Accuracy: {accuracy.toFixed(1)}m
-                                </span>
-                            )}
-                        </div>
-                        <p className="text-xs font-medium leading-relaxed">{address}</p>
+                {isVerifying && (
+                    <div className="bg-blue-500/5 border border-blue-500/10 rounded-lg p-3 flex items-center gap-2 animate-pulse">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-blue-500">Verifying actual location...</span>
+                    </div>
+                )}
+
+                {(address || networkLocation) && (
+                    <div className="bg-primary/5 border border-primary/10 rounded-lg p-3 space-y-2">
+                        {address && (
+                            <div className="space-y-1">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-primary">GPS Location</span>
+                                    {accuracy && (
+                                        <span className="text-[10px] text-muted-foreground">
+                                            Accuracy: {accuracy.toFixed(1)}m
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-xs font-medium leading-relaxed">{address}</p>
+                            </div>
+                        )}
+
+                        {networkLocation && (
+                            <div className="pt-2 border-t border-primary/10 space-y-1">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600">Network (ISP) Location</span>
+                                </div>
+                                <p className="text-[10px] font-medium text-muted-foreground">
+                                    {networkLocation.city}, {networkLocation.region}, {networkLocation.country}
+                                </p>
+                            </div>
+                        )}
                     </div>
                 )}
 

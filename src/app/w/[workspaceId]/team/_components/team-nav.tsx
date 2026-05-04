@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { useTransition } from "react";
 import { Users, Clock, Settings2, Calendar } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { LeaveRequestDialog } from "./leave-request-dialog";
 import { InviteUserForm } from "./create-user";
+import { useSafeNavigation } from "@/hooks/use-safe-navigation";
 
 interface TeamNavProps {
     workspaceId: string;
@@ -16,8 +16,8 @@ interface TeamNavProps {
 
 export function TeamNav({ workspaceId, isAdmin }: TeamNavProps) {
     const pathname = usePathname();
-    const router = useRouter();
-    const [isPending, startTransition] = useTransition();
+    const router = useSafeNavigation();
+    const isPending = router.isNavigating;
     const baseUrl = `/w/${workspaceId}/team`;
 
     const navTabs = [
@@ -50,9 +50,7 @@ export function TeamNav({ workspaceId, isAdmin }: TeamNavProps) {
     const handleNavChange = (href: string, e: React.MouseEvent) => {
         e.preventDefault();
         if (isPending || pathname === href) return;
-        startTransition(() => {
-            router.push(href);
-        });
+        router.push(href);
     };
 
     return (

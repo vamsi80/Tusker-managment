@@ -1,5 +1,5 @@
 import prisma from "@/lib/db";
-import { AttendanceService } from "../services/attendance.service";
+import { AttendanceService } from "../services/attendance/attendance.service";
 
 export type CronJobHandler = () => Promise<{ success: boolean; message: string; data?: any }>;
 
