@@ -4,7 +4,6 @@ import slugify from "slugify";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useTransition, useEffect, useState } from "react";
-import { useMounted } from "@/hooks/use-mounted";
 import { useRouter } from "next/navigation";
 import { tryCatch } from "@/hooks/try-catch";
 import { Input } from "@/components/ui/input";
@@ -16,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { type WorkspaceMembersResult } from "@/types/workspace";
 
-import { createProject } from "@/actions/project/create-project";
+import { projectsClient } from "@/lib/api-client/projects";
 import { projectSchema, ProjectSchemaType } from "@/lib/zodSchemas";
 import { Badge } from "@/components/ui/badge";
 import { Check, Loader2, Plus, PlusIcon, SparkleIcon } from "lucide-react";
@@ -102,7 +101,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
     function onSubmit(data: ProjectSchemaType) {
         if (pending) return;
         startTransition(async () => {
-            const { data: result, error } = await tryCatch(createProject(data));
+            const { data: result, error } = await tryCatch(projectsClient.create(data));
             console.log("results", { result });
 
             if (error) {
@@ -111,8 +110,8 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
                 return;
             }
 
-            if (result.status === "success") {
-                toast.success(result.message);
+            if (result.success) {
+                toast.success(result.message || "Project created successfully!");
                 triggerConfetti();
                 form.reset();
                 setOpen(false); // Close the dialog
@@ -372,7 +371,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
 
                                                                 <CommandGroup className="max-h-64 overflow-y-auto">
                                                                     {members?.filter(m => m.workspaceRole === "MANAGER").map((member) => {
-                                                                        const userName = `${member.surname}`;
+                                                                        const userName = member.surname || "Unknown Member";
                                                                         const isSelected = field.value?.includes(member.userId);
 
                                                                         return (

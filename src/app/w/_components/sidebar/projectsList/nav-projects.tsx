@@ -12,7 +12,6 @@ import { projectsClient } from "@/lib/api-client/projects";
 import { EditProjectForm } from "./options/edit-project-form";
 import type { WorkspaceMembersResult } from "@/types/workspace";
 import { useSafeNavigation } from "@/hooks/use-safe-navigation";
-import { deleteProject } from "@/actions/project/delete-project";
 import { ManageProjectMembersDialog } from "./options/manage-members-dialog";
 import { CreateProjectForm } from "@/app/w/[workspaceId]/p/_components/create-project-form";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
@@ -155,16 +154,16 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
 
     setIsDeleting(true);
     try {
-      const result = await deleteProject(projectToDelete.id);
+      const result = await projectsClient.delete(projectToDelete.id);
 
-      if (result.status === "success") {
-        toast.success(result.message);
+      if (result.success) {
+        toast.success(result.message || "Project deleted successfully!");
         setDeleteDialogOpen(false);
         setProjectToDelete(null);
         revalidate(true);
         router.push(`/w/${workspaceId}`);
       } else {
-        toast.error(result.message);
+        toast.error(result.message || "Failed to delete project");
       }
     } catch (error) {
       toast.error("Failed to delete project");

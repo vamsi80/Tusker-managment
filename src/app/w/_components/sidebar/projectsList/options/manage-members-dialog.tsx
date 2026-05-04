@@ -22,7 +22,7 @@ import { Check, Loader2, Plus, Trash2, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { tryCatch } from "@/hooks/try-catch";
-import { addProjectMembers, removeProjectMembers, updateProjectMemberRole } from "@/actions/project/manage-members";
+import { projectsClient } from "@/lib/api-client/projects";
 import type { ProjectRole } from "@/generated/prisma/client";
 import { type WorkspaceMembersResult } from "@/types/workspace";
 
@@ -80,7 +80,7 @@ export const ManageProjectMembersDialog = ({
 
         startTransition(async () => {
             const { data: result, error } = await tryCatch(
-                addProjectMembers(projectId, selectedMembersToAdd)
+                projectsClient.addMembers(projectId, selectedMembersToAdd)
             );
 
             if (error) {
@@ -89,8 +89,8 @@ export const ManageProjectMembersDialog = ({
                 return;
             }
 
-            if (result.status === "success") {
-                toast.success(result.message);
+            if (result.success) {
+                toast.success(result.message || "Members added successfully!");
                 // Optimistic update — add newly selected members immediately
                 const newEntries: ProjectMember[] = selectedMembersToAdd
                     .map((userId) => {
@@ -108,7 +108,7 @@ export const ManageProjectMembersDialog = ({
                 setSelectedMembersToAdd([]);
                 router.refresh();
             } else {
-                toast.error(result.message);
+                toast.error(result.message || "Failed to add members");
             }
         });
     };
@@ -116,7 +116,7 @@ export const ManageProjectMembersDialog = ({
     const handleRemoveMember = (memberUserId: string) => {
         startTransition(async () => {
             const { data: result, error } = await tryCatch(
-                removeProjectMembers(projectId, [memberUserId])
+                projectsClient.removeMembers(projectId, [memberUserId])
             );
 
             if (error) {
@@ -125,13 +125,13 @@ export const ManageProjectMembersDialog = ({
                 return;
             }
 
-            if (result.status === "success") {
-                toast.success(result.message);
+            if (result.success) {
+                toast.success(result.message || "Member removed successfully!");
                 // Optimistic update — remove immediately from local list
                 setMembers((prev) => prev.filter((m) => m.userId !== memberUserId));
                 router.refresh();
             } else {
-                toast.error(result.message);
+                toast.error(result.message || "Failed to remove member");
             }
         });
     };
@@ -139,7 +139,7 @@ export const ManageProjectMembersDialog = ({
     const handleUpdateRole = (memberUserId: string, newRole: ProjectRole) => {
         startTransition(async () => {
             const { data: result, error } = await tryCatch(
-                updateProjectMemberRole(projectId, memberUserId, newRole)
+                projectsClient.updateMemberRole(projectId, memberUserId, newRole)
             );
 
             if (error) {
@@ -148,8 +148,8 @@ export const ManageProjectMembersDialog = ({
                 return;
             }
 
-            if (result.status === "success") {
-                toast.success(result.message);
+            if (result.success) {
+                toast.success(result.message || "Role updated successfully!");
                 // Optimistic update — update role immediately in local list
                 setMembers((prev) =>
                     prev.map((m) =>
@@ -158,7 +158,7 @@ export const ManageProjectMembersDialog = ({
                 );
                 router.refresh();
             } else {
-                toast.error(result.message);
+                toast.error(result.message || "Failed to update role");
             }
         });
     };
