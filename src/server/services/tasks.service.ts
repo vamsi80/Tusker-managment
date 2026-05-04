@@ -468,7 +468,7 @@ export class TasksService {
                 isAdmin,
                 isRestrictedMember: !hasFullAccess,
               }),
-              select: getTaskSelect(opts.view_mode, false), // Subtasks are never minimal in expansion
+              select: getTaskSelect(opts.view_mode, false, opts.extraFields), // Subtasks are never minimal in expansion
               orderBy: buildOrderBy(opts.sorts, opts.view_mode),
               take: 200, // focus on performance: fetch subtasks for initial roots with a safe cap
             });
@@ -566,7 +566,7 @@ export class TasksService {
           const tasks = await prisma.task.findMany({
             where,
             take: perStatusLimit + 1,
-            select: getTaskSelect(opts.view_mode, isMinimal, undefined, subtaskFilter),
+            select: getTaskSelect(opts.view_mode, isMinimal, opts.extraFields, subtaskFilter),
             orderBy: buildOrderBy(opts.sorts, opts.view_mode),
           });
 
@@ -587,7 +587,7 @@ export class TasksService {
                   userId,
                   isAdmin,
                 }),
-                select: getTaskSelect(opts.view_mode, false, undefined, subtaskFilter), // subtasks never minimal
+                select: getTaskSelect(opts.view_mode, false, opts.extraFields, subtaskFilter), // subtasks never minimal
                 orderBy: buildOrderBy(opts.sorts, opts.view_mode),
               });
               tasks.forEach((parent: any) => {
@@ -716,7 +716,7 @@ export class TasksService {
             return prisma.task.findMany({
               where: statusWhere,
               take: perStatusLimit + 1,
-              select: getTaskSelect(opts.view_mode, isMinimal, undefined, subtaskFilter),
+              select: getTaskSelect(opts.view_mode, isMinimal, opts.extraFields, subtaskFilter),
               orderBy: buildOrderBy(opts.sorts, opts.view_mode),
             });
           }),
@@ -738,7 +738,7 @@ export class TasksService {
                 userId,
                 isAdmin,
               }),
-              select: getTaskSelect(opts.view_mode, false, undefined, subtaskFilter),
+              select: getTaskSelect(opts.view_mode, false, opts.extraFields, subtaskFilter),
               orderBy: buildOrderBy(opts.sorts, opts.view_mode),
             });
             tasks.forEach((parent: any) => {
@@ -880,7 +880,7 @@ export class TasksService {
     const [rawTasks] = await Promise.all([
       prisma.task.findMany({
         where,
-        select: getTaskSelect(opts.view_mode, true, [dbField], subtaskFilter), // TRUE for minimal parent select, include sort field
+        select: getTaskSelect(opts.view_mode, true, opts.extraFields ? [...opts.extraFields, dbField] : [dbField], subtaskFilter), // TRUE for minimal parent select, include sort field
         orderBy: buildOrderBy(opts.sorts, opts.view_mode),
       }),
     ]);
@@ -951,7 +951,7 @@ export class TasksService {
       select: getTaskSelect(
         opts.view_mode,
         opts.view_mode === "gantt" || opts.isMinimal,
-        undefined,
+        opts.extraFields,
         subtaskFilter
       ),
       orderBy: buildOrderBy(opts.sorts, opts.view_mode),
@@ -1059,7 +1059,7 @@ export class TasksService {
       select: getTaskSelect(
         opts.view_mode,
         opts.view_mode === "gantt" || opts.isMinimal,
-        dbFieldForSelect ? [dbFieldForSelect] : [],
+        opts.extraFields ? [...opts.extraFields, (dbFieldForSelect || "createdAt")] : (dbFieldForSelect ? [dbFieldForSelect] : []),
         subtaskFilter
       ),
       take: limit + 1,
@@ -1121,7 +1121,7 @@ export class TasksService {
       }
       const extraTasks = await prisma.task.findMany({
         where: { OR: orConditions },
-        select: getTaskSelect(opts.view_mode, false, undefined, subtaskFilter),
+        select: getTaskSelect(opts.view_mode, false, opts.extraFields, subtaskFilter),
         orderBy: buildOrderBy(opts.sorts, opts.view_mode),
         take: opts.view_mode === "gantt" ? 2000 : 500,
       });
@@ -1289,7 +1289,7 @@ export class TasksService {
     const [rawTasks] = await Promise.all([
       prisma.task.findMany({
         where,
-        select: getTaskSelect(opts.view_mode, opts.onlySubtasks ? false : true, dbField ? [dbField] : [], subtaskFilter),
+        select: getTaskSelect(opts.view_mode, opts.onlySubtasks ? false : true, opts.extraFields ? [...opts.extraFields, (dbField || "createdAt")] : (dbField ? [dbField] : []), subtaskFilter),
         orderBy: buildOrderBy(opts.sorts, opts.view_mode),
         take: limit + 1,
         skip: opts.skip || 0,

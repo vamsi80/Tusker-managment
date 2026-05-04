@@ -33,7 +33,8 @@ export async function WorkspaceListView({
             page: 1,
             limit: 50, // Increased limit for better initial view
             includeFacets: true,
-            view_mode: "list"
+            view_mode: "list",
+            extraFields: ["description"]
         }, user.id),
     ]);
     const duration = performance.now() - viewStartTime;

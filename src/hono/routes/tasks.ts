@@ -87,7 +87,13 @@ tasks.get("/", async (c) => {
     filterParentTaskId: q.pt || q.parentTaskId || undefined,
     includeFacets: q.facets === "true",
     hierarchyMode: (q.hm as any) || q.hierarchyMode || undefined,
+    extraFields: parseParam("extraFields", "ef"),
   };
+
+  // 🚀 Optimization: Default to NO subtasks in List/Workspace views unless specifically asked.
+  if (view_mode === "list" && q.sub === undefined && q.subTasks === undefined) {
+    opts.includeSubTasks = false;
+  }
 
   // Parse sorts if provided as JSON string
   if (q.sorts) {

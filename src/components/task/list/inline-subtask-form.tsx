@@ -287,25 +287,38 @@ export function InlineSubTaskForm({
             setSubTaskName("");
             onCancel();
 
-            startTransition(async () => {
-                const { data: result, error } = await tryCatch(
-                    apiClient.tasks.createSubTask(validData)
-                );
+            const apiCall = apiClient.tasks.createSubTask(validData);
 
-                if (error || (result as ApiResponse).status !== "success") {
-                    toast.error(error?.message || (result as ApiResponse).message || "Failed to create subtask");
-                    if (onSubTaskDeleted) {
-                        onSubTaskDeleted(tempId);
+            toast.promise(apiCall, {
+                loading: `Creating "${validData.name}"…`,
+                success: (result: any) => {
+                    const res = result as ApiResponse;
+                    if (res.status !== "success") {
+                        // Throw so the error branch fires
+                        throw new Error(res.message || "Failed to create subtask");
                     }
-                    return;
-                }
 
-                const apiResult = result as ApiResponse;
-                toast.success("Subtask created");
+                    // Replace the optimistic subtask with the real one
+                    onSubTaskCreated?.(res.data, tempId);
 
-                // Replace the optimistic subtask with the real one
-                onSubTaskCreated?.(apiResult.data, tempId);
+                    // Dispatch realtime-sync-refresh for the actor
+                    window.dispatchEvent(new CustomEvent("realtime-sync-refresh", {
+                        detail: {
+                            action: "SUBTASK_CREATED",
+                            record: { ...res.data, parentTaskId },
+                            oldRecord: null,
+                        }
+                    }));
+
+                    return `"${validData.name}" created successfully`;
+                },
+                error: (err: any) => {
+                    if (onSubTaskDeleted) onSubTaskDeleted(tempId);
+                    return err?.message || "Failed to create subtask";
+                },
             });
+
+            startTransition(async () => { await apiCall.catch(() => {}); });
         } else {
             // EDIT MODE
             if (!subTask) {

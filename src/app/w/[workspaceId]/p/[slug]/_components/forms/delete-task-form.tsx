@@ -86,27 +86,29 @@ export function DeleteTaskDialog({ task, onTaskDeleted }: DeleteTaskDialogProps)
                         </div>
                         <AlertDialogTitle>Delete Task</AlertDialogTitle>
                     </div>
-                    <AlertDialogDescription className="space-y-2 pt-3">
-                        <p>
-                            Are you sure you want to delete <span className="font-semibold text-foreground">"{task.name}"</span>?
-                        </p>
-                        {subtaskCount > 0 && (
-                            <div className="rounded-md bg-destructive/10 p-3 text-sm border border-destructive/20">
-                                <p className="font-medium text-destructive flex items-center gap-2">
-                                    <AlertTriangle className="h-4 w-4" />
-                                    Warning: This task has {subtaskCount} subtask{subtaskCount > 1 ? 's' : ''}
-                                </p>
-                                <p className="mt-2 text-destructive/90">
-                                    All {subtaskCount} subtask{subtaskCount > 1 ? 's' : ''} will be <span className="font-semibold">automatically deleted</span> when you delete this task.
-                                </p>
-                                <p className="mt-1 text-destructive/80 text-xs">
-                                    This is a cascade deletion and cannot be undone.
-                                </p>
-                            </div>
-                        )}
-                        <p className="text-sm">
-                            This action cannot be undone. This will permanently delete the task and all its data.
-                        </p>
+                    <AlertDialogDescription asChild className="space-y-2 pt-3">
+                        <div>
+                            <p>
+                                Are you sure you want to delete <span className="font-semibold text-foreground">"{task.name}"</span>?
+                            </p>
+                            {subtaskCount > 0 && (
+                                <div className="rounded-md bg-destructive/10 p-3 text-sm border border-destructive/20">
+                                    <p className="font-medium text-destructive flex items-center gap-2">
+                                        <AlertTriangle className="h-4 w-4" />
+                                        Warning: This task has {subtaskCount} subtask{subtaskCount > 1 ? 's' : ''}
+                                    </p>
+                                    <p className="mt-2 text-destructive/90">
+                                        All {subtaskCount} subtask{subtaskCount > 1 ? 's' : ''} will be <span className="font-semibold">automatically deleted</span> when you delete this task.
+                                    </p>
+                                    <p className="mt-1 text-destructive/80 text-xs">
+                                        This is a cascade deletion and cannot be undone.
+                                    </p>
+                                </div>
+                            )}
+                            <p className="text-sm">
+                                This action cannot be undone. This will permanently delete the task and all its data.
+                            </p>
+                        </div>
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

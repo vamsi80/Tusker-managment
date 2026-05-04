@@ -138,7 +138,7 @@ async function _getSubTasksByParentIdsInternal(
     const parentId = parentTaskIds[0];
 
     // 🚀 Optimization: Fetch parent data once and subtasks separately
-    const baseSelect = getTaskSelect(viewMode);
+    const baseSelect = getTaskSelect("subtask");
     const subtaskSelect = { ...baseSelect };
     const parentRelationSelect = baseSelect.parentTask as any;
     delete subtaskSelect.parentTask;
@@ -299,7 +299,7 @@ async function _getSubTasksByParentIdsInternal(
   const BATCH_HARD_LIMIT = 500;
 
   // 🚀 PERF: Remove _count for batch path too — same correlated subquery issue
-  const batchSelect = { ...getTaskSelect(viewMode) };
+  const batchSelect = { ...getTaskSelect("subtask") };
   delete batchSelect._count;
 
   const rawSubTasksAll = await prisma.task.findMany({
