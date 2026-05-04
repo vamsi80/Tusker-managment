@@ -5,9 +5,7 @@ import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { LeavesTable } from "./_components/leaves-table";
 import { LeaveRequestDialog } from "../_components/leave-request-dialog";
 import { requireUser } from "@/lib/auth/require-user";
-import { AppError } from "@/lib/errors/app-error";
-import { AttendanceService } from "@/server/services/attendance.service";
-import { Card, CardContent } from "@/components/ui/card";
+import { LeaveService } from "@/server/services/leave";
 import { Coffee, Thermometer, TrendingUp, Plus } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +19,7 @@ async function LeavesContent({ workspaceId }: { workspaceId: string }) {
 
     const [permissions, balances] = await Promise.all([
         getWorkspacePermissions(workspaceId, user.id),
-        AttendanceService.getMemberBalances(workspaceId, user.id),
+        LeaveService.getMemberBalances(workspaceId, user.id),
     ]);
 
     return (

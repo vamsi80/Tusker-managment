@@ -41,7 +41,14 @@ export function RealtimeNotificationListener() {
       const isActor = data.userId === session?.user?.id;
 
       // Standardize action/type
-      const action = data.action || (data.type === "CREATE" ? "TASK_CREATED" : data.type === "UPDATE" ? "TASK_UPDATED" : data.type === "DELETE" ? "TASK_DELETED" : "");
+      const action = data.action || 
+        (data.type === "CREATE" ? "TASK_CREATED" : 
+         data.type === "UPDATE" ? "TASK_UPDATED" : 
+         data.type === "DELETE" ? "TASK_DELETED" : 
+         data.type === "CHECK_IN" ? "CHECKED_IN" :
+         data.type === "CHECK_OUT" ? "CHECKED_OUT" :
+         data.type === "LEAVE_REQUESTED" ? "LEAVE_REQUESTED" :
+         "");
       const payload = data.newData || data.payload || data.metadata?.payload || data.metadata || data;
       const entityId = data.entityId || payload?.id;
 

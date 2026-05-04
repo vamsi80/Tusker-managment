@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams, useRouter } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { LayoutDashboard, LayoutList, LayoutGrid, GanttChartSquare, Folder } from "lucide-react";
-import { useTransition } from "react";
+import { useSafeNavigation } from "@/hooks/use-safe-navigation";
 import { CreateTaskForm } from "../forms/create-task-form";
 import { BulkUploadForm } from "../forms/bulk-upload-form";
 
@@ -29,8 +29,8 @@ export function ProjectNav({
 }: ProjectNavProps) {
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const router = useRouter();
-    const [isPending, startTransition] = useTransition();
+    const router = useSafeNavigation();
+    const isPending = router.isNavigating;
     const baseUrl = `/w/${workspaceId}/p/${slug}`;
 
     const currentView = searchParams.get('view') || 'dashboard';
@@ -67,9 +67,7 @@ export function ProjectNav({
     const handleViewChange = (href: string, e: React.MouseEvent) => {
         e.preventDefault();
         if (isPending) return;
-        startTransition(() => {
-            router.push(href);
-        });
+        router.push(href);
     };
 
     return (

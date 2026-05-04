@@ -34,6 +34,7 @@ export type TaskEventData = {
 export type AttendanceEventData = {
     workspaceId: string;
     type: "CHECK_IN" | "CHECK_OUT" | "UPDATE";
+    action: "CHECKED_IN" | "CHECKED_OUT" | "ATTENDANCE_UPDATED";
     payload: any;
 };
 
