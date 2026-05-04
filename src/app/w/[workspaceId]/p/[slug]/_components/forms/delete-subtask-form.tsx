@@ -108,13 +108,15 @@ export function DeleteSubTaskForm<T extends SubTaskBase>({
                         </div>
                         <AlertDialogTitle>Delete SubTask</AlertDialogTitle>
                     </div>
-                    <AlertDialogDescription className="space-y-2 pt-3">
-                        <p>
-                            Are you sure you want to delete <span className="font-semibold text-foreground">"{subTask.name}"</span>?
-                        </p>
-                        <p className="text-sm">
-                            This action cannot be undone. This will permanently delete the subtask and all its data.
-                        </p>
+                    <AlertDialogDescription asChild className="space-y-2 pt-3">
+                        <div>
+                            <p>
+                                Are you sure you want to delete <span className="font-semibold text-foreground">"{subTask.name}"</span>?
+                            </p>
+                            <p className="text-sm">
+                                This action cannot be undone. This will permanently delete the subtask and all its data.
+                            </p>
+                        </div>
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

@@ -92,31 +92,35 @@ export function InlineTaskForm({
         setTaskName("");
         onCancel();
 
-        startTransition(async () => {
-            const res = await tryCatch(
-                apiClient.tasks.createTask({
-                    name: taskName.trim(),
-                    taskSlug: taskSlug,
-                    projectId: level === "workspace" ? selectedProjectId : initialProjectId,
-                })
-            );
-
-            if (res.error) {
-                toast.error(res.error.message || "Failed to create task");
-                if (onTaskDeleted) onTaskDeleted(tempId);
-                return;
-            }
-
-            const result = res.data;
-            if (result.status !== "success") {
-                toast.error(result.message || "Failed to create task");
-                if (onTaskDeleted) onTaskDeleted(tempId);
-                return;
-            }
-
-            toast.success("Task created");
-            onTaskCreated?.(result.data, tempId);
+        const taskCreateCall = apiClient.tasks.createTask({
+            name: taskName.trim(),
+            taskSlug: taskSlug,
+            projectId: level === "workspace" ? selectedProjectId : initialProjectId,
         });
+
+        toast.promise(taskCreateCall, {
+            loading: `Creating "${taskName.trim()}"…`,
+            success: (res: any) => {
+                if (res.status !== "success") {
+                    throw new Error(res.message || "Failed to create task");
+                }
+                onTaskCreated?.(res.data, tempId);
+                window.dispatchEvent(new CustomEvent("realtime-sync-refresh", {
+                    detail: {
+                        action: "TASK_CREATED",
+                        record: res.data,
+                        oldRecord: null,
+                    }
+                }));
+                return `"${taskName.trim()}" created successfully`;
+            },
+            error: (err: any) => {
+                if (onTaskDeleted) onTaskDeleted(tempId);
+                return err?.message || "Failed to create task";
+            },
+        });
+
+        startTransition(async () => { await taskCreateCall.catch(() => {}); });
     };
 
     return (

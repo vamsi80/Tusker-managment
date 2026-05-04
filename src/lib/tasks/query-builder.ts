@@ -68,7 +68,7 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
         assigneeId: !isKanban // Redundant with assignee object
     };
 
-    if (isList) {
+    if ((isList && extraFields?.includes("description")) || isSubtask) {
         select.description = true;
     }
 

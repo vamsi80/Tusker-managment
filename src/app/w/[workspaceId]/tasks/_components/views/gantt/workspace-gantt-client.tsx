@@ -443,6 +443,88 @@ export function WorkspaceGanttClient({
     };
   }, [clearFilters, workspaceId]);
 
+  // ---------------------------------------------------------------------------
+  // 🚀 REALTIME SYNC: Listen for Pusher-driven structural mutations
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    const handleRealtimeSync = (e: Event) => {
+      const { action, record } = (e as CustomEvent).detail || {};
+      if (!action || !record) return;
+
+      if (action === "TASK_CREATED" && !record.parentTaskId) {
+        const newGanttTask = transformToGanttTasks([record]);
+        if (newGanttTask.length === 0) return;
+
+        setTasks((prev) => {
+          if (prev.some((t) => t.id === record.id)) return prev;
+          return [...prev, ...newGanttTask];
+        });
+      }
+
+      if (action === "TASK_DELETED" && !record.parentTaskId) {
+        setTasks((prev) => prev.filter((t) => t.id !== record.id));
+      }
+
+      if (action === "TASK_UPDATED" && !record.parentTaskId) {
+        setTasks((prev) =>
+          prev.map((t) =>
+            t.id === record.id ? { ...t, ...transformToGanttTasks([record])[0] } : t,
+          ),
+        );
+      }
+
+      if (action === "SUBTASK_CREATED" && record.parentTaskId) {
+        const newSubtask = transformToGanttSubtasks([record]);
+        setTasks((prev) =>
+          prev.map((t) => {
+            if (t.id !== record.parentTaskId) return t;
+            const updatedSubtasks = t.subtasks
+              ? t.subtasks.some((s) => s.id === record.id)
+                ? t.subtasks
+                : [...t.subtasks, ...newSubtask]
+              : t.subtasks; // Don't inject if subtasks not yet loaded (undefined)
+            return {
+              ...t,
+              subtasks: updatedSubtasks,
+              subtaskCount: (t.subtaskCount || 0) + 1,
+            };
+          }),
+        );
+      }
+
+      if (action === "SUBTASK_DELETED" && record.parentTaskId) {
+        setTasks((prev) =>
+          prev.map((t) => {
+            if (t.id !== record.parentTaskId) return t;
+            return {
+              ...t,
+              subtasks: t.subtasks?.filter((s) => s.id !== record.id),
+              subtaskCount: Math.max(0, (t.subtaskCount || 0) - 1),
+            };
+          }),
+        );
+      }
+
+      if (action === "SUBTASK_UPDATED" && record.parentTaskId) {
+        const updatedSubtask = transformToGanttSubtasks([record]);
+        setTasks((prev) =>
+          prev.map((t) => {
+            if (t.id !== record.parentTaskId) return t;
+            return {
+              ...t,
+              subtasks: t.subtasks?.map((s) =>
+                s.id === record.id ? { ...s, ...updatedSubtask[0] } : s,
+              ),
+            };
+          }),
+        );
+      }
+    };
+
+    window.addEventListener("realtime-sync-refresh", handleRealtimeSync);
+    return () => window.removeEventListener("realtime-sync-refresh", handleRealtimeSync);
+  }, [workspaceId]);
+
   return (
     <div className="space-y-4">
       <GlobalFilterToolbar

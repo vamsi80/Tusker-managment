@@ -38,7 +38,8 @@ export async function ProjectTaskListView({
             includeSubTasks: false,
             page: 1,
             limit: 50,
-            view_mode: "list"
+            view_mode: "list",
+            extraFields: ["description"]
         }, user.id)
     ]);
 

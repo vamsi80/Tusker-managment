@@ -35,6 +35,7 @@ export interface GetTasksOptions {
     includeFacets?: boolean;
 
     view_mode?: "default" | "search" | "list" | "kanban" | "gantt" | "calendar";
+    extraFields?: string[];
     sorts?: Array<{ field: string; direction: "asc" | "desc" }>;
 }
 

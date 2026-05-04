@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect, memo, useCallback, useMemo } from "react";
+import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import type { SubTasksByStatusResponse, KanbanSubTaskType } from "@/data/task";
 import type { ProjectMembersType } from "@/types/project";
 import { cn } from "@/lib/utils";
@@ -8,7 +8,7 @@ import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 import { toast } from "sonner";
 import { KanbanCard } from "./kanban-card";
 import { KanbanColumn } from "./kanban-column";
-import type { TaskFilters, ProjectOption, TagOption } from "../shared/types";
+import type { TaskFilters, ProjectOption } from "../shared/types";
 import { STATUS_COLORS, STATUS_LABELS } from "@/lib/colors/status-colors";
 import { apiClient } from "@/lib/api-client";
 import {
@@ -259,6 +259,124 @@ export function KanbanBoard({
       setColumnData(nextState);
     }
   }, [kanbanLists, workspaceId, projectId]);
+
+  // -------------------------------------------------------------------------
+  // 🚀 REALTIME SYNC: Listen for Pusher-driven structural mutations
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    const handleRealtimeSync = (e: Event) => {
+      const { action, record } = (e as CustomEvent).detail || {};
+      if (!action || !record) return;
+
+      // Relevance guard: only apply if event is for this workspace/project
+      const isRelevant =
+        !projectId ||
+        record.projectId === projectId ||
+        level === "workspace";
+
+      if (!isRelevant) return;
+
+      if (action === "TASK_CREATED") {
+        const status: TaskStatus = (record.status as TaskStatus) || "TO_DO";
+        const entityId = record.id;
+        if (!entityId) return;
+
+        // Upsert into entity store
+        useTaskCacheStore.getState().upsertTasks([record]);
+
+        // Inject into the correct column — guard against duplicates
+        setColumnData((prev) => {
+          if (prev[status]?.subTaskIds.includes(entityId)) return prev;
+          return {
+            ...prev,
+            [status]: {
+              ...prev[status],
+              subTaskIds: [entityId, ...prev[status].subTaskIds],
+              totalCount: prev[status].totalCount + 1,
+            },
+          };
+        });
+      }
+
+      if (action === "TASK_DELETED") {
+        const entityId = record.id;
+        if (!entityId) return;
+
+        setColumnData((prev) => {
+          const next = { ...prev };
+          COLUMNS.forEach((col) => {
+            if (next[col.id].subTaskIds.includes(entityId)) {
+              next[col.id] = {
+                ...next[col.id],
+                subTaskIds: next[col.id].subTaskIds.filter((id) => id !== entityId),
+                totalCount: Math.max(0, next[col.id].totalCount - 1),
+              };
+            }
+          });
+          return next;
+        });
+      }
+
+      if (action === "TASK_UPDATED") {
+        const entityId = record.id;
+        if (!entityId) return;
+
+        // If status changed, move across columns
+        if (record.status && record.previousStatus && record.status !== record.previousStatus) {
+          const fromStatus = record.previousStatus as TaskStatus;
+          const toStatus = record.status as TaskStatus;
+          setColumnData((prev) => {
+            if (!prev[fromStatus] || !prev[toStatus]) return prev;
+            if (!prev[fromStatus].subTaskIds.includes(entityId)) return prev;
+            return {
+              ...prev,
+              [fromStatus]: {
+                ...prev[fromStatus],
+                subTaskIds: prev[fromStatus].subTaskIds.filter((id) => id !== entityId),
+                totalCount: Math.max(0, prev[fromStatus].totalCount - 1),
+              },
+              [toStatus]: {
+                ...prev[toStatus],
+                subTaskIds: prev[toStatus].subTaskIds.includes(entityId)
+                  ? prev[toStatus].subTaskIds
+                  : [entityId, ...prev[toStatus].subTaskIds],
+                totalCount: prev[toStatus].subTaskIds.includes(entityId)
+                  ? prev[toStatus].totalCount
+                  : prev[toStatus].totalCount + 1,
+              },
+            };
+          });
+        }
+
+        // Always upsert latest entity data
+        useTaskCacheStore.getState().upsertTasks([record]);
+      }
+
+      // Subtasks don't appear as kanban cards — but update parent entity count
+      if (action === "SUBTASK_CREATED" && record.parentTaskId) {
+        const parent = useTaskCacheStore.getState().entities[record.parentTaskId];
+        if (parent) {
+          useTaskCacheStore.getState().upsertTasks([{
+            id: record.parentTaskId,
+            subtaskCount: (parent.subtaskCount || 0) + 1,
+          }]);
+        }
+      }
+
+      if (action === "SUBTASK_DELETED" && record.parentTaskId) {
+        const parent = useTaskCacheStore.getState().entities[record.parentTaskId];
+        if (parent) {
+          useTaskCacheStore.getState().upsertTasks([{
+            id: record.parentTaskId,
+            subtaskCount: Math.max(0, (parent.subtaskCount || 0) - 1),
+          }]);
+        }
+      }
+    };
+
+    window.addEventListener("realtime-sync-refresh", handleRealtimeSync);
+    return () => window.removeEventListener("realtime-sync-refresh", handleRealtimeSync);
+  }, [workspaceId, projectId, level]);
 
   // Hydrate state from cache after mount
   useEffect(() => {
