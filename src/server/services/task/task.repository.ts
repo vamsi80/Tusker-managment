@@ -411,8 +411,8 @@ export class TaskRepository {
     });
   }
 
-  static async findSubtasksExpansion(where: any, select: any, sorts: any, take: number) {
-    return prisma.task.findMany({ where, select, orderBy: buildOrderBy(sorts, "list"), take });
+  static async findSubtasksExpansion(where: any, select: any, orderBy: any, take: number) {
+    return prisma.task.findMany({ where, select, orderBy, take });
   }
 
   static async findTasksByWhere(where: any, limit: number, select: any, orderBy: any) {

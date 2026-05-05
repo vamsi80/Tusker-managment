@@ -13,17 +13,6 @@ interface FilterState {
   clearFilters: () => void;
 }
 
-// Helper to check if filters have any active values
-function hasActiveFilterValues(filters: TaskFilters): boolean {
-  return Object.values(filters).some(
-    (v) =>
-      v !== undefined &&
-      v !== "" &&
-      v !== null &&
-      (Array.isArray(v) ? v.length > 0 : true),
-  );
-}
-
 export const useFilterStore = create<FilterState>()((set, get) => ({
   filters: {},
   searchQuery: "",

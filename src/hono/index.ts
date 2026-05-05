@@ -19,6 +19,7 @@ import { AppError } from "../lib/errors/app-error";
  */
 const app = new Hono<{ Variables: HonoVariables }>().basePath("/api/v1");
 
+
 // Global Middleware
 app.use("*", async (c, next) => {
     console.log(`[HONO_REQUEST] ${c.req.method} ${c.req.url}`);

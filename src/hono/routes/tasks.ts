@@ -12,6 +12,24 @@ const tasks = new Hono<{ Variables: HonoVariables }>();
 // Skip direct data layer import, use TasksService instead.
 
 /**
+ * GET /api/v1/tasks/slug/:slug
+ * Fetch a single task by its slug or ID with relations.
+ */
+tasks.get("/slug/:slug", async (c) => {
+  const user = c.get("user");
+  const workspaceId = c.req.query("w");
+  const slug = c.req.param("slug");
+
+  console.log(`[HONO_TASK_SLUG] Request: slug=${slug}, w=${workspaceId}, userId=${user.id}`);
+
+  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+
+  const task = await TasksService.getTaskBySlugOrId(workspaceId, slug);
+  console.log(`[HONO_TASK_SLUG] Result: ${task ? "FOUND " + task.id : "NOT FOUND"}`);
+  return c.json({ success: true, data: task });
+});
+
+/**
  * GET /api/v1/tasks
  *
  * Consolidated Listing Route for all Task Views.
@@ -122,19 +140,6 @@ tasks.get("/", async (c) => {
   return c.json({ success: true, data: result });
 });
 
-/**
- * GET /api/v1/tasks/slug/:slug
- * Fetch a single task by its slug or ID with relations.
- */
-tasks.get("/slug/:slug", async (c) => {
-  const workspaceId = c.req.query("w");
-  const slug = c.req.param("slug");
-
-  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
-
-  const task = await TasksService.getTaskBySlugOrId(workspaceId, slug);
-  return c.json({ success: true, data: task });
-});
 
 /**
  * GET /api/v1/tasks/slug/:slug/comment-context

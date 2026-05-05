@@ -27,11 +27,21 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
     }
 
     try {
+        console.log(`[apiFetch] Calling: ${options.method || "GET"} ${url}`);
         const response = await fetch(url, {
             cache: "no-store",
             ...options,
             headers,
         });
+
+        const contentType = response.headers.get("content-type");
+        const isJson = contentType && contentType.includes("application/json");
+
+        if (!isJson) {
+            const text = await response.text();
+            console.error(`[apiFetch] Expected JSON but got ${contentType}. Status: ${response.status}. Body: ${text.substring(0, 200)}`);
+            throw new ApiError(`Server returned non-JSON response (${response.status})`, response.status);
+        }
 
         const data = await response.json();
 

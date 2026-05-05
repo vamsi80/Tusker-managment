@@ -1,6 +1,7 @@
 "use client";
 import dynamic from "next/dynamic";
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { AppLoader } from "@/components/shared/app-loader";
 import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
 import { useProjectLayout } from "../project-layout-context";
@@ -41,7 +42,18 @@ export function GanttServerWrapper({ workspaceId, projectId, userId }: GanttServ
                 // Gantt-specific fetch for large volume of tasks
                 const tasksRes = await fetch(`/api/v1/tasks?w=${workspaceId}&p=${projectId}&vm=gantt&limit=50&hm=parents&ist=false`).then(res => res.json());
 
+                if (!tasksRes.success) {
+                    console.error("Server error fetching tasks:", tasksRes.error);
+                    toast.error(tasksRes.error || "Failed to load tasks");
+                    return;
+                }
+
                 const result = tasksRes.data;
+                if (!result) {
+                    console.error("No data returned from tasks API");
+                    return;
+                }
+
                 const rawTasks = result.tasks || [];
                 const allTasks: any[] = [...rawTasks]; // Only parent tasks initially
 

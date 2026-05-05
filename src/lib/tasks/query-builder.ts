@@ -235,11 +235,15 @@ export function buildOrderBy(sorts?: Array<{ field: string; direction: "asc" | "
         return [{ createdAt: "desc" as const }, { id: "desc" as const }];
     }
 
-    const { field, direction } = sorts[0];
+    const { field, direction } = sorts[0] || {};
+    if (!field) {
+        return [{ createdAt: "desc" as const }, { id: "desc" as const }];
+    }
     const def = SORT_MAP[field];
 
     if (!def) {
-        throw new Error(`[buildOrderBy] Invalid sort field: "${field}"`);
+        console.warn(`[buildOrderBy] Invalid sort field: "${field}". Falling back to default.`);
+        return [{ createdAt: "desc" as const }, { id: "desc" as const }];
     }
 
     const primary: any = def.nulls

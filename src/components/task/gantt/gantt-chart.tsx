@@ -14,7 +14,6 @@ import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { ProjectMembersType } from "@/types/project";
 import { GanttRowSkeleton } from "./gantt-row-skeleton";
 
-
 interface GanttChartProps {
     tasks: GanttTask[];
     workspaceId?: string;
@@ -68,6 +67,7 @@ export function GanttChart({
     permissions
 }: GanttChartProps & { groupByProject?: boolean }) {
     const [granularity, setGranularity] = useState<TimelineGranularity>('days');
+    console.log("[GanttChart] Rendering. onSubtaskClick present:", !!onSubtaskClick);
     const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
     const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
     const [isExpandAllMode, setIsExpandAllMode] = useState(false); // 🚀 Persistent expansion for lazy-loading
@@ -148,7 +148,7 @@ export function GanttChart({
         });
 
         const allGroups = Array.from(groups.entries());
-        
+
         const paginatedGroups = allGroups.map(([pid, group]) => {
             const limit = visibleTasksPerProject.get(pid) || ITEMS_PER_PAGE;
             return {
@@ -165,7 +165,7 @@ export function GanttChart({
 
         return {
             groups: paginatedGroups,
-            hasMoreProjects: hasMore, 
+            hasMoreProjects: hasMore,
             noProjectTasks: noProjectTasks
         };
     }, [tasks, groupByProject, projects, hasMore, visibleTasksPerProject, highlightedSubtaskId, onToggleSubtaskHighlight]);
@@ -256,22 +256,41 @@ export function GanttChart({
         }
     };
 
-    const handleSubtaskClick = (subtaskId: string) => {
-        if (!onSubtaskClick) return;
-
-        const allSubtasks = tasks.flatMap(t => t.subtasks || []);
-        const subtask = allSubtasks.find(s => s.id === subtaskId);
-
-        if (subtask) {
-            const project = projectMap.get(subtask.projectId);
-            if (project) {
-                (subtask as any).projectName = project.name;
-                (subtask as any).projectColor = project.color;
+    const handleSubtaskClick = useCallback((subtaskId: string) => {
+        try {
+            console.log("[GanttChart] handleSubtaskClick START for:", subtaskId);
+            console.log("[GanttChart] onSubtaskClick type:", typeof onSubtaskClick);
+            if (!onSubtaskClick) {
+                console.warn("[GanttChart] onSubtaskClick is UNDEFINED!");
+                return;
             }
-        }
 
-        onSubtaskClick(subtaskId);
-    };
+            console.log("[GanttChart] Searching in tasks. Count:", tasks?.length);
+            const allSubtasks = tasks.flatMap(t => t.subtasks || []);
+            console.log("[GanttChart] Total subtasks found:", allSubtasks.length);
+            
+            const subtask = allSubtasks.find(s => s.id === subtaskId);
+
+            if (subtask) {
+                console.log("[GanttChart] Subtask found! projectId:", subtask.projectId);
+                const project = projectMap?.get(subtask.projectId);
+                if (project) {
+                    console.log("[GanttChart] Project found for decoration:", project.name);
+                    (subtask as any).projectName = project.name;
+                    (subtask as any).projectColor = project.color;
+                } else {
+                    console.warn("[GanttChart] Project NOT found in map for ID:", subtask.projectId);
+                }
+            } else {
+                console.warn("[GanttChart] Subtask NOT found in local list!");
+            }
+
+            console.log("[GanttChart] Final step: Calling parent onSubtaskClick...");
+            onSubtaskClick(subtaskId);
+        } catch (err) {
+            console.error("[GanttChart] CRITICAL ERROR in handleSubtaskClick:", err);
+        }
+    }, [onSubtaskClick, tasks, projectMap]);
 
     // 🚀 SYNC: Persistent expansion management
     useEffect(() => {
@@ -472,8 +491,8 @@ export function GanttChart({
 
                             {groupedTasks.hasMoreProjects && (
                                 <>
-                                    <GanttRowSkeleton 
-                                        ref={projectsLoaderRef} 
+                                    <GanttRowSkeleton
+                                        ref={projectsLoaderRef}
                                         className="bg-neutral-50/10 dark:bg-neutral-800/5"
                                     />
 
@@ -509,8 +528,8 @@ export function GanttChart({
 
                             {!groupByProject && hasMore && (
                                 <>
-                                    <GanttRowSkeleton 
-                                        ref={flatTasksLoaderRef} 
+                                    <GanttRowSkeleton
+                                        ref={flatTasksLoaderRef}
                                         className="bg-neutral-50/10 dark:bg-neutral-800/5"
                                     />
 

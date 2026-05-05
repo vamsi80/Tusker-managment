@@ -100,6 +100,7 @@ export function WorkspaceGanttClient({
   const [nextCursor, setNextCursor] = useState<any>(null);
   const [hasMore, setHasMore] = useState<boolean>(true);
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+  const [localTaskDataMap, setLocalTaskDataMap] = useState<Record<string, any>>(subtaskDataMap);
   const [loadingSubtasks, setLoadingSubtasks] = useState<Set<string>>(new Set());
   const [loadingProjects, setLoadingProjects] = useState<Set<string>>(new Set());
   const fetchingIdsRef = useRef<Set<string>>(new Set());
@@ -157,6 +158,15 @@ export function WorkspaceGanttClient({
           const existingIds = new Set(prev.map(t => t.id));
           const uniqueNew = newGanttTasks.filter(t => !existingIds.has(t.id));
           return [...prev, ...uniqueNew];
+        });
+
+        // 🚀 Hydrate local map for sheet lookups
+        setLocalTaskDataMap(prev => {
+          const next = { ...prev };
+          newRawTasks.forEach((t: any) => {
+            next[t.id] = t;
+          });
+          return next;
         });
         setNextCursor(result.nextCursor);
         setHasMore(result.hasMore);
@@ -246,6 +256,15 @@ export function WorkspaceGanttClient({
             subtaskCursor: batchResult.nextCursor
           } : t
         ));
+
+        // 🚀 Hydrate local map with expanded subtasks
+        setLocalTaskDataMap(prev => {
+          const next = { ...prev };
+          subTasks.forEach((st: any) => {
+            next[st.id] = st;
+          });
+          return next;
+        });
       } else {
         setTasks(prev => prev.map(t =>
           t.id === taskId ? { ...t, subtasks: [], hasMoreSubtasks: false } : t
@@ -359,6 +378,15 @@ export function WorkspaceGanttClient({
           }
           return next;
         });
+
+        // 🚀 Hydrate local map with more subtasks
+        setLocalTaskDataMap(prev => {
+          const next = { ...prev };
+          rawSubtasks.forEach((st: any) => {
+            next[st.id] = st;
+          });
+          return next;
+        });
       }
     } catch (err) {
       console.error("[Workspace Gantt] Load more subtasks failed:", err);
@@ -390,10 +418,17 @@ export function WorkspaceGanttClient({
 
 
   const handleSubtaskClick = (subtaskId: string) => {
-    let subtaskData = subtaskDataMap[subtaskId];
+    console.log("💎💎💎 [WorkspaceGanttClient] handleSubtaskClick CALLED with ID:", subtaskId);
+    
+    // 1. Try local data map first (it should have hydrated metadata)
+    let subtaskData = localTaskDataMap[subtaskId];
 
     if (subtaskData) {
+      console.log("[WorkspaceGanttClient] Task found in local map, calling openSubTaskSheet...");
       openSubTaskSheet(subtaskData);
+    } else {
+      console.warn("[WorkspaceGanttClient] Task data not found in local map. ID:", subtaskId, "Map Size:", Object.keys(localTaskDataMap).length);
+      toast.error("Task details not found. Try refreshing.");
     }
   };
 
