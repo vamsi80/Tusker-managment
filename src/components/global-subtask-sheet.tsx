@@ -21,10 +21,15 @@ export function GlobalSubTaskSheet() {
     const lastFetchedSlug = useRef<string | null>(null);
 
     useEffect(() => {
+        if (!workspaceId && subTaskSlug) {
+            console.warn("[GlobalSubTaskSheet] Missing workspaceId in params, cannot fetch task.");
+        }
         if (subTaskSlug && workspaceId) {
             const currentSlug = subTask?.taskSlug || subTask?.id;
+            console.log(`🔍 [GlobalSubTaskSheet] Comparing: StoreSlug="${currentSlug}", UrlSlug="${subTaskSlug}"`);
 
             if (currentSlug !== subTaskSlug && lastFetchedSlug.current !== subTaskSlug) {
+                console.log("🚀 [GlobalSubTaskSheet] Slug mismatch - triggering load...");
                 lastFetchedSlug.current = subTaskSlug;
 
                 openSubTaskSheetLoading();

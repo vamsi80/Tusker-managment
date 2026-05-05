@@ -8,7 +8,6 @@ import { WorkspaceClientProviders } from "@/app/w/[workspaceId]/_components/work
 import { DataLoadReporter } from "@/app/w/[workspaceId]/_components/data-load-reporter";
 import { WorkspaceLayoutProvider } from "../../[workspaceId]/_components/workspace-layout-context";
 import { TopLoader } from "@/components/shared/top-loader";
-
 import { WorkspaceLayoutData } from "@/types/workspace";
 
 interface WorkspaceShellProps {
@@ -26,9 +25,6 @@ export function WorkspaceShell({ children, workspaceId, initialData }: Workspace
 }
 
 function WorkspaceShellContent({ children }: { children: React.ReactNode }) {
-  // We no longer show a full-page skeleton here to avoid jarring transitions.
-  // The shell (Sidebar + Header) will render immediately with safe defaults,
-  // and the page content will handle its own loading states.
 
   return (
     <WorkspaceClientProviders>

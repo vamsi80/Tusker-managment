@@ -1,11 +1,14 @@
 "use client";
 
+import { toast } from "sonner";
+import { format } from "date-fns";
+import { GanttSubtask } from "./types";
+import { useEffect, useState } from "react";
+import { apiClient } from "@/lib/api-client";
+import { Badge } from "@/components/ui/badge";
 import { CornerDownRight, GripVertical, Link2 } from "lucide-react";
 import { DraggableSubtaskBar } from "./draggable-subtask-bar";
 import { cn, APP_DATE_FORMAT } from "@/lib/utils";
-import { GanttSubtask } from "./types";
-import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
 import { InlineAssigneePicker } from "../shared/inline-assignee-picker";
 import { ProjectMembersType } from "@/types/project";
 import { useSortable } from "@dnd-kit/sortable";
@@ -13,9 +16,6 @@ import { CSS } from "@dnd-kit/utilities";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { restrictToVerticalAxis, restrictToWindowEdges } from "@dnd-kit/modifiers";
-import { useEffect, useState } from "react";
-import { apiClient } from "@/lib/api-client";
-import { toast } from "sonner";
 import { DependencyPicker } from "./dependency-picker";
 import { getStatusColors } from "@/lib/colors/status-colors";
 
@@ -84,8 +84,10 @@ function SortableSubtaskRow({
         subtask.createdById === currentUser?.id;
 
     const handleRowClick = (e: React.MouseEvent) => {
+        console.log("[SortableSubtaskRow] handleRowClick TRIGGERED for:", subtask.id);
         // Prevent double highlight toggle if clicking the bar (which handles its own click)
         if ((e.target as HTMLElement).closest('.gantt-subtask-bar-hitbox')) {
+            console.log("[SortableSubtaskRow] handleRowClick ignored (bar click)");
             return;
         }
 
@@ -139,7 +141,17 @@ function SortableSubtaskRow({
 
                     <span
                         className="text-[12px] text-muted-foreground truncate flex-1 cursor-pointer hover:text-foreground hover:underline transition-colors pl-1"
-                        onClick={() => onSubtaskClick?.(subtask.id)}
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log("[SortableSubtaskRow] Subtask Name Clicked:", subtask.id);
+                            if (!onSubtaskClick) {
+                                console.error("[SortableSubtaskRow] onSubtaskClick MISSING!");
+                                return;
+                            }
+                            console.log("[SortableSubtaskRow] Propagating click to parent...");
+                            onSubtaskClick(subtask.id);
+                        }}
                         title={subtask.name}
                     >
                         {subtask.name}
@@ -288,6 +300,7 @@ interface SortableSubtaskListProps {
 
 export function SortableSubtaskList({
     subtasks: initialSubtasks,
+    onSubtaskClick,
     ...props
 }: SortableSubtaskListProps) {
     const [items, setItems] = useState(initialSubtasks);
@@ -359,6 +372,7 @@ export function SortableSubtaskList({
                             key={subtask.id}
                             allTasks={props.allTasks}
                             subtask={subtask}
+                            onSubtaskClick={onSubtaskClick}
                             {...props}
                         />
                     ))}

@@ -1,20 +1,19 @@
 "use client";
 
-import { useState, useTransition, useEffect, useRef, useMemo } from "react";
+import { useState, useTransition, useEffect, useRef, useMemo, useCallback } from "react";
 import { Loader2 } from "lucide-react";
 import { GanttTask } from "../../../../../../../components/task/gantt/types";
-import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
+import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 import type { WorkspaceTaskType } from "@/types/task";
 import { GanttChart } from "@/components/task/gantt/gantt-chart";
 import { GlobalFilterToolbar } from "@/components/task/shared/global-filter-toolbar";
-import { TagOption, TaskFilters } from "@/components/task/shared/types";
+import { TaskFilters } from "@/components/task/shared/types";
 import { transformToGanttTasks, transformToGanttSubtasks } from "@/components/task/gantt/transform-tasks";
 import { ProjectMembersType } from "@/types/project";
 import { useFilterStore } from "@/lib/store/filter-store";
 
 import { toast } from "sonner";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
-import { ProjectOption } from "@/components/task/shared/types";
 import { workspacesClient } from "@/lib/api-client/workspaces";
 
 interface ProjectGanttClientProps {
@@ -61,19 +60,39 @@ export function ProjectGanttClient({
         };
     }, [workspaceId]);
 
+    const [tasks, setTasks] = useState<GanttTask[]>(initialTasks);
+    const [localTaskDataMap, setLocalTaskDataMap] = useState<Record<string, WorkspaceTaskType>>(subtaskDataMap);
+    const [nextCursor, setNextCursor] = useState<any>(null);
+    const [hasMore, setHasMore] = useState<boolean>(true);
+    const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+    const [loadingSubtasks, setLoadingSubtasks] = useState<Set<string>>(new Set());
+    const fetchingIdsRef = useRef<Set<string>>(new Set());
+    const fetchingSubtasksRef = useRef<Set<string>>(new Set()); // 🚀 NEW: Per-task lock for infinite scroll
+    const expandedTaskIdsRef = useRef<Set<string>>(new Set());
+
     const { filters, setFilters, searchQuery, setSearchQuery, clearFilters } = useFilterStore();
     const [isPending, startTransition] = useTransition();
 
     // Use global subtask sheet context
-    const { openSubTaskSheet } = useSubTaskSheet();
+    const { openSubTaskSheet } = useSubTaskSheetActions();
 
     // Handle subtask click
-    const handleSubtaskClick = (subtaskId: string) => {
-        const subtaskData = subtaskDataMap[subtaskId];
-        if (subtaskData) {
-            openSubTaskSheet(subtaskData);
+
+    const handleOpenSubTaskSheetFromGantt = useCallback((subtaskId: string) => {
+        console.log("💎💎💎 [ProjectGanttClient] handleOpenSubTaskSheetFromGantt CALLED with ID:", subtaskId);
+        console.log("[ProjectGanttClient] Map Size:", Object.keys(localTaskDataMap).length);
+        const taskData = localTaskDataMap[subtaskId];
+
+        if (taskData) {
+            console.log("[ProjectGanttClient] Task found in map, calling openSubTaskSheet...");
+            openSubTaskSheet(taskData);
+        } else {
+            console.warn("[ProjectGanttClient] Task data not found for sheet lookup. ID:", subtaskId, "Map Size:", Object.keys(localTaskDataMap).length);
+            toast.error("Task details not found. Try refreshing.");
         }
-    };
+    }, [localTaskDataMap, openSubTaskSheet]);
+
+    console.log("[ProjectGanttClient] Rendering. handleOpenSubTaskSheetFromGantt present:", !!handleOpenSubTaskSheetFromGantt);
 
     const handleFilterChange = (newFilters: TaskFilters) => {
         startTransition(() => {
@@ -128,6 +147,7 @@ export function ProjectGanttClient({
             }
 
             if (action === "SUBTASK_CREATED" && record.parentTaskId) {
+                setLocalTaskDataMap(prev => ({ ...prev, [record.id]: record }));
                 const newSubtask = transformToGanttSubtasks([record]);
                 setTasks((prev) =>
                     prev.map((t) => {
@@ -160,6 +180,7 @@ export function ProjectGanttClient({
             }
 
             if (action === "SUBTASK_UPDATED" && record.parentTaskId) {
+                setLocalTaskDataMap(prev => ({ ...prev, [record.id]: { ...prev[record.id], ...record } }));
                 const updatedSubtask = transformToGanttSubtasks([record]);
                 setTasks((prev) =>
                     prev.map((t) => {
@@ -179,14 +200,6 @@ export function ProjectGanttClient({
         return () => window.removeEventListener("realtime-sync-refresh", handleRealtimeSync);
     }, [workspaceId, projectId]);
 
-    const [tasks, setTasks] = useState<GanttTask[]>(initialTasks);
-    const [nextCursor, setNextCursor] = useState<any>(null);
-    const [hasMore, setHasMore] = useState<boolean>(true);
-    const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
-    const [loadingSubtasks, setLoadingSubtasks] = useState<Set<string>>(new Set());
-    const fetchingIdsRef = useRef<Set<string>>(new Set());
-    const fetchingSubtasksRef = useRef<Set<string>>(new Set()); // 🚀 NEW: Per-task lock for infinite scroll
-    const expandedTaskIdsRef = useRef<Set<string>>(new Set());
 
     // 🔑 Force GanttChart to reset its internal expansion state when filters change
     const filterKey = useMemo(() =>
@@ -238,6 +251,16 @@ export function ProjectGanttClient({
                 // For Gantt, we might need some date formatting logic or just use as is
                 // We'll transform these into GanttTasks
                 const newGanttTasks = transformToGanttTasks(newRawTasks);
+
+                // Update local data map for all tasks that arrived
+                setLocalTaskDataMap(prev => {
+                    const next = { ...prev };
+                    newRawTasks.forEach((t: any) => {
+                        next[t.id] = t;
+                        if (t.subTasks) t.subTasks.forEach((s: any) => next[s.id] = s);
+                    });
+                    return next;
+                });
 
                 setTasks(prev => {
                     if (!isLoadMore) return newGanttTasks;
@@ -324,7 +347,12 @@ export function ProjectGanttClient({
                 const batchResult = json.data[0];
                 const subTasks = batchResult.subTasks || [];
 
-
+                // 🚀 Sync: Store raw subtask data for the sheet
+                setLocalTaskDataMap(prev => {
+                    const next = { ...prev };
+                    subTasks.forEach((s: any) => { next[s.id] = s; });
+                    return next;
+                });
 
                 const transformedSubtasks = transformToGanttSubtasks(subTasks);
                 setTasks(prev => prev.map(t =>
@@ -393,6 +421,14 @@ export function ProjectGanttClient({
             if (json.success && json.data) {
                 const result = json.data;
                 const rawSubtasks = result.tasks || [];
+
+                // 🚀 Sync: Store raw subtask data for the sheet
+                setLocalTaskDataMap(prev => {
+                    const next = { ...prev };
+                    rawSubtasks.forEach((s: any) => { next[s.id] = s; });
+                    return next;
+                });
+
                 setTasks(prev => {
                     const next = [...prev];
                     const idx = next.findIndex(t => t.id === taskId);
@@ -491,7 +527,7 @@ export function ProjectGanttClient({
                     tasks={ganttTasks}
                     workspaceId={workspaceId}
                     projectId={projectId}
-                    onSubtaskClick={handleSubtaskClick}
+                    onSubtaskClick={handleOpenSubTaskSheetFromGantt}
                     onSubTaskUpdate={handleSubTaskUpdate}
                     projects={projects}
                     projectCounts={projectCounts}
@@ -500,7 +536,7 @@ export function ProjectGanttClient({
                     permissions={permissions}
                     onLoadMore={handleLoadMore}
                     onRequestSubtasks={handleRequestSubtasks}
-                    onRequestMoreSubtasks={handleRequestMoreSubtasks} // 🚀 NEW: Pass handler
+                    onRequestMoreSubtasks={handleRequestMoreSubtasks}
                     loadingSubtasks={loadingSubtasks}
                     isLoading={isLoadingMore || isPending}
                 />
