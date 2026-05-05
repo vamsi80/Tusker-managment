@@ -102,12 +102,13 @@ export const tasksClient = {
     workspaceId: string,
     projectId: string,
     assigneeUserId: string | null,
+    explanation?: string,
   ): Promise<any> => {
     const response = await apiFetch<{ success: boolean; data: any }>(
       `/tasks/${taskId}/assignee`,
       {
         method: "PATCH",
-        body: JSON.stringify({ workspaceId, projectId, assigneeUserId }),
+        body: JSON.stringify({ workspaceId, projectId, assigneeUserId, explanation }),
       },
     );
 

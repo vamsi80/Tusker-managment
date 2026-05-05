@@ -4,14 +4,14 @@ import { useState, useTransition, useEffect, useRef, useMemo } from "react";
 import { Loader2 } from "lucide-react";
 import { GanttTask } from "../../../../../../../components/task/gantt/types";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
-import type { WorkspaceTaskType } from "@/data/task";
+import type { WorkspaceTaskType } from "@/types/task";
 import { GanttChart } from "@/components/task/gantt/gantt-chart";
 import { GlobalFilterToolbar } from "@/components/task/shared/global-filter-toolbar";
 import { TagOption, TaskFilters } from "@/components/task/shared/types";
 import { transformToGanttTasks, transformToGanttSubtasks } from "@/components/task/gantt/transform-tasks";
 import { ProjectMembersType } from "@/types/project";
 import { useFilterStore } from "@/lib/store/filter-store";
-import { useTaskCacheStore } from "@/lib/store/task-cache-store";
+
 import { toast } from "sonner";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 import { ProjectOption } from "@/components/task/shared/types";
@@ -69,7 +69,7 @@ export function ProjectGanttClient({
 
     // Handle subtask click
     const handleSubtaskClick = (subtaskId: string) => {
-        const subtaskData = subtaskDataMap[subtaskId] || useTaskCacheStore.getState().entities[subtaskId];
+        const subtaskData = subtaskDataMap[subtaskId];
         if (subtaskData) {
             openSubTaskSheet(subtaskData);
         }
@@ -289,16 +289,7 @@ export function ProjectGanttClient({
         // 🧠 Cache Strategy: Bypass cache if any filters are active
         const hasActiveFilters = !!(filters.status || filters.assigneeId || filters.tagId || searchQuery || filters.startDate || filters.endDate);
 
-        if (!hasActiveFilters) {
-            const cached = useTaskCacheStore.getState().getCachedSubTasks(taskId);
-            if (cached && cached.subTasks.length > 0) {
-                const transformedSubtasks = transformToGanttSubtasks(cached.subTasks);
-                setTasks(prev => prev.map(t =>
-                    t.id === taskId ? { ...t, subtasks: transformedSubtasks } : t
-                ));
-                return;
-            }
-        }
+        // Removed manual caching to stay consistent with "Zero-Optimistic" architecture.
 
         fetchingIdsRef.current.add(taskId);
         setLoadingSubtasks(prev => new Set(prev).add(taskId));
@@ -333,13 +324,7 @@ export function ProjectGanttClient({
                 const batchResult = json.data[0];
                 const subTasks = batchResult.subTasks || [];
 
-                if (!hasActiveFilters) {
-                    useTaskCacheStore.getState().setCachedSubTasks(taskId, {
-                        subTasks: subTasks,
-                        hasMore: batchResult.hasMore,
-                        nextCursor: batchResult.nextCursor
-                    });
-                }
+
 
                 const transformedSubtasks = transformToGanttSubtasks(subTasks);
                 setTasks(prev => prev.map(t =>

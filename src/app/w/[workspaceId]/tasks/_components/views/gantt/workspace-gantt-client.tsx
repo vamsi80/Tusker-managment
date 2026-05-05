@@ -13,7 +13,7 @@ import {
   TagOption,
 } from "@/components/task/shared/types";
 import { toast } from "sonner";
-import { useTaskCacheStore } from "@/lib/store/task-cache-store";
+
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 import { ProjectMembersType } from "@/types/project";
 import { useFilterStore } from "@/lib/store/filter-store";
@@ -209,17 +209,7 @@ export function WorkspaceGanttClient({
   const handleRequestSubtasks = async (taskId: string) => {
     if (fetchingIdsRef.current.has(taskId)) return;
     
-    const hasActiveFilters = !!(filters.status || filters.assigneeId || filters.tagId || searchQuery);
-    if (!hasActiveFilters) {
-      const cached = useTaskCacheStore.getState().getCachedSubTasks(taskId);
-      if (cached && cached.subTasks.length > 0) {
-        const transformedSubtasks = transformToGanttSubtasks(cached.subTasks);
-        setTasks(prev => prev.map(t =>
-          t.id === taskId ? { ...t, subtasks: transformedSubtasks } : t
-        ));
-        return;
-      }
-    }
+    // Removed cache bypass logic for "Zero-Optimistic" architecture.
 
     fetchingIdsRef.current.add(taskId);
     setLoadingSubtasks(prev => new Set(prev).add(taskId));
@@ -246,14 +236,6 @@ export function WorkspaceGanttClient({
       if (json.success && json.data?.length > 0) {
         const batchResult = json.data[0];
         const subTasks = batchResult.subTasks || [];
-
-        if (!hasActiveFilters) {
-          useTaskCacheStore.getState().setCachedSubTasks(taskId, {
-            subTasks: subTasks,
-            hasMore: batchResult.hasMore,
-            nextCursor: batchResult.nextCursor
-          });
-        }
 
         const transformedSubtasks = transformToGanttSubtasks(subTasks);
         setTasks(prev => prev.map(t =>
@@ -402,36 +384,14 @@ export function WorkspaceGanttClient({
     });
   };
 
-  const setProjectTasksCache = useTaskCacheStore(
-    (state) => state.setProjectTasksCache,
-  );
+
   const { openSubTaskSheet } = useSubTaskSheetActions();
 
-  useEffect(() => {
-    if (allTasks && allTasks.length > 0) {
-      const tasksByProject: Record<string, any[]> = {};
-      allTasks.forEach((t) => {
-        const pid = t.projectId || "unknown";
-        if (!tasksByProject[pid]) tasksByProject[pid] = [];
-        tasksByProject[pid].push(t);
-      });
 
-      Object.entries(tasksByProject).forEach(([pid, tasks]) => {
-        setProjectTasksCache(pid, {
-          tasks: tasks,
-          hasMore: false,
-          page: 1,
-          totalCount: tasks.length,
-        });
-      });
-    }
-  }, [allTasks, setProjectTasksCache]);
 
   const handleSubtaskClick = (subtaskId: string) => {
     let subtaskData = subtaskDataMap[subtaskId];
-    if (!subtaskData) {
-      subtaskData = (useTaskCacheStore.getState() as any).entities[subtaskId];
-    }
+
     if (subtaskData) {
       openSubTaskSheet(subtaskData);
     }

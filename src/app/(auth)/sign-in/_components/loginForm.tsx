@@ -10,7 +10,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useState, useTransition, useEffect } from "react";
 import { toast } from "sonner";
-import { useTaskCacheStore } from "@/lib/store/task-cache-store";
+
 import { PasswordInput } from "@/components/ui/password-input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
@@ -28,7 +28,7 @@ const GoogleIcon = ({ className }: { className?: string }) => (
 
 export const LoginForm = () => {
   const router = useRouter();
-  const ensureUser = useTaskCacheStore(state => state.ensureUser);
+
   const searchParams = useSearchParams();
 
   const [githubPending, startGithubTransition] = useTransition();
@@ -109,7 +109,7 @@ export const LoginForm = () => {
           callbackURL,
           fetchOptions: {
             onSuccess: (ctx) => {
-              ensureUser(ctx.data.user.id);
+
               toast.success("Signed in successfully!");
               window.location.href = callbackURL;
             },
@@ -192,7 +192,7 @@ export const LoginForm = () => {
   //         code: phoneOtp,
   //         fetchOptions: {
   //           onSuccess: (ctx) => {
-  //             ensureUser(ctx.data.user.id);
+  
   //             toast.success("Signed in successfully!");
   //             window.location.href = callbackURL;
   //           },

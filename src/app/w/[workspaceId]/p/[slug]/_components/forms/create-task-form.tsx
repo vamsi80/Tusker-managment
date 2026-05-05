@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState, useTransition, useEffect } from "react";
 import { Resolver, useForm, useWatch } from "react-hook-form";
-import { Loader2, Plus, PlusIcon, SparkleIcon } from "lucide-react";
+import { Loader2, PlusIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -14,10 +14,8 @@ import { tryCatch } from "@/hooks/try-catch";
 import { useConfetti } from "@/hooks/use-confetti";
 import { toast } from "sonner";
 import slugify from "slugify";
-import { useRouter } from "next/navigation";
 import { useTaskContext } from "@/app/w/[workspaceId]/_components/shared/task-context";
 import { apiClient } from "@/lib/api-client";
-import { useReloadView } from "@/hooks/use-reload-view";
 import { getColorFromString } from "@/lib/colors/project-colors";
 
 interface iAppProps {
@@ -28,7 +26,6 @@ interface iAppProps {
 }
 
 export const CreateTaskForm = ({
-    workspaceId,
     projectId,
     level = "project", // Default to project level for backward compatibility
     projects = [], // Default to empty array
@@ -37,9 +34,7 @@ export const CreateTaskForm = ({
     const { triggerConfetti } = useConfetti();
     const [open, setOpen] = useState(false);
     const [autoSlugEnabled, setAutoSlugEnabled] = useState(true);
-    const router = useRouter();
-    const { addNewTask, updateTask, removeTask, setIsAddingTask } = useTaskContext();
-    const reloadView = useReloadView();
+    const { addNewTask, updateTask, removeTask } = useTaskContext();
 
     const form = useForm<TaskSchemaType>({
         resolver: zodResolver(taskSchema) as unknown as Resolver<TaskSchemaType>,
@@ -75,56 +70,26 @@ export const CreateTaskForm = ({
     }, [open]);
 
     function onSubmit(values: TaskSchemaType) {
-        const tempId = `temp-${crypto.randomUUID()}`;
-        const optimisticTask = {
-            id: tempId,
-            name: values.name,
-            taskSlug: values.taskSlug,
-            projectId: values.projectId,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            status: "TO_DO", // Default status
-            _count: { subTasks: 0 },
-            isOptimistic: true,
-            // Add other required fields with defaults
-            assignee: null,
-            tag: null,
-            priority: null,
-        };
-
-        addNewTask(optimisticTask as any);
-        setOpen(false);
-        form.reset();
-        triggerConfetti();
-
         startTransition(async () => {
-            // setIsAddingTask(true); // Maybe not needed if we are optimistic?
             const { data: result, error } = await tryCatch(apiClient.tasks.createTask(values));
 
             if (error) {
                 toast.error(error.message);
                 console.error(error);
-                removeTask(tempId); // Rollback
                 return;
             }
 
             if (result.status === "success" && result.data) {
                 toast.success(result.message);
-
-                // Replace optimistic task with real task
-                updateTask(tempId, result.data as any);
-
-                // Reload all views to ensure consistency
-                reloadView();
+                triggerConfetti();
+                setOpen(false);
+                form.reset();
+                // Task will be added to UI via RealtimeNotificationListener
             } else {
                 toast.error(result.message);
-                removeTask(tempId); // Rollback
             }
         });
     }
-
-
-
 
     return (
         <>

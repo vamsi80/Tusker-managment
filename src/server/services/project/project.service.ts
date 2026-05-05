@@ -33,6 +33,7 @@ export class ProjectService {
       slug: true,
       color: true,
       createdBy: true,
+      createdAt: true,
       projectMembers: {
         where: { workspaceMember: { userId } },
         select: { projectRole: true }

@@ -5,7 +5,7 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { Plus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ProjectMembersType } from "@/types/project";
-import type { SubTaskType } from "@/data/task";
+import type { SubTaskType } from "@/types/task";
 import { ColumnVisibility } from "../shared/column-visibility";
 import { SubTaskSkeleton } from "@/components/task/list/list-skeleton";
 import { InlineSubTaskForm } from "./inline-subtask-form";
@@ -79,7 +79,7 @@ export function SubTaskList({
             },
             {
                 root: scrollContainerRef?.current || null,
-                rootMargin: "20px"
+                rootMargin: "200px"
             }
         );
 

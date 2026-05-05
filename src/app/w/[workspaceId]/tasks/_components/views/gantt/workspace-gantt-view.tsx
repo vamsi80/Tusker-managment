@@ -1,4 +1,5 @@
-import { getTasks } from "@/data/task/get-tasks";
+import { TasksService } from "@/server/services/task/tasks.service";
+
 import { getWorkspaceTags } from "@/data/tag/get-tags";
 import { ProjectService } from "@/server/services/project";
 import dynamic from "next/dynamic";
@@ -23,7 +24,7 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
 
     const viewStartTime = performance.now();
     const [tasksData, projectMembers, permissions] = await Promise.all([
-        getTasks({
+        TasksService.getTasks({
             workspaceId,
             hierarchyMode: "parents",
             includeSubTasks: false, // 🚀 ZERO-WEIGHT: Don't load subtasks initially

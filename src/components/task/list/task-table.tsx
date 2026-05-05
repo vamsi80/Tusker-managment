@@ -1,6 +1,6 @@
 "use client";
 
-import React, { memo, useState, useMemo } from "react";
+import { memo, useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
@@ -139,19 +139,17 @@ function TaskTable(props: TaskTableProps) {
           )}
           <div ref={logic.scrollContainerRef} className={cn("overflow-auto", props.level === "workspace" ? "max-h-[70vh]" : "max-h-[65vh]", "mt-0")}>
             <table className="w-full caption-bottom text-sm table-fixed">
-              <TaskTableHeader 
-                sorts={logic.sorts} 
-                onSortChange={logic.handleSort} 
-                onExpandAll={logic.handleExpandAll} 
-                onCollapseAll={logic.handleCollapseAll} 
+              <TaskTableHeader
+                sorts={logic.sorts}
+                onSortChange={logic.handleSort}
+                onExpandAll={logic.handleExpandAll}
+                onCollapseAll={logic.handleCollapseAll}
               />
               <TaskTableBody
                 mode={mode as any}
                 tasks={logic.tasks}
-                setTasks={logic.setTasks}
                 groupedTasks={groupedTasks}
                 orderedWorkspaceProjects={orderedWorkspaceProjects}
-                currentProjectCounts={logic.currentProjectCounts}
                 projectTaskCounts={projectTaskCounts}
                 expandedProjects={logic.expandedProjects}
                 toggleProjectExpand={logic.toggleProjectExpand}
@@ -164,15 +162,15 @@ function TaskTable(props: TaskTableProps) {
                 loadingMoreSubTasks={logic.loadingMoreSubTasks}
                 loadMoreSubTasks={logic.loadMoreSubTasks}
                 handleSubTaskClick={logic.handleSubTaskClick}
-                handleOptimisticSubTaskUpdated={logic.handleOptimisticSubTaskUpdated}
+                handleSubTaskUpdated={logic.handleSubTaskUpdated}
                 handleRequestSubtasks={logic.handleRequestSubtasks}
-                getCachedSubTasks={() => ({})} // Handled by hook internally
+                getCachedSubTasks={() => ({})}
                 projectPagination={logic.projectPagination}
                 getObserver={logic.getObserver}
                 filtersActive={logic.filtersActive}
                 activeInlineProjectId={logic.activeInlineProjectId}
                 setActiveInlineProjectId={logic.setActiveInlineProjectId}
-                ensureFilteredProjectLoad={() => {}} // Hook handles lazy load via observer
+                ensureFilteredProjectLoad={() => { }}
                 isSortedViewLoading={logic.isSortedViewLoading}
                 sortedTasks={logic.sortedTasks}
                 sortedHasMore={logic.sortedHasMore}

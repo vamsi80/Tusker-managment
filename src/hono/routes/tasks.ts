@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import prisma from "@/lib/db";
 import { HonoVariables } from "../types";
 import { AppError } from "@/lib/errors/app-error";
-import { TasksService } from "@/server/services/tasks.service";
+import { TasksService } from "@/server/services/task/tasks.service";
 import { taskSchema, subTaskSchema } from "@/lib/zodSchemas";
 import { invalidateTaskMutation } from "@/lib/cache/invalidation";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
@@ -276,15 +276,14 @@ tasks.post("/bulk", async (c) => {
     throw AppError.ValidationError("Missing projectId or tasks");
   }
 
-  const { bulkUploadTasksAndSubtasks } =
-    await import("@/actions/task/bulk-create-taskAndSubTask");
-  const result = await bulkUploadTasksAndSubtasks({
+  const result = await TasksService.bulkUploadTasksAndSubtasks({
     projectId,
     tasks: taskData,
+    userId: user.id
   });
 
   return c.json({
-    success: result.status === "success",
+    success: result.success,
     message: result.message,
     data: result.data,
   });
@@ -763,6 +762,8 @@ tasks.get("/expansion/batch", async (c) => {
   if (db && db !== "undefined" && db !== "null")
     filters.dueBefore = new Date(db);
 
+  const extraFields = parseParam("extraFields", "ef");
+
   // Directly call the batch service
   const results = await TasksService.expandSubtasksBatch({
     parentIds,
@@ -771,6 +772,7 @@ tasks.get("/expansion/batch", async (c) => {
     filters,
     pageSize,
     viewMode,
+    extraFields,
     userId: user.id,
   });
 
@@ -812,6 +814,8 @@ tasks.post("/expansion/batch", async (c) => {
     dueBefore: body.filters?.dueBefore || body.db,
   };
 
+  const extraFields = body.extraFields || body.ef || (q.ef ? q.ef.split(",") : undefined);
+
   const results = await TasksService.expandSubtasksBatch({
     parentIds,
     workspaceId,
@@ -819,6 +823,7 @@ tasks.post("/expansion/batch", async (c) => {
     filters,
     pageSize,
     viewMode,
+    extraFields,
     userId: user.id,
   });
 

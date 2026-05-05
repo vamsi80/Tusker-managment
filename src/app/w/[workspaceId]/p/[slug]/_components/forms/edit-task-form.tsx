@@ -145,8 +145,8 @@ export function EditTaskDialog({
                     });
                 }
 
-                // Reload all views to show the updated task
-                router.refresh();
+                // Removed router.refresh() to prevent full page state reset.
+                // Surgical update above + real-time listener is sufficient.
             } else {
                 toast.error(result.message);
             }

@@ -39,77 +39,45 @@ export type AttendanceEventData = {
 };
 
 /**
- * Broadcast a team event to all connected clients via Pusher.
+ * Core internal broadcast helper.
+ * Centralizes all workspace-level events into the same team-{id} channel.
+ */
+async function broadcast(workspaceId: string, eventName: string, data: any) {
+    try {
+        if (!pusherServer) {
+            console.warn(`[REALTIME] Pusher not configured, skipping ${eventName} broadcast.`);
+            return;
+        }
+        await pusherServer.trigger(`team-${workspaceId}`, eventName, data);
+    } catch (error) {
+        console.error(`[REALTIME_ERROR] Failed to broadcast ${eventName}:`, error);
+    }
+}
+
+/**
+ * Broadcast a team event (roles, members, invitations).
  */
 export const broadcastTeamUpdate = async (data: TeamEventData) => {
-    try {
-        if (!pusherServer) {
-            console.warn("[REALTIME] Pusher not configured, skipping broadcast.");
-            return;
-        }
-        await pusherServer.trigger(
-            `team-${data.workspaceId}`, // Consistent with pubsub.ts
-            TEAM_UPDATE,
-            data
-        );
-    } catch (error) {
-        console.error("[REALTIME_PUSHER_ERROR]", error);
-    }
+    await broadcast(data.workspaceId, TEAM_UPDATE, data);
 };
 
 /**
- * Broadcast a project event to all connected clients via Pusher.
+ * Broadcast a project event (creation, updates, deletion).
  */
 export const broadcastProjectUpdate = async (data: ProjectEventData) => {
-    try {
-        if (!pusherServer) {
-            console.warn("[REALTIME] Pusher not configured, skipping broadcast.");
-            return;
-        }
-        await pusherServer.trigger(
-            `team-${data.workspaceId}`,
-            PROJECT_UPDATE,
-            data
-        );
-    } catch (error) {
-        console.error("[REALTIME_PROJECT_PUSHER_ERROR]", error);
-    }
+    await broadcast(data.workspaceId, PROJECT_UPDATE, data);
 };
 
 /**
- * Broadcast a task event to all connected clients via Pusher.
+ * Broadcast a task event.
  */
 export const broadcastTaskUpdate = async (data: TaskEventData) => {
-    try {
-        if (!pusherServer) {
-            console.warn("[REALTIME] Pusher not configured, skipping broadcast.");
-            return;
-        }
-        await pusherServer.trigger(
-            `team-${data.workspaceId}`,
-            TASK_UPDATE,
-            data
-        );
-    } catch (error) {
-        console.error("[REALTIME_TASK_PUSHER_ERROR]", error);
-    }
+    await broadcast(data.workspaceId, TASK_UPDATE, data);
 };
 
 /**
- * Broadcast an attendance event to all connected clients via Pusher.
+ * Broadcast an attendance event.
  */
 export const broadcastAttendanceUpdate = async (data: AttendanceEventData) => {
-    try {
-        if (!pusherServer) {
-            console.warn("[REALTIME] Pusher not configured, skipping broadcast.");
-            return;
-        }
-        await pusherServer.trigger(
-            `team-${data.workspaceId}`,
-            ATTENDANCE_UPDATE,
-            data
-        );
-    } catch (error) {
-        console.error("[REALTIME_ATTENDANCE_PUSHER_ERROR]", error);
-    }
+    await broadcast(data.workspaceId, ATTENDANCE_UPDATE, data);
 };

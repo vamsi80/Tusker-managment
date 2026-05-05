@@ -1,19 +1,18 @@
 import { create } from 'zustand';
 import { WorkspaceLayoutData } from '@/types/workspace';
 import { workspacesClient } from '@/lib/api-client/workspaces';
-import { pusherClient } from '@/lib/pusher';
-import { TEAM_UPDATE, PROJECT_UPDATE } from '@/lib/realtime';
+import { pubsub, EVENTS } from '@/lib/pubsub';
 
 interface WorkspaceLayoutState {
     layoutData: Record<string, WorkspaceLayoutData>;
     isLoading: Record<string, boolean>;
     isRevalidating: Record<string, boolean>;
-    
+
     // Actions
     fetchLayout: (workspaceId: string, isSilent?: boolean) => Promise<void>;
     revalidate: (workspaceId: string, force?: boolean) => Promise<void>;
     setLayoutData: (workspaceId: string, data: WorkspaceLayoutData) => void;
-    
+
     // Optimistic Actions
     optimisticRemoveProject: (workspaceId: string, projectId: string) => void;
     optimisticAddProject: (workspaceId: string, project: any) => void;
@@ -30,7 +29,7 @@ export const useWorkspaceLayoutStore = create<WorkspaceLayoutState>((set, get) =
 
     fetchLayout: async (workspaceId: string, isSilent = false) => {
         const { isLoading, isRevalidating } = get();
-        
+
         // Prevent multiple simultaneous fetches
         if (isLoading[workspaceId] || isRevalidating[workspaceId]) return;
 
@@ -43,12 +42,12 @@ export const useWorkspaceLayoutStore = create<WorkspaceLayoutState>((set, get) =
         try {
             // Add a timeout safety to prevent getting stuck in isLoading: true
             const fetchPromise = workspacesClient.getLayoutData(workspaceId);
-            const timeoutPromise = new Promise((_, reject) => 
+            const timeoutPromise = new Promise((_, reject) =>
                 setTimeout(() => reject(new Error("Timeout")), 10000)
             );
 
             const data = await Promise.race([fetchPromise, timeoutPromise]) as WorkspaceLayoutData;
-            
+
             if (data) {
                 set((state) => ({
                     layoutData: { ...state.layoutData, [workspaceId]: data },
@@ -123,35 +122,36 @@ export function useRealtimeLayoutSync(workspaceId: string) {
     const { revalidate, optimisticRemoveProject, optimisticAddProject } = useWorkspaceLayoutStore();
 
     useEffect(() => {
-        if (!workspaceId || !pusherClient) return;
+        if (!workspaceId) return;
 
-        const channelName = `workspace-${workspaceId}`;
-        const channel = pusherClient.subscribe(channelName);
-
-        // Team updates (roles, permissions)
-        channel.bind(TEAM_UPDATE, () => {
-            useWorkspaceLayoutStore.getState().revalidate(workspaceId, true);
-        });
-
-        // Project updates
-        channel.bind(PROJECT_UPDATE, (eventData: any) => {
+        // Use the centralized pubsub service for all workspace events
+        const unsubscribe = pubsub.subscribe(EVENTS.TEAM_UPDATE, (eventData: any) => {
             const store = useWorkspaceLayoutStore.getState();
-            if (eventData.type === "DELETE" && eventData.projectId) {
-                store.optimisticRemoveProject(workspaceId, eventData.projectId);
-            }
             
-            if (eventData.type === "CREATE" && eventData.payload) {
-                store.optimisticAddProject(workspaceId, eventData.payload);
-            }
-
-            // Force a clean revalidation after optimistic update
-            setTimeout(() => {
+            // Handle project-specific updates surgically
+            if (eventData.projectId || eventData.payload?.id) {
+                const projectId = eventData.projectId || eventData.payload?.id;
+                
+                if (eventData.type === "DELETE") {
+                    store.optimisticRemoveProject(workspaceId, projectId);
+                }
+                
+                if (eventData.type === "CREATE" && eventData.payload) {
+                    store.optimisticAddProject(workspaceId, eventData.payload);
+                }
+                
+                // Silent revalidation backup
+                setTimeout(() => {
+                    store.revalidate(workspaceId, true);
+                }, 1000);
+            } else {
+                // General team/workspace update (roles, permissions)
                 store.revalidate(workspaceId, true);
-            }, 1000);
+            }
         });
 
         return () => {
-            pusherClient?.unsubscribe(channelName);
+            unsubscribe();
         };
     }, [workspaceId]);
 }

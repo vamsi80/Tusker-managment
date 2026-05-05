@@ -24,7 +24,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { useTaskCacheStore } from "@/lib/store/task-cache-store";
+
 import type { ProjectMembersType } from "@/types/project";
 import { apiClient } from "@/lib/api-client";
 
@@ -98,7 +98,7 @@ export function InlineAssigneePicker({
     const { workspaceId: paramWorkspaceId } = useParams();
     const workspaceId = (paramWorkspaceId as string) || "";
 
-    const upsertTasks = useTaskCacheStore(state => state.upsertTasks);
+
 
     // 1. Filter by project membership and allowed IDs
     const members = allMembers.filter(m => {
@@ -152,22 +152,13 @@ export function InlineAssigneePicker({
                 workspaceId,
                 subTask.projectId || projectId,
                 member.userId,
+                explanation,
             );
 
             if (response.success) {
                 toast.success(`Assigned to ${member.user.surname}`);
 
-                // 2. IN-MEMORY GLOBAL SYNC (fully optimistic)
-                const updatedTaskData = {
-                    ...subTask,
-                    assigneeId: member.projectMemberId,
-                    assignee: {
-                        id: member.userId,
-                        surname: member.user.surname,
-                    },
-                    updatedAt: new Date().toISOString()
-                };
-                upsertTasks([updatedTaskData as any]);
+
 
                 // 3. VIEW-SPECIFIC CALLBACK
                 onAssigned(member.userId, member);

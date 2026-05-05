@@ -16,6 +16,7 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
             isParent: true,
             projectId: true,
             createdAt: true,
+            position: true,
             _count: {
                 select: {
                     subTasks: subtaskFilter ? { where: subtaskFilter } : true
@@ -65,10 +66,11 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
         projectId: true,
         parentTaskId: !isKanban,
         isParent: !isKanban, // Always false in Kanban subtask view
+        position: true,
         assigneeId: !isKanban // Redundant with assignee object
     };
 
-    if ((isList && extraFields?.includes("description")) || isSubtask) {
+    if ((isList || isSubtask) && extraFields?.includes("description")) {
         select.description = true;
     }
 
@@ -98,9 +100,9 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
         };
     }
 
-    if (isList || isKanban || isSearch || isCalendar || isGantt) {
+    if (isList || isKanban || isSearch || isCalendar || isGantt || isSubtask) {
         if (!isGantt) {
-        select.tags = { select: { id: true, name: true } };
+            select.tags = { select: { id: true, name: true } };
         }
     }
 
@@ -228,9 +230,9 @@ export function buildOrderBy(sorts?: Array<{ field: string; direction: "asc" | "
     // Default task list order is newest-first so recently created parent tasks appear first.
     if (!sorts || sorts.length === 0) {
         if (view_mode === "gantt" || view_mode === "list") {
-            return [{ position: "asc" as const }, { createdAt: "asc" as const }, { id: "asc" as const }];
+            return [{ position: "asc" as const }, { createdAt: "desc" as const }, { id: "desc" as const }];
         }
-        return [{ createdAt: "asc" as const }, { id: "asc" as const }];
+        return [{ createdAt: "desc" as const }, { id: "desc" as const }];
     }
 
     const { field, direction } = sorts[0];
@@ -402,8 +404,8 @@ export function buildProjectRootWhere(
         if (opts.sorts && opts.sorts.length > 0) {
             appendAnd(where, buildSeekCondition(opts.sorts, opts.cursor));
         } else {
-            // No custom sorts → default orderBy is ASC (oldest-first) → cursor must use "asc"
-            appendAnd(where, buildCursorWhere(opts.cursor, "asc"));
+            // Default orderBy is DESC (newest-first) → cursor must use "desc"
+            appendAnd(where, buildCursorWhere(opts.cursor, "desc"));
         }
     }
 
@@ -489,7 +491,7 @@ export function buildSubtaskExpansionWhere(
     }
 
     if (opts.cursor) {
-        // No custom sorts → default orderBy is ASC (oldest-first) → cursor must use "gt"
+        // Default orderBy is DESC (newest-first) → cursor must use "desc" to get older tasks (lt)
         appendAnd(where, buildCursorWhere(opts.cursor, "desc"));
     }
 
@@ -611,7 +613,10 @@ export function buildWorkspaceFilterWhere(
     }
 
     if (opts.assigneeId) {
-        appendAnd(where, buildParentAssigneeFilter(opts.assigneeId));
+        // 🚀 CRITICAL: In Search/Filter/Kanban modes, we want STRICT assignee matching.
+        // We do NOT want to pull in a Parent task just because its SubTask matches the assignee.
+        const useStrictFilter = !!(opts.excludeParents || opts.view_mode === "kanban" || opts.onlySubtasks || (opts.status && opts.status.length > 0) || (opts.search && opts.search.length > 0));
+        appendAnd(where, buildParentAssigneeFilter(opts.assigneeId, useStrictFilter));
     }
 
     if (opts.parentTaskId) {

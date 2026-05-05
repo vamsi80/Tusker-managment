@@ -17,7 +17,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useTaskCacheStore } from "@/lib/store/task-cache-store";
+
 
 interface TaskRowProps {
     task: TaskWithSubTasks;
@@ -71,25 +71,27 @@ export const TaskRow = memo(function TaskRow({
     const rowRef = useRef<HTMLTableRowElement>(null);
 
     useEffect(() => {
-        if (!isExpanded || !onRequestSubtasks || subtaskCount === 0) return;
+        if (!isExpanded || !onRequestSubtasks || subtaskCount === 0 || task.subTasks !== undefined) return;
 
-        // Only fetch if subTasks is undefined (unfetched) OR if was explicitly cleared/invalidated
-        if (task.subTasks !== undefined) {
-            return;
-        }
-
-        console.log(
-            `ðŸ” [Expansion Trigger] Detected need for subtasks: Task=${task.id} Name="${task.name}" (Count=${subtaskCount})`,
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting) {
+                    onRequestSubtasks(task.id);
+                    observer.disconnect();
+                }
+            },
+            { rootMargin: "150px" } 
         );
 
-        if (isCached) {
-            console.log(`ðŸ” [Expansion Trigger] Using Cached Fetch for: ${task.id}`);
+        const currentRef = rowRef.current;
+        if (currentRef) {
+            observer.observe(currentRef);
         }
 
-        // Fetch immediately when expanded so loading follows row order,
-        // not scroll/intersection timing.
-        onRequestSubtasks(task.id);
-    }, [isExpanded, task.subTasks, task.id, task.name, subtaskCount, onRequestSubtasks, isCached]);
+        return () => {
+            observer.disconnect();
+        };
+    }, [isExpanded, task.subTasks, task.id, subtaskCount, onRequestSubtasks]);
 
     let colSpan = 2;
     if (columnVisibility.description) colSpan++;
@@ -106,15 +108,7 @@ export const TaskRow = memo(function TaskRow({
         setTask((prev) => ({ ...prev, name: updatedTask.name, taskSlug: updatedTask.taskSlug }));
     };
 
-    const handleOptimisticSubTaskUpdated = (subTaskId: string, updatedData: any) => {
-        // Use the store's upsert to maintain global consistency
-        useTaskCacheStore.getState().upsertTasks([{
-            id: subTaskId,
-            ...updatedData,
-            updatedAt: new Date().toISOString()
-        }]);
-
-        setTask((prev) => ({
+    const handleOptimisticSubTaskUpdated = (subTaskId: string, updatedData: any) => {        setTask((prev) => ({
             ...prev,
             subTasks: prev.subTasks?.map((st: any) =>
                 st.id === subTaskId ? { ...st, ...updatedData } : st
@@ -122,11 +116,7 @@ export const TaskRow = memo(function TaskRow({
         }));
     };
 
-    const handleOptimisticSubTaskDeleted = (subTaskId: string) => {
-        // Use the store's surgical remove
-        useTaskCacheStore.getState().removeSubTaskFromList(task.id, subTaskId);
-
-        const subTaskToDelete = task.subTasks?.find((st: any) => st.id === subTaskId);
+    const handleSubTaskDeleted = (subTaskId: string) => {        const subTaskToDelete = task.subTasks?.find((st: any) => st.id === subTaskId);
         const wasCompleted = subTaskToDelete?.status === "COMPLETED";
 
         setTask((prev) => ({
@@ -139,23 +129,8 @@ export const TaskRow = memo(function TaskRow({
         }));
     };
 
-    const handleOptimisticSubTaskCreated = (newSubTask: any, tempId?: string) => {
-        // 🚀 CRITICAL FIX: Use the global cache store for optimistic subtasks.
-        // We pass tempId to addSubTaskToList so it knows to REPLACE the temp ID instead of adding a duplicate.
-        useTaskCacheStore.getState().addSubTaskToList(task.id, newSubTask, tempId);
-
-        setTask((prev) => {
+    const handleSubTaskCreated = (newSubTask: any) => {        setTask((prev) => {
             const currentSubTasks = prev.subTasks || [];
-            if (tempId) {
-                // If we are replacing a temp ID with real data
-                return {
-                    ...prev,
-                    subTasks: currentSubTasks.map((st: any) =>
-                        st.id === tempId ? newSubTask : st,
-                    ),
-                    subtaskCount: prev.subtaskCount, // already incremented on temp creation
-                };
-            }
             if (currentSubTasks.some((st: any) => st.id === newSubTask.id)) return prev;
 
             return {
@@ -216,10 +191,7 @@ export const TaskRow = memo(function TaskRow({
         <>
             <TableRow
                 ref={rowRef}
-                className={cn(
-                    "group [&_td]:py-2 hover:bg-muted/30 transition-colors",
-                    (task as any).isOptimistic && "opacity-60 grayscale-[0.5]",
-                )}
+                className="group [&_td]:py-2 hover:bg-muted/30 transition-colors"
             >
                 <TableCell className="w-[40px] md:w-[50px]">
                     <div className="flex items-center justify-center">
@@ -297,12 +269,12 @@ export const TaskRow = memo(function TaskRow({
                         (children as any).props.onSubTaskUpdated?.(subTaskId, updatedData);
                     },
                     onSubTaskDeleted: (subTaskId: string) => {
-                        handleOptimisticSubTaskDeleted(subTaskId);
+                        handleSubTaskDeleted(subTaskId);
                         (children as any).props.onSubTaskDeleted?.(subTaskId);
                     },
-                    onSubTaskCreated: (newSubTask: any, tempId?: string) => {
-                        handleOptimisticSubTaskCreated(newSubTask, tempId);
-                        (children as any).props.onSubTaskCreated?.(newSubTask, tempId);
+                    onSubTaskCreated: (newSubTask: any) => {
+                        handleSubTaskCreated(newSubTask);
+                        (children as any).props.onSubTaskCreated?.(newSubTask);
                     },
                 })}
         </>

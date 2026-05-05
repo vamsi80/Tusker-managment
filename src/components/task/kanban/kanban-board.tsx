@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
-import type { SubTasksByStatusResponse, KanbanSubTaskType } from "@/data/task";
+import type { SubTasksByStatusResponse, KanbanSubTaskType } from "@/types/task";
 import type { ProjectMembersType } from "@/types/project";
 import { cn } from "@/lib/utils";
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
@@ -27,7 +27,7 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import { useTaskCacheStore } from "@/lib/store/task-cache-store";
+
 import { Loader2 } from "lucide-react";
 import { logger } from "@/lib/logger";
 import { UserPermissionsType } from "@/data/user/get-user-permissions";
@@ -129,10 +129,7 @@ export function KanbanBoard({
     };
   }, [workspaceId]);
   const isMobile = useIsMobile();
-  const setKanbanTasksCache = useTaskCacheStore(
-    (state) => state.setKanbanTasksCache,
-  );
-  const kanbanLists = useTaskCacheStore((state) => state.kanbanLists);
+  const [kanbanTasks, setKanbanTasks] = useState<Record<string, any[]>>({});
 
   const projectMap = useMemo(() => {
     const map: Record<string, ProjectOption> = {};
@@ -170,16 +167,8 @@ export function KanbanBoard({
     >
   >(() => {
     const map: any = {};
-    const contextId = projectId || "";
-    // Access cache directly for synchronous initial state if we are in a shell
-    const cacheState = useTaskCacheStore.getState();
-
     COLUMNS.forEach((col) => {
       const serverCol = initialData ? initialData[col.id] : null;
-      const cacheKey = `${workspaceId}-${contextId}-${col.id}`;
-      const cached = cacheState.getKanbanTasksCache(cacheKey);
-
-      // Default state for every column to prevent crashes
       map[col.id] = {
         subTaskIds: [],
         totalCount: 0,
@@ -187,18 +176,8 @@ export function KanbanBoard({
         nextCursor: null,
       };
 
-      // 💉 Optimization: If we have cached data and initialData is a shell, use cache.
-      if (isShell && cached && cached.tasks.length > 0) {
-        map[col.id] = {
-          subTaskIds: Array.from(new Set(cached.tasks.map((t) => t.id))),
-          totalCount: cached.totalCount ?? 0,
-          hasMore: cached.hasMore,
-          nextCursor: cached.nextCursor,
-        };
-      } else if (serverCol) {
-        // Hydrate from server data if available
-        const colTasks =
-          (serverCol as any).tasks || (serverCol as any).subTasks || [];
+      if (serverCol) {
+        const colTasks = (serverCol as any).tasks || (serverCol as any).subTasks || [];
         map[col.id] = {
           subTaskIds: Array.from(new Set(colTasks.map((t: any) => t.id))),
           totalCount: serverCol.totalCount,
@@ -210,6 +189,20 @@ export function KanbanBoard({
     return map;
   });
 
+  // Hydrate tasks state
+  useEffect(() => {
+    if (initialData) {
+      const newTasks: Record<string, any[]> = {};
+      COLUMNS.forEach((col) => {
+        const serverCol = initialData[col.id];
+        if (serverCol) {
+          newTasks[col.id] = (serverCol as any).tasks || (serverCol as any).subTasks || [];
+        }
+      });
+      setKanbanTasks(newTasks);
+    }
+  }, [initialData]);
+
   // 🧹 Filter Reset Logic: Ensures a clean slate when navigating between different views
   const { filters, setFilters, searchQuery, setSearchQuery, clearFilters } =
     useFilterStore();
@@ -220,49 +213,6 @@ export function KanbanBoard({
     };
   }, [clearFilters, workspaceId, projectId]);
 
-  // -------------------------------------------------------------------------
-  // 🚀 SURGICAL SYNC: Listen for store updates (moves/surgical sync)
-  // -------------------------------------------------------------------------
-  useEffect(() => {
-    const contextId = projectId || "";
-    let hasChanges = false;
-    const nextState = { ...columnData };
-
-    COLUMNS.forEach((col) => {
-      const cacheKey = `${workspaceId}-${contextId}-${col.id}`;
-      // Access the unfiltered cache entry
-      const cachedList = kanbanLists[cacheKey]?.["__unfiltered__"];
-
-      if (
-        cachedList &&
-        cachedList.timestamp > (lastSyncRef.current[cacheKey] || 0)
-      ) {
-        // Determine if the ID set actually changed or if it just arrived
-        const currentIds = columnData[col.id].subTaskIds;
-        const matches =
-          cachedList.ids.length === currentIds.length &&
-          cachedList.ids.every((id: string, i: number) => id === currentIds[i]);
-
-        if (!matches) {
-          nextState[col.id] = {
-            ...nextState[col.id],
-            subTaskIds: Array.from(new Set(cachedList.ids)),
-            totalCount: cachedList.totalCount ?? nextState[col.id].totalCount,
-          };
-          hasChanges = true;
-        }
-        lastSyncRef.current[cacheKey] = cachedList.timestamp;
-      }
-    });
-
-    if (hasChanges) {
-      setColumnData(nextState);
-    }
-  }, [kanbanLists, workspaceId, projectId]);
-
-  // -------------------------------------------------------------------------
-  // 🚀 REALTIME SYNC: Listen for Pusher-driven structural mutations
-  // -------------------------------------------------------------------------
   useEffect(() => {
     const handleRealtimeSync = (e: Event) => {
       const { action, record } = (e as CustomEvent).detail || {};
@@ -281,10 +231,12 @@ export function KanbanBoard({
         const entityId = record.id;
         if (!entityId) return;
 
-        // Upsert into entity store
-        useTaskCacheStore.getState().upsertTasks([record]);
+        // Inject into the correct column
+        setKanbanTasks(prev => ({
+          ...prev,
+          [status]: [record, ...(prev[status] || [])]
+        }));
 
-        // Inject into the correct column — guard against duplicates
         setColumnData((prev) => {
           if (prev[status]?.subTaskIds.includes(entityId)) return prev;
           return {
@@ -301,6 +253,14 @@ export function KanbanBoard({
       if (action === "TASK_DELETED") {
         const entityId = record.id;
         if (!entityId) return;
+
+        setKanbanTasks(prev => {
+          const next = { ...prev };
+          Object.keys(next).forEach(status => {
+            next[status] = next[status].filter(t => t.id !== entityId);
+          });
+          return next;
+        });
 
         setColumnData((prev) => {
           const next = { ...prev };
@@ -325,6 +285,17 @@ export function KanbanBoard({
         if (record.status && record.previousStatus && record.status !== record.previousStatus) {
           const fromStatus = record.previousStatus as TaskStatus;
           const toStatus = record.status as TaskStatus;
+
+          setKanbanTasks(prev => {
+            const next = { ...prev };
+            const task = next[fromStatus]?.find(t => t.id === entityId);
+            if (task) {
+              next[fromStatus] = next[fromStatus].filter(t => t.id !== entityId);
+              next[toStatus] = [{ ...task, ...record }, ...(next[toStatus] || [])];
+            }
+            return next;
+          });
+
           setColumnData((prev) => {
             if (!prev[fromStatus] || !prev[toStatus]) return prev;
             if (!prev[fromStatus].subTaskIds.includes(entityId)) return prev;
@@ -346,30 +317,13 @@ export function KanbanBoard({
               },
             };
           });
-        }
-
-        // Always upsert latest entity data
-        useTaskCacheStore.getState().upsertTasks([record]);
-      }
-
-      // Subtasks don't appear as kanban cards — but update parent entity count
-      if (action === "SUBTASK_CREATED" && record.parentTaskId) {
-        const parent = useTaskCacheStore.getState().entities[record.parentTaskId];
-        if (parent) {
-          useTaskCacheStore.getState().upsertTasks([{
-            id: record.parentTaskId,
-            subtaskCount: (parent.subtaskCount || 0) + 1,
-          }]);
-        }
-      }
-
-      if (action === "SUBTASK_DELETED" && record.parentTaskId) {
-        const parent = useTaskCacheStore.getState().entities[record.parentTaskId];
-        if (parent) {
-          useTaskCacheStore.getState().upsertTasks([{
-            id: record.parentTaskId,
-            subtaskCount: Math.max(0, (parent.subtaskCount || 0) - 1),
-          }]);
+        } else {
+           // Normal update within same column
+           const status = record.status as TaskStatus;
+           setKanbanTasks(prev => ({
+             ...prev,
+             [status]: (prev[status] || []).map(t => t.id === entityId ? { ...t, ...record } : t)
+           }));
         }
       }
     };
@@ -378,146 +332,7 @@ export function KanbanBoard({
     return () => window.removeEventListener("realtime-sync-refresh", handleRealtimeSync);
   }, [workspaceId, projectId, level]);
 
-  // Hydrate state from cache after mount
-  useEffect(() => {
-    const startTime = performance.now();
-    const upsertTasks = useTaskCacheStore.getState().upsertTasks;
-
-    // 0. IMMEDIATE SYNC: Upsert all initial server data into global entities
-    // ensure we have the freshest versions available for relations and metadata
-    const allInitialTasks = initialData
-      ? COLUMNS.flatMap(
-        (col) =>
-          (initialData[col.id] as any)?.tasks ||
-          (initialData[col.id] as any)?.subTasks ||
-          [],
-      )
-      : [];
-    if (allInitialTasks.length > 0) {
-      upsertTasks(allInitialTasks);
-    }
-
-    if (!initialData) return;
-
-    const contextId = projectId || "";
-    const hydratedData: any = { ...columnData };
-    let hasChanges = false;
-
-    COLUMNS.forEach((col) => {
-      const cacheKey = `${workspaceId}-${contextId}-${col.id}`;
-      const cached = useTaskCacheStore.getState().getKanbanTasksCache(cacheKey);
-
-      // ALWAYS prefer the list structure from the server (initialData) if it just arrived.
-      // Use cache only for "nextCursor" or if we are navigating back without new props.
-      let tasks =
-        (initialData[col.id] as any).tasks ||
-        (initialData[col.id] as any).subTasks ||
-        [];
-
-      if (cached && cached.tasks.length > 0) {
-        if (initialData[col.id].totalCount === 0 && !isShell) {
-          // Server explicitly says there are 0 tasks. DO NOT fallback to stale cache.
-          tasks = [];
-        } else if (tasks.length > 0 && cached.tasks.length > tasks.length) {
-          // Cache has MORE items than the server provided page 1.
-          // Verify if it's the SAME data set by checking if the base IDs match.
-          const baseIdsMatch = tasks.every(
-            (t: any, i: number) => cached.tasks[i]?.id === t.id,
-          );
-          if (baseIdsMatch) {
-            tasks = cached.tasks;
-          }
-        } else if (
-          tasks.length === 0 &&
-          (initialData[col.id].totalCount > 0 || isShell)
-        ) {
-          // Edge case: SSR provided 0 tasks but totalCount > 0 OR it's a shell? Trust the cache.
-          tasks = cached.tasks;
-        }
-      } else if (
-        !cached &&
-        columnData[col.id].subTaskIds.length > 0 &&
-        isShell
-      ) {
-        // 🚀 SAFEGUARD: If cache is gone (invalidated) but we have live state, keep it!
-        // This prevents the "No tasks found" flicker when commenting or during transitions.
-        const entities = useTaskCacheStore.getState().entities;
-        tasks = columnData[col.id].subTaskIds
-          .map((id) => entities[id])
-          .filter(Boolean) as any;
-      }
-
-      // Sync these IDs into the global store immediately so the listener can find them
-      setKanbanTasksCache(cacheKey, {
-        tasks: tasks,
-        hasMore: initialData[col.id].hasMore,
-        nextCursor: cached?.nextCursor || initialData[col.id].nextCursor,
-        totalCount: initialData[col.id].totalCount,
-      });
-      // Mark as synced so the surgical effect doesn't immediately overwrite with itself
-      lastSyncRef.current[cacheKey] = Date.now();
-
-      let totalCount = initialData[col.id].totalCount;
-      let hasMore = initialData[col.id].hasMore;
-      let nextCursor = cached
-        ? cached.nextCursor
-        : initialData[col.id].nextCursor;
-
-      // 2. Workspace Aggregation: Merge cached tasks from OTHER projects
-      if (level === "workspace" && projects) {
-        const projectTasks = projects.flatMap((p) => {
-          const pKey = `${workspaceId}-${p.id}-${col.id}`;
-          const pCached = useTaskCacheStore
-            .getState()
-            .getKanbanTasksCache(pKey);
-          // Filter by status to prevent ghosting
-          return pCached && pCached.tasks
-            ? pCached.tasks.filter((t: any) => t.status === col.id)
-            : [];
-        });
-
-        if (projectTasks.length > 0) {
-          const taskMap = new Map();
-          // Seed with current tasks (server matches)
-          tasks.forEach((t: any) => taskMap.set(t.id, t));
-
-          // Merge project-specific tasks not already in the list
-          projectTasks.forEach((t: any) => {
-            if (!taskMap.has(t.id)) {
-              taskMap.set(t.id, t);
-            }
-          });
-
-          tasks = Array.from(taskMap.values());
-          hasChanges = true;
-        }
-      }
-
-      hydratedData[col.id] = {
-        subTaskIds: Array.from(new Set(tasks.map((t: any) => t.id))),
-        totalCount: totalCount || (cached ? cached.totalCount : 0),
-        hasMore: hasMore,
-        nextCursor: nextCursor,
-      };
-
-      // Re-sync this column's cache to match the server/merged reality
-      setKanbanTasksCache(cacheKey, {
-        tasks: tasks,
-        hasMore,
-        page: 1,
-        totalCount: hydratedData[col.id].totalCount,
-      });
-    });
-
-    setColumnData(hydratedData);
-
-    const duration = performance.now() - startTime;
-    logger.perf("KANBAN_HYDRATION", duration, {
-      workspaceId,
-      projectId,
-      level,
-    });
-  }, [projectId, workspaceId, level, projects, initialData]); // initialData as dependency ensures we respond to fresh props
+  // Hydrate state from cache after resh props
 
   const [visibleColumns, setVisibleColumns] = useState<
     Record<TaskStatus, boolean>
@@ -614,41 +429,34 @@ export function KanbanBoard({
       if (!shouldFetch) {
         // Reset to initial unfiltered data ONLY if we were previously filtering
         if (isCurrentlyFiltered) {
-          const contextId = projectId || "";
+        // Reset to initial unfiltered data
+        if (isCurrentlyFiltered) {
           const resetData: any = {};
+          const resetTasks: any = {};
 
           COLUMNS.forEach((col) => {
-            const cacheKey = `${workspaceId}-${contextId}-${col.id}`;
-            const cached = useTaskCacheStore
-              .getState()
-              .getKanbanTasksCache(cacheKey);
-
-            // Use Cache > InitialData
+            const serverCol = initialData?.[col.id];
+            const tasks = (serverCol as any)?.tasks || (serverCol as any)?.subTasks || [];
+            
             resetData[col.id] = {
-              subTaskIds: (cached && cached.tasks.length > 0
-                ? cached.tasks
-                : (initialData?.[col.id] as any)?.tasks ||
-                (initialData?.[col.id] as any)?.subTasks ||
-                []
-              ).map((t: any) => t.id),
-              totalCount: cached
-                ? (cached.totalCount ?? 0)
-                : initialData?.[col.id]?.totalCount || 0,
-              hasMore: cached
-                ? cached.hasMore
-                : initialData?.[col.id]?.hasMore || false,
-              nextCursor: cached ? cached.nextCursor : undefined,
+              subTaskIds: tasks.map((t: any) => t.id),
+              totalCount: serverCol?.totalCount || 0,
+              hasMore: serverCol?.hasMore || false,
+              nextCursor: serverCol?.nextCursor || undefined,
             };
+            resetTasks[col.id] = tasks;
           });
 
           if (!isAborted) {
             setColumnData(resetData);
+            setKanbanTasks(resetTasks);
             setIsCurrentlyFiltered(false);
             setLoadingColumns(
               Object.fromEntries(COLUMNS.map((col) => [col.id, false])) as any,
             );
             setIsFiltering(false);
           }
+        }
         } else {
           if (!isAborted) setIsFiltering(false);
         }
@@ -715,17 +523,13 @@ export function KanbanBoard({
 
           const counts = (response.data.facets as any)?.status || {};
           const groupedData: any = {};
+          const groupedTasks: any = {};
 
           COLUMNS.forEach((col) => {
             const serverCol = response.data.tasksByStatus[col.id];
             const allColTasks = serverCol?.tasks || [];
             // Don't display parent as a card
             const colTasks = allColTasks.filter((t: any) => !t.isParent);
-
-            // Sync entities to global store for updated review counts/metadata
-            if (colTasks.length > 0) {
-              useTaskCacheStore.getState().upsertTasks(colTasks);
-            }
 
             // Use the server-provided pagination state directly
             groupedData[col.id] = {
@@ -734,8 +538,10 @@ export function KanbanBoard({
               hasMore: serverCol?.hasMore || false,
               nextCursor: serverCol?.nextCursor || null,
             };
+            groupedTasks[col.id] = colTasks;
           });
           setColumnData(groupedData);
+          setKanbanTasks(groupedTasks);
 
           const duration = performance.now() - startTime;
           logger.perf("KANBAN_FILTER_APPLIED", duration, {
@@ -843,55 +649,25 @@ export function KanbanBoard({
         (t: any) => !t.isParent && t.status === status,
       );
 
-      // Sync to global store outside of React's state updater to avoid "bad setState in render" error.
-      useTaskCacheStore.getState().upsertTasks(newTasks);
-
       // 1. Prepare data for update
       const counts = (response.data.facets as any)?.status || {};
-      const colState = columnData[status];
-      const existingIds = colState.subTaskIds;
 
-      // Deduplicate using a Set
-      const idSet = new Set([
-        ...existingIds,
-        ...newTasks.map((t: any) => t.id),
-      ]);
-      const deduplicatedIds = Array.from(idSet);
-      const totalForCol = counts[status] || (colState.totalCount ?? 0);
-
-      const serverHasMore = response.data.hasMore || false;
-      const serverNextCursor = response.data.nextCursor || null;
-
-      // 2. Schedule Local State Update
+      setKanbanTasks(prev => ({
+        ...prev,
+        [status]: [...(prev[status] || []), ...newTasks]
+      }));
       setColumnData((prev) => ({
         ...prev,
         [status]: {
-          subTaskIds: deduplicatedIds,
-          totalCount: totalForCol,
-          hasMore: serverHasMore,
-          nextCursor: serverNextCursor,
+          ...prev[status],
+          subTaskIds: Array.from(
+            new Set([...prev[status].subTaskIds, ...newTasks.map((t: any) => t.id)]),
+          ),
+          totalCount: counts[status] || prev[status].totalCount + newTasks.length,
+          hasMore: response.data.hasMore || false,
+          nextCursor: response.data.nextCursor || null,
         },
       }));
-
-      // 3. Update Global Cache (strictly OUTSIDE of any state updater to avoid React cycle errors)
-      const isFiltered = searchQuery || Object.keys(filters).length > 0;
-      if (!isFiltered) {
-        const contextId = projectId || "";
-        const cacheKey = `${workspaceId}-${contextId}-${status}`;
-
-        // Use updated task entities from the store
-        const entities = useTaskCacheStore.getState().entities;
-        const allTasksForCol = deduplicatedIds
-          .map((id) => entities[id])
-          .filter(Boolean);
-
-        setKanbanTasksCache(cacheKey, {
-          tasks: allTasksForCol,
-          hasMore: response.data.hasMore,
-          nextCursor: response.data.nextCursor,
-          totalCount: response.data.totalCount ?? undefined,
-        });
-      }
     } catch (error) {
       console.error(`Error loading more subtasks for ${status}:`, error);
       toast.error("Failed to load more subtasks");
@@ -902,7 +678,8 @@ export function KanbanBoard({
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
-    const subTask = useTaskCacheStore.getState().entities[active.id as string];
+    const subTask = kanbanTasks[overInfo.columnId as TaskStatus]?.find(t => t.id === active.id) || 
+                  Object.values(kanbanTasks).flat().find(t => t.id === active.id);
     if (subTask) {
       setActiveSubTask(subTask as KanbanSubTaskType);
     }
@@ -987,7 +764,7 @@ export function KanbanBoard({
       }
     }
 
-    const subTask = useTaskCacheStore.getState().entities[subTaskId];
+    const subTask = kanbanTasks[currentStatus as TaskStatus]?.find(t => t.id === subTaskId);
 
     if (!subTask || !currentStatus || currentStatus === newStatus) {
       return;
@@ -1035,16 +812,6 @@ export function KanbanBoard({
     fromStatus: TaskStatus,
     toStatus: TaskStatus,
   ) => {
-    // 1. Surgical update in the GLOBAL STORE (Instant)
-    // This updates entities and all relevant caches in a single batch
-    useTaskCacheStore.getState().moveTaskBetweenKanbanColumns(
-      subTaskId,
-      fromStatus,
-      toStatus,
-      workspaceId,
-      projectId || undefined
-    );
-
     // 2. Synchronize the LOCAL columnData state immediately
     setColumnData((prev) => {
       const fromCol = prev[fromStatus];
@@ -1075,17 +842,26 @@ export function KanbanBoard({
   };
 
   const getTaskProjectId = (subTaskId: string) => {
-    const task = useTaskCacheStore.getState().entities[subTaskId];
-    if (task && "projectId" in task) {
-      return (task as any).projectId as string;
+    // Find task in local state to get its projectId
+    for (const status of Object.keys(kanbanTasks) as TaskStatus[]) {
+      const task = kanbanTasks[status]?.find(t => t.id === subTaskId);
+      if (task && task.projectId) return task.projectId;
     }
     return projectId;
   };
 
   const updateSubTaskInPlace = (subTaskId: string, data: any) => {
-    // We just need to update the global store, the individual cards or columns
-    // will pick it up if they are subscribed (handled in Phase 3.2 logic)
-    useTaskCacheStore.getState().upsertTasks([{ id: subTaskId, ...data }]);
+    setKanbanTasks((prev) => {
+      const newState = { ...prev };
+      for (const status of Object.keys(newState) as TaskStatus[]) {
+        if (newState[status]) {
+          newState[status] = newState[status].map((t) =>
+            t.id === subTaskId ? { ...t, ...data } : t
+          );
+        }
+      }
+      return newState;
+    });
   };
 
   const performStatusUpdate = async (
@@ -1266,12 +1042,9 @@ export function KanbanBoard({
   const uniqueParentTasks = useMemo(() => {
     const parentMap = new Map<string, ParentTaskOption>();
 
-    // 1. Extract from currently loaded items in Kanban columns
-    COLUMNS.forEach((col) => {
-      const entities = useTaskCacheStore.getState().entities;
-      const subTaskIds = columnData[col.id]?.subTaskIds || [];
-      subTaskIds.forEach((id) => {
-        const st = entities[id] as any;
+    // Extract from currently loaded items in Kanban columns
+    Object.values(kanbanTasks).forEach((tasks) => {
+      tasks.forEach((st) => {
         if (st?.parentTask?.id) {
           parentMap.set(st.parentTask.id, {
             id: st.parentTask.id,
@@ -1282,51 +1055,18 @@ export function KanbanBoard({
       });
     });
 
-    // 2. Extract from global entities (all loaded roots/parents for this project)
-    const allEntities = Object.values(useTaskCacheStore.getState().entities);
-    allEntities.forEach((task: any) => {
-      if (task.isParent && task.projectId === projectId) {
-        parentMap.set(task.id, {
-          id: task.id,
-          name: task.name,
-          taskSlug: task.taskSlug,
-        });
-      }
-    });
-
     return Array.from(parentMap.values());
-  }, [columnData, projectId]);
+  }, [kanbanTasks]);
 
   // handleRequestSubtasks: Triggers explicit expansion for a parent task.
   // Although Kanban is flat, this hydrates the cache allowing filter-by-parent to work instantly.
   const handleRequestSubtasks = useCallback(
     async (parentId: string) => {
-      try {
-        const params = new URLSearchParams();
-        params.set("w", workspaceId);
-        params.set("p", projectId);
-        params.set("ids", parentId);
-        params.set("vm", "kanban");
-        params.set("sub", "true");
-
-        const res = await fetch(
-          `/api/v1/tasks/expansion/batch?${params.toString()}`,
-        );
-        const json = await res.json();
-
-        if (json.success && json.data?.[0]) {
-          const batchResult = json.data[0];
-          useTaskCacheStore.getState().upsertTasks(batchResult.subTasks || []);
-          useTaskCacheStore.getState().setCachedSubTasks(parentId, {
-            subTasks: batchResult.subTasks || [],
-            hasMore: batchResult.hasMore,
-          });
-        }
-      } catch (err) {
-        console.error("Failed to request subtasks in Kanban:", err);
-      }
+      // In this new architecture, we don't need to manually hydrate a global cache.
+      // Filtering by parent works on the already-loaded kanbanTasks.
+      console.log("Parent filter applied for:", parentId);
     },
-    [workspaceId, projectId],
+    [],
   );
 
   const memberOptions = Array.from(
@@ -1410,12 +1150,12 @@ export function KanbanBoard({
             )}
           >
             {COLUMNS.filter((col) => visibleColumns[col.id]).map((column) => {
-              const subTaskIds = getFilteredSubTaskIds(column.id);
+              const tasks = kanbanTasks[column.id] || [];
               return (
                 <KanbanColumn
                   key={column.id}
                   column={column}
-                  subTaskIds={subTaskIds}
+                  tasks={tasks}
                   totalCount={columnData[column.id].totalCount}
                   hasMore={columnData[column.id].hasMore}
                   isLoadingMore={loadingColumns[column.id]}
@@ -1464,8 +1204,7 @@ export function KanbanBoard({
         onSubmit={handleActivitySubmit}
         subTaskName={
           pendingReviewMove
-            ? useTaskCacheStore.getState().entities[pendingReviewMove.subTaskId]
-              ?.name || "Subtask"
+            ? kanbanTasks[pendingReviewMove.previousStatus]?.find(t => t.id === pendingReviewMove.subTaskId)?.name || "Subtask"
             : ""
         }
       />

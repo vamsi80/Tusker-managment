@@ -4,7 +4,7 @@
  * This file contains all shared TypeScript types and interfaces
  * used across task components (List, Kanban, Gantt, and shared components).
  */
-import type { WorkspaceTaskType, SubTaskType } from "@/data/task";
+import type { WorkspaceTaskType, SubTaskType } from "@/types/task";
 import type { ProjectMembersType } from "@/types/project";
 
 // ============================================================================

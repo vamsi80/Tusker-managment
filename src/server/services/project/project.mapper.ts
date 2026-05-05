@@ -22,6 +22,7 @@ export class ProjectMapper {
       color: project.color,
       canManageMembers: isOwnerOrAdmin || isProjectManager || isCreator,
       projectRole: userProjectMember?.projectRole as ProjectRole,
+      createdAt: project.createdAt.toISOString(),
     };
   }
 

@@ -1,34 +1,32 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { toast } from "sonner";
-import { useTaskCacheStore } from "@/lib/store/task-cache-store";
-import { useFilterStore } from "@/lib/store/filter-store";
-import { workspacesClient } from "@/lib/api-client/workspaces";
-import { 
-  type TaskWithSubTasks, 
-  type SortConfig, 
-  type SortField, 
+import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  type TaskWithSubTasks,
+  type SortConfig,
+  type SortField,
+  type TaskFilters,
   hasActiveFilters,
   getActiveFilters
 } from "@/components/task/shared/types";
+import type { SubTaskType } from "@/types/task";
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
-import type { SubTaskType } from "@/data/task";
 
 export function useTaskTableLogic({
   initialTasks,
-  initialHasMore,
-  initialNextCursor,
-  initialTotalCount,
   workspaceId,
   projectId,
   level,
   projectCounts,
   projects,
-  isShell = false,
 }: any) {
   const [tags, setTags] = useState<{ id: string; name: string }[]>([]);
-  const { filters, setFilters, searchQuery, setSearchQuery, clearFilters } = useFilterStore();
+  const [filters, setFilters] = useState<TaskFilters>({});
+  const [searchQuery, setSearchQuery] = useState("");
+  const clearFilters = useCallback(() => {
+    setFilters({});
+    setSearchQuery("");
+  }, []);
   const [isLoadingFilters, setIsLoadingFilters] = useState(false);
   const [isCurrentlyFiltered, setIsCurrentlyFiltered] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -42,24 +40,23 @@ export function useTaskTableLogic({
   const [sortedNextCursor, setSortedNextCursor] = useState<any>(null);
   const [isLoadingMoreSorted, setIsLoadingMoreSorted] = useState(false);
   const [isSortedViewLoading, setIsSortedViewLoading] = useState(false);
-  const [currentProjectCounts, setCurrentProjectCounts] = useState<Record<string, number> | undefined>(projectCounts);
-  const [activeInlineProjectId, setActiveInlineProjectId] = useState<string | null>(null);
   const [projectPagination, setProjectPagination] = useState<Record<string, any>>({});
+  const [tasks, setTasks] = useState<TaskWithSubTasks[]>(initialTasks || []);
+  const [activeInlineProjectIdState, setActiveInlineProjectIdState] = useState<string | null>(null);
 
   const filtersActive = hasActiveFilters(filters) || !!searchQuery;
   const tasksRef = useRef<TaskWithSubTasks[]>([]);
   const fetchingIdsRef = useRef<Set<string>>(new Set());
-  const hasFetchedRef = useRef(false);
   const isInitialMountRef = useRef<boolean>(true);
   const projectPaginationRef = useRef<Record<string, any>>({});
   const processedSubTasksRef = useRef<Set<string>>(new Set());
   const fetchingSubTasksRef = useRef<Set<string>>(new Set());
-  const autoExpandRef = useRef(false);
+  const subTaskBatchQueueRef = useRef<Set<string>>(new Set());
+  const subTaskBatchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isAutoExpanded, setIsAutoExpanded] = useState(false);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
-  const getCachedSubTasks = useTaskCacheStore((state) => state.getCachedSubTasks);
-  const setCachedSubTasks = useTaskCacheStore((state) => state.setCachedSubTasks);
   const { openSubTaskSheet } = useSubTaskSheetActions();
 
   // Helper: CreatedAt Asc Comparison
@@ -94,7 +91,7 @@ export function useTaskTableLogic({
     }
   }, []);
 
-  const compareSubTasksFallback = useCallback(
+  const compareTasksFallback = useCallback(
     (a: any, b: any) => {
       const aPos = typeof a?.position === "number" ? a.position : Number.MAX_SAFE_INTEGER;
       const bPos = typeof b?.position === "number" ? b.position : Number.MAX_SAFE_INTEGER;
@@ -113,11 +110,11 @@ export function useTaskTableLogic({
           const res = compareByField(a, b, s.field, s.direction);
           if (res !== 0) return res;
         }
-        return compareSubTasksFallback(a, b);
+        return compareTasksFallback(a, b);
       });
     }
-    return deduped.sort(compareSubTasksFallback);
-  }, [sorts, compareByField, compareSubTasksFallback]);
+    return deduped.sort(compareTasksFallback);
+  }, [sorts, compareByField, compareTasksFallback]);
 
   // Order Root Tasks
   const orderRootTasks = useCallback((taskList: TaskWithSubTasks[]) => {
@@ -129,166 +126,199 @@ export function useTaskTableLogic({
       const aPR = projectRank.get(a.projectId || "") ?? 9999;
       const bPR = projectRank.get(b.projectId || "") ?? 9999;
       if (aPR !== bPR) return aPR - bPR;
-      return compareByCreatedAtAsc(a, b);
-    });
-  }, [projects, compareByCreatedAtAsc]);
 
-  const normalizeFilteredTasks = useCallback((taskList: TaskWithSubTasks[]) => 
+      // If within the same project, use the standard fallback (position then createdAt)
+      return compareTasksFallback(a, b);
+    });
+  }, [projects, compareTasksFallback]);
+
+  const normalizeFilteredTasks = useCallback((taskList: TaskWithSubTasks[]) =>
     orderRootTasks(taskList.map((t) => ({
       ...t,
       subTasks: t.subTasks ? orderSubTasksForParent(t.id, t.subTasks) : t.subTasks,
     }))), [orderRootTasks, orderSubTasksForParent]);
 
-  // Hydrate
-  const hydrateTasks = useCallback((taskList: TaskWithSubTasks[], debugLabel?: string, options?: { skipMemorySubtasks?: boolean }) => {
-    const state = useTaskCacheStore.getState();
+  // Normalize and Order
+  const hydrateTasks = useCallback((taskList: TaskWithSubTasks[]) => {
     return taskList.map((t) => {
-      const cachedEntity = state.entities[t.id];
-      let currentT = t;
-      if (cachedEntity) {
-        const incomingTime = t.updatedAt ? new Date(t.updatedAt).getTime() : 0;
-        const cachedTime = cachedEntity.updatedAt ? new Date(cachedEntity.updatedAt).getTime() : 0;
-        const merged = cachedTime > incomingTime ? { ...t, ...cachedEntity } : { ...cachedEntity, ...t };
-        currentT = {
-          ...merged,
-          updatedAt: merged.updatedAt ? new Date(merged.updatedAt) : undefined,
-        } as TaskWithSubTasks;
+      // Deep Hydrate and Order Subtasks
+      let subTasks = t.subTasks;
+      let hasMore = t.subTasksHasMore;
+      let nextCursor = t.subTasksNextCursor;
+
+      if (subTasks && subTasks.length > 0) {
+        subTasks = orderSubTasksForParent(t.id, subTasks);
       }
-      if (currentT.subTasks !== undefined && debugLabel !== "realtime-sync") return currentT;
-      const cached = state.getCachedSubTasks(currentT.id);
-      if (cached && (debugLabel === "realtime-sync" || currentT.subTasks === undefined)) {
-        return { ...currentT, subTasks: cached.subTasks, subTasksHasMore: cached.hasMore, subTasksNextCursor: cached.nextCursor };
-      }
-      return currentT;
+
+      return {
+        ...t,
+        subTasks,
+        subTasksHasMore: hasMore,
+        subTasksNextCursor: nextCursor
+      };
     });
-  }, []);
+  }, [orderSubTasksForParent]);
 
-  const [tasks, setTasks] = useState<TaskWithSubTasks[]>(() => hydrateTasks(orderRootTasks(initialTasks)));
+  const handleRequestSubtasksBatch = useCallback(async (taskIds: string[]) => {
+    // Filter out already processed or currently fetching IDs
+    const idsToFetch = taskIds.filter(id => !processedSubTasksRef.current.has(id) && !fetchingSubTasksRef.current.has(id));
+    if (idsToFetch.length === 0) return;
 
-  // Real-time Sync (Store hydration)
-  useEffect(() => {
-    const unsub = useTaskCacheStore.subscribe(() => {
-      setTasks((prev) => hydrateTasks(prev, "realtime-sync"));
+    // Mark as fetching
+    idsToFetch.forEach(id => {
+      fetchingSubTasksRef.current.add(id);
+      setLoadingSubTasks(prev => ({ ...prev, [id]: true }));
     });
-    return unsub;
-  }, [hydrateTasks]);
 
-  // Real-time Sync (Structural changes via realtime-sync-refresh)
-  // Same pattern as AttendanceTable, LeavesTable, and TeamManagementClient
-  useEffect(() => {
-    const handler = (e: any) => {
-      const { action, record, oldRecord } = e.detail || {};
+    try {
+      // Chunk IDs to avoid URL length issues and reduce db pressure
+      const chunkSize = 10;
+      for (let i = 0; i < idsToFetch.length; i += chunkSize) {
+        const chunk = idsToFetch.slice(i, i + chunkSize);
 
-      console.log(`[TaskTable][SURGICAL_V2] 🔄 Event received: ${action}`, {
-        id: record?.id,
-        projectId: record?.projectId,
-      });
+        const paramsInit: Record<string, string> = {
+          w: workspaceId,
+          ids: chunk.join(","),
+          vm: "list",
+          ps: "10", // 🚀 Reduced initial batch size to trigger cursor-based loading earlier
+          ef: "description"
+        };
 
-      // 1. Handle New Tasks (Parent task created)
-      if (record && action === "TASK_CREATED") {
-        // Only inject if relevant to current view
-        const isRelevant =
-          level === "workspace" ||
-          record.projectId === projectId;
-        if (!isRelevant) return;
+        const params = new URLSearchParams(paramsInit);
 
-        setTasks((prev) => {
-          if (prev.some((t) => t.id === record.id)) return prev;
-          const newTask = {
-            ...record,
-            subTasks: record.subTasks || undefined,
-            subtaskCount: record.subtaskCount ?? record._count?.subTasks ?? 0,
-            isParent: record.isParent ?? true,
-          } as TaskWithSubTasks;
-          return orderRootTasks([newTask, ...prev]);
-        });
-        return;
-      }
+        const res = await fetch(`/api/v1/tasks/expansion/batch?${params.toString()}`);
+        const responseData = await res.json();
 
-      // 2. Handle Subtask Created
-      if (record && action === "SUBTASK_CREATED" && record.parentTaskId) {
-        setTasks((prev) =>
-          prev.map((t) => {
-            if (t.id !== record.parentTaskId) return t;
-            const currentSubTasks = t.subTasks || [];
-            if (currentSubTasks.some((st) => st.id === record.id)) return t;
-            return {
-              ...t,
-              subTasks: [record, ...currentSubTasks],
-              subtaskCount: (t.subtaskCount || 0) + 1,
+        if (responseData.success && Array.isArray(responseData.data)) {
+          const updates: Record<string, any> = {};
+          responseData.data.forEach((result: any) => {
+            const taskId = result.parentTaskId;
+
+            // 🚀 CRITICAL FIX: Merge server tasks with existing local/optimistic tasks
+            const currentTask = tasksRef.current.find(t => t.id === taskId);
+            const existing = currentTask?.subTasks || [];
+            const merged = [...existing, ...(result.subTasks || [])];
+
+            const ordered = orderSubTasksForParent(taskId, merged);
+            processedSubTasksRef.current.add(taskId);
+
+            updates[taskId] = {
+              subTasks: ordered,
+              subTasksHasMore: result.hasMore,
+              subTasksNextCursor: result.nextCursor
             };
-          })
-        );
-        return;
-      }
+          });
 
-      // 3. Handle Task Updates
-      if (record && (action === "TASK_UPDATED" || action === "SUBTASK_UPDATED")) {
-        setTasks((prev) =>
-          prev.map((t) => {
-            // Direct task update
-            if (t.id === record.id) {
-              return { ...t, ...record };
-            }
-            // Subtask update within a parent
-            if (t.subTasks?.some((st) => st.id === record.id)) {
-              return {
-                ...t,
-                subTasks: t.subTasks.map((st) =>
-                  st.id === record.id ? { ...st, ...record } : st
-                ),
-              };
+          setTasks((prev) => prev.map(t => {
+            if (updates[t.id]) {
+              return { ...t, ...updates[t.id] };
             }
             return t;
-          })
-        );
-        return;
-      }
+          }));
 
-      // 4. Handle Task Deleted
-      if (action === "TASK_DELETED") {
-        const deletedId = record?.id || oldRecord?.id;
-        if (deletedId) {
-          setTasks((prev) => prev.filter((t) => t.id !== deletedId));
-          return;
+          // 🚀 Incremental Loading: Clear loading state for this chunk immediately
+          chunk.forEach(id => {
+            fetchingSubTasksRef.current.delete(id);
+            setLoadingSubTasks(prev => {
+              const next = { ...prev };
+              delete next[id];
+              return next;
+            });
+          });
         }
       }
-
-      // 5. Handle Subtask Deleted
-      if (action === "SUBTASK_DELETED") {
-        const deletedId = record?.id || oldRecord?.id;
-        const parentId = record?.parentTaskId || oldRecord?.parentTaskId;
-        if (deletedId) {
-          setTasks((prev) =>
-            prev.map((t) => {
-              if (t.id !== parentId && !t.subTasks?.some((st) => st.id === deletedId)) return t;
-              return {
-                ...t,
-                subTasks: t.subTasks?.filter((st) => st.id !== deletedId),
-                subtaskCount: Math.max(0, (t.subtaskCount || 0) - 1),
-              };
-            })
-          );
-          return;
+    } finally {
+      // Emergency cleanup for anything that might have failed (e.g. 500 error on a chunk)
+      idsToFetch.forEach(id => {
+        if (fetchingSubTasksRef.current.has(id)) {
+          fetchingSubTasksRef.current.delete(id);
+          setLoadingSubTasks(prev => {
+            const n = { ...prev };
+            delete n[id];
+            return n;
+          });
         }
-      }
+      });
+    }
+  }, [workspaceId, orderSubTasksForParent]);
 
-      // ⛔ BLOCK Fallback for all known task actions to prevent unnecessary fetch
-      if (action?.startsWith("TASK_") || action?.startsWith("SUBTASK_")) {
-        console.log(`[TaskTable] ✅ Surgical update complete for ${action}. No fetch required.`);
-        return;
-      }
-    };
+  // handleRequestSubtasks (Batched via queue)
+  const handleRequestSubtasks = useCallback((taskId: string) => {
+    if (processedSubTasksRef.current.has(taskId) || fetchingSubTasksRef.current.has(taskId)) return;
 
-    window.addEventListener("realtime-sync-refresh", handler);
-    return () => window.removeEventListener("realtime-sync-refresh", handler);
-  }, [workspaceId, projectId, level, orderRootTasks]);
+    subTaskBatchQueueRef.current.add(taskId);
+    setLoadingSubTasks(prev => ({ ...prev, [taskId]: true }));
+
+    if (subTaskBatchTimeoutRef.current) clearTimeout(subTaskBatchTimeoutRef.current);
+
+    subTaskBatchTimeoutRef.current = setTimeout(() => {
+      const queue = Array.from(subTaskBatchQueueRef.current);
+      subTaskBatchQueueRef.current.clear();
+      if (queue.length > 0) {
+        handleRequestSubtasksBatch(queue);
+      }
+    }, 150); // Small delay to catch multiple expansion requests in one frame
+  }, [handleRequestSubtasksBatch]);
+
+  // 🚀 Sync state with initial data when filters are cleared
+  useEffect(() => {
+    if (!filtersActive && initialTasks) {
+      setTasks(hydrateTasks(orderRootTasks(initialTasks)));
+      // 🚀 Reset pagination and processing state so projects can re-fetch correctly
+      setProjectPagination({});
+      projectPaginationRef.current = {};
+      fetchingIdsRef.current.clear();
+      processedSubTasksRef.current.clear();
+      fetchingSubTasksRef.current.clear();
+
+      // 🚀 FORCE RE-OBSERVE: Disconnect and null out observer so it re-attaches to visible projects
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+        observerRef.current = null;
+      }
+    }
+  }, [initialTasks, filtersActive, hydrateTasks, orderRootTasks]);
+
+  // Keep tasksRef in sync for batch expansion logic
+  useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
+
+  // 🚀 Real-time synchronization is now handled via local state setters
+  // mapped from global RealtimeNotificationListener events.
 
   // Expansion Lock Removal (on filter change)
   useEffect(() => {
     processedSubTasksRef.current.clear();
     fetchingSubTasksRef.current.clear();
+    // Don't clear isAutoExpanded here, keep the mode active if user wants it
   }, [filters, searchQuery]);
+
+  // Auto-expand newly loaded tasks if isAutoExpanded is true OR if we are filtering
+  useEffect(() => {
+    if ((isAutoExpanded || filtersActive) && tasks.length > 0) {
+      const newExpanded: Record<string, boolean> = {};
+      const idsToFetch: string[] = [];
+      let changed = false;
+
+      tasks.forEach(t => {
+        if (t.isParent && !expanded[t.id]) {
+          newExpanded[t.id] = true;
+          changed = true;
+          if (!processedSubTasksRef.current.has(t.id) && !fetchingSubTasksRef.current.has(t.id)) {
+            idsToFetch.push(t.id);
+          }
+        }
+      });
+
+      if (changed) {
+        setExpanded(prev => ({ ...prev, ...newExpanded }));
+        if (idsToFetch.length > 0) {
+          handleRequestSubtasksBatch(idsToFetch);
+        }
+      }
+    }
+  }, [isAutoExpanded, filtersActive, tasks, expanded, handleRequestSubtasksBatch]);
 
   // Load Project Tasks (Lazy)
   const loadProjectTasks = useCallback(async (targetProjectId: string) => {
@@ -298,10 +328,10 @@ export function useTaskTableLogic({
     projectPaginationRef.current = { ...projectPaginationRef.current, [targetProjectId]: { ...currentPagination, isLoading: true } };
     setProjectPagination((prev) => ({ ...prev, [targetProjectId]: { ...currentPagination, isLoading: true } }));
 
-    const params = new URLSearchParams({ w: workspaceId, vm: "list", hm: "parents", sub: "false", l: "50", ef: "description" });
+    const params = new URLSearchParams({ w: workspaceId, vm: "list", hm: "parents", sub: "false", l: "50" });
     if (targetProjectId !== "__global_filter__") params.set("p", targetProjectId);
     if (currentPagination.nextCursor) params.set("c", JSON.stringify(currentPagination.nextCursor));
-    
+
     // Apply filters to pagination too
     const activeFilters = getActiveFilters(filters);
     activeFilters.forEach(f => {
@@ -322,10 +352,12 @@ export function useTaskTableLogic({
       const response = await apiRes.json();
       if (response.success) {
         const resultData = response.data;
+
         setTasks((prev) => {
-          const merged = filtersActive ? normalizeFilteredTasks([...prev, ...resultData.tasks]) : orderRootTasks([...prev, ...resultData.tasks]);
-          return hydrateTasks(merged);
+          const merged = [...prev, ...resultData.tasks];
+          return hydrateTasks(orderRootTasks(merged));
         });
+
         const nextPaginationEntry = { page: currentPagination.page + 1, nextCursor: resultData.nextCursor, hasMore: resultData.hasMore ?? false, isLoading: false };
         projectPaginationRef.current = { ...projectPaginationRef.current, [targetProjectId]: nextPaginationEntry };
         setProjectPagination((prev) => ({ ...prev, [targetProjectId]: nextPaginationEntry }));
@@ -340,9 +372,15 @@ export function useTaskTableLogic({
     setIsLoadingFilters(true);
     setIsCurrentlyFiltered(true);
     try {
-      const params = new URLSearchParams({ w: workspaceId, vm: "list", l: "50", facets: "true", ef: "description" });
+      const params = new URLSearchParams({
+        w: workspaceId,
+        vm: "list",
+        l: "50",
+        facets: "true",
+        ef: "description" // Include description for filtered results (especially subtasks)
+      });
       if (level === "project" && projectId) params.set("p", projectId);
-      
+
       // Apply active filters
       const activeFilters = getActiveFilters(filters);
       activeFilters.forEach(f => {
@@ -357,8 +395,11 @@ export function useTaskTableLogic({
       const res = await fetch(`/api/v1/tasks?${params.toString()}`);
       const response = await res.json();
       if (!isAbortedRef.current && response.success) {
-        setTasks(hydrateTasks(normalizeFilteredTasks(response.data.tasks)));
-        if (response.data.facets?.projects) setCurrentProjectCounts(response.data.facets.projects);
+        setTasks(hydrateTasks(orderRootTasks(response.data.tasks)));
+
+        if (response.data.facets?.projects) {
+          // You could also store facets in the store if needed
+        }
       }
     } finally {
       if (!isAbortedRef.current) setIsLoadingFilters(false);
@@ -375,7 +416,7 @@ export function useTaskTableLogic({
           const res = await fetch(`/api/v1/tags?workspaceId=${workspaceId}`);
           const data = await res.json();
           if (data.success) setTags(data.tags);
-        } catch (e) {}
+        } catch (e) { }
       };
       fetchTags();
       return;
@@ -386,10 +427,8 @@ export function useTaskTableLogic({
       if (filtersActive) {
         fetchFiltered(abortRef);
       } else if (isCurrentlyFiltered) {
-        // Reset to initial state if filters cleared
-        setTasks(hydrateTasks(orderRootTasks(initialTasks)));
+        // Reset to initial state
         setIsCurrentlyFiltered(false);
-        setCurrentProjectCounts(projectCounts);
       }
     }, 300);
 
@@ -399,28 +438,6 @@ export function useTaskTableLogic({
     };
   }, [filters, searchQuery, fetchFiltered, filtersActive, isCurrentlyFiltered, initialTasks, hydrateTasks, orderRootTasks, projectCounts, workspaceId]);
 
-  // handleRequestSubtasks
-  const handleRequestSubtasks = useCallback(async (taskId: string) => {
-    if (processedSubTasksRef.current.has(taskId) || fetchingSubTasksRef.current.has(taskId)) return;
-
-    fetchingSubTasksRef.current.add(taskId);
-    setLoadingSubTasks((prev) => ({ ...prev, [taskId]: true }));
-
-    try {
-      const params = new URLSearchParams({ w: workspaceId, ids: taskId, vm: "list", ps: "30", ef: "description" });
-      const res = await fetch(`/api/v1/tasks/expansion/batch?${params.toString()}`);
-      const responseData = await res.json();
-      if (responseData.success && responseData.data?.[0]) {
-        const result = responseData.data[0];
-        const ordered = orderSubTasksForParent(taskId, result.subTasks || []);
-        processedSubTasksRef.current.add(taskId);
-        setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, subTasks: ordered, subTasksHasMore: result.hasMore, subTasksNextCursor: result.nextCursor } : t));
-      }
-    } finally {
-      fetchingSubTasksRef.current.delete(taskId);
-      setLoadingSubTasks((prev) => { const n = { ...prev }; delete n[taskId]; return n; });
-    }
-  }, [workspaceId, orderSubTasksForParent]);
 
   const loadMoreSubTasks = async (taskId: string) => {
     const task = tasks.find((t) => t.id === taskId);
@@ -428,8 +445,13 @@ export function useTaskTableLogic({
     setLoadingMoreSubTasks((prev) => ({ ...prev, [taskId]: true }));
 
     try {
-      const params = new URLSearchParams({ 
-        w: workspaceId, p: task.projectId || projectId, vm: "list", pt: taskId, l: "50" 
+      const params = new URLSearchParams({
+        w: workspaceId,
+        p: task.projectId || projectId,
+        vm: "list",
+        pt: taskId,
+        l: "20",
+        ef: "description"
       });
       if (task.subTasksNextCursor) params.set("c", JSON.stringify(task.subTasksNextCursor));
       // Apply filters...
@@ -438,9 +460,18 @@ export function useTaskTableLogic({
       const response = await apiRes.json();
       if (response.success) {
         const resultData = response.data;
-        const combined = orderSubTasksForParent(taskId, [...task.subTasks, ...resultData.tasks], task.subTasks);
-        if (!filtersActive) setCachedSubTasks(taskId, { subTasks: combined, hasMore: resultData.hasMore, nextCursor: resultData.nextCursor });
-        setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, subTasks: combined, subTasksHasMore: resultData.hasMore, subTasksNextCursor: resultData.nextCursor } : t));
+
+        setTasks((prev) => prev.map(t => {
+          if (t.id === taskId) {
+            return {
+              ...t,
+              subTasks: orderSubTasksForParent(taskId, [...(t.subTasks || []), ...resultData.tasks]),
+              subTasksHasMore: resultData.hasMore,
+              subTasksNextCursor: resultData.nextCursor
+            };
+          }
+          return t;
+        }));
       }
     } finally {
       setLoadingMoreSubTasks((prev) => ({ ...prev, [taskId]: false }));
@@ -501,7 +532,11 @@ export function useTaskTableLogic({
       const isExpanding = !prev[taskId];
       if (isExpanding) {
         const t = tasksRef.current.find((x) => x.id === taskId);
-        if (t && (t.subTasks === undefined || t.subTasks.length === 0) && (filtersActive || t.subtaskCount > 0)) {
+        // 🚀 Fetch if we haven't processed this task in the current session, 
+        // even if it has some cached subtasks (to avoid missing old server data).
+        const hasNotProcessed = !processedSubTasksRef.current.has(taskId);
+
+        if (t && hasNotProcessed && (filtersActive || t.subtaskCount > 0)) {
           handleRequestSubtasks(taskId);
         }
       }
@@ -543,10 +578,15 @@ export function useTaskTableLogic({
 
   const handleSubTaskClick = (subTask: SubTaskType) => { openSubTaskSheet(subTask); };
 
-  const handleOptimisticSubTaskUpdated = useCallback((subTaskId: string, updatedData: any) => {
-    setTasks((prev) => prev.map(t => {
-      if (!t.subTasks?.some(st => st.id === subTaskId)) return t;
-      return { ...t, subTasks: t.subTasks.map(st => st.id === subTaskId ? { ...st, ...updatedData } : st) };
+  const handleSubTaskUpdated = useCallback((subTaskId: string, updatedData: any) => {
+    setTasks(prev => prev.map(t => {
+      if (t.subTasks) {
+        return {
+          ...t,
+          subTasks: t.subTasks.map(st => st.id === subTaskId ? { ...st, ...updatedData } : st)
+        };
+      }
+      return t;
     }));
   }, []);
 
@@ -561,9 +601,10 @@ export function useTaskTableLogic({
     expandedProjects, setExpandedProjects,
     sorts, setSorts,
     sortedTasks, sortedHasMore, isSortedViewLoading, isLoadingMoreSorted,
-    currentProjectCounts,
     filtersActive,
-    activeInlineProjectId, setActiveInlineProjectId,
+    currentProjectCounts: projectCounts,
+    activeInlineProjectId: activeInlineProjectIdState,
+    setActiveInlineProjectId: setActiveInlineProjectIdState,
     scrollContainerRef,
     handleSort,
     toggleProjectExpand,
@@ -576,28 +617,33 @@ export function useTaskTableLogic({
     toggleExpand,
     getObserver,
     handleSubTaskClick,
-    handleOptimisticSubTaskUpdated,
+    handleSubTaskUpdated,
     loadMoreSubTasks,
     loadMoreSorted,
     handleExpandAll: () => {
+      setIsAutoExpanded(true);
       // Expand all projects
       setExpandedProjects(projects.reduce((a: any, p: any) => ({ ...a, [p.id]: true }), {}));
-      
-      // Expand all currently visible tasks and trigger subtask fetches if needed
-      setExpanded((prev) => {
-        const next = { ...prev };
-        tasks.forEach((t) => {
-          if (t.isParent) {
-            next[t.id] = true;
-            if (t.subTasks === undefined && t.subtaskCount > 0) {
-              handleRequestSubtasks(t.id);
-            }
+
+      const newExpanded: Record<string, boolean> = {};
+      const idsToFetch: string[] = [];
+
+      tasks.forEach((t) => {
+        if (t.isParent) {
+          newExpanded[t.id] = true;
+          if (!processedSubTasksRef.current.has(t.id) && !fetchingSubTasksRef.current.has(t.id)) {
+            idsToFetch.push(t.id);
           }
-        });
-        return next;
+        }
       });
+
+      setExpanded((prev) => ({ ...prev, ...newExpanded }));
+      if (idsToFetch.length > 0) {
+        handleRequestSubtasksBatch(idsToFetch);
+      }
     },
     handleCollapseAll: () => {
+      setIsAutoExpanded(false);
       setExpanded({});
       setExpandedProjects({});
     }

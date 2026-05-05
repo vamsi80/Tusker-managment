@@ -116,9 +116,6 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
                 form.reset();
                 setOpen(false); // Close the dialog
 
-                // Explicitly revalidate layout to update sidebar
-                revalidate(true);
-
                 // Redirect to the newly created project's page
                 if (result.data?.slug) {
                     router.push(`/w/${workspaceId}/p/${result.data.slug}`);
