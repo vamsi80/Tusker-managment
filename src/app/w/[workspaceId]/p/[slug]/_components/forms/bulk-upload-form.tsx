@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useTaskContext } from "@/app/w/[workspaceId]/_components/shared/task-context";
 import { ApiResponse } from "@/lib/types";
-import { useTaskCacheStore } from "@/lib/store/task-cache-store";
+
 import { useDropzone, FileRejection } from "react-dropzone";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/lib/api-client";
@@ -528,10 +528,7 @@ ${tagList}
                     toast.success('Tasks uploaded successfully!', { id: toastId });
                     triggerConfetti();
 
-                    const newTasks = result.data as any[];
-                    if (newTasks && newTasks.length > 0) {
-                        useTaskCacheStore.getState().upsertTasks(newTasks);
-                    }
+
 
                     setTimeout(() => {
                         setOpen(false);

@@ -32,8 +32,9 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
   const { data: layoutData, isLoading: isLayoutLoading, isRevalidating, revalidate } = useWorkspaceLayout();
   const projects = layoutData.projects || [];
 
-  // Keep isInitialLoading for skeleton logic if context is loading
-  const isInitialLoading = (isLayoutLoading && projects.length === 0) || isRevalidating;
+  // Optimized loading: only show skeleton if we have NO data yet.
+  // We avoid showing skeletons during silent revalidations to keep the UI stable (Surgical Sync).
+  const isInitialLoading = isLayoutLoading && projects.length === 0;
 
   const { isMobile, setOpenMobile } = useSidebar();
   const pathname = usePathname();

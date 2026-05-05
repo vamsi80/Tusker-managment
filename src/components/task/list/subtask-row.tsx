@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { CornerDownRight, GripVertical, Calendar, Tag, MoreHorizontal } from "lucide-react";
-import type { SubTaskType } from "@/data/task";
+import type { SubTaskType } from "@/types/task";
 import type { ProjectMembersType } from "@/types/project";
 import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { Badge } from "@/components/ui/badge";
@@ -206,8 +206,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                     "h-8 [&_td]:py-2 transition-colors",
                     (!assigneeUser && subTask.status !== "COMPLETED" && subTask.status !== "CANCELLED")
                         ? "bg-red-500/10 hover:bg-red-500/20 animate-[pulse_2s_infinite] border-y border-red-500/40"
-                        : "bg-muted/10 hover:bg-muted/20",
-                    (subTask as any).isOptimistic && "opacity-60 grayscale-[0.5]"
+                        : "bg-muted/10 hover:bg-muted/20"
                 )}
             >
                 <TableCell className="pl-4 sm:pl-4 w-[50px]">

@@ -9,7 +9,7 @@ import { Loader, Loader2, Send, Github, Eye, EyeOff } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import { useTaskCacheStore } from '@/lib/store/task-cache-store'
+
 
 const GoogleIcon = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -22,7 +22,7 @@ const GoogleIcon = ({ className }: { className?: string }) => (
 
 export const SignUpForm = () => {
   const router = useRouter()
-  const ensureUser = useTaskCacheStore(state => state.ensureUser)
+
 
   const [githubPending, startGithubTransition] = useTransition()
   const [googlePending, startGoogleTransition] = useTransition()
@@ -44,7 +44,7 @@ export const SignUpForm = () => {
         callbackURL: "/",
         fetchOptions: {
           onSuccess: (ctx) => {
-            ensureUser(ctx.data.user.id);
+
             toast.success('Signed in with Github, you will be redirected...')
           },
           onError: (error) => {
@@ -62,7 +62,7 @@ export const SignUpForm = () => {
         callbackURL: "/",
         fetchOptions: {
           onSuccess: (ctx) => {
-            ensureUser(ctx.data.user.id);
+
             toast.success('Signed in with google, you will be redirected...')
           },
           onError: (error) => {

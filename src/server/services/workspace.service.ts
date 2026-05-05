@@ -276,26 +276,17 @@ export class WorkspaceService {
       createdAuthUserId = authUserId;
 
       // 3. Link and Enrich in a Transaction (Internal Database)
-      try {
-        await prisma.$transaction([
-          prisma.workspaceMember.create({
-            data: {
-              userId: authUserId,
-              workspaceId,
-              workspaceRole: role,
-              designation: designation || null,
-              reportToId: reportToId || null,
-            },
-          }),
-        ]);
-      } catch (transactionError) {
-        console.error(
-          "[WorkspaceService.inviteMember] Transaction Error:",
-          transactionError,
-        );
-        // Re-throw to hit the main catch block for cleanup
-        throw transactionError;
-      }
+      const [newMember] = await prisma.$transaction([
+        prisma.workspaceMember.create({
+          data: {
+            userId: authUserId,
+            workspaceId,
+            workspaceRole: role,
+            designation: designation || null,
+            reportToId: reportToId || null,
+          },
+        }),
+      ]);
 
       // 4. Invalidate caches
       await invalidateUserWorkspaces(authUserId);
@@ -319,8 +310,16 @@ export class WorkspaceService {
         workspaceId,
         action: "MEMBER_INVITED",
         entityType: "MEMBER",
-        entityId: authUserId,
-        newData: { email, name, role },
+        entityId: newMember.id, // Use the actual WorkspaceMember ID
+        newData: { 
+          email, 
+          name, 
+          surname: niceName || "",
+          workspaceRole: role,
+          designation: designation || null,
+          status: "Pending",
+          userId: authUserId
+        },
         broadcastEvent: "team_update",
       });
 
@@ -668,7 +667,7 @@ export class WorkspaceService {
       action: "MEMBER_REMOVED",
       entityType: "MEMBER",
       entityId: memberId,
-      oldData: { memberId, name: userName },
+      oldData: { id: memberId, name: userName },
       broadcastEvent: "team_update",
     });
 
@@ -831,7 +830,11 @@ export class WorkspaceService {
       action: "MEMBER_UPDATED",
       entityType: "MEMBER",
       entityId: memberId,
-      newData: { ...data, emailChanged: isEmailChanged },
+      newData: { 
+        ...data, 
+        workspaceRole: data.role,
+        emailChanged: isEmailChanged 
+      },
       oldData: {
         name: member.user?.name,
         surname: member.user?.surname,

@@ -21,7 +21,7 @@ import {
   AlertCircle,
   Tag,
 } from "lucide-react";
-import type { KanbanSubTaskType } from "@/data/task";
+import type { KanbanSubTaskType } from "@/types/task";
 import { cn, formatIST } from "@/lib/utils";
 import { getColorFromString } from "@/lib/colors/project-colors";
 import { UserPermissionsType } from "@/data/user/get-user-permissions";

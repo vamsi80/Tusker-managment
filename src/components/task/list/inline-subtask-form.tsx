@@ -17,7 +17,7 @@ import { projectsClient } from "@/lib/api-client/projects";
 import { SubTaskStatus, STATUS_OPTIONS, subTaskSchema } from "@/lib/zodSchemas";
 import { getStatusColors } from "@/lib/colors/status-colors";
 import { ColumnVisibility } from "../shared/column-visibility";
-import { SubTaskType } from "@/data/task";
+import { SubTaskType } from "@/types/task";
 import { ProjectReviewer } from "@/types/project";
 import { cn, parseIST } from "@/lib/utils";
 import { DateTimePicker } from "@/components/ui/date-picker";
@@ -257,36 +257,6 @@ export function InlineSubTaskForm({
 
         if (mode === "create") {
             // CREATE MODE
-            // LEVEL 1: Optimistic UI Update for Creation
-            const tempId = `temp-${Date.now()}`;
-            const optimisticSubTask = {
-                id: tempId,
-                name: validData.name,
-                description: validData.description,
-                status: validData.status,
-                startDate: validData.startDate ? parseIST(validData.startDate) : null,
-                dueDate: validData.dueDate ? parseIST(validData.dueDate) : null,
-                days: validData.days,
-                projectId,
-                parentTaskId,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-                isOptimistic: true,
-                subtaskCount: 0,
-                completedSubtaskCount: 0,
-                _count: { activities: 0 },
-                // Include full objects for UI
-                assignee: selectedMember ? {
-                    id: selectedMember.userId,
-                    surname: selectedMember.user.surname,
-                } as any : null,
-                tags: selectedTags.map(t => ({ id: t.id, name: t.name }))
-            };
-
-            onSubTaskCreated?.(optimisticSubTask, tempId);
-            setSubTaskName("");
-            onCancel();
-
             const apiCall = apiClient.tasks.createSubTask(validData);
 
             toast.promise(apiCall, {
@@ -294,26 +264,16 @@ export function InlineSubTaskForm({
                 success: (result: any) => {
                     const res = result as ApiResponse;
                     if (res.status !== "success") {
-                        // Throw so the error branch fires
                         throw new Error(res.message || "Failed to create subtask");
                     }
 
-                    // Replace the optimistic subtask with the real one
-                    onSubTaskCreated?.(res.data, tempId);
-
-                    // Dispatch realtime-sync-refresh for the actor
-                    window.dispatchEvent(new CustomEvent("realtime-sync-refresh", {
-                        detail: {
-                            action: "SUBTASK_CREATED",
-                            record: { ...res.data, parentTaskId },
-                            oldRecord: null,
-                        }
-                    }));
+                    onSubTaskCreated?.(res.data);
+                    setSubTaskName("");
+                    onCancel();
 
                     return `"${validData.name}" created successfully`;
                 },
                 error: (err: any) => {
-                    if (onSubTaskDeleted) onSubTaskDeleted(tempId);
                     return err?.message || "Failed to create subtask";
                 },
             });

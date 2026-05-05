@@ -9,7 +9,7 @@ import { InlineTaskForm } from "../inline-task-form";
 import type { TaskWithSubTasks } from "../../shared/types";
 import type { ColumnVisibility } from "../../shared/column-visibility";
 import type { UserPermissionsType } from "@/data/user/get-user-permissions";
-import { useTaskCacheStore } from "@/lib/store/task-cache-store";
+
 
 interface FlatTaskListProps {
     initialTasks: TaskWithSubTasks[];
@@ -39,7 +39,7 @@ interface FlatTaskListProps {
     filtersActive: boolean;
     activeInlineProjectId: string | null;
     setActiveInlineProjectId: (id: string | null) => void;
-    onUpdateParentTaskLists: (updatedList: TaskWithSubTasks[]) => void;
+
     scrollContainerRef: React.RefObject<HTMLDivElement | null>;
 }
 
@@ -71,95 +71,53 @@ export function FlatTaskList({
     filtersActive,
     activeInlineProjectId,
     setActiveInlineProjectId,
-    onUpdateParentTaskLists,
+
     scrollContainerRef
 }: FlatTaskListProps) {
-    const [localTasks, setLocalTasks] = useState<TaskWithSubTasks[]>(initialTasks);
+    const [tasks, setTasks] = useState<TaskWithSubTasks[]>(initialTasks || []);
 
-    // Sync upstream on updates (like global filters altering the list)
     useEffect(() => {
-        setLocalTasks(initialTasks);
+        setTasks(initialTasks || []);
     }, [initialTasks]);
 
-    // Trigger parent sync for caching/other UI updates, using local state as truth
-    const flushToParent = useCallback((newList: TaskWithSubTasks[]) => {
-        onUpdateParentTaskLists(newList);
-    }, [onUpdateParentTaskLists]);
-
-    const handleTaskUpdated = useCallback((taskId: string, updatedTask: { name: string; taskSlug: string }) => {
-        const next = localTasks.map(t =>
-            t.id === taskId
-                ? { ...t, name: updatedTask.name, taskSlug: updatedTask.taskSlug }
-                : t
-        );
-        setLocalTasks(next);
-        flushToParent(next);
-    }, [localTasks, flushToParent]);
+    const handleTaskUpdated = useCallback((taskId: string, updatedTask: any) => {
+        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updatedTask } : t));
+    }, []);
 
     const handleTaskDeleted = useCallback((taskId: string) => {
-        const next = localTasks.filter(t => t.id !== taskId);
-        setLocalTasks(next);
-        flushToParent(next);
-    }, [localTasks, flushToParent]);
+        setTasks(prev => prev.filter(t => t.id !== taskId));
+    }, []);
 
-    const handleTaskCreated = useCallback((task: TaskWithSubTasks, tempId?: string) => {
-        let next;
-        if (tempId) {
-            next = localTasks.map(t => t.id === tempId ? task : t);
-        } else {
-            next = [task, ...localTasks];
-        }
-        setLocalTasks(next);
-        flushToParent(next);
+    const handleTaskCreated = useCallback((task: TaskWithSubTasks) => {
+        setTasks(prev => [task, ...prev]);
         setActiveInlineProjectId(null);
-    }, [localTasks, flushToParent, setActiveInlineProjectId]);
+    }, [setActiveInlineProjectId]);
 
     const handleSubTaskUpdated = useCallback((subTaskId: string, updatedData: any) => {
-        const next = localTasks.map(t => ({
+        setTasks(prev => prev.map(t => ({
             ...t,
-            subTasks: t.subTasks?.map(st => st.id === subTaskId ? { ...st, ...updatedData } : st)
-        }));
+            subTasks: t.subTasks ? t.subTasks.map(st => st.id === subTaskId ? { ...st, ...updatedData } : st) : []
+        })));
+    }, []);
 
-        // Also notify global store for cross-view consistency
-        useTaskCacheStore.getState().upsertTasks([updatedData]);
-        setLocalTasks(next);
-        flushToParent(next);
-    }, [localTasks, flushToParent]);
+    const handleSubTaskDeleted = useCallback((subTaskId: string, parentId: string) => {
+        setTasks(prev => prev.map(t => t.id === parentId ? { ...t, subTasks: (t.subTasks || []).filter(st => st.id !== subTaskId) } : t));
+    }, []);
 
-    const handleSubTaskDeleted = useCallback((subTaskId: string) => {
-        const next = localTasks.map(t => ({
-            ...t,
-            subTasks: t.subTasks?.filter(st => st.id !== subTaskId)
-        }));
-        setLocalTasks(next);
-        flushToParent(next);
-    }, [localTasks, flushToParent]);
-
-    const handleSubTaskCreated = useCallback((subTask: any, parentId: string, tempId?: string) => {
-        const next = localTasks.map(t => {
-            if (t.id !== parentId) return t;
-
-            const currentSubTasks = t.subTasks || [];
-            let newSubTasks;
-            if (tempId) {
-                newSubTasks = currentSubTasks.map(st => st.id === tempId ? subTask : st);
-            } else {
-                newSubTasks = [subTask, ...currentSubTasks];
+    const handleSubTaskCreated = useCallback((subTask: any, parentId: string) => {
+        setTasks(prev => prev.map(t => {
+            if (t.id === parentId) {
+                const currentSubTasks = t.subTasks || [];
+                if (currentSubTasks.some((st: any) => st.id === subTask.id)) return t;
+                return { ...t, subTasks: [...currentSubTasks, subTask] };
             }
-
-            return { ...t, subTasks: newSubTasks };
-        });
-
-        // Also notify global store for cross-view consistency and hydration persistence
-        useTaskCacheStore.getState().addSubTaskToList(parentId, subTask, tempId);
-        
-        setLocalTasks(next);
-        flushToParent(next);
-    }, [localTasks, flushToParent]);
+            return t;
+        }));
+    }, []);
 
     return (
         <>
-            {localTasks.map((task) => (
+            {tasks?.map((task) => (
                 <TaskRow
                     key={task.id}
                     task={task}
@@ -201,8 +159,8 @@ export function FlatTaskList({
                         onLoadMore={() => onLoadMoreSubTasks(task.id)}
                         onSubTaskClick={handleSubTaskClick}
                         onSubTaskUpdated={handleSubTaskUpdated}
-                        onSubTaskDeleted={handleSubTaskDeleted}
-                        onSubTaskCreated={(st, tempId) => handleSubTaskCreated(st, task.id, tempId)}
+                        onSubTaskDeleted={(stId) => handleSubTaskDeleted(stId, task.id)}
+                        onSubTaskCreated={(st) => handleSubTaskCreated(st, task.id)}
                         permissions={permissions}
                         userId={userId}
                         isWorkspaceAdmin={isWorkspaceAdmin}

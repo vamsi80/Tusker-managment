@@ -6,8 +6,7 @@ import { AppSidebar } from "./workspace-sidebar";
 import { SiteHeader } from "./header/site-header";
 import { WorkspaceClientProviders } from "@/app/w/[workspaceId]/_components/workspace-client-providers";
 import { DataLoadReporter } from "@/app/w/[workspaceId]/_components/data-load-reporter";
-import { WorkspaceLayoutProvider, useWorkspaceLayout } from "../../[workspaceId]/_components/workspace-layout-context";
-import { WorkspaceSkeleton } from "../workspace-skeleton";
+import { WorkspaceLayoutProvider } from "../../[workspaceId]/_components/workspace-layout-context";
 import { TopLoader } from "@/components/shared/top-loader";
 
 import { WorkspaceLayoutData } from "@/types/workspace";
@@ -27,11 +26,9 @@ export function WorkspaceShell({ children, workspaceId, initialData }: Workspace
 }
 
 function WorkspaceShellContent({ children }: { children: React.ReactNode }) {
-  const { isLoading } = useWorkspaceLayout();
-
-  if (isLoading) {
-    return <WorkspaceSkeleton />;
-  }
+  // We no longer show a full-page skeleton here to avoid jarring transitions.
+  // The shell (Sidebar + Header) will render immediately with safe defaults,
+  // and the page content will handle its own loading states.
 
   return (
     <WorkspaceClientProviders>

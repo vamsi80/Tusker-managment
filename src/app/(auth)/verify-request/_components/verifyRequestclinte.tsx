@@ -8,12 +8,12 @@ import { Loader2 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
-import { useTaskCacheStore } from "@/lib/store/task-cache-store";
+
 import { syncUserProfile } from "@/app/actions/user"
 
 export default function VerifyRequestClient() {
   const router = useRouter();
-  const ensureUser = useTaskCacheStore(state => state.ensureUser);
+
   const [otp, setOtp] = useState("");
   const [emailPending, startTransition] = useTransition();
   const params = useSearchParams();
@@ -33,8 +33,8 @@ export default function VerifyRequestClient() {
           phoneNumber,
           code: otp,
           fetchOptions: {
-            onSuccess: async (ctx) => {
-              ensureUser(ctx.data.user.id);
+            onSuccess: async (ctx: any) => {
+
               toast.success('Signed In')
               window.location.href = "/"
             },
@@ -64,8 +64,8 @@ export default function VerifyRequestClient() {
                 console.error("Profile sync error:", syncError);
                 toast.error("Account verified but profile details could not be updated. You can update them in settings.");
               }
-              
-              ensureUser(ctx.data.user.id);
+
+
               toast.success('Account Verified')
               window.location.href = "/"
             },
@@ -85,7 +85,7 @@ export default function VerifyRequestClient() {
           {!phoneNumber ? "Check your email" : "Verify OTP"}
         </CardTitle>
         <CardDescription>
-          {!phoneNumber 
+          {!phoneNumber
             ? "We have sent a verification link to your email address. Please click the link to verify your account."
             : "We have sent a 6-digit verification code to your phone. Please enter it below to sign in."
           }

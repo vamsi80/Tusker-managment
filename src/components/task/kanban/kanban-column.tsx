@@ -3,7 +3,7 @@
 import { useDroppable, useDndContext } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 
-import type { KanbanSubTaskType } from "@/data/task";
+import type { KanbanSubTaskType } from "@/types/task";
 import { cn } from "@/lib/utils";
 import { KanbanCard } from "./kanban-card";
 import { KanbanCardSkeleton } from "./kanban-skeleton";
@@ -24,7 +24,7 @@ interface KanbanColumnProps {
         bgColor: string;
         borderColor: string;
     };
-    subTaskIds: string[];
+    tasks: KanbanSubTaskType[];
     totalCount: number;
     hasMore: boolean;
     isLoadingMore: boolean;
@@ -54,7 +54,7 @@ interface KanbanColumnProps {
  */
 export const KanbanColumn = React.memo(function KanbanColumn({
     column,
-    subTaskIds,
+    tasks,
     totalCount,
     hasMore,
     isLoadingMore,
@@ -95,16 +95,16 @@ export const KanbanColumn = React.memo(function KanbanColumn({
     /**
      * Compute where the drop indicator should appear.
      * - dropIndicatorIndex = the index BEFORE which the card will be inserted.
-     * - If overCardId is null but isOverColumn → dropped on empty column or below all cards → index = subTaskIds.length
+     * - If overCardId is null but isOverColumn → dropped on empty column or below all cards → index = tasks.length
      * - If overCardId is a card id → indicator appears BEFORE that card's index.
      */
     const getDropIndicatorIndex = (): number | null => {
         if (!isDragging || !isOverColumn) return null;
         if (!overCardId) {
             // Hovering the column itself (no card below cursor) → insert at bottom
-            return subTaskIds.length;
+            return tasks.length;
         }
-        const idx = subTaskIds.indexOf(overCardId);
+        const idx = tasks.findIndex(t => t.id === overCardId);
         if (idx === -1) return null;
         return idx;
     };
@@ -170,42 +170,43 @@ export const KanbanColumn = React.memo(function KanbanColumn({
                 )}
             >
                 <SortableContext
-                    items={subTaskIds}
+                    items={tasks.map(t => t.id)}
                     strategy={verticalListSortingStrategy}
                 >
                     {/* Non-virtualized rendering with drop indicators */}
                     <div className="relative space-y-0">
-                        {subTaskIds.map((subTaskId, index) => {
-                            const showIndicatorBefore = dropIndicatorIndex === index && subTaskId !== activeTaskId;
+                        {tasks.map((task, index) => {
+                            const showIndicatorBefore = dropIndicatorIndex === index && task.id !== activeTaskId;
                             return (
-                                <React.Fragment key={subTaskId}>
+                                <React.Fragment key={task.id}>
                                     {/* Drop Indicator BEFORE this card */}
                                     {showIndicatorBefore && (
                                         <DropIndicator />
                                     )}
                                     <div className="pb-3">
-                                        <KanbanCardWrapper
-                                            id={subTaskId}
-                                            columnColor={column.color}
-                                            onSubTaskClick={onSubTaskClick}
-                                            projectManagers={projectManagers}
-                                            isUpdating={updatingTaskIds.has(subTaskId)}
-                                            isDimmed={isDragging && subTaskId === activeTaskId}
-                                            permissions={permissions}
-                                            userId={userId}
-                                            projectMembers={projectMembers}
-                                            projects={projects}
-                                            projectMap={projectMap}
-                                            isMobile={isMobile}
-                                            onStatusChange={onStatusChange}
-                                        />
+                                        <div className={cn("transition-opacity duration-150", isDragging && task.id === activeTaskId && "opacity-30")}>
+                                            <KanbanCard
+                                                subTask={task}
+                                                columnColor={column.color}
+                                                onSubTaskClick={onSubTaskClick}
+                                                projectManagers={projectManagers}
+                                                isUpdating={updatingTaskIds.has(task.id)}
+                                                permissions={permissions}
+                                                userId={userId}
+                                                projectMembers={projectMembers}
+                                                projects={projects}
+                                                projectMap={projectMap}
+                                                isMobile={isMobile}
+                                                onStatusChange={onStatusChange}
+                                            />
+                                        </div>
                                     </div>
                                 </React.Fragment>
                             );
                         })}
 
                         {/* Drop indicator at bottom of list */}
-                        {dropIndicatorIndex === subTaskIds.length && (
+                        {dropIndicatorIndex === tasks.length && (
                             <DropIndicator />
                         )}
 
@@ -221,7 +222,7 @@ export const KanbanColumn = React.memo(function KanbanColumn({
                                 )}
                             </div>
                         ) : (
-                            subTaskIds.length > 0 && (
+                            tasks.length > 0 && (
                                 <div className="py-6 flex flex-col items-center justify-center gap-2 opacity-40 group/nomore select-none">
                                     <div className="h-px w-8 bg-muted-foreground/30 group-hover/nomore:w-12 transition-all duration-500" />
                                     <span className="text-[10px] uppercase font-bold tracking-[0.2em] text-muted-foreground whitespace-nowrap">
@@ -233,7 +234,7 @@ export const KanbanColumn = React.memo(function KanbanColumn({
                         )}
                     </div>
 
-                    {subTaskIds.length === 0 && !isLoadingMore && (
+                    {tasks.length === 0 && !isLoadingMore && (
                         <div className={cn(
                             "flex items-center justify-center h-24 text-muted-foreground text-xs uppercase font-medium tracking-wider border-2 border-dashed rounded-lg transition-all duration-200",
                             isOver
@@ -287,41 +288,3 @@ if (typeof document !== "undefined") {
         document.head.appendChild(style);
     }
 }
-
-import { useTaskCacheStore } from "@/lib/store/task-cache-store";
-
-const KanbanCardWrapper = React.memo(function KanbanCardWrapper({
-    id,
-    isDimmed,
-    projectMap,
-    ...props
-}: {
-    id: string;
-    columnColor: string;
-    onSubTaskClick: (subTask: KanbanSubTaskType) => void;
-    projectManagers?: Record<string, any>;
-    isUpdating: boolean;
-    isDimmed?: boolean;
-    permissions?: UserPermissionsType;
-    userId?: string;
-    projectMembers?: any[];
-    projects?: ProjectOption[];
-    projectMap?: Record<string, ProjectOption>;
-    isMobile?: boolean;
-    onStatusChange?: (subTaskId: string, newStatus: any, currentStatus: any) => void;
-}) {
-    const subTask = useTaskCacheStore(state => state.entities[id]);
-    if (!subTask) return null;
-
-    return (
-        <div className={cn("transition-opacity duration-150", isDimmed && "opacity-30")}>
-            <KanbanCard
-                subTask={subTask as KanbanSubTaskType}
-                projectMap={projectMap}
-                isMobile={props.isMobile}
-                onStatusChange={props.onStatusChange}
-                {...props}
-            />
-        </div>
-    );
-});

@@ -3,7 +3,8 @@ import { getWorkspaceTags } from "@/data/tag/get-tags";
 import { ProjectService } from "@/server/services/project";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { requireUser } from "@/lib/auth/require-user";
-import { getTasks } from "@/data/task/get-tasks";
+import { TasksService } from "@/server/services/task/tasks.service";
+
 import type { TaskWithSubTasks } from "@/components/task/shared/types";
 
 
@@ -21,20 +22,27 @@ export async function WorkspaceListView({
     // Get current user
     const user = await requireUser();
 
-    // Fetch initial tasks and metadata in parallel
+    // 1. Fetch projects first to determine visual order for task preloading
+    const projects = await ProjectService.getWorkspaceProjects(workspaceId, user.id);
+    const topProjectIds = projects
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 3)
+        .map(p => p.id);
+
+    // 2. Fetch initial tasks for the top projects and metadata in parallel
     const viewStartTime = performance.now();
     const [projectMembers, permissions, tasksData] = await Promise.all([
         ProjectService.getWorkspaceProjectMembers(workspaceId),
         getWorkspacePermissions(workspaceId),
-        getTasks({
+        TasksService.getTasks({
             workspaceId,
             hierarchyMode: "parents",
             includeSubTasks: false,
-            page: 1,
-            limit: 50, // Increased limit for better initial view
+            limit: 50,
+            expandedProjectIds: topProjectIds, // 🎯 SSR Optimization: Preload tasks for top 3 projects
             includeFacets: true,
             view_mode: "list",
-            extraFields: ["description"]
+            // description is omitted for performance (TEXT column)
         }, user.id),
     ]);
     const duration = performance.now() - viewStartTime;
@@ -46,7 +54,6 @@ export async function WorkspaceListView({
 
     // Handle union response safely
     const rawTasks = (tasksData as any).tasks || [];
-
     const initialTasks = rawTasks.map((t: any) => ({
         ...t,
         subtaskCount: t.subtaskCount ?? t._count?.subTasks ?? 0,

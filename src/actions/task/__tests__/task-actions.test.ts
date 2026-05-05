@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { bulkUploadTasksAndSubtasks } from "../bulk-create-taskAndSubTask";
+import { TasksService } from "@/server/services/task/tasks.service";
 import { requireUser } from "@/lib/auth/require-user";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
 import prisma from "@/lib/db";
@@ -27,9 +27,8 @@ describe("Task Actions", () => {
         };
 
         it("should fail if no tasks are provided", async () => {
-             const result = await bulkUploadTasksAndSubtasks({ projectId: validProjectId, tasks: [] });
-             expect(result.status).toBe("error");
-             expect(result.message).toBe("No tasks provided");
+            await expect(TasksService.bulkUploadTasksAndSubtasks({ projectId: validProjectId, tasks: [], userId: "user_admin" }))
+                .rejects.toThrow("No tasks provided");
         });
 
         it("should successfully bulk upload if user has permission", async () => {
@@ -45,10 +44,10 @@ describe("Task Actions", () => {
                 { id: "pm_member", workspaceMember: { user: { email: "member@example.com", id: "user_member" } } }
             ]);
             (prisma.tag.findMany as any).mockResolvedValue([]);
-            
-            const result = await bulkUploadTasksAndSubtasks(bulkData);
 
-            expect(result.status).toBe("success");
+            const result = await TasksService.bulkUploadTasksAndSubtasks({ ...bulkData, userId: "user_admin" });
+
+            expect(result.success).toBe(true);
             expect(result.message).toContain("Successfully created 1 task");
             expect(prisma.$transaction).toHaveBeenCalled();
         });
@@ -66,10 +65,8 @@ describe("Task Actions", () => {
                 { id: "pm_admin", workspaceMember: { user: { email: "admin@example.com", id: "user_admin" } } }
             ]);
 
-            const result = await bulkUploadTasksAndSubtasks(bulkData);
-
-            expect(result.status).toBe("error");
-            expect(result.message).toContain("not members of this project");
+            await expect(TasksService.bulkUploadTasksAndSubtasks({ ...bulkData, userId: "user_admin" }))
+                .rejects.toThrow("not members of this project");
         });
 
         it("should fail if date format is invalid", async () => {
@@ -85,13 +82,11 @@ describe("Task Actions", () => {
                 { id: "pm_member", workspaceMember: { user: { email: "member@example.com", id: "user_member" } } }
             ]);
 
-            const result = await bulkUploadTasksAndSubtasks({
+            await expect(TasksService.bulkUploadTasksAndSubtasks({
                 ...bulkData,
-                tasks: [{ ...bulkData.tasks[0], startDate: "invalid-date" }]
-            });
-
-            expect(result.status).toBe("error");
-            expect(result.message).toContain("Invalid date format");
+                tasks: [{ ...bulkData.tasks[0], startDate: "invalid-date" }],
+                userId: "user_admin"
+            })).rejects.toThrow("Invalid date format");
         });
 
         it("should fail if days value is negative", async () => {
@@ -107,13 +102,11 @@ describe("Task Actions", () => {
                 { id: "pm_member", workspaceMember: { user: { email: "member@example.com", id: "user_member" } } }
             ]);
 
-            const result = await bulkUploadTasksAndSubtasks({
+            await expect(TasksService.bulkUploadTasksAndSubtasks({
                 ...bulkData,
-                tasks: [{ ...bulkData.tasks[0], days: -5 }]
-            });
-
-            expect(result.status).toBe("error");
-            expect(result.message).toContain("Invalid days value");
+                tasks: [{ ...bulkData.tasks[0], days: -5 }],
+                userId: "user_admin"
+            })).rejects.toThrow("Invalid days value");
         });
     });
 });

@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { X, Check, Loader2 } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
-import { tryCatch } from "@/hooks/try-catch";
 import { toast } from "sonner";
 import slugify from "slugify";
 import { TableCell, TableRow } from "@/components/ui/table";
@@ -74,24 +73,6 @@ export function InlineTaskForm({
             return;
         }
 
-        // LEVEL 1: Optimistic UI Update for Creation
-        const tempId = `temp-${Date.now()}`;
-        const optimisticTask = {
-            id: tempId,
-            name: taskName.trim(),
-            taskSlug: taskSlug,
-            projectId: level === "workspace" ? selectedProjectId : initialProjectId,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            subtaskCount: 0,
-            completedSubtaskCount: 0,
-            isOptimistic: true,
-        };
-
-        onTaskCreated?.(optimisticTask);
-        setTaskName("");
-        onCancel();
-
         const taskCreateCall = apiClient.tasks.createTask({
             name: taskName.trim(),
             taskSlug: taskSlug,
@@ -104,23 +85,17 @@ export function InlineTaskForm({
                 if (res.status !== "success") {
                     throw new Error(res.message || "Failed to create task");
                 }
-                onTaskCreated?.(res.data, tempId);
-                window.dispatchEvent(new CustomEvent("realtime-sync-refresh", {
-                    detail: {
-                        action: "TASK_CREATED",
-                        record: res.data,
-                        oldRecord: null,
-                    }
-                }));
+                onTaskCreated?.(res.data);
+                setTaskName("");
+                onCancel();
                 return `"${taskName.trim()}" created successfully`;
             },
             error: (err: any) => {
-                if (onTaskDeleted) onTaskDeleted(tempId);
                 return err?.message || "Failed to create task";
             },
         });
 
-        startTransition(async () => { await taskCreateCall.catch(() => {}); });
+        startTransition(async () => { await taskCreateCall.catch(() => { }); });
     };
 
     return (

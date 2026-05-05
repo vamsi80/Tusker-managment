@@ -58,8 +58,8 @@ export function DeleteTaskDialog({ task, onTaskDeleted }: DeleteTaskDialogProps)
                     onTaskDeleted(task.id);
                 }
 
-                // Reload all views to reflect deletion
-                reloadView();
+                // Removed reloadView() to prevent full page state reset.
+                // Surgical update above is sufficient.
             } else {
                 toast.error(responseMessage);
             }

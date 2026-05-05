@@ -1,6 +1,7 @@
 "use client";
 
-import { TaskByIdType } from "@/data/task/get-task-by-id";
+import type { TaskByIdType } from "@/server/services/task/tasks.service";
+
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -46,6 +47,9 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
     tags = [] 
 }: SubtaskSheetHeaderProps) {
     const [isExpanded, setIsExpanded] = useState(false);
+
+    if (!subTask) return null;
+
     // Assignee is directly on the task object (user fields) in both SubTaskType and TaskByIdType
     // But we handle potential workspaceMember nesting just in case legacy types are passed
     const assignee = (subTask.assignee as any)?.workspaceMember?.user || subTask.assignee;
@@ -54,16 +58,6 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
         <div className="px-4 sm:px-6 pt-6 pb-4 border-b flex-shrink-0">
             <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground/60 uppercase tracking-widest mb-1.5 truncate">
-                        <span className="truncate">{subTask.project?.name}</span>
-                        {subTask.parentTask && (
-                            <>
-                                <span className="text-muted-foreground/30">/</span>
-                                <span className="truncate">{subTask.parentTask.name}</span>
-                            </>
-                        )}
-                        <span className="text-muted-foreground/30">/</span>
-                    </div>
                     <h2 className="text-xl sm:text-2xl font-bold break-words leading-tight text-foreground">
                         {subTask.name}
                     </h2>
@@ -87,6 +81,16 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
                             )}
                         </div>
                     )}
+
+                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground/60 uppercase tracking-widest mt-3 truncate">
+                        <span className="truncate font-semibold text-primary/80">{subTask.project?.name}</span>
+                        {subTask.parentTask && (
+                            <>
+                                <span className="text-muted-foreground/30 px-1">/</span>
+                                <span className="truncate">{subTask.parentTask.name}</span>
+                            </>
+                        )}
+                    </div>
                 </div>
 
                 {/* Edit Button for authorized users */}

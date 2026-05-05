@@ -13,7 +13,6 @@ import { TaskWithSubTasks } from "@/components/task/shared/types";
 interface TaskTableBodyProps {
   mode: "sorted" | "hierarchy";
   tasks: TaskWithSubTasks[];
-  setTasks: React.Dispatch<React.SetStateAction<TaskWithSubTasks[]>>;
   groupedTasks: Record<string, TaskWithSubTasks[]> | null;
   orderedWorkspaceProjects: any[];
   currentProjectCounts?: Record<string, number>;
@@ -29,7 +28,7 @@ interface TaskTableBodyProps {
   loadingMoreSubTasks: Record<string, boolean>;
   loadMoreSubTasks: (id: string) => void;
   handleSubTaskClick: (subTask: any) => void;
-  handleOptimisticSubTaskUpdated: (subTaskId: string, updatedData: any) => void;
+  handleSubTaskUpdated: (subTaskId: string, updatedData: any) => void;
   handleRequestSubtasks: (taskId: string) => void;
   getCachedSubTasks: (taskId: string) => any;
   projectPagination: Record<string, any>;
@@ -49,7 +48,6 @@ interface TaskTableBodyProps {
 export function TaskTableBody({
   mode,
   tasks,
-  setTasks,
   groupedTasks,
   orderedWorkspaceProjects,
   currentProjectCounts,
@@ -65,7 +63,7 @@ export function TaskTableBody({
   loadingMoreSubTasks,
   loadMoreSubTasks,
   handleSubTaskClick,
-  handleOptimisticSubTaskUpdated,
+  handleSubTaskUpdated,
   handleRequestSubtasks,
   getCachedSubTasks,
   projectPagination,
@@ -158,15 +156,9 @@ export function TaskTableBody({
               activeInlineProjectId={activeInlineProjectId}
               setActiveInlineProjectId={setActiveInlineProjectId}
               onEnsureProjectLoad={ensureFilteredProjectLoad}
-              onSubTaskUpdated={handleOptimisticSubTaskUpdated}
+              onSubTaskUpdated={handleSubTaskUpdated}
               scrollContainerRef={scrollContainerRef}
-              onUpdateParentTaskLists={(updatedProjectTasks) => {
-                setTasks((prev) => {
-                  const taskMap = new Map(prev.map((t) => [t.id, t]));
-                  updatedProjectTasks.forEach((t) => taskMap.set(t.id, t));
-                  return Array.from(taskMap.values());
-                });
-              }}
+
             />
           );
         })
@@ -200,9 +192,7 @@ export function TaskTableBody({
           activeInlineProjectId={activeInlineProjectId}
           setActiveInlineProjectId={setActiveInlineProjectId}
           scrollContainerRef={scrollContainerRef}
-          onUpdateParentTaskLists={(updatedTasks) => {
-            setTasks(updatedTasks);
-          }}
+
         />
       )}
       {!groupedTasks && projectPagination[projectId]?.hasMore && (

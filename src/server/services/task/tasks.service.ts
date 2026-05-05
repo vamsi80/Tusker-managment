@@ -3,10 +3,8 @@ import "server-only";
 import prisma from "@/lib/db";
 import { AppError } from "@/lib/errors/app-error";
 import { getTaskInvolvedUserIds } from "@/lib/involved-users";
-import { recordActivity } from "@/lib/audit";
 import { resolveProjectMemberId } from "@/lib/auth/resolve-member-chain";
 import { parseIST } from "@/lib/utils";
-import { getSubTasksByParentIds } from "@/data/task/get-subtasks-batch";
 import { logger } from "@/lib/logger";
 import {
   getTaskSelect,
@@ -22,43 +20,14 @@ import {
   SORT_MAP,
   buildAssigneeFilter,
 } from "@/lib/tasks/query-builder";
+import { TaskRepository } from "./task.repository";
+import { TaskMapper } from "./task.mapper";
+import { TaskEvents } from "./task.events";
 
-export type TaskStatus =
-  | "TO_DO"
-  | "IN_PROGRESS"
-  | "CANCELLED"
-  | "REVIEW"
-  | "HOLD"
-  | "COMPLETED";
+import { TaskStatus, CreateTaskParams, CreateSubTaskParams } from "@/types/task";
 
 const toArray = <T>(v: T | T[] | undefined): T[] | undefined =>
   v === undefined ? undefined : Array.isArray(v) ? v : [v];
-
-interface CreateTaskParams {
-  name: string;
-  projectId: string;
-  workspaceId: string;
-  userId: string;
-  permissions: any;
-  tagIds?: string[];
-}
-
-interface CreateSubTaskParams {
-  name: string;
-  description?: string;
-  projectId: string;
-  workspaceId: string;
-  parentTaskId: string;
-  userId: string;
-  permissions: any;
-  assigneeUserId?: string | null;
-  reviewerUserId?: string | null;
-  tagIds?: string[];
-  startDate?: string | null;
-  dueDate?: string | null;
-  days?: number;
-  status?: TaskStatus;
-}
 
 export class TasksService {
   /**
@@ -72,71 +41,356 @@ export class TasksService {
     permissions,
     tagIds,
   }: CreateTaskParams) {
-    const canSucceed =
-      permissions.isWorkspaceAdmin || permissions.canCreateSubTask;
-    if (!canSucceed) {
-      throw AppError.Forbidden("You don't have permission to create tasks.");
-    }
+    const canSucceed = permissions.isWorkspaceAdmin || permissions.canCreateSubTask;
+    if (!canSucceed) throw AppError.Forbidden("You don't have permission to create tasks.");
 
     let projectMember = permissions.projectMember;
-
-    // Auto-join admin if not in project
     if (!projectMember && permissions.isWorkspaceAdmin) {
-      projectMember = await prisma.projectMember.create({
-        data: {
-          projectId,
-          workspaceMemberId: permissions.workspaceMemberId!,
-          projectRole: "PROJECT_MANAGER",
-          hasAccess: true,
-        },
-      });
+      projectMember = await TaskRepository.autoJoinAdmin(projectId, permissions.workspaceMemberId!);
     }
+    if (!projectMember) throw AppError.Forbidden("You must be a project member to create tasks.");
 
-    if (!projectMember) {
-      throw AppError.Forbidden("You must be a project member to create tasks.");
-    }
-
-    // Generate slug
+    const finalProjectSlug = await TaskRepository.findProjectSlug(projectId);
     const { generateUniqueSlug } = await import("@/lib/slug-generator");
-    const slug = await generateUniqueSlug(name, "task");
+    const slug = await generateUniqueSlug(name, "task", finalProjectSlug || "");
 
-    const newTask = await prisma.task.create({
-      data: {
-        name,
-        taskSlug: slug,
-        projectId,
-        workspaceId,
-        createdById: projectMember.id,
-        isParent: true, // Mark as parent identity
-        tags: tagIds && tagIds.length > 0 ? { connect: tagIds.map(id => ({ id })) } : undefined,
-      },
-      include: {
-        _count: { select: { subTasks: true } },
-      },
+    // 🚀 Handle Position: Query the last parent task position to append this one
+    const lastParent = await TaskRepository.findLastParentPosition(projectId);
+    const nextPosition = (lastParent?.position ?? -1) + 1;
+
+    const newTask = await TaskRepository.createTask({
+      name,
+      taskSlug: slug,
+      projectId,
+      workspaceId,
+      createdById: projectMember.id,
+      isParent: true,
+      position: nextPosition,
+      tags: tagIds?.length ? { connect: tagIds.map((id) => ({ id })) } : undefined,
     });
 
-    // Record Activity
-    try {
-      const project = await prisma.project.findUnique({
-        where: { id: projectId },
-        select: { slug: true },
-      });
-      await recordActivity({
-        userId,
-        userName: permissions.userSurname,
-        workspaceId,
-        action: "TASK_CREATED",
-        entityType: "TASK",
-        entityId: newTask.id,
-        newData: { ...newTask, projectSlug: project?.slug },
-        broadcastEvent: "team_update",
-        targetUserIds: await getTaskInvolvedUserIds(newTask.id),
-      });
-    } catch (e) {
-      console.error("[SERVICE_ERROR] Task activity failed:", e);
+    const result = { tasks: [TaskMapper.toFlatMetadata(newTask)] };
+    TaskMapper.stripParentMetadata(result);
+    const flattenedTask = result.tasks[0];
+
+    await TaskEvents.onTaskCreated({
+      taskId: flattenedTask.id, 
+      projectId, 
+      workspaceId, 
+      userId,
+      userName: permissions.userSurname, 
+      taskData: flattenedTask, 
+      projectSlug: finalProjectSlug,
+    });
+
+    return flattenedTask;
+  }
+
+  static async bulkUploadTasksAndSubtasks({
+    projectId,
+    tasks,
+    userId,
+  }: {
+    projectId: string;
+    tasks: Array<{
+      taskName: string;
+      subtaskName?: string;
+      description?: string;
+      assigneeEmail?: string;
+      reviewerEmail?: string;
+      startDate?: string;
+      days?: number;
+      status?: string;
+      tags?: string[];
+    }>;
+    userId: string;
+  }) {
+    if (!tasks || tasks.length === 0) {
+      throw AppError.ValidationError("No tasks provided");
     }
 
-    return newTask;
+    const project = await TaskRepository.findProjectContext(projectId);
+    if (!project) throw AppError.NotFound("Project not found");
+
+    const { getUserPermissions } = await import("@/data/user/get-user-permissions");
+    const permissions = await getUserPermissions(project.workspaceId, projectId, userId);
+
+    if (!permissions.workspaceMemberId) {
+      throw AppError.Forbidden("You are not a member of this workspace");
+    }
+
+    const projectMembers = await TaskRepository.findProjectMembersWithUsers(projectId);
+
+    const emailToProjectMemberId = new Map<string, string>();
+    for (const pm of projectMembers) {
+      if (pm.workspaceMember?.user?.email) {
+        const email = pm.workspaceMember.user.email.toLowerCase();
+        emailToProjectMemberId.set(email, pm.id);
+      }
+    }
+
+    let creatorProjectMemberId = permissions.projectMember?.id;
+
+    if (!creatorProjectMemberId && (permissions.isWorkspaceAdmin || permissions.isProjectManager)) {
+      const newMember = await TaskRepository.autoJoinAdmin(projectId, permissions.workspaceMemberId!);
+      creatorProjectMemberId = newMember.id;
+    }
+
+    if (!creatorProjectMemberId) {
+      throw AppError.Forbidden("You are not a member of this project and don't have permission to join automatically.");
+    }
+
+    const emailToMemberId = emailToProjectMemberId;
+    const invalidAssigneeRows: string[] = [];
+    const invalidReviewerRows: string[] = [];
+
+    for (let i = 0; i < tasks.length; i++) {
+      const task = tasks[i];
+      const rowNum = i + 2;
+
+      if (task.assigneeEmail && task.assigneeEmail.trim()) {
+        const email = task.assigneeEmail.trim().toLowerCase();
+        if (!emailToMemberId.has(email)) invalidAssigneeRows.push(`Row ${rowNum}: ${email}`);
+      }
+
+      if (task.reviewerEmail && task.reviewerEmail.trim()) {
+        const email = task.reviewerEmail.trim().toLowerCase();
+        if (!emailToMemberId.has(email)) invalidReviewerRows.push(`Row ${rowNum}: ${email}`);
+      }
+    }
+
+    if (invalidAssigneeRows.length > 0) {
+      throw AppError.ValidationError(`The following assignee email(s) are not members of this project:\n${invalidAssigneeRows.join('\n')}`);
+    }
+    if (invalidReviewerRows.length > 0) {
+      throw AppError.ValidationError(`The following reviewer email(s) are not members of this project:\n${invalidReviewerRows.join('\n')}`);
+    }
+
+    const invalidDates: string[] = [];
+    const invalidDays: string[] = [];
+
+    for (let i = 0; i < tasks.length; i++) {
+      const task = tasks[i];
+      const rowNum = i + 2;
+
+      if (task.startDate && task.startDate.trim()) {
+        const date = parseIST(task.startDate);
+        if (!date || isNaN(date.getTime())) {
+          invalidDates.push(`Row ${rowNum}: "${task.startDate}" (Task: ${task.taskName}${task.subtaskName ? ` - ${task.subtaskName}` : ''})`);
+        }
+      }
+
+      if (task.days !== undefined && task.days !== null) {
+        const daysNum = typeof task.days === 'number' ? task.days : parseInt(String(task.days));
+        if (isNaN(daysNum) || daysNum < 0) {
+          invalidDays.push(`Row ${rowNum}: "${task.days}" (Task: ${task.taskName}${task.subtaskName ? ` - ${task.subtaskName}` : ''})`);
+        }
+      }
+    }
+
+    if (invalidDates.length > 0) {
+      throw AppError.ValidationError(`Invalid date format found in the following rows:\n${invalidDates.join('\n')}`);
+    }
+    if (invalidDays.length > 0) {
+      throw AppError.ValidationError(`Invalid days value found in the following rows:\n${invalidDays.join('\n')}`);
+    }
+
+    const taskGroups = new Map<string, typeof tasks>();
+    for (const task of tasks) {
+      if (!task.taskName?.trim()) continue;
+      const normalizedTaskName = task.taskName.trim().replace(/\s+/g, ' ');
+      const existing = taskGroups.get(normalizedTaskName) || [];
+      taskGroups.set(normalizedTaskName, [...existing, task]);
+    }
+
+    for (const [taskName, taskGroup] of Array.from(taskGroups.entries())) {
+      const hasValidRow = taskGroup.some(row =>
+        row.subtaskName?.trim() || row.description?.trim() || row.assigneeEmail?.trim() ||
+        row.reviewerEmail?.trim() || row.startDate?.trim() || row.days !== undefined ||
+        row.status?.trim() || (row.tags && row.tags.length > 0)
+      );
+      if (!hasValidRow) taskGroups.delete(taskName);
+    }
+
+    const createdItems: any[] = [];
+    const { generateUniqueSlugs } = await import("@/lib/slug-generator");
+    const taskNames = Array.from(taskGroups.keys());
+    const taskSlugs = await generateUniqueSlugs(taskNames, 'task');
+    const taskSlugMap = new Map(taskNames.map((name, i) => [name, taskSlugs[i]]));
+
+    const allSubtaskNames: string[] = [];
+    for (const [taskName, taskGroup] of Array.from(taskGroups.entries())) {
+      const subtaskRows = taskGroup.filter(t => t.subtaskName);
+      for (const row of subtaskRows) {
+        if (row.subtaskName) {
+          allSubtaskNames.push(row.subtaskName);
+        }
+      }
+    }
+
+    const allSubtaskSlugs = allSubtaskNames.length > 0
+      ? await generateUniqueSlugs(allSubtaskNames, 'task', undefined, taskSlugs)
+      : [];
+
+    const workspaceTags = await TaskRepository.findWorkspaceTags(project.workspaceId);
+    const tagMap = new Map<string, (typeof workspaceTags)[number]>(
+      workspaceTags.map(t => [t.name.toUpperCase(), t])
+    );
+
+    const lastParentTask = await TaskRepository.findLastParentPosition(projectId);
+
+    let parentTaskIndex = lastParentTask?.position ?? -1;
+    let globalSubtaskIndex = 0;
+
+    const calculateDueDate = (startDate: Date | undefined, days: number | undefined): Date | undefined => {
+      if (!startDate || days === undefined || days === null) return undefined;
+      return new Date(startDate.getTime() + (Number(days) * 24 * 60 * 60 * 1000));
+    };
+
+    try {
+      await prisma.$transaction(async (tx) => {
+        for (const [taskName, taskGroup] of Array.from(taskGroups.entries())) {
+          const taskSlug = taskSlugMap.get(taskName)!;
+          const firstRow = taskGroup[0];
+          parentTaskIndex++;
+
+          const parentAssigneeId = firstRow.assigneeEmail
+            ? emailToMemberId.get(firstRow.assigneeEmail.trim().toLowerCase())
+            : undefined;
+
+          const parentReviewerId = firstRow.reviewerEmail
+            ? emailToMemberId.get(firstRow.reviewerEmail.trim().toLowerCase())
+            : creatorProjectMemberId;
+
+          const parentStartDate = firstRow.startDate ? parseIST(firstRow.startDate) || undefined : undefined;
+
+          const parentTagIds: string[] = [];
+          if (firstRow.tags && firstRow.tags.length > 0) {
+            for (const tagName of firstRow.tags) {
+              const tagInfo = tagMap.get(tagName.toUpperCase());
+              if (tagInfo) parentTagIds.push(tagInfo.id);
+            }
+          }
+
+          const subtaskRowsForThisParent = taskGroup.filter(t => t.subtaskName);
+          const subtaskCountVal = subtaskRowsForThisParent.length;
+          const completedSubtaskCountVal = subtaskRowsForThisParent.filter(st => st.status === "COMPLETED").length;
+
+          const parentTask = await tx.task.create({
+            data: {
+              name: taskName,
+              taskSlug,
+              description: firstRow.description,
+              projectId,
+              workspaceId: project.workspaceId,
+              createdById: creatorProjectMemberId!,
+              isParent: true,
+              status: firstRow.status ? (firstRow.status as any) : undefined,
+              assigneeId: parentAssigneeId,
+              reviewerId: parentReviewerId,
+              startDate: parentStartDate,
+              days: firstRow.days,
+              tags: { connect: parentTagIds.map(id => ({ id })) },
+              subtaskCount: subtaskCountVal,
+              completedSubtaskCount: completedSubtaskCountVal,
+              position: parentTaskIndex,
+            },
+          });
+
+          const createdTasks: any[] = [];
+          const subtaskRows = taskGroup.filter(t => t.subtaskName);
+
+          if (subtaskRows.length > 0) {
+            let subtaskPositionIndex = -1;
+            for (const subtaskRow of subtaskRows) {
+              subtaskPositionIndex++;
+              const subtaskSlug = allSubtaskSlugs[globalSubtaskIndex++];
+
+              const subtaskAssigneeId = subtaskRow.assigneeEmail
+                ? emailToMemberId.get(subtaskRow.assigneeEmail.trim().toLowerCase())
+                : undefined;
+
+              const subtaskReviewerId = subtaskRow.reviewerEmail
+                ? emailToMemberId.get(subtaskRow.reviewerEmail.trim().toLowerCase())
+                : creatorProjectMemberId;
+
+              const subtaskStartDate = subtaskRow.startDate ? parseIST(subtaskRow.startDate) || undefined : undefined;
+
+              const resolvedTagIds: string[] = [];
+              let shouldAddToProcurement = false;
+
+              if (subtaskRow.tags && subtaskRow.tags.length > 0) {
+                for (const tagName of subtaskRow.tags) {
+                  const tagInfo = tagMap.get(tagName.toUpperCase());
+                  if (tagInfo) {
+                    resolvedTagIds.push(tagInfo.id);
+                    if (tagInfo.requirePurchase) shouldAddToProcurement = true;
+                  }
+                }
+              }
+
+              const createdSubtask = await tx.task.create({
+                data: {
+                  name: subtaskRow.subtaskName!,
+                  taskSlug: subtaskSlug,
+                  description: subtaskRow.description,
+                  projectId,
+                  workspaceId: project.workspaceId,
+                  createdById: creatorProjectMemberId!,
+                  parentTaskId: parentTask.id,
+                  isParent: false,
+                  assigneeId: subtaskAssigneeId,
+                  reviewerId: subtaskReviewerId,
+                  startDate: subtaskStartDate,
+                  days: subtaskRow.days,
+                  dueDate: calculateDueDate(subtaskStartDate, subtaskRow.days),
+                  status: subtaskRow.status ? (subtaskRow.status as any) : undefined,
+                  tags: { connect: resolvedTagIds.map(id => ({ id })) },
+                  position: subtaskPositionIndex,
+                },
+              });
+
+              if (shouldAddToProcurement) {
+                await tx.procurementTask.create({
+                  data: {
+                    taskId: createdSubtask.id,
+                    projectId,
+                    workspaceId: project.workspaceId,
+                  },
+                });
+              }
+
+              createdTasks.push(createdSubtask.id);
+            }
+          }
+          createdTasks.push(parentTask.id);
+          createdItems.push(...createdTasks);
+        }
+      }, { timeout: 60000 });
+    } catch (err: any) {
+      if (err.code === 'P2002') throw AppError.ValidationError(`Duplicate found. Ensure names are unique.`);
+      if (err.code === 'P2003') throw AppError.ValidationError("Invalid assignee email.");
+      if (err.code === 'P2025') throw AppError.NotFound("Project or workspace not found.");
+      if (err.message?.includes('22021')) throw AppError.ValidationError("CSV contains invalid characters (UTF-8 required).");
+      throw new Error(`Failed to upload tasks: ${err.message || 'Unknown'}`);
+    }
+
+    const fullTasks = await TaskRepository.findFullTasksByIds(createdItems);
+
+    const taskCount = fullTasks.filter(i => i.isParent).length;
+    const subtaskCount = fullTasks.filter(i => !i.isParent).length;
+
+    let message = `Successfully created ${taskCount} task${taskCount !== 1 ? 's' : ''}`;
+    if (subtaskCount > 0) message += ` and ${subtaskCount} subtask${subtaskCount !== 1 ? 's' : ''}`;
+
+    const result = { tasks: fullTasks.map(t => TaskMapper.toFlatMetadata(t)) };
+    TaskMapper.stripParentMetadata(result);
+
+    return {
+      success: true,
+      message,
+      data: result.tasks,
+    };
   }
 
   /**
@@ -182,6 +436,7 @@ export class TasksService {
     return result;
   }
 
+  /** @deprecated Use TaskMapper.toLegacyMetadata directly */
   public static mapToLegacyMetadata(task: any) {
     if (!task) return task;
     const toLegacy = (obj: any) => {
@@ -224,71 +479,13 @@ export class TasksService {
     return task;
   }
 
+  /** @deprecated Use TaskMapper.toFlatMetadata directly */
   public static mapToFlatMetadata(task: any) {
-    if (!task) return task;
-    const flatten = (obj: any) => {
-      const user = obj?.workspaceMember?.user || obj?.user || obj;
-      // 🛡️ Guard: If we don't have an ID, we can't flatten to a valid user object
-      if (!user?.id) return obj;
-      return {
-        id: user.id,
-        surname: user.surname || "",
-      };
-    };
-
-    if (task.assignee) task.assignee = flatten(task.assignee);
-    if (task.reviewer) task.reviewer = flatten(task.reviewer);
-    if (task.createdBy) task.createdBy = flatten(task.createdBy);
-
-    if (task._count) {
-      task.subtaskCount = task._count.subTasks;
-      delete task._count;
-    } else if (task.isParent && task.subtaskCount !== undefined) {
-      // Keep existing subtaskCount if _count is missing
-    }
-
-    if (!task.isParent) {
-      delete task.subTasks;
-      delete task.subtaskCount;
-    } else if (task.subTasks && Array.isArray(task.subTasks)) {
-      task.subTasks = task.subTasks.map((st: any) =>
-        this.mapToFlatMetadata(st),
-      );
-    }
-
-    return task;
+    return TaskMapper.toFlatMetadata(task);
   }
 
   private static stripParentMetadata(result: any) {
-    if (!result) return;
-
-    const processTask = (task: any) => {
-      this.mapToFlatMetadata(task);
-
-      if (task?.isParent) {
-        // Strict Allowed-list for Parent tasks to minimize payload weight
-        const allowedFields = ["id", "name", "taskSlug", "isParent", "projectId", "subTasks", "subtaskCount", "createdAt"];
-        Object.keys(task).forEach(key => {
-          if (!allowedFields.includes(key)) {
-            delete task[key];
-          }
-        });
-      }
-    };
-
-    if (result.tasks && Array.isArray(result.tasks)) {
-      result.tasks.forEach(processTask);
-    }
-
-    if (result.tasksByStatus) {
-      Object.keys(result.tasksByStatus).forEach((status) => {
-        const colData = result.tasksByStatus[status];
-        const colTasks = Array.isArray(colData)
-          ? colData
-          : colData?.tasks || [];
-        colTasks.forEach(processTask);
-      });
-    }
+    TaskMapper.stripParentMetadata(result);
   }
 
   public static async resolveTaskPermissions(
@@ -457,8 +654,8 @@ export class TasksService {
               isAdmin ||
               (projectId ? fullAccessProjectIds.includes(projectId) : false);
 
-            const subtasks = await prisma.task.findMany({
-              where: buildSubtaskExpansionWhere(undefined, {
+            const subtasks = (await TaskRepository.findSubtasksExpansion(
+              buildSubtaskExpansionWhere(undefined, {
                 parentIds,
                 status: toArray(opts.status),
                 assigneeId: toArray(opts.assigneeId),
@@ -468,10 +665,10 @@ export class TasksService {
                 isAdmin,
                 isRestrictedMember: !hasFullAccess,
               }),
-              select: getTaskSelect(opts.view_mode, false, opts.extraFields), // Subtasks are never minimal in expansion
-              orderBy: buildOrderBy(opts.sorts, opts.view_mode),
-              take: 200, // focus on performance: fetch subtasks for initial roots with a safe cap
-            });
+              getTaskSelect(opts.view_mode, false, opts.extraFields),
+              buildOrderBy(opts.sorts, opts.view_mode),
+              200
+            )) as any[];
 
             // Use a map for O(n) grouping instead of O(n^2) nested filtering
             const subtaskMap = new Map<string, any[]>();
@@ -479,7 +676,7 @@ export class TasksService {
               const pid = st.parentTaskId;
               if (pid) {
                 if (!subtaskMap.has(pid)) subtaskMap.set(pid, []);
-                subtaskMap.get(pid)!.push(st);
+                subtaskMap.get(pid)!.push(TasksService.mapToFlatMetadata(st));
               }
             });
 
@@ -563,22 +760,22 @@ export class TasksService {
             userId,
           );
 
-          const tasks = await prisma.task.findMany({
+          const tasks = (await TaskRepository.findTasksByStatus(
             where,
-            take: perStatusLimit + 1,
-            select: getTaskSelect(opts.view_mode, isMinimal, opts.extraFields, subtaskFilter),
-            orderBy: buildOrderBy(opts.sorts, opts.view_mode),
-          });
+            perStatusLimit,
+            getTaskSelect(opts.view_mode, isMinimal, opts.extraFields, subtaskFilter),
+            buildOrderBy(opts.sorts, opts.view_mode)
+          )) as any[];
 
           const trueHasMore = tasks.length > perStatusLimit;
           if (trueHasMore) tasks.pop();
 
           // Handle Subtask Expansion
           if (opts.includeSubTasks && tasks.length > 0) {
-            const parentIds = tasks.filter((t) => t.isParent).map((t) => t.id);
+            const parentIds = (tasks as any[]).filter((t) => t.isParent).map((t) => t.id) as string[];
             if (parentIds.length > 0) {
-              const subtasks = await prisma.task.findMany({
-                where: buildSubtaskExpansionWhere(undefined, {
+              const subtasks = await TaskRepository.findSubtasksExpansion(
+                buildSubtaskExpansionWhere(undefined, {
                   parentIds,
                   status: [status as any],
                   assigneeId: toArray(opts.assigneeId),
@@ -587,9 +784,10 @@ export class TasksService {
                   userId,
                   isAdmin,
                 }),
-                select: getTaskSelect(opts.view_mode, false, opts.extraFields, subtaskFilter), // subtasks never minimal
-                orderBy: buildOrderBy(opts.sorts, opts.view_mode),
-              });
+                getTaskSelect(opts.view_mode, false, opts.extraFields, subtaskFilter),
+                buildOrderBy(opts.sorts, opts.view_mode),
+                1000 // safe cap
+              );
               tasks.forEach((parent: any) => {
                 if (parent.isParent) {
                   parent.subTasks = subtasks.filter(
@@ -616,7 +814,7 @@ export class TasksService {
                 : { id: lastTask.id, createdAt: lastTask.createdAt }
               : null;
 
-          const totalCount = await prisma.task.count({ where });
+          const totalCount = await TaskRepository.countTasks(where);
 
           return {
             tasks,
@@ -663,15 +861,11 @@ export class TasksService {
           ),
         );
 
-        const countsResult = await prisma.task.groupBy({
-          by: ["status"],
-          where: countWhere,
-          _count: true,
-        });
+        const countsResult = await TaskRepository.groupByStatus(countWhere);
 
         const statusCounts: Record<string, number> = {};
         countsResult.forEach((c) => {
-          if (c.status) statusCounts[c.status] = c._count;
+          if (c.status) statusCounts[c.status] = (c._count as any)._all;
         });
 
         // 2. Define the statuses we care about
@@ -713,23 +907,23 @@ export class TasksService {
               userId,
             );
 
-            return prisma.task.findMany({
-              where: statusWhere,
-              take: perStatusLimit + 1,
-              select: getTaskSelect(opts.view_mode, isMinimal, opts.extraFields, subtaskFilter),
-              orderBy: buildOrderBy(opts.sorts, opts.view_mode),
-            });
+            return TaskRepository.findTasksByWhere(
+              statusWhere,
+              perStatusLimit,
+              getTaskSelect(opts.view_mode, isMinimal, opts.extraFields, subtaskFilter),
+              buildOrderBy(opts.sorts, opts.view_mode)
+            );
           }),
         );
 
-        const tasks = statusTasksResults.flat();
+        const tasks = statusTasksResults.flat() as any[];
 
         // 4. Handle Subtask Expansion
         if (opts.includeSubTasks && tasks.length > 0) {
-          const parentIds = tasks.filter((t) => t.isParent).map((t) => t.id);
+          const parentIds = (tasks as any[]).filter((t) => t.isParent).map((t) => t.id) as string[];
           if (parentIds.length > 0) {
-            const subtasks = await prisma.task.findMany({
-              where: buildSubtaskExpansionWhere(undefined, {
+            const subtasks = (await TaskRepository.findSubtasksExpansion(
+              buildSubtaskExpansionWhere(undefined, {
                 parentIds,
                 status: toArray(opts.status),
                 assigneeId: toArray(opts.assigneeId),
@@ -738,9 +932,10 @@ export class TasksService {
                 userId,
                 isAdmin,
               }),
-              select: getTaskSelect(opts.view_mode, false, opts.extraFields, subtaskFilter),
-              orderBy: buildOrderBy(opts.sorts, opts.view_mode),
-            });
+              getTaskSelect(opts.view_mode, false, opts.extraFields, subtaskFilter),
+              buildOrderBy(opts.sorts, opts.view_mode),
+              1000
+            )) as any[];
             tasks.forEach((parent: any) => {
               if (parent.isParent) {
                 parent.subTasks = subtasks.filter(
@@ -878,11 +1073,11 @@ export class TasksService {
     const dbField = SORT_MAP[primarySortField]?.dbField || "createdAt";
 
     const [rawTasks] = await Promise.all([
-      prisma.task.findMany({
+      TaskRepository.findMany(
         where,
-        select: getTaskSelect(opts.view_mode, true, opts.extraFields ? [...opts.extraFields, dbField] : [dbField], subtaskFilter), // TRUE for minimal parent select, include sort field
-        orderBy: buildOrderBy(opts.sorts, opts.view_mode),
-      }),
+        getTaskSelect(opts.view_mode, true, opts.extraFields ? [...opts.extraFields, dbField] : [dbField], subtaskFilter), // TRUE for minimal parent select, include sort field
+        opts.sorts
+      ),
     ]);
 
     const hasMore = rawTasks.length > limit;
@@ -919,11 +1114,7 @@ export class TasksService {
 
     let isRestrictedMember = false;
     if (!isAdmin) {
-      const parent = await prisma.task.findUnique({
-        where: { id: parentTaskId },
-        select: { projectId: true },
-      });
-      const parentProjectId = parent?.projectId;
+      const parentProjectId = await TaskRepository.findTaskProjectId(parentTaskId);
       if (parentProjectId && restrictedProjectIds.includes(parentProjectId)) {
         isRestrictedMember = true;
       }
@@ -944,32 +1135,30 @@ export class TasksService {
       isRestrictedMember,
     });
 
-    const rawSubtasks = await prisma.task.findMany({
-      where: {
-        OR: [{ id: parentTaskId }, where],
-      },
-      select: getTaskSelect(
+    const rawSubtasks = (await TaskRepository.findTasksByWhere(
+      where,
+      limit + 1,
+      getTaskSelect(
         opts.view_mode,
-        opts.view_mode === "gantt" || opts.isMinimal,
+        opts.view_mode === "gantt" ? true : false, // Expansion needs full metadata for the table row
         opts.extraFields,
         subtaskFilter
       ),
-      orderBy: buildOrderBy(opts.sorts, opts.view_mode),
-      take: limit + 5, // Extra buffer for the parent and potential overlap
-    });
+      buildOrderBy(opts.sorts, opts.view_mode)
+    )) as any[];
 
     const hasMore = rawSubtasks.length > limit;
-    if (hasMore) rawSubtasks.pop();
+    const finalTasks = hasMore ? rawSubtasks.slice(0, limit) : rawSubtasks;
 
-    const nextCursor: TaskCursor | null = hasMore
+    const nextCursor: TaskCursor | null = hasMore && finalTasks.length > 0
       ? {
-        id: rawSubtasks[rawSubtasks.length - 1].id,
-        createdAt: rawSubtasks[rawSubtasks.length - 1].createdAt,
+        id: finalTasks[finalTasks.length - 1].id,
+        createdAt: finalTasks[finalTasks.length - 1].createdAt,
       }
       : null;
 
     return {
-      tasks: rawSubtasks,
+      tasks: finalTasks.map((t: any) => TasksService.mapToFlatMetadata(t)),
       totalCount: null,
       hasMore,
       nextCursor,
@@ -1030,8 +1219,8 @@ export class TasksService {
     const primarySortFieldForSelect = opts.sorts?.[0]?.field || "createdAt";
     const dbFieldForSelect = SORT_MAP[primarySortFieldForSelect]?.dbField || "createdAt";
 
-    const rawMatches = await prisma.task.findMany({
-      where: buildWorkspaceFilterWhere(
+    const rawMatches = (await TaskRepository.findTasksByWhere(
+      buildWorkspaceFilterWhere(
         {
           ...opts,
           workspaceId,
@@ -1056,15 +1245,15 @@ export class TasksService {
         },
         userId,
       ),
-      select: getTaskSelect(
+      limit + 1,
+      getTaskSelect(
         opts.view_mode,
         opts.view_mode === "gantt" || opts.isMinimal,
         opts.extraFields ? [...opts.extraFields, (dbFieldForSelect || "createdAt")] : (dbFieldForSelect ? [dbFieldForSelect] : []),
         subtaskFilter
       ),
-      take: limit + 1,
-      orderBy: buildOrderBy(opts.sorts, opts.view_mode),
-    });
+      buildOrderBy(opts.sorts, opts.view_mode)
+    )) as any[];
 
     const hasMore = rawMatches.length > limit;
     const matches = rawMatches.slice(0, limit);
@@ -1119,12 +1308,7 @@ export class TasksService {
           ],
         });
       }
-      const extraTasks = await prisma.task.findMany({
-        where: { OR: orConditions },
-        select: getTaskSelect(opts.view_mode, false, opts.extraFields, subtaskFilter),
-        orderBy: buildOrderBy(opts.sorts, opts.view_mode),
-        take: opts.view_mode === "gantt" ? 2000 : 500,
-      });
+      const extraTasks = (await TaskRepository.findTasksForExpansion({ OR: orConditions }, getTaskSelect(opts.view_mode, false, opts.extraFields, subtaskFilter))) as any[];
 
       if (extraTasks.length === 0) break;
 
@@ -1192,11 +1376,12 @@ export class TasksService {
     const projectFacets: Record<string, number> = {};
     if (opts.includeFacets) {
       const facetWhere = JSON.parse(JSON.stringify(matchWhere));
-      const counts = await prisma.task.groupBy({
-        by: ["projectId"],
-        where: facetWhere,
-        _count: { id: true },
-      });
+      // If we restricted matches to expanded projects (e.g. for initial load optimization), 
+      // we still want facets (task counts) for ALL projects in the workspace.
+      if (!opts.projectId && opts.expandedProjectIds?.length) {
+        delete facetWhere.projectId;
+      }
+      const counts = await TaskRepository.groupByProjectId(facetWhere);
       counts.forEach((c) => {
         if (c.projectId)
           projectFacets[c.projectId] =
@@ -1287,13 +1472,12 @@ export class TasksService {
 
     const queryStartTime = performance.now();
     const [rawTasks] = await Promise.all([
-      prisma.task.findMany({
+      TaskRepository.findMany(
         where,
-        select: getTaskSelect(opts.view_mode, opts.onlySubtasks ? false : true, opts.extraFields ? [...opts.extraFields, (dbField || "createdAt")] : (dbField ? [dbField] : []), subtaskFilter),
-        orderBy: buildOrderBy(opts.sorts, opts.view_mode),
-        take: limit + 1,
-        skip: opts.skip || 0,
-      }),
+        getTaskSelect(opts.view_mode, opts.onlySubtasks ? false : true, opts.extraFields ? [...opts.extraFields, (dbField || "createdAt")] : (dbField ? [dbField] : []), subtaskFilter),
+        opts.sorts,
+        limit
+      ),
     ]);
     const queryDuration = performance.now() - queryStartTime;
 
@@ -1321,11 +1505,11 @@ export class TasksService {
     const projectFacets: Record<string, number> = {};
     if (opts.includeFacets) {
       const facetWhere = JSON.parse(JSON.stringify(where));
-      const counts = await prisma.task.groupBy({
-        by: ["projectId"],
-        where: facetWhere,
-        _count: { id: true },
-      });
+      // If we restricted matches to expanded projects, we still want facets for ALL projects in the workspace.
+      if (!opts.projectId && opts.expandedProjectIds?.length) {
+        delete facetWhere.projectId;
+      }
+      const counts = await TaskRepository.groupByProjectId(facetWhere);
       counts.forEach((c) => {
         if (c.projectId)
           projectFacets[c.projectId] =
@@ -1407,10 +1591,7 @@ export class TasksService {
       reviewerId = projectMember.id;
     }
 
-    const parentTask = await prisma.task.findUnique({
-      where: { id: parentTaskId },
-      select: { taskSlug: true },
-    });
+    const parentTask = await TaskRepository.findTaskBasic(parentTaskId);
 
     if (!parentTask) {
       throw AppError.NotFound("Parent task not found.");
@@ -1419,84 +1600,50 @@ export class TasksService {
     const { generateUniqueSlug } = await import("@/lib/slug-generator");
     const slug = await generateUniqueSlug(name, "task", parentTask.taskSlug);
 
-    const newSubTask = await prisma.$transaction(async (tx) => {
-      const parent = await tx.task.findUnique({
-        where: { id: parentTaskId },
-        select: { subtaskCount: true },
-      });
+    // 🚀 Handle Position: Query the last subtask position to append this one
+    const lastSubtask = await TaskRepository.findLastSubtaskPosition(parentTaskId);
+    const nextPosition = (lastSubtask?.position ?? -1) + 1;
 
-      const task = await tx.task.create({
-        data: {
-          name,
-          taskSlug: slug,
-          description,
-          status,
-          projectId,
-          workspaceId,
-          parentTaskId,
-          createdById: projectMember.id,
-          assigneeId,
-          reviewerId: reviewerId!,
-          tags: tagIds && tagIds.length > 0 ? { connect: tagIds.map(id => ({ id })) } : undefined,
-          startDate: parseIST(startDate),
-          dueDate: parseIST(dueDate),
-          days,
-          isParent: false,
-          position: parent?.subtaskCount || 0,
-        },
-        include: {
-          assignee: {
-            include: {
-              workspaceMember: {
-                include: { user: { select: { id: true, surname: true } } },
-              },
-            },
-          },
-          tags: { select: { id: true, name: true } },
-          reviewer: {
-            include: {
-              workspaceMember: {
-                include: { user: { select: { id: true, surname: true } } },
-              },
-            },
-          },
-        },
-      });
-
-      await tx.task.update({
-        where: { id: parentTaskId },
-        data: {
-          subtaskCount: { increment: 1 },
-          completedSubtaskCount:
-            status === "COMPLETED" ? { increment: 1 } : undefined,
-        },
-      });
-
-      return task;
+    const newSubTask = await TaskRepository.createSubTask({
+      parentTaskId,
+      taskData: {
+        name,
+        taskSlug: slug,
+        description,
+        status,
+        projectId,
+        workspaceId,
+        parentTaskId,
+        createdById: projectMember.id,
+        assigneeId,
+        reviewerId: reviewerId!,
+        tags: tagIds && tagIds.length > 0 ? { connect: tagIds.map(id => ({ id })) } : undefined,
+        startDate: parseIST(startDate),
+        dueDate: parseIST(dueDate),
+        days,
+        isParent: false,
+        position: nextPosition,
+      }
     });
 
-    // Record Activity
+    const flattenedSubTask = TaskMapper.toFlatMetadata(newSubTask);
+
     try {
-      const project = await prisma.project.findUnique({
-        where: { id: projectId },
-        select: { slug: true },
-      });
-      await recordActivity({
+      const projectSlug = await TaskRepository.findProjectSlug(projectId);
+      await TaskEvents.onSubTaskCreated({
+        taskId: flattenedSubTask.id,
+        projectId,
+        workspaceId,
         userId,
         userName: permissions.userSurname,
-        workspaceId,
-        action: "SUBTASK_CREATED",
-        entityType: "SUBTASK",
-        entityId: newSubTask.id,
-        newData: { ...newSubTask, projectSlug: project?.slug },
-        broadcastEvent: "team_update",
-        targetUserIds: await getTaskInvolvedUserIds(newSubTask.id),
+        taskData: flattenedSubTask,
+        projectSlug: projectSlug,
       });
     } catch (e) {
       console.error("[SERVICE_ERROR] Subtask activity failed:", e);
     }
 
-    return newSubTask;
+    return flattenedSubTask;
   }
 
   /**
@@ -1523,19 +1670,16 @@ export class TasksService {
     attachmentData?: any;
   }) {
     // 1. Fetch Task Data (Include updatedAt to ensure consistent return types)
-    const subTask = await prisma.task.findUnique({
-      where: { id: subTaskId },
-      select: {
-        id: true,
-        status: true,
-        name: true,
-        createdById: true,
-        assigneeId: true,
-        reviewerId: true,
-        parentTaskId: true,
-        updatedAt: true,
-      },
-    });
+    const subTask = (await TaskRepository.findById(subTaskId, {
+      id: true,
+      status: true,
+      name: true,
+      createdById: true,
+      assigneeId: true,
+      reviewerId: true,
+      parentTaskId: true,
+      updatedAt: true,
+    })) as any;
 
     if (!subTask) {
       throw AppError.NotFound("Subtask not found");
@@ -1607,72 +1751,26 @@ export class TasksService {
     // Business rule: We record an activity for every status change.
     const activityText = (comment || "").trim() || `Status updated from ${subTask.status} to ${newStatus}`;
 
-    // 4. Atomic Database Update
-    const updated = await prisma.$transaction(async (tx) => {
-      // Create activity if any content is provided
-      // Create activity record for every status change to ensure real-time audit trails
-      await tx.activity.create({
-        data: {
-          subTaskId: subTaskId,
-          authorId: userId,
-          workspaceId: workspaceId,
-          text: activityText,
-          attachment: attachmentData,
-        },
-      });
+    const result = await TaskRepository.updateStatus(
+      subTaskId, newStatus, subTaskId,
+      { subTaskId, authorId: userId, workspaceId, text: activityText, attachment: attachmentData },
+      subTask.parentTaskId, subTask.status === "COMPLETED", newStatus === "COMPLETED"
+    );
 
-      // Update parent task completed count if needed
-      if (subTask.parentTaskId) {
-        const wasCompleted = subTask.status === "COMPLETED";
-        const isNowCompleted = newStatus === "COMPLETED";
+    const project = await TaskRepository.findProjectId(subTaskId);
 
-        if (wasCompleted !== isNowCompleted) {
-          await tx.task.update({
-            where: { id: subTask.parentTaskId },
-            data: {
-              completedSubtaskCount: {
-                [isNowCompleted ? "increment" : "decrement"]: 1,
-              },
-            },
-          });
-        }
-      }
-
-      return await tx.task.update({
-        where: { id: subTaskId },
-        data: { status: newStatus },
-        select: { id: true, status: true, updatedAt: true },
-      });
+    // 5. Broadcast (Background - Non-blocking)
+    await TaskEvents.onStatusChanged({
+      taskId: subTaskId,
+      workspaceId,
+      projectId: project || "",
+      userId,
+      userName: permissions.userSurname || "Someone",
+      oldStatus: subTask.status || "",
+      newStatus,
     });
 
-    // 5. Record Activity & Broadcast (Background - Non-blocking)
-    // We don't await this to keep the API response snappy
-    (async () => {
-      try {
-        const targetUserIds = await getTaskInvolvedUserIds(subTaskId);
-        const user = await prisma.user.findUnique({
-          where: { id: userId },
-          select: { name: true, surname: true },
-        });
-
-        await recordActivity({
-          userId,
-          userName: user?.surname || user?.name || "Someone",
-          workspaceId,
-          action: "SUBTASK_UPDATED",
-          entityType: "SUBTASK",
-          entityId: subTaskId,
-          oldData: { status: subTask.status, name: subTask.name },
-          newData: { status: newStatus },
-          broadcastEvent: "team_update",
-          targetUserIds,
-        });
-      } catch (e) {
-        console.error("[SERVICE_ERROR] Failed to record activity in background:", e);
-      }
-    })();
-
-    return updated;
+    return result;
   }
 
   /**
@@ -1680,70 +1778,14 @@ export class TasksService {
    * Optimized for the SubTask Sheet to avoid fetching full member lists.
    */
   static async getTaskCommentContext(workspaceId: string, slugOrId: string) {
-    const task = await prisma.task.findFirst({
-      where: {
-        workspaceId,
-        OR: [{ id: slugOrId }, { taskSlug: slugOrId }],
-      },
-      select: {
-        id: true,
-        projectId: true,
-        assigneeId: true,
-        reviewerId: true,
-      },
-    });
-
+    const task = await TaskRepository.findTaskForCommentContext(workspaceId, slugOrId);
     if (!task) throw AppError.NotFound("Task not found");
 
-    // Fetch Workspace Admins and Project Managers
-    const involvedMembers = await prisma.workspaceMember.findMany({
-      where: {
-        workspaceId,
-        OR: [
-          { workspaceRole: { in: ["ADMIN", "OWNER"] } },
-          {
-            projectMembers: {
-              some: {
-                projectId: task.projectId,
-                projectRole: "PROJECT_MANAGER",
-              },
-            },
-          },
-          { id: task.assigneeId || undefined },
-          { id: task.reviewerId || undefined },
-        ],
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            surname: true,
-            image: true,
-          },
-        },
-        projectMembers: {
-          where: { projectId: task.projectId },
-          select: { id: true, projectRole: true },
-        },
-      },
-    });
+    const involvedMembers = await TaskRepository.findInvolvedMembersForTask(
+      workspaceId, task.projectId, task.assigneeId, task.reviewerId
+    );
 
-    // Map to ProjectMemberUI format
-    const involvedUsers = involvedMembers.map((m) => ({
-      id: m.userId,
-      userId: m.userId,
-      projectMemberId: m.projectMembers[0]?.id || "",
-      projectRole: (m.projectMembers[0]?.projectRole as any) || "MEMBER",
-      workspaceRole: m.workspaceRole,
-      user: {
-        id: m.user.id,
-        name: m.user.name,
-        surname: m.user.surname,
-        image: m.user.image,
-      },
-    }));
-
+    const involvedUsers = involvedMembers.map(TaskMapper.toInvolvedUser);
     return { involvedUsers };
   }
 
@@ -1751,66 +1793,12 @@ export class TasksService {
    * Get a task by slug or ID with full relations for the SubTask Sheet
    */
   static async getTaskBySlugOrId(workspaceId: string, slugOrId: string) {
-    const task = await prisma.task.findFirst({
-      where: {
-        workspaceId,
-        OR: [{ id: slugOrId }, { taskSlug: slugOrId }],
-      },
-      select: getTaskSelect("subtask", false, ["description", "position"]),
-    });
-
-    if (!task) {
-      throw AppError.NotFound("Task not found");
-    }
-
-    return task;
-  }
-
-  /**
-   * Get a task by ID with full relations
-   */
-  static async getTaskById(taskId: string) {
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-      include: {
-        assignee: {
-          include: {
-            workspaceMember: {
-              include: {
-                user: {
-                  select: {
-                    id: true,
-                    surname: true,
-                    email: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-        reviewer: {
-          include: {
-            workspaceMember: {
-              include: {
-                user: {
-                  select: { id: true, surname: true, email: true },
-                },
-              },
-            },
-          },
-        },
-        tags: true,
-        project: {
-          select: { id: true, name: true, slug: true, workspaceId: true },
-        },
-        _count: { select: { subTasks: true } },
-        Task_TaskDependency_A: { select: { id: true } },
-      },
-    });
-
+    const task = await TaskRepository.findBySlugOrId(workspaceId, slugOrId, getTaskSelect("default"));
     if (!task) throw AppError.NotFound("Task not found");
     return task;
   }
+
+
 
   /**
    * Update a task (Parent or Subtask)
@@ -1830,17 +1818,14 @@ export class TasksService {
     permissions: any;
     data: Partial<CreateSubTaskParams>;
   }) {
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-      select: {
-        id: true,
-        createdById: true,
-        assigneeId: true,
-        parentTaskId: true,
-        name: true,
-        status: true,
-      },
-    });
+    const task = (await TaskRepository.findById(taskId, {
+      id: true,
+      createdById: true,
+      assigneeId: true,
+      parentTaskId: true,
+      name: true,
+      status: true,
+    })) as any;
 
     if (!task) throw AppError.NotFound("Task not found");
 
@@ -1864,10 +1849,7 @@ export class TasksService {
 
     // 2. Hierarchy Rules
     if (task.assigneeId) {
-      const assignee = await prisma.projectMember.findUnique({
-        where: { id: task.assigneeId },
-        select: { projectRole: true },
-      });
+      const assignee = await TaskRepository.findAssigneeRole(task.assigneeId);
 
       if (assignee?.projectRole === "PROJECT_MANAGER" && !isWorkspaceAdmin) {
         throw AppError.Forbidden(
@@ -1921,55 +1903,25 @@ export class TasksService {
         : null;
     }
 
-    const updated = await prisma.$transaction(async (tx) => {
-      const result = await tx.task.update({
-        where: { id: taskId },
-        data: updateData,
-        select: getTaskSelect("list"),
-      });
+    const updated = await TaskRepository.updateTaskAndParentCount(
+      taskId, updateData, task.parentTaskId, task.status === "COMPLETED", data.status === "COMPLETED"
+    );
 
-      // If status changed and it's a subtask, update parent completed count
-      if (data.status && data.status !== task.status && task.parentTaskId) {
-        const wasCompleted = task.status === "COMPLETED";
-        const isNowCompleted = data.status === "COMPLETED";
-        if (wasCompleted !== isNowCompleted) {
-          await tx.task.update({
-            where: { id: task.parentTaskId },
-            data: {
-              completedSubtaskCount: {
-                [isNowCompleted ? "increment" : "decrement"]: 1,
-              },
-            },
-          });
-        }
-      }
+    const oldData: any = {};
+    if (data.name) oldData.name = task.name;
+    if (data.status) oldData.status = task.status;
+    if (data.assigneeUserId) oldData.assigneeId = task.assigneeId;
 
-      return result;
+    await TaskEvents.onTaskUpdated({
+      taskId,
+      isSubTask: !!task.parentTaskId,
+      projectId,
+      workspaceId,
+      userId,
+      userName: permissions.userSurname || "Someone",
+      oldData,
+      newData: updateData,
     });
-
-    // Record activity with surgical delta
-    try {
-      // Prepare minimal oldData based on updated fields to ensure clean audit logs
-      const oldData: any = {};
-      if (data.name) oldData.name = task.name;
-      if (data.status) oldData.status = task.status;
-      if (data.assigneeUserId) oldData.assigneeId = task.assigneeId;
-
-      await recordActivity({
-        userId,
-        userName: permissions.userSurname || permissions.userName || "Someone",
-        workspaceId,
-        action: task.parentTaskId ? "SUBTASK_UPDATED" : "TASK_UPDATED",
-        entityType: task.parentTaskId ? "SUBTASK" : "TASK",
-        entityId: taskId,
-        oldData,
-        newData: updateData,
-        broadcastEvent: "team_update",
-        targetUserIds: await getTaskInvolvedUserIds(taskId),
-      });
-    } catch (e) {
-      console.error("[SERVICE_ERROR] Update activity failed:", e);
-    }
 
     return updated;
   }
@@ -1990,16 +1942,15 @@ export class TasksService {
     userId: string;
     permissions: any;
   }) {
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-      select: {
-        id: true,
-        name: true,
-        status: true,
-        createdById: true,
-        parentTaskId: true,
-      },
-    });
+    const task = (await TaskRepository.findById(taskId, {
+      id: true,
+      name: true,
+      status: true,
+      createdById: true,
+      parentTaskId: true,
+      projectId: true,
+      position: true,
+    })) as any;
 
     if (!task) throw AppError.NotFound("Task not found");
 
@@ -2017,39 +1968,27 @@ export class TasksService {
 
     const targetUserIds = await getTaskInvolvedUserIds(taskId);
 
-    await prisma.$transaction(async (tx) => {
-      // Delete the task
-      await tx.task.delete({ where: { id: taskId } });
-
-      // If it was a subtask, decrement parent counters
-      if (task.parentTaskId) {
-        await tx.task.update({
-          where: { id: task.parentTaskId },
-          data: {
-            subtaskCount: { decrement: 1 },
-            completedSubtaskCount:
-              task.status === "COMPLETED" ? { decrement: 1 } : undefined,
-          },
-        });
-      }
+    await TaskRepository.deleteTask({
+      taskId,
+      parentTaskId: task.parentTaskId,
+      projectId: task.projectId,
+      position: task.position || 0,
+      wasCompleted: task.status === "COMPLETED"
     });
 
-    // Record activity
-    try {
-      await recordActivity({
-        userId,
-        userName: permissions.userSurname || permissions.userName || "Someone",
-        workspaceId,
-        action: task.parentTaskId ? "SUBTASK_DELETED" : "TASK_DELETED",
-        entityType: task.parentTaskId ? "SUBTASK" : "TASK",
-        entityId: taskId,
-        oldData: { name: task.name, status: task.status, projectId },
-        broadcastEvent: "team_update",
-        targetUserIds,
-      });
-    } catch (e) {
-      console.error("[SERVICE_ERROR] Delete activity failed:", e);
-    }
+    await TaskEvents.onTaskDeleted({
+      taskId,
+      isSubTask: !!task.parentTaskId,
+      projectId: task.projectId || projectId || "",
+      workspaceId,
+      userId,
+      userName: permissions.userSurname || "Someone",
+      taskName: task.name,
+      taskStatus: task.status || "",
+      targetUserIds,
+      position: task.position,
+      parentTaskId: task.parentTaskId,
+    });
 
     return { id: taskId };
   }
@@ -2080,16 +2019,13 @@ export class TasksService {
     if (start > end)
       throw AppError.ValidationError("Start date must be before end date");
 
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-      select: {
-        id: true,
-        createdById: true,
-        assigneeId: true,
-        parentTaskId: true,
-        name: true,
-      },
-    });
+    const task = (await TaskRepository.findById(taskId, {
+      id: true,
+      createdById: true,
+      assigneeId: true,
+      parentTaskId: true,
+      name: true,
+    })) as any;
 
     if (!task) throw AppError.NotFound("Task not found");
 
@@ -2113,10 +2049,7 @@ export class TasksService {
 
     // 2. Hierarchy Check
     if (task.assigneeId) {
-      const assignee = await prisma.projectMember.findUnique({
-        where: { id: task.assigneeId },
-        select: { projectRole: true },
-      });
+      const assignee = await TaskRepository.findAssigneeRole(task.assigneeId);
 
       if (assignee?.projectRole === "PROJECT_MANAGER" && !isWorkspaceAdmin) {
         throw AppError.Forbidden(
@@ -2137,27 +2070,20 @@ export class TasksService {
     const days =
       Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) || 1;
 
-    const updated = await prisma.task.update({
-      where: { id: taskId },
-      data: { startDate: start, dueDate: end, days },
-    });
+    const updated = await TaskRepository.updateDates(taskId, start, end, days);
 
-    // Record activity
-    try {
-      await recordActivity({
-        userId,
-        userName: permissions.userSurname || permissions.userName || "Someone",
-        workspaceId,
-        action: "TASK_UPDATED",
-        entityType: "TASK",
-        entityId: taskId,
-        newData: { startDate: start, dueDate: end, days },
-        broadcastEvent: "team_update",
-        targetUserIds: await getTaskInvolvedUserIds(taskId),
-      });
-    } catch (e) {
-      console.error("[SERVICE_ERROR] Date update activity failed:", e);
-    }
+    const project = await TaskRepository.findProjectId(taskId);
+
+    await TaskEvents.onDatesUpdated({
+      taskId,
+      projectId: project || "",
+      workspaceId,
+      userId,
+      userName: permissions.userSurname || "Someone",
+      startDate: start,
+      dueDate: end,
+      days,
+    });
 
     return updated;
   }
@@ -2182,16 +2108,13 @@ export class TasksService {
       throw AppError.ValidationError("At least one dependency is required");
     }
 
-    const subtask = await prisma.task.findUnique({
-      where: { id: subtaskId },
-      select: {
-        id: true,
-        createdById: true,
-        startDate: true,
-        days: true,
-        projectId: true,
-      },
-    });
+    const subtask = (await TaskRepository.findById(subtaskId, {
+      id: true,
+      createdById: true,
+      startDate: true,
+      days: true,
+      projectId: true,
+    })) as any;
 
     if (!subtask) throw AppError.NotFound("Subtask not found");
 
@@ -2207,10 +2130,7 @@ export class TasksService {
       );
     }
 
-    const existingDeps = await prisma.task.findUnique({
-      where: { id: subtaskId },
-      select: { Task_TaskDependency_A: { select: { id: true } } },
-    });
+    const existingDeps = await TaskRepository.findTaskWithDependencies(subtaskId);
     const existingDepIds = new Set(
       existingDeps?.Task_TaskDependency_A.map((d) => d.id) || [],
     );
@@ -2223,9 +2143,11 @@ export class TasksService {
       return { success: true, message: "All dependencies already exist" };
     }
 
-    const tasksToCheck = await prisma.task.findMany({
-      where: { id: { in: newDependsOnIds } },
-      select: { id: true, startDate: true, days: true, projectId: true },
+    const tasksToCheck = await TaskRepository.findTasksByIds(newDependsOnIds, {
+      id: true,
+      startDate: true,
+      days: true,
+      projectId: true,
     });
 
     if (tasksToCheck.length !== newDependsOnIds.length) {
@@ -2251,14 +2173,7 @@ export class TasksService {
         );
     }
 
-    await prisma.task.update({
-      where: { id: subtaskId },
-      data: {
-        Task_TaskDependency_A: {
-          connect: newDependsOnIds.map((id) => ({ id })),
-        },
-      },
-    });
+    await TaskRepository.addDependencies(subtaskId, newDependsOnIds);
 
     // Auto-scheduling logic removed as per user request to not change any task dates.
 
@@ -2277,10 +2192,7 @@ export class TasksService {
     dependsOnId: string;
     permissions: any;
   }) {
-    const subtask = await prisma.task.findUnique({
-      where: { id: subtaskId },
-      select: { createdById: true },
-    });
+    const subtask = (await TaskRepository.findById(subtaskId, { createdById: true })) as any;
     if (!subtask) throw AppError.NotFound("Subtask not found");
 
     const isAuthorized =
@@ -2295,10 +2207,7 @@ export class TasksService {
       );
     }
 
-    await prisma.task.update({
-      where: { id: subtaskId },
-      data: { Task_TaskDependency_A: { disconnect: { id: dependsOnId } } },
-    });
+    await TaskRepository.removeDependency(subtaskId, dependsOnId);
 
     return { success: true };
   }
@@ -2317,10 +2226,7 @@ export class TasksService {
       if (currentLevel.includes(subtaskId)) return true;
       currentLevel.forEach((id) => visited.add(id));
 
-      const tasks = await prisma.task.findMany({
-        where: { id: { in: currentLevel } },
-        select: { Task_TaskDependency_A: { select: { id: true } } },
-      });
+      const tasks = await TaskRepository.findDependencyGraph(currentLevel);
 
       const nextLevel: string[] = [];
       tasks.forEach((task) => {
@@ -2340,15 +2246,9 @@ export class TasksService {
    */
   static async updateSubtasksOrder(subtaskIds: string[]) {
     if (!subtaskIds.length) return;
-
-    await prisma.$transaction(
-      subtaskIds.map((id, index) =>
-        prisma.task.update({
-          where: { id },
-          data: { position: index },
-        }),
-      ),
-    );
+    const firstSubTask = (await TaskRepository.findById(subtaskIds[0], { parentTaskId: true })) as any;
+    if (!firstSubTask?.parentTaskId) return;
+    await TaskRepository.reorderSubtasks(firstSubTask.parentTaskId, subtaskIds);
   }
 
   /**
@@ -2374,13 +2274,14 @@ export class TasksService {
     cursor?: any;
     userId: string;
   }) {
-    const results = await getSubTasksByParentIds(
+    const results = await TasksService.getSubTasksByParentIds(
       [parentId],
       workspaceId,
       projectId,
       filters,
       pageSize,
       viewMode,
+      undefined, // extraFields
       userId,
       true, // skipPermissionsCheck for service-level access
       cursor,
@@ -2413,6 +2314,7 @@ export class TasksService {
     filters,
     pageSize,
     viewMode,
+    extraFields,
     userId,
   }: {
     parentIds: string[];
@@ -2421,15 +2323,17 @@ export class TasksService {
     filters: any;
     pageSize: number;
     viewMode: string;
+    extraFields?: string[];
     userId: string;
   }) {
-    const results = await getSubTasksByParentIds(
+    const results = await TasksService.getSubTasksByParentIds(
       parentIds,
       workspaceId,
       projectId,
       filters,
       pageSize,
       viewMode,
+      extraFields,
       userId,
       true, // Skip redundant permission checks as we can trust the service context here
     );
@@ -2463,17 +2367,14 @@ export class TasksService {
 
     // 1. Parallel fetch context
     const [task, permissions] = await Promise.all([
-      prisma.task.findUnique({
-        where: { id: taskId },
-        select: {
-          id: true,
-          createdById: true,
-          assigneeId: true,
-          parentTaskId: true,
-          name: true,
-          status: true,
-        },
-      }),
+      TaskRepository.findById(taskId, {
+        id: true,
+        createdById: true,
+        assigneeId: true,
+        parentTaskId: true,
+        name: true,
+        status: true,
+      }) as any,
       getUserPermissions(workspaceId, projectId, userId),
     ]);
 
@@ -2510,68 +2411,29 @@ export class TasksService {
       return { success: true };
     }
 
-    // 4. Atomic Update + Activity (Comment)
-    const result = await prisma.$transaction(async (tx) => {
-      const updated = await tx.task.update({
-        where: { id: taskId },
-        data: { assigneeId: newAssigneeId },
-        select: { id: true, name: true },
-      });
-
-      let commentActivity = null;
-      if (explanation && explanation.trim()) {
-        commentActivity = await tx.activity.create({
-          data: {
-            subTaskId: taskId,
-            authorId: userId,
-            workspaceId,
-            text: explanation.trim(),
-          },
-          select: { id: true, createdAt: true },
-        });
+    const { updated, commentActivity } = await TaskRepository.updateTaskWithActivity(
+      taskId,
+      { assigneeId: newAssigneeId },
+      {
+        authorId: userId,
+        workspaceId,
+        text: explanation?.trim() || "Assignee updated",
       }
-
-      return { updated, commentActivity };
-    });
+    );
 
     // 5. Broadcast (Minimize await if possible, but keep consistent)
-    const targetUserIds = await getTaskInvolvedUserIds(taskId);
-
-    const broadcastPromise = Promise.all([
-      recordActivity({
-        userId,
-        userName,
-        workspaceId,
-        action: task.parentTaskId ? "SUBTASK_UPDATED" : "TASK_UPDATED",
-        entityType: task.parentTaskId ? "SUBTASK" : "TASK",
-        entityId: taskId,
-        oldData: { assigneeId: task.assigneeId },
-        newData: { assigneeId: newAssigneeId },
-        broadcastEvent: "team_update",
-        targetUserIds,
-      }),
-      result.commentActivity
-        ? recordActivity({
-          userId,
-          userName,
-          workspaceId,
-          action: "COMMENT_CREATED",
-          entityType: "SUBTASK",
-          entityId: taskId,
-          newData: {
-            id: result.commentActivity.id,
-            text: explanation?.trim(),
-            createdAt: result.commentActivity.createdAt.toISOString(),
-          },
-          broadcastEvent: "team_update",
-          targetUserIds,
-        })
-        : Promise.resolve(),
-    ]);
-
-    // We await the broadcasts to ensure data consistency in audits,
-    // but the core DB work is already committed.
-    await broadcastPromise;
+    await TaskEvents.onAssigneeChanged({
+      taskId,
+      isSubTask: !!task.parentTaskId,
+      projectId,
+      workspaceId,
+      userId,
+      userName: permissions.userSurname || "Someone",
+      oldAssigneeId: task.assigneeId,
+      newAssigneeId,
+      commentActivity,
+      explanation
+    });
 
     return { success: true };
   }
@@ -2584,37 +2446,317 @@ export class TasksService {
     projectId: string,
     workspaceId: string,
   ): Promise<string | null> {
-    const existing = await prisma.projectMember.findFirst({
-      where: {
-        projectId,
-        workspaceMember: { userId, workspaceId },
-      },
-      select: { id: true },
-    });
+    const existingId = await TaskRepository.findProjectMemberId(userId, projectId, workspaceId);
+    if (existingId) return existingId;
 
-    if (existing) return existing.id;
-
-    const workspaceMember = await prisma.workspaceMember.findFirst({
-      where: { userId, workspaceId },
-      select: { id: true, workspaceRole: true },
-    });
+    const workspaceMember = await TaskRepository.findWorkspaceMember(userId, workspaceId);
 
     if (
       workspaceMember &&
       (workspaceMember.workspaceRole === "ADMIN" ||
         workspaceMember.workspaceRole === "OWNER")
     ) {
-      const pm = await prisma.projectMember.create({
-        data: {
-          projectId,
-          workspaceMemberId: workspaceMember.id,
-          projectRole: "PROJECT_MANAGER",
-          hasAccess: true,
-        },
-      });
+      const pm = await TaskRepository.createProjectMember({ projectId, workspaceMemberId: workspaceMember.id });
       return pm.id;
     }
 
     return null;
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // BATCH SUBTASK FETCHING  (previously src/data/task/get-subtasks-batch.ts)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  static readonly BATCH_HARD_LIMIT = 500;
+
+  private static async _getSubTasksByParentIdsInternal(
+    parentTaskIds: string[],
+    workspaceId: string,
+    projectId: string | undefined,
+    userId: string,
+    isAdmin: boolean,
+    fullAccessProjectIds: string[],
+    restrictedProjectIds: string[],
+    filters: Partial<import("@/types/task-filters").TaskFilters> = {},
+    pageSize: number = 30,
+    viewMode: string = "list",
+    extraFields?: string[],
+    cursor?: any,
+  ): Promise<BatchSubTasksResult> {
+    if (parentTaskIds.length === 0) return [];
+    const startTime = performance.now();
+    const { buildSubTaskConditions } = await import("@/lib/tasks/filter-utils");
+    const normalize = (d: any) => d ? new Date(new Date(d).setUTCHours(0, 0, 0, 0)) : undefined;
+    const dueAfter = normalize(filters.dueAfter || (filters as any).startDate);
+    const dueBefore = normalize(filters.dueBefore || (filters as any).endDate);
+
+    const countWhere: any = {
+      workspaceId,
+      parentTaskId: { in: parentTaskIds },
+      ...buildSubTaskConditions({ ...filters, workspaceId, projectId, dueAfter, dueBefore }),
+    };
+
+    if (!isAdmin) {
+      if (fullAccessProjectIds.length > 0 && restrictedProjectIds.length > 0) {
+        countWhere.OR = [
+          { projectId: { in: fullAccessProjectIds } },
+          { 
+            projectId: { in: restrictedProjectIds }, 
+            OR: [
+              { assignee: { workspaceMember: { userId } } },
+              { createdBy: { workspaceMember: { userId } } },
+            ]
+          },
+        ];
+      } else if (fullAccessProjectIds.length > 0) {
+        countWhere.projectId = { in: fullAccessProjectIds };
+      } else if (restrictedProjectIds.length > 0) {
+        countWhere.projectId = { in: restrictedProjectIds };
+        countWhere.OR = [
+          { assignee: { workspaceMember: { userId } } },
+          { createdBy: { workspaceMember: { userId } } },
+        ];
+      } else {
+        return parentTaskIds.map(parentTaskId => ({ parentTaskId, subTasks: [], totalCount: 0, hasMore: false }));
+      }
+    }
+
+    // ── SINGLE PARENT FAST PATH ──────────────────────────────────────────
+    if (parentTaskIds.length === 1) {
+      const parentId = parentTaskIds[0];
+      const baseSelect: any = getTaskSelect("subtask", false, extraFields);
+      const subtaskSelect: any = { ...baseSelect };
+      const parentRelationSelect = subtaskSelect.parentTask;
+      delete subtaskSelect.parentTask;
+      delete subtaskSelect._count;
+      delete subtaskSelect.project;
+
+      const singleParentWhere: any = {
+        parentTaskId: parentId,
+        ...buildSubTaskConditions({ ...filters, workspaceId, projectId, dueAfter, dueBefore }),
+      };
+
+      if (cursor) {
+        const cursorDate = typeof cursor.createdAt === "string" ? new Date(cursor.createdAt) : cursor.createdAt;
+        const cursorClause = { OR: [{ createdAt: { lt: cursorDate } }, { AND: [{ createdAt: cursorDate }, { id: { lt: cursor.id } }] }] };
+        singleParentWhere.AND = [...(singleParentWhere.AND ?? []), cursorClause];
+      }
+
+      if (!isAdmin) {
+        if (fullAccessProjectIds.length > 0 && restrictedProjectIds.length > 0) {
+          singleParentWhere.OR = [
+            { projectId: { in: fullAccessProjectIds } },
+            { projectId: { in: restrictedProjectIds }, assignee: { workspaceMember: { userId } } },
+          ];
+        } else if (fullAccessProjectIds.length > 0) {
+          singleParentWhere.projectId = { in: fullAccessProjectIds };
+        } else if (restrictedProjectIds.length > 0) {
+          singleParentWhere.projectId = { in: restrictedProjectIds };
+          singleParentWhere.assignee = { workspaceMember: { userId } };
+        }
+      }
+
+      const [rawTasks, parent] = await Promise.all([
+        TaskRepository.findMany(
+          singleParentWhere,
+          { ...subtaskSelect, parentTaskId: true },
+          [{ field: "createdAt", direction: "desc" }],
+          pageSize + 1
+        ),
+        TaskRepository.findById(
+          parentId,
+          {
+            ...(parentRelationSelect?.select || { id: true, name: true }),
+            project: { select: { id: true, name: true, color: true } },
+          }
+        ),
+      ]);
+
+      const hasMore = rawTasks.length > pageSize;
+      const finalTasks = (hasMore ? rawTasks.slice(0, pageSize) : rawTasks).map((t: any) => TasksService.mapToFlatMetadata(t));
+      const nextCursor = hasMore && finalTasks.length > 0
+        ? { id: finalTasks[finalTasks.length - 1].id, createdAt: finalTasks[finalTasks.length - 1].createdAt }
+        : undefined;
+      return [{ parentTaskId: parentId, subTasks: finalTasks, totalCount: finalTasks.length, hasMore, nextCursor }];
+    }
+
+    // ── BATCH PATH ────────────────────────────────────────────────────────
+    const batchSelect: any = { ...getTaskSelect("subtask", false, extraFields) };
+    delete batchSelect._count;
+
+    const rawSubTasksAll = (await TaskRepository.findMany(
+      countWhere,
+      { ...batchSelect, parentTaskId: true },
+      [{ field: "createdAt", direction: "desc" }],
+      TasksService.BATCH_HARD_LIMIT
+    )) as any[];
+
+    const subTasksMap = new Map<string, any[]>();
+    const totalCountMap = new Map<string, number>();
+    rawSubTasksAll.forEach((task: any) => {
+      const pId = task.parentTaskId!;
+      const currentCount = totalCountMap.get(pId) || 0;
+      totalCountMap.set(pId, currentCount + 1);
+      if (currentCount < pageSize) {
+        if (!subTasksMap.has(pId)) subTasksMap.set(pId, []);
+        subTasksMap.get(pId)!.push(TasksService.mapToFlatMetadata(task));
+      }
+    });
+
+    const duration = performance.now() - startTime;
+    if (duration > 150) logger.serverPerf("BATCH_SUBTASKS", duration, { count: parentTaskIds.length });
+
+    return parentTaskIds.map(parentTaskId => {
+      const subTasks = subTasksMap.get(parentTaskId) || [];
+      const totalCount = totalCountMap.get(parentTaskId) || 0;
+      const hasMore = totalCount > pageSize;
+      const pagedSubTasks = hasMore ? subTasks.slice(0, pageSize) : subTasks;
+      const nextCursor = hasMore && pagedSubTasks.length > 0
+        ? { id: pagedSubTasks[pagedSubTasks.length - 1].id, createdAt: pagedSubTasks[pagedSubTasks.length - 1].createdAt }
+        : undefined;
+      return { parentTaskId, subTasks: pagedSubTasks, totalCount, hasMore, nextCursor };
+    });
+  }
+
+  /**
+   * Batch subtask fetch with permission resolution.
+   * Replaces exported `getSubTasksByParentIds` from src/data/task.
+   */
+  static async getSubTasksByParentIds(
+    parentTaskIds: string[],
+    workspaceId: string,
+    projectId?: string,
+    filters: Partial<import("@/types/task-filters").TaskFilters> = {},
+    pageSize: number = 30,
+    viewMode: string = "list",
+    extraFields?: string[],
+    userId?: string,
+    skipPermissionsCheck: boolean = false,
+    cursor?: any,
+  ): Promise<BatchSubTasksResult> {
+    try {
+      if (parentTaskIds.length === 0) return [];
+      const { isWorkspaceAdmin, fullAccessProjectIds, restrictedProjectIds, permissions } =
+        await TasksService.resolveTaskPermissions(workspaceId, projectId, userId);
+      if (!skipPermissionsCheck && !(permissions as any)?.workspaceMember) {
+        throw new Error("User does not have access to this workspace");
+      }
+      const resolvedUserId = (permissions as any)?.userId || userId || "";
+      return TasksService._getSubTasksByParentIdsInternal(
+        parentTaskIds, workspaceId, projectId, resolvedUserId,
+        isWorkspaceAdmin, fullAccessProjectIds, restrictedProjectIds,
+        filters, pageSize, viewMode, extraFields, cursor,
+      );
+    } catch (error) {
+      console.error("getSubTasksByParentIds failed", error);
+      return parentTaskIds.map(parentTaskId => ({ parentTaskId, subTasks: [], totalCount: 0, hasMore: false }));
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // GET TASK BY ID  (previously src/data/task/get-task-by-id.ts)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  private static async _getTaskByIdInternal(
+    taskId: string,
+    userId: string,
+    isMember: boolean,
+  ) {
+    const task = await TaskRepository.findTaskWithDetails(taskId, userId, isMember);
+    if (!task) return null;
+    if (isMember) {
+      if (task.parentTaskId) {
+        if (task.assignee?.workspaceMember?.userId !== userId) return null;
+      } else {
+        if (!task.subTasks || task.subTasks.length === 0) return null;
+      }
+    }
+    return task;
+  }
+
+  /**
+   * Get a single task by ID with RBAC.
+   * Replaces exported `getTaskById` from src/data/task.
+   */
+  static async getTaskById(taskId: string, workspaceId: string, projectId: string, userId: string) {
+    const { getUserPermissions } = await import("@/data/user/get-user-permissions");
+    const permissions = await getUserPermissions(workspaceId, projectId, userId);
+    if (!permissions.workspaceMemberId) return null;
+    return TasksService._getTaskByIdInternal(taskId, userId, permissions.isMember);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // GET TASKS — cached RSC entry point (previously src/data/task/get-tasks.ts)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  static async getTasks(opts: GetTasksOptions, userId: string) {
+    const { unstable_cache } = await import("next/cache");
+    const { CacheTags } = await import("@/data/cache-tags");
+    const tags = [...CacheTags.workspaceTasks(opts.workspaceId, userId)];
+    if (opts.projectId) tags.push(`project-tasks-${opts.projectId}`);
+    return unstable_cache(
+      () => TasksService.listTasks(opts, userId),
+      [`getTasks-${userId}-${JSON.stringify(opts)}`],
+      { tags, revalidate: 3600 },
+    )();
+  }
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// MODULE-LEVEL TYPE EXPORTS
+// Re-exported from src/data/task/index.ts shim for backwards compat.
+// ─────────────────────────────────────────────────────────────────────────
+
+export type BatchSubTasksResult = {
+  parentTaskId: string;
+  subTasks: any[];
+  totalCount: number;
+  hasMore: boolean;
+  nextCursor?: any;
+}[];
+
+export type BatchSubTasksResponse = BatchSubTasksResult;
+export type BatchSubTaskItem = BatchSubTasksResult[number];
+
+export interface GetTasksOptions {
+  workspaceId: string;
+  projectId?: string;
+  hierarchyMode?: "parents" | "children" | "all";
+  groupBy?: "status";
+  status?: string | string[];
+  assigneeId?: string | string[];
+  tagId?: string | string[];
+  search?: string;
+  dueAfter?: string | Date;
+  dueBefore?: string | Date;
+  startDate?: string | Date;
+  endDate?: string | Date;
+  filterParentTaskId?: string;
+  onlyParents?: boolean;
+  excludeParents?: boolean;
+  onlySubtasks?: boolean;
+  cursor?: import("@/lib/tasks/query-builder").TaskCursor;
+  skip?: number;
+  expandedProjectIds?: string[];
+  limit?: number;
+  includeSubTasks?: boolean;
+  includeFacets?: boolean;
+  view_mode?: "default" | "search" | "list" | "kanban" | "gantt" | "calendar";
+  extraFields?: string[];
+  sorts?: Array<{ field: string; direction: "asc" | "desc" }>;
+}
+
+export type GetTasksResponse = Awaited<ReturnType<typeof TasksService.listTasks>>;
+export type TaskByIdType = Awaited<ReturnType<typeof TasksService.getTaskById>>;
+
+/**
+ * Shape of task groups in Kanban view (grouped by status)
+ */
+export type SubTasksByStatusResponse = {
+  tasks: import("@/types/task").WorkspaceTaskType[];
+  totalCount: number;
+  hasMore: boolean;
+  currentPage?: number;
+  nextCursor?: any;
+};
+

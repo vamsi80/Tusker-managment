@@ -1,14 +1,15 @@
 "use client";
 
 import { toast } from "sonner";
-import { TaskByIdType } from "@/data/task/get-task-by-id";
+import type { TaskByIdType } from "@/server/services/task/tasks.service";
+
 import { useSearchParams, usePathname } from "next/navigation";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Tabs } from "@/components/ui/tabs";
 import { fetchCommentsAction, fetchActivitiesAction } from "@/actions/comment";
 import { pubsub, EVENTS } from "@/lib/pubsub";
-import { useTaskCacheStore } from "@/lib/store/task-cache-store";
+
 import { projectsClient } from "@/lib/api-client/projects";
 import { workspacesClient } from "@/lib/api-client/workspaces";
 // Import modular components
@@ -111,12 +112,8 @@ export function SubTaskDetailsSheet({
     const [members, setMembers] = useState<ProjectMembersType>([]);
     const [tags, setTags] = useState<{ id: string; name: string }[]>([]);
 
-    // 🧠 MEMORY-FIRST APPROACH: Use the global cache as the source of truth for the task entity
-    // This ensures that if the task was updated via real-time events, we show the latest version.
-    const cachedTask = useTaskCacheStore((state) => subTask?.id ? state.entities[subTask.id] : null);
-
-    // Merge provided prop with cached entity, prioritizing the cache for latest updates
-    const task = (cachedTask || subTask) as TaskByIdType | null;
+    // Rely on the subTask prop as the source of truth
+    const task = subTask;
 
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -189,13 +186,13 @@ export function SubTaskDetailsSheet({
         return () => { mounted = false; };
     }, [isOpen, task?.projectId, pathname]);
 
-    const upsertTasks = useTaskCacheStore((state) => state.upsertTasks);
+
 
     const handleSubTaskUpdated = useCallback((updatedData: Partial<TaskByIdType>) => {
-        if (task?.id) {
-            upsertTasks([{ id: task.id, ...updatedData }] as any);
+        if (task?.id && onSubTaskAssigned) {
+            onSubTaskAssigned(task.id, updatedData);
         }
-    }, [task?.id, upsertTasks]);
+    }, [task?.id, onSubTaskAssigned]);
 
     // URL synchronization is now handled globally via context hooks
     // to ensure consistency across all opening/closing methods.
@@ -342,13 +339,23 @@ export function SubTaskDetailsSheet({
                             isProjectManager={isProjectManager || members.find(m => m.userId === currentUserId)?.projectRole === 'PROJECT_MANAGER'}
                             onSubTaskUpdated={handleSubTaskUpdated}
                             onSubTaskAssigned={(memberObj) => {
-                                onSubTaskAssigned?.(task.id, {
+                                const updatedData = {
                                     assignee: {
+                                        id: memberObj.id,
                                         workspaceMember: {
-                                            user: memberObj
+                                            userId: memberObj.id,
+                                            user: {
+                                                id: memberObj.id,
+                                                name: memberObj.name || "",
+                                                surname: memberObj.surname || null,
+                                            }
                                         }
                                     }
-                                });
+                                };
+                                // 1. Update the local sheet context/URL state
+                                onSubTaskAssigned?.(task.id, updatedData);
+                                // 2. Update the global task cache so parent views (like SubTaskRow) reflect the change immediately
+                                handleSubTaskUpdated(updatedData);
                             }}
                         />
 

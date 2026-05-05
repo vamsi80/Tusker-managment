@@ -14,7 +14,7 @@ import { ColumnVisibility } from "./column-visibility";
 import { KanbanColumnVisibility, type KanbanColumnVisibility as KanbanColumnVisibilityType } from "./kanban-column-visibility";
 import { STATUS_OPTIONS } from "@/lib/zodSchemas";
 import { getColorFromString } from "@/lib/colors/project-colors";
-import { getStatusColors, STATUS_COLORS } from "@/lib/colors/status-colors";
+import { getStatusColors } from "@/lib/colors/status-colors";
 
 export interface ParentTaskOption {
     id: string;
@@ -155,7 +155,7 @@ export function GlobalFilterToolbar({
                 return filter;
             }
         }
-        
+
         if (filter.key === 'dueDateFilter') {
             const labels: Record<string, string> = {
                 today: "Today",
@@ -184,7 +184,7 @@ export function GlobalFilterToolbar({
     const applyPreset = (preset: 'today' | '4days' | 'week' | 'month' | 'delayed') => {
         const now = new Date();
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        
+
         let start: Date | undefined = todayStart;
         let end: Date | undefined = undefined;
 

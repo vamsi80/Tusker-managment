@@ -86,7 +86,12 @@ export function buildTaskFilter(
             // Enforce via AND to avoid overwriting existing UI filters in 'where'
             where.AND = [
                 ...(Array.isArray(where.AND) ? where.AND : []),
-                { assignee: { workspaceMember: { userId } } }
+                {
+                    OR: [
+                        { assignee: { workspaceMember: { userId } } },
+                        { createdBy: { workspaceMember: { userId } } }
+                    ]
+                }
             ];
         } else if (isHybrid) {
             // Hybrid: Full access to some, personal access to others
@@ -98,7 +103,10 @@ export function buildTaskFilter(
                         { projectId: { in: fullAccessIds } },
                         {
                             projectId: { in: memberOnlyIds },
-                            assignee: { workspaceMember: { userId } }
+                            OR: [
+                                { assignee: { workspaceMember: { userId } } },
+                                { createdBy: { workspaceMember: { userId } } }
+                            ]
                         }
                     ]
                 }

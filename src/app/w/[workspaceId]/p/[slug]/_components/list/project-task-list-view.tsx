@@ -1,8 +1,7 @@
 import dynamic from "next/dynamic";
-import { getWorkspaceTags } from "@/data/tag/get-tags";
 import { ProjectService } from "@/server/services/project";
 import { requireUser } from "@/lib/auth/require-user";
-import { getTasks } from "@/data/task/get-tasks";
+import { TasksService } from "@/server/services/task/tasks.service";
 import type { TaskWithSubTasks } from "@/components/task/shared/types";
 
 const TaskTable = dynamic(() => import("@/components/task/list/task-table"), {
@@ -31,12 +30,11 @@ export async function ProjectTaskListView({
     const [members, permissions, tasksData] = await Promise.all([
         ProjectService.getMembers(projectId),
         ProjectService.getPermissions(workspaceId, projectId, user.id),
-        getTasks({
+        TasksService.getTasks({
             workspaceId,
             projectId,
             hierarchyMode: "parents",
             includeSubTasks: false,
-            page: 1,
             limit: 50,
             view_mode: "list",
             extraFields: ["description"]

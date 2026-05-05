@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Plus } from "lucide-react";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { ProjectRow } from "../project-row";
@@ -8,9 +8,7 @@ import { TaskRow } from "../task-row";
 import { SubTaskList } from "../subtask-list";
 import { InlineTaskForm } from "../inline-task-form";
 import { TableLoadingSkeleton } from "../table/table-skeleton";
-import { LoadMoreSentinel } from "../table/load-more-sentinel";
 import { EmptyState } from "../table/empty-state";
-import { useTaskCacheStore } from "@/lib/store/task-cache-store";
 import type { TaskWithSubTasks } from "../../shared/types";
 import type { ColumnVisibility } from "../../shared/column-visibility";
 import type { UserPermissionsType } from "@/data/user/get-user-permissions";
@@ -51,7 +49,6 @@ interface ProjectTaskGroupProps {
     filtersActive: boolean;
     activeInlineProjectId: string | null;
     setActiveInlineProjectId: (id: string | null) => void;
-    onUpdateParentTaskLists: (updatedList: TaskWithSubTasks[]) => void;
     onSubTaskUpdated?: (subTaskId: string, updatedData: any) => void;
     onEnsureProjectLoad?: (projectId: string) => void;
 }
@@ -92,107 +89,50 @@ export function ProjectTaskGroup({
     activeInlineProjectId,
     setActiveInlineProjectId,
     projectMap,
-    onUpdateParentTaskLists,
     onSubTaskUpdated,
     onEnsureProjectLoad,
 }: ProjectTaskGroupProps) {
-    // 1. Maintain a local, optimistic mirror of the tasks for this project
-    const [localTasks, setLocalTasks] = useState<TaskWithSubTasks[]>(initialTasks);
+    const [tasks, setTasks] = useState<TaskWithSubTasks[]>(initialTasks || []);
 
-    // Sync upstream on updates (like filters altering the list)
     useEffect(() => {
-        setLocalTasks(initialTasks);
+        setTasks(initialTasks || []);
     }, [initialTasks]);
 
-    // 🚀 Lazy Hydration: Handled by the intersection observer on the sentinel below
-    // instead of an automatic useEffect. This prevents "fetch storms" on Expand All.
+    const handleTaskUpdated = useCallback((taskId: string, updatedTask: any) => {
+        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updatedTask } : t));
+    }, []);
 
-    // Trigger parent sync for caching/other UI updates, using local state as truth
-    const flushToParent = (newList: TaskWithSubTasks[]) => {
-        onUpdateParentTaskLists(newList);
-    };
-
-    const handleTaskUpdated = (taskId: string, updatedTask: { name: string; taskSlug: string }) => {
-        const next = localTasks.map(t =>
-            t.id === taskId
-                ? { ...t, name: updatedTask.name, taskSlug: updatedTask.taskSlug }
-                : t
-        );
-        setLocalTasks(next);
-        flushToParent(next);
-    };
-
-    const handleSubTaskUpdated = (subTaskId: string, updatedData: any) => {
-        const next = localTasks.map(t => ({
+    const handleSubTaskUpdated = useCallback((subTaskId: string, updatedData: any) => {
+        setTasks(prev => prev.map(t => ({
             ...t,
-            subTasks: t.subTasks?.map(st => st.id === subTaskId ? { ...st, ...updatedData } : st)
-        }));
-        
-        // Also notify global store for cross-view consistency
-        useTaskCacheStore.getState().upsertTasks([updatedData]);
-        
-        // Bubble up if needed
+            subTasks: t.subTasks ? t.subTasks.map(st => st.id === subTaskId ? { ...st, ...updatedData } : st) : []
+        })));
         if (onSubTaskUpdated) onSubTaskUpdated(subTaskId, updatedData);
-        
-        setLocalTasks(next);
-        flushToParent(next);
-    };
+    }, [onSubTaskUpdated]);
 
-    const handleSubTaskDeleted = (subTaskId: string) => {
-        const next = localTasks.map(t => ({
-            ...t,
-            subTasks: t.subTasks?.filter(st => st.id !== subTaskId)
+    const handleSubTaskDeleted = useCallback((subTaskId: string, parentId: string) => {
+        setTasks(prev => prev.map(t => t.id === parentId ? { ...t, subTasks: (t.subTasks || []).filter(st => st.id !== subTaskId) } : t));
+    }, []);
+
+    const handleSubTaskCreated = useCallback((subTask: any, parentId: string) => {
+        setTasks(prev => prev.map(t => {
+            if (t.id === parentId) {
+                const currentSubTasks = t.subTasks || [];
+                if (currentSubTasks.some((st: any) => st.id === subTask.id)) return t;
+                return { ...t, subTasks: [...currentSubTasks, subTask] };
+            }
+            return t;
         }));
-        setLocalTasks(next);
-        flushToParent(next);
-    };
+    }, []);
 
-    const handleSubTaskCreated = (subTask: any, parentId: string, tempId?: string) => {
-        const next = localTasks.map(t => {
-            if (t.id !== parentId) return t;
-            
-            const currentSubTasks = t.subTasks || [];
-            let newSubTasks;
-            if (tempId) {
-                newSubTasks = currentSubTasks.map(st => st.id === tempId ? subTask : st);
-            } else {
-                newSubTasks = [subTask, ...currentSubTasks];
-            }
-            
-            return { ...t, subTasks: newSubTasks };
-        });
+    const handleTaskDeleted = useCallback((taskId: string) => {
+        setTasks(prev => prev.filter(t => t.id !== taskId));
+    }, []);
 
-        // Also notify global store for cross-view consistency and hydration persistence
-        useTaskCacheStore.getState().addSubTaskToList(parentId, subTask, tempId);
-
-        setLocalTasks(next);
-        flushToParent(next);
-    };
-
-    const handleTaskDeleted = (taskId: string) => {
-        const next = localTasks.filter(t => t.id !== taskId);
-        setLocalTasks(next);
-        flushToParent(next);
-    };
-
-    const handleTaskCreated = (task: TaskWithSubTasks, tempId?: string) => {
-        // Surgical update for global cache
-        const store = useTaskCacheStore.getState();
-        store.addTaskToProjectList(task.projectId || projectId, task, undefined, tempId);
-        store.addTaskToProjectList("__global_filter__", task, undefined, tempId);
-
-        setLocalTasks(prev => {
-            let next;
-            if (tempId) {
-                next = prev.map(t => t.id === tempId ? task : t);
-            } else {
-                next = [task, ...prev];
-            }
-            flushToParent(next);
-            return next;
-        });
+    const handleTaskCreated = useCallback((task: TaskWithSubTasks) => {
+        setTasks(prev => [task, ...prev]);
         setActiveInlineProjectId(null);
-    };
+    }, []);
 
     return (
         <ProjectRow
@@ -202,7 +142,7 @@ export function ProjectTaskGroup({
             onToggle={onToggle}
             colSpan={visibleColumnsCount}
         >
-            {isExpanded && localTasks.map((task) => (
+            {isExpanded && tasks?.map((task) => (
                 <React.Fragment key={task.id}>
                     <TaskRow
                         task={task}
@@ -243,8 +183,8 @@ export function ProjectTaskGroup({
                             onLoadMore={() => onLoadMoreSubTasks(task.id)}
                             onSubTaskClick={handleSubTaskClick}
                             onSubTaskUpdated={handleSubTaskUpdated}
-                            onSubTaskDeleted={handleSubTaskDeleted}
-                            onSubTaskCreated={(st, tempId) => handleSubTaskCreated(st, task.id, tempId)}
+                            onSubTaskDeleted={(stId) => handleSubTaskDeleted(stId, task.id)}
+                            onSubTaskCreated={(st) => handleSubTaskCreated(st, task.id)}
                             permissions={permissions}
                             userId={userId}
                             isWorkspaceAdmin={isWorkspaceAdmin}
@@ -258,31 +198,33 @@ export function ProjectTaskGroup({
                 </React.Fragment>
             ))}
 
-            {isExpanded && paginationState.isLoading && localTasks.length === 0 && (
+            {isExpanded && paginationState.isLoading && tasks.length === 0 && (
                 <TableLoadingSkeleton visibleColumnsCount={visibleColumnsCount} />
             )}
 
             {/* 🎯 Hydration Sentinel: Triggers the first fetch for an empty expanded project when it enters view */}
-            {isExpanded && !paginationState.isLoading && localTasks.length === 0 && paginationState.hasMore && (
+            {isExpanded && !paginationState.isLoading && tasks.length === 0 && paginationState.hasMore && (
                 <TableRow
+                    key={`sentinel-init-${filtersActive}-${tasks.length}`}
                     ref={(node) => {
                         if (node) getObserver()?.observe(node);
                     }}
                     data-project-id={projectId}
-                    className="hover:bg-transparent border-0 h-4"
+                    className="hover:bg-transparent border-0"
                 >
-                    <TableCell colSpan={visibleColumnsCount} className="py-0 px-2 h-4">
-                        {/* Invisible trigger */}
+                    <TableCell colSpan={visibleColumnsCount} className="py-0 px-2 h-32">
+                        {/* Invisible trigger with height to prevent 'Expand All' fetch storms */}
                     </TableCell>
                 </TableRow>
             )}
 
-            {isExpanded && paginationState.hasMore && paginationState.isLoading && localTasks.length > 0 && (
+            {isExpanded && paginationState.hasMore && paginationState.isLoading && tasks.length > 0 && (
                 <TableLoadingSkeleton visibleColumnsCount={visibleColumnsCount} count={5} />
             )}
 
             {isExpanded && paginationState.hasMore && !paginationState.isLoading && (
                 <TableRow
+                    key={`sentinel-more-${filtersActive}-${tasks.length}`}
                     ref={(node) => {
                         if (node) getObserver()?.observe(node);
                     }}
@@ -292,7 +234,7 @@ export function ProjectTaskGroup({
                 </TableRow>
             )}
 
-            {isExpanded && !paginationState.isLoading && localTasks.length === 0 && totalTasksCount === 0 && (
+            {isExpanded && !paginationState.isLoading && tasks.length === 0 && totalTasksCount === 0 && (
                 (filtersActive || !canCreateSubTask) ? (
                     <EmptyState visibleColumnsCount={visibleColumnsCount} />
                 ) : null
