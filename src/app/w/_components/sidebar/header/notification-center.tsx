@@ -199,7 +199,7 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
                             variant="ghost"
                             size="icon"
                             className={cn(
-                                "relative h-9 w-9 rounded-full transition-all",
+                                "relative h-9 w-9 rounded-full transition-all cursor-pointer",
                                 isPulsing && "ring-2 ring-primary ring-offset-2 bg-primary/10"
                             )}
                         >
@@ -221,8 +221,8 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
                         </Button>
                     </PopoverTrigger>
                 </TooltipTrigger>
-                <TooltipContent side="bottom">
-                    <p>Notifications</p>
+                <TooltipContent side="bottom" className="text-[11px] font-medium">
+                    <p>Activity & Comments</p>
                 </TooltipContent>
             </Tooltip>
             <PopoverContent className="w-85 p-0 shadow-xl" align="end">

@@ -70,12 +70,12 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
         assigneeId: !isKanban // Redundant with assignee object
     };
 
-    if ((isList || isSubtask) && extraFields?.includes("description")) {
+    if (isList || isSubtask || isKanban) {
         select.description = true;
     }
 
     // Include detailed createdBy only if NOT in Gantt view to save on payload/joins
-    if (!isGantt && !isKanban) {
+    if (!isGantt) {
         select.createdBy = {
             select: {
                 workspaceMember: {
@@ -119,7 +119,7 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
     }
 
     // 4. Extended Info: Description & Reviewer
-    if (isList || isSearch || isCalendar || isSubtask) {
+    if (isList || isSearch || isCalendar || isSubtask || isKanban) {
         select.reviewer = {
             select: {
                 workspaceMember: { select: { user: { select: { id: true, name: true, surname: true } } } }

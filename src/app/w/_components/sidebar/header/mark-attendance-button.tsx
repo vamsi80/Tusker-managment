@@ -15,14 +15,14 @@ export function MarkAttendanceButton({ workspaceId }: { workspaceId: string }) {
             <Tooltip>
                 <TooltipTrigger asChild>
                     <DialogTrigger asChild>
-                        <Button variant="outline" size="icon" className="h-9 w-9 border-primary/20 hover:bg-primary/5 hover:text-primary transition-all active:scale-95">
+                        <Button variant="outline" size="icon" className="h-9 w-9 border-primary/20 hover:bg-primary/5 hover:text-primary transition-all active:scale-95 cursor-pointer">
                             <LogIn className="h-4 w-4" />
                             <span className="sr-only">Mark Attendance</span>
                         </Button>
                     </DialogTrigger>
                 </TooltipTrigger>
-                <TooltipContent side="bottom">
-                    <p>Mark Attendance</p>
+                <TooltipContent side="bottom" className="text-[11px] font-medium">
+                    <p>Mark Daily Attendance</p>
                 </TooltipContent>
             </Tooltip>
             <DialogContent showCloseButton={false} className="p-0 border-none bg-transparent shadow-none max-w-md w-full">

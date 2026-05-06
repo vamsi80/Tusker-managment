@@ -496,6 +496,7 @@ export function KanbanBoard({
         if (filters.dueDateFilter)
           params.set("dt", filters.dueDateFilter);
         if (filters.parentTaskId) params.set("pt", filters.parentTaskId);
+        params.set("ef", JSON.stringify(["description"]));
 
         const apiRes = await fetch(`/api/v1/tasks?${params.toString()}`);
 
@@ -625,6 +626,7 @@ export function KanbanBoard({
       if (filters.assigneeId) params.append("a", filters.assigneeId);
       if (filters.tagId) params.append("t", filters.tagId);
       if (filters.dueDateFilter) params.append("dt", filters.dueDateFilter);
+      params.set("ef", JSON.stringify(["description"]));
 
       const apiRes = await fetch(`/api/v1/tasks?${params.toString()}`);
       const response = await apiRes.json();

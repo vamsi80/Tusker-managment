@@ -50,8 +50,8 @@ export default function ThemeToggle() {
               />
             </Toggle>
           </TooltipTrigger>
-          <TooltipContent side="bottom">
-            <p>Toggle theme</p>
+          <TooltipContent side="bottom" className="text-[11px] font-medium">
+            <p>Switch to {isDark ? 'Light' : 'Dark'} Mode</p>
           </TooltipContent>
         </Tooltip>
       </div>

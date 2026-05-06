@@ -30,7 +30,7 @@ export type WorkspaceTaskType = {
     createdById: string;
     reviewerId: string | null;
     assigneeId: string | null;
-    tagId?: string | null;
+
 
     // Flat metadata - optimized for performance
     assignee?: {
