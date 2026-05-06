@@ -24,32 +24,42 @@ export function GlobalSubTaskSheet() {
         if (!workspaceId && subTaskSlug) {
             console.warn("[GlobalSubTaskSheet] Missing workspaceId in params, cannot fetch task.");
         }
+        
         if (subTaskSlug && workspaceId) {
             const currentSlug = subTask?.taskSlug || subTask?.id;
-            console.log(`🔍 [GlobalSubTaskSheet] Comparing: StoreSlug="${currentSlug}", UrlSlug="${subTaskSlug}"`);
 
-            if (currentSlug !== subTaskSlug && lastFetchedSlug.current !== subTaskSlug) {
-                console.log("🚀 [GlobalSubTaskSheet] Slug mismatch - triggering load...");
+            // Trigger fetch if this slug hasn't been fetched in this session
+            if (lastFetchedSlug.current !== subTaskSlug) {
+                console.log(`🚀 [GlobalSubTaskSheet] Fetching fresh data for: ${subTaskSlug}`);
                 lastFetchedSlug.current = subTaskSlug;
 
-                openSubTaskSheetLoading();
+                // Only show loader if we don't already have some version of this task
+                if (currentSlug !== subTaskSlug) {
+                    openSubTaskSheetLoading();
+                }
 
                 const loadTask = async () => {
-                    const result = await apiClient.tasks.getTaskBySlug(workspaceId, subTaskSlug);
-                    if (result.success && result.data) {
-                        openSubTaskSheet(result.data);
-                    } else if (result.error) {
-                        console.error("Failed to fetch subtask context:", result.error);
+                    try {
+                        const result = await apiClient.tasks.getTaskBySlug(workspaceId, subTaskSlug);
+                        if (result.success && result.data) {
+                            console.log("[GlobalSubTaskSheet] Fresh data received.");
+                            openSubTaskSheet(result.data);
+                        } else if (result.error) {
+                            console.error("Failed to fetch subtask context:", result.error);
+                        }
+                    } catch (err) {
+                        console.error("[GlobalSubTaskSheet] Fetch error:", err);
                     }
                 };
 
                 loadTask();
             }
         } else if (!subTaskSlug && isOpen) {
+            console.log("[GlobalSubTaskSheet] No slug, closing sheet.");
             closeSubTaskSheet();
             lastFetchedSlug.current = null;
         }
-    }, [subTaskSlug, subTask, workspaceId, isOpen, openSubTaskSheet, openSubTaskSheetLoading, closeSubTaskSheet]);
+    }, [subTaskSlug, workspaceId, isOpen, subTask?.id, subTask?.taskSlug, openSubTaskSheet, openSubTaskSheetLoading, closeSubTaskSheet]);
 
     return (
         <SubTaskDetailsSheet

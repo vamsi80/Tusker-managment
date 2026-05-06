@@ -57,8 +57,12 @@ export class AttendanceService {
             const openRecord = await AttendanceRepository.findByMemberAndDate(member.id, yesterday);
 
             // Use yesterday's record if it exists and is still open
-            if (openRecord && !openRecord.checkOut) {
-                record = openRecord;
+            // Only if it's less than 16 hours old (to distinguish between Night Shift and forgotten check-out)
+            if (openRecord && !openRecord.checkOut && openRecord.checkIn) {
+                const hoursSinceCheckIn = (now.getTime() - openRecord.checkIn.getTime()) / (1000 * 60 * 60);
+                if (hoursSinceCheckIn < 16) {
+                    record = openRecord;
+                }
             }
         }
 
@@ -181,7 +185,13 @@ export class AttendanceService {
             const yesterday = new Date(dateOnly);
             yesterday.setUTCDate(yesterday.getUTCDate() - 1);
             const openRecord = await AttendanceRepository.findByMemberAndDate(member.id, yesterday);
-            if (openRecord && !openRecord.checkOut) existing = openRecord;
+            
+            if (openRecord && !openRecord.checkOut && openRecord.checkIn) {
+                const hoursSinceCheckIn = (now.getTime() - openRecord.checkIn.getTime()) / (1000 * 60 * 60);
+                if (hoursSinceCheckIn < 16) {
+                    existing = openRecord;
+                }
+            }
         }
 
         if (!existing) throw AppError.NotFound("You must check in before checking out.");

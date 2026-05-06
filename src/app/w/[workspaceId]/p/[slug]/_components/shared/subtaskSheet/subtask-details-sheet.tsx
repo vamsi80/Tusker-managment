@@ -12,7 +12,6 @@ import { pubsub, EVENTS } from "@/lib/pubsub";
 
 import { projectsClient } from "@/lib/api-client/projects";
 import { workspacesClient } from "@/lib/api-client/workspaces";
-// Import modular components
 import { SubtaskSheetHeader } from "./subtask-sheet-header";
 import { SubtaskSheetNavBar } from "./subtask-sheet-navbar";
 import { ProjectMembersType } from "@/types/project";
@@ -76,6 +75,8 @@ interface Activity {
 // Client-side cache for instant re-opening
 export const commentCache = new Map<string, any[]>();
 export const activityCache = new Map<string, any[]>();
+export const membersCache = new Map<string, ProjectMembersType>(); // Project-level cache
+export const tagsCache = new Map<string, { id: string; name: string }[]>(); // Workspace-level cache
 export const pendingPrefetches = new Set<string>(); // LOCK: Prevents redundant DB queries
 
 /**
@@ -160,22 +161,41 @@ export function SubTaskDetailsSheet({
         if (!isOpen || !task?.projectId) return;
 
         let mounted = true;
+
+        // Determine workspaceId from the path or the task
+        const workspaceIdMatch = pathname.match(/\/w\/([^\/]+)/);
+        const workspaceId = workspaceIdMatch ? workspaceIdMatch[1] : (task as any).workspaceId;
+        if (!workspaceId) return;
+
+        // 🚀 CACHE CHECK: If we already have members for this project and tags for this workspace, skip fetch
+        const cachedMembers = membersCache.get(task.projectId);
+        const cachedTags = tagsCache.get(workspaceId);
+
+        if (cachedMembers && cachedTags) {
+            console.log("📡 [CACHE-HIT] Metadata (Members/Tags) ready in local memory.");
+            setMembers(cachedMembers);
+            setTags(cachedTags);
+            return;
+        }
+
         const fetchMetadata = async () => {
             try {
-                // Determine workspaceId from the path or the task
-                const workspaceIdMatch = pathname.match(/\/w\/([^\/]+)/);
-                const workspaceId = workspaceIdMatch ? workspaceIdMatch[1] : (task as any).workspaceId;
-
-                if (!workspaceId) return;
-
+                console.log(`📡 [FETCH] Hydrating metadata for Project: ${task.projectId}`);
                 const [projectMembers, workspaceTags] = await Promise.all([
                     projectsClient.getMembers(task.projectId),
                     workspacesClient.getTags(workspaceId)
                 ]);
 
                 if (mounted) {
+                    const mappedTags = workspaceTags.map(t => ({ id: t.id, name: t.name }));
+
+                    // Update states
                     setMembers(projectMembers);
-                    setTags(workspaceTags.map(t => ({ id: t.id, name: t.name })));
+                    setTags(mappedTags);
+
+                    // Update caches
+                    membersCache.set(task.projectId, projectMembers);
+                    tagsCache.set(workspaceId, mappedTags);
                 }
             } catch (error) {
                 console.error("Failed to fetch subtask metadata:", error);
@@ -185,8 +205,6 @@ export function SubTaskDetailsSheet({
         fetchMetadata();
         return () => { mounted = false; };
     }, [isOpen, task?.projectId, pathname]);
-
-
 
     const handleSubTaskUpdated = useCallback((updatedData: Partial<TaskByIdType>) => {
         if (task?.id && onSubTaskAssigned) {
@@ -201,11 +219,6 @@ export function SubTaskDetailsSheet({
         if (!subTask) return;
 
         if (pendingPrefetches.has(`comments-${subTask.id}`)) return;
-
-        // SKIP IF ACCESSED FROM PRE-FETCH CACHE
-        if (commentCache.has(subTask.id)) {
-            return; // Already have data, don't re-fetch immediately (even if empty)
-        }
 
         pendingPrefetches.add(`comments-${subTask.id}`);
         setIsLoading(true);
@@ -299,14 +312,13 @@ export function SubTaskDetailsSheet({
         const unsubscribe = pubsub.subscribe(EVENTS.APP_ACTIVITY_LOG, (data: any) => {
             const isComment = data.action === "COMMENT_CREATED";
             const isForThisTask = data.entityId === subTask.id;
-            const isNotMe = data.userId !== currentUserId;
 
-            if (isComment && isForThisTask && isNotMe) {
+            if (isComment && isForThisTask) {
                 const newComment = data.newData?.comment;
                 if (newComment) {
                     // Update local state
                     setComments(prev => {
-                        // Avoid duplicates
+                        // Avoid duplicates (crucial since actor now receives their own event)
                         if (prev.some(c => c.id === newComment.id)) return prev;
                         const updated = [...prev, newComment];
                         // Update cache too
