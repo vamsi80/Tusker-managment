@@ -52,7 +52,7 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
             isShell={true}
             projectMembers={projectMembers as any}
             workspaceId={workspaceId}
-            projectId="" 
+            projectId=""
             level="workspace"
             projectManagers={projectManagers}
             permissions={permissions}

@@ -556,7 +556,7 @@ export class ProjectService {
   static async getWorkspaceProjectLeaders(workspaceId: string) {
     const [projectMembers, workspaceAdmins, projects] = await Promise.all([
       prisma.projectMember.findMany({
-        where: { project: { workspaceId }, projectRole: { in: ["PROJECT_MANAGER", "LEAD"] }, hasAccess: true },
+        where: { project: { workspaceId }, projectRole: "PROJECT_MANAGER", hasAccess: true },
         include: { workspaceMember: { include: { user: { select: { id: true, surname: true, name: true, image: true } } } } }
       }),
       prisma.workspaceMember.findMany({

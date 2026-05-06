@@ -74,12 +74,12 @@ export class TasksService {
     const flattenedTask = result.tasks[0];
 
     await TaskEvents.onTaskCreated({
-      taskId: flattenedTask.id, 
-      projectId, 
-      workspaceId, 
+      taskId: flattenedTask.id,
+      projectId,
+      workspaceId,
       userId,
-      userName: permissions.userSurname, 
-      taskData: flattenedTask, 
+      userName: permissions.userSurname,
+      taskData: flattenedTask,
       projectSlug: finalProjectSlug,
     });
 
@@ -526,10 +526,12 @@ export class TasksService {
           ...(wsPerms.viewerProjectIds || []),
         ];
 
-      const fullAccessProjectIds = [
-        ...(wsPerms.leadProjectIds ?? []),
-        ...(wsPerms.managedProjectIds ?? []),
-      ];
+      const fullAccessProjectIds = (wsPerms.isProjectLead || wsPerms.isProjectManager)
+        ? authorizedProjectIds
+        : [
+          ...(wsPerms.leadProjectIds ?? []),
+          ...(wsPerms.managedProjectIds ?? []),
+        ];
 
       const restrictedProjectIds = authorizedProjectIds.filter(
         (id) => !fullAccessProjectIds.includes(id),
@@ -564,7 +566,8 @@ export class TasksService {
     // If the user is a workspace admin, or a lead/manager of the current project, show ALL subtasks count.
     // Otherwise, show only subtasks assigned to them.
     const isManagerOfCurrentProject = projectId && fullAccessProjectIds.includes(projectId);
-    const subtaskFilter = (!isAdmin && !isManagerOfCurrentProject)
+    const isLeadOrManagerInWorkspace = fullAccessProjectIds.length > 0;
+    const subtaskFilter = (!isAdmin && !isManagerOfCurrentProject && !isLeadOrManagerInWorkspace)
       ? buildAssigneeFilter(userId)
       : undefined;
 
@@ -652,7 +655,7 @@ export class TasksService {
           if (parentIds.length > 0) {
             const hasFullAccess =
               isAdmin ||
-              (projectId ? fullAccessProjectIds.includes(projectId) : false);
+              (projectId ? fullAccessProjectIds.includes(projectId) : fullAccessProjectIds.length > 0);
 
             const subtasks = (await TaskRepository.findSubtasksExpansion(
               buildSubtaskExpansionWhere(undefined, {
@@ -2500,8 +2503,8 @@ export class TasksService {
       if (fullAccessProjectIds.length > 0 && restrictedProjectIds.length > 0) {
         countWhere.OR = [
           { projectId: { in: fullAccessProjectIds } },
-          { 
-            projectId: { in: restrictedProjectIds }, 
+          {
+            projectId: { in: restrictedProjectIds },
             OR: [
               { assignee: { workspaceMember: { userId } } },
               { createdBy: { workspaceMember: { userId } } },
