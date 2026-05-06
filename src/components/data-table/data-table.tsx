@@ -18,6 +18,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 export interface DataTableFilterField<TData> {
     label: string;
@@ -53,6 +54,7 @@ interface DataTableProps<TData, TValue> {
     extraToolbarContent?: React.ReactNode;
     onFilterChange?: (filters: ColumnFiltersState) => void;
     onPaginationChange?: (pagination: { pageIndex: number; pageSize: number }) => void;
+    containerClassName?: string;
 }
 
 export function DataTable<TData, TValue>({
@@ -80,6 +82,7 @@ export function DataTable<TData, TValue>({
     extraToolbarContent,
     onFilterChange,
     onPaginationChange,
+    containerClassName,
 }: DataTableProps<TData, TValue> & { getRowId?: (row: TData) => string }) {
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -339,86 +342,86 @@ export function DataTable<TData, TValue>({
 
 
             {/* Table */}
-            <div className="rounded-md border">
-                <Table>
-                    <TableHeader>
-                        {table.getHeaderGroups().map((headerGroup) => (
-                            <TableRow key={headerGroup.id}>
-                                {headerGroup.headers.map((header) => {
-                                    return (
-                                        <TableHead
-                                            key={header.id}
-                                            className={(header.column.columnDef.meta as { className?: string })?.className}
-                                        >
-                                            {header.isPlaceholder
-                                                ? null
-                                                : flexRender(
-                                                    header.column.columnDef.header,
-                                                    header.getContext()
-                                                )}
-                                        </TableHead>
-                                    );
-                                })}
-                            </TableRow>
-                        ))}
-                    </TableHeader>
-                    <TableBody>
-                        {isLoading ? (
-                            Array.from({ length: pageSize }).map((_, index) => (
-                                <TableRow key={index}>
-                                    {columns.map((_, cellIndex) => (
-                                        <TableCell key={cellIndex}>
-                                            <Skeleton className="h-6 w-full" />
-                                        </TableCell>
-                                    ))}
+            <div className={cn("rounded-md border overflow-hidden", containerClassName)}>
+                <Table containerClassName="max-h-[inherit] overflow-auto">
+                    <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
+                            {table.getHeaderGroups().map((headerGroup) => (
+                                <TableRow key={headerGroup.id}>
+                                    {headerGroup.headers.map((header) => {
+                                        return (
+                                            <TableHead
+                                                key={header.id}
+                                                className={(header.column.columnDef.meta as { className?: string })?.className}
+                                            >
+                                                {header.isPlaceholder
+                                                    ? null
+                                                    : flexRender(
+                                                        header.column.columnDef.header,
+                                                        header.getContext()
+                                                    )}
+                                            </TableHead>
+                                        );
+                                    })}
                                 </TableRow>
-                            ))
-                        ) : table.getRowModel().rows?.length ? (
-                            table.getRowModel().rows.map((row) => (
-                                <TableRow
-                                    key={row.id}
-                                    data-state={row.getIsSelected() && "selected"}
-                                    onClick={() => onRowClick?.(row.original)}
-                                    className={`
+                            ))}
+                        </TableHeader>
+                        <TableBody>
+                            {isLoading ? (
+                                Array.from({ length: pageSize }).map((_, index) => (
+                                    <TableRow key={index}>
+                                        {columns.map((_, cellIndex) => (
+                                            <TableCell key={cellIndex}>
+                                                <Skeleton className="h-6 w-full" />
+                                            </TableCell>
+                                        ))}
+                                    </TableRow>
+                                ))
+                            ) : table.getRowModel().rows?.length ? (
+                                table.getRowModel().rows.map((row) => (
+                                    <TableRow
+                                        key={row.id}
+                                        data-state={row.getIsSelected() && "selected"}
+                                        onClick={() => onRowClick?.(row.original)}
+                                        className={`
                                         ${onRowClick ? "cursor-pointer" : ""}
                                         ${getRowClassName?.(row) || ""}
                                     `.trim()}
-                                >
-                                    {row.getVisibleCells().map((cell) => (
-                                        <TableCell
-                                            key={cell.id}
-                                            className={(cell.column.columnDef.meta as { className?: string })?.className}
-                                        >
-                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                    >
+                                        {row.getVisibleCells().map((cell) => (
+                                            <TableCell
+                                                key={cell.id}
+                                                className={(cell.column.columnDef.meta as { className?: string })?.className}
+                                            >
+                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                            </TableCell>
+                                        ))}
+                                    </TableRow>
+                                ))
+                            ) : (
+                                !onAdd && (
+                                    <TableRow>
+                                        <TableCell colSpan={columns.length} className="h-24 text-center">
+                                            No results found.
                                         </TableCell>
-                                    ))}
-                                </TableRow>
-                            ))
-                        ) : (
-                            !onAdd && (
-                                <TableRow>
-                                    <TableCell colSpan={columns.length} className="h-24 text-center">
-                                        No results found.
+                                    </TableRow>
+                                )
+                            )}
+                            {/* Inline Add Button Row */}
+                            {onAdd && !isLoading && (
+                                <TableRow
+                                    className="cursor-pointer hover:bg-muted/50 border-dashed border-b-0 group"
+                                    onClick={onAdd}
+                                >
+                                    <TableCell colSpan={columns.length} className="p-2">
+                                        <div className="flex items-center justify-center gap-2 h-9 text-primary font-medium transition-colors border-dashed border border-primary/50 bg-primary/5 rounded-md hover:bg-primary/10">
+                                            <Plus className="h-4 w-4" />
+                                            <span className="text-sm">{addButtonLabel}</span>
+                                        </div>
                                     </TableCell>
                                 </TableRow>
-                            )
-                        )}
-                        {/* Inline Add Button Row */}
-                        {onAdd && !isLoading && (
-                            <TableRow
-                                className="cursor-pointer hover:bg-muted/50 border-dashed border-b-0 group"
-                                onClick={onAdd}
-                            >
-                                <TableCell colSpan={columns.length} className="p-2">
-                                    <div className="flex items-center justify-center gap-2 h-9 text-primary font-medium transition-colors border-dashed border border-primary/50 bg-primary/5 rounded-md hover:bg-primary/10">
-                                        <Plus className="h-4 w-4" />
-                                        <span className="text-sm">{addButtonLabel}</span>
-                                    </div>
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
+                            )}
+                        </TableBody>
+                    </Table>
             </div>
 
             {/* Pagination */}

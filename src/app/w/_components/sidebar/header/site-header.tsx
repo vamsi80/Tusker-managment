@@ -4,6 +4,7 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import ThemeToggle from "../../../../../components/ui/theme-toggle";
 import { NotificationCenterWrapper as NotificationCenter } from "./notification-center-wrapper";
+import { MarkAttendanceButton } from "./mark-attendance-button";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 import { 
     Breadcrumb, 
@@ -70,6 +71,7 @@ export function SiteHeader() {
         </div>
 
         <div className="ml-auto flex items-center gap-3">
+          <MarkAttendanceButton workspaceId={workspaceId} />
           <NotificationCenter
             workspaceId={workspaceId}
           />

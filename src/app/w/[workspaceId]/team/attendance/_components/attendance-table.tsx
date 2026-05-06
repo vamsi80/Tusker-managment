@@ -770,6 +770,7 @@ export function AttendanceTable({
                     pageSize={pageSize}
                     rowCount={totalCount}
                     manualPagination={true}
+                    containerClassName="max-h-[calc(100vh-300px)]"
                     onPaginationChange={(p) => {
                         setPageIndex(p.pageIndex);
                         setPageSize(p.pageSize);

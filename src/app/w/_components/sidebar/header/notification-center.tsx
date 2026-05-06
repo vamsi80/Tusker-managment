@@ -24,6 +24,11 @@ import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { pubsub, EVENTS } from "@/lib/pubsub";
 import { useSafeNavigation } from "@/hooks/use-safe-navigation";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger
+} from "@/components/ui/tooltip";
 import { workspacesClient } from "@/lib/api-client/workspaces";
 
 export function NotificationCenter({ workspaceId, initialUnread = [], initialRead = [], initialPeopleCount = 0 }: { workspaceId: string, initialUnread?: any[], initialRead?: any[], initialPeopleCount?: number }) {
@@ -187,32 +192,39 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
                 loadNotifications();
             }
         }}>
-            <PopoverTrigger asChild>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className={cn(
-                        "relative h-9 w-9 rounded-full transition-all",
-                        isPulsing && "ring-2 ring-primary ring-offset-2 bg-primary/10"
-                    )}
-                >
-                    <Bell className={cn(
-                        "h-[18px] w-[18px] transition-transform",
-                        isPulsing && "scale-110 text-primary"
-                    )} />
-                    {peopleCount > 0 && (
-                        <Badge
-                            variant="destructive"
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <PopoverTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            size="icon"
                             className={cn(
-                                "absolute -top-1 -right-1 h-4 min-w-4 p-0 flex items-center justify-center text-[10px] border-2 border-background",
-                                isPulsing && "animate-pulse"
+                                "relative h-9 w-9 rounded-full transition-all",
+                                isPulsing && "ring-2 ring-primary ring-offset-2 bg-primary/10"
                             )}
                         >
-                            {peopleCount}
-                        </Badge>
-                    )}
-                </Button>
-            </PopoverTrigger>
+                            <Bell className={cn(
+                                "h-[18px] w-[18px] transition-transform",
+                                isPulsing && "scale-110 text-primary"
+                            )} />
+                            {peopleCount > 0 && (
+                                <Badge
+                                    variant="destructive"
+                                    className={cn(
+                                        "absolute -top-1 -right-1 h-4 min-w-4 p-0 flex items-center justify-center text-[10px] border-2 border-background",
+                                        isPulsing && "animate-pulse"
+                                    )}
+                                >
+                                    {peopleCount}
+                                </Badge>
+                            )}
+                        </Button>
+                    </PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                    <p>Notifications</p>
+                </TooltipContent>
+            </Tooltip>
             <PopoverContent className="w-85 p-0 shadow-xl" align="end">
                 <div className="flex flex-col h-full max-h-[550px]">
                     <div className="px-4 pt-4 pb-2 flex items-center justify-between">
