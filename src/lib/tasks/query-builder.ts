@@ -132,9 +132,13 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
         select.position = true;
     }
 
+    if (isList || isGantt || isCalendar || isSubtask || isKanban) {
+        select.subtaskCount = true;
+        select.completedSubtaskCount = true;
+    }
+
     if (isGantt) {
         select.updatedAt = true;
-        select.subtaskCount = true;
         select.Task_TaskDependency_A = {
             select: { id: true }
         };

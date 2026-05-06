@@ -219,8 +219,8 @@ export const TaskRow = memo(function TaskRow({
                             {task.name}
                         </span>
                         {subtaskCount > 0 && (
-                            <span className="text-xs text-muted-foreground shrink-0">
-                                ({subtaskCount})
+                            <span className="text-xs text-muted-foreground shrink-0 font-medium">
+                                ({task.completedSubtaskCount || 0}/{subtaskCount})
                             </span>
                         )}
 
