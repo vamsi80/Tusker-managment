@@ -253,7 +253,6 @@ model Tag {
   updatedAt            DateTime  @updatedAt
   requirePurchase      Boolean?  @default(false)
   workspace            Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  Task_Task_tagIdToTag Task[]    @relation("Task_tagIdToTag")
   tasks                Task[]    @relation("TaskTags")
 
   @@unique([workspaceId, name])
@@ -281,7 +280,6 @@ model Task {
   subtaskCount          Int                @default(0)
   workspaceId           String
   position              Int                @default(0)
-  tagId                 String?
   activities            Activity[]
   assignee              ProjectMember?     @relation("TaskAssignee", fields: [assigneeId], references: [id])
   createdBy             ProjectMember      @relation("TaskCreator", fields: [createdById], references: [id])
@@ -289,7 +287,6 @@ model Task {
   subTasks              Task[]             @relation("Task_subTasks")
   project               Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
   reviewer              ProjectMember?     @relation("TaskReviewer", fields: [reviewerId], references: [id])
-  Tag_Task_tagIdToTag   Tag?               @relation("Task_tagIdToTag", fields: [tagId], references: [id])
   comments              Comment[]
   dailyReportEntries    DailyReportEntry[]
   indentDetails         IndentDetails[]

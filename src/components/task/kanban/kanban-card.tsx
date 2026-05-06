@@ -176,6 +176,7 @@ export const KanbanCard = React.memo(function KanbanCard({
   const delayText = getDelayText(remainingDays, subTask.status);
 
   const handleNameClick = (e: React.MouseEvent) => {
+    if (isSortableDragging) return;
     e.stopPropagation();
     // Inject project metadata if it's missing but we have it in our map
     const subTaskWithMetadata = {
@@ -189,11 +190,14 @@ export const KanbanCard = React.memo(function KanbanCard({
     <>
       <Card
         ref={setNodeRef}
+        {...(isMobile ? {} : attributes)}
+        {...(isMobile ? {} : listeners)}
         style={style}
         className={cn(
           "h-auto py-0 transition-shadow duration-200 hover:shadow-lg dark:hover:shadow-primary/20",
           (isDragging || isSortableDragging) && "opacity-50 shadow-xl",
           "border-l-4 overflow-hidden",
+          isMobile ? "cursor-default" : "cursor-grab active:cursor-grabbing touch-none",
           (!assigneeUser && subTask.status !== "COMPLETED" && subTask.status !== "CANCELLED") && "bg-red-50 dark:bg-red-950/20 shadow-[0_0_8px_rgba(239,68,68,0.2)] animate-[pulse_2s_infinite] border-red-400 dark:border-red-600",
           columnColor === "text-slate-600" &&
           "border-l-[#D1D5DB] dark:border-l-[#D1D5DB]/80",
@@ -210,6 +214,8 @@ export const KanbanCard = React.memo(function KanbanCard({
         )}
         onMouseEnter={handlePrefetch}
         onClick={(e) => {
+          // If we're dragging, don't trigger click
+          if (isSortableDragging) return;
           e.stopPropagation();
           onSubTaskClick?.(subTask);
         }}
@@ -234,11 +240,8 @@ export const KanbanCard = React.memo(function KanbanCard({
       >
         <CardContent className="p-3 space-y-3">
           <div
-            {...(isMobile ? {} : attributes)}
-            {...(isMobile ? {} : listeners)}
             className={cn(
-              "flex items-center justify-between text-[10px] text-muted-foreground pb-2 border-b border-border/50",
-              isMobile ? "cursor-default" : "cursor-grab active:cursor-grabbing touch-none"
+              "flex items-center justify-between text-[10px] text-muted-foreground pb-2 border-b border-border/50"
             )}
           >
             <div className="flex flex-1 items-center gap-1 min-w-0 mr-2">
@@ -340,7 +343,7 @@ export const KanbanCard = React.memo(function KanbanCard({
               </h5>
 
               {canEdit() && (
-                <div onClick={(e) => e.stopPropagation()}>
+                <div onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
@@ -468,7 +471,9 @@ export const KanbanCard = React.memo(function KanbanCard({
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Avatar className="h-6 w-6 cursor-pointer border-2 border-background">
+                    <Avatar 
+                      className="h-6 w-6 cursor-pointer border-2 border-background"
+                    >
                       <AvatarFallback className="text-[10px]">
                         {(assigneeUser.surname || (assigneeUser as any).workspaceMember?.user?.surname)?.[0]?.toUpperCase() || "?"}
                       </AvatarFallback>
@@ -480,7 +485,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                 </Tooltip>
               </TooltipProvider>
             ) : (
-              <div onClick={(e) => e.stopPropagation()}>
+              <div onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
                 <InlineAssigneePicker
                   subTask={subTask as any}
                   members={projectMembers}
