@@ -1,5 +1,4 @@
-import { PrismaClient } from '../src/generated/prisma';
-import { getTasks } from '../src/data/task/get-tasks';
+import { TasksService } from '../src/server/services/task/tasks.service';
 
 // Mock userId since we can't easily run with real auth in a script
 const MOCK_USER_ID = "cm70w5x2c0000uxm3f9g6u4z5"; 
@@ -11,7 +10,7 @@ async function testPagination() {
   try {
     // 1. Fetch first page
     console.log('Fetching Page 1...');
-    const page1 = await getTasks({
+    const page1 = await TasksService.getTasks({
       workspaceId: WORKSPACE_ID,
       limit: 2,
       view_mode: 'list',
@@ -20,7 +19,7 @@ async function testPagination() {
 
     const tasks1 = page1.tasks || [];
     console.log(`Page 1 Tasks: ${tasks1.length}`);
-    tasks1.forEach(t => console.log(` - ${t.id} (${t.createdAt})`));
+    tasks1.forEach((t: any) => console.log(` - ${t.id} (${t.createdAt})`));
 
     if (!page1.hasMore || !page1.nextCursor) {
       console.log('Not enough tasks to test pagination. Please ensure you have at least 3 tasks.');
@@ -29,7 +28,7 @@ async function testPagination() {
 
     // 2. Fetch second page using cursor
     console.log('\nFetching Page 2 using cursor...');
-    const page2 = await getTasks({
+    const page2 = await TasksService.getTasks({
       workspaceId: WORKSPACE_ID,
       limit: 2,
       cursor: page1.nextCursor,
@@ -39,11 +38,11 @@ async function testPagination() {
 
     const tasks2 = page2.tasks || [];
     console.log(`Page 2 Tasks: ${tasks2.length}`);
-    tasks2.forEach(t => console.log(` - ${t.id} (${t.createdAt})`));
+    tasks2.forEach((t: any) => console.log(` - ${t.id} (${t.createdAt})`));
 
     // 3. Verify no overlap
-    const p1Ids = new Set(tasks1.map(t => t.id));
-    const overlap = tasks2.filter(t => p1Ids.has(t.id));
+    const p1Ids = new Set(tasks1.map((t: any) => t.id));
+    const overlap = tasks2.filter((t: any) => p1Ids.has(t.id));
 
     if (overlap.length > 0) {
       console.error('❌ BUG DETECTED: Page 2 contains tasks from Page 1!');

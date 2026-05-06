@@ -5,7 +5,7 @@ import { CardContent, CardDescription, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Clock, Save, Loader2, Moon, Sun, AlertCircle, Timer, ChevronRight, Send, Plus, Trash2, CalendarIcon } from "lucide-react";
+import { Clock, Save, Loader2, Moon, Sun, AlertCircle, Timer, ChevronRight, Send, Plus, Trash2, CalendarIcon, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -97,6 +97,7 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
     const [sickLeaveLimit, setSickLeaveLimit] = useState(initialData.sickLeaveLimit || 12);
     const [casualLeaveAccrualDays, setCasualLeaveAccrualDays] = useState(initialData.casualLeaveAccrualDays || 20);
     const [publicHolidays, setPublicHolidays] = useState<(PublicHoliday | { name: string; date: string })[]>(initialData.publicHolidays || []);
+    const [attendanceLocations, setAttendanceLocations] = useState<any[]>(initialData.attendanceLocations || []);
 
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
@@ -109,7 +110,8 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
         overtimeThreshold !== (initialData.overtimeThreshold || "07:00") ||
         sickLeaveLimit !== (initialData.sickLeaveLimit || 12) ||
         casualLeaveAccrualDays !== (initialData.casualLeaveAccrualDays || 20) ||
-        JSON.stringify(publicHolidays) !== JSON.stringify(initialData.publicHolidays);
+        JSON.stringify(publicHolidays) !== JSON.stringify(initialData.publicHolidays) ||
+        JSON.stringify(attendanceLocations) !== JSON.stringify(initialData.attendanceLocations);
 
     const handleSave = async () => {
         if (!isAdmin) return;
@@ -133,6 +135,14 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                         name: h.name,
                         date: h.date instanceof Date ? h.date.toISOString() : h.date
                     })),
+                    attendanceLocations: attendanceLocations.map(l => ({
+                        id: l.id,
+                        name: l.name,
+                        address: l.address,
+                        latitude: parseFloat(l.latitude),
+                        longitude: parseFloat(l.longitude),
+                        radius: parseFloat(l.radius || 100),
+                    })),
                 }),
             });
 
@@ -146,6 +156,60 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
         } catch (error) {
             console.error("Error saving settings:", error);
             toast.error("An error occurred while saving settings");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+
+    const handleSearchAddress = async (idx: number, searchStr: string) => {
+        if (!searchStr) return;
+        try {
+            setIsLoading(true);
+
+            // 1. Check if it's a Google Maps URL
+            const gmapsRegex = /@(-?\d+\.\d+),(-?\d+\.\d+)/;
+            const match = searchStr.match(gmapsRegex);
+
+            if (match) {
+                const lat = parseFloat(match[1]);
+                const lon = parseFloat(match[2]);
+                
+                const newLocs = [...attendanceLocations];
+                newLocs[idx].latitude = lat;
+                newLocs[idx].longitude = lon;
+                setAttendanceLocations(newLocs);
+
+                // Reverse geocode to get the address name
+                const revRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+                const revData = await revRes.json();
+                if (revData && revData.display_name) {
+                    const locs = [...attendanceLocations];
+                    locs[idx].address = revData.display_name;
+                    setAttendanceLocations(locs);
+                }
+                
+                toast.success(`Location extracted from URL!`);
+                return;
+            }
+
+            // 2. Regular Search (Geocoding)
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchStr)}&limit=1`);
+            const data = await res.json();
+            if (data && data.length > 0) {
+                const { lat, lon, display_name } = data[0];
+                const newLocs = [...attendanceLocations];
+                newLocs[idx].latitude = parseFloat(lat);
+                newLocs[idx].longitude = parseFloat(lon);
+                newLocs[idx].address = display_name; 
+                setAttendanceLocations(newLocs);
+                toast.success(`Location found!`);
+            } else {
+                toast.error("Could not find coordinates for this address.");
+            }
+        } catch (error) {
+            console.error("Geocoding error:", error);
+            toast.error("Error searching for address.");
         } finally {
             setIsLoading(false);
         }
@@ -374,6 +438,172 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                         </Button>
                     </div>
                 </div>
+
+                {/* Locations Section */}
+                <div className="lg:col-span-12 space-y-6 pt-4">
+                    <div className="flex flex-col gap-1">
+                        <CardTitle className="text-xl flex items-center gap-2">
+                            <MapPin className="h-4 w-4" />
+                            Attendance Locations
+                        </CardTitle>
+                        <CardDescription className="text-base">
+                            Predefined addresses where users can check in. If a user is within the radius, the location name will be displayed in their record.
+                        </CardDescription>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                        {attendanceLocations.map((loc, idx) => (
+                            <div key={idx} className="p-4 rounded-xl border bg-card/30 backdrop-blur-md shadow-sm space-y-4 relative group animate-in fade-in zoom-in duration-300">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => {
+                                        setAttendanceLocations(attendanceLocations.filter((_, i) => i !== idx));
+                                    }}
+                                    className="absolute top-2 right-2 h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                                    disabled={!isAdmin || isLoading}
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+
+                                <div className="space-y-3 pt-2">
+                                    <div className="flex items-center justify-between gap-4">
+                                        <div className="space-y-1 flex-1">
+                                            <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Location Name</Label>
+                                            <Input
+                                                value={loc.name}
+                                                onChange={(e) => {
+                                                    const newLocs = [...attendanceLocations];
+                                                    newLocs[idx].name = e.target.value;
+                                                    setAttendanceLocations(newLocs);
+                                                }}
+                                                placeholder="Main Office"
+                                                className="h-8 font-bold bg-background/50 text-sm"
+                                                disabled={!isAdmin || isLoading}
+                                            />
+                                        </div>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-8 gap-2 text-[10px] font-bold uppercase tracking-tighter"
+                                            onClick={() => window.open(`https://www.google.com/maps?q=${loc.latitude},${loc.longitude}`, '_blank')}
+                                            disabled={!loc.latitude || !loc.longitude}
+                                        >
+                                            <MapPin className="h-3 w-3 text-rose-500" />
+                                            View Map
+                                        </Button>
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Search & Set Address</Label>
+                                        <div className="flex gap-2">
+                                            <Input
+                                                value={loc.address || ""}
+                                                onChange={(e) => {
+                                                    const newLocs = [...attendanceLocations];
+                                                    newLocs[idx].address = e.target.value;
+                                                    setAttendanceLocations(newLocs);
+                                                }}
+                                                placeholder="Enter full address..."
+                                                className="h-9 text-xs bg-background/50"
+                                                disabled={!isAdmin || isLoading}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        e.preventDefault();
+                                                        handleSearchAddress(idx, loc.address);
+                                                    }
+                                                }}
+                                            />
+                                            <Button 
+                                                size="icon" 
+                                                variant="outline" 
+                                                className="h-9 w-9 shrink-0"
+                                                onClick={() => handleSearchAddress(idx, loc.address)}
+                                                disabled={!isAdmin || isLoading}
+                                                title="Find Coordinates"
+                                            >
+                                                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div className="space-y-1">
+                                            <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Latitude</Label>
+                                            <Input
+                                                type="number"
+                                                step="any"
+                                                value={loc.latitude}
+                                                onChange={(e) => {
+                                                    const newLocs = [...attendanceLocations];
+                                                    newLocs[idx].latitude = parseFloat(e.target.value) || 0;
+                                                    setAttendanceLocations(newLocs);
+                                                }}
+                                                className="h-9 text-xs bg-background/50"
+                                                disabled={!isAdmin || isLoading}
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Longitude</Label>
+                                            <Input
+                                                type="number"
+                                                step="any"
+                                                value={loc.longitude}
+                                                onChange={(e) => {
+                                                    const newLocs = [...attendanceLocations];
+                                                    newLocs[idx].longitude = parseFloat(e.target.value) || 0;
+                                                    setAttendanceLocations(newLocs);
+                                                }}
+                                                className="h-9 text-xs bg-background/50"
+                                                disabled={!isAdmin || isLoading}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="px-2 py-1.5 rounded-lg bg-primary/5 border border-primary/10">
+                                        <p className="text-[10px] text-muted-foreground leading-tight italic">
+                                            <span className="font-bold text-primary not-italic">Pro Tip:</span> Paste a Google Maps URL in the search box above to instantly set coordinates.
+                                        </p>
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Radius (meters)</Label>
+                                        <Input
+                                            type="number"
+                                            value={loc.radius}
+                                            onChange={(e) => {
+                                                const newLocs = [...attendanceLocations];
+                                                newLocs[idx].radius = e.target.value;
+                                                setAttendanceLocations(newLocs);
+                                            }}
+                                            className="h-9 text-xs bg-background/50"
+                                            disabled={!isAdmin || isLoading}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+
+                        <button
+                            onClick={() => {
+                                setAttendanceLocations([...attendanceLocations, { 
+                                    id: `new-${Date.now()}`,
+                                    name: "New Office", 
+                                    latitude: 0, 
+                                    longitude: 0, 
+                                    radius: 100 
+                                }]);
+                            }}
+                            className="p-4 rounded-xl border-2 border-dashed border-muted-foreground/10 hover:border-primary/50 hover:bg-primary/5 transition-all group flex flex-col items-center justify-center gap-2 min-h-[200px]"
+                            disabled={!isAdmin || isLoading}
+                        >
+                            <div className="p-3 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                                <Plus className="h-6 w-6 text-primary" />
+                            </div>
+                            <span className="text-sm font-bold text-muted-foreground group-hover:text-primary transition-colors">Add New Location</span>
+                        </button>
+                    </div>
+                </div>
             </div>
 
             {isAdmin && (
@@ -393,6 +623,7 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                     </Button>
                 </div>
             )}
+
         </div>
     );
 }

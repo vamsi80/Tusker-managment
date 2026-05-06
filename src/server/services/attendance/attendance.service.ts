@@ -114,6 +114,15 @@ export class AttendanceService {
             status = AttendanceStatus.LATE;
         }
 
+        // Location Matching
+        let finalAddress = address;
+        if (latitude && longitude) {
+            const nearbyLoc = await this.findNearbyLocation(workspaceId, latitude, longitude);
+            if (nearbyLoc) {
+                finalAddress = nearbyLoc.name;
+            }
+        }
+
         const attendance = await AttendanceRepository.upsert(
             {
                 workspaceMemberId_date: {
@@ -129,7 +138,7 @@ export class AttendanceService {
                 checkIn: now,
                 checkInLatitude: latitude,
                 checkInLongitude: longitude,
-                checkInAddress: address,
+                checkInAddress: finalAddress,
                 status: status,
                 lateThreshold: lateThresholdStr,
                 updatedAt: now,
@@ -138,7 +147,7 @@ export class AttendanceService {
                 checkIn: now,
                 checkInLatitude: latitude,
                 checkInLongitude: longitude,
-                checkInAddress: address,
+                checkInAddress: finalAddress,
                 status: status,
                 lateThreshold: lateThresholdStr,
                 updatedAt: now,
@@ -218,11 +227,20 @@ export class AttendanceService {
             ? (istTotalMinutes > otTotalMinutes && istTotalMinutes < startTotalMinutes)
             : (istTotalMinutes > otTotalMinutes);
 
+        // Location Matching
+        let finalAddress = address;
+        if (latitude && longitude) {
+            const nearbyLoc = await this.findNearbyLocation(workspaceId, latitude, longitude);
+            if (nearbyLoc) {
+                finalAddress = nearbyLoc.name;
+            }
+        }
+
         const updated = await AttendanceRepository.update(existing.id, {
             checkOut: now,
             checkOutLatitude: latitude,
             checkOutLongitude: longitude,
-            checkOutAddress: address,
+            checkOutAddress: finalAddress,
             isOvertime,
             overtimeThreshold: otThreshold,
             updatedAt: now,
@@ -434,6 +452,22 @@ export class AttendanceService {
                 }
             }
 
+            if (data.attendanceLocations) {
+                await tx.attendanceLocation.deleteMany({ where: { workspaceId } });
+                if (data.attendanceLocations.length > 0) {
+                    await tx.attendanceLocation.createMany({
+                        data: data.attendanceLocations.map(l => ({
+                            workspaceId,
+                            name: l.name,
+                            address: l.address,
+                            latitude: l.latitude,
+                            longitude: l.longitude,
+                            radius: l.radius
+                        }))
+                    });
+                }
+            }
+
             const actor = await tx.user.findUnique({ where: { id: actorId }, select: { surname: true } });
             await recordActivity({
                 userId: actorId,
@@ -448,5 +482,40 @@ export class AttendanceService {
 
             return tx.workspace.findUnique({ where: { id: workspaceId } });
         });
+    }
+
+    /**
+     * Find nearby attendance location
+     */
+    private static async findNearbyLocation(workspaceId: string, lat: number, lng: number) {
+        const locations = await prisma.attendanceLocation.findMany({
+            where: { workspaceId }
+        });
+
+        for (const loc of locations) {
+            const distance = this.calculateDistance(lat, lng, loc.latitude, loc.longitude);
+            if (distance <= loc.radius) {
+                return loc;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Calculate distance between two points in meters (Haversine formula)
+     */
+    private static calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+        const R = 6371e3; // metres
+        const φ1 = lat1 * Math.PI / 180;
+        const φ2 = lat2 * Math.PI / 180;
+        const Δφ = (lat2 - lat1) * Math.PI / 180;
+        const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+        const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return R * c;
     }
 }

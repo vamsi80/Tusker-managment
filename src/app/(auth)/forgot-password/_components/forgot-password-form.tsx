@@ -1,15 +1,15 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
 import { Loader2, ArrowLeft } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, FormEvent } from "react";
 import { toast } from "sonner";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const ForgotPasswordForm = () => {
   const searchParams = useSearchParams();
@@ -24,13 +24,12 @@ export const ForgotPasswordForm = () => {
     }
   }, [searchParams]);
 
-  const handleReset = async (e: React.FormEvent) => {
+  const handleReset = async (e: FormEvent) => {
     e.preventDefault();
     setIsPending(true);
     try {
-      const { error } = await authClient.forgetPassword({
+      const { error } = await authClient.forgetPassword.emailOtp({
         email,
-        redirectTo: "/reset-password",
       });
 
       if (error) {

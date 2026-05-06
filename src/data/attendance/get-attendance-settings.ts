@@ -15,6 +15,16 @@ export type AttendanceSettingsData = {
     sickLeaveLimit: number;
     casualLeaveAccrualDays: number;
     publicHolidays: PublicHoliday[];
+    attendanceLocations: AttendanceLocation[];
+};
+
+export type AttendanceLocation = {
+    id: string;
+    name: string;
+    address: string | null;
+    latitude: number;
+    longitude: number;
+    radius: number;
 };
 
 const DEFAULT_SETTINGS: AttendanceSettingsData = {
@@ -26,6 +36,7 @@ const DEFAULT_SETTINGS: AttendanceSettingsData = {
     sickLeaveLimit:   12,
     casualLeaveAccrualDays: 20,
     publicHolidays:   [],
+    attendanceLocations: [],
 };
 
 /**
@@ -33,7 +44,7 @@ const DEFAULT_SETTINGS: AttendanceSettingsData = {
  */
 export const getAttendanceSettings = async (workspaceId: string): Promise<AttendanceSettingsData> => {
     try {
-        const [workspaceResult, holidays] = await Promise.all([
+        const [workspaceResult, holidays, locations] = await Promise.all([
             prisma.$queryRawUnsafe<any[]>(
                 `SELECT "lateThreshold", "overtimeThreshold", "halfDayThreshold", "shiftStartTime", "shiftEndTime", "sickLeaveLimit", "casualLeaveAccrualDays"
                  FROM "public"."Workspace"
@@ -44,6 +55,10 @@ export const getAttendanceSettings = async (workspaceId: string): Promise<Attend
             prisma.public_holiday.findMany({
                 where: { workspaceId },
                 orderBy: { date: "asc" },
+            }),
+            prisma.attendanceLocation.findMany({
+                where: { workspaceId },
+                orderBy: { createdAt: "desc" },
             })
         ]);
 
@@ -60,6 +75,7 @@ export const getAttendanceSettings = async (workspaceId: string): Promise<Attend
             sickLeaveLimit:    workspace.sickLeaveLimit    ?? DEFAULT_SETTINGS.sickLeaveLimit,
             casualLeaveAccrualDays: workspace.casualLeaveAccrualDays ?? DEFAULT_SETTINGS.casualLeaveAccrualDays,
             publicHolidays:    holidays,
+            attendanceLocations: locations || [],
         };
     } catch (error) {
         console.error("Error fetching attendance settings:", error);

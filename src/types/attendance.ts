@@ -32,4 +32,12 @@ export interface UpdateSettingsParams {
     sickLeaveLimit?: number;
     casualLeaveAccrualDays?: number;
     publicHolidays?: { name: string; date: string }[];
+    attendanceLocations?: {
+        id?: string;
+        name: string;
+        address?: string;
+        latitude: number;
+        longitude: number;
+        radius: number;
+    }[];
 }

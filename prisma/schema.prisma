@@ -135,6 +135,7 @@ model Workspace {
   vendors          Vendor[]
   leaveRequests    leave_request[]
   publicHolidays   public_holiday[]
+  attendanceLocations AttendanceLocation[]
 }
 
 model WorkspaceMember {
@@ -678,6 +679,22 @@ model attendance {
 
   @@unique([workspaceMemberId, date])
   @@index([workspaceId, date])
+}
+
+model AttendanceLocation {
+  id          String   @id @default(uuid())
+  workspaceId String
+  name        String
+  address     String?
+  latitude    Float
+  longitude   Float
+  radius      Float    @default(100)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  Workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@map("attendance_locations")
 }
 
 model Board {
