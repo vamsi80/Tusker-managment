@@ -147,12 +147,12 @@ export class TaskRepository {
         if (!wasCompleted && isNowCompleted) {
           await tx.task.update({
             where: { id: parentTaskId },
-            data: { subtaskCount: { increment: 1 } },
+            data: { completedSubtaskCount: { increment: 1 } },
           });
         } else if (wasCompleted && !isNowCompleted) {
           await tx.task.update({
             where: { id: parentTaskId },
-            data: { subtaskCount: { decrement: 1 } },
+            data: { completedSubtaskCount: { decrement: 1 } },
           });
         }
       }
@@ -192,11 +192,13 @@ export class TaskRepository {
         where: { id: taskId },
       });
 
-      // 2. Decrement subtask count if needed
-      if (parentTaskId && wasCompleted) {
+      if (parentTaskId) {
         await tx.task.update({
           where: { id: parentTaskId },
-          data: { subtaskCount: { decrement: 1 } },
+          data: { 
+            subtaskCount: { decrement: 1 },
+            ...(wasCompleted ? { completedSubtaskCount: { decrement: 1 } } : {})
+          },
         });
       }
 
@@ -259,12 +261,12 @@ export class TaskRepository {
         if (!wasCompleted && isNowCompleted) {
           await tx.task.update({
             where: { id: parentTaskId },
-            data: { subtaskCount: { increment: 1 } },
+            data: { completedSubtaskCount: { increment: 1 } },
           });
         } else if (wasCompleted && !isNowCompleted) {
           await tx.task.update({
             where: { id: parentTaskId },
-            data: { subtaskCount: { decrement: 1 } },
+            data: { completedSubtaskCount: { decrement: 1 } },
           });
         }
       }
@@ -303,7 +305,11 @@ export class TaskRepository {
       });
       await tx.task.update({
         where: { id: parentTaskId },
-        data: { isParent: true },
+        data: { 
+          isParent: true,
+          subtaskCount: { increment: 1 },
+          ...(taskData.status === "COMPLETED" ? { completedSubtaskCount: { increment: 1 } } : {})
+        },
       });
       return task;
     });
