@@ -101,7 +101,7 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px] overflow-hidden rounded-2xl border-none shadow-2xl">
                 <DialogHeader className="bg-primary/5 p-2 pb-4">
-                    <DialogTitle className="text-xl font-bold flex items-center gap-2">
+                    <DialogTitle className="text-xl font-medium flex items-center gap-2">
                         <Send className="h-5 w-5 text-primary" />
                         New Leave Request
                     </DialogTitle>
@@ -115,8 +115,8 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
                             <UserCheck className="h-5 w-5 text-primary" />
                         </div>
                         <div className="flex flex-col">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Reporting Manager</span>
-                            <span className="text-sm font-semibold">{reportingManager}</span>
+                            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Reporting Manager</span>
+                            <span className="text-sm font-medium">{reportingManager}</span>
                         </div>
                     </div>
 
@@ -127,7 +127,7 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
                                 name="type"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Leave Type</FormLabel>
+                                        <FormLabel className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Leave Type</FormLabel>
                                         <div className="flex gap-2">
                                             {["CASUAL", "SICK"].map((t) => (
                                                 <Button
@@ -136,7 +136,7 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
                                                     variant={field.value === t ? "default" : "outline"}
                                                     size="sm"
                                                     className={cn(
-                                                        "flex-1 h-10 font-bold transition-all",
+                                                        "flex-1 h-10 font-medium transition-all",
                                                         field.value === t && "shadow-md shadow-primary/20"
                                                     )}
                                                     onClick={() => field.onChange(t)}
@@ -155,7 +155,7 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
                                 name="dateRange"
                                 render={({ field }) => (
                                     <FormItem className="flex flex-col">
-                                        <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Select Dates</FormLabel>
+                                        <FormLabel className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Select Dates</FormLabel>
                                         <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                                             <PopoverTrigger asChild>
                                                 <Button
@@ -186,11 +186,11 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
                                             <PopoverContent className="w-auto p-0 border-none shadow-2xl rounded-2xl overflow-hidden" align="start">
                                                 <div className="bg-background">
                                                     <div className="bg-primary/5 p-3 border-b flex items-center justify-between">
-                                                        <h4 className="text-[10px] font-bold uppercase tracking-wider text-primary">Select Date Range</h4>
+                                                        <h4 className="text-[10px] font-medium uppercase tracking-wider text-primary">Select Date Range</h4>
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
-                                                            className="h-6 px-2 text-[10px] font-bold text-primary hover:bg-primary/10"
+                                                            className="h-6 px-2 text-[10px] font-medium text-primary hover:bg-primary/10"
                                                             onClick={() => setIsCalendarOpen(false)}
                                                         >
                                                             Done
@@ -214,7 +214,7 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
                                                             <Button
                                                                 variant="ghost"
                                                                 size="sm"
-                                                                className="h-7 px-2 text-[10px] font-bold text-destructive hover:bg-destructive/10"
+                                                                className="h-7 px-2 text-[10px] font-medium text-destructive hover:bg-destructive/10"
                                                                 onClick={(e) => {
                                                                     e.preventDefault();
                                                                     field.onChange(undefined);
@@ -225,7 +225,7 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
                                                             <Button
                                                                 variant="default"
                                                                 size="sm"
-                                                                className="h-7 px-4 text-[10px] font-bold shadow-md shadow-primary/20"
+                                                                className="h-7 px-4 text-[10px] font-medium shadow-md shadow-primary/20"
                                                                 onClick={(e) => {
                                                                     e.preventDefault();
                                                                     setIsCalendarOpen(false);
@@ -247,7 +247,7 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
                                 name="reason"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Reason for Leave</FormLabel>
+                                        <FormLabel className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Reason for Leave</FormLabel>
                                         <FormControl>
                                             <Textarea
                                                 placeholder="Please provide a brief reason for your leave request..."
@@ -259,18 +259,18 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
                                     </FormItem>
                                 )}
                             />
-                            <div className="flex gap-3 pt-2">
+                             <div className="flex gap-3 pt-2">
                                 <Button
                                     type="button"
                                     variant="ghost"
-                                    className="flex-1 font-bold"
+                                    className="flex-1 font-medium"
                                     onClick={() => setOpen(false)}
                                 >
                                     Cancel
                                 </Button>
                                 <Button
                                     type="submit"
-                                    className="flex-[2] font-bold shadow-lg shadow-primary/20 transition-all active:scale-95"
+                                    className="flex-[2] font-medium shadow-lg shadow-primary/20 transition-all active:scale-95"
                                     disabled={isLoading}
                                 >
                                     {isLoading ? (

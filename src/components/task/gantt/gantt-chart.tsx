@@ -268,7 +268,7 @@ export function GanttChart({
             console.log("[GanttChart] Searching in tasks. Count:", tasks?.length);
             const allSubtasks = tasks.flatMap(t => t.subtasks || []);
             console.log("[GanttChart] Total subtasks found:", allSubtasks.length);
-            
+
             const subtask = allSubtasks.find(s => s.id === subtaskId);
 
             if (subtask) {
@@ -459,6 +459,7 @@ export function GanttChart({
                                             onToggleSubtaskHighlight={onToggleSubtaskHighlight}
                                             onLoadMoreSubtasks={onRequestMoreSubtasks}
                                             onInitialLoadSubtasks={onRequestSubtasks}
+                                            isExpandAllMode={isExpandAllMode}
                                             isLoading={loadingSubtasks?.has(task.id)}
                                         />
                                     ))}
@@ -486,6 +487,7 @@ export function GanttChart({
                                     isLoading={loadingSubtasks?.has(task.id)}
                                     onLoadMoreSubtasks={onRequestMoreSubtasks}
                                     onInitialLoadSubtasks={onRequestSubtasks}
+                                    isExpandAllMode={isExpandAllMode}
                                 />
                             ))}
 
@@ -523,6 +525,7 @@ export function GanttChart({
                                     isLoading={loadingSubtasks?.has(task.id)}
                                     onLoadMoreSubtasks={onRequestMoreSubtasks}
                                     onInitialLoadSubtasks={onRequestSubtasks}
+                                    isExpandAllMode={isExpandAllMode}
                                 />
                             ))}
 
