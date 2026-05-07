@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { workspacesClient } from "@/lib/api-client/workspaces";
 import { AppLoader } from "@/components/shared/app-loader";
 import { TeamMembers } from "./team-members-table";
+import { useTeamQueryStore } from "@/lib/store/team-query-store";
 import { useWorkspaceLayout } from "../../_components/workspace-layout-context";
 import { pusherClient } from "@/lib/pusher";
 import { TEAM_UPDATE } from "@/lib/realtime";
@@ -21,11 +22,20 @@ interface TeamManagementClientProps {
 export function TeamManagementClient({ workspaceId }: TeamManagementClientProps) {
     const { data: layoutData } = useWorkspaceLayout();
     const [isLoadingMembers, setIsLoadingMembers] = useState(true);
-    const [isRefreshing, setIsRefreshing] = useState(false);
     const [members, setMembers] = useState<any[]>([]);
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
     const [totalCount, setTotalCount] = useState(0);
+    const [search, setSearch] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+
+    // Debounce search
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [search]);
 
     // Helper to flatten Prisma records into the shape the UI expects
     const flattenRecord = (r: any) => {
@@ -33,6 +43,25 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
         // Ensure user object exists or is flattened correctly
         return r;
     };
+
+    const { setIsQuerying } = useTeamQueryStore();
+
+    const fetchData = useCallback(async (targetPage: number, targetLimit: number, targetSearch: string = debouncedSearch, force = false, silent = false) => {
+        try {
+            setIsQuerying(true);
+            if (!silent) {
+                if (members.length === 0) setIsLoadingMembers(true);
+            }
+            const membersRes: WorkspaceMembersResult = await workspacesClient.getMembers(workspaceId, targetPage, targetLimit, targetSearch);
+            setMembers(membersRes.workspaceMembers || []);
+            setTotalCount(membersRes.totalCount || 0);
+        } catch (error) {
+            console.error("Failed to fetch team data:", error);
+        } finally {
+            setIsLoadingMembers(false);
+            setIsQuerying(false);
+        }
+    }, [workspaceId, debouncedSearch, members.length, setIsQuerying]);
 
     useEffect(() => {
         const handler = (e: any) => {
@@ -79,34 +108,17 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
             // Fallback for unknown structural changes
             if (action === "team_update" || !action) {
                 console.log(`[TeamManagementClient] ⚠️ Unknown action, falling back to fetch...`);
-                fetchData(page, limit, true, true); 
+                fetchData(page, limit, debouncedSearch, true, true); 
             }
         };
         window.addEventListener("realtime-sync-refresh", handler);
         return () => window.removeEventListener("realtime-sync-refresh", handler);
-    }, [workspaceId, page, limit]);
+    }, [workspaceId, page, limit, debouncedSearch, fetchData]);
 
-    const fetchData = useCallback(async (targetPage: number, targetLimit: number, force = false, silent = false) => {
-        try {
-            if (!silent) {
-                if (members.length === 0) setIsLoadingMembers(true);
-                setIsRefreshing(true);
-            }
-            const membersRes: WorkspaceMembersResult = await workspacesClient.getMembers(workspaceId, targetPage, targetLimit);
-            setMembers(membersRes.workspaceMembers || []);
-            setTotalCount(membersRes.totalCount || 0);
-        } catch (error) {
-            console.error("Failed to fetch team data:", error);
-        } finally {
-            setIsLoadingMembers(false);
-            setIsRefreshing(false);
-        }
-    }, [workspaceId]);
-
-    // Fetch data when page or limit changes
+    // Fetch data when page, limit, or debouncedSearch changes
     useEffect(() => {
-        fetchData(page, limit);
-    }, [fetchData, page, limit]);
+        fetchData(page, limit, debouncedSearch);
+    }, [fetchData, page, limit, debouncedSearch]);
 
     if (isLoadingMembers) {
         return <AppLoader />;
@@ -117,12 +129,15 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
             data={members}
             isAdmin={layoutData?.permissions?.isWorkspaceAdmin || false}
             workspaceId={workspaceId}
-            onRefresh={() => fetchData(page, limit)}
-            isRefreshing={isRefreshing}
             pagination={{
                 page,
                 limit,
                 totalCount,
+                search,
+                onSearchChange: (newSearch) => {
+                    setSearch(newSearch);
+                    setPage(1); // Reset to first page when search changes
+                },
                 onPageChange: (newPage) => setPage(newPage),
                 onLimitChange: (newLimit) => {
                     setLimit(newLimit);

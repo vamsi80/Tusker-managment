@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { Users, Clock, Settings2, Calendar } from "lucide-react";
+import { Users, Clock, Settings2, Calendar, RefreshCw } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { LeaveRequestDialog } from "./leave-request-dialog";
 import { InviteUserForm } from "./create-user";
 import { useSafeNavigation } from "@/hooks/use-safe-navigation";
+import { useTeamQueryStore } from "@/lib/store/team-query-store";
 
 interface TeamNavProps {
     workspaceId: string;
@@ -19,6 +20,7 @@ export function TeamNav({ workspaceId, isAdmin }: TeamNavProps) {
     const router = useSafeNavigation();
     const isPending = router.isNavigating;
     const baseUrl = `/w/${workspaceId}/team`;
+    const { isQuerying } = useTeamQueryStore();
 
     const navTabs = [
         {
@@ -83,7 +85,13 @@ export function TeamNav({ workspaceId, isAdmin }: TeamNavProps) {
                     );
                 })}
 
-                <div className="ml-auto flex items-center gap-2 pr-2">
+                <div className="ml-auto flex items-center gap-3 pr-2 flex-shrink-0">
+                    <div className={cn(
+                        "flex items-center justify-center h-8 w-8 rounded-md border border-border/60 bg-background/50 transition-all duration-500 flex-shrink-0",
+                        isQuerying && "border-primary/40 bg-primary/5 shadow-sm ring-1 ring-primary/10"
+                    )}>
+                        <RefreshCw className={cn("h-3.5 w-3.5 transition-all duration-500", isQuerying ? "text-primary animate-spin" : "text-muted-foreground/40")} />
+                    </div>
                     <LeaveRequestDialog workspaceId={workspaceId}>
                         <Button
                             variant="outline"

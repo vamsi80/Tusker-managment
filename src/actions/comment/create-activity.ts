@@ -114,7 +114,7 @@ export async function createActivityAction(
 
         await recordActivity({
             userId: user.id,
-            userName: (user as any).surname || user.name || "Someone",
+            userName: (user as any).surname || (() => { throw new Error(`User surname missing for user: ${user.id}`); })(),
             workspaceId: workspaceId,
             action: "COMMENT_CREATED",
             entityType: "SUBTASK",

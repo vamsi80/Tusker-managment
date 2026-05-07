@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Check, X, Loader2, Calendar as CalendarIcon, User, Info } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useTeamQueryStore } from "@/lib/store/team-query-store";
 import {
     Dialog,
     DialogContent,
@@ -55,6 +56,18 @@ export function LeavesTable({
     const [totalCount, setTotalCount] = useState(0);
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(10);
+    const [search, setSearch] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+
+    // Debounce search
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search);
+            setPageIndex(0); // Reset to first page when search changes
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [search]);
+
     const mounted = useMounted();
 
     // Helper to flatten Prisma records into the shape the table expects
@@ -125,10 +138,13 @@ export function LeavesTable({
         return () => window.removeEventListener("realtime-sync-refresh", handler);
     }, [workspaceId, pageIndex, pageSize]);
 
+    const { setIsQuerying } = useTeamQueryStore();
+
     const fetchRequests = async (force = false, silent = false) => {
         try {
+            setIsQuerying(true);
             if (!silent) setLoading(true);
-            const res = await fetch(`/api/v1/attendance/leave-request?page=${pageIndex + 1}&pageSize=${pageSize}`, {
+            const res = await fetch(`/api/v1/attendance/leave-request?page=${pageIndex + 1}&pageSize=${pageSize}&search=${encodeURIComponent(debouncedSearch)}`, {
                 headers: { "x-workspace-id": workspaceId }
             });
             const data = await res.json();
@@ -140,12 +156,13 @@ export function LeavesTable({
             console.error("Failed to fetch leave requests:", error);
         } finally {
             setLoading(false);
+            setIsQuerying(false);
         }
     };
 
     useEffect(() => {
         fetchRequests();
-    }, [workspaceId, pageIndex, pageSize]);
+    }, [workspaceId, pageIndex, pageSize, debouncedSearch]);
 
     const handleUpdateStatus = async (id: string, status: "APPROVED" | "REJECTED") => {
         try {
@@ -378,15 +395,21 @@ export function LeavesTable({
                 columns={columns}
                 data={requests}
                 isLoading={loading}
-                searchKey="reason"
-                searchPlaceholder="Search by reason..."
+                searchKey="member"
+                searchPlaceholder="Search by member..."
                 pageIndex={pageIndex}
                 pageSize={pageSize}
                 rowCount={totalCount}
                 manualPagination={true}
+                manualFiltering={true}
                 onPaginationChange={(p) => {
                     setPageIndex(p.pageIndex);
                     setPageSize(p.pageSize);
+                }}
+                onFilterChange={(filters) => {
+                    const searchFilter = filters.find(f => f.id === "member");
+                    const searchValue = searchFilter?.value as string || "";
+                    setSearch(searchValue);
                 }}
             />
         </div>

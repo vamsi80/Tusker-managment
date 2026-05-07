@@ -13,6 +13,22 @@ export class LeaveRepository {
                 type: params.type,
                 status: "PENDING",
             },
+            include: {
+                WorkspaceMember: {
+                    select: {
+                        id: true,
+                        reportToId: true,
+                        casualLeaveBalance: true,
+                        sickLeaveBalance: true,
+                        user: {
+                            select: {
+                                surname: true,
+                                email: true,
+                            }
+                        }
+                    }
+                }
+            }
         });
     }
 
@@ -29,15 +45,43 @@ export class LeaveRepository {
     static async updateStatus(id: string, status: LeaveStatus) {
         return await (prisma as any).leave_request.update({
             where: { id },
-            data: { status }
+            data: { status },
+            include: {
+                WorkspaceMember: {
+                    select: {
+                        id: true,
+                        reportToId: true,
+                        casualLeaveBalance: true,
+                        sickLeaveBalance: true,
+                        user: {
+                            select: {
+                                surname: true,
+                                email: true,
+                            }
+                        }
+                    }
+                }
+            }
         });
     }
 
-    static async getWorkspaceLeaves(workspaceId: string, memberId?: string, skip: number = 0, take: number = 10) {
-        const where = {
+    static async getWorkspaceLeaves(workspaceId: string, memberIds?: string[], skip: number = 0, take: number = 10, search?: string) {
+        const where: any = {
             workspaceId,
-            ...(memberId ? { workspaceMemberId: memberId } : {})
+            ...(memberIds && memberIds.length > 0 ? { workspaceMemberId: { in: memberIds } } : {})
         };
+
+        if (search) {
+            where.WorkspaceMember = {
+                user: {
+                    OR: [
+                        { name: { contains: search, mode: 'insensitive' } },
+                        { surname: { contains: search, mode: 'insensitive' } },
+                        { email: { contains: search, mode: 'insensitive' } },
+                    ]
+                }
+            };
+        }
 
         const [leaves, totalCount] = await Promise.all([
             (prisma as any).leave_request.findMany({

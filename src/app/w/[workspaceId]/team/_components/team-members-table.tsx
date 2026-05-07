@@ -28,7 +28,6 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2 } from "lucide-react";
@@ -56,18 +55,18 @@ interface TeamMembersProps {
     data: WorkspaceMemberRow[];
     isAdmin: boolean;
     workspaceId: string;
-    onRefresh: () => Promise<void>;
-    isRefreshing: boolean;
     pagination?: {
         page: number;
         limit: number;
         totalCount: number;
+        search?: string;
+        onSearchChange?: (search: string) => void;
         onPageChange: (page: number) => void;
         onLimitChange: (limit: number) => void;
     };
 }
 
-export function TeamMembers({ data, isAdmin, workspaceId, onRefresh, isRefreshing, pagination }: TeamMembersProps) {
+export function TeamMembers({ data, isAdmin, workspaceId, pagination }: TeamMembersProps) {
     const router = useRouter();
 
 
@@ -84,7 +83,6 @@ export function TeamMembers({ data, isAdmin, workspaceId, onRefresh, isRefreshin
     const [memberToDelete, setMemberToDelete] = useState<WorkspaceMemberRow | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isUpdating, setIsUpdating] = useState(false);
-    const [newRole, setNewRole] = useState<string>("");
     const [managers, setManagers] = useState<{ id: string; surname: string }[]>([]);
 
     React.useEffect(() => {
@@ -98,10 +96,6 @@ export function TeamMembers({ data, isAdmin, workspaceId, onRefresh, isRefreshin
             fetchManagers();
         }
     }, [workspaceId, editDialogOpen]);
-
-    // Refresh logic is now handled globally via RealtimeNotificationListener
-
-
 
     const editForm = useForm<UpdateMemberSchemaType>({
         resolver: zodResolver(updateMemberSchema),
@@ -151,7 +145,6 @@ export function TeamMembers({ data, isAdmin, workspaceId, onRefresh, isRefreshin
                 }
                 setEditDialogOpen(false);
                 setMemberToEdit(null);
-                await onRefresh();
                 router.refresh();
             } else {
                 toast.error(result.message);
@@ -179,7 +172,6 @@ export function TeamMembers({ data, isAdmin, workspaceId, onRefresh, isRefreshin
                 toast.success(result.message);
                 setDeleteDialogOpen(false);
                 setMemberToDelete(null);
-                await onRefresh();
                 router.refresh();
             } else {
                 toast.error(result.message);
@@ -229,6 +221,7 @@ export function TeamMembers({ data, isAdmin, workspaceId, onRefresh, isRefreshin
                 showPagination={true}
                 showColumnToggle={true}
                 manualPagination={!!pagination}
+                manualFiltering={true}
                 rowCount={pagination?.totalCount}
                 pageIndex={(pagination?.page || 1) - 1}
                 pageSize={pagination?.limit || 10}
@@ -241,18 +234,13 @@ export function TeamMembers({ data, isAdmin, workspaceId, onRefresh, isRefreshin
                         }
                     }
                 }}
-                extraToolbarContent={
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onRefresh()}
-                        disabled={isRefreshing}
-                        className="h-8 gap-2"
-                    >
-                        <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-                        <span className="hidden sm:inline text-xs">{isRefreshing ? "Refreshing..." : "Refresh"}</span>
-                    </Button>
-                }
+                onFilterChange={(filters) => {
+                    if (pagination?.onSearchChange) {
+                        const searchFilter = filters.find(f => f.id === "memberName");
+                        const searchValue = searchFilter?.value as string || "";
+                        pagination.onSearchChange(searchValue);
+                    }
+                }}
             />
 
             {/* View Member Dialog */}

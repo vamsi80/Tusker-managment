@@ -54,6 +54,7 @@ interface DataTableProps<TData, TValue> {
     extraToolbarContent?: React.ReactNode;
     onFilterChange?: (filters: ColumnFiltersState) => void;
     onPaginationChange?: (pagination: { pageIndex: number; pageSize: number }) => void;
+    manualFiltering?: boolean;
     containerClassName?: string;
 }
 
@@ -70,6 +71,7 @@ export function DataTable<TData, TValue>({
     pageIndex = 0,
     rowCount,
     manualPagination = false,
+    manualFiltering = false,
     onAdd,
     addButtonLabel = "Add New",
     filterDisplay = "default",
@@ -100,6 +102,7 @@ export function DataTable<TData, TValue>({
         getCoreRowModel: getCoreRowModel(),
         getPaginationRowModel: (showPagination && !manualPagination) ? getPaginationRowModel() : undefined,
         manualPagination,
+        manualFiltering,
         rowCount,
         onPaginationChange: (updater) => {
             if (onPaginationChange) {

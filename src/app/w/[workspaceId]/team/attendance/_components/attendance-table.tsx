@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { DataTable } from "@/components/data-table/data-table";
 import { ColumnDef } from "@tanstack/react-table";
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, isSameMonth } from "date-fns";
+import { format, addMonths, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { APP_DATE_FORMAT, cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { useMounted } from "@/hooks/use-mounted";
@@ -19,6 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { MapPin, Clock, Filter, X, Calendar as CalendarIcon } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useWorkspaceMemberStore, useRealtimeMemberSync, EMPTY_ARRAY } from "@/lib/store/workspace-member-store";
+import { useTeamQueryStore } from "@/lib/store/team-query-store";
 
 interface AttendanceRecord {
     id: string;
@@ -61,6 +62,17 @@ export function AttendanceTable({
     const [totalCount, setTotalCount] = useState(0);
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(10);
+    const [search, setSearch] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+
+    // Debounce search
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search);
+            setPageIndex(0); // Reset to first page when search changes
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [search]);
 
     const [selectedDate, setSelectedDate] = useState(new Date());
 
@@ -187,8 +199,11 @@ export function AttendanceTable({
         }));
     };
 
+    const { setIsQuerying } = useTeamQueryStore();
+
     const fetchRecords = useCallback(async (force = false, silent = false) => {
         try {
+            setIsQuerying(true);
             console.log(`[AttendanceTable] Fetching records with filters:`, {
                 workspaceId,
                 from: activeFilters.from?.toISOString(),
@@ -203,6 +218,7 @@ export function AttendanceTable({
             if (activeFilters.to && isValidDate(activeFilters.to)) params.append("endDate", activeFilters.to.toISOString());
             if (activeFilters.memberId) params.append("memberId", activeFilters.memberId);
             if (activeFilters.status) params.append("status", activeFilters.status);
+            if (debouncedSearch) params.append("search", debouncedSearch);
             params.append("page", (pageIndex + 1).toString());
             params.append("pageSize", pageSize.toString());
 
@@ -224,6 +240,7 @@ export function AttendanceTable({
             toast.error("Failed to load attendance records");
         } finally {
             setLoading(false);
+            setIsQuerying(false);
         }
     }, [
         workspaceId,
@@ -232,7 +249,9 @@ export function AttendanceTable({
         activeFilters.from?.getTime(),
         activeFilters.to?.getTime(),
         activeFilters.memberId,
-        activeFilters.status
+        activeFilters.status,
+        debouncedSearch,
+        setIsQuerying
     ]);
 
     useEffect(() => {
@@ -819,10 +838,16 @@ export function AttendanceTable({
                     pageSize={pageSize}
                     rowCount={totalCount}
                     manualPagination={true}
+                    manualFiltering={true}
                     containerClassName="max-h-[calc(100vh-300px)]"
                     onPaginationChange={(p) => {
                         setPageIndex(p.pageIndex);
                         setPageSize(p.pageSize);
+                    }}
+                    onFilterChange={(filters) => {
+                        const searchFilter = filters.find(f => f.id === "memberId");
+                        const searchValue = searchFilter?.value as string || "";
+                        setSearch(searchValue);
                     }}
                 />
             </div>
