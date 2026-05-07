@@ -17,6 +17,7 @@ export interface CreateTaskCommentResult {
         taskId: string;
         user: {
             id: string;
+            name: string;
             surname: string | null;
         };
         isEdited: boolean;
@@ -147,7 +148,7 @@ export async function createTaskCommentAction(
                 user: {
                     select: {
                         id: true,
-                        // name: true,
+                        name: true,
                         surname: true,
                         // email: true,
                     },
@@ -161,7 +162,7 @@ export async function createTaskCommentAction(
 
         await recordActivity({
             userId: user.id,
-            userName: (user as any).surname || (() => { throw new Error(`User surname is missing for user: ${user.id}`); })(),
+            userName: comment.user.surname || comment.user.name,
             workspaceId: workspaceId,
             action: "COMMENT_CREATED",
             entityType: "TASK",
@@ -172,11 +173,13 @@ export async function createTaskCommentAction(
                     ...comment,
                     user: {
                         id: comment.user.id,
+                        name: comment.user.name,
                         surname: comment.user.surname
                     }
                 } 
             },
             targetUserIds, // Limit broadcast to involved people
+            broadcastEvent: "team_update",
         });
 
         // 6. Invalidate comment cache using cache tags

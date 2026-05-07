@@ -208,10 +208,8 @@ export async function recordActivity(options: RecordActivityOptions) {
 
       // 3a. Targeted Activity Log (Individual Channels)
       if (pusherServer) {
-        // Broadcast only to involved users
-        const activityChannels = finalTargetUserIds
-          .filter(tid => tid !== userId)
-          .map(tid => `user-${tid}`);
+        // Broadcast to all involved users (including sender so they can see activity in Notification Center/History)
+        const activityChannels = finalTargetUserIds.map(tid => `user-${tid}`);
 
         if (activityChannels.length > 0) {
           await pusherServer.trigger(activityChannels, "activity_log", eventPayload)

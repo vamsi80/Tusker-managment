@@ -20,6 +20,7 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
                     select: {
                         id: true,
                         surname: true,
+                        name: true,
                     }
                 },
                 reportTo: {
@@ -77,7 +78,7 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
                     workspaceMemberId: workspaceMember.id,
                     workspaceRole: workspaceMember.workspaceRole,
                     userId: workspaceMember.userId,
-                    userSurname: workspaceMember.user?.surname || null,
+                    userSurname: workspaceMember.user?.surname || workspaceMember.user?.name || null,
                     reportingManagerName,
                 } as any;
             }
@@ -124,7 +125,7 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
             workspaceMemberId: workspaceMember.id,
             workspaceRole: workspaceMember.workspaceRole,
             userId: workspaceMember.userId,
-            userSurname: workspaceMember.user?.surname || null,
+            userSurname: workspaceMember.user?.surname || workspaceMember.user?.name || null,
             reportingManagerName,
             ...(lean ? {} : {
                 leadProjectIds,
@@ -178,6 +179,7 @@ async function _getUserPermissionsInternal(workspaceId: string, projectId: strin
                         select: {
                             id: true,
                             surname: true,
+                            name: true,
                         }
                     }
                 }
@@ -226,7 +228,7 @@ async function _getUserPermissionsInternal(workspaceId: string, projectId: strin
             workspaceMemberId: workspaceMember.id,
             workspaceRole: workspaceMember.workspaceRole,
             userId: workspaceMember.userId,
-            userSurname: workspaceMember.user?.surname || null,
+            userSurname: workspaceMember.user?.surname || workspaceMember.user?.name || null,
             projectMember: projectMember ? {
                 id: projectMember.id,
                 projectRole: projectMember.projectRole,

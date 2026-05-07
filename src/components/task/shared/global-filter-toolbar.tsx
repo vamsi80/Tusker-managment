@@ -101,7 +101,7 @@ export function GlobalFilterToolbar({
         if (filter.key === 'assigneeId' && members) {
             const assignee = members.find(m => m.id === filter.value);
             if (assignee) {
-                const displayName = assignee.surname || "";
+                const displayName = assignee.surname || assignee.name || "";
                 return {
                     ...filter,
                     value: displayName
@@ -259,7 +259,7 @@ export function GlobalFilterToolbar({
                                 className="flex-1 sm:flex-none gap-2 relative"
                             >
                                 <Filter className="h-4 w-4" />
-                                Filter
+                                Filters
                                 {activeFilters.length > 0 && (
                                     <Badge
                                         variant="destructive"
@@ -277,7 +277,7 @@ export function GlobalFilterToolbar({
                         >
                             {/* Header */}
                             <div className="flex items-center justify-between border-b px-4 py-3">
-                                <h3 className="text-lg font-semibold">Filter</h3>
+                                <h3 className="text-lg font-semibold">Filters</h3>
                                 <Button
                                     variant="ghost"
                                     size="sm"
@@ -486,7 +486,7 @@ export function GlobalFilterToolbar({
                                                     <SelectValue placeholder="Select status" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="__all__">All Statuses</SelectItem>
+                                                    <SelectItem value="__all__">All Status</SelectItem>
                                                     {STATUS_OPTIONS.map((option) => {
                                                         const statusColors = getStatusColors(option.value);
                                                         const hexMatch = statusColors?.bgColor?.match(/#([A-Fa-f0-9]{6})/);
@@ -559,9 +559,9 @@ export function GlobalFilterToolbar({
                                                             <SelectItem key={member.id} value={member.id}>
                                                                 <div className="flex items-center gap-2">
                                                                     <Avatar className="h-4 w-4 flex-shrink-0">
-                                                                        <AvatarFallback className="text-[8px]">{member.surname?.[0] || '?'}</AvatarFallback>
+                                                                    <AvatarFallback className="text-[8px]">{(member.surname || member.name || "?")[0]}</AvatarFallback>
                                                                     </Avatar>
-                                                                    <span className="truncate">{member.surname}</span>
+                                                                    <span className="truncate">{member.surname || member.name}</span>
                                                                 </div>
                                                             </SelectItem>
                                                         ))}

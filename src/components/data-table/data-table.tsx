@@ -153,7 +153,7 @@ export function DataTable<TData, TValue>({
                                     onChange={(event) =>
                                         table.getColumn(searchKey)?.setFilterValue(event.target.value)
                                     }
-                                    className="pl-9 w-full"
+                                    className="pl-9 w-full h-9 bg-background/50 border-muted-foreground/20 focus:ring-primary/20"
                                 />
                             </div>
                         </div>
@@ -264,7 +264,7 @@ export function DataTable<TData, TValue>({
                         {showColumnToggle && mounted && (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" size="sm" className="ml-auto">
+                                    <Button variant="outline" size="sm" className="ml-auto h-9">
                                         <Columns className="mr-2 h-4 w-4" />
                                         Columns
                                     </Button>
@@ -281,7 +281,9 @@ export function DataTable<TData, TValue>({
                                                     checked={column.getIsVisible()}
                                                     onCheckedChange={(value) => column.toggleVisibility(!!value)}
                                                 >
-                                                    {column.id}
+                                                    {typeof column.columnDef.header === 'string' 
+                                                        ? column.columnDef.header 
+                                                        : column.id}
                                                 </DropdownMenuCheckboxItem>
                                             );
                                         })}
@@ -354,7 +356,10 @@ export function DataTable<TData, TValue>({
                                         return (
                                             <TableHead
                                                 key={header.id}
-                                                className={(header.column.columnDef.meta as { className?: string })?.className}
+                                                className={cn(
+                                                    "text-[11px] font-bold uppercase tracking-widest text-muted-foreground/80 py-3 h-auto",
+                                                    (header.column.columnDef.meta as { className?: string })?.className
+                                                )}
                                             >
                                                 {header.isPlaceholder
                                                     ? null

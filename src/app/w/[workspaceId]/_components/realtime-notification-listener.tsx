@@ -41,7 +41,7 @@ export function RealtimeNotificationListener() {
       // Structural changes (create/delete/update) require board-level state updates or re-fetches
       // We explicitly exclude COMMENT_CREATED as it is not a structural change to the task list
       const isStructural =
-        (action.includes("CREATED") && action !== "COMMENT_CREATED") ||
+        action.includes("CREATED") ||
         action.includes("UPDATED") ||
         action.includes("DELETED") ||
         action.includes("LEAVE") ||
@@ -73,10 +73,10 @@ export function RealtimeNotificationListener() {
     const unsubscribeActivity = pubsub.subscribe(EVENTS.APP_ACTIVITY_LOG, (data: any) => {
       const isActor = data.userId === session?.user?.id;
 
-      // 1. Show Toast for others
-      if (data.message && !isActor) {
+      // 1. Show Toast (Show for everyone so actor sees broadcast when navigating)
+      if (data.message) {
         toast.info(data.message, {
-          description: data.action?.replace(/_/g, " ").toLowerCase(),
+          description: data.newData?.text || data.action?.replace(/_/g, " ").toLowerCase(),
           duration: 5000,
         });
       }

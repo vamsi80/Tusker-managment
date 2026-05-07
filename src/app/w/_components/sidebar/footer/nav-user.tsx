@@ -35,8 +35,8 @@ export function NavUser() {
                 <Avatar className="h-8 w-8 rounded-lg">
                   <AvatarImage src={session?.user?.image || ""} alt={session?.user?.name} />
                   <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
-                    {(session?.user as any)?.surname?.charAt(0).toLocaleUpperCase() || 
-                      session?.user.name?.charAt(0).toLocaleUpperCase() || 
+                    {(session?.user as any)?.surname?.charAt(0).toLocaleUpperCase() ||
+                      session?.user.name?.charAt(0).toLocaleUpperCase() ||
                       session?.user.email.charAt(0).toLocaleUpperCase()}
                   </AvatarFallback>
                 </Avatar>
@@ -62,8 +62,8 @@ export function NavUser() {
                   <Avatar className="h-8 w-8 rounded-lg">
                     <AvatarImage src={session?.user?.image || ""} alt={session?.user?.name} />
                     <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
-                      {(session?.user as any)?.surname?.charAt(0).toLocaleUpperCase() || 
-                        session?.user.name?.charAt(0).toLocaleUpperCase() || 
+                      {(session?.user as any)?.surname?.charAt(0).toLocaleUpperCase() ||
+                        session?.user.name?.charAt(0).toLocaleUpperCase() ||
                         session?.user.email.charAt(0).toLocaleUpperCase()}
                     </AvatarFallback>
                   </Avatar>
@@ -80,48 +80,18 @@ export function NavUser() {
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
                 <DropdownMenuItem asChild>
-                  <Link 
+                  <Link
                     href="/"
                     onClick={(e) => {
-                        if (isMobile) {
-                            setOpenMobile(false);
-                        }
-                        e.preventDefault();
-                        router.push("/");
+                      if (isMobile) {
+                        setOpenMobile(false);
+                      }
+                      e.preventDefault();
+                      router.push("/");
                     }}
                   >
                     <HomeIcon />
                     Homepage
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link 
-                    href="/admin"
-                    onClick={(e) => {
-                        if (isMobile) {
-                            setOpenMobile(false);
-                        }
-                        e.preventDefault();
-                        router.push("/admin");
-                    }}
-                  >
-                    <LayoutDashboard />
-                    Dashboard
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link 
-                    href="/admin/courses"
-                    onClick={(e) => {
-                        if (isMobile) {
-                            setOpenMobile(false);
-                        }
-                        e.preventDefault();
-                        router.push("/admin/courses");
-                    }}
-                  >
-                    <Tv2 />
-                    Courses
                   </Link>
                 </DropdownMenuItem>
               </DropdownMenuGroup>
