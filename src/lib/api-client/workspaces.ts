@@ -11,7 +11,7 @@ import {
 export interface WorkspacesClient {
     create(values: WorkSpaceSchemaType): Promise<ApiResponse>;
     delete(workspaceId: string): Promise<ApiResponse>;
-    getMembers(workspaceId: string, page?: number, limit?: number): Promise<WorkspaceMembersResult>;
+    getMembers(workspaceId: string, page?: number, limit?: number, search?: string): Promise<WorkspaceMembersResult>;
     getMembersSlim(workspaceId: string): Promise<any[]>;
     invite(workspaceId: string, values: InviteUserSchemaType): Promise<ApiResponse>;
     removeMember(workspaceId: string, memberId: string): Promise<ApiResponse>;
@@ -79,8 +79,12 @@ export const workspacesClient: WorkspacesClient = {
     /**
      * Get workspace members (paginated)
      */
-    getMembers: async (workspaceId: string, page: number = 1, limit: number = 10): Promise<WorkspaceMembersResult> => {
-        const response = await apiFetch<{ success: boolean; data: WorkspaceMembersResult }>(`/workspaces/${workspaceId}/members?page=${page}&limit=${limit}`);
+    getMembers: async (workspaceId: string, page: number = 1, limit: number = 10, search?: string): Promise<WorkspaceMembersResult> => {
+        let url = `/workspaces/${workspaceId}/members?page=${page}&limit=${limit}`;
+        if (search) {
+            url += `&search=${encodeURIComponent(search)}`;
+        }
+        const response = await apiFetch<{ success: boolean; data: WorkspaceMembersResult }>(url);
         return response.data;
     },
     getMembersSlim: async (workspaceId: string): Promise<any[]> => {

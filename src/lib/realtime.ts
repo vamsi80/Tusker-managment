@@ -14,6 +14,7 @@ export type TeamEventData = {
     workspaceId: string;
     type: "INVITE" | "DELETE" | "UPDATE";
     payload: any;
+    targetUserIds?: string[];
 };
 
 export type ProjectEventData = {
@@ -21,6 +22,7 @@ export type ProjectEventData = {
     type: "CREATE" | "UPDATE" | "DELETE";
     projectId?: string;
     payload?: any;
+    targetUserIds?: string[];
 };
 
 export type TaskEventData = {
@@ -29,6 +31,7 @@ export type TaskEventData = {
     taskId: string;
     projectId: string;
     payload?: any;
+    targetUserIds?: string[];
 };
 
 export type AttendanceEventData = {
@@ -36,19 +39,26 @@ export type AttendanceEventData = {
     type: "CHECK_IN" | "CHECK_OUT" | "UPDATE";
     action: "CHECKED_IN" | "CHECKED_OUT" | "ATTENDANCE_UPDATED";
     payload: any;
+    targetUserIds?: string[];
 };
 
 /**
  * Core internal broadcast helper.
  * Centralizes all workspace-level events into the same team-{id} channel.
  */
-async function broadcast(workspaceId: string, eventName: string, data: any) {
+async function broadcast(workspaceId: string, eventName: string, data: any, targetUserIds?: string[]) {
     try {
         if (!pusherServer) {
             console.warn(`[REALTIME] Pusher not configured, skipping ${eventName} broadcast.`);
             return;
         }
-        await pusherServer.trigger(`team-${workspaceId}`, eventName, data);
+
+        // Target individual users if specified, otherwise broadcast to the whole team
+        const channels = targetUserIds && targetUserIds.length > 0
+            ? targetUserIds.map(tid => `user-${tid}`)
+            : [`team-${workspaceId}`];
+
+        await pusherServer.trigger(channels, eventName, data);
     } catch (error) {
         console.error(`[REALTIME_ERROR] Failed to broadcast ${eventName}:`, error);
     }
@@ -58,26 +68,26 @@ async function broadcast(workspaceId: string, eventName: string, data: any) {
  * Broadcast a team event (roles, members, invitations).
  */
 export const broadcastTeamUpdate = async (data: TeamEventData) => {
-    await broadcast(data.workspaceId, TEAM_UPDATE, data);
+    await broadcast(data.workspaceId, TEAM_UPDATE, data, data.targetUserIds);
 };
 
 /**
  * Broadcast a project event (creation, updates, deletion).
  */
 export const broadcastProjectUpdate = async (data: ProjectEventData) => {
-    await broadcast(data.workspaceId, PROJECT_UPDATE, data);
+    await broadcast(data.workspaceId, PROJECT_UPDATE, data, data.targetUserIds);
 };
 
 /**
  * Broadcast a task event.
  */
 export const broadcastTaskUpdate = async (data: TaskEventData) => {
-    await broadcast(data.workspaceId, TASK_UPDATE, data);
+    await broadcast(data.workspaceId, TASK_UPDATE, data, data.targetUserIds);
 };
 
 /**
  * Broadcast an attendance event.
  */
 export const broadcastAttendanceUpdate = async (data: AttendanceEventData) => {
-    await broadcast(data.workspaceId, ATTENDANCE_UPDATE, data);
+    await broadcast(data.workspaceId, ATTENDANCE_UPDATE, data, data.targetUserIds);
 };

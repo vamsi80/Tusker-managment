@@ -47,11 +47,20 @@ class RealtimeService {
         });
       });
 
-      // 2. Subscribe to PERSONAL channel for targeted toasts
+      // 2. Subscribe to PERSONAL channel for targeted toasts and surgical sync
       if (userId) {
         const personalChannel = pusherClient.subscribe(`user-${userId}`);
         personalChannel.bind("activity_log", (data: any) => {
           this.publish(EVENTS.APP_ACTIVITY_LOG, data);
+        });
+
+        // Bind standard updates to personal channel as well for targeted surgical sync
+        const standardEvents = ["team_update", "task_update", "subtask_update", "project_update", "attendance_update"];
+        standardEvents.forEach(eventName => {
+          personalChannel.bind(eventName, (data: any) => {
+            console.log(`[REALTIME_SERVICE][PERSONAL] 📥 Received ${eventName}:`, data.action || data.type);
+            this.publish(EVENTS.TEAM_UPDATE, data);
+          });
         });
       }
     }

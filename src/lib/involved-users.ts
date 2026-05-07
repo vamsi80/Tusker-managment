@@ -116,3 +116,23 @@ export async function getTaskInvolvedUserIds(taskId: string): Promise<string[]> 
     return [];
   }
 }
+
+/**
+ * Fetches all Workspace Owners and Admins.
+ * Used as a default fallback for targeted broadcasting.
+ */
+export async function getWorkspaceAuthorities(workspaceId: string): Promise<string[]> {
+  try {
+    const members = await prisma.workspaceMember.findMany({
+      where: {
+        workspaceId,
+        workspaceRole: { in: ["OWNER", "ADMIN"] },
+      },
+      select: { userId: true },
+    });
+    return members.map(m => m.userId);
+  } catch (error) {
+    console.error(`[GET_WORKSPACE_AUTHORITIES_ERROR] Failed for workspace ${workspaceId}:`, error);
+    return [];
+  }
+}

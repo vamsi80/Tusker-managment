@@ -12,6 +12,7 @@ import { auth } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { ProjectService } from "./project";
+import { getWorkspaceAuthorities } from "@/lib/involved-users";
 
 export class WorkspaceService {
   /**
@@ -111,12 +112,21 @@ export class WorkspaceService {
   /**
    * Get workspace members (paginated)
    */
-  static async getMembers(workspaceId: string, page: number = 1, limit: number = 10) {
+  static async getMembers(workspaceId: string, page: number = 1, limit: number = 10, search?: string) {
     const skip = (page - 1) * limit;
+
+    const where: any = { workspaceId };
+    if (search && search.trim() !== "") {
+      where.OR = [
+        { user: { name: { contains: search, mode: 'insensitive' } } },
+        { user: { surname: { contains: search, mode: 'insensitive' } } },
+        { user: { email: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
 
     const [workspaceMembers, totalCount] = await Promise.all([
       prisma.workspaceMember.findMany({
-        where: { workspaceId },
+        where,
         skip,
         take: limit,
         orderBy: { createdAt: "desc" },
@@ -143,7 +153,7 @@ export class WorkspaceService {
         },
       }),
       prisma.workspaceMember.count({
-        where: { workspaceId }
+        where
       })
     ]);
 
@@ -662,7 +672,7 @@ export class WorkspaceService {
     await recordActivity({
       userId: currentUserId,
       userName:
-        currentMember?.user?.name || currentMember?.user?.surname || "Someone",
+        currentMember?.user?.surname || (() => { throw new Error(`User surname missing for member: ${currentMember?.id}`); })(),
       workspaceId,
       action: "MEMBER_REMOVED",
       entityType: "MEMBER",
@@ -823,6 +833,9 @@ export class WorkspaceService {
       select: { surname: true, name: true },
     });
 
+    const authorities = await getWorkspaceAuthorities(workspaceId);
+    const targetUserIds = Array.from(new Set([...authorities, userId]));
+
     await recordActivity({
       userId: actorId,
       userName: actor?.surname || actor?.name || "Admin",
@@ -840,11 +853,12 @@ export class WorkspaceService {
         surname: member.user?.surname,
         email: member.user?.email,
         phoneNumber: member.user?.phoneNumber,
-        role: member.workspaceRole,
         designation: member.designation,
+        workspaceRole: member.workspaceRole,
         reportToId: member.reportToId
       },
       broadcastEvent: "team_update",
+      targetUserIds
     });
 
     return { success: true, data: result, emailChanged: isEmailChanged };

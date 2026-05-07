@@ -35,20 +35,16 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
         if (normalizedEnd) normalizedEnd.setUTCHours(23, 59, 59, 999);
 
         try {
-            const { workspaceRole, workspaceMemberId } = await getWorkspacePermissions(workspaceId, user.id);
-            let effectiveMemberId = memberId;
-            if (workspaceRole === "MEMBER") {
-                effectiveMemberId = workspaceMemberId;
-            }
-
             const page = parseInt(c.req.query("page") || "1");
             const pageSize = parseInt(c.req.query("pageSize") || "10");
+            const search = c.req.query("search");
 
             const result = await AttendanceService.getWorkspaceAttendance(
                 workspaceId,
+                user.id,
                 normalizedStart,
                 normalizedEnd,
-                { memberId: effectiveMemberId, status },
+                { memberId, status, search },
                 page,
                 pageSize
             );
@@ -191,13 +187,11 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
         if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
 
         try {
-            const { workspaceRole, workspaceMemberId } = await getWorkspacePermissions(workspaceId, user.id);
-            const memberId = workspaceRole === "MEMBER" ? workspaceMemberId : undefined;
-
             const page = parseInt(c.req.query("page") || "1");
             const pageSize = parseInt(c.req.query("pageSize") || "10");
+            const search = c.req.query("search");
 
-            const { leaves, totalCount } = await LeaveService.getWorkspaceLeaves(workspaceId, memberId, page, pageSize);
+            const { leaves, totalCount } = await LeaveService.getWorkspaceLeaves(workspaceId, user.id, page, pageSize, search);
             return c.json({ success: true, data: leaves, totalCount });
         } catch (error: any) {
             return c.json({ success: false, error: error.message }, 400);

@@ -93,9 +93,31 @@ export class LeaveService {
         return updated;
     }
 
-    static async getWorkspaceLeaves(workspaceId: string, memberId?: string, page: number = 1, pageSize: number = 10) {
+    static async getWorkspaceLeaves(workspaceId: string, actorId: string, page: number = 1, pageSize: number = 10, search?: string) {
         const skip = (page - 1) * pageSize;
-        const { leaves, totalCount } = await LeaveRepository.getWorkspaceLeaves(workspaceId, memberId, skip, pageSize);
+        
+        // Resolve role and subordinates
+        const member = await prisma.workspaceMember.findFirst({
+            where: { workspaceId, userId: actorId },
+            include: { subordinates: { select: { id: true } } }
+        });
+
+        if (!member) throw AppError.Forbidden("You are not a member of this workspace.");
+
+        let memberIds: string[] | undefined = undefined;
+        const isAuthority = member.workspaceRole === "OWNER" || member.workspaceRole === "ADMIN";
+        
+        if (!isAuthority) {
+            if (member.workspaceRole === "MANAGER") {
+                // Manager sees themselves + subordinates
+                memberIds = [member.id, ...member.subordinates.map(s => s.id)];
+            } else {
+                // Regular member sees only themselves
+                memberIds = [member.id];
+            }
+        }
+
+        const { leaves, totalCount } = await LeaveRepository.getWorkspaceLeaves(workspaceId, memberIds, skip, pageSize, search);
         
         return { 
             leaves: LeaveMapper.toServiceList(leaves), 

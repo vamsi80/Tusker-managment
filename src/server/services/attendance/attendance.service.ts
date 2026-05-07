@@ -330,6 +330,7 @@ export class AttendanceService {
      */
     static async getWorkspaceAttendance(
         workspaceId: string,
+        actorId: string,
         startDate?: Date,
         endDate?: Date,
         filters?: AttendanceFilters,
@@ -339,12 +340,51 @@ export class AttendanceService {
         return await unstable_cache(
             async () => {
                 const skip = (page - 1) * pageSize;
-                const where = {
+
+                // Resolve role and subordinates
+                const actorMember = await prisma.workspaceMember.findFirst({
+                    where: { workspaceId, userId: actorId },
+                    include: { subordinates: { select: { id: true } } }
+                });
+
+                if (!actorMember) throw AppError.Forbidden("You are not a member of this workspace.");
+
+                const isAuthority = actorMember.workspaceRole === "OWNER" || actorMember.workspaceRole === "ADMIN";
+                let allowedMemberIds: string[] | undefined = undefined;
+
+                if (!isAuthority) {
+                    if (actorMember.workspaceRole === "MANAGER") {
+                        allowedMemberIds = [actorMember.id, ...actorMember.subordinates.map(s => s.id)];
+                    } else {
+                        allowedMemberIds = [actorMember.id];
+                    }
+                }
+
+                // If a specific member filter is requested from UI, ensure it's within allowed list
+                let finalMemberIdFilter = filters?.memberId;
+                if (allowedMemberIds && finalMemberIdFilter && !allowedMemberIds.includes(finalMemberIdFilter)) {
+                    // Unauthorized member filter requested - fallback to empty or restricted set
+                    finalMemberIdFilter = "UNAUTHORIZED_ACCESS";
+                }
+
+                const where: any = {
                     workspaceId,
                     ...(startDate && endDate ? { date: { gte: startDate, lte: endDate } } : {}),
-                    ...(filters?.memberId ? { workspaceMemberId: filters.memberId } : {}),
+                    ...(finalMemberIdFilter ? { workspaceMemberId: finalMemberIdFilter } : (allowedMemberIds ? { workspaceMemberId: { in: allowedMemberIds } } : {})),
                     ...(filters?.status ? { status: filters.status } : {}),
                 };
+
+                if (filters?.search) {
+                    where.WorkspaceMember = {
+                        user: {
+                            OR: [
+                                { name: { contains: filters.search, mode: 'insensitive' } },
+                                { surname: { contains: filters.search, mode: 'insensitive' } },
+                                { email: { contains: filters.search, mode: 'insensitive' } },
+                            ]
+                        }
+                    };
+                }
 
                 const [records, totalCount] = await Promise.all([
                     AttendanceRepository.getWorkspaceRecords(where, skip, pageSize),
@@ -357,7 +397,18 @@ export class AttendanceService {
                             workspaceId,
                             status: "APPROVED",
                             ...(startDate && endDate ? { startDate: { lte: endDate }, endDate: { gte: startDate } } : {}),
-                            ...(filters?.memberId ? { workspaceMemberId: filters.memberId } : {})
+                            ...(finalMemberIdFilter ? { workspaceMemberId: finalMemberIdFilter } : (allowedMemberIds ? { workspaceMemberId: { in: allowedMemberIds } } : {})),
+                            ...(filters?.search ? {
+                                WorkspaceMember: {
+                                    user: {
+                                        OR: [
+                                            { name: { contains: filters.search, mode: 'insensitive' } },
+                                            { surname: { contains: filters.search, mode: 'insensitive' } },
+                                            { email: { contains: filters.search, mode: 'insensitive' } },
+                                        ]
+                                    }
+                                }
+                            } : {})
                         },
                         include: {
                             WorkspaceMember: {
@@ -401,7 +452,7 @@ export class AttendanceService {
 
                 return { data: records, totalCount };
             },
-            [`attendance-${workspaceId}-${startDate?.toISOString()}-${endDate?.toISOString()}-${filters?.memberId}-${filters?.status}-${page}-${pageSize}`],
+            [`attendance-${workspaceId}-${actorId}-${startDate?.toISOString()}-${endDate?.toISOString()}-${filters?.memberId}-${filters?.status}-${page}-${pageSize}`],
             {
                 tags: (CacheTags as any).attendance(workspaceId, filters?.memberId),
                 revalidate: 3
