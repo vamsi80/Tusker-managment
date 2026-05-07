@@ -6,11 +6,9 @@ import { DataTable } from "@/components/data-table/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, isSameMonth } from "date-fns";
 import { APP_DATE_FORMAT, cn } from "@/lib/utils";
-import { WorkspaceMemberRow } from "@/types/workspace";
 import { Badge } from "@/components/ui/badge";
 import { useMounted } from "@/hooks/use-mounted";
 import { Button } from "@/components/ui/button";
-import { apiClient } from "@/lib/api-client";
 import { toast } from "sonner";
 import { UserMinus, Loader2, LogIn, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { AttendanceLogger } from "./attendance-logger";
@@ -18,10 +16,8 @@ import { Calendar as ShadcnCalendar } from "@/components/ui/calendar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { MapPin, Clock, Filter, X, Calendar as CalendarIcon, Timer } from "lucide-react";
+import { MapPin, Clock, Filter, X, Calendar as CalendarIcon } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { pusherClient } from "@/lib/pusher";
-import { ATTENDANCE_UPDATE } from "@/lib/realtime";
 import { useWorkspaceMemberStore, useRealtimeMemberSync, EMPTY_ARRAY } from "@/lib/store/workspace-member-store";
 
 interface AttendanceRecord {
@@ -37,6 +33,7 @@ interface AttendanceRecord {
     checkOutLongitude: number | null;
     checkInAddress: string | null;
     checkOutAddress: string | null;
+    notes: string | null;
     WorkspaceMember: {
         id: string;
         casualLeaveBalance: number;
@@ -328,6 +325,8 @@ export function AttendanceTable({
                 const lat = row.original.checkInLatitude;
                 const lng = row.original.checkInLongitude;
                 const address = row.original.checkInAddress;
+                const hasNote = !!row.original.notes;
+
                 if (!lat || !lng) return <div className="text-xs text-muted-foreground italic">—</div>;
                 return (
                     <div className="flex justify-start max-w-[180px]">
@@ -335,11 +334,16 @@ export function AttendanceTable({
                             href={`https://www.google.com/maps?q=${lat},${lng}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-1.5 text-[10px] text-primary hover:underline bg-primary/5 px-2 py-1 rounded-md transition-colors hover:bg-primary/10 truncate group"
+                            className={cn(
+                                "flex items-center gap-1.5 text-[10px] hover:underline transition-all group truncate",
+                                hasNote ? "text-rose-600 font-bold" : "text-primary/70 hover:text-primary"
+                            )}
                             title={address || `Raw coordinates: ${lat}, ${lng}`}
                         >
-                            <MapPin className="h-3 w-3 shrink-0 text-rose-500 group-hover:scale-110 transition-transform" />
-                            <span className="truncate">{address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`}</span>
+                            <MapPin className={cn("h-3 w-3 shrink-0 group-hover:scale-110 transition-transform", hasNote ? "text-rose-600" : "text-rose-500")} />
+                            <span className="truncate uppercase tracking-tighter">
+                                {hasNote ? "Other Location" : (address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`)}
+                            </span>
                         </a>
                     </div>
                 );
@@ -350,16 +354,29 @@ export function AttendanceTable({
             header: "Out",
             cell: ({ row }) => {
                 if (!mounted) return "...";
+                const checkIn = row.original.checkIn;
                 const checkOut = row.original.checkOut;
                 if (!checkOut) return <div className="text-xs text-muted-foreground italic">—</div>;
+
                 try {
-                    const d = new Date(checkOut);
-                    if (!isValidDate(d)) return <div className="text-xs text-muted-foreground italic">—</div>;
+                    const dIn = checkIn ? new Date(checkIn) : null;
+                    const dOut = new Date(checkOut);
+                    if (!isValidDate(dOut)) return <div className="text-xs text-muted-foreground italic">—</div>;
+
+                    const isNextDay = (dIn && isValidDate(dIn) &&
+                        (dOut.getDate() !== dIn.getDate() || dOut.getMonth() !== dIn.getMonth())) ||
+                        row.original.notes?.includes("test-night");
+
                     return (
-                        <div className="flex flex-col items-start">
+                        <div className="flex flex-col items-start gap-1">
                             <div className="flex items-center gap-1.5 text-sm font-medium">
                                 <Clock className="h-3.5 w-3.5 text-rose-500" />
-                                {format(d, "hh:mm a")}
+                                {format(dOut, "hh:mm a")}
+                                {isNextDay && (
+                                    <Badge variant="outline" className="px-1 py-0 h-4 text-[9px] font-bold border-amber-200 bg-amber-50 text-amber-600">
+                                        +1 DAY
+                                    </Badge>
+                                )}
                             </div>
                         </div>
                     );
@@ -375,6 +392,8 @@ export function AttendanceTable({
                 const lat = row.original.checkOutLatitude;
                 const lng = row.original.checkOutLongitude;
                 const address = row.original.checkOutAddress;
+                const hasNote = !!row.original.notes;
+
                 if (!lat || !lng) return <div className="text-xs text-muted-foreground italic">—</div>;
                 return (
                     <div className="flex justify-start max-w-[180px]">
@@ -382,11 +401,16 @@ export function AttendanceTable({
                             href={`https://www.google.com/maps?q=${lat},${lng}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-1.5 text-[10px] text-primary hover:underline bg-primary/5 px-2 py-1 rounded-md transition-colors hover:bg-primary/10 truncate group"
+                            className={cn(
+                                "flex items-center gap-1.5 text-[10px] hover:underline transition-all group truncate",
+                                hasNote ? "text-rose-600 font-bold" : "text-primary/70 hover:text-primary"
+                            )}
                             title={address || `Raw coordinates: ${lat}, ${lng}`}
                         >
-                            <MapPin className="h-3 w-3 shrink-0 text-rose-500 group-hover:scale-110 transition-transform" />
-                            <span className="truncate">{address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`}</span>
+                            <MapPin className={cn("h-3 w-3 shrink-0 group-hover:scale-110 transition-transform", hasNote ? "text-rose-600" : "text-rose-500")} />
+                            <span className="truncate uppercase tracking-tighter">
+                                {hasNote ? "Other Location" : (address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`)}
+                            </span>
                         </a>
                     </div>
                 );
@@ -458,6 +482,19 @@ export function AttendanceTable({
                                 OT
                             </Badge>
                         )}
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: "notes",
+            header: "Notes",
+            cell: ({ row }) => {
+                const notes = row.original.notes;
+                if (!notes) return <div className="text-xs text-muted-foreground italic">—</div>;
+                return (
+                    <div className="max-w-[200px] truncate text-xs font-medium text-foreground/70" title={notes}>
+                        {notes}
                     </div>
                 );
             },

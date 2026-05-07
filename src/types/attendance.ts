@@ -9,6 +9,7 @@ export interface CheckInParams {
     address?: string;
     city?: string;
     networkLocation?: string;
+    notes?: string;
 }
 
 export interface CheckOutParams {
@@ -20,6 +21,7 @@ export interface CheckOutParams {
     address?: string;
     city?: string;
     networkLocation?: string;
+    notes?: string;
 }
 
 export interface AttendanceFilters {
