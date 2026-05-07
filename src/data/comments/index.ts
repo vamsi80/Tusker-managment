@@ -4,8 +4,7 @@
  */
 
 export {
-    getTaskComments,
-    getActivities,
+    CommentService,
     type TaskCommentsType,
     type ActivitiesType
-} from "./get-comments";
+} from "@/server/services/comment";

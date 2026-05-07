@@ -9,6 +9,7 @@ import projects from "./routes/projects";
 import tags from "./routes/tags";
 import workspaces from "./routes/workspaces";
 import auth from "./routes/auth";
+import comments from "./routes/comments";
 import { HonoVariables } from "./types";
 import { authMiddleware } from "./middleware/auth";
 import { AppError } from "../lib/errors/app-error";
@@ -120,6 +121,9 @@ app.route("/tags", tags);
 
 // Workspaces API
 app.route("/workspaces", workspaces);
+
+// Comments API
+app.route("/comments", comments);
 
 
 export default app;

@@ -7,7 +7,7 @@ import { useSearchParams, usePathname } from "next/navigation";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Tabs } from "@/components/ui/tabs";
-import { fetchCommentsAction, fetchActivitiesAction } from "@/actions/comment";
+import { apiClient } from "@/lib/api-client";
 import { pubsub, EVENTS } from "@/lib/pubsub";
 
 import { projectsClient } from "@/lib/api-client/projects";
@@ -224,18 +224,19 @@ export function SubTaskDetailsSheet({
         setIsLoading(true);
         const startTime = performance.now();
         try {
-            const result = await fetchCommentsAction(subTask.id);
-            if (result.success && result.comments) {
-                const fetchedComments = result.comments as Comment[];
+            const { data, error } = await apiClient.comments.getComments(subTask.id);
+            if (!error && data) {
+                const fetchedComments = data as Comment[];
                 setComments(fetchedComments);
                 commentCache.set(subTask.id, fetchedComments); // Update cache
-                if (result.currentUserId) {
-                    setCurrentUserId(result.currentUserId);
-                }
+                
+                // Note: currentUserId might need to be handled differently if not in the response
+                // but usually the session hook handles this.
+                
                 const duration = performance.now() - startTime;
                 console.log(`🐢 [SLOW LOAD] Comments fetched in: ${duration.toFixed(2)}ms (Missing Pre-fetch)`);
             } else {
-                toast.error(result.error || "Failed to load comments");
+                toast.error(error?.message || "Failed to load comments");
             }
         } catch (error) {
             console.error("Error loading comments:", error);
@@ -253,13 +254,13 @@ export function SubTaskDetailsSheet({
         pendingPrefetches.add(`activities-${subTask.id}`);
         setIsLoadingActivity(true);
         try {
-            const result = await fetchActivitiesAction(subTask.id);
-            if (result.success && result.activities) {
-                const fetchedActivities = result.activities as Activity[];
+            const { data, error } = await apiClient.comments.getActivities(subTask.id);
+            if (!error && data) {
+                const fetchedActivities = data as Activity[];
                 setActivities(fetchedActivities);
                 activityCache.set(subTask.id, fetchedActivities); // Update cache
             } else {
-                toast.error(result.error || "Failed to load activities");
+                toast.error(error?.message || "Failed to load activities");
             }
         } catch (error) {
             console.error("Error loading activities:", error);
@@ -386,6 +387,8 @@ export function SubTaskDetailsSheet({
                                 {activeTab === "messages" && (
                                     <MessagesTab
                                         taskId={task.id}
+                                        workspaceId={task.workspaceId}
+                                        projectId={task.projectId}
                                         comments={comments}
                                         setComments={setComments}
                                         currentUserId={currentUserId}

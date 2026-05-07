@@ -15,6 +15,7 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
             taskSlug: true,
             isParent: true,
             projectId: true,
+            workspaceId: true,
             createdAt: true,
             position: true,
             _count: {
@@ -64,6 +65,7 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
         createdAt: true,
         createdById: true,
         projectId: true,
+        workspaceId: true,
         parentTaskId: !isKanban,
         isParent: !isKanban, // Always false in Kanban subtask view
         position: true,
