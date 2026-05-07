@@ -46,26 +46,28 @@ export class AttendanceService {
         const dateOnly = getISTDateOnly(now);
 
         // 1. Try to find a record for today (IST)
-        let record = await AttendanceRepository.findByMemberAndDate(member.id, dateOnly);
+        const record = await AttendanceRepository.findByMemberAndDate(member.id, dateOnly);
 
-        // 2. If no record for today OR it's an ABSENT record/already closed, 
-        // look for an open record from yesterday (Night Shift support)
-        if (!record || record.status === AttendanceStatus.ABSENT || record.checkOut) {
-            const yesterday = new Date(dateOnly);
-            yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+        // 2. If we have a record for today, use it
+        if (record && record.status !== AttendanceStatus.ABSENT) {
+            return record;
+        }
 
-            const openRecord = await AttendanceRepository.findByMemberAndDate(member.id, yesterday);
+        // 3. Night Shift Support: If no record for today, check if there's an OPEN one from yesterday
+        const yesterday = new Date(dateOnly);
+        yesterday.setUTCDate(yesterday.getUTCDate() - 1);
 
-            // Use yesterday's record if it exists and is still open
-            // Only if it's less than 16 hours old (to distinguish between Night Shift and forgotten check-out)
-            if (openRecord && !openRecord.checkOut && openRecord.checkIn) {
-                const hoursSinceCheckIn = (now.getTime() - openRecord.checkIn.getTime()) / (1000 * 60 * 60);
-                if (hoursSinceCheckIn < 16) {
-                    record = openRecord;
-                }
+        const openRecord = await AttendanceRepository.findByMemberAndDate(member.id, yesterday);
+
+        // Use yesterday's record ONLY if it is still open and recently started (< 14 hours ago)
+        if (openRecord && !openRecord.checkOut && openRecord.checkIn) {
+            const hoursSinceCheckIn = (now.getTime() - openRecord.checkIn.getTime()) / (1000 * 60 * 60);
+            if (hoursSinceCheckIn < 14) {
+                return openRecord;
             }
         }
 
+        // 4. Otherwise, return today's record (even if null or ABSENT) to allow a fresh Check-In
         return record;
     }
 
@@ -127,10 +129,10 @@ export class AttendanceService {
             const nearbyLoc = await this.findNearbyLocation(workspaceId, latitude, longitude);
             if (nearbyLoc) {
                 finalAddress = nearbyLoc.name;
-            } else if (workspaceLocations > 0) {
+            } else if (workspaceLocations > 0 && !params.notes) {
                 throw AppError.Forbidden("You are not within the required radius of any authorized attendance location.");
             }
-        } else if (workspaceLocations > 0) {
+        } else if (workspaceLocations > 0 && !params.notes) {
              throw AppError.ValidationError("GPS coordinates are required to check in at this workspace.");
         }
 
@@ -152,6 +154,7 @@ export class AttendanceService {
                 checkInAddress: finalAddress,
                 status: status,
                 lateThreshold: lateThresholdStr,
+                notes: params.notes,
                 updatedAt: now,
             },
             {
@@ -161,6 +164,7 @@ export class AttendanceService {
                 checkInAddress: finalAddress,
                 status: status,
                 lateThreshold: lateThresholdStr,
+                notes: params.notes,
                 updatedAt: now,
             }
         );
@@ -251,10 +255,10 @@ export class AttendanceService {
             const nearbyLoc = await this.findNearbyLocation(workspaceId, latitude, longitude);
             if (nearbyLoc) {
                 finalAddress = nearbyLoc.name;
-            } else if (workspaceLocations > 0) {
+            } else if (workspaceLocations > 0 && !params.notes) {
                 throw AppError.Forbidden("You are not within the required radius of any authorized attendance location.");
             }
-        } else if (workspaceLocations > 0) {
+        } else if (workspaceLocations > 0 && !params.notes) {
              throw AppError.ValidationError("GPS coordinates are required to check out at this workspace.");
         }
 
@@ -265,6 +269,7 @@ export class AttendanceService {
             checkOutAddress: finalAddress,
             isOvertime,
             overtimeThreshold: otThreshold,
+            notes: params.notes || existing.notes,
             updatedAt: now,
         });
 

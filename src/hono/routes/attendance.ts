@@ -81,7 +81,7 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
         if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
 
         try {
-            const { latitude, longitude, address, networkLocation } = await c.req.json();
+            const { latitude, longitude, address, networkLocation, notes } = await c.req.json();
             if (!latitude || !longitude) {
                 return c.json({ success: false, error: "Location is required to check in." }, 400);
             }
@@ -93,6 +93,7 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
                 longitude,
                 address,
                 networkLocation,
+                notes,
             });
             return c.json({ success: true, data: result });
         } catch (error: any) {
@@ -108,7 +109,7 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
         if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
 
         try {
-            const { latitude, longitude, address } = await c.req.json();
+            const { latitude, longitude, address, notes } = await c.req.json();
             if (!latitude || !longitude) {
                 return c.json({ success: false, error: "Location is required to check out." }, 400);
             }
@@ -119,6 +120,7 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
                 latitude,
                 longitude,
                 address,
+                notes,
             });
             return c.json({ success: true, data: result });
         } catch (error: any) {

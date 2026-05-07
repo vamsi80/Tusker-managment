@@ -8,6 +8,15 @@ import { toast } from "sonner";
 import { MapPin, LogIn, LogOut, Loader2, X } from "lucide-react";
 import { format } from "date-fns";
 import { APP_DATE_FORMAT } from "@/lib/utils";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
     const [isLoading, setIsLoading] = useState(false);
@@ -15,6 +24,9 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
     const [record, setRecord] = useState<any>(null);
     const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
     const [locationError, setLocationError] = useState<string | null>(null);
+    const [showNoteDialog, setShowNoteDialog] = useState(false);
+    const [note, setNote] = useState("");
+    const [pendingAction, setPendingAction] = useState<"check-in" | "check-out" | null>(null);
     const mounted = useMounted();
 
     // Fetch today's initial status on mount
@@ -79,7 +91,7 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
     const [accuracy, setAccuracy] = useState<number | null>(null);
     const [isVerifying, setIsVerifying] = useState(false);
 
-    const handleAttendanceAction = async (action: "check-in" | "check-out") => {
+    const handleAttendanceAction = async (action: "check-in" | "check-out", providedNote?: string) => {
         setIsLoading(true);
         setIsVerifying(true);
         setLocationError(null);
@@ -93,7 +105,6 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
             setAccuracy(result.accuracy);
 
             // 2. Parallel check: Get Network (IP-based) location to detect Fake GPS
-            // This is harder to spoof than GPS as it's tied to the ISP
             const networkPromise = fetch('https://ipapi.co/json/')
                 .then(res => res.json())
                 .catch(() => null);
@@ -119,14 +130,6 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
                     region: netData.region,
                     country: netData.country_name
                 });
-
-                // Simple check: If GPS says one city but IP says another (gross spoofing check)
-                // Note: IP location can be inaccurate (e.g., nearby city), so we check for gross mismatch
-                if (geoData?.address?.city && netData.city &&
-                    geoData.address.city.toLowerCase() !== netData.city.toLowerCase() &&
-                    !geoData.address.city.toLowerCase().includes(netData.city.toLowerCase())) {
-                    console.warn("GPS/Network mismatch detected. Possible location spoofing.");
-                }
             }
 
             let detectedAddress = "Location captured";
@@ -148,12 +151,20 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
                     address: detectedAddress,
                     city: geoData?.address?.city || geoData?.address?.town || geoData?.address?.village || null,
                     networkLocation: netData ? `${netData.city}, ${netData.region}, ${netData.country_name}` : null,
+                    notes: providedNote,
                 }),
             });
 
             const data = await res.json();
 
             if (!data.success) {
+                // If the error is due to location, prompt for a note
+                if (data.error?.includes("radius") || data.error?.includes("required location")) {
+                    setPendingAction(action);
+                    setShowNoteDialog(true);
+                    setIsLoading(false);
+                    return;
+                }
                 toast.error(data.error || `Failed to ${action.replace("-", " ")}`);
                 setIsLoading(false);
                 return;
@@ -167,6 +178,17 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
                 setAddress(data.data.checkOutAddress);
             }
             setStatus(action === "check-in" ? "CHECKED_IN" : "CHECKED_OUT");
+            setShowNoteDialog(false);
+            setNote("");
+
+            // 🚀 INSTANT UI UPDATE: Notify the table immediately
+            window.dispatchEvent(new CustomEvent("realtime-sync-refresh", {
+                detail: {
+                    action: action === "check-in" ? "CHECKED_IN" : "CHECKED_OUT",
+                    record: data.data,
+                    isActor: true
+                }
+            }));
 
         } catch (error: any) {
             console.error(`Attendance ${action} error:`, error);
@@ -175,6 +197,16 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
         } finally {
             setIsLoading(false);
             setIsVerifying(false);
+        }
+    };
+
+    const submitWithNote = async () => {
+        if (!note.trim()) {
+            toast.error("Please provide a reason.");
+            return;
+        }
+        if (pendingAction) {
+            await handleAttendanceAction(pendingAction, note);
         }
     };
 
@@ -194,8 +226,7 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
                     </div>
                 </div>
                 <div className="mt-3 flex items-center gap-1.5 px-2 py-0.5 bg-primary/10 border border-primary/20 rounded-full w-fit">
-                    <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-                    <span className="text-[10px] font-bold text-primary uppercase tracking-wider">High Accuracy GPS Required</span>
+                    <span className="text-[10px] font-normal uppercase tracking-wider">High Accuracy GPS Required</span>
                 </div>
             </div>
 
@@ -284,7 +315,7 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
                                     )}
                                 </div>
                             </div>
-                            
+
                             <Button
                                 variant="destructive"
                                 size="lg"
@@ -302,7 +333,7 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
                         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
                             <div className="grid grid-cols-1 gap-3">
                                 <div className="bg-muted/30 p-4 rounded-xl border border-border/50 relative overflow-hidden group">
-                                     <div className="flex flex-col gap-1">
+                                    <div className="flex flex-col gap-1">
                                         <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Session Log</span>
                                         <div className="flex items-center justify-between mt-1">
                                             <div className="flex flex-col">
@@ -319,8 +350,8 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
                                                 </span>
                                             </div>
                                         </div>
-                                     </div>
-                                     {record.checkOutAddress && (
+                                    </div>
+                                    {record.checkOutAddress && (
                                         <p className="text-[9px] text-muted-foreground/60 mt-3 font-medium truncate italic border-t pt-2 border-border/30">
                                             Last Loc: {record.checkOutAddress}
                                         </p>
@@ -338,6 +369,48 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
                     )}
                 </div>
             </div>
+
+            <Dialog open={showNoteDialog} onOpenChange={setShowNoteDialog}>
+                <DialogContent className="sm:max-w-[425px] rounded-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-xl">
+                            <MapPin className="h-5 w-5 text-destructive" />
+                            Outside Work Location
+                        </DialogTitle>
+                        <DialogDescription className="text-xs font-medium mt-2">
+                            You are currently outside the authorized work radius. Please provide a reason for marking attendance from this location.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <Textarea
+                            placeholder="Reason for off-site attendance (e.g., Client meeting, On-site visit, Home office...)"
+                            value={note}
+                            onChange={(e) => setNote(e.target.value)}
+                            className="min-h-[100px] rounded-xl bg-muted/30 border-primary/10 focus:border-primary/30 transition-all resize-none"
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button 
+                            variant="outline" 
+                            onClick={() => {
+                                setShowNoteDialog(false);
+                                setNote("");
+                            }}
+                            className="rounded-xl"
+                        >
+                            Cancel
+                        </Button>
+                        <Button 
+                            onClick={submitWithNote}
+                            disabled={isLoading || !note.trim()}
+                            className="gap-2 rounded-xl"
+                        >
+                            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
+                            Submit Attendance
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
