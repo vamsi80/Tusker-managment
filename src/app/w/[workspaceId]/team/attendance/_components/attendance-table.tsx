@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { DataTable } from "@/components/data-table/data-table";
 import { ColumnDef } from "@tanstack/react-table";
-import { format } from "date-fns";
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, isSameMonth } from "date-fns";
 import { APP_DATE_FORMAT, cn } from "@/lib/utils";
 import { WorkspaceMemberRow } from "@/types/workspace";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,7 @@ import { useMounted } from "@/hooks/use-mounted";
 import { Button } from "@/components/ui/button";
 import { apiClient } from "@/lib/api-client";
 import { toast } from "sonner";
-import { UserMinus, Loader2, LogIn } from "lucide-react";
+import { UserMinus, Loader2, LogIn, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { AttendanceLogger } from "./attendance-logger";
 import { Calendar as ShadcnCalendar } from "@/components/ui/calendar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -65,6 +65,8 @@ export function AttendanceTable({
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(10);
 
+    const [selectedDate, setSelectedDate] = useState(new Date());
+
     // Main filters state (synced with API)
     const [activeFilters, setActiveFilters] = useState<{
         from: Date | undefined;
@@ -72,8 +74,8 @@ export function AttendanceTable({
         memberId: string | undefined;
         status: string | undefined;
     }>({
-        from: undefined,
-        to: undefined,
+        from: startOfMonth(new Date()),
+        to: endOfMonth(new Date()),
         memberId: undefined,
         status: undefined,
     });
@@ -96,10 +98,10 @@ export function AttendanceTable({
         const handler = (e: any) => {
             const { action, record, oldRecord } = e.detail || {};
             const flatRecord = flattenRecord(record);
-            
-            console.log(`[AttendanceTable][SURGICAL_V2] 🔄 Event received: ${action}`, { 
-                record: flatRecord, 
-                original: record 
+
+            console.log(`[AttendanceTable][SURGICAL_V2] 🔄 Event received: ${action}`, {
+                record: flatRecord,
+                original: record
             });
 
             // 1. Handle New Check-ins
@@ -138,7 +140,7 @@ export function AttendanceTable({
             // Fallback for unknown structural changes
             if (action === "team_update" || !action) {
                 console.log(`[AttendanceTable] ⚠️ Unknown action, falling back to fetch...`);
-                fetchRecords(true, true); 
+                fetchRecords(true, true);
             }
         };
         window.addEventListener("realtime-sync-refresh", handler);
@@ -177,6 +179,16 @@ export function AttendanceTable({
     }, [slimMembers]);
 
     const isValidDate = (d: any) => d instanceof Date && !isNaN(d.getTime());
+
+    const handleMonthChange = (direction: 'prev' | 'next') => {
+        const newDate = direction === 'prev' ? subMonths(selectedDate, 1) : addMonths(selectedDate, 1);
+        setSelectedDate(newDate);
+        setActiveFilters(prev => ({
+            ...prev,
+            from: startOfMonth(newDate),
+            to: endOfMonth(newDate)
+        }));
+    };
 
     const fetchRecords = useCallback(async (force = false, silent = false) => {
         try {
@@ -217,12 +229,12 @@ export function AttendanceTable({
             setLoading(false);
         }
     }, [
-        workspaceId, 
-        pageIndex, 
-        pageSize, 
-        activeFilters.from?.getTime(), 
-        activeFilters.to?.getTime(), 
-        activeFilters.memberId, 
+        workspaceId,
+        pageIndex,
+        pageSize,
+        activeFilters.from?.getTime(),
+        activeFilters.to?.getTime(),
+        activeFilters.memberId,
         activeFilters.status
     ]);
 
@@ -393,7 +405,7 @@ export function AttendanceTable({
                 try {
                     const start = new Date(checkIn);
                     const end = new Date(checkOut);
-                    
+
                     if (!isValidDate(start) || !isValidDate(end)) return <div className="text-xs text-muted-foreground italic">—</div>;
 
                     const diffMs = end.getTime() - start.getTime();
@@ -780,10 +792,36 @@ export function AttendanceTable({
 
             <div className="lg:col-span-2 sticky top-6">
                 <div className="space-y-6">
+                    {/* Month Navigator - Clean Full Width Style */}
+                    <div className="flex items-center justify-between px-1">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-full hover:bg-primary/10 hover:text-primary transition-all active:scale-90"
+                            onClick={() => handleMonthChange('prev')}
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <div className="flex flex-col items-center">
+                            {/* <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60 leading-none mb-1">Period</span> */}
+                            <span className="text-sm font-bold text-foreground tracking-tight">
+                                {format(selectedDate, "MMMM yyyy")}
+                            </span>
+                        </div>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-full hover:bg-primary/10 hover:text-primary transition-all active:scale-90"
+                            onClick={() => handleMonthChange('next')}
+                        >
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+
                     {/* Main Stats Card */}
-                    <div className="p-4 rounded-lg border bg-card/30 backdrop-blur-md border-muted-foreground/20 relative overflow-hidden group">
+                    <div className="p-4 rounded-xl border bg-card/30 backdrop-blur-md border-muted-foreground/20 relative overflow-hidden group shadow-sm">
                         <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-6 flex items-center gap-2">
-                            <Filter className="h-4 w-4" />
+                            <CalendarDays className="h-4 w-4 text-primary" />
                             Summary
                         </h3>
 

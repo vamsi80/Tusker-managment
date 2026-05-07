@@ -5,7 +5,9 @@ export interface CheckInParams {
     userId: string;
     latitude?: number;
     longitude?: number;
+    accuracy?: number;
     address?: string;
+    city?: string;
     networkLocation?: string;
 }
 
@@ -14,7 +16,9 @@ export interface CheckOutParams {
     userId: string;
     latitude?: number;
     longitude?: number;
+    accuracy?: number;
     address?: string;
+    city?: string;
     networkLocation?: string;
 }
 

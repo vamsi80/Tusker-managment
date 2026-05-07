@@ -30,9 +30,7 @@ export function MarkAttendanceButton({ workspaceId }: { workspaceId: string }) {
                 <DialogDescription className="sr-only">
                     Open the attendance logger to check in or out for the day.
                 </DialogDescription>
-                <div className="bg-card text-card-foreground shadow-lg sm:rounded-xl overflow-hidden border">
-                    <AttendanceLogger workspaceId={workspaceId} />
-                </div>
+                <AttendanceLogger workspaceId={workspaceId} />
             </DialogContent>
         </Dialog>
     );
