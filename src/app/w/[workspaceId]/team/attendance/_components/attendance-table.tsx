@@ -270,6 +270,7 @@ export function AttendanceTable({
             id: "memberId",
             accessorKey: "WorkspaceMember.user.name",
             header: "Member",
+            meta: { className: "min-w-[200px]" },
             cell: ({ row }) => {
                 const user = row.original.WorkspaceMember?.user;
                 if (!user) return <div className="text-sm italic text-muted-foreground">Unknown Member</div>;
@@ -280,15 +281,15 @@ export function AttendanceTable({
 
                 return (
                     <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9">
+                        <Avatar className="h-9 w-9 border">
                             <AvatarImage src={image} alt={name} />
                             <AvatarFallback>{initials}</AvatarFallback>
                         </Avatar>
                         <div className="flex flex-col">
-                            <span className="font-medium text-sm">
+                            <span className="font-bold text-sm text-foreground">
                                 {user.surname}
                             </span>
-                            <span className="text-xs text-muted-foreground truncate max-w-[140px]">
+                            <span className="text-[10px] text-muted-foreground/80 truncate max-w-[140px] font-medium">
                                 {user.email}
                             </span>
                         </div>
@@ -299,13 +300,14 @@ export function AttendanceTable({
         {
             accessorKey: "date",
             header: "Date",
+            meta: { className: "min-w-[120px]" },
             cell: ({ row }) => {
                 if (!mounted) return "...";
                 try {
                     const d = new Date(row.original.date);
                     if (!isValidDate(d)) return <span className="text-xs text-muted-foreground italic">Invalid Date</span>;
                     return (
-                        <div className="font-medium text-sm">
+                        <div className="font-bold text-sm text-foreground/80">
                             {format(d, APP_DATE_FORMAT)}
                         </div>
                     );
@@ -316,7 +318,8 @@ export function AttendanceTable({
         },
         {
             accessorKey: "checkIn",
-            header: "In",
+            header: "Check-In",
+            meta: { className: "min-w-[110px]" },
             cell: ({ row }) => {
                 if (!mounted) return "...";
                 const checkIn = row.original.checkIn;
@@ -326,8 +329,8 @@ export function AttendanceTable({
                     if (!isValidDate(d)) return <div className="text-xs text-muted-foreground italic">—</div>;
                     return (
                         <div className="flex flex-col items-start">
-                            <div className="flex items-center gap-1.5 text-sm font-medium">
-                                <Clock className="h-3.5 w-3.5 text-emerald-500" />
+                            <div className="flex items-center gap-1.5 text-sm font-bold text-emerald-600">
+                                <Clock className="h-3.5 w-3.5" />
                                 {format(d, "hh:mm a")}
                             </div>
                         </div>
@@ -339,7 +342,8 @@ export function AttendanceTable({
         },
         {
             id: "inLocation",
-            header: "In Location",
+            header: "In-Location",
+            meta: { className: "min-w-[150px]" },
             cell: ({ row }) => {
                 const lat = row.original.checkInLatitude;
                 const lng = row.original.checkInLongitude;
@@ -348,19 +352,19 @@ export function AttendanceTable({
 
                 if (!lat || !lng) return <div className="text-xs text-muted-foreground italic">—</div>;
                 return (
-                    <div className="flex justify-start max-w-[180px]">
+                    <div className="flex justify-start">
                         <a
                             href={`https://www.google.com/maps?q=${lat},${lng}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className={cn(
-                                "flex items-center gap-1.5 text-[10px] hover:underline transition-all group truncate",
+                                "flex items-center gap-1.5 text-[10px] hover:underline transition-all group",
                                 hasNote ? "text-rose-600 font-bold" : "text-primary/70 hover:text-primary"
                             )}
                             title={address || `Raw coordinates: ${lat}, ${lng}`}
                         >
                             <MapPin className={cn("h-3 w-3 shrink-0 group-hover:scale-110 transition-transform", hasNote ? "text-rose-600" : "text-rose-500")} />
-                            <span className="truncate uppercase tracking-tighter">
+                            <span className="truncate uppercase tracking-tighter max-w-[120px]">
                                 {hasNote ? "Other Location" : (address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`)}
                             </span>
                         </a>
@@ -370,7 +374,8 @@ export function AttendanceTable({
         },
         {
             accessorKey: "checkOut",
-            header: "Out",
+            header: "Check-Out",
+            meta: { className: "min-w-[110px]" },
             cell: ({ row }) => {
                 if (!mounted) return "...";
                 const checkIn = row.original.checkIn;
@@ -388,8 +393,8 @@ export function AttendanceTable({
 
                     return (
                         <div className="flex flex-col items-start gap-1">
-                            <div className="flex items-center gap-1.5 text-sm font-medium">
-                                <Clock className="h-3.5 w-3.5 text-rose-500" />
+                            <div className="flex items-center gap-1.5 text-sm font-bold text-rose-600">
+                                <Clock className="h-3.5 w-3.5" />
                                 {format(dOut, "hh:mm a")}
                                 {isNextDay && (
                                     <Badge variant="outline" className="px-1 py-0 h-4 text-[9px] font-bold border-amber-200 bg-amber-50 text-amber-600">
@@ -406,7 +411,8 @@ export function AttendanceTable({
         },
         {
             id: "outLocation",
-            header: "Out Location",
+            header: "Out-Location",
+            meta: { className: "min-w-[150px]" },
             cell: ({ row }) => {
                 const lat = row.original.checkOutLatitude;
                 const lng = row.original.checkOutLongitude;
@@ -415,19 +421,19 @@ export function AttendanceTable({
 
                 if (!lat || !lng) return <div className="text-xs text-muted-foreground italic">—</div>;
                 return (
-                    <div className="flex justify-start max-w-[180px]">
+                    <div className="flex justify-start">
                         <a
                             href={`https://www.google.com/maps?q=${lat},${lng}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className={cn(
-                                "flex items-center gap-1.5 text-[10px] hover:underline transition-all group truncate",
+                                "flex items-center gap-1.5 text-[10px] hover:underline transition-all group",
                                 hasNote ? "text-rose-600 font-bold" : "text-primary/70 hover:text-primary"
                             )}
                             title={address || `Raw coordinates: ${lat}, ${lng}`}
                         >
                             <MapPin className={cn("h-3 w-3 shrink-0 group-hover:scale-110 transition-transform", hasNote ? "text-rose-600" : "text-rose-500")} />
-                            <span className="truncate uppercase tracking-tighter">
+                            <span className="truncate uppercase tracking-tighter max-w-[120px]">
                                 {hasNote ? "Other Location" : (address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`)}
                             </span>
                         </a>
@@ -438,6 +444,7 @@ export function AttendanceTable({
         {
             id: "duration",
             header: "Duration",
+            meta: { className: "min-w-[100px]" },
             cell: ({ row }) => {
                 if (!mounted) return "...";
                 const checkIn = row.original.checkIn;
@@ -471,27 +478,28 @@ export function AttendanceTable({
         {
             accessorKey: "status",
             header: "Status",
+            meta: { className: "min-w-[120px]" },
             cell: ({ row }) => {
                 const status = row.original.status;
                 let content;
                 switch (status) {
                     case "PRESENT":
-                        content = <Badge className="bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 border-emerald-500/20">Present</Badge>;
+                        content = <Badge className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border-emerald-500/20 font-bold">Present</Badge>;
                         break;
                     case "ABSENT":
-                        content = <Badge variant="destructive">Absent</Badge>;
+                        content = <Badge variant="destructive" className="font-bold">Absent</Badge>;
                         break;
                     case "LATE":
-                        content = <Badge className="bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 border-amber-500/20">Late</Badge>;
+                        content = <Badge className="bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 border-amber-500/20 font-bold">Late</Badge>;
                         break;
                     case "HALF_DAY":
-                        content = <Badge className="bg-orange-500/10 text-orange-600 hover:bg-orange-500/20 border-orange-500/20">Half Day</Badge>;
+                        content = <Badge className="bg-orange-500/10 text-orange-600 hover:bg-orange-500/20 border-orange-500/20 font-bold">Half Day</Badge>;
                         break;
                     case "ON_LEAVE":
-                        content = <Badge className="bg-purple-500/10 text-purple-600 hover:bg-purple-500/20 border-purple-500/20">On Leave</Badge>;
+                        content = <Badge className="bg-purple-500/10 text-purple-600 hover:bg-purple-500/20 border-purple-500/20 font-bold">On Leave</Badge>;
                         break;
                     default:
-                        content = <Badge variant="outline">{status}</Badge>;
+                        content = <Badge variant="outline" className="font-bold">{status}</Badge>;
                 }
                 return (
                     <div className="flex justify-start items-center gap-2">
@@ -508,11 +516,12 @@ export function AttendanceTable({
         {
             accessorKey: "notes",
             header: "Notes",
+            meta: { className: "min-w-[200px]" },
             cell: ({ row }) => {
                 const notes = row.original.notes;
                 if (!notes) return <div className="text-xs text-muted-foreground italic">—</div>;
                 return (
-                    <div className="max-w-[200px] truncate text-xs font-medium text-foreground/70" title={notes}>
+                    <div className="max-w-[200px] truncate text-xs font-bold text-foreground/60" title={notes}>
                         {notes}
                     </div>
                 );
@@ -630,7 +639,7 @@ export function AttendanceTable({
                         className="gap-2 relative h-9 px-3 border shadow-sm hover:bg-accent/50 transition-colors"
                     >
                         <Filter className="h-4 w-4" />
-                        <span className="font-medium text-sm">Filter</span>
+                        <span className="font-medium text-sm">Filters</span>
                         {activeFilterCount > 0 && (
                             <Badge
                                 variant="destructive"
@@ -651,7 +660,7 @@ export function AttendanceTable({
                     <div className="flex items-center justify-between border-b bg-muted/30 px-5 py-4">
                         <div className="flex items-center gap-2">
                             <Filter className="h-4 w-4 text-primary" />
-                            <h3 className="text-base font-bold text-foreground">Filter Records</h3>
+                            <h3 className="text-base font-bold text-foreground">Filters</h3>
                         </div>
                         <Button
                             variant="ghost"
@@ -723,10 +732,10 @@ export function AttendanceTable({
                                     onValueChange={(val) => setTempFilters(prev => ({ ...prev, status: val === "all" ? undefined : val }))}
                                 >
                                     <SelectTrigger className="h-10 bg-background/50 border-muted-foreground/20 focus:ring-primary/20">
-                                        <SelectValue placeholder="All Statuses" />
+                                        <SelectValue placeholder="All Status" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="all">All Statuses</SelectItem>
+                                        <SelectItem value="all">All Status</SelectItem>
                                         <SelectItem value="PRESENT" className="text-sm">Present</SelectItem>
                                         <SelectItem value="ABSENT" className="text-sm">Absent</SelectItem>
                                         <SelectItem value="LATE" className="text-sm">Late</SelectItem>

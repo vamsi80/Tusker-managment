@@ -167,6 +167,7 @@ export interface ProjectOption {
 export interface MemberOption {
     id: string;
     surname?: string;
+    name?: string;
 }
 
 /**
