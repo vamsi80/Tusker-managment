@@ -7,7 +7,7 @@ import {
     DataTableCellAction,
 } from "@/components/data-table/column-helpers";
 import { Eye, Edit, Trash, Mail } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { type WorkspaceMemberRow } from "@/types/workspace";
 
 import { cn } from "@/lib/utils";
@@ -121,7 +121,7 @@ export function createTeamMemberColumns(
 
                 return (
                     <div className={cn(
-                        "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+                        "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
                         isVerified
                             ? "bg-green-500/10 text-green-500 hover:bg-green-500/20"
                             : "bg-amber-500/10 text-amber-500 hover:bg-amber-500/20"

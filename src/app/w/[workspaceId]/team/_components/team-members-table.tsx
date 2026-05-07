@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -253,15 +253,12 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination }: TeamMemb
                         <div className="space-y-4 py-4">
                             <div className="flex items-center gap-4">
                                 <Avatar className="h-16 w-16">
-                                    <AvatarImage
-                                        alt={memberToView.name || ""}
-                                    />
                                     <AvatarFallback className="text-xl">
                                         {memberToView.name?.charAt(0) || "?"}
                                     </AvatarFallback>
                                 </Avatar>
                                 <div>
-                                    <h3 className="text-lg font-semibold">
+                                    <h3 className="text-lg font-medium">
                                         {memberToView.name}
                                     </h3>
                                     <p className="text-sm text-muted-foreground">
@@ -294,7 +291,7 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination }: TeamMemb
                                         const isVerified = memberToView.status === "Verified";
                                         return (
                                             <span className={cn(
-                                                "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold border-transparent",
+                                                "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium border-transparent",
                                                 isVerified
                                                     ? "bg-green-500/10 text-green-500"
                                                     : "bg-amber-500/10 text-amber-500"
@@ -472,7 +469,7 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination }: TeamMemb
                         <AlertDialogTitle>Remove Member</AlertDialogTitle>
                         <AlertDialogDescription>
                             Are you sure you want to remove{" "}
-                            <span className="font-semibold">
+                            <span className="font-medium">
                                 {memberToDelete?.name}
                             </span>{" "}
                             from this workspace? They will lose access to all projects

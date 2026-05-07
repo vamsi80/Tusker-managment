@@ -10,7 +10,7 @@ import { useMounted } from "@/hooks/use-mounted";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Check, X, Loader2, Calendar as CalendarIcon, User, Info } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTeamQueryStore } from "@/lib/store/team-query-store";
 import {
@@ -89,10 +89,10 @@ export function LeavesTable({
         const handler = (e: any) => {
             const { action, record, oldRecord } = e.detail || {};
             const flatRecord = flattenRecord(record);
-            
-            console.log(`[LeavesTable][SURGICAL_V2] 🔄 Event received: ${action}`, { 
-                record: flatRecord, 
-                original: record 
+
+            console.log(`[LeavesTable][SURGICAL_V2] 🔄 Event received: ${action}`, {
+                record: flatRecord,
+                original: record
             });
 
             // 1. Handle New Requests
@@ -131,7 +131,7 @@ export function LeavesTable({
             // Fallback only for generic/unknown changes
             if (action === "team_update" || !action) {
                 console.log(`[LeavesTable] ⚠️ Unknown action, falling back to fetch...`);
-                fetchRequests(true, true); 
+                fetchRequests(true, true);
             }
         };
         window.addEventListener("realtime-sync-refresh", handler);
@@ -192,24 +192,21 @@ export function LeavesTable({
             header: "Member",
             cell: ({ row }) => {
                 const leave = row.original;
-                const name = leave.surname || leave.name || "Member";
-                const initials = (leave.name?.[0] || leave.surname?.[0] || "M").toUpperCase();
-                const image = leave.image || "";
+                const initials = (leave.name?.[0] || leave.surname?.[0]).toUpperCase();
 
                 return (
                     <Dialog>
                         <DialogTrigger asChild>
                             <div className="flex items-center gap-3 cursor-pointer group">
-                                <Avatar className="h-9 w-9 border-2 border-background shadow-sm group-hover:scale-105 transition-transform">
-                                    <AvatarImage src={image} alt={name} />
-                                    <AvatarFallback className="bg-primary/5 text-primary font-bold">{initials}</AvatarFallback>
+                                <Avatar className="h-9 w-9">
+                                    <AvatarFallback>{initials}</AvatarFallback>
                                 </Avatar>
                                 <div className="flex flex-col">
-                                    <span className="font-semibold text-sm group-hover:text-primary transition-colors">
+                                    <span className="font-medium text-sm group-hover:text-primary transition-colors">
                                         {leave.surname}
                                     </span>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded uppercase font-bold">
+                                        <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded uppercase font-medium">
                                             Bal: {leave.type === "CASUAL" ? `C:${leave.casualLeaveBalance}` : `S:${leave.sickLeaveBalance}`}
                                         </span>
                                     </div>
@@ -220,37 +217,36 @@ export function LeavesTable({
                             <div className="p-8 space-y-6">
                                 <DialogHeader className="flex flex-row items-center gap-4">
                                     <Avatar className="h-16 w-16 border-2 border-primary/20">
-                                        <AvatarImage src={image} alt={name} />
-                                        <AvatarFallback className="text-xl font-black">{initials}</AvatarFallback>
+                                        <AvatarFallback className="text-xl font-medium">{initials}</AvatarFallback>
                                     </Avatar>
                                     <div>
-                                        <DialogTitle className="text-2xl font-black">{leave.name} {leave.surname}</DialogTitle>
+                                        <DialogTitle className="text-2xl font-medium">{leave.name} {leave.surname}</DialogTitle>
                                         <p className="text-sm text-muted-foreground font-medium">{leave.email}</p>
                                     </div>
                                 </DialogHeader>
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="p-4 rounded-2xl bg-muted/30 border border-muted-foreground/5 space-y-1">
-                                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Leave Type</p>
-                                        <p className="font-bold flex items-center gap-2 capitalize">
+                                        <p className="text-[10px] font-medium uppercase text-muted-foreground tracking-widest">Leave Type</p>
+                                        <p className="font-medium flex items-center gap-2 capitalize">
                                             <span className={cn("h-2 w-2 rounded-full", leave.type === 'SICK' ? "bg-rose-500" : "bg-blue-500")} />
                                             {leave.type.toLowerCase()} Leave
                                         </p>
                                     </div>
                                     <div className="p-4 rounded-2xl bg-muted/30 border border-muted-foreground/5 space-y-1">
-                                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Status</p>
-                                        <p className="font-bold capitalize">{leave.status.toLowerCase()}</p>
+                                        <p className="text-[10px] font-medium uppercase text-muted-foreground tracking-widest">Status</p>
+                                        <p className="font-medium capitalize">{leave.status.toLowerCase()}</p>
                                     </div>
                                     <div className="col-span-2 p-4 rounded-2xl bg-muted/30 border border-muted-foreground/5 space-y-1">
-                                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Duration</p>
-                                        <p className="font-bold">
+                                        <p className="text-[10px] font-medium uppercase text-muted-foreground tracking-widest">Duration</p>
+                                        <p className="font-medium">
                                             {format(new Date(leave.startDate), "MMMM d")} - {format(new Date(leave.endDate), "MMMM d, yyyy")}
                                         </p>
                                     </div>
                                 </div>
 
                                 <div className="space-y-2">
-                                    <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Reason for Application</p>
+                                    <p className="text-[10px] font-medium uppercase text-muted-foreground tracking-widest">Reason for Application</p>
                                     <div className="p-5 rounded-2xl bg-muted/50 border border-dashed border-muted-foreground/20 italic text-sm leading-relaxed text-muted-foreground">
                                         "{leave.reason}"
                                     </div>
@@ -259,14 +255,14 @@ export function LeavesTable({
                                 {leave.status === "PENDING" && (isOwnerOrAdmin || leave.reportToId === currentMemberId) && (
                                     <div className="flex gap-3 pt-4">
                                         <Button
-                                            className="flex-1 rounded-2xl h-12 bg-emerald-600 hover:bg-emerald-700 font-bold"
+                                            className="flex-1 rounded-2xl h-12 bg-emerald-600 hover:bg-emerald-700 font-medium"
                                             onClick={() => handleUpdateStatus(leave.id, "APPROVED")}
                                         >
                                             Approve Request
                                         </Button>
                                         <Button
                                             variant="outline"
-                                            className="flex-1 rounded-2xl h-12 border-rose-200 text-rose-600 hover:bg-rose-50 font-bold"
+                                            className="flex-1 rounded-2xl h-12 border-rose-200 text-rose-600 hover:bg-rose-50 font-medium"
                                             onClick={() => handleUpdateStatus(leave.id, "REJECTED")}
                                         >
                                             Reject
@@ -286,7 +282,7 @@ export function LeavesTable({
                 const type = row.original.type;
                 return (
                     <Badge variant="outline" className={cn(
-                        "font-bold uppercase text-[10px] tracking-wider",
+                        "font-medium uppercase text-[10px] tracking-wider",
                         type === "SICK" ? "border-rose-200 text-rose-600 bg-rose-50/50" : "border-blue-200 text-blue-600 bg-blue-50/50"
                     )}>
                         {type}
@@ -309,7 +305,7 @@ export function LeavesTable({
                             <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
                             {format(start, "MMM d")} - {format(end, "MMM d, yyyy")}
                         </div>
-                        <span className="text-[10px] font-bold text-muted-foreground uppercase">
+                        <span className="text-[10px] font-medium text-muted-foreground uppercase">
                             {days} {days === 1 ? 'Day' : 'Days'}
                         </span>
                     </div>
@@ -342,14 +338,14 @@ export function LeavesTable({
                 let content;
                 switch (status) {
                     case "APPROVED":
-                        content = <Badge className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border-emerald-500/20 px-2.5 py-0.5 rounded-full font-bold">Approved</Badge>;
+                        content = <Badge className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border-emerald-500/20 px-2.5 py-0.5 rounded-full font-medium">Approved</Badge>;
                         break;
                     case "REJECTED":
-                        content = <Badge variant="destructive" className="px-2.5 py-0.5 rounded-full font-bold">Rejected</Badge>;
+                        content = <Badge variant="destructive" className="px-2.5 py-0.5 rounded-full font-medium">Rejected</Badge>;
                         break;
                     case "PENDING":
                     default:
-                        content = <Badge className="bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 border-amber-500/20 px-2.5 py-0.5 rounded-full font-bold">Pending</Badge>;
+                        content = <Badge className="bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 border-amber-500/20 px-2.5 py-0.5 rounded-full font-medium">Pending</Badge>;
                 }
                 return content;
             },

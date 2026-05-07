@@ -216,70 +216,109 @@ export function WorkspaceGanttClient({
     });
   };
 
-  const handleRequestSubtasks = async (taskId: string) => {
-    if (fetchingIdsRef.current.has(taskId)) return;
-    
-    // Removed cache bypass logic for "Zero-Optimistic" architecture.
+  const batchQueueRef = useRef<string[]>([]);
+  const batchTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-    fetchingIdsRef.current.add(taskId);
-    setLoadingSubtasks(prev => new Set(prev).add(taskId));
+  const handleRequestSubtasks = (taskId: string) => {
+    if (fetchingIdsRef.current.has(taskId)) return;
+
+    // 🚀 BUFFER: Add to queue and schedule flush
+    if (!batchQueueRef.current.includes(taskId)) {
+      batchQueueRef.current.push(taskId);
+    }
+
+    if (!batchTimerRef.current) {
+      batchTimerRef.current = setTimeout(() => {
+        flushSubtaskBatch();
+      }, 80); // Small 80ms window to catch 'Expand All' or scrolling bursts
+    }
+  };
+
+  const flushSubtaskBatch = async () => {
+    const idsToFetch = [...batchQueueRef.current];
+    batchQueueRef.current = [];
+    batchTimerRef.current = null;
+
+    if (idsToFetch.length === 0) return;
+
+    // 1. Mark as loading immediately
+    idsToFetch.forEach(id => fetchingIdsRef.current.add(id));
+    setLoadingSubtasks(prev => {
+      const next = new Set(prev);
+      idsToFetch.forEach(id => next.add(id));
+      return next;
+    });
 
     try {
-      const params = new URLSearchParams();
-      params.set("w", workspaceId);
-      params.set("ids", taskId);
-      params.set("vm", "gantt");
-      params.set("ps", "30"); // 🚀 Matches List view initial expansion
+      // 🚀 BATCH API: Fetch multiple expansions in one POST request
+      const response = await fetch(`/api/v1/tasks/expansion/batch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ids: idsToFetch,
+          workspaceId,
+          projectId: filters.projectId,
+          viewMode: "gantt",
+          pageSize: 30,
+          filters: {
+            status: filters.status,
+            assigneeId: filters.assigneeId,
+            tagId: filters.tagId,
+            search: searchQuery,
+            dueAfter: filters.startDate ? new Date(filters.startDate).toISOString() : undefined,
+            dueBefore: filters.endDate ? new Date(filters.endDate).toISOString() : undefined,
+            dueDateType: filters.dueDateFilter
+          }
+        })
+      });
 
-      if (filters.status) params.append("s", JSON.stringify(filters.status));
-      if (filters.assigneeId) params.append("a", JSON.stringify(filters.assigneeId));
-      if (filters.tagId) params.append("t", JSON.stringify(filters.tagId));
-      if (filters.dueDateFilter) params.append("dt", filters.dueDateFilter);
-      if (searchQuery) params.append("q", searchQuery);
-      if (filters.startDate) params.set("da", new Date(filters.startDate).toISOString());
-      if (filters.endDate) params.set("db", new Date(filters.endDate).toISOString());
+      const json = await response.json();
 
-      const fetchUrl = `/api/v1/tasks/expansion/batch?${params.toString()}`;
-      const res = await fetch(fetchUrl);
-      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        // 2. Process all results
+        const newLocalData: any = {};
 
-      if (json.success && json.data?.length > 0) {
-        const batchResult = json.data[0];
-        const subTasks = batchResult.subTasks || [];
+        setTasks(prev => {
+          let updatedTasks = [...prev];
+          
+          json.data.forEach((batchResult: any) => {
+            const tid = batchResult.parentTaskId;
+            const subTasks = batchResult.subTasks || [];
+            
+            // Collect for local map
+            subTasks.forEach((st: any) => {
+              newLocalData[st.id] = st;
+            });
 
-        const transformedSubtasks = transformToGanttSubtasks(subTasks);
-        setTasks(prev => prev.map(t =>
-          t.id === taskId ? { 
-            ...t, 
-            subtasks: transformedSubtasks,
-            hasMoreSubtasks: batchResult.hasMore,
-            subtaskCursor: batchResult.nextCursor
-          } : t
-        ));
-
-        // 🚀 Hydrate local map with expanded subtasks
-        setLocalTaskDataMap(prev => {
-          const next = { ...prev };
-          subTasks.forEach((st: any) => {
-            next[st.id] = st;
+            const transformed = transformToGanttSubtasks(subTasks);
+            
+            updatedTasks = updatedTasks.map(t => 
+              t.id === tid ? {
+                ...t,
+                subtasks: transformed,
+                hasMoreSubtasks: batchResult.hasMore,
+                subtaskCursor: batchResult.nextCursor
+              } : t
+            );
           });
-          return next;
+
+          return updatedTasks;
         });
-      } else {
-        setTasks(prev => prev.map(t =>
-          t.id === taskId ? { ...t, subtasks: [], hasMoreSubtasks: false } : t
-        ));
+
+        // 3. Hydrate local data map
+        setLocalTaskDataMap(prev => ({ ...prev, ...newLocalData }));
       }
     } catch (err) {
-      console.error("[Workspace Gantt] Expansion failed for:", taskId, err);
-      setTasks(prev => prev.map(t =>
-        t.id === taskId ? { ...t, subtasks: undefined } : t
+      console.error("[Workspace Gantt] Batch expansion failed:", err);
+      // Fallback: Clear loading state for these IDs so they can be retried
+      setTasks(prev => prev.map(t => 
+        idsToFetch.includes(t.id) ? { ...t, subtasks: undefined } : t
       ));
     } finally {
-      fetchingIdsRef.current.delete(taskId);
+      idsToFetch.forEach(id => fetchingIdsRef.current.delete(id));
       setLoadingSubtasks(prev => {
         const next = new Set(prev);
-        next.delete(taskId);
+        idsToFetch.forEach(id => next.delete(id));
         return next;
       });
     }

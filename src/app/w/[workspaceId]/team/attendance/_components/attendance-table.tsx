@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { UserMinus, Loader2, LogIn, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { AttendanceLogger } from "./attendance-logger";
 import { Calendar as ShadcnCalendar } from "@/components/ui/calendar";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MapPin, Clock, Filter, X, Calendar as CalendarIcon } from "lucide-react";
@@ -41,7 +41,7 @@ interface AttendanceRecord {
         sickLeaveBalance: number;
         user: {
             name: string;
-            surname: string | null;
+            surname: string;
             email: string;
         };
     };
@@ -274,22 +274,17 @@ export function AttendanceTable({
             cell: ({ row }) => {
                 const user = row.original.WorkspaceMember?.user;
                 if (!user) return <div className="text-sm italic text-muted-foreground">Unknown Member</div>;
-
-                const name = user.surname || "Member";
-                const initials = (user.name?.[0] || user.surname?.[0] || "M").toUpperCase();
-                const image = (user as any).image || "";
-
+                const initials = (user.surname?.[0]).toUpperCase();
                 return (
                     <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9 border">
-                            <AvatarImage src={image} alt={name} />
+                        <Avatar className="h-9 w-9">
                             <AvatarFallback>{initials}</AvatarFallback>
                         </Avatar>
                         <div className="flex flex-col">
-                            <span className="font-bold text-sm text-foreground">
+                            <span className="font-medium text-sm text-foreground">
                                 {user.surname}
                             </span>
-                            <span className="text-[10px] text-muted-foreground/80 truncate max-w-[140px] font-medium">
+                            <span className="text-[10px] text-muted-foreground/80 truncate max-w-[140px]">
                                 {user.email}
                             </span>
                         </div>
@@ -307,7 +302,7 @@ export function AttendanceTable({
                     const d = new Date(row.original.date);
                     if (!isValidDate(d)) return <span className="text-xs text-muted-foreground italic">Invalid Date</span>;
                     return (
-                        <div className="font-bold text-sm text-foreground/80">
+                        <div className="text-sm text-foreground/80">
                             {format(d, APP_DATE_FORMAT)}
                         </div>
                     );
@@ -329,7 +324,7 @@ export function AttendanceTable({
                     if (!isValidDate(d)) return <div className="text-xs text-muted-foreground italic">—</div>;
                     return (
                         <div className="flex flex-col items-start">
-                            <div className="flex items-center gap-1.5 text-sm font-bold text-emerald-600">
+                            <div className="flex items-center gap-1.5 text-sm text-emerald-600">
                                 <Clock className="h-3.5 w-3.5" />
                                 {format(d, "hh:mm a")}
                             </div>
@@ -359,7 +354,7 @@ export function AttendanceTable({
                             rel="noopener noreferrer"
                             className={cn(
                                 "flex items-center gap-1.5 text-[10px] hover:underline transition-all group",
-                                hasNote ? "text-rose-600 font-bold" : "text-primary/70 hover:text-primary"
+                                hasNote ? "text-rose-600 font-medium" : "text-primary/70 hover:text-primary"
                             )}
                             title={address || `Raw coordinates: ${lat}, ${lng}`}
                         >
@@ -393,11 +388,11 @@ export function AttendanceTable({
 
                     return (
                         <div className="flex flex-col items-start gap-1">
-                            <div className="flex items-center gap-1.5 text-sm font-bold text-rose-600">
+                            <div className="flex items-center gap-1.5 text-sm text-rose-600">
                                 <Clock className="h-3.5 w-3.5" />
                                 {format(dOut, "hh:mm a")}
                                 {isNextDay && (
-                                    <Badge variant="outline" className="px-1 py-0 h-4 text-[9px] font-bold border-amber-200 bg-amber-50 text-amber-600">
+                                    <Badge variant="outline" className="px-1 py-0 h-4 text-[9px] font-medium border-amber-200 bg-amber-50 text-amber-600">
                                         +1 DAY
                                     </Badge>
                                 )}
@@ -428,7 +423,7 @@ export function AttendanceTable({
                             rel="noopener noreferrer"
                             className={cn(
                                 "flex items-center gap-1.5 text-[10px] hover:underline transition-all group",
-                                hasNote ? "text-rose-600 font-bold" : "text-primary/70 hover:text-primary"
+                                hasNote ? "text-rose-600 font-medium" : "text-primary/70 hover:text-primary"
                             )}
                             title={address || `Raw coordinates: ${lat}, ${lng}`}
                         >
@@ -465,7 +460,7 @@ export function AttendanceTable({
                     const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
 
                     return (
-                        <div className="flex items-center gap-1.5 font-bold text-sm text-primary/80">
+                        <div className="flex items-center gap-1.5 font-medium text-sm text-primary/80">
                             <Clock className="h-3.5 w-3.5" />
                             {diffHrs}h {diffMins}m
                         </div>
@@ -484,28 +479,28 @@ export function AttendanceTable({
                 let content;
                 switch (status) {
                     case "PRESENT":
-                        content = <Badge className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border-emerald-500/20 font-bold">Present</Badge>;
+                        content = <Badge className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border-emerald-500/20 font-medium">Present</Badge>;
                         break;
                     case "ABSENT":
-                        content = <Badge variant="destructive" className="font-bold">Absent</Badge>;
+                        content = <Badge variant="destructive" className="font-medium">Absent</Badge>;
                         break;
                     case "LATE":
-                        content = <Badge className="bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 border-amber-500/20 font-bold">Late</Badge>;
+                        content = <Badge className="bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 border-amber-500/20 font-medium">Late</Badge>;
                         break;
                     case "HALF_DAY":
-                        content = <Badge className="bg-orange-500/10 text-orange-600 hover:bg-orange-500/20 border-orange-500/20 font-bold">Half Day</Badge>;
+                        content = <Badge className="bg-orange-500/10 text-orange-600 hover:bg-orange-500/20 border-orange-500/20 font-medium">Half Day</Badge>;
                         break;
                     case "ON_LEAVE":
-                        content = <Badge className="bg-purple-500/10 text-purple-600 hover:bg-purple-500/20 border-purple-500/20 font-bold">On Leave</Badge>;
+                        content = <Badge className="bg-purple-500/10 text-purple-600 hover:bg-purple-500/20 border-purple-500/20 font-medium">On Leave</Badge>;
                         break;
                     default:
-                        content = <Badge variant="outline" className="font-bold">{status}</Badge>;
+                        content = <Badge variant="outline" className="font-medium">{status}</Badge>;
                 }
                 return (
                     <div className="flex justify-start items-center gap-2">
                         {content}
                         {row.original.isOvertime && (
-                            <Badge className="bg-purple-500/10 text-purple-600 hover:bg-purple-500/20 border-purple-500/20 px-1.5 py-0 text-[10px] font-bold">
+                            <Badge className="bg-purple-500/10 text-purple-600 hover:bg-purple-500/20 border-purple-500/20 px-1.5 py-0 text-[10px] font-medium">
                                 OT
                             </Badge>
                         )}
@@ -521,7 +516,7 @@ export function AttendanceTable({
                 const notes = row.original.notes;
                 if (!notes) return <div className="text-xs text-muted-foreground italic">—</div>;
                 return (
-                    <div className="max-w-[200px] truncate text-xs font-bold text-foreground/60" title={notes}>
+                    <div className="max-w-[200px] truncate text-xs font-medium text-foreground/60" title={notes}>
                         {notes}
                     </div>
                 );
@@ -643,7 +638,7 @@ export function AttendanceTable({
                         {activeFilterCount > 0 && (
                             <Badge
                                 variant="destructive"
-                                className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px] font-bold shadow-md animate-in zoom-in"
+                                className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px] font-medium shadow-md animate-in zoom-in"
                             >
                                 {activeFilterCount}
                             </Badge>
@@ -660,7 +655,7 @@ export function AttendanceTable({
                     <div className="flex items-center justify-between border-b bg-muted/30 px-5 py-4">
                         <div className="flex items-center gap-2">
                             <Filter className="h-4 w-4 text-primary" />
-                            <h3 className="text-base font-bold text-foreground">Filters</h3>
+                            <h3 className="text-base font-medium text-foreground">Filters</h3>
                         </div>
                         <Button
                             variant="ghost"
@@ -681,13 +676,13 @@ export function AttendanceTable({
                             {isPowerUser && (
                                 <div className="space-y-3">
                                     <div className="flex items-center justify-between">
-                                        <h4 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/80">Member</h4>
+                                        <h4 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground/80">Member</h4>
                                         {tempFilters.memberId && (
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
                                                 onClick={() => setTempFilters(prev => ({ ...prev, memberId: undefined }))}
-                                                className="h-auto p-0 text-[10px] font-bold text-primary hover:text-primary/80 hover:bg-transparent"
+                                                className="h-auto p-0 text-[10px] font-medium text-primary hover:text-primary/80 hover:bg-transparent"
                                             >
                                                 CLEAR
                                             </Button>
@@ -715,13 +710,13 @@ export function AttendanceTable({
                             {/* Status Filter */}
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <h4 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/80">Status</h4>
+                                    <h4 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground/80">Status</h4>
                                     {tempFilters.status && (
                                         <Button
                                             variant="ghost"
                                             size="sm"
                                             onClick={() => setTempFilters(prev => ({ ...prev, status: undefined }))}
-                                            className="h-auto p-0 text-[10px] font-bold text-primary hover:text-primary/80 hover:bg-transparent"
+                                            className="h-auto p-0 text-[10px] font-medium text-primary hover:text-primary/80 hover:bg-transparent"
                                         >
                                             CLEAR
                                         </Button>
@@ -748,7 +743,7 @@ export function AttendanceTable({
                             {/* Date Range Filter */}
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <h4 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/80">Date Range</h4>
+                                    <h4 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground/80">Date Range</h4>
                                     {(tempFilters.from || tempFilters.to) && (
                                         <Button
                                             variant="ghost"
@@ -758,7 +753,7 @@ export function AttendanceTable({
                                                 from: undefined,
                                                 to: undefined
                                             }))}
-                                            className="h-auto p-0 text-[10px] font-bold text-primary hover:text-primary/80 hover:bg-transparent"
+                                            className="h-auto p-0 text-[10px] font-medium text-primary hover:text-primary/80 hover:bg-transparent"
                                         >
                                             RESET
                                         </Button>
@@ -815,13 +810,13 @@ export function AttendanceTable({
                         <Button
                             variant="ghost"
                             onClick={handleResetFilters}
-                            className="flex-1 font-bold text-sm h-10 hover:bg-background/80"
+                            className="flex-1 font-medium text-sm h-10 hover:bg-background/80"
                         >
                             Reset All
                         </Button>
                         <Button
                             onClick={handleApplyFilters}
-                            className="flex-[2] font-bold text-sm h-10 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-95"
+                            className="flex-[2] font-medium text-sm h-10 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-95"
                         >
                             Apply Filters
                         </Button>
@@ -874,8 +869,7 @@ export function AttendanceTable({
                             <ChevronLeft className="h-4 w-4" />
                         </Button>
                         <div className="flex flex-col items-center">
-                            {/* <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60 leading-none mb-1">Period</span> */}
-                            <span className="text-sm font-bold text-foreground tracking-tight">
+                            <span className="text-sm font-medium text-foreground tracking-tight">
                                 {format(selectedDate, "MMMM yyyy")}
                             </span>
                         </div>
@@ -891,34 +885,34 @@ export function AttendanceTable({
 
                     {/* Main Stats Card */}
                     <div className="p-4 rounded-xl border bg-card/30 backdrop-blur-md border-muted-foreground/20 relative overflow-hidden group shadow-sm">
-                        <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-6 flex items-center gap-2">
+                        <h3 className="text-sm font-medium uppercase tracking-widest text-muted-foreground mb-6 flex items-center gap-2">
                             <CalendarDays className="h-4 w-4 text-primary" />
                             Summary
                         </h3>
 
                         <div>
                             <div className="flex items-center justify-between rounded-lg">
-                                <span className="text-sm font-semibold text-muted-foreground">Total:</span>
+                                <span className="text-sm font-medium text-muted-foreground">Total:</span>
                                 <span className="text-lg font-normal tabular-nums">{stats.total}</span>
                             </div>
                             <div className="flex items-center justify-between rounded-lg">
-                                <span className="text-sm font-semibold text-emerald-600/70">On Time:</span>
+                                <span className="text-sm font-medium text-emerald-600/70">On Time:</span>
                                 <span className="text-lg font-normal tabular-nums text-emerald-600">{stats.present}</span>
                             </div>
                             <div className="flex items-center justify-between rounded-lg">
-                                <span className="text-sm font-semibold text-amber-600/70">Late:</span>
+                                <span className="text-sm font-medium text-amber-600/70">Late:</span>
                                 <span className="text-lg font-normal tabular-nums text-amber-600">{stats.late}</span>
                             </div>
                             <div className="flex items-center justify-between rounded-lg">
-                                <span className="text-sm font-semibold text-orange-600/70">Half Day:</span>
+                                <span className="text-sm font-medium text-orange-600/70">Half Day:</span>
                                 <span className="text-lg font-normal tabular-nums text-orange-600">{stats.halfDay}</span>
                             </div>
                             <div className="flex items-center justify-between rounded-lg">
-                                <span className="text-sm font-semibold text-purple-600/70">Leave:</span>
+                                <span className="text-sm font-medium text-purple-600/70">Leave:</span>
                                 <span className="text-lg font-normal tabular-nums text-purple-600">{stats.leave}</span>
                             </div>
                             <div className="flex items-center justify-between rounded-lg">
-                                <span className="text-sm font-semibold text-rose-600/70">Absent:</span>
+                                <span className="text-sm font-medium text-rose-600/70">Absent:</span>
                                 <span className="text-lg font-normal tabular-nums text-rose-600">{stats.absent}</span>
                             </div>
                         </div>
@@ -932,13 +926,13 @@ export function AttendanceTable({
                             </h3>
                             <div className="space-y-0">
                                 <div className="flex items-center justify-between">
-                                    <div className="text-[13px] font-semibold uppercase tracking-tighter text-purple-600/70 mb-1">Casual Leave</div>
+                                    <div className="text-[13px] font-medium uppercase tracking-tighter text-purple-600/70 mb-1">Casual Leave</div>
                                     <div className="text-lg font-normal text-purple-600">
                                         {Math.max(0, selectedMember.casualLeaveBalance || 0)}
                                     </div>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                    <div className="text-[13px] font-semibold uppercase tracking-tighter text-blue-600/70 mb-1">Sick Leave</div>
+                                    <div className="text-[13px] font-medium uppercase tracking-tighter text-blue-600/70 mb-1">Sick Leave</div>
                                     <div className="text-lg font-normal text-blue-600">
                                         {Math.max(0, selectedMember.sickLeaveBalance || 0)}
                                     </div>

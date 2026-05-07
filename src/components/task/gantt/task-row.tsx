@@ -51,6 +51,7 @@ interface TaskRowProps {
     isLoading?: boolean;
     onLoadMoreSubtasks?: (taskId: string) => void;
     onInitialLoadSubtasks?: (taskId: string) => void;
+    isExpandAllMode?: boolean;
 }
 
 export function TaskRow({
@@ -75,7 +76,8 @@ export function TaskRow({
     onToggleSubtaskHighlight,
     isLoading = false,
     onLoadMoreSubtasks,
-    onInitialLoadSubtasks
+    onInitialLoadSubtasks,
+    isExpandAllMode = false
 }: TaskRowProps) {
 
     const [visibleSubtaskCount, setVisibleSubtaskCount] = useState(SUBTASKS_PER_PAGE);
@@ -181,7 +183,7 @@ export function TaskRow({
             if (canLoadMore) {
                 handleLoadMoreTrigger();
             }
-        }, { threshold: 0.1, rootMargin: '240px 0px' });
+        }, { threshold: 0.1, rootMargin: '1000px 0px' });
         observer.observe(subtaskLoaderRef.current);
         return () => observer.disconnect();
     }, [
@@ -194,6 +196,18 @@ export function TaskRow({
         onLoadMoreSubtasks,
         task.id
     ]);
+    
+    // 🚀 SYNC: Proactive load for 'Expand All' mode
+    useEffect(() => {
+        if (isExpanded && isExpandAllMode && needsInitialLoad && !isLoading) {
+            // Staggered delay (0-400ms) to prevent network saturation when multiple rows expand at once
+            const delay = Math.floor(Math.random() * 400);
+            const timer = setTimeout(() => {
+                onInitialLoadSubtasks?.(task.id);
+            }, delay);
+            return () => clearTimeout(timer);
+        }
+    }, [isExpanded, isExpandAllMode, needsInitialLoad, isLoading, onInitialLoadSubtasks, task.id]);
 
     const allowedUserIds = currentProject?.memberIds;
 

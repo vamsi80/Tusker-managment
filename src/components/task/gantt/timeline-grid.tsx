@@ -162,7 +162,7 @@ export function TimelineHeader({
                                             </Button>
                                         </DropdownMenuTrigger>
                                     </TooltipTrigger>
-                                    <TooltipContent side="bottom">Export options</TooltipContent>
+                                    <TooltipContent side="bottom">Export Options</TooltipContent>
                                 </Tooltip>
                             </TooltipProvider>
                             <DropdownMenuContent align="start">
@@ -178,17 +178,22 @@ export function TimelineHeader({
 
                     <div className="h-3 w-[1px] bg-neutral-300 dark:bg-neutral-700 mx-0.5" />
 
-                    {/* Granularity picker */}
-                    <TooltipProvider delayDuration={200}>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <DropdownMenu>
+                    <DropdownMenu>
+                        <TooltipProvider delayDuration={200}>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
                                     <DropdownMenuTrigger asChild>
                                         <Button variant="ghost" size="icon" className="h-6 w-6">
                                             <Calendar className="h-3.5 w-3.5" />
                                         </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="start">
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom">
+                                    Timeline Scale (Days / Weeks / Months)
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                        <DropdownMenuContent align="start">
                                         <DropdownMenuItem onClick={() => onGranularityChange('days')}>
                                             Days
                                         </DropdownMenuItem>
@@ -198,14 +203,8 @@ export function TimelineHeader({
                                         <DropdownMenuItem onClick={() => onGranularityChange('months')}>
                                             Months
                                         </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom">
-                                Change Timeline Granularity ({granularity})
-                            </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
                 <div className="flex relative items-stretch">
                     {granularity === 'days' ? (
