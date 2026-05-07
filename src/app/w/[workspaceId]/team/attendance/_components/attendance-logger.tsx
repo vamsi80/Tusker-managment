@@ -144,7 +144,9 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
                 body: JSON.stringify({
                     latitude: result.lat,
                     longitude: result.lng,
+                    accuracy: result.accuracy,
                     address: detectedAddress,
+                    city: geoData?.address?.city || geoData?.address?.town || geoData?.address?.village || null,
                     networkLocation: netData ? `${netData.city}, ${netData.region}, ${netData.country_name}` : null,
                 }),
             });
@@ -159,6 +161,11 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
 
             toast.success(`Successfully ${action === "check-in" ? "checked in" : "checked out"}!`);
             setRecord(data.data);
+            if (action === "check-in" && data.data.checkInAddress) {
+                setAddress(data.data.checkInAddress);
+            } else if (action === "check-out" && data.data.checkOutAddress) {
+                setAddress(data.data.checkOutAddress);
+            }
             setStatus(action === "check-in" ? "CHECKED_IN" : "CHECKED_OUT");
 
         } catch (error: any) {
@@ -172,127 +179,165 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
     };
 
     return (
-        <Card className="w-full max-w-md border-primary/20 shadow-lg shadow-primary/5">
-            <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2">
-                    <MapPin className="h-5 w-5 text-primary" />
-                    Daily Attendance
-                </CardTitle>
-                <CardDescription>
-                    Mark your attendance for {mounted ? format(new Date(), APP_DATE_FORMAT) : "..."}.
-                    <br />
-                    <span className="text-primary font-medium mt-1 inline-block text-xs">
-                        High-accuracy GPS required.
-                    </span>
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
+        <div className="w-full overflow-hidden bg-card border rounded-2xl shadow-xl transition-all duration-300">
+            {/* Header with gradient subtle background */}
+            <div className="relative px-6 pt-6 pb-4 bg-gradient-to-b from-primary/5 to-transparent border-b border-primary/10">
+                <div className="flex items-center gap-3 mb-1">
+                    <div className="p-2 bg-primary/10 rounded-xl">
+                        <MapPin className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-bold tracking-tight">Daily Attendance</h3>
+                        <p className="text-[11px] text-muted-foreground font-medium">
+                            {mounted ? format(new Date(), APP_DATE_FORMAT) : "..."}
+                        </p>
+                    </div>
+                </div>
+                <div className="mt-3 flex items-center gap-1.5 px-2 py-0.5 bg-primary/10 border border-primary/20 rounded-full w-fit">
+                    <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                    <span className="text-[10px] font-bold text-primary uppercase tracking-wider">High Accuracy GPS Required</span>
+                </div>
+            </div>
+
+            <div className="p-6 flex flex-col gap-5">
                 {locationError && (
-                    <div className="bg-destructive/10 text-destructive px-3 py-2 text-xs rounded-md flex items-start gap-2 border border-destructive/20">
-                        <X className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                        <p>{locationError}</p>
+                    <div className="bg-destructive/5 text-destructive px-4 py-3 text-xs rounded-xl flex items-start gap-3 border border-destructive/20 animate-in fade-in slide-in-from-top-1">
+                        <div className="p-1 bg-destructive/10 rounded-full mt-0.5">
+                            <X className="h-3 w-3 shrink-0" />
+                        </div>
+                        <p className="font-medium leading-relaxed">{locationError}</p>
                     </div>
                 )}
 
                 {isVerifying && (
-                    <div className="bg-blue-500/5 border border-blue-500/10 rounded-lg p-3 flex items-center gap-2 animate-pulse">
-                        <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500" />
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-blue-500">Verifying actual location...</span>
+                    <div className="bg-blue-500/5 border border-blue-500/10 rounded-xl p-4 flex items-center gap-3 animate-pulse">
+                        <div className="p-2 bg-blue-500/10 rounded-lg">
+                            <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-blue-600">Verification</span>
+                            <span className="text-xs font-semibold text-blue-500">Securing your actual location...</span>
+                        </div>
                     </div>
                 )}
 
                 {(address || networkLocation) && (
-                    <div className="bg-primary/5 border border-primary/10 rounded-lg p-3 space-y-2">
+                    <div className="bg-muted/40 border border-border/50 rounded-xl p-4 space-y-4 shadow-inner">
                         {address && (
-                            <div className="space-y-1">
+                            <div className="space-y-2">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-primary">GPS Location</span>
-                                    {accuracy && (
-                                        <span className="text-[10px] text-muted-foreground">
-                                            Accuracy: {accuracy.toFixed(1)}m
+                                    <div className="flex items-center gap-1.5">
+                                        <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                                        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">GPS Coordinates</span>
+                                    </div>
+                                    {accuracy !== null && (
+                                        <span className="text-[9px] font-bold bg-muted px-2 py-0.5 rounded-full text-muted-foreground border">
+                                            ±{accuracy.toFixed(1)}m
                                         </span>
                                     )}
                                 </div>
-                                <p className="text-xs font-medium leading-relaxed">{address}</p>
+                                <p className="text-xs font-medium leading-relaxed text-foreground/80 pl-3 border-l-2 border-green-500/30">{address}</p>
                             </div>
                         )}
 
                         {networkLocation && (
-                            <div className="pt-2 border-t border-primary/10 space-y-1">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600">Network (ISP) Location</span>
+                            <div className="pt-3 border-t border-border/50 space-y-2">
+                                <div className="flex items-center gap-1.5">
+                                    <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-blue-500/80">Network Verify</span>
                                 </div>
-                                <p className="text-[10px] font-medium text-muted-foreground">
-                                    {networkLocation.city}, {networkLocation.region}, {networkLocation.country}
+                                <p className="text-[11px] font-semibold text-foreground/70 pl-3 border-l-2 border-blue-500/30">
+                                    {networkLocation?.city}, {networkLocation?.region}, {networkLocation?.country}
                                 </p>
                             </div>
                         )}
                     </div>
                 )}
 
-                {status === "IDLE" && (
-                    <Button
-                        size="lg"
-                        onClick={() => handleAttendanceAction("check-in")}
-                        disabled={isLoading}
-                        className="w-full gap-2"
-                    >
-                        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
-                        Check In
-                    </Button>
-                )}
-
-                {status === "CHECKED_IN" && (
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <div className="text-sm bg-green-500/10 text-green-700 dark:text-green-400 p-3 rounded-md border border-green-500/20">
-                                <strong>Checked In:</strong> {mounted ? format(new Date(record.checkIn), "h:mm a") : "Loading..."}
-                            </div>
-                            {record.checkInAddress && (
-                                <div className="text-[10px] text-muted-foreground px-1 leading-relaxed">
-                                    <span className="font-bold">IN ADDRESS:</span> {record.checkInAddress}
-                                </div>
-                            )}
-                        </div>
+                <div className="space-y-4">
+                    {status === "IDLE" && (
                         <Button
-                            variant="destructive"
                             size="lg"
-                            onClick={() => handleAttendanceAction("check-out")}
+                            onClick={() => handleAttendanceAction("check-in")}
                             disabled={isLoading}
-                            className="w-full gap-2"
+                            className="w-full h-12 gap-3 text-base font-bold shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all rounded-xl"
                         >
-                            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
-                            Check Out
+                            {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <LogIn className="h-5 w-5" />}
+                            Check In
                         </Button>
-                    </div>
-                )}
+                    )}
 
-                {status === "CHECKED_OUT" && (
-                    <div className="space-y-4 text-sm">
-                        <div className="space-y-3">
-                            <div className="bg-muted p-3 rounded-md">
-                                <strong>Checked In:</strong> {mounted ? format(new Date(record.checkIn), "h:mm a") : "..."}
-                                {record.checkInAddress && (
-                                    <div className="text-[10px] text-muted-foreground mt-1 leading-relaxed">
-                                        <span className="font-bold">IN:</span> {record.checkInAddress}
-                                    </div>
-                                )}
+                    {status === "CHECKED_IN" && (
+                        <div className="space-y-5 animate-in zoom-in-95 duration-300">
+                            <div className="bg-green-500/5 border border-green-500/20 p-4 rounded-xl relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 p-1 opacity-10">
+                                    <LogIn className="h-16 w-16" />
+                                </div>
+                                <div className="relative z-10">
+                                    <p className="text-2xl font-black text-foreground tabular-nums tracking-tight">
+                                        {mounted ? format(new Date(record.checkIn), "h:mm a") : "Loading..."}
+                                    </p>
+                                    {record.checkInAddress && (
+                                        <p className="text-[10px] text-muted-foreground mt-3 font-medium leading-relaxed italic truncate opacity-80 hover:opacity-100 transition-opacity">
+                                            At: {record.checkInAddress}
+                                        </p>
+                                    )}
+                                </div>
                             </div>
-                            <div className="bg-muted p-3 rounded-md">
-                                <strong>Checked Out:</strong> {mounted ? format(new Date(record.checkOut), "h:mm a") : "..."}
-                                {record.checkOutAddress && (
-                                    <div className="text-[10px] text-muted-foreground mt-1 leading-relaxed">
-                                        <span className="font-bold">OUT:</span> {record.checkOutAddress}
-                                    </div>
-                                )}
+                            
+                            <Button
+                                variant="destructive"
+                                size="lg"
+                                onClick={() => handleAttendanceAction("check-out")}
+                                disabled={isLoading}
+                                className="w-full h-12 gap-3 text-base font-bold shadow-lg shadow-destructive/20 hover:shadow-destructive/30 transition-all rounded-xl border-b-4 border-destructive/50 active:border-b-0 active:translate-y-1"
+                            >
+                                {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <LogOut className="h-5 w-5" />}
+                                Check Out
+                            </Button>
+                        </div>
+                    )}
+
+                    {status === "CHECKED_OUT" && (
+                        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                            <div className="grid grid-cols-1 gap-3">
+                                <div className="bg-muted/30 p-4 rounded-xl border border-border/50 relative overflow-hidden group">
+                                     <div className="flex flex-col gap-1">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Session Log</span>
+                                        <div className="flex items-center justify-between mt-1">
+                                            <div className="flex flex-col">
+                                                <span className="text-[9px] font-bold text-muted-foreground/60 uppercase">In</span>
+                                                <span className="text-sm font-bold tabular-nums">
+                                                    {mounted ? format(new Date(record.checkIn), "h:mm a") : "..."}
+                                                </span>
+                                            </div>
+                                            <div className="h-8 w-px bg-border/50" />
+                                            <div className="flex flex-col items-end">
+                                                <span className="text-[9px] font-bold text-muted-foreground/60 uppercase">Out</span>
+                                                <span className="text-sm font-bold tabular-nums text-primary">
+                                                    {mounted ? format(new Date(record.checkOut), "h:mm a") : "..."}
+                                                </span>
+                                            </div>
+                                        </div>
+                                     </div>
+                                     {record.checkOutAddress && (
+                                        <p className="text-[9px] text-muted-foreground/60 mt-3 font-medium truncate italic border-t pt-2 border-border/30">
+                                            Last Loc: {record.checkOutAddress}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="flex flex-col items-center justify-center p-4 rounded-2xl bg-primary/5 border border-primary/10 text-center">
+                                <div className="p-2 bg-primary/10 rounded-full mb-2">
+                                    <MapPin className="h-4 w-4 text-primary" />
+                                </div>
+                                <p className="text-xs font-bold text-primary uppercase tracking-tighter">Day Completed</p>
+                                <p className="text-[10px] text-muted-foreground font-medium mt-1">Rest well! See you tomorrow.</p>
                             </div>
                         </div>
-                        <div className="text-center text-muted-foreground mt-4 italic">
-                            Your attendance for today is completed.
-                        </div>
-                    </div>
-                )}
-            </CardContent>
-        </Card>
+                    )}
+                </div>
+            </div>
+        </div>
     );
 }

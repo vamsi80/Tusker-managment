@@ -168,13 +168,17 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
             setIsLoading(true);
 
             // 1. Check if it's a Google Maps URL
-            const gmapsRegex = /@(-?\d+\.\d+),(-?\d+\.\d+)/;
-            const match = searchStr.match(gmapsRegex);
+            const markerMatch = searchStr.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+            const queryMatch = searchStr.match(/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/);
+            const llMatch = searchStr.match(/[?&]ll=(-?\d+\.\d+),(-?\d+\.\d+)/);
+            const viewportMatch = searchStr.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+
+            const match = markerMatch || queryMatch || llMatch || viewportMatch;
 
             if (match) {
                 const lat = parseFloat(match[1]);
                 const lon = parseFloat(match[2]);
-                
+
                 const newLocs = [...attendanceLocations];
                 newLocs[idx].latitude = lat;
                 newLocs[idx].longitude = lon;
@@ -188,7 +192,7 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                     locs[idx].address = revData.display_name;
                     setAttendanceLocations(locs);
                 }
-                
+
                 toast.success(`Location extracted from URL!`);
                 return;
             }
@@ -201,7 +205,7 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                 const newLocs = [...attendanceLocations];
                 newLocs[idx].latitude = parseFloat(lat);
                 newLocs[idx].longitude = parseFloat(lon);
-                newLocs[idx].address = display_name; 
+                newLocs[idx].address = display_name;
                 setAttendanceLocations(newLocs);
                 toast.success(`Location found!`);
             } else {
@@ -299,25 +303,6 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                     </div>
 
                     <div className="grid gap-4">
-                        {/* Timeline Visualizer */}
-                        {/* <div className="flex items-center gap-2 p-3 rounded-xl bg-muted/30 border border-muted-foreground/10 overflow-x-auto no-scrollbar whitespace-nowrap">
-                            <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-500 shrink-0">
-                                <Moon className="h-3 w-3" /> START
-                            </div>
-                            <ChevronRight className="h-3 w-3 text-muted-foreground/30 shrink-0" />
-                            <div className="flex items-center gap-1.5 text-xs font-bold text-amber-500 shrink-0">
-                                <AlertCircle className="h-3 w-3" /> LATE
-                            </div>
-                            <ChevronRight className="h-3 w-3 text-muted-foreground/30 shrink-0" />
-                            <div className="flex items-center gap-1.5 text-xs font-bold text-orange-500 shrink-0">
-                                <Timer className="h-3 w-3" /> HALF DAY
-                            </div>
-                            <ChevronRight className="h-3 w-3 text-muted-foreground/30 shrink-0" />
-                            <div className="flex items-center gap-1.5 text-xs font-bold text-purple-500 shrink-0">
-                                <Sun className="h-3 w-3" /> OVERTIME
-                            </div>
-                        </div> */}
-
                         {/* In-line Settings Rows */}
                         <div className="divide-y divide-border rounded-lg border bg-card/30 backdrop-blur-md overflow-hidden shadow-sm">
                             {rows.map((r) => (
@@ -514,9 +499,9 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                                                     }
                                                 }}
                                             />
-                                            <Button 
-                                                size="icon" 
-                                                variant="outline" 
+                                            <Button
+                                                size="icon"
+                                                variant="outline"
                                                 className="h-9 w-9 shrink-0"
                                                 onClick={() => handleSearchAddress(idx, loc.address)}
                                                 disabled={!isAdmin || isLoading}
@@ -586,12 +571,12 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
 
                         <button
                             onClick={() => {
-                                setAttendanceLocations([...attendanceLocations, { 
+                                setAttendanceLocations([...attendanceLocations, {
                                     id: `new-${Date.now()}`,
-                                    name: "New Office", 
-                                    latitude: 0, 
-                                    longitude: 0, 
-                                    radius: 100 
+                                    name: "New Office",
+                                    latitude: 0,
+                                    longitude: 0,
+                                    radius: 100
                                 }]);
                             }}
                             className="p-4 rounded-xl border-2 border-dashed border-muted-foreground/10 hover:border-primary/50 hover:bg-primary/5 transition-all group flex flex-col items-center justify-center gap-2 min-h-[200px]"

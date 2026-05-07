@@ -38,17 +38,19 @@ export function RealtimeNotificationListener() {
       const entityId = data.entityId || payload?.id;
 
       // 🚀 SURGICAL SYNC LOGIC
+      // Structural changes (create/delete/update) require board-level state updates or re-fetches
+      // We explicitly exclude COMMENT_CREATED as it is not a structural change to the task list
       const isStructural =
-        action.includes("CREATED") ||
+        (action.includes("CREATED") && action !== "COMMENT_CREATED") ||
+        action.includes("UPDATED") ||
         action.includes("DELETED") ||
         action.includes("LEAVE") ||
         action.includes("CHECKED") ||
+        action.includes("ATTENDANCE") ||
         action === "MEMBER_INVITED" ||
         action === "MEMBER_REMOVED";
 
-      const isUpdate = action.includes("UPDATED") || action === "COMMENT_CREATED";
-
-      if (isStructural || action === "MEMBER_UPDATED") {
+      if (isStructural) {
         console.log(`[REALTIME_SYNC][SURGICAL_V2] 🚀 Dispatching surgical event: ${action}`, {
           id: entityId,
           hasRecord: !!payload,

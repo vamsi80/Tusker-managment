@@ -114,13 +114,24 @@ export class AttendanceService {
             status = AttendanceStatus.LATE;
         }
 
-        // Location Matching
+        // Accuracy Check (Filtering out poor signals/spoofs)
+        if (params.accuracy && params.accuracy > 100) {
+            throw AppError.ValidationError(`GPS accuracy too low (${Math.round(params.accuracy)}m). Please wait for a better signal.`);
+        }
+
+        // Location Matching & Enforcement
+        const workspaceLocations = await prisma.attendanceLocation.count({ where: { workspaceId } });
+        
         let finalAddress = address;
         if (latitude && longitude) {
             const nearbyLoc = await this.findNearbyLocation(workspaceId, latitude, longitude);
             if (nearbyLoc) {
                 finalAddress = nearbyLoc.name;
+            } else if (workspaceLocations > 0) {
+                throw AppError.Forbidden("You are not within the required radius of any authorized attendance location.");
             }
+        } else if (workspaceLocations > 0) {
+             throw AppError.ValidationError("GPS coordinates are required to check in at this workspace.");
         }
 
         const attendance = await AttendanceRepository.upsert(
@@ -227,13 +238,24 @@ export class AttendanceService {
             ? (istTotalMinutes > otTotalMinutes && istTotalMinutes < startTotalMinutes)
             : (istTotalMinutes > otTotalMinutes);
 
-        // Location Matching
+        // Accuracy Check
+        if (params.accuracy && params.accuracy > 100) {
+            throw AppError.ValidationError(`GPS accuracy too low (${Math.round(params.accuracy)}m). Please wait for a better signal.`);
+        }
+
+        // Location Matching & Enforcement
+        const workspaceLocations = await prisma.attendanceLocation.count({ where: { workspaceId } });
+
         let finalAddress = address;
         if (latitude && longitude) {
             const nearbyLoc = await this.findNearbyLocation(workspaceId, latitude, longitude);
             if (nearbyLoc) {
                 finalAddress = nearbyLoc.name;
+            } else if (workspaceLocations > 0) {
+                throw AppError.Forbidden("You are not within the required radius of any authorized attendance location.");
             }
+        } else if (workspaceLocations > 0) {
+             throw AppError.ValidationError("GPS coordinates are required to check out at this workspace.");
         }
 
         const updated = await AttendanceRepository.update(existing.id, {
