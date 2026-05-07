@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { getNotificationsAction, markTaskCommentsReadAction } from "@/actions/comment";
+import { apiClient } from "@/lib/api-client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatDistanceToNow } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -124,28 +124,28 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
         }
 
         const currentOffset = isInitial ? 0 : offset + LIMIT;
-        const result = await getNotificationsAction(workspaceId, LIMIT, currentOffset);
+        const { data, error } = await apiClient.comments.getNotifications(workspaceId, LIMIT, currentOffset);
 
-        if (result.success) {
+        if (!error && data) {
             if (isInitial) {
-                setUnreadNotifications(result.unreadNotifications || []);
-                setReadNotifications(result.readNotifications || []);
-                setPeopleCount(result.peopleCount || 0);
+                setUnreadNotifications(data.unreadNotifications || []);
+                setReadNotifications(data.readNotifications || []);
+                setPeopleCount(data.peopleCount || 0);
             } else {
                 // Merge and deduplicate
                 setUnreadNotifications(prev => {
                     const existingIds = new Set(prev.map(n => n.taskId));
-                    const newUnread = (result.unreadNotifications || []).filter(n => !existingIds.has(n.taskId));
+                    const newUnread = (data.unreadNotifications || []).filter((n: any) => !existingIds.has(n.taskId));
                     return [...prev, ...newUnread];
                 });
                 setReadNotifications(prev => {
                     const existingIds = new Set(prev.map(n => n.taskId));
-                    const newRead = (result.readNotifications || []).filter(n => !existingIds.has(n.taskId));
+                    const newRead = (data.readNotifications || []).filter((n: any) => !existingIds.has(n.taskId));
                     return [...prev, ...newRead];
                 });
                 setOffset(currentOffset);
             }
-            setHasMore(result.hasMore || false);
+            setHasMore(data.hasMore || false);
         }
 
         setLoading(false);
@@ -165,7 +165,7 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
         }
 
         // Actually mark as read in DB
-        markTaskCommentsReadAction(taskId);
+        apiClient.comments.markAsRead(taskId);
         setIsOpen(false);
     };
 

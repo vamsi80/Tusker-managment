@@ -73,8 +73,8 @@ export function RealtimeNotificationListener() {
     const unsubscribeActivity = pubsub.subscribe(EVENTS.APP_ACTIVITY_LOG, (data: any) => {
       const isActor = data.userId === session?.user?.id;
 
-      // 1. Show Toast (Show for everyone so actor sees broadcast when navigating)
-      if (data.message) {
+      // 1. Show Toast (Only for other users to avoid duplicates for the actor)
+      if (data.message && !isActor) {
         toast.info(data.message, {
           description: data.newData?.text || data.action?.replace(/_/g, " ").toLowerCase(),
           duration: 5000,

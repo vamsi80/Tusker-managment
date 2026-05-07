@@ -6,9 +6,10 @@ import { cn, formatIST } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { TabsContent } from "@/components/ui/tabs";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ArrowUp, Loader2 } from "lucide-react";
-import { createTaskCommentAction, markTaskCommentsReadAction } from "@/actions/comment";
+import { apiClient } from "@/lib/api-client";
+import { authClient } from "@/lib/auth-client";
 
 interface Comment {
     id: string;
@@ -19,6 +20,7 @@ interface Comment {
         id: string;
         surname: string;
     };
+    readBy?: { userId: string }[];
     isEdited: boolean;
     editedAt: Date;
     isDeleted: boolean;
@@ -30,6 +32,8 @@ interface Comment {
 
 interface MessagesTabProps {
     taskId: string;
+    workspaceId: string;
+    projectId: string;
     comments: Comment[];
     setComments: (comments: Comment[]) => void;
     currentUserId: string | null;
@@ -38,11 +42,14 @@ interface MessagesTabProps {
 
 export function MessagesTab({
     taskId,
+    workspaceId,
+    projectId,
     comments,
     setComments,
     currentUserId,
     isLoading,
 }: MessagesTabProps) {
+    const { data: session } = authClient.useSession();
     const [message, setMessage] = useState("");
     const [isSending, setIsSending] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -60,7 +67,7 @@ export function MessagesTab({
     useEffect(() => {
         if (taskId && markReadRef.current !== taskId) {
             markReadRef.current = taskId;
-            markTaskCommentsReadAction(taskId).catch(console.error);
+            apiClient.comments.markAsRead(taskId).catch(console.error);
         }
     }, [taskId]);
 
@@ -69,14 +76,19 @@ export function MessagesTab({
 
         setIsSending(true);
         try {
-            const result = await createTaskCommentAction(taskId, message.trim());
+            const { data, error } = await apiClient.comments.createComment({
+                taskId,
+                content: message.trim(),
+                workspaceId,
+                projectId
+            });
 
-            if (result.success && result.comment) {
-                setComments([...comments, result.comment as Comment]);
+            if (!error && data) {
+                setComments([...comments, data as Comment]);
                 setMessage("");
                 toast.success("Comment added successfully");
             } else {
-                toast.error(result.error || "Failed to add comment");
+                toast.error(error?.message || "Failed to add comment");
             }
         } catch (error) {
             console.error("Error sending message:", error);
@@ -95,61 +107,61 @@ export function MessagesTab({
 
     return (
         <TabsContent value="messages" className="flex-1 flex flex-col m-0 data-[state=inactive]:hidden overflow-hidden">
-            {/* Chat Messages - Scrollable Area */}
-            <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 bg-muted/20 min-h-0">
+            {/* Chat Messages Area */}
+            <div className="flex-1 overflow-y-auto px-4 py-4">
                 {isLoading && comments.length === 0 ? (
                     <div className="flex items-center justify-center h-full">
                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                     </div>
                 ) : comments.length === 0 ? (
-                    <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                    <div className="flex items-center justify-center h-full text-muted-foreground text-sm bg-white/50 rounded-lg p-4 m-4">
                         No messages yet. Start the conversation!
                     </div>
                 ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-2 w-full">
                         {comments.map((comment) => {
-                            const isCurrentUser = currentUserId ? comment.userId === currentUserId : false;
+                            // Use session.user.id as the authoritative source — always reliable
+                            const sessionUserId = session?.user?.id;
+                            const isCurrentUser = sessionUserId
+                                ? String(comment.userId) === String(sessionUserId) ||
+                                String(comment.user?.id) === String(sessionUserId)
+                                : currentUserId
+                                    ? String(comment.userId) === String(currentUserId) ||
+                                    String(comment.user?.id) === String(currentUserId)
+                                    : false;
+
                             return (
                                 <div
                                     key={comment.id}
                                     className={cn(
-                                        "flex gap-2 items-end",
+                                        "flex w-full mb-2",
                                         isCurrentUser ? "justify-end" : "justify-start"
                                     )}
                                 >
-                                    {!isCurrentUser && (
-                                        <Avatar className="h-8 w-8 flex-shrink-0">
-                                            <AvatarFallback className="text-xs">
-                                                {comment.user.surname[0]}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                    )}
                                     <div className={cn(
-                                        "flex flex-col gap-1 max-w-[75%]",
-                                        isCurrentUser ? "items-end" : "items-start"
+                                        "relative max-w-[85%] px-3 py-2 shadow-sm min-w-[80px]",
+                                        isCurrentUser
+                                            ? "bg-[#dcf8c6] text-[#303030] rounded-lg rounded-tr-none ml-auto"
+                                            : "bg-white text-[#303030] rounded-lg rounded-tl-none mr-auto"
                                     )}>
-                                        <div
-                                            className={cn(
-                                                "rounded-lg px-2 py-1 shadow-sm",
-                                                isCurrentUser
-                                                    ? "bg-primary text-primary-foreground rounded-br-xs"
-                                                    : "bg-background text-foreground rounded-bl-xs border"
-                                            )}
-                                        >
-                                            {!isCurrentUser && (
-                                                <p className="text-xs font-normal text-primary">
-                                                    {comment.user.surname || ""}
-                                                </p>
-                                            )}
-                                            <p className="text-sm leading-relaxed break-words">
+                                        {/* Name for incoming messages */}
+                                        {!isCurrentUser && (
+                                            <p className="text-[11px] font-bold text-[#075e54] mb-0.5 leading-none">
+                                                {comment.user.surname || "User"}
+                                            </p>
+                                        )}
+
+                                        <div className="pr-12">
+                                            <p className="text-[13.5px] leading-relaxed break-words whitespace-pre-wrap">
                                                 {comment.content}
                                             </p>
-                                            <span className={cn(
-                                                "text-[10px] mt-0 block",
-                                                isCurrentUser ? "text-primary-foreground/70" : "text-muted-foreground"
-                                            )}>
+                                        </div>
+
+                                        {/* Meta info inside bubble */}
+                                        <div className="absolute bottom-1 right-1.5 flex items-center gap-1">
+                                            <span className="text-[9px] text-[#667781]">
                                                 {formatIST(comment.createdAt, "h:mm a")}
-                                                {comment.isEdited && " • edited"}
+                                                {comment.isEdited && " (edited)"}
                                             </span>
                                         </div>
                                     </div>
