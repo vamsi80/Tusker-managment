@@ -24,11 +24,9 @@ interface SubTaskDetailsSheetProps {
     isOpen: boolean;
     onClose?: () => void;
     disableUrlSync?: boolean;
-    // Pre-fetched data from server component
     initialComments?: any[];
     initialActivities?: any[];
     currentUserId?: string | null;
-    /** Called when the assignee is updated inline from within the sheet */
     onSubTaskAssigned?: (subTaskId: string, updatedData: any) => void;
     isAdmin?: boolean;
     isProjectManager?: boolean;
@@ -229,10 +227,10 @@ export function SubTaskDetailsSheet({
                 const fetchedComments = data as Comment[];
                 setComments(fetchedComments);
                 commentCache.set(subTask.id, fetchedComments); // Update cache
-                
+
                 // Note: currentUserId might need to be handled differently if not in the response
                 // but usually the session hook handles this.
-                
+
                 const duration = performance.now() - startTime;
                 console.log(`🐢 [SLOW LOAD] Comments fetched in: ${duration.toFixed(2)}ms (Missing Pre-fetch)`);
             } else {
