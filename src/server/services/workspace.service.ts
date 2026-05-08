@@ -321,9 +321,9 @@ export class WorkspaceService {
         action: "MEMBER_INVITED",
         entityType: "MEMBER",
         entityId: newMember.id, // Use the actual WorkspaceMember ID
-        newData: { 
-          email, 
-          name, 
+        newData: {
+          email,
+          name,
           surname: niceName || "",
           workspaceRole: role,
           designation: designation || null,
@@ -843,10 +843,10 @@ export class WorkspaceService {
       action: "MEMBER_UPDATED",
       entityType: "MEMBER",
       entityId: memberId,
-      newData: { 
-        ...data, 
+      newData: {
+        ...data,
         workspaceRole: data.role,
-        emailChanged: isEmailChanged 
+        emailChanged: isEmailChanged
       },
       oldData: {
         name: member.user?.name,
@@ -1063,7 +1063,7 @@ export class WorkspaceService {
           workspaceRole: { in: ["OWNER", "ADMIN"] },
         },
         select: {
-          user: { select: { id: true, surname: true, image: true } },
+          user: { select: { id: true, surname: true } },
         },
       }),
     ]);
@@ -1076,49 +1076,27 @@ export class WorkspaceService {
       workspacesResult,
       projects,
       tags,
-      explicitProjectLeads,
       unreadNotificationsCount,
     ]: any[] = await Promise.all([
       this.getWorkspaces(userId),
       ProjectService.getWorkspaceProjects(workspaceId, userId),
       ProjectService.getWorkspaceTags(workspaceId),
-      prisma.projectMember.findMany({
-        where: {
-          project: { workspaceId },
-          projectRole: { in: ["PROJECT_MANAGER", "LEAD"] },
-          hasAccess: true,
-        },
-        select: {
-          projectId: true,
-          workspaceMember: {
-            select: {
-              user: { select: { id: true, surname: true, image: true } },
-            },
-          },
-        },
-      }),
       this.getUnreadNotificationsCount(workspaceId, userId, permissions),
     ]);
 
-    // Step 3: Efficiently construct the project leaders map
-    // This avoids fetching projects again and avoids duplicating admin objects for every project in the query
-    const pmMap: Record<string, Array<{ id: string; surname: string | null; image?: string | null }>> = {};
-    const adminUsers = workspaceAdmins.map(wa => wa.user).filter(Boolean) as any[];
+    // Step 3: Efficiently construct the project leaders map from the fetched projects
+    const pmMap: Record<string, Array<{ id: string; surname: string | null }>> = {};
 
-    // Initialize with workspace admins for all projects
     projects.forEach((p: any) => {
-      pmMap[p.id] = [...adminUsers];
-    });
+      const pm = p.projectManager;
 
-    // Add explicit project managers/leads
-    explicitProjectLeads.forEach((pm: any) => {
-      const user = pm.workspaceMember?.user;
-      if (user && pmMap[pm.projectId]) {
-        // Add to the front of the list if not already present (admins already added)
-        if (!pmMap[pm.projectId].some((u) => u.id === user.id)) {
-          pmMap[pm.projectId].unshift(user);
-        }
+      // If a manager is assigned, they MUST have a surname for the UI
+      if (pm && !pm.surname && pm.surname !== "System") {
+        throw new Error(`Data Integrity Error: Project Manager assigned to project "${p.name}" (${p.id}) is missing a surname.`);
       }
+
+      // Skip "System" user and ensure pm exists
+      pmMap[p.id] = (pm && pm.surname !== "System") ? [pm] : [];
     });
 
     const endTime = Date.now();

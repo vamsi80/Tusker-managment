@@ -49,6 +49,9 @@ export class ProjectRepository {
             }
           }
         },
+        projectManager: {
+          include: { user: true }
+        },
         projectMembers: {
           include: {
             workspaceMember: {
