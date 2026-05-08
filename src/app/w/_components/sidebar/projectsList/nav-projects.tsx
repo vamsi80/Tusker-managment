@@ -15,10 +15,11 @@ import { useSafeNavigation } from "@/hooks/use-safe-navigation";
 import { ManageProjectMembersDialog } from "./options/manage-members-dialog";
 import { CreateProjectForm } from "@/app/w/[workspaceId]/p/_components/create-project-form";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
-import { Building2Icon, MoreHorizontal, Eye, Pencil, Trash2, Loader2, Users } from "lucide-react";
+import { Building2Icon, MoreHorizontal, Eye, Pencil, Trash2, Loader2, Users, Plus } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuAction, useSidebar } from "@/components/ui/sidebar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, } from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
 
 interface iAppProps {
   workspaceId: string;
@@ -185,17 +186,19 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
     <>
       <SidebarGroup className="group-data-[collapsible=icon]:hidden">
         <SidebarGroupLabel>
-          <div className="flex text-sm items-center justify-between w-full cursor-pointer mb-4" onClick={onOpenCreateProject}>
+          <div className="flex text-sm items-center justify-between w-full mb-4">
             <span>Projects</span>
             {mounted && (
-              <CreateProjectForm
-                members={members}
-                workspaceId={workspaceId}
-                isAdmin={isAdmin} // Still used?
-                canCreateProject={canCreateProject ?? isAdmin} // Fallback to isAdmin if undefined
-                userRole={userRole}
-                currentUserId={currentUserId}
-              />
+              <Link
+                href={`/w/${workspaceId}/createProject`}
+                className={cn(
+                  "cursor-pointer hover:bg-sidebar-accent p-1 rounded-sm transition-colors",
+                  !canCreateProject && "opacity-50 pointer-events-none"
+                )}
+                title={canCreateProject ? "Create New Project" : "Insufficient permissions"}
+              >
+                <Plus size={16} />
+              </Link>
             )}
           </div>
         </SidebarGroupLabel>
