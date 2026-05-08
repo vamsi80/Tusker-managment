@@ -214,15 +214,8 @@ export const projectSchema = z.object({
         .optional(),
     workspaceId: z
         .string().optional(),
-    projectLead: z.string().optional(),
-    projectManagers: z.array(z.string()).min(1, { message: "At least one project manager is required" }).optional(),
+    projectManagerId: z.string().min(1, { message: "Project manager is required" }).optional(),
     memberAccess: z.array(z.string()),
-}).refine((data) => {
-    // Either projectLead OR projectManagers must be provided
-    return data.projectLead || (data.projectManagers && data.projectManagers.length > 0);
-}, {
-    message: "At least one project manager is required",
-    path: ["projectManagers"]
 });
 
 export const editProjectSchema = z.object({
@@ -276,8 +269,7 @@ export const editProjectSchema = z.object({
         .max(15, { message: "Phone Number must be at most 15 characters long" })
         .optional(),
     // Team fields
-    projectLead: z.string().optional(),
-    projectManagers: z.array(z.string()).optional(),
+    projectManagerId: z.string().optional(),
     memberAccess: z.array(z.string()).optional(),
 });
 

@@ -40,14 +40,15 @@ export interface ProjectListItem extends MinimalProjectData {
   canManageMembers: boolean;
   projectRole?: ProjectRole;
   createdAt: string;
+  projectManager?: { id: string; surname: string | null };
 }
 
 export interface FullProjectData extends MinimalProjectData {
   description: string | null;
   workspaceId: string;
   // Team data
-  projectLead: string | null;
-  projectManagers: string[];
+  projectManagerId: string | null;
+  projectManager?: { id: string; surname: string | null };
   memberAccess: string[];
   // Project members
   projectMembers?: ProjectMember[];

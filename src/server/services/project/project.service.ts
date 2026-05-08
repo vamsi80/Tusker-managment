@@ -34,6 +34,11 @@ export class ProjectService {
       color: true,
       createdBy: true,
       createdAt: true,
+      projectManager: {
+        select: {
+          user: { select: { id: true, surname: true } }
+        }
+      },
       projectMembers: {
         where: { workspaceMember: { userId } },
         select: { projectRole: true }
@@ -170,24 +175,25 @@ export class ProjectService {
     const isOwnerOrAdmin = currentMember.workspaceRole === "OWNER" || currentMember.workspaceRole === "ADMIN";
     const isManager = currentMember.workspaceRole === "MANAGER";
 
-    let projectManagersToAdd: string[] = [];
+    let assignedProjectManagerId: string;
 
     if (isOwnerOrAdmin) {
-      if (values.projectManagers && values.projectManagers.length === 1) {
-        projectManagersToAdd = values.projectManagers;
+      if (values.projectManagerId) {
+        assignedProjectManagerId = values.projectManagerId;
       } else {
         throw AppError.ValidationError("A project must have exactly one Project Manager");
       }
     } else if (isManager) {
-      projectManagersToAdd = [userId];
+      const currentWorkspaceMember = workspace.members.find(m => m.userId === userId);
+      if (!currentWorkspaceMember) throw AppError.Forbidden("Workspace member not found");
+      assignedProjectManagerId = currentWorkspaceMember.id;
     } else {
       throw AppError.Forbidden("Insufficient permissions");
     }
 
-    const workspaceMemberMap = new Map(workspace.members.map(m => [m.userId, m.id]));
-
     // Validate manager is in workspace
-    if (!workspaceMemberMap.has(projectManagersToAdd[0])) {
+    const managerExists = workspace.members.some(m => m.id === assignedProjectManagerId);
+    if (!managerExists) {
       throw AppError.ValidationError("Project manager must be a workspace member");
     }
 
@@ -205,12 +211,13 @@ export class ProjectService {
       color: finalColor,
       workspaceId,
       createdBy: userId,
+      projectManagerId: assignedProjectManagerId,
       projectMembers: {
-        create: projectManagersToAdd.map(id => ({
-          workspaceMemberId: workspaceMemberMap.get(id)!,
+        create: {
+          workspaceMemberId: assignedProjectManagerId,
           hasAccess: true,
           projectRole: "PROJECT_MANAGER",
-        })),
+        },
       },
       ...(values.companyName ? {
         clint: {
@@ -296,29 +303,21 @@ export class ProjectService {
         }
       }
 
-      if (values.projectManagers) {
-        const requestedIds = values.projectManagers;
-        const currentPMs = project.projectMembers.filter(pm => pm.projectRole === "PROJECT_MANAGER");
-        const currentPMUserIds = currentPMs.map(pm => pm.workspaceMember.userId);
+      if (values.projectManagerId && values.projectManagerId !== project.projectManagerId) {
+        const newPmId = values.projectManagerId;
 
-        const toAdd = requestedIds.filter(id => !currentPMUserIds.includes(id));
-        const toRemove = currentPMUserIds.filter(id => !requestedIds.includes(id));
+        // 1. Update Project table
+        await tx.project.update({
+          where: { id: values.projectId },
+          data: { projectManagerId: newPmId }
+        });
 
-        for (const uid of toAdd) {
-          const wmId = workspaceMemberMap.get(uid);
-          if (wmId) {
-            await tx.projectMember.upsert({
-              where: { workspaceMemberId_projectId: { projectId: values.projectId, workspaceMemberId: wmId } },
-              update: { projectRole: "PROJECT_MANAGER", hasAccess: true },
-              create: { projectId: values.projectId, workspaceMemberId: wmId, projectRole: "PROJECT_MANAGER", hasAccess: true }
-            });
-          }
-        }
-
-        for (const uid of toRemove) {
-          const pm = currentPMs.find(p => p.workspaceMember.userId === uid);
-          if (pm) await tx.projectMember.update({ where: { id: pm.id }, data: { projectRole: "MEMBER" } });
-        }
+        // 2. Add/Update ProjectMember table
+        await tx.projectMember.upsert({
+          where: { workspaceMemberId_projectId: { projectId: values.projectId, workspaceMemberId: newPmId } },
+          update: { projectRole: "PROJECT_MANAGER", hasAccess: true },
+          create: { projectId: values.projectId, workspaceMemberId: newPmId, projectRole: "PROJECT_MANAGER", hasAccess: true }
+        });
       }
     });
 
@@ -554,26 +553,23 @@ export class ProjectService {
   }
 
   static async getWorkspaceProjectLeaders(workspaceId: string) {
-    const [projectMembers, workspaceAdmins, projects] = await Promise.all([
-      prisma.projectMember.findMany({
-        where: { project: { workspaceId }, projectRole: "PROJECT_MANAGER", hasAccess: true },
-        include: { workspaceMember: { include: { user: { select: { id: true, surname: true, name: true, image: true } } } } }
-      }),
-      prisma.workspaceMember.findMany({
-        where: { workspaceId, workspaceRole: { in: ["OWNER", "ADMIN"] } },
-        include: { user: { select: { id: true, surname: true } } }
-      }),
-      prisma.project.findMany({ where: { workspaceId }, select: { id: true } })
-    ]);
+    const projects = await prisma.project.findMany({
+      where: { workspaceId },
+      select: {
+        id: true,
+        projectManager: {
+          select: {
+            user: { select: { id: true, surname: true, name: true } }
+          }
+        }
+      }
+    });
 
     const pmMap: Record<string, any[]> = {};
-    projects.forEach(p => pmMap[p.id] = workspaceAdmins.map(wa => wa.user).filter(Boolean));
-    projectMembers.forEach(pm => {
-      const user = pm.workspaceMember?.user;
-      if (user) {
-        if (!pmMap[pm.projectId]) pmMap[pm.projectId] = workspaceAdmins.map(wa => wa.user).filter(Boolean);
-        if (!pmMap[pm.projectId].some(u => u.id === user.id)) pmMap[pm.projectId].unshift(user);
-      }
+    projects.forEach(p => {
+      const user = p.projectManager?.user;
+      // Exclude System user if needed, and wrap in array for backward compatibility with frontend
+      pmMap[p.id] = user && user.surname !== "System" ? [user] : [];
     });
     return pmMap;
   }

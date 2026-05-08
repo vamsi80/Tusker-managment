@@ -165,6 +165,7 @@ model WorkspaceMember {
   approvedPurchaseOrders PurchaseOrder[]        @relation("POApprover")
   createdPurchaseOrders  PurchaseOrder[]        @relation("POCreator")
   recordedPayments       PurchaseOrderPayment[] @relation("PaymentRecorder")
+  managedProjects        Project[]              @relation("ProjectManager")
   createdUnits           Unit[]
   leaveRequests          leave_request[]
 
@@ -193,6 +194,8 @@ model Project {
   indentDetails    IndentDetails[]
   procurementTasks ProcurementTask[]
   purchaseOrders   PurchaseOrder[]
+  projectManagerId String?
+  projectManager   WorkspaceMember? @relation("ProjectManager", fields: [projectManagerId], references: [id])
 
   @@index([workspaceId, slug])
   @@index([workspaceId, createdAt])

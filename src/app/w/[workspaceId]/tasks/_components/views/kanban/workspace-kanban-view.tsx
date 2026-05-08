@@ -40,6 +40,9 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
         leadersPromise,
     ]);
     const duration = performance.now() - viewStartTime;
+    
+    console.log(`DEBUG: Workspace Kanban Project Managers for ${workspaceId}:`, projectManagers);
+
     if (duration > 600) {
         console.warn(`[PERF_WARN] WorkspaceKanbanView rendered in ${duration.toFixed(2)}ms`);
     }

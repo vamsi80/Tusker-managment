@@ -23,6 +23,10 @@ export class ProjectMapper {
       canManageMembers: isOwnerOrAdmin || isProjectManager || isCreator,
       projectRole: userProjectMember?.projectRole as ProjectRole,
       createdAt: project.createdAt.toISOString(),
+      projectManager: project.projectManager?.user ? {
+        id: project.projectManager.user.id,
+        surname: project.projectManager.user.surname
+      } : undefined,
     };
   }
 
@@ -102,10 +106,6 @@ export class ProjectMapper {
       hasAccess: pm.hasAccess,
     }));
 
-    const projectManagers = project.projectMembers
-      .filter((pm: any) => pm.projectRole === "PROJECT_MANAGER")
-      .map((pm: any) => pm.workspaceMember.userId);
-
     return {
       id: project.id,
       name: project.name,
@@ -113,8 +113,11 @@ export class ProjectMapper {
       slug: project.slug,
       color: project.color,
       workspaceId: project.workspaceId,
-      projectLead: projectManagers[0] || null,
-      projectManagers,
+      projectManagerId: project.projectManagerId,
+      projectManager: project.projectManager?.user ? {
+        id: project.projectManager.user.id,
+        surname: project.projectManager.user.surname,
+      } : undefined,
       memberAccess: project.projectMembers.map((pm: any) => pm.workspaceMember.userId),
       projectMembers,
       companyName: project.clint[0]?.name || null,

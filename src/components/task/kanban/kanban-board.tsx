@@ -36,7 +36,6 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 import { workspacesClient } from "@/lib/api-client/workspaces";
 
-
 export type TaskStatus =
   | "TO_DO"
   | "IN_PROGRESS"
@@ -124,10 +123,14 @@ export function KanbanBoard({
       }
     };
     fetchTags();
+
+    // Debug: Print project managers
+    console.log("DEBUG: Kanban Project Managers:", projectManagers);
+
     return () => {
       mounted = false;
     };
-  }, [workspaceId]);
+  }, [workspaceId, projectManagers]);
   const isMobile = useIsMobile();
   const [kanbanTasks, setKanbanTasks] = useState<Record<string, any[]>>({});
 
@@ -318,12 +321,12 @@ export function KanbanBoard({
             };
           });
         } else {
-           // Normal update within same column
-           const status = record.status as TaskStatus;
-           setKanbanTasks(prev => ({
-             ...prev,
-             [status]: (prev[status] || []).map(t => t.id === entityId ? { ...t, ...record } : t)
-           }));
+          // Normal update within same column
+          const status = record.status as TaskStatus;
+          setKanbanTasks(prev => ({
+            ...prev,
+            [status]: (prev[status] || []).map(t => t.id === entityId ? { ...t, ...record } : t)
+          }));
         }
       }
     };
@@ -429,34 +432,34 @@ export function KanbanBoard({
       if (!shouldFetch) {
         // Reset to initial unfiltered data ONLY if we were previously filtering
         if (isCurrentlyFiltered) {
-        // Reset to initial unfiltered data
-        if (isCurrentlyFiltered) {
-          const resetData: any = {};
-          const resetTasks: any = {};
+          // Reset to initial unfiltered data
+          if (isCurrentlyFiltered) {
+            const resetData: any = {};
+            const resetTasks: any = {};
 
-          COLUMNS.forEach((col) => {
-            const serverCol = initialData?.[col.id];
-            const tasks = (serverCol as any)?.tasks || (serverCol as any)?.subTasks || [];
-            
-            resetData[col.id] = {
-              subTaskIds: tasks.map((t: any) => t.id),
-              totalCount: serverCol?.totalCount || 0,
-              hasMore: serverCol?.hasMore || false,
-              nextCursor: serverCol?.nextCursor || undefined,
-            };
-            resetTasks[col.id] = tasks;
-          });
+            COLUMNS.forEach((col) => {
+              const serverCol = initialData?.[col.id];
+              const tasks = (serverCol as any)?.tasks || (serverCol as any)?.subTasks || [];
 
-          if (!isAborted) {
-            setColumnData(resetData);
-            setKanbanTasks(resetTasks);
-            setIsCurrentlyFiltered(false);
-            setLoadingColumns(
-              Object.fromEntries(COLUMNS.map((col) => [col.id, false])) as any,
-            );
-            setIsFiltering(false);
+              resetData[col.id] = {
+                subTaskIds: tasks.map((t: any) => t.id),
+                totalCount: serverCol?.totalCount || 0,
+                hasMore: serverCol?.hasMore || false,
+                nextCursor: serverCol?.nextCursor || undefined,
+              };
+              resetTasks[col.id] = tasks;
+            });
+
+            if (!isAborted) {
+              setColumnData(resetData);
+              setKanbanTasks(resetTasks);
+              setIsCurrentlyFiltered(false);
+              setLoadingColumns(
+                Object.fromEntries(COLUMNS.map((col) => [col.id, false])) as any,
+              );
+              setIsFiltering(false);
+            }
           }
-        }
         } else {
           if (!isAborted) setIsFiltering(false);
         }
@@ -680,8 +683,8 @@ export function KanbanBoard({
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
-    const subTask = kanbanTasks[overInfo.columnId as TaskStatus]?.find(t => t.id === active.id) || 
-                  Object.values(kanbanTasks).flat().find(t => t.id === active.id);
+    const subTask = kanbanTasks[overInfo.columnId as TaskStatus]?.find(t => t.id === active.id) ||
+      Object.values(kanbanTasks).flat().find(t => t.id === active.id);
     if (subTask) {
       setActiveSubTask(subTask as KanbanSubTaskType);
     }

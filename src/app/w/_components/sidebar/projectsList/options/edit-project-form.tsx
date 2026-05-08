@@ -76,7 +76,7 @@ export const EditProjectForm = ({
             gstNumber: project.gstNumber || "",
             contactPerson: project.contactPerson || "",
             phoneNumber: project.phoneNumber || "",
-            projectManagers: project.projectMembers?.filter(m => m.projectRole === "PROJECT_MANAGER").map(m => m.userId) || [],
+            projectManagerId: project.projectManagerId || "",
             memberAccess: project.memberAccess || [],
         },
     });
@@ -298,15 +298,15 @@ export const EditProjectForm = ({
                                     )}
                                 />
                             </div>
-                            {/* Project Managers Selection */}
+                            {/* Project Manager Selection */}
                             <FormField
                                 control={form.control}
-                                name="projectManagers"
+                                name="projectManagerId"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Project Managers</FormLabel>
+                                        <FormLabel>Project Manager</FormLabel>
                                         <FormDescription className="text-xs text-muted-foreground mb-2">
-                                            Select project managers who will have full project access. (Managers only)
+                                            Select a project manager who will have full project access. (Managers only)
                                         </FormDescription>
                                         <div className="space-y-2">
                                             <Popover>
@@ -316,19 +316,17 @@ export const EditProjectForm = ({
                                                         className="w-full justify-between font-normal h-auto min-h-[40px] py-2"
                                                     >
                                                         <div className="flex flex-wrap gap-1">
-                                                            {field.value && field.value.length > 0 ? (
-                                                                field.value.map((userId) => {
-                                                                    const m = members?.find(
-                                                                        (m) => m.userId === userId
-                                                                    );
+                                                            {field.value ? (
+                                                                (() => {
+                                                                    const m = members?.find((m) => m.id === field.value);
                                                                     return (
-                                                                        <Badge key={userId} variant="secondary" className="px-1 font-normal">
-                                                                            {m?.surname}
+                                                                        <Badge variant="secondary" className="px-1 font-normal">
+                                                                            {m?.surname || "Unknown"}
                                                                         </Badge>
                                                                     );
-                                                                })
+                                                                })()
                                                             ) : (
-                                                                <span className="text-muted-foreground">Select project managers</span>
+                                                                <span className="text-muted-foreground">Select project manager</span>
                                                             )}
                                                         </div>
                                                     </Button>
@@ -340,22 +338,15 @@ export const EditProjectForm = ({
                                                         <CommandEmpty>No workspace managers found.</CommandEmpty>
 
                                                         <CommandGroup className="max-h-64 overflow-y-auto">
-                                                            {members
-                                                                ?.filter((m) => m.workspaceRole === "MANAGER")
-                                                                .map((member) => {
+                                                            {members?.filter((m) => m.workspaceRole === "MANAGER").map((member) => {
                                                                     const userName = `${member.surname}`;
-                                                                    const isSelected = field.value?.includes(member.userId);
+                                                                    const isSelected = field.value === member.id;
 
                                                                     return (
                                                                         <CommandItem
-                                                                            key={member.userId}
+                                                                            key={member.id}
                                                                             onSelect={() => {
-                                                                                const current = field.value || [];
-                                                                                if (isSelected) {
-                                                                                    field.onChange(current.filter(id => id !== member.userId));
-                                                                                } else {
-                                                                                    field.onChange([...current, member.userId]);
-                                                                                }
+                                                                                field.onChange(isSelected ? "" : member.id);
                                                                             }}
                                                                         >
                                                                             <div className={cn(
