@@ -213,11 +213,20 @@ export class ProjectService {
       createdBy: userId,
       projectManagerId: assignedProjectManagerId,
       projectMembers: {
-        create: {
-          workspaceMemberId: assignedProjectManagerId,
-          hasAccess: true,
-          projectRole: "PROJECT_MANAGER",
-        },
+        create: [
+          {
+            workspaceMemberId: assignedProjectManagerId,
+            hasAccess: true,
+            projectRole: "PROJECT_MANAGER",
+          },
+          ...(values.memberAccess || [])
+            .filter(id => id !== assignedProjectManagerId)
+            .map(id => ({
+              workspaceMemberId: id,
+              hasAccess: true,
+              projectRole: "MEMBER",
+            })),
+        ],
       },
       ...(values.companyName ? {
         clint: {
