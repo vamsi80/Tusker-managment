@@ -177,4 +177,18 @@ export class ProjectRepository {
       }
     });
   }
+
+  static async getWorkspaceClients(workspaceId: string) {
+    return prisma.clints.findMany({
+      where: {
+        workspaceId
+      },
+      include: {
+        clintMembers: true
+      },
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+  }
 }

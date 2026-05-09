@@ -132,6 +132,21 @@ projects.get("/workspace-members", async (c) => {
 });
 
 /**
+ * GET /api/v1/projects/workspace-clients
+ * Fetch all clients in a workspace.
+ */
+projects.get("/workspace-clients", async (c) => {
+  const workspaceId = c.req.query("workspaceId");
+
+  if (!workspaceId) {
+    throw AppError.ValidationError("workspaceId query parameter is required");
+  }
+
+  const clients = await ProjectService.getWorkspaceClients(workspaceId);
+  return c.json({ success: true, data: clients });
+});
+
+/**
  * GET /api/v1/projects/assignment-maps
  * Get project assignment maps (members & leaders)
  */
