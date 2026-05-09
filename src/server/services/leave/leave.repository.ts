@@ -42,10 +42,13 @@ export class LeaveRepository {
         });
     }
 
-    static async updateStatus(id: string, status: LeaveStatus) {
+    static async updateStatus(id: string, status: LeaveStatus, processedById: string) {
         return await (prisma as any).leave_request.update({
             where: { id },
-            data: { status },
+            data: { 
+                status,
+                processedById
+            },
             include: {
                 WorkspaceMember: {
                     select: {
@@ -97,6 +100,15 @@ export class LeaveRepository {
                                 select: {
                                     surname: true,
                                     email: true,
+                                }
+                            }
+                        }
+                    },
+                    processedBy: {
+                        select: {
+                            user: {
+                                select: {
+                                    surname: true
                                 }
                             }
                         }

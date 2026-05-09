@@ -33,4 +33,5 @@ export interface LeaveRequestWithMember {
     reportToId: string | null;
     casualLeaveBalance: number;
     sickLeaveBalance: number;
+    processedByName?: string | null;
 }

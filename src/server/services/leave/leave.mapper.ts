@@ -16,6 +16,7 @@ export class LeaveMapper {
             reportToId: leave.WorkspaceMember?.reportToId || null,
             casualLeaveBalance: leave.WorkspaceMember?.casualLeaveBalance || 0,
             sickLeaveBalance: leave.WorkspaceMember?.sickLeaveBalance || 0,
+            processedByName: leave.processedBy?.user?.surname || null,
         };
     }
 
