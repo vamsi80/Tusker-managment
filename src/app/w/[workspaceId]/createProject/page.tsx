@@ -60,7 +60,9 @@ export default function CreateProjectPage() {
     const { triggerConfetti } = useConfetti();
 
     const [members, setMembers] = useState<WorkspaceMembersResult["workspaceMembers"]>([]);
+    const [existingClients, setExistingClients] = useState<any[]>([]);
     const [isLoadingMembers, setIsLoadingMembers] = useState(true);
+    const [isLoadingClients, setIsLoadingClients] = useState(true);
 
     // --- Access Control ---
     const isManager = permissions?.workspaceRole === "MANAGER";
@@ -90,6 +92,31 @@ export default function CreateProjectPage() {
             }
         }
         loadMembers();
+    }, [workspaceId]);
+
+    useEffect(() => {
+        async function loadClients() {
+            try {
+                const result = await projectsClient.getWorkspaceClients(workspaceId);
+                if (result) {
+                    // De-duplicate by name and registered company name to avoid duplicates in the list
+                    const uniqueClients = result.reduce((acc: any[], curr: any) => {
+                        const exists = acc.find(c => 
+                            (c.name === curr.name && c.registeredCompanyName === curr.registeredCompanyName) ||
+                            (curr.gstNumber && c.gstNumber === curr.gstNumber)
+                        );
+                        if (!exists) acc.push(curr);
+                        return acc;
+                    }, []);
+                    setExistingClients(uniqueClients);
+                }
+            } catch (error) {
+                console.error("Failed to load clients:", error);
+            } finally {
+                setIsLoadingClients(false);
+            }
+        }
+        loadClients();
     }, [workspaceId]);
 
     const form = useForm<ProjectSchemaType>({
@@ -189,200 +216,242 @@ export default function CreateProjectPage() {
 
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                    {/* Basic Info Section */}
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-3 text-primary font-semibold">
-                            <Info className="h-5 w-5" />
-                            <h2 className="text-lg">Basic Information</h2>
-                        </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                        {/* Basic Info Section */}
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-3 text-primary font-semibold">
+                                <Info className="h-5 w-5" />
+                                <h2 className="text-lg">Basic Information</h2>
+                            </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <FormField
-                                control={form.control}
-                                name="name"
-                                render={({ field }) => (
-                                    <FormItem className="col-span-full">
-                                        <FormLabel>Project Name</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="Enter project name" {...field} className="h-11" />
-                                        </FormControl>
-                                        {watchedSlug && (
-                                            <p className="text-[11px] text-muted-foreground mt-1 ml-1 font-mono">
-                                                Slug: {watchedSlug}
-                                            </p>
-                                        )}
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                            <div className="grid grid-cols-1 gap-4">
+                                <FormField
+                                    control={form.control}
+                                    name="name"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Project Name</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="Enter project name" {...field} className="h-11" />
+                                            </FormControl>
+                                            {watchedSlug && (
+                                                <p className="text-[11px] text-muted-foreground mt-1 ml-1 font-mono">
+                                                    Slug: {watchedSlug}
+                                                </p>
+                                            )}
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
 
-                            <FormField
-                                control={form.control}
-                                name="description"
-                                render={({ field }) => (
-                                    <FormItem className="col-span-full">
-                                        <FormLabel>Description</FormLabel>
-                                        <FormControl>
-                                            <Textarea
-                                                placeholder="What is this project about?"
-                                                {...field}
-                                                rows={4}
-                                                className="resize-none"
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
-                    </div>
-
-                    {/* Team Section */}
-                    <div className="space-y-6 pt-6 border-t">
-                        <div className="flex items-center gap-3 text-primary font-semibold">
-                            <Users className="h-5 w-5" />
-                            <h2 className="text-lg">Team Assignment</h2>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* Project Manager Selection */}
-                            <FormField
-                                control={form.control}
-                                name="projectManagerId"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="flex items-center gap-1.5">
-                                            <UserCircle className="h-4 w-4" />
-                                            Project Manager
-                                        </FormLabel>
-                                        <FormDescription className="text-xs">
-                                            {isManager
-                                                ? "You are assigned as the manager for this project."
-                                                : "Choose who will lead this project."}
-                                        </FormDescription>
-                                        <div className="pt-1">
-                                            {isManager ? (
-                                                <Input
-                                                    value={members.find(m => m.userId === permissions?.userId)?.surname || "You"}
-                                                    disabled
-                                                    className="bg-muted"
+                                <FormField
+                                    control={form.control}
+                                    name="description"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Description</FormLabel>
+                                            <FormControl>
+                                                <Textarea
+                                                    placeholder="What is this project about?"
+                                                    {...field}
+                                                    rows={4}
+                                                    className="resize-none"
                                                 />
-                                            ) : (
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Team Section */}
+                        <div className="space-y-6">
+                            <div className="flex items-center gap-3 text-primary font-semibold">
+                                <Users className="h-5 w-5" />
+                                <h2 className="text-lg">Team Assignment</h2>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-6">
+                                {/* Project Manager Selection */}
+                                <FormField
+                                    control={form.control}
+                                    name="projectManagerId"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="flex items-center gap-1.5">
+                                                <UserCircle className="h-4 w-4" />
+                                                Project Manager
+                                            </FormLabel>
+                                            <div className="pt-1">
+                                                {isManager ? (
+                                                    <Input
+                                                        value={members.find(m => m.userId === permissions?.userId)?.surname || "You"}
+                                                        disabled
+                                                        className="bg-muted"
+                                                    />
+                                                ) : (
+                                                    <Popover>
+                                                        <PopoverTrigger asChild>
+                                                            <Button variant="outline" className="w-full justify-between h-11">
+                                                                {field.value ? (
+                                                                    <Badge variant="secondary" className="font-normal">
+                                                                        {members.find(m => m.id === field.value)?.surname || "Unknown"}
+                                                                    </Badge>
+                                                                ) : (
+                                                                    <span className="text-muted-foreground">Select manager</span>
+                                                                )}
+                                                            </Button>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="p-0 w-72" align="start">
+                                                            <Command>
+                                                                <CommandInput placeholder="Search managers..." />
+                                                                <CommandEmpty>No managers found.</CommandEmpty>
+                                                                <CommandGroup className="max-h-64 overflow-auto">
+                                                                    {members.filter(m => m.workspaceRole === "MANAGER").map((m) => (
+                                                                        <CommandItem
+                                                                            key={m.id}
+                                                                            onSelect={() => field.onChange(field.value === m.id ? "" : m.id)}
+                                                                        >
+                                                                            <Check className={cn("mr-2 h-4 w-4", field.value === m.id ? "opacity-100" : "opacity-0")} />
+                                                                            {m.surname}
+                                                                        </CommandItem>
+                                                                    ))}
+                                                                </CommandGroup>
+                                                            </Command>
+                                                        </PopoverContent>
+                                                    </Popover>
+                                                )}
+                                            </div>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+
+                                {/* Member Access Selection */}
+                                <FormField
+                                    control={form.control}
+                                    name="memberAccess"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="flex items-center gap-1.5">
+                                                <Users className="h-4 w-4" />
+                                                Team Members
+                                            </FormLabel>
+                                            <div className="pt-1">
                                                 <Popover>
                                                     <PopoverTrigger asChild>
-                                                        <Button variant="outline" className="w-full justify-between h-11">
-                                                            {field.value ? (
-                                                                <Badge variant="secondary" className="font-normal">
-                                                                    {members.find(m => m.id === field.value)?.surname || "Unknown"}
-                                                                </Badge>
-                                                            ) : (
-                                                                <span className="text-muted-foreground">Select manager</span>
-                                                            )}
+                                                        <Button variant="outline" className="w-full justify-between min-h-[44px] h-auto py-2">
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {field.value.length > 0 ? (
+                                                                    field.value.map(id => (
+                                                                        <Badge key={id} variant="outline" className="bg-primary/5">
+                                                                            {members.find(m => m.id === id)?.surname || "User"}
+                                                                        </Badge>
+                                                                    ))
+                                                                ) : (
+                                                                    <span className="text-muted-foreground">Add team members</span>
+                                                                )}
+                                                            </div>
                                                         </Button>
                                                     </PopoverTrigger>
                                                     <PopoverContent className="p-0 w-72" align="start">
                                                         <Command>
-                                                            <CommandInput placeholder="Search managers..." />
-                                                            <CommandEmpty>No managers found.</CommandEmpty>
+                                                            <CommandInput placeholder="Search members..." />
+                                                            <CommandEmpty>No members found.</CommandEmpty>
                                                             <CommandGroup className="max-h-64 overflow-auto">
-                                                                {members.filter(m => m.workspaceRole === "MANAGER").map((m) => (
-                                                                    <CommandItem
-                                                                        key={m.id}
-                                                                        onSelect={() => field.onChange(field.value === m.id ? "" : m.id)}
-                                                                    >
-                                                                        <Check className={cn("mr-2 h-4 w-4", field.value === m.id ? "opacity-100" : "opacity-0")} />
-                                                                        {m.surname}
-                                                                    </CommandItem>
-                                                                ))}
+                                                                {members
+                                                                    .filter(m => m.workspaceRole !== "OWNER" && m.workspaceRole !== "ADMIN")
+                                                                    .map((m) => {
+                                                                        const isSelected = field.value.includes(m.id);
+                                                                        const isPM = form.getValues("projectManagerId") === m.id;
+
+                                                                        return (
+                                                                            <CommandItem
+                                                                                key={m.id}
+                                                                                disabled={isPM}
+                                                                                onSelect={() => {
+                                                                                    if (isSelected) {
+                                                                                        field.onChange(field.value.filter(id => id !== m.id));
+                                                                                    } else {
+                                                                                        field.onChange([...field.value, m.id]);
+                                                                                    }
+                                                                                }}
+                                                                            >
+                                                                                <Check className={cn("mr-2 h-4 w-4", isSelected ? "opacity-100" : "opacity-0")} />
+                                                                                <span className={cn(isPM && "text-muted-foreground")}>
+                                                                                    {m.surname}
+                                                                                    {isPM && " (PM)"}
+                                                                                </span>
+                                                                            </CommandItem>
+                                                                        );
+                                                                    })}
                                                             </CommandGroup>
                                                         </Command>
                                                     </PopoverContent>
                                                 </Popover>
-                                            )}
-                                        </div>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-
-                            {/* Member Access Selection */}
-                            <FormField
-                                control={form.control}
-                                name="memberAccess"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="flex items-center gap-1.5">
-                                            <Users className="h-4 w-4" />
-                                            Team Members
-                                        </FormLabel>
-                                        <FormDescription className="text-xs">
-                                            Select additional members to grant access to this project.
-                                        </FormDescription>
-                                        <div className="pt-1">
-                                            <Popover>
-                                                <PopoverTrigger asChild>
-                                                    <Button variant="outline" className="w-full justify-between min-h-[44px] h-auto py-2">
-                                                        <div className="flex flex-wrap gap-1">
-                                                            {field.value.length > 0 ? (
-                                                                field.value.map(id => (
-                                                                    <Badge key={id} variant="outline" className="bg-primary/5">
-                                                                        {members.find(m => m.id === id)?.surname || "User"}
-                                                                    </Badge>
-                                                                ))
-                                                            ) : (
-                                                                <span className="text-muted-foreground">Add team members</span>
-                                                            )}
-                                                        </div>
-                                                    </Button>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="p-0 w-72" align="start">
-                                                    <Command>
-                                                        <CommandInput placeholder="Search members..." />
-                                                        <CommandEmpty>No members found.</CommandEmpty>
-                                                        <CommandGroup className="max-h-64 overflow-auto">
-                                                            {members
-                                                                .filter(m => m.workspaceRole !== "OWNER" && m.workspaceRole !== "ADMIN")
-                                                                .map((m) => {
-                                                                    const isSelected = field.value.includes(m.id);
-                                                                    const isPM = form.getValues("projectManagerId") === m.id;
-
-                                                                    return (
-                                                                        <CommandItem
-                                                                            key={m.id}
-                                                                            disabled={isPM}
-                                                                            onSelect={() => {
-                                                                                if (isSelected) {
-                                                                                    field.onChange(field.value.filter(id => id !== m.id));
-                                                                                } else {
-                                                                                    field.onChange([...field.value, m.id]);
-                                                                                }
-                                                                            }}
-                                                                        >
-                                                                            <Check className={cn("mr-2 h-4 w-4", isSelected ? "opacity-100" : "opacity-0")} />
-                                                                            <span className={cn(isPM && "text-muted-foreground")}>
-                                                                                {m.surname}
-                                                                                {isPM && " (PM)"}
-                                                                            </span>
-                                                                        </CommandItem>
-                                                                    );
-                                                                })}
-                                                        </CommandGroup>
-                                                    </Command>
-                                                </PopoverContent>
-                                            </Popover>
-                                        </div>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                                            </div>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
                         </div>
                     </div>
 
                     {/* Client Info Section */}
                     <div className="space-y-4 pt-6 border-t">
-                        <div className="flex items-center gap-3 text-primary font-semibold">
-                            <Briefcase className="h-5 w-5" />
-                            <h2 className="text-lg">Client Information</h2>
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3 text-primary font-semibold">
+                                <Briefcase className="h-5 w-5" />
+                                <h2 className="text-lg">Client Information</h2>
+                            </div>
+
+                            {existingClients.length > 0 && (
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant="outline" size="sm" className="h-8 gap-2">
+                                            <Users className="h-3.5 w-3.5" />
+                                            Use Existing Client
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="p-0 w-80" align="end">
+                                        <Command>
+                                            <CommandInput placeholder="Search existing clients..." />
+                                            <CommandEmpty>No clients found.</CommandEmpty>
+                                            <CommandGroup className="max-h-64 overflow-auto">
+                                                {existingClients.map((client) => (
+                                                    <CommandItem
+                                                        key={client.id}
+                                                        onSelect={() => {
+                                                            form.setValue("clintId", client.id, { shouldDirty: true });
+                                                            form.setValue("companyName", client.name || "", { shouldDirty: true });
+                                                            form.setValue("registeredCompanyName", client.registeredCompanyName || "", { shouldDirty: true });
+                                                            form.setValue("directorName", client.directorName || "", { shouldDirty: true });
+                                                            form.setValue("address", client.address || "", { shouldDirty: true });
+                                                            form.setValue("gstNumber", client.gstNumber || "", { shouldDirty: true });
+                                                            
+                                                            if (client.clintMembers && client.clintMembers.length > 0) {
+                                                                const member = client.clintMembers[0];
+                                                                form.setValue("contactPerson", member.name || "", { shouldDirty: true });
+                                                                form.setValue("phoneNumber", member.phoneNumber || "", { shouldDirty: true });
+                                                            }
+                                                            toast.success(`Loaded details for ${client.name}`);
+                                                        }}
+                                                    >
+                                                        <div className="flex flex-col">
+                                                            <span className="font-medium">{client.name}</span>
+                                                            {client.registeredCompanyName && (
+                                                                <span className="text-[10px] text-muted-foreground">{client.registeredCompanyName}</span>
+                                                            )}
+                                                        </div>
+                                                    </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+                            )}
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -394,6 +463,20 @@ export default function CreateProjectPage() {
                                         <FormLabel>Client Company Name</FormLabel>
                                         <FormControl>
                                             <Input placeholder="e.g. Google" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <FormField
+                                control={form.control}
+                                name="registeredCompanyName"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Registered Company Name</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="Full legal name" {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -436,6 +519,34 @@ export default function CreateProjectPage() {
                                         <FormLabel>GST Number</FormLabel>
                                         <FormControl>
                                             <Input placeholder="12ABCDE3456F7Z8" {...field} maxLength={15} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <FormField
+                                control={form.control}
+                                name="directorName"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Director Name</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="Authorized signatory" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <FormField
+                                control={form.control}
+                                name="address"
+                                render={({ field }) => (
+                                    <FormItem className="col-span-full">
+                                        <FormLabel>Address</FormLabel>
+                                        <FormControl>
+                                            <Textarea placeholder="Full billing address" {...field} rows={2} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>

@@ -120,13 +120,13 @@ export class ProjectMapper {
       } : undefined,
       memberAccess: project.projectMembers.map((pm: any) => pm.workspaceMember.userId),
       projectMembers,
-      companyName: project.clint[0]?.name || null,
-      registeredCompanyName: project.clint[0]?.registeredCompanyName || null,
-      directorName: project.clint[0]?.directorName || null,
-      address: project.clint[0]?.address || null,
-      gstNumber: project.clint[0]?.gstNumber || null,
-      contactPerson: project.clint[0]?.clintMembers[0]?.name || null,
-      phoneNumber: project.clint[0]?.clintMembers[0]?.phoneNumber || null,
+      companyName: project.clint?.name || null,
+      registeredCompanyName: project.clint?.registeredCompanyName || null,
+      directorName: project.clint?.directorName || null,
+      address: project.clint?.address || null,
+      gstNumber: project.clint?.gstNumber || null,
+      contactPerson: project.clint?.clintMembers[0]?.name || null,
+      phoneNumber: project.clint?.clintMembers[0]?.phoneNumber || null,
     };
   }
 

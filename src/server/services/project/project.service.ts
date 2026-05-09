@@ -228,7 +228,11 @@ export class ProjectService {
             })),
         ],
       },
-      ...(values.companyName ? {
+      ...(values.clintId ? {
+        clint: {
+          connect: { id: values.clintId }
+        }
+      } : values.companyName ? {
         clint: {
           create: {
             name: values.companyName,
@@ -236,6 +240,7 @@ export class ProjectService {
             directorName: values.directorName,
             address: values.address,
             gstNumber: values.gstNumber,
+            workspaceId,
             clintMembers: {
               create: {
                 name: values.contactPerson,
@@ -285,8 +290,15 @@ export class ProjectService {
         },
       });
 
-      const clientRecord = project.clint[0];
-      if (clientRecord) {
+      const clientRecord = project.clint;
+      if (values.clintId && values.clintId !== project.clintId) {
+        // Switch to a different existing client
+        await tx.project.update({
+          where: { id: values.projectId },
+          data: { clintId: values.clintId }
+        });
+      } else if (clientRecord) {
+        // Update current client details
         await tx.clints.update({
           where: { id: clientRecord.id },
           data: {
@@ -589,5 +601,9 @@ export class ProjectService {
 
   static async getProjectBySlug(workspaceId: string, slug: string) {
     return ProjectRepository.getProjectBySlug(workspaceId, slug);
+  }
+
+  static async getWorkspaceClients(workspaceId: string) {
+    return ProjectRepository.getWorkspaceClients(workspaceId);
   }
 }

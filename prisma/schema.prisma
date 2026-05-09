@@ -136,6 +136,7 @@ model Workspace {
   leaveRequests    leave_request[]
   publicHolidays   public_holiday[]
   attendanceLocations AttendanceLocation[]
+  clints           Clints[]
 }
 
 model WorkspaceMember {
@@ -187,7 +188,9 @@ model Project {
   slug             String            @unique
   color            String
   createdBy        String?
-  clint            Clints[]
+  clintId          String?
+  clint            Clints?           @relation(fields: [clintId], references: [id])
+  legacyClints     Clints[]          @relation("LegacyProjectClints")
   workspace        Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   projectMembers   ProjectMember[]
   tasks            Task[]
@@ -231,9 +234,14 @@ model Clints {
   address               String?
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt
+  workspaceId           String?
+  workspace             Workspace?     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projects              Project[]
   projectId             String?
+  legacyProject         Project?       @relation("LegacyProjectClints", fields: [projectId], references: [id])
   clintMembers          ClintMembers[]
-  project               Project?       @relation(fields: [projectId], references: [id])
+
+  @@index([workspaceId])
 }
 
 model ClintMembers {

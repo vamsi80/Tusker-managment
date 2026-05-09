@@ -140,4 +140,12 @@ export const projectsClient = {
       method: "POST",
     });
   },
+
+  /**
+   * Get all clients in a workspace
+   */
+  getWorkspaceClients: async (workspaceId: string): Promise<any[]> => {
+    const res = await apiFetch<any>(`/projects/workspace-clients?workspaceId=${workspaceId}`);
+    return res.data;
+  },
 };
