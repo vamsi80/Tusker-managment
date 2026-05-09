@@ -87,7 +87,7 @@ export class LeaveService {
             }
         }
 
-        const updated = await LeaveRepository.updateStatus(id, status);
+        const updated = await LeaveRepository.updateStatus(id, status, actorMember.id);
         await LeaveEvents.emitLeaveStatusUpdated(actorId, workspaceId, updated, status);
 
         return updated;

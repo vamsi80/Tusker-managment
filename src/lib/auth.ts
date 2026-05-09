@@ -27,11 +27,38 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: true, // Require email verification before login - Better Auth blocks unverified users
     sendResetPassword: async ({ user, url }) => {
-      await sendEmail({
+      // Print reset link to console for development
+      console.log('\n==============================================');
+      console.log('📧 PASSWORD RESET LINK');
+      console.log('==============================================');
+      console.log('User:', user.email);
+      console.log('Reset URL:', url);
+      console.log('==============================================\n');
+
+      const result = await sendEmail({
         to: user.email,
         subject: 'Reset your password',
-        html: `<p>Click <a href="${url}">here</a> to reset your password.</p>`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Reset Your Password</h2>
+            <p>Hi,</p>
+            <p>You requested to reset your password for Tusker Management. Click the button below to proceed:</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${url}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                Reset Password
+              </a>
+            </div>
+            <p style="color: #6B7280; font-size: 14px; margin-top: 30px;">
+              If you didn't request this, you can safely ignore this email. This link will expire shortly.
+            </p>
+          </div>
+        `,
       });
+
+      if (!result.success) {
+        console.error('Failed to send reset password email:', result.error);
+        throw new Error(result.error);
+      }
     },
   },
   emailVerification: {

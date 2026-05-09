@@ -16,11 +16,11 @@ import { getColorFromString, generateRandomColor } from "@/lib/colors/project-co
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import {
     Form,
     FormControl,
-    FormDescription,
     FormField,
     FormItem,
     FormLabel,
@@ -46,14 +46,13 @@ import {
     Users,
     Briefcase,
     Info,
-    UserCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type WorkspaceMembersResult } from "@/types/workspace";
 import Link from "next/link";
 
 export default function CreateProjectPage() {
-    const { workspaceId, data: layoutData } = useWorkspaceLayout();
+    const { workspaceId, data: layoutData, isLoading: isLayoutLoading } = useWorkspaceLayout();
     const { permissions } = layoutData;
     const router = useRouter();
     const [pending, startTransition] = useTransition();
@@ -67,15 +66,15 @@ export default function CreateProjectPage() {
     // --- Access Control ---
     const isManager = permissions?.workspaceRole === "MANAGER";
     const isAdminOrOwner = permissions?.workspaceRole === "ADMIN" || permissions?.workspaceRole === "OWNER";
-    const canAccess = isManager || isAdminOrOwner;
+    const canAccess = isManager || isAdminOrOwner || permissions?.canCreateProject;
 
     useEffect(() => {
-        // Only redirect if data has loaded and user is explicitly not authorized
-        if (!isLoadingMembers && !canAccess) {
+        // Only redirect if layout and members have finished loading AND user is explicitly not authorized
+        if (!isLayoutLoading && !isLoadingMembers && !canAccess) {
             toast.error("You do not have permission to create projects in this workspace.");
             router.push(`/w/${workspaceId}`);
         }
-    }, [isLoadingMembers, canAccess, workspaceId, router]);
+    }, [isLayoutLoading, isLoadingMembers, canAccess, workspaceId, router]);
 
     useEffect(() => {
         async function loadMembers() {
@@ -101,7 +100,7 @@ export default function CreateProjectPage() {
                 if (result) {
                     // De-duplicate by name and registered company name to avoid duplicates in the list
                     const uniqueClients = result.reduce((acc: any[], curr: any) => {
-                        const exists = acc.find(c => 
+                        const exists = acc.find(c =>
                             (c.name === curr.name && c.registeredCompanyName === curr.registeredCompanyName) ||
                             (curr.gstNumber && c.gstNumber === curr.gstNumber)
                         );
@@ -129,6 +128,7 @@ export default function CreateProjectPage() {
             workspaceId: workspaceId,
             projectManagerId: "",
             memberAccess: [],
+            isInternal: false,
             companyName: "",
             registeredCompanyName: "",
             directorName: "",
@@ -181,11 +181,11 @@ export default function CreateProjectPage() {
         });
     }
 
-    if (isLoadingMembers) {
+    if (isLoadingMembers || isLayoutLoading) {
         return (
             <div className="flex flex-col items-center justify-center h-full space-y-4">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="text-muted-foreground">Loading workspace members...</p>
+                <p className="text-muted-foreground">Loading workspace information...</p>
             </div>
         );
     }
@@ -195,23 +195,24 @@ export default function CreateProjectPage() {
 
     return (
         <div className="w-full h-full overflow-y-auto">
-            <div className="mb-8">
-                <Button variant="ghost" size="sm" asChild className="mb-4 -ml-2">
-                    <Link href={`/w/${workspaceId}`}>
-                        <ChevronLeft className="mr-2 h-4 w-4" />
-                        Back to Dashboard
-                    </Link>
-                </Button>
+            <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-4">
                     <div
-                        className="h-10 w-10 rounded-xl shadow-inner border transition-colors"
+                        className="h-5 w-5 rounded-full shadow-inner border transition-colors"
                         style={{ backgroundColor: watchedColor || "#000000" }}
                     />
                     <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Create New Project</h1>
-                        <p className="text-muted-foreground">Set up a new project for your workspace.</p>
+                        <h1 className="text-xl font-medium tracking-tight text-foreground">Create New Project</h1>
+                        {/* <p className="text-muted-foreground text-sm">Set up a new project for your workspace.</p> */}
                     </div>
                 </div>
+
+                <Button variant="outline" size="sm" asChild className="h-9 gap-2">
+                    <Link href={`/w/${workspaceId}`}>
+                        <ChevronLeft className="h-4 w-4" />
+                        Back
+                    </Link>
+                </Button>
             </div>
 
             <Form {...form}>
@@ -221,7 +222,7 @@ export default function CreateProjectPage() {
                         <div className="space-y-4">
                             <div className="flex items-center gap-3 text-primary font-semibold">
                                 <Info className="h-5 w-5" />
-                                <h2 className="text-lg">Basic Information</h2>
+                                <h2 className="text-md">Basic Information</h2>
                             </div>
 
                             <div className="grid grid-cols-1 gap-4">
@@ -269,7 +270,7 @@ export default function CreateProjectPage() {
                         <div className="space-y-6">
                             <div className="flex items-center gap-3 text-primary font-semibold">
                                 <Users className="h-5 w-5" />
-                                <h2 className="text-lg">Team Assignment</h2>
+                                <h2 className="text-md">Team Assignment</h2>
                             </div>
 
                             <div className="grid grid-cols-1 gap-6">
@@ -280,7 +281,7 @@ export default function CreateProjectPage() {
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel className="flex items-center gap-1.5">
-                                                <UserCircle className="h-4 w-4" />
+                                                {/* <UserCircle className="h-4 w-4" /> */}
                                                 Project Manager
                                             </FormLabel>
                                             <div className="pt-1">
@@ -335,7 +336,7 @@ export default function CreateProjectPage() {
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel className="flex items-center gap-1.5">
-                                                <Users className="h-4 w-4" />
+                                                {/* <Users className="h-4 w-4" /> */}
                                                 Team Members
                                             </FormLabel>
                                             <div className="pt-1">
@@ -402,12 +403,54 @@ export default function CreateProjectPage() {
                     {/* Client Info Section */}
                     <div className="space-y-4 pt-6 border-t">
                         <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3 text-primary font-semibold">
-                                <Briefcase className="h-5 w-5" />
-                                <h2 className="text-lg">Client Information</h2>
+                            <div className="flex items-center gap-6">
+                                <div className="flex items-center gap-3 text-primary font-semibold">
+                                    <Briefcase className="h-5 w-5" />
+                                    <h2 className="text-md">Client Information</h2>
+                                </div>
+
+                                <FormField
+                                    control={form.control}
+                                    name="isInternal"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                                            <FormControl>
+                                                <Checkbox
+                                                    checked={field.value}
+                                                    onCheckedChange={(checked) => {
+                                                        field.onChange(checked);
+                                                        if (checked) {
+                                                            form.setValue("clintId", null);
+                                                            form.setValue("companyName", "Internal", { shouldDirty: true });
+                                                            form.setValue("registeredCompanyName", "Company Internal Work", { shouldDirty: true });
+                                                            form.setValue("directorName", "Internal", { shouldDirty: true });
+                                                            form.setValue("address", "N/A", { shouldDirty: true });
+                                                            form.setValue("gstNumber", "Internal", { shouldDirty: true });
+                                                            form.setValue("contactPerson", "Internal", { shouldDirty: true });
+                                                            form.setValue("phoneNumber", "0000000000", { shouldDirty: true });
+                                                        } else {
+                                                            form.resetField("companyName");
+                                                            form.resetField("registeredCompanyName");
+                                                            form.resetField("directorName");
+                                                            form.resetField("address");
+                                                            form.resetField("gstNumber");
+                                                            form.resetField("contactPerson");
+                                                            form.resetField("phoneNumber");
+                                                        }
+                                                    }}
+                                                />
+                                            </FormControl>
+                                            <div className="space-y-1 leading-none">
+                                                <FormLabel className="text-sm font-medium cursor-pointer">
+                                                    Internal Project?
+                                                </FormLabel>
+                                            </div>
+                                        </FormItem>
+                                    )}
+                                />
                             </div>
 
-                            {existingClients.length > 0 && (
+                            {existingClients.length > 0 && !form.watch("isInternal") && (
                                 <Popover>
                                     <PopoverTrigger asChild>
                                         <Button variant="outline" size="sm" className="h-8 gap-2">
@@ -430,7 +473,7 @@ export default function CreateProjectPage() {
                                                             form.setValue("directorName", client.directorName || "", { shouldDirty: true });
                                                             form.setValue("address", client.address || "", { shouldDirty: true });
                                                             form.setValue("gstNumber", client.gstNumber || "", { shouldDirty: true });
-                                                            
+
                                                             if (client.clintMembers && client.clintMembers.length > 0) {
                                                                 const member = client.clintMembers[0];
                                                                 form.setValue("contactPerson", member.name || "", { shouldDirty: true });
@@ -454,105 +497,107 @@ export default function CreateProjectPage() {
                             )}
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <FormField
-                                control={form.control}
-                                name="companyName"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Client Company Name</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="e.g. Google" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                        {!form.watch("isInternal") && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <FormField
+                                    control={form.control}
+                                    name="companyName"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Client Company Name</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="e.g. Google" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
 
-                            <FormField
-                                control={form.control}
-                                name="registeredCompanyName"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Registered Company Name</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="Full legal name" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                                <FormField
+                                    control={form.control}
+                                    name="registeredCompanyName"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Registered Company Name</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="Full legal name" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
 
-                            <FormField
-                                control={form.control}
-                                name="contactPerson"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Contact Person</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="Primary contact name" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                                <FormField
+                                    control={form.control}
+                                    name="contactPerson"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Contact Person</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="Primary contact name" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
 
-                            <FormField
-                                control={form.control}
-                                name="phoneNumber"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Phone Number</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="e.g. +91 98765 43210" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                                <FormField
+                                    control={form.control}
+                                    name="phoneNumber"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Phone Number</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="e.g. +91 98765 43210" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
 
-                            <FormField
-                                control={form.control}
-                                name="gstNumber"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>GST Number</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="12ABCDE3456F7Z8" {...field} maxLength={15} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                                <FormField
+                                    control={form.control}
+                                    name="gstNumber"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>GST Number</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="12ABCDE3456F7Z8" {...field} maxLength={15} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
 
-                            <FormField
-                                control={form.control}
-                                name="directorName"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Director Name</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="Authorized signatory" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                                <FormField
+                                    control={form.control}
+                                    name="directorName"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Director Name</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="Authorized signatory" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
 
-                            <FormField
-                                control={form.control}
-                                name="address"
-                                render={({ field }) => (
-                                    <FormItem className="col-span-full">
-                                        <FormLabel>Address</FormLabel>
-                                        <FormControl>
-                                            <Textarea placeholder="Full billing address" {...field} rows={2} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
+                                <FormField
+                                    control={form.control}
+                                    name="address"
+                                    render={({ field }) => (
+                                        <FormItem className="col-span-full">
+                                            <FormLabel>Address</FormLabel>
+                                            <FormControl>
+                                                <Textarea placeholder="Full billing address" {...field} rows={2} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex items-center justify-end gap-4">

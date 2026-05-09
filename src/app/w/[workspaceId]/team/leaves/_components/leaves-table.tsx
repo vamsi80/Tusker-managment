@@ -37,6 +37,7 @@ interface LeaveRequest {
     reportToId: string | null;
     casualLeaveBalance: number;
     sickLeaveBalance: number;
+    processedByName?: string | null;
 }
 
 export function LeavesTable({
@@ -82,6 +83,7 @@ export function LeavesTable({
             email: r.WorkspaceMember?.user?.email || "",
             casualLeaveBalance: r.WorkspaceMember?.casualLeaveBalance || 0,
             sickLeaveBalance: r.WorkspaceMember?.sickLeaveBalance || 0,
+            processedByName: r.processedBy?.user?.surname || r.processedByName || null,
         };
     };
 
@@ -251,6 +253,15 @@ export function LeavesTable({
                                         "{leave.reason}"
                                     </div>
                                 </div>
+                                
+                                {leave.status !== "PENDING" && leave.processedByName && (
+                                    <div className="p-4 rounded-2xl bg-muted/30 border border-muted-foreground/5 space-y-1">
+                                        <p className="text-[10px] font-medium uppercase text-muted-foreground tracking-widest">
+                                            {leave.status === "APPROVED" ? "Approved By" : "Rejected By"}
+                                        </p>
+                                        <p className="font-medium">{leave.processedByName}</p>
+                                    </div>
+                                )}
 
                                 {leave.status === "PENDING" && (isOwnerOrAdmin || leave.reportToId === currentMemberId) && (
                                     <div className="flex gap-3 pt-4">
@@ -349,6 +360,20 @@ export function LeavesTable({
                 }
                 return content;
             },
+        },
+        {
+            id: "processedBy",
+            header: "Processed By",
+            cell: ({ row }) => {
+                const processedByName = row.original.processedByName;
+                if (!processedByName) return <span className="text-muted-foreground text-[10px]">—</span>;
+                return (
+                    <div className="flex items-center gap-1.5">
+                        <User className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-[10px] font-medium text-muted-foreground uppercase">{processedByName}</span>
+                    </div>
+                );
+            }
         },
         {
             id: "actions",

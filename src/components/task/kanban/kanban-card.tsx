@@ -456,13 +456,16 @@ export const KanbanCard = React.memo(function KanbanCard({
               )}
 
               {subTask.tags && subTask.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {subTask.tags.map((tag) => (
-                    <div key={tag.id} className="flex items-center gap-0.5 bg-muted/50 px-1.5 py-0.5 rounded text-[9px] font-medium text-muted-foreground border border-border/50">
-                      <Tag className="h-2 w-2" />
-                      <span>{tag.name}</span>
+                <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-0.5 bg-muted/50 px-1.5 py-0.5 rounded text-[9px] font-medium text-muted-foreground border border-border/50 max-w-[80px]">
+                    <Tag className="h-2.5 w-2.5 shrink-0" />
+                    <span className="truncate">{subTask.tags[0].name}</span>
+                  </div>
+                  {subTask.tags.length > 1 && (
+                    <div className="bg-primary/10 text-primary px-1 py-0.5 rounded text-[8px] font-bold border border-primary/20 shrink-0">
+                      +{subTask.tags.length - 1}
                     </div>
-                  ))}
+                  )}
                 </div>
               )}
             </div>

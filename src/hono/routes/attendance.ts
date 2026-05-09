@@ -245,10 +245,7 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
         if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
 
         try {
-            const { isWorkspaceAdmin } = await getWorkspacePermissions(workspaceId, user.id);
-            if (!isWorkspaceAdmin) {
-                return c.json({ success: false, error: "Only admins can approve/reject leaves" }, 403);
-            }
+            // Let LeaveService handle the authorization logic (Admins or Reporting Managers)
 
             const { status } = await c.req.json();
             const result = await LeaveService.updateLeaveStatus({

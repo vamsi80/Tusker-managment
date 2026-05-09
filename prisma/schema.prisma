@@ -169,6 +169,7 @@ model WorkspaceMember {
   managedProjects        Project[]              @relation("ProjectManager")
   createdUnits           Unit[]
   leaveRequests          leave_request[]
+  processedLeaveRequests leave_request[]        @relation("LeaveProcessor")
 
   @@unique([userId, workspaceId])
   @@index([workspaceId, workspaceRole])
@@ -862,6 +863,8 @@ model leave_request {
   updatedAt         DateTime         @updatedAt
   Workspace         Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   WorkspaceMember   WorkspaceMember  @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
+  processedById     String?
+  processedBy       WorkspaceMember? @relation("LeaveProcessor", fields: [processedById], references: [id])
 
   @@index([workspaceId, createdAt(sort: Desc)])
   @@index([workspaceMemberId])

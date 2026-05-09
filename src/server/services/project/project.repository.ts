@@ -1,5 +1,4 @@
 import prisma from "@/lib/db";
-import { ProjectRole } from "@/generated/prisma";
 
 export class ProjectRepository {
   static async getWorkspaceMember(workspaceId: string, userId: string) {
