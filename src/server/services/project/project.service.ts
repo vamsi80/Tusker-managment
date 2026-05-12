@@ -209,9 +209,9 @@ export class ProjectService {
       description: values.description,
       slug: values.slug,
       color: finalColor,
-      workspaceId,
+      workspace: { connect: { id: workspaceId } },
       createdBy: userId,
-      projectManagerId: assignedProjectManagerId,
+      projectManager: { connect: { id: assignedProjectManagerId } },
       projectMembers: {
         create: [
           {
@@ -232,7 +232,7 @@ export class ProjectService {
         clint: {
           connect: { id: values.clintId }
         }
-      } : values.companyName ? {
+      } : (values.companyName && !values.isInternal) ? {
         clint: {
           create: {
             name: values.companyName,
@@ -240,7 +240,7 @@ export class ProjectService {
             directorName: values.directorName,
             address: values.address,
             gstNumber: values.gstNumber,
-            workspaceId,
+            workspace: { connect: { id: workspaceId } },
             clintMembers: {
               create: {
                 name: values.contactPerson,

@@ -152,6 +152,7 @@ export default function CreateProjectPage() {
     const watchedName = useWatch({ control: form.control, name: "name" });
     const watchedColor = useWatch({ control: form.control, name: "color" });
     const watchedSlug = useWatch({ control: form.control, name: "slug" });
+    const watchedPMId = useWatch({ control: form.control, name: "projectManagerId" });
 
     useEffect(() => {
         if (watchedName) {
@@ -312,7 +313,17 @@ export default function CreateProjectPage() {
                                                                     {members.filter(m => m.workspaceRole === "MANAGER").map((m) => (
                                                                         <CommandItem
                                                                             key={m.id}
-                                                                            onSelect={() => field.onChange(field.value === m.id ? "" : m.id)}
+                                                                            onSelect={() => {
+                                                                                const nextId = field.value === m.id ? "" : m.id;
+                                                                                field.onChange(nextId);
+                                                                                // Automatically remove this person from memberAccess if they were selected there
+                                                                                if (nextId) {
+                                                                                    const currentMembers = form.getValues("memberAccess");
+                                                                                    if (currentMembers.includes(nextId)) {
+                                                                                        form.setValue("memberAccess", currentMembers.filter(id => id !== nextId));
+                                                                                    }
+                                                                                }
+                                                                            }}
                                                                         >
                                                                             <Check className={cn("mr-2 h-4 w-4", field.value === m.id ? "opacity-100" : "opacity-0")} />
                                                                             {m.surname}
@@ -365,13 +376,14 @@ export default function CreateProjectPage() {
                                                                     .filter(m => m.workspaceRole !== "OWNER" && m.workspaceRole !== "ADMIN")
                                                                     .map((m) => {
                                                                         const isSelected = field.value.includes(m.id);
-                                                                        const isPM = form.getValues("projectManagerId") === m.id;
+                                                                        const isPM = watchedPMId === m.id;
 
                                                                         return (
                                                                             <CommandItem
                                                                                 key={m.id}
                                                                                 disabled={isPM}
                                                                                 onSelect={() => {
+                                                                                    if (isPM) return; // Safety check
                                                                                     if (isSelected) {
                                                                                         field.onChange(field.value.filter(id => id !== m.id));
                                                                                     } else {
@@ -380,9 +392,9 @@ export default function CreateProjectPage() {
                                                                                 }}
                                                                             >
                                                                                 <Check className={cn("mr-2 h-4 w-4", isSelected ? "opacity-100" : "opacity-0")} />
-                                                                                <span className={cn(isPM && "text-muted-foreground")}>
+                                                                                <span className={cn(isPM && "font-semibold text-muted-foreground")}>
                                                                                     {m.surname}
-                                                                                    {isPM && " (PM)"}
+                                                                                    {isPM && " (Project Manager)"}
                                                                                 </span>
                                                                             </CommandItem>
                                                                         );

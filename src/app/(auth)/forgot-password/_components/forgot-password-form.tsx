@@ -28,14 +28,16 @@ export const ForgotPasswordForm = () => {
     e.preventDefault();
     setIsPending(true);
     try {
-      const { error } = await (authClient as any).forgetPassword({
-        email,
+      console.log("Attempting requestPasswordReset for:", email.trim());
+      const res = await (authClient as any).requestPasswordReset({
+        email: email.trim(),
         redirectTo: "/reset-password",
       });
+      console.log("requestPasswordReset result:", res);
 
-      if (error) {
-        console.error("Forgot Password Error:", error);
-        toast.error(error.message || "Failed to send reset link");
+      if (res.error) {
+        console.error("Forgot Password Detailed Error:", res.error);
+        toast.error(res.error.message || "Failed to send reset link");
       } else {
         setIsSent(true);
         toast.success("Reset link sent successfully!");
