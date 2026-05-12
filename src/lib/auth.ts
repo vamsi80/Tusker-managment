@@ -7,7 +7,6 @@ import { emailOTP, admin, phoneNumber } from "better-auth/plugins"
 import prisma from "./db";
 import { sendEmail } from "./email";
 import path from "path";
-import fs from "fs";
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
@@ -25,8 +24,9 @@ export const auth = betterAuth({
   },
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: true, // Require email verification before login - Better Auth blocks unverified users
-    sendResetPassword: async ({ user, url }) => {
+    requireEmailVerification: false, // Set to false to allow password reset even if email is not yet verified
+    sendResetPassword: async ({ user, url }: { user: any, url: string }) => {
+      console.log(`[Auth] Password reset requested for: ${user.email}`);
       // Print reset link to console for development
       console.log('\n==============================================');
       console.log('📧 PASSWORD RESET LINK');
@@ -61,6 +61,7 @@ export const auth = betterAuth({
       }
     },
   },
+
   emailVerification: {
     sendOnSignUp: true, // Automatically send verification email on signup
     autoSignInAfterVerification: true, // Auto sign-in after verification
