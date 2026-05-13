@@ -93,15 +93,10 @@ export const TaskRow = memo(function TaskRow({
         };
     }, [isExpanded, task.subTasks, task.id, subtaskCount, onRequestSubtasks]);
 
-    let colSpan = 2;
-    if (columnVisibility.description) colSpan++;
-    if (columnVisibility.assignee) colSpan++;
-    if (columnVisibility.reviewer) colSpan++;
-    if (columnVisibility.status) colSpan++;
-    if (columnVisibility.startDate) colSpan++;
-    if (columnVisibility.dueDate) colSpan++;
-    if (columnVisibility.progress) colSpan++;
-    if (columnVisibility.tag) colSpan++;
+    const visiblePropsCount = Object.entries(columnVisibility)
+        .filter(([key, visible]) => key !== 'project' && visible)
+        .length;
+    const totalColSpan = 2 + visiblePropsCount + 1;
 
     const handleTaskUpdated = (updatedTask: { name: string; taskSlug: string }) => {
         onTaskUpdated?.(updatedTask);
@@ -177,7 +172,7 @@ export const TaskRow = memo(function TaskRow({
                 <TableCell>
                     <Skeleton className="h-8 w-8" />
                 </TableCell>
-                <TableCell className="font-medium" colSpan={colSpan}>
+                <TableCell className="font-medium" colSpan={totalColSpan}>
                     <Skeleton className="h-5 w-[200px]" />
                 </TableCell>
                 <TableCell>
@@ -213,7 +208,7 @@ export const TaskRow = memo(function TaskRow({
                     </div>
                 </TableCell>
 
-                <TableCell className="px-2" colSpan={colSpan}>
+                <TableCell className="px-2" colSpan={totalColSpan}>
                     <div className="flex items-center gap-2 min-w-0">
                         <span className="truncate font-semibold text-sm cursor-pointer hover:text-primary transition-colors">
                             {task.name}

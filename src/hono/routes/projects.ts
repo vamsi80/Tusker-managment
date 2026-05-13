@@ -228,7 +228,7 @@ projects.get("/slug/:slug/metadata", async (c) => {
 projects.get("/:projectId/reviewers", async (c) => {
   const projectId = c.req.param("projectId");
   const reviewers = await ProjectService.getProjectReviewers(projectId);
-  return c.json(reviewers);
+  return c.json({ success: true, data: reviewers });
 });
 
 /**

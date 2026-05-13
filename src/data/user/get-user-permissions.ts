@@ -20,7 +20,6 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
                     select: {
                         id: true,
                         surname: true,
-                        name: true,
                     }
                 },
                 reportTo: {
@@ -78,7 +77,7 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
                     workspaceMemberId: workspaceMember.id,
                     workspaceRole: workspaceMember.workspaceRole,
                     userId: workspaceMember.userId,
-                    userSurname: workspaceMember.user?.surname || workspaceMember.user?.name || null,
+                    userSurname: workspaceMember.user?.surname,
                     reportingManagerName,
                 } as any;
             }
@@ -125,7 +124,7 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
             workspaceMemberId: workspaceMember.id,
             workspaceRole: workspaceMember.workspaceRole,
             userId: workspaceMember.userId,
-            userSurname: workspaceMember.user?.surname || workspaceMember.user?.name || null,
+            userSurname: workspaceMember.user?.surname,
             reportingManagerName,
             ...(lean ? {} : {
                 leadProjectIds,

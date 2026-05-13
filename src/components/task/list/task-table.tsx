@@ -86,7 +86,10 @@ function TaskTable(props: TaskTableProps) {
   };
 
   const mode = logic.sorts.length > 0 ? "sorted" : "hierarchy";
-  const visibleColumnsCount = 2 + Object.values(columnVisibility).filter(Boolean).length + 1;
+  const visiblePropsCount = Object.entries(columnVisibility)
+    .filter(([key, visible]) => key !== 'project' && visible)
+    .length;
+  const visibleColumnsCount = 2 + visiblePropsCount + 1; // Chevron + Name + Props + Actions
 
   // Grouping logic for workspace view
   const groupedTasks = useMemo(() => {

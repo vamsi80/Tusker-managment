@@ -494,8 +494,44 @@ export class ProjectService {
    * Static helpers from original service
    */
   static async getMembers(projectId: string): Promise<ProjectMemberUI[]> {
-    const members = await ProjectRepository.getProjectMembers(projectId);
-    return members.map(ProjectMapper.toProjectMemberUI);
+    const project = await ProjectRepository.getProjectWithWorkspace(projectId);
+    if (!project) return [];
+
+    const [projectMembers, workspaceAdmins] = await Promise.all([
+      ProjectRepository.getProjectMembers(projectId),
+      prisma.workspaceMember.findMany({
+        where: { workspaceId: project.workspaceId, workspaceRole: { in: ["OWNER", "ADMIN"] } },
+        include: { user: true }
+      })
+    ]);
+
+    const memberMap = new Map<string, ProjectMemberUI>();
+
+    // Add project members first
+    projectMembers.forEach(pm => {
+      memberMap.set(pm.workspaceMember.userId, ProjectMapper.toProjectMemberUI(pm));
+    });
+
+    // Add/Update with workspace admins/owners (they override with their workspace roles if needed)
+    workspaceAdmins.forEach(wa => {
+      if (!memberMap.has(wa.userId)) {
+        memberMap.set(wa.userId, {
+          id: wa.userId,
+          userId: wa.userId,
+          projectRole: wa.workspaceRole as any, 
+          projectMemberId: wa.id,
+          workspaceRole: wa.workspaceRole as any,
+          user: {
+            id: wa.user.id,
+            name: wa.user.name || "",
+            surname: wa.user.surname || "",
+            email: wa.user.email,
+          }
+        });
+      }
+    });
+
+    return Array.from(memberMap.values());
   }
 
   static async getPermissions(workspaceId: string, projectId: string, userId: string) {

@@ -30,11 +30,9 @@ interface InlineTaskFormProps {
  * Similar to ClickUp's inline editing experience
  */
 export function InlineTaskForm({
-    workspaceId,
     projectId: initialProjectId,
     onCancel,
     onTaskCreated,
-    onTaskDeleted,
     projects = [],
     level = "project",
     leadProjectIds = [],

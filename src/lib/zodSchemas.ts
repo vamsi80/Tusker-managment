@@ -316,7 +316,7 @@ export const subTaskSchema = z.object({
         .string()
         .min(1, { message: "Due date is required" }),
     days: z.number().min(1, { message: "Number of days is required" }),
-    tagIds: z.array(z.string().uuid()).min(1, { message: "At least one tag is required" }),
+    tagIds: z.array(z.string().uuid()).optional().default([]),
     projectId: z.string().uuid({ message: "Invalid project id" }),
     parentTaskId: z.string().uuid({ message: "Invalid parent task id" }),
 }).refine((data) => {

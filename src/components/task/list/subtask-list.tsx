@@ -95,7 +95,10 @@ export function SubTaskList({
         };
     }, [task.subTasksHasMore, isLoadingMore, onLoadMore]);
 
-    const visibleColumnsCount = 2 + Object.values(columnVisibility).filter(Boolean).length + 1;
+    const visiblePropsCount = Object.entries(columnVisibility)
+        .filter(([key, visible]) => key !== 'project' && visible)
+        .length;
+    const visibleColumnsCount = 2 + visiblePropsCount + 1;
 
     if (isLoading) {
         return (
