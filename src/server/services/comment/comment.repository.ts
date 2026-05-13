@@ -154,7 +154,8 @@ export class CommentRepository {
             project: { select: { name: true } },
             parentTask: { select: { name: true } }
           }
-        }
+        },
+        readBy: { where: { userId: (where.authorId as any)?.not || '' } }
       },
       orderBy: { createdAt: 'desc' },
       take: limit
@@ -237,6 +238,7 @@ export class CommentRepository {
    * Mark comments as read
    */
   static async markCommentsAsRead(taskId: string, userId: string) {
+    // Mark Comments as read
     const unreadComments = await prisma.comment.findMany({
       where: {
         taskId,
@@ -246,15 +248,35 @@ export class CommentRepository {
       select: { id: true }
     });
 
-    if (unreadComments.length === 0) return { success: true };
+    if (unreadComments.length > 0) {
+      await prisma.commentRead.createMany({
+        data: unreadComments.map(c => ({
+          userId: userId,
+          commentId: c.id
+        })),
+        skipDuplicates: true
+      });
+    }
 
-    await prisma.commentRead.createMany({
-      data: unreadComments.map(c => ({
-        userId: userId,
-        commentId: c.id
-      })),
-      skipDuplicates: true
+    // Mark Activities as read
+    const unreadActivities = await prisma.activity.findMany({
+      where: {
+        subTaskId: taskId,
+        authorId: { not: userId },
+        readBy: { none: { userId: userId } }
+      },
+      select: { id: true }
     });
+
+    if (unreadActivities.length > 0) {
+      await prisma.activityRead.createMany({
+        data: unreadActivities.map(a => ({
+          userId: userId,
+          activityId: a.id
+        })),
+        skipDuplicates: true
+      });
+    }
 
     return { success: true };
   }

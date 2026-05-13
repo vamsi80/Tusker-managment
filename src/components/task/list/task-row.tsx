@@ -1,6 +1,5 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TableCell, TableRow } from "@/components/ui/table";
@@ -80,7 +79,7 @@ export const TaskRow = memo(function TaskRow({
                     observer.disconnect();
                 }
             },
-            { rootMargin: "150px" } 
+            { rootMargin: "150px" }
         );
 
         const currentRef = rowRef.current;
@@ -103,7 +102,8 @@ export const TaskRow = memo(function TaskRow({
         setTask((prev) => ({ ...prev, name: updatedTask.name, taskSlug: updatedTask.taskSlug }));
     };
 
-    const handleOptimisticSubTaskUpdated = (subTaskId: string, updatedData: any) => {        setTask((prev) => ({
+    const handleOptimisticSubTaskUpdated = (subTaskId: string, updatedData: any) => {
+        setTask((prev) => ({
             ...prev,
             subTasks: prev.subTasks?.map((st: any) =>
                 st.id === subTaskId ? { ...st, ...updatedData } : st
@@ -111,7 +111,8 @@ export const TaskRow = memo(function TaskRow({
         }));
     };
 
-    const handleSubTaskDeleted = (subTaskId: string) => {        const subTaskToDelete = task.subTasks?.find((st: any) => st.id === subTaskId);
+    const handleSubTaskDeleted = (subTaskId: string) => {
+        const subTaskToDelete = task.subTasks?.find((st: any) => st.id === subTaskId);
         const wasCompleted = subTaskToDelete?.status === "COMPLETED";
 
         setTask((prev) => ({
@@ -124,7 +125,8 @@ export const TaskRow = memo(function TaskRow({
         }));
     };
 
-    const handleSubTaskCreated = (newSubTask: any) => {        setTask((prev) => {
+    const handleSubTaskCreated = (newSubTask: any) => {
+        setTask((prev) => {
             const currentSubTasks = prev.subTasks || [];
             if (currentSubTasks.some((st: any) => st.id === newSubTask.id)) return prev;
 
@@ -215,7 +217,7 @@ export const TaskRow = memo(function TaskRow({
                         </span>
                         {subtaskCount > 0 && (
                             <span className="text-xs text-muted-foreground shrink-0 font-medium">
-                                ({task.completedSubtaskCount || 0}/{subtaskCount})
+                                ({subtaskCount})
                             </span>
                         )}
 

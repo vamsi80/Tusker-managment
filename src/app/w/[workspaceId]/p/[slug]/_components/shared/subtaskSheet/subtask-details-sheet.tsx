@@ -1,14 +1,13 @@
 "use client";
 
 import { toast } from "sonner";
-import type { TaskByIdType } from "@/server/services/task/tasks.service";
-
-import { useSearchParams, usePathname } from "next/navigation";
-import { useState, useRef, useEffect, useCallback } from "react";
-import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Tabs } from "@/components/ui/tabs";
 import { apiClient } from "@/lib/api-client";
 import { pubsub, EVENTS } from "@/lib/pubsub";
+import { useSearchParams, usePathname, useRouter } from "next/navigation";
+import { useState, useRef, useEffect, useCallback, Suspense } from "react";
+import type { TaskByIdType } from "@/server/services/task/tasks.service";
+import { SheetTitle, SheetDescription } from "@/components/ui/sheet";
 
 import { projectsClient } from "@/lib/api-client/projects";
 import { workspacesClient } from "@/lib/api-client/workspaces";
@@ -16,8 +15,28 @@ import { SubtaskSheetHeader } from "./subtask-sheet-header";
 import { SubtaskSheetNavBar } from "./subtask-sheet-navbar";
 import { ProjectMembersType } from "@/types/project";
 import dynamic from "next/dynamic";
-const MessagesTab = dynamic(() => import("./messages-tab").then(mod => mod.MessagesTab), { ssr: false });
-const ActivityTab = dynamic(() => import("./activity-tab").then(mod => mod.ActivityTab), { ssr: false });
+const MessagesTab = dynamic(() => import("./messages-tab").then(mod => mod.MessagesTab), {
+    ssr: false,
+    loading: () => (
+        <div className="flex-1 p-4 space-y-4">
+            {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="flex w-full justify-start">
+                    <div className="h-16 w-full max-w-[70%] bg-muted animate-pulse rounded-lg" />
+                </div>
+            ))}
+        </div>
+    )
+});
+const ActivityTab = dynamic(() => import("./activity-tab").then(mod => mod.ActivityTab), {
+    ssr: false,
+    loading: () => (
+        <div className="flex-1 p-4 space-y-4">
+            {[1, 2, 3].map((i) => (
+                <div key={i} className="h-32 w-full bg-muted animate-pulse rounded-lg" />
+            ))}
+        </div>
+    )
+});
 
 interface SubTaskDetailsSheetProps {
     subTask: TaskByIdType | null;
@@ -63,29 +82,12 @@ interface Activity {
     } | null;
     author: {
         id: string;
-        name: string;
         surname: string;
-        image: string;
     };
     createdAt: Date;
 }
 
-// Client-side cache for instant re-opening
-export const commentCache = new Map<string, any[]>();
-export const activityCache = new Map<string, any[]>();
-export const membersCache = new Map<string, ProjectMembersType>(); // Project-level cache
-export const tagsCache = new Map<string, { id: string; name: string }[]>(); // Workspace-level cache
-export const pendingPrefetches = new Set<string>(); // LOCK: Prevents redundant DB queries
-
-/**
- * Checks if a subtask is in the cache. 
- */
-export function prefetchSubTask(taskId: string) {
-    // We only log if it's already there, no DB trigger.
-    if (commentCache.has(taskId)) {
-        console.log(`📡 [CACHE-HIT] Task ${taskId} is ready in local memory.`);
-    }
-}
+// No client-side cache, everything runs fresh on load
 
 /**
  * Subtask Details Sheet Component (Refactored)
@@ -102,7 +104,30 @@ export function SubTaskDetailsSheet({
     isAdmin = false,
     isProjectManager = false,
 }: SubTaskDetailsSheetProps) {
-    const [activeTab, setActiveTab] = useState<"messages" | "review">("messages");
+    const searchParams = useSearchParams();
+    const pathname = usePathname();
+    const router = useRouter();
+
+    // 🚀 Optimized Initial Tab: Prevent flash of default tab
+    const getInitialTab = () => {
+        if (disableUrlSync) return "messages";
+        const urlTab = searchParams.get("tab");
+        return urlTab === "activity" ? "review" : "messages";
+    };
+
+    const [activeTab, setActiveTab] = useState<"messages" | "review">(getInitialTab);
+
+    const handleTabChange = useCallback((newTab: "messages" | "review") => {
+        setActiveTab(newTab);
+        if (!disableUrlSync) {
+            const params = new URLSearchParams(searchParams.toString());
+            params.set("tab", newTab === "review" ? "activity" : "messages");
+            // 🚀 CRITICAL FIX: Use native replaceState instead of router.replace
+            // router.replace forces Next.js to re-render the Server Components, which resets 
+            // the initialTasks prop and collapses all parent/project rows in the table.
+            window.history.replaceState(null, "", `${pathname}?${params.toString()}`);
+        }
+    }, [disableUrlSync, searchParams, pathname]);
     const [comments, setComments] = useState<Comment[]>([]);
     const [activities, setActivities] = useState<Activity[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -114,30 +139,21 @@ export function SubTaskDetailsSheet({
     // Rely on the subTask prop as the source of truth
     const task = subTask;
 
-    const pathname = usePathname();
-    const searchParams = useSearchParams();
+    // Remove redundant pathname/searchParams hooks since they are moved up
+
 
     const loadedSubTaskIdRef = useRef<string>("");
     const activitiesLoadedAtRef = useRef<number>(0);
 
-    // Initial cache sync
+    // URL synchronization disabled as per user request.
+
+    // Set initial states
     useEffect(() => {
         if (subTask) {
-            const hasCache = commentCache.has(subTask.id);
-            if (hasCache) {
-                console.log(`✨ [MAGIC] Instant load for ${subTask.name} (Hit Pre-fetch Cache)`);
-                setComments(commentCache.get(subTask.id)!);
-            } else {
-                setComments(initialComments as Comment[]);
-            }
-
-            if (activityCache.has(subTask.id)) {
-                setActivities(activityCache.get(subTask.id)!);
-            } else {
-                setActivities(initialActivities as Activity[]);
-            }
+            setComments(initialComments as Comment[]);
+            setActivities(initialActivities as Activity[]);
         }
-    }, [subTask?.id]);
+    }, [subTask?.id, isOpen]);
 
     // Performance tracking
     const mountTimeRef = useRef<number>(0);
@@ -165,20 +181,8 @@ export function SubTaskDetailsSheet({
         const workspaceId = workspaceIdMatch ? workspaceIdMatch[1] : (task as any).workspaceId;
         if (!workspaceId) return;
 
-        // 🚀 CACHE CHECK: If we already have members for this project and tags for this workspace, skip fetch
-        const cachedMembers = membersCache.get(task.projectId);
-        const cachedTags = tagsCache.get(workspaceId);
-
-        if (cachedMembers && cachedTags) {
-            console.log("📡 [CACHE-HIT] Metadata (Members/Tags) ready in local memory.");
-            setMembers(cachedMembers);
-            setTags(cachedTags);
-            return;
-        }
-
         const fetchMetadata = async () => {
             try {
-                console.log(`📡 [FETCH] Hydrating metadata for Project: ${task.projectId}`);
                 const [projectMembers, workspaceTags] = await Promise.all([
                     projectsClient.getMembers(task.projectId),
                     workspacesClient.getTags(workspaceId)
@@ -190,10 +194,6 @@ export function SubTaskDetailsSheet({
                     // Update states
                     setMembers(projectMembers);
                     setTags(mappedTags);
-
-                    // Update caches
-                    membersCache.set(task.projectId, projectMembers);
-                    tagsCache.set(workspaceId, mappedTags);
                 }
             } catch (error) {
                 console.error("Failed to fetch subtask metadata:", error);
@@ -216,23 +216,15 @@ export function SubTaskDetailsSheet({
     const loadComments = useCallback(async () => {
         if (!subTask) return;
 
-        if (pendingPrefetches.has(`comments-${subTask.id}`)) return;
-
-        pendingPrefetches.add(`comments-${subTask.id}`);
         setIsLoading(true);
-        const startTime = performance.now();
         try {
             const { data, error } = await apiClient.comments.getComments(subTask.id);
             if (!error && data) {
                 const fetchedComments = data as Comment[];
                 setComments(fetchedComments);
-                commentCache.set(subTask.id, fetchedComments); // Update cache
 
                 // Note: currentUserId might need to be handled differently if not in the response
                 // but usually the session hook handles this.
-
-                const duration = performance.now() - startTime;
-                console.log(`🐢 [SLOW LOAD] Comments fetched in: ${duration.toFixed(2)}ms (Missing Pre-fetch)`);
             } else {
                 toast.error(error?.message || "Failed to load comments");
             }
@@ -241,22 +233,18 @@ export function SubTaskDetailsSheet({
             toast.error("Failed to load comments");
         } finally {
             setIsLoading(false);
-            pendingPrefetches.delete(`comments-${subTask.id}`);
         }
     }, [subTask?.id]);
 
     const loadActivities = useCallback(async () => {
         if (!subTask) return;
 
-        if (pendingPrefetches.has(`activities-${subTask.id}`)) return;
-        pendingPrefetches.add(`activities-${subTask.id}`);
         setIsLoadingActivity(true);
         try {
             const { data, error } = await apiClient.comments.getActivities(subTask.id);
             if (!error && data) {
                 const fetchedActivities = data as Activity[];
                 setActivities(fetchedActivities);
-                activityCache.set(subTask.id, fetchedActivities); // Update cache
             } else {
                 toast.error(error?.message || "Failed to load activities");
             }
@@ -265,7 +253,6 @@ export function SubTaskDetailsSheet({
             toast.error("Failed to load activities");
         } finally {
             setIsLoadingActivity(false);
-            pendingPrefetches.delete(`activities-${subTask.id}`);
         }
     }, [subTask?.id]);
 
@@ -319,10 +306,7 @@ export function SubTaskDetailsSheet({
                     setComments(prev => {
                         // Avoid duplicates (crucial since actor now receives their own event)
                         if (prev.some(c => c.id === newComment.id)) return prev;
-                        const updated = [...prev, newComment];
-                        // Update cache too
-                        commentCache.set(subTask.id, updated);
-                        return updated;
+                        return [...prev, newComment];
                     });
                 }
             }
@@ -332,57 +316,57 @@ export function SubTaskDetailsSheet({
     }, [isOpen, subTask?.id, currentUserId]);
 
     return (
-        <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <SheetContent className="w-full sm:max-w-2xl p-0 flex flex-col h-full bg-background border-l">
-                <SheetTitle className="sr-only">{subTask?.name || "SubTask Details"}</SheetTitle>
-                <SheetDescription className="sr-only">
-                    {task ? `Details and activity for subtask ${task.name}` : "Loading subtask details..."}
-                </SheetDescription>
-                {task ? (
-                    <>
-                        {/* Header Component */}
-                        <SubtaskSheetHeader
-                            subTask={task}
-                            currentUserId={currentUserId}
-                            members={members}
-                            tags={tags}
-                            isAdmin={isAdmin || members.find(m => m.userId === currentUserId)?.workspaceRole === 'ADMIN' || members.find(m => m.userId === currentUserId)?.workspaceRole === 'OWNER'}
-                            isProjectManager={isProjectManager || members.find(m => m.userId === currentUserId)?.projectRole === 'PROJECT_MANAGER'}
-                            onSubTaskUpdated={handleSubTaskUpdated}
-                            onSubTaskAssigned={(memberObj) => {
-                                const updatedData = {
-                                    assignee: {
-                                        id: memberObj.id,
-                                        workspaceMember: {
-                                            userId: memberObj.id,
-                                            user: {
-                                                id: memberObj.id,
-                                                name: memberObj.name || "",
-                                                surname: memberObj.surname || null,
-                                            }
+        <div className="flex flex-col h-full bg-background">
+            <SheetTitle className="sr-only">{subTask?.name || "SubTask Details"}</SheetTitle>
+            <SheetDescription className="sr-only">
+                {task ? `Details and activity for subtask ${task.name}` : "Loading subtask details..."}
+            </SheetDescription>
+            {task ? (
+                <>
+                    {/* Header Component */}
+                    <SubtaskSheetHeader
+                        subTask={task}
+                        currentUserId={currentUserId}
+                        members={members}
+                        tags={tags}
+                        isAdmin={isAdmin || members.find(m => m.userId === currentUserId)?.workspaceRole === 'ADMIN' || members.find(m => m.userId === currentUserId)?.workspaceRole === 'OWNER'}
+                        isProjectManager={isProjectManager || members.find(m => m.userId === currentUserId)?.projectRole === 'PROJECT_MANAGER'}
+                        onSubTaskUpdated={handleSubTaskUpdated}
+                        onSubTaskAssigned={(memberObj) => {
+                            const updatedData = {
+                                assignee: {
+                                    id: memberObj.id,
+                                    workspaceMember: {
+                                        userId: memberObj.id,
+                                        user: {
+                                            id: memberObj.id,
+                                            name: memberObj.name || "",
+                                            surname: memberObj.surname || null,
                                         }
                                     }
-                                };
-                                // 1. Update the local sheet context/URL state
-                                onSubTaskAssigned?.(task.id, updatedData);
-                                // 2. Update the global task cache so parent views (like SubTaskRow) reflect the change immediately
-                                handleSubTaskUpdated(updatedData);
-                            }}
-                        />
+                                }
+                            };
+                            // 1. Update the local sheet context/URL state
+                            onSubTaskAssigned?.(task.id, updatedData);
+                            // 2. Update the global task cache so parent views (like SubTaskRow) reflect the change immediately
+                            handleSubTaskUpdated(updatedData);
+                        }}
+                    />
 
-                        {/* Tabbed Section - Takes Remaining Space */}
-                        <div className="border-t flex-1 flex flex-col min-h-0">
-                            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "messages" | "review")} className="flex flex-col h-full">
-                                {/* Navigation Bar Component */}
-                                <SubtaskSheetNavBar
-                                    activeTab={activeTab}
-                                    onTabChange={setActiveTab}
-                                    messagesCount={comments.length}
-                                    activityCount={activities.length}
-                                />
+                    {/* Tabbed Section - Takes Remaining Space */}
+                    <div className="border-t flex-1 flex flex-col min-h-0">
+                        <Tabs value={activeTab} onValueChange={(v) => handleTabChange(v as "messages" | "review")} className="flex flex-col h-full">
+                            {/* Navigation Bar Component */}
+                            <SubtaskSheetNavBar
+                                activeTab={activeTab}
+                                onTabChange={handleTabChange}
+                                messagesCount={comments.length}
+                                activityCount={activities.length}
+                            />
 
-                                {/* Tab Content */}
-                                {activeTab === "messages" && (
+                            {/* Tab Content - Kept mounted for instant switching */}
+                            <Suspense fallback={<div className="flex-1 p-4 space-y-4"><div className="h-32 w-full bg-muted animate-pulse rounded-lg" /><div className="h-32 w-full bg-muted animate-pulse rounded-lg" /></div>}>
+                                <div className={activeTab === "messages" ? "flex-1 flex flex-col min-h-0" : "hidden"}>
                                     <MessagesTab
                                         taskId={task.id}
                                         workspaceId={task.workspaceId}
@@ -392,24 +376,60 @@ export function SubTaskDetailsSheet({
                                         currentUserId={currentUserId}
                                         isLoading={isLoading}
                                     />
-                                )}
+                                </div>
 
-                                {activeTab === "review" && (
+                                <div className={activeTab === "review" ? "flex-1 flex flex-col min-h-0" : "hidden"}>
                                     <ActivityTab
                                         activities={activities}
                                         isLoadingActivity={isLoadingActivity}
                                     />
-                                )}
-                            </Tabs>
-                        </div>
-                    </>
-                ) : (
-                    <div className="flex flex-col h-full items-center justify-center p-8 space-y-4">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-                        <span className="text-sm text-muted-foreground">Preparing subtask...</span>
+                                </div>
+                            </Suspense>
+                        </Tabs>
                     </div>
-                )}
-            </SheetContent>
-        </Sheet>
+                </>
+            ) : (
+                <div className="flex flex-col h-full bg-background">
+                    {/* Header Skeleton */}
+                    <div className="p-6 space-y-4 border-b">
+                        <div className="flex items-center justify-between">
+                            <div className="h-6 w-32 bg-muted animate-pulse rounded" />
+                            <div className="flex gap-2">
+                                <div className="h-8 w-8 bg-muted animate-pulse rounded-full" />
+                                <div className="h-8 w-8 bg-muted animate-pulse rounded-full" />
+                            </div>
+                        </div>
+                        <div className="h-8 w-3/4 bg-muted animate-pulse rounded" />
+                        <div className="flex gap-4">
+                            <div className="h-5 w-20 bg-muted animate-pulse rounded-full" />
+                            <div className="h-5 w-20 bg-muted animate-pulse rounded-full" />
+                        </div>
+                    </div>
+                    {/* Nav Skeleton */}
+                    <div className="flex gap-4 p-4 border-b">
+                        <div className="h-8 w-24 bg-muted animate-pulse rounded" />
+                        <div className="h-8 w-24 bg-muted animate-pulse rounded" />
+                    </div>
+                    {/* Content Skeleton - Matches intended tab layout */}
+                    <div className="flex-1 p-6 space-y-4 overflow-hidden">
+                        {getInitialTab() === "messages" ? (
+                            <div className="space-y-6">
+                                {[1, 2, 3, 4].map((i) => (
+                                    <div key={i} className={`flex w-full ${i % 2 === 0 ? "justify-end" : "justify-start"}`}>
+                                        <div className={`h-16 w-full max-w-[70%] bg-muted animate-pulse rounded-lg ${i % 2 === 0 ? "rounded-tr-none" : "rounded-tl-none"}`} />
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                {[1, 2, 3].map((i) => (
+                                    <div key={i} className="h-32 w-full bg-muted animate-pulse rounded-lg" />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
     );
 }

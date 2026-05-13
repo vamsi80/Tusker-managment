@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   type TaskWithSubTasks,
   type SortConfig,
@@ -11,10 +12,7 @@ import {
 } from "@/components/task/shared/types";
 import type { SubTaskType } from "@/types/task";
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
-
-// 🚀 Global state persistence to survive re-mounts during router.refresh()
-let lastKnownContextId = "";
-let lastKnownTasks: TaskWithSubTasks[] = [];
+import { apiClient } from "@/lib/api-client";
 
 export function useTaskTableLogic({
   initialTasks,
@@ -25,6 +23,7 @@ export function useTaskTableLogic({
   projects,
 }: any) {
   const contextId = `${workspaceId}-${projectId || 'all'}`;
+  const searchParams = useSearchParams();
 
   // Local helper for robust deduplication by ID
   const dedupeTasks = (taskList: TaskWithSubTasks[]) => {
@@ -32,19 +31,8 @@ export function useTaskTableLogic({
     return taskList.filter((t, i, a) => a.findIndex(c => c.id === t.id) === i);
   };
 
-  // Initialize state from global cache if context matches, otherwise use initialTasks
-  const [tasks, setTasks] = useState<TaskWithSubTasks[]>(() => {
-    if (lastKnownContextId === contextId && lastKnownTasks.length > 0) {
-      return dedupeTasks(lastKnownTasks);
-    }
-    return dedupeTasks(initialTasks || []);
-  });
-
-  // Sync the global cache whenever tasks change
-  useEffect(() => {
-    lastKnownContextId = contextId;
-    lastKnownTasks = tasks;
-  }, [tasks, contextId]);
+  // Initialize state directly from initialTasks (no global cache)
+  const [tasks, setTasks] = useState<TaskWithSubTasks[]>(() => dedupeTasks(initialTasks || []));
 
   const [tags, setTags] = useState<{ id: string; name: string }[]>([]);
   const [filters, setFilters] = useState<TaskFilters>({});
@@ -285,17 +273,17 @@ export function useTaskTableLogic({
     }, 150); // Small delay to catch multiple expansion requests in one frame
   }, [handleRequestSubtasksBatch]);
 
+  const lastContextIdRef = useRef("");
+
   // 🚀 Sync state with initial data ONLY when context changes (Mount or New Project)
   useEffect(() => {
     const contextId = `${workspaceId}-${projectId || 'all'}`;
-    // Use the global lastKnownContextId to check if we are actually in a new project
-    const isActuallyNewContext = lastKnownContextId !== contextId;
+    const isActuallyNewContext = lastContextIdRef.current !== contextId;
 
     if (initialTasks && isActuallyNewContext) {
       console.log(`[TASK_TABLE] 📦 Initializing context: ${contextId}`);
       setTasks(hydrateTasks(orderRootTasks(initialTasks)));
-      lastKnownContextId = contextId;
-      lastKnownTasks = tasks;
+      lastContextIdRef.current = contextId;
 
       // 🚀 Reset pagination and processing state
       setProjectPagination({});
@@ -310,11 +298,11 @@ export function useTaskTableLogic({
         observerRef.current = null;
       }
     }
-  }, [workspaceId, projectId, initialTasks, hydrateTasks, orderRootTasks]); 
+  }, [workspaceId, projectId, initialTasks, hydrateTasks, orderRootTasks]);
 
   // 🚀 Handle filter clearing separately to avoid using stale initialTasks
   useEffect(() => {
-    if (!filtersActive && lastKnownContextId) {
+    if (!filtersActive && lastContextIdRef.current) {
       // If we are clearing filters, we might want to re-fetch or just stay with current surgical state.
       // For now, we trust surgical sync + background revalidation to keep us correct.
       // We explicitly DO NOT overwrite with initialTasks here to avoid re-appearance bugs.
@@ -379,7 +367,7 @@ export function useTaskTableLogic({
             if (t.id === taskRecord.id) {
               // Only remove from project view if we are SURE it moved projects
               if (level === "project" && projectId && taskRecord.projectId && taskRecord.projectId !== projectId) {
-                return null as any; 
+                return null as any;
               }
               return { ...t, ...taskRecord };
             }
@@ -400,7 +388,7 @@ export function useTaskTableLogic({
           setTasks(prev => {
             // 1. Remove from root if it's a parent task
             const filteredRoot = prev.filter(t => t.id !== record.id);
-            
+
             // 2. Surgically remove from any subtask lists and update counts
             return filteredRoot.map(t => {
               const hasThisSubTask = t.subTasks?.some(st => st.id === record.id);
@@ -421,7 +409,6 @@ export function useTaskTableLogic({
     window.addEventListener("realtime-task-sync", handleSync as any);
     return () => window.removeEventListener("realtime-task-sync", handleSync as any);
   }, [hydrateTasks, orderRootTasks]);
-
   // Expansion Lock Removal (on filter change)
   useEffect(() => {
     processedSubTasksRef.current.clear();
@@ -558,7 +545,7 @@ export function useTaskTableLogic({
       // Fetch tags on mount
       const fetchTags = async () => {
         try {
-          const res = await fetch(`/api/v1/tags?workspaceId=${workspaceId}`);
+          const res = await fetch(`/api/v1/workspace-tags?workspaceId=${workspaceId}`);
           const data = await res.json();
           if (data.success) setTags(data.tags);
         } catch (e) { }
@@ -721,7 +708,22 @@ export function useTaskTableLogic({
     }
   };
 
-  const handleSubTaskClick = (subTask: SubTaskType) => { openSubTaskSheet(subTask); };
+  // 🚀 INSTANT OPEN: Use partial data from the list immediately, fetch full data in background
+  const handleSubTaskClick = useCallback((subTask: SubTaskType) => {
+    const slug = (subTask as any).taskSlug || subTask.id;
+
+    // 1. IMMEDIATELY open the sheet with whatever data we have (shows skeleton for missing fields)
+    openSubTaskSheet(subTask as any);
+
+    // 2. Fetch the full task data in the background to hydrate the sheet
+    if (workspaceId && slug) {
+      apiClient.tasks.getTaskBySlug(workspaceId, slug).then(result => {
+        if (result.success && result.data) {
+          openSubTaskSheet(result.data);
+        }
+      }).catch(() => {/* silently fail, partial data is still shown */ });
+    }
+  }, [openSubTaskSheet, workspaceId]);
 
   const handleSubTaskUpdated = useCallback((subTaskId: string, updatedData: any) => {
     setTasks(prev => prev.map(t => {

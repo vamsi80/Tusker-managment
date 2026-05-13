@@ -222,14 +222,10 @@ export const SubTaskRow = memo(function SubTaskRow({
                     <span
                         className="truncate text-muted-foreground text-sm block cursor-pointer hover:text-foreground transition-colors"
                         onMouseEnter={() => {
-                            // 🚀 Cache check (No DB hit for prefetching)
-                            if (subTask.id) {
-                                import("@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/subtask-details-sheet").then(m => {
-                                    if (m.commentCache.has(subTask.id)) {
-                                        console.log(`✨ [CACHE-HIT] Subtask ${subTask.id} ready.`);
-                                    }
-                                });
-                            }
+                            // 🚀 Preload ALL sheet JS chunks on hover for instant click
+                            import("@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/subtask-details-sheet");
+                            import("@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/messages-tab");
+                            import("@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/activity-tab");
                         }}
                         onClick={(e) => {
                             e.stopPropagation();

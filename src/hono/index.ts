@@ -116,8 +116,8 @@ app.route("/tasks", tasks);
 // Projects API
 app.route("/projects", projects);
 
-// Tags API
-app.route("/tags", tags);
+// Workspace Tags API (renamed from /tags to prevent ad-blocker interference)
+app.route("/workspace-tags", tags);
 
 // Workspaces API
 app.route("/workspaces", workspaces);

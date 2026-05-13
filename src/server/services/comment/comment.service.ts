@@ -198,7 +198,8 @@ export class CommentService {
 
     const where: any = {
       task: { workspaceId: workspaceId },
-      userId: { not: userId }
+      userId: { not: userId },
+      isDeleted: false
     };
 
     if (!perms.isWorkspaceAdmin) {
