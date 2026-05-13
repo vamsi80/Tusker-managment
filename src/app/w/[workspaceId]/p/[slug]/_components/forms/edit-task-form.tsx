@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useState, useTransition, useEffect } from "react";
 import { Resolver, useForm, useWatch } from "react-hook-form";
 import { Loader2, Pencil, SparkleIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -18,6 +18,7 @@ import { apiClient } from "@/lib/api-client";
 import { ProjectReviewer } from "@/types/project";
 import { TaskWithSubTasks } from "../list/types";
 import { useReloadView } from "@/hooks/use-reload-view";
+import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 
 interface EditTaskDialogProps {
     task: TaskWithSubTasks;
@@ -49,7 +50,16 @@ export function EditTaskDialog({
     const [open, setOpen] = useState(false);
     const [autoSlugEnabled, setAutoSlugEnabled] = useState(true);
     const router = useRouter();
+    const params = useParams();
     const reloadView = useReloadView();
+    const { data: layoutData } = useWorkspaceLayout();
+
+    // Context from URL
+    const urlWorkspaceId = params?.workspaceId as string;
+    const urlProjectSlug = params?.slug as string;
+
+    // Resolve projectId from slug if possible
+    const resolvedProjectIdFromSlug = layoutData.projects?.find(p => p.slug === urlProjectSlug)?.id;
 
     const form = useForm<TaskSchemaType>({
         resolver: zodResolver(taskSchema) as unknown as Resolver<TaskSchemaType>,
@@ -116,10 +126,28 @@ export function EditTaskDialog({
 
         startTransition(async () => {
             if (onUpdateStart) onUpdateStart();
+            // Ensure we have IDs for the API call
+            const finalWorkspaceId = task.workspaceId || urlWorkspaceId || "";
+            const finalProjectId = values.projectId || task.projectId || projectId || resolvedProjectIdFromSlug || "";
+
+            if (!finalWorkspaceId || !finalProjectId) {
+                toast.error("Missing Workspace or Project context");
+                console.error("[EditTask] IDs missing:", { 
+                    finalWorkspaceId, 
+                    finalProjectId, 
+                    urlWorkspaceId,
+                    resolvedProjectIdFromSlug,
+                    task, 
+                    values 
+                });
+                if (onUpdateEnd) onUpdateEnd();
+                return;
+            }
+
             const res = await tryCatch(apiClient.tasks.updateTask(
                 task.id,
-                task.workspaceId || "",
-                values.projectId,
+                finalWorkspaceId,
+                finalProjectId,
                 values
             ));
             if (onUpdateEnd) onUpdateEnd();
@@ -139,10 +167,7 @@ export function EditTaskDialog({
                 // Pass the updated data to the callback
                 // This allows immediate UI update without waiting for router.refresh()
                 if (onTaskUpdated) {
-                    onTaskUpdated({
-                        name: values.name,
-                        taskSlug: values.taskSlug,
-                    });
+                    onTaskUpdated(values);
                 }
 
                 // Removed router.refresh() to prevent full page state reset.

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useCallback } from "react";
 import { Plus } from "lucide-react";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { TaskRow } from "../task-row";
@@ -39,7 +39,7 @@ interface FlatTaskListProps {
     filtersActive: boolean;
     activeInlineProjectId: string | null;
     setActiveInlineProjectId: (id: string | null) => void;
-
+    onTasksChange?: (update: any) => void;
     scrollContainerRef: React.RefObject<HTMLDivElement | null>;
 }
 
@@ -71,41 +71,40 @@ export function FlatTaskList({
     filtersActive,
     activeInlineProjectId,
     setActiveInlineProjectId,
-
+    onTasksChange,
     scrollContainerRef
 }: FlatTaskListProps) {
-    const [tasks, setTasks] = useState<TaskWithSubTasks[]>(initialTasks || []);
-
-    useEffect(() => {
-        setTasks(initialTasks || []);
-    }, [initialTasks]);
+    const tasks = initialTasks || [];
 
     const handleTaskUpdated = useCallback((taskId: string, updatedTask: any) => {
-        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updatedTask } : t));
-    }, []);
+        if (onTasksChange) onTasksChange((prev: any) => prev.map((t: any) => t.id === taskId ? { ...t, ...updatedTask } : t));
+    }, [onTasksChange]);
 
     const handleTaskDeleted = useCallback((taskId: string) => {
-        setTasks(prev => prev.filter(t => t.id !== taskId));
-    }, []);
+        if (onTasksChange) onTasksChange((prev: any) => prev.filter((t: any) => t.id !== taskId));
+    }, [onTasksChange]);
 
     const handleTaskCreated = useCallback((task: TaskWithSubTasks) => {
-        setTasks(prev => [task, ...prev]);
+        if (onTasksChange) onTasksChange((prev: any) => {
+            if (prev.some((t: any) => t.id === task.id)) return prev;
+            return [task, ...prev];
+        });
         setActiveInlineProjectId(null);
-    }, [setActiveInlineProjectId]);
+    }, [setActiveInlineProjectId, onTasksChange]);
 
     const handleSubTaskUpdated = useCallback((subTaskId: string, updatedData: any) => {
-        setTasks(prev => prev.map(t => ({
+        if (onTasksChange) onTasksChange((prev: any) => prev.map((t: any) => ({
             ...t,
-            subTasks: t.subTasks ? t.subTasks.map(st => st.id === subTaskId ? { ...st, ...updatedData } : st) : []
+            subTasks: t.subTasks ? t.subTasks.map((st: any) => st.id === subTaskId ? { ...st, ...updatedData } : st) : []
         })));
-    }, []);
+    }, [onTasksChange]);
 
     const handleSubTaskDeleted = useCallback((subTaskId: string, parentId: string) => {
-        setTasks(prev => prev.map(t => t.id === parentId ? { ...t, subTasks: (t.subTasks || []).filter(st => st.id !== subTaskId) } : t));
-    }, []);
+        if (onTasksChange) onTasksChange((prev: any) => prev.map((t: any) => t.id === parentId ? { ...t, subTasks: (t.subTasks || []).filter((st: any) => st.id !== subTaskId) } : t));
+    }, [onTasksChange]);
 
     const handleSubTaskCreated = useCallback((subTask: any, parentId: string) => {
-        setTasks(prev => prev.map(t => {
+        if (onTasksChange) onTasksChange((prev: any) => prev.map((t: any) => {
             if (t.id === parentId) {
                 const currentSubTasks = t.subTasks || [];
                 if (currentSubTasks.some((st: any) => st.id === subTask.id)) return t;
@@ -113,7 +112,7 @@ export function FlatTaskList({
             }
             return t;
         }));
-    }, []);
+    }, [onTasksChange]);
 
     return (
         <>
@@ -184,6 +183,7 @@ export function FlatTaskList({
                         onCancel={() => setActiveInlineProjectId(null)}
                         onTaskDeleted={handleTaskDeleted}
                         onTaskCreated={handleTaskCreated}
+                        visibleColumnsCount={visibleColumnsCount}
                     />
                 ) : (
                     <TableRow

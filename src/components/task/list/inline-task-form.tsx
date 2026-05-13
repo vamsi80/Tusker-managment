@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { X, Check, Loader2 } from "lucide-react";
@@ -9,6 +10,7 @@ import { toast } from "sonner";
 import slugify from "slugify";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SingleTableSkeleton } from "./table/table-skeleton";
 
 interface InlineTaskFormProps {
     workspaceId: string;
@@ -20,6 +22,7 @@ interface InlineTaskFormProps {
     level?: "workspace" | "project";
     leadProjectIds?: string[];
     isWorkspaceAdmin?: boolean;
+    visibleColumnsCount?: number;
 }
 
 /**
@@ -36,7 +39,9 @@ export function InlineTaskForm({
     level = "project",
     leadProjectIds = [],
     isWorkspaceAdmin = false,
+    visibleColumnsCount = 10,
 }: InlineTaskFormProps) {
+    const router = useRouter();
     const [pending, startTransition] = useTransition();
     const [taskName, setTaskName] = useState("");
 
@@ -97,6 +102,10 @@ export function InlineTaskForm({
 
         startTransition(async () => { await taskCreateCall.catch(() => { }); });
     };
+
+    if (pending) {
+        return <SingleTableSkeleton visibleColumnsCount={visibleColumnsCount} />;
+    }
 
     return (
         <TableRow className="bg-muted/20 hover:bg-muted/30 h-8 [&_td]:p-0">

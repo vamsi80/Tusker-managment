@@ -152,8 +152,8 @@ export function AttendanceTable({
                 fetchRecords(true, true);
             }
         };
-        window.addEventListener("realtime-sync-refresh", handler);
-        return () => window.removeEventListener("realtime-sync-refresh", handler);
+        window.addEventListener("realtime-attendance-sync", handler);
+        return () => window.removeEventListener("realtime-attendance-sync", handler);
     }, [workspaceId, pageIndex, pageSize, activeFilters]);
 
     // Local state for the filter popover

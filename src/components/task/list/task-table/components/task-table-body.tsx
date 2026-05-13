@@ -43,6 +43,7 @@ interface TaskTableBodyProps {
   isLoadingMoreSorted: boolean;
   loadMoreSorted: () => void;
   isLoadingFilters: boolean;
+  setTasks: React.Dispatch<React.SetStateAction<TaskWithSubTasks[]>>;
 }
 
 export function TaskTableBody({
@@ -78,6 +79,7 @@ export function TaskTableBody({
   isLoadingMoreSorted,
   loadMoreSorted,
   isLoadingFilters,
+  setTasks,
 }: TaskTableBodyProps) {
   const {
     workspaceId,
@@ -158,7 +160,7 @@ export function TaskTableBody({
               onEnsureProjectLoad={ensureFilteredProjectLoad}
               onSubTaskUpdated={handleSubTaskUpdated}
               scrollContainerRef={scrollContainerRef}
-
+              onTasksChange={setTasks}
             />
           );
         })
@@ -192,7 +194,7 @@ export function TaskTableBody({
           activeInlineProjectId={activeInlineProjectId}
           setActiveInlineProjectId={setActiveInlineProjectId}
           scrollContainerRef={scrollContainerRef}
-
+          onTasksChange={setTasks}
         />
       )}
       {!groupedTasks && projectPagination[projectId]?.hasMore && (

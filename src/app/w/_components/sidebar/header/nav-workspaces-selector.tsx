@@ -1,4 +1,3 @@
-// NavWorkspacesSelector.tsx
 "use client";
 
 import React, { useMemo, useTransition, useRef, useEffect } from "react";
@@ -11,7 +10,7 @@ import {
 import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "../../../../../components/ui/sidebar";
 import { useRouter } from "next/navigation";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useMounted } from "@/hooks/use-mounted";
 import type { WorkspacesType } from "@/types/workspace";
 import { apiClient } from "@/lib/api-client";
@@ -31,14 +30,12 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
   const [workspaces, setWorkspaces] = React.useState<any[]>(data?.workspaces ?? []);
   const [isLoadingWorkspaces, setIsLoadingWorkspaces] = React.useState(false);
 
-  // Sync state if initial data changes (though unlikely to happen on server)
   useEffect(() => {
     if (data?.workspaces?.length > 0) {
       setWorkspaces(data.workspaces);
     }
   }, [data?.workspaces]);
 
-  // Client-side fetch if list is empty
   useEffect(() => {
     if (mounted && workspaces.length === 0 && !isLoadingWorkspaces) {
       setIsLoadingWorkspaces(true);
@@ -53,12 +50,11 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
     }
   }, [mounted, workspaces.length, isLoadingWorkspaces]);
 
-  // find current workspace item from workspaceId or metadata
   const selected = useMemo(() => {
     const found = workspaces.find((w) => w.id === workspaceId);
     if (found) return found;
 
-    return undefined; // Fallback handled in UI
+    return undefined;
   }, [workspaces, workspaceId]);
 
   useEffect(() => {
@@ -92,6 +88,7 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 ) : (
                   <Avatar className="h-8 w-8 rounded-lg">
+                    <AvatarImage src="/icon.png" alt={selected?.name || "Workspace"} />
                     <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
                       {(selected?.name ?? selected?.id ?? "W").charAt(0).toUpperCase()}
                     </AvatarFallback>
@@ -124,12 +121,12 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
                   >
                     <div className="flex flex-row items-center gap-2">
                       <Avatar className="h-8 w-8 rounded-lg">
-                        {/* No external avatar, fallback to initials using Tailwind CSS */}
+                        <AvatarImage src="/icon.png" alt={ws.name || "Workspace"} />
                         <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
                           {(ws.name ?? ws.id ?? "W").charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      <div className="flex flex-col ml-2">
+                      <div className="flex flex-col">
                         <div className="font-semibold text-muted-foreground">
                           {ws.name ?? ws.id}
                         </div>
