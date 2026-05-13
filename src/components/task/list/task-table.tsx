@@ -177,6 +177,7 @@ function TaskTable(props: TaskTableProps) {
                 isLoadingMoreSorted={logic.isLoadingMoreSorted}
                 loadMoreSorted={logic.loadMoreSorted}
                 isLoadingFilters={logic.isLoadingFilters}
+                setTasks={logic.setTasks}
               />
             </table>
           </div>

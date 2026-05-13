@@ -32,37 +32,47 @@ class RealtimeService {
 
     if (pusherClient) {
       const channel = pusherClient.subscribe(`team-${workspaceId}`);
+      const personalChannel = userId ? pusherClient.subscribe(`user-${userId}`) : null;
 
-      // Bind to core activity log
+      // 1. Bind to core activity log
       channel.bind("activity_log", (data: any) => {
         this.publish(EVENTS.APP_ACTIVITY_LOG, data);
       });
 
-      // Bind to standard updates (refreshes/surgical sync)
-      const standardEvents = ["team_update", "task_update", "subtask_update", "project_update", "attendance_update"];
-      standardEvents.forEach(eventName => {
-        channel.bind(eventName, (data: any) => {
-          console.log(`[REALTIME_SERVICE] 📥 Received ${eventName}:`, data.action || data.type);
-          this.publish(EVENTS.TEAM_UPDATE, data);
-        });
-      });
-
-      // 2. Subscribe to PERSONAL channel for targeted toasts and surgical sync
-      if (userId) {
-        const personalChannel = pusherClient.subscribe(`user-${userId}`);
+      if (personalChannel) {
         personalChannel.bind("activity_log", (data: any) => {
           this.publish(EVENTS.APP_ACTIVITY_LOG, data);
         });
-
-        // Bind standard updates to personal channel as well for targeted surgical sync
-        const standardEvents = ["team_update", "task_update", "subtask_update", "project_update", "attendance_update"];
-        standardEvents.forEach(eventName => {
-          personalChannel.bind(eventName, (data: any) => {
-            console.log(`[REALTIME_SERVICE][PERSONAL] 📥 Received ${eventName}:`, data.action || data.type);
-            this.publish(EVENTS.TEAM_UPDATE, data);
-          });
-        });
       }
+
+      // 2. Bind to standard updates (refreshes/surgical sync)
+      const standardEvents = ["team_update", "task_update", "subtask_update", "project_update", "attendance_update"];
+      standardEvents.forEach(eventName => {
+        const handler = (data: any) => {
+          console.log(`[REALTIME_SERVICE] 📥 Received ${eventName}:`, data.action || data.type);
+          
+          // Always publish to the global team_update channel for broad listeners
+          this.publish(EVENTS.TEAM_UPDATE, data);
+
+          // Identify category and publish to granular channels
+          const action = (data.action || data.type || "").toUpperCase();
+          const hasTaskProps = data.projectId || data.parentTaskId || data.taskSlug || data.entityType === "TASK";
+          const hasProjectProps = data.entityType === "PROJECT" || (action.includes("PROJECT") && !hasTaskProps);
+
+          if (action.includes("TASK") || eventName.includes("task") || hasTaskProps) {
+            this.publish(EVENTS.TASK_UPDATE, data);
+          } else if (action.includes("PROJECT") || eventName.includes("project") || hasProjectProps) {
+            this.publish(EVENTS.PROJECT_UPDATE, data);
+          } else if (action.includes("MEMBER") || action.includes("INVITE")) {
+            this.publish(EVENTS.MEMBER_UPDATE, data);
+          } else if (action.includes("ATTENDANCE") || action.includes("CHECKED") || action.includes("LEAVE") || eventName.includes("attendance")) {
+            this.publish(EVENTS.ATTENDANCE_UPDATE, data);
+          }
+        };
+
+        channel.bind(eventName, handler);
+        if (personalChannel) personalChannel.bind(eventName, handler);
+      });
     }
   }
 
@@ -116,4 +126,8 @@ export const pubsub = new RealtimeService();
 export const EVENTS = {
   APP_ACTIVITY_LOG: "app_activity_log",
   TEAM_UPDATE: "team_update",
+  TASK_UPDATE: "task_update",
+  PROJECT_UPDATE: "project_update",
+  MEMBER_UPDATE: "member_update",
+  ATTENDANCE_UPDATE: "attendance_update",
 } as const;

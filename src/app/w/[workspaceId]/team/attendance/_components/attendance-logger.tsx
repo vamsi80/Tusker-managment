@@ -181,8 +181,8 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
             setShowNoteDialog(false);
             setNote("");
 
-            // 🚀 INSTANT UI UPDATE: Notify the table immediately
-            window.dispatchEvent(new CustomEvent("realtime-sync-refresh", {
+            // 🚀 INSTANT UI UPDATE: Notify listeners immediately
+            window.dispatchEvent(new CustomEvent("realtime-attendance-sync", {
                 detail: {
                     action: action === "check-in" ? "CHECKED_IN" : "CHECKED_OUT",
                     record: data.data,

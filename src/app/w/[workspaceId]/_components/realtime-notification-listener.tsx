@@ -13,6 +13,9 @@ export function RealtimeNotificationListener() {
   const workspaceId = params?.workspaceId as string;
   const projectId = params?.projectId as string;
 
+  const refreshTimeoutRef = (typeof window !== "undefined") ? { current: null as any } : { current: null };
+  const processedEventsRef = (typeof window !== "undefined") ? { current: new Set<string>() } : { current: new Set<string>() };
+
   useEffect(() => {
     if (!workspaceId) return;
 
@@ -24,8 +27,14 @@ export function RealtimeNotificationListener() {
      */
     const handleSurgicalSync = (data: any) => {
       const isActor = data.userId === session?.user?.id;
+      
+      // 🚀 DEDUPLICATION: Prevent double-processing of the same event (activity_log + team_update)
+      const eventId = data.pusherEventId || `${data.entityId}-${data.action || data.type}-${data.createdAt || Date.now()}`;
+      if (processedEventsRef.current.has(eventId)) return;
+      processedEventsRef.current.add(eventId);
+      setTimeout(() => processedEventsRef.current.delete(eventId), 10000); // Clear after 10s
 
-      // Standardize action/type
+      // 1. Standardize action/type
       const action = data.action ||
         (data.type === "CREATE" ? "TASK_CREATED" :
           data.type === "UPDATE" ? "TASK_UPDATED" :
@@ -34,38 +43,49 @@ export function RealtimeNotificationListener() {
                 data.type === "CHECK_OUT" ? "CHECKED_OUT" :
                   data.type === "LEAVE_REQUESTED" ? "LEAVE_REQUESTED" :
                     "");
+      
+      // 🚀 SURGICAL PAYLOAD: Prioritize newData for updates
       const payload = data.newData || data.payload || data.metadata?.payload || data.metadata || data;
       const entityId = data.entityId || payload?.id;
 
-      // 🚀 SURGICAL SYNC LOGIC
-      // Structural changes (create/delete/update) require board-level state updates or re-fetches
-      // We explicitly exclude COMMENT_CREATED as it is not a structural change to the task list
-      const isStructural =
-        action.includes("CREATED") ||
-        action.includes("UPDATED") ||
-        action.includes("DELETED") ||
-        action.includes("LEAVE") ||
-        action.includes("CHECKED") ||
-        action.includes("ATTENDANCE") ||
-        action === "MEMBER_INVITED" ||
-        action === "MEMBER_REMOVED";
+      // 2. Identify Category
+      const isTask = action.includes("TASK");
+      const isProject = action.includes("PROJECT");
+      const isMember = action.includes("MEMBER");
+      const isAttendance = action.includes("LEAVE") || action.includes("CHECKED") || action.includes("ATTENDANCE");
 
-      if (isStructural) {
-        console.log(`[REALTIME_SYNC][SURGICAL_V2] 🚀 Dispatching surgical event: ${action}`, {
-          id: entityId,
-          hasRecord: !!payload,
-          isActor
-        });
+      // 3. 🚀 SURGICAL DISPATCH
+      const syncDetail = {
+        action,
+        category: isTask ? "TASK" : isProject ? "PROJECT" : isMember ? "MEMBER" : isAttendance ? "ATTENDANCE" : "OTHER",
+        record: { ...payload, id: entityId },
+        oldRecord: data.oldData,
+        raw: data,
+        isActor
+      };
 
-        window.dispatchEvent(new CustomEvent("realtime-sync-refresh", {
-          detail: {
-            action,
-            record: { ...payload, id: entityId }, // Ensure record has the id for local lookups
-            oldRecord: data.oldData,
-            raw: data,
-            isActor
-          }
-        }));
+      if (isTask || isProject || isMember || isAttendance) {
+        console.log(`[REALTIME_SYNC] 🚀 Dispatching ${syncDetail.category} event: ${action}`);
+
+        // Global event (for backward compatibility)
+        window.dispatchEvent(new CustomEvent("realtime-sync-refresh", { detail: syncDetail }));
+
+        // Category-specific events (for cleaner individual listeners)
+        if (isTask) window.dispatchEvent(new CustomEvent("realtime-task-sync", { detail: syncDetail }));
+        if (isProject) window.dispatchEvent(new CustomEvent("realtime-project-sync", { detail: syncDetail }));
+        if (isMember) window.dispatchEvent(new CustomEvent("realtime-member-sync", { detail: syncDetail }));
+        if (isAttendance) window.dispatchEvent(new CustomEvent("realtime-attendance-sync", { detail: syncDetail }));
+
+        // 4. 🔄 SELECTIVE BACKGROUND REVALIDATION
+        const requiresBackgroundRefresh = isProject || isMember || isAttendance;
+
+        if (requiresBackgroundRefresh) {
+          if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
+          refreshTimeoutRef.current = setTimeout(() => {
+            console.log(`[REALTIME_SYNC] 🔄 Background revalidation triggered for: ${action}`);
+            router.refresh();
+          }, 2000); // 2s debounce for background revalidation
+        }
       }
     };
 
@@ -95,6 +115,7 @@ export function RealtimeNotificationListener() {
     return () => {
       unsubscribeActivity();
       unsubscribeTeam();
+      if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
     };
   }, [
     workspaceId,

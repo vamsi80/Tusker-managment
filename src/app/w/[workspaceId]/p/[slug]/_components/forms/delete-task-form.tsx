@@ -10,6 +10,7 @@ import { tryCatch } from "@/hooks/try-catch";
 import { apiClient, type ApiResponse } from "@/lib/api-client";
 import { TaskWithSubTasks } from "../list/types";
 import { useReloadView } from "@/hooks/use-reload-view";
+import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 
 interface DeleteTaskDialogProps {
     task: TaskWithSubTasks;
@@ -28,15 +29,30 @@ export function DeleteTaskDialog({ task, onTaskDeleted }: DeleteTaskDialogProps)
     const subtaskCount = task._count?.subTasks || 0;
     const reloadView = useReloadView();
     const params = useParams();
-    const workspaceId = (params.workspaceId as string) || task.workspaceId || "";
+    const { data: layoutData } = useWorkspaceLayout();
+
+    // Context from URL
+    const urlWorkspaceId = params?.workspaceId as string;
+    const urlProjectSlug = params?.slug as string;
+
+    // Resolve IDs
+    const workspaceId = urlWorkspaceId || task.workspaceId || "";
+    const resolvedProjectIdFromSlug = layoutData.projects?.find(p => p.slug === urlProjectSlug)?.id;
+    const projectId = task.projectId || resolvedProjectIdFromSlug || "";
 
     const handleDelete = () => {
         if (pending) return;
         startTransition(async () => {
+            if (!workspaceId || !projectId) {
+                toast.error("Missing Workspace or Project context");
+                console.error("[DeleteTask] IDs missing:", { workspaceId, projectId, task });
+                return;
+            }
+
             const res = await tryCatch(apiClient.tasks.deleteTask(
                 task.id, 
                 workspaceId, 
-                task.projectId
+                projectId
             ));
 
             if (res.error) {
