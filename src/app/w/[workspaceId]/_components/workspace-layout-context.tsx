@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, ReactNode, useEffect, useCallback, useTransition } from "react";
+import { createContext, useContext, ReactNode, useEffect, useCallback, useTransition } from "react";
 import { WorkspaceLayoutData } from "@/types/workspace";
 import { useWorkspaceLayoutStore, useRealtimeLayoutSync } from "@/lib/store/workspace-layout-store";
 
@@ -29,7 +29,7 @@ export function WorkspaceLayoutProvider({
   const [isNavigating, startTransition] = useTransition();
 
   const data = layoutData[workspaceId];
-  
+
   // SIMPLIFIED: Only show loading if the store explicitly says it is loading
   // This prevents getting trapped in a skeleton state if data is missing.
   const isLoading = storeLoading[workspaceId] === true && !data;
@@ -40,7 +40,7 @@ export function WorkspaceLayoutProvider({
 
   useEffect(() => {
     const store = useWorkspaceLayoutStore.getState();
-    
+
     // If we have initialData and no data in store yet, hydrate the store
     if (initialData && !data) {
       store.setLayoutData(workspaceId, initialData);
