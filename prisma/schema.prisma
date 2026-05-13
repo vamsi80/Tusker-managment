@@ -33,6 +33,7 @@ model User {
   auditLogs           AuditLog[]
   comments            Comment[]
   commentReads        CommentRead[]
+  activityReads       ActivityRead[]
   dailyReports        DailyReport[]
   direct_message      direct_message[]
   notification        notification[]
@@ -323,20 +324,35 @@ model Task {
 }
 
 model Activity {
-  id          String   @id @default(uuid())
+  id          String         @id @default(uuid())
   subTaskId   String
   authorId    String
   text        String
   attachment  Json?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
   workspaceId String
-  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  subTask     Task     @relation(fields: [subTaskId], references: [id], onDelete: Cascade)
+  author      User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  subTask     Task           @relation(fields: [subTaskId], references: [id], onDelete: Cascade)
+  readBy      ActivityRead[]
 
   @@index([subTaskId, createdAt(sort: Desc)])
   @@index([authorId])
   @@index([workspaceId])
+}
+
+model ActivityRead {
+  id         String   @id @default(uuid())
+  userId     String
+  activityId String
+  createdAt  DateTime @default(now())
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, activityId])
+  @@index([userId])
+  @@index([activityId])
+  @@map("activity_read")
 }
 
 model Comment {

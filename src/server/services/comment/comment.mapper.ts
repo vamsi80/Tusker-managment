@@ -14,6 +14,7 @@ export class CommentMapper {
           taskSlug: comment.task.taskSlug,
           projectName: comment.task.project.name,
           parentTaskName: comment.task.parentTask?.name || null,
+          type: "comment",
           latestComment: {
             content: comment.content,
             createdAt: comment.createdAt,
@@ -33,6 +34,7 @@ export class CommentMapper {
     });
 
     activities.forEach((rc: any) => {
+      const isRead = (rc.readBy || []).length > 0;
       if (!groupedMap.has(rc.subTaskId)) {
         groupedMap.set(rc.subTaskId, {
           taskId: rc.subTaskId,
@@ -40,6 +42,7 @@ export class CommentMapper {
           taskSlug: rc.subTask.taskSlug,
           projectName: rc.subTask.project.name,
           parentTaskName: rc.subTask.parentTask?.name || null,
+          type: "activity",
           latestComment: {
             content: rc.text,
             createdAt: rc.createdAt,
@@ -50,13 +53,15 @@ export class CommentMapper {
             }
           },
           count: 0,
-          isNew: true
+          isNew: false
         });
       }
       const group = groupedMap.get(rc.subTaskId);
       group.count++;
-      group.isNew = true;
+      if (!isRead) group.isNew = true;
+
       if (new Date(rc.createdAt) > new Date(group.latestComment.createdAt)) {
+        group.type = "activity";
         group.latestComment = {
           content: rc.text,
           createdAt: rc.createdAt,
@@ -77,7 +82,7 @@ export class CommentMapper {
       readNotifications: allNotifications.filter(n => !n.isNew),
       peopleCount: allNotifications.filter(n => n.isNew).length,
       totalCount: allNotifications.length,
-      hasMore: comments.length >= limit // Approximate check
+      hasMore: comments.length >= limit
     };
   }
 }

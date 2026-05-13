@@ -228,7 +228,7 @@ export const workspacesClient: WorkspacesClient = {
      * Get workspace tags
      */
     getTags: async (workspaceId: string): Promise<any[]> => {
-        const response = await apiFetch<{ success: boolean; tags: any[] }>(`/tags?workspaceId=${workspaceId}`);
+        const response = await apiFetch<{ success: boolean; tags: any[] }>(`/workspace-tags?workspaceId=${workspaceId}`);
         return response.tags || [];
     },
 

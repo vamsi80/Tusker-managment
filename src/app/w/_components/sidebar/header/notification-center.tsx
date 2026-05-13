@@ -97,9 +97,20 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
     }, [workspaceId, session?.user?.id, isOpen]);
 
     const handleNotificationClick = async (notif: any) => {
-        // 1. Synchronize URL programmatically
-        const params = new URLSearchParams(currentSearchParams.toString());
+        // 1. Synchronize URL programmatically with explicit order
+        const params = new URLSearchParams();
+        
+        // Preserve other essential params but reset subtask/tab
+        currentSearchParams.forEach((value, key) => {
+            if (key !== "subtask" && key !== "tab") params.set(key, value);
+        });
+
         params.set("subtask", notif.taskSlug);
+        
+        // 🚀 Only add tab if it's activity
+        if (notif.type === "activity") {
+            params.set("tab", "activity");
+        }
 
         if (!router.isNavigating) {
             router.push(`${pathname}?${params.toString()}`);
@@ -169,18 +180,19 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
         setIsOpen(false);
     };
 
-    // Sync server-provided data if it changes
+    // Sync server-provided data ONLY ONCE if we didn't have it initially
     useEffect(() => {
-        // Only override if we have actual data in initial props
-        // Otherwise we risk wiping out our on-demand fetch
-        if (initialUnread && initialUnread.length > 0) {
+        if (initialUnread?.length > 0 && unreadNotifications.length === 0) {
             setUnreadNotifications(initialUnread);
         }
-        if (initialRead && initialRead.length > 0) {
+        if (initialRead?.length > 0 && readNotifications.length === 0) {
             setReadNotifications(initialRead);
         }
-        setPeopleCount(initialPeopleCount);
-    }, [JSON.stringify(initialUnread), JSON.stringify(initialRead), initialPeopleCount]);
+        // Only update count if we haven't started tracking locally yet
+        if (initialPeopleCount > 0 && peopleCount === 0) {
+            setPeopleCount(initialPeopleCount);
+        }
+    }, [initialUnread, initialRead, initialPeopleCount]);
 
     const hasAnyNotifications = unreadNotifications.length > 0 || readNotifications.length > 0;
 
@@ -208,15 +220,12 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
                                 isPulsing && "scale-110 text-primary"
                             )} />
                             {peopleCount > 0 && (
-                                <Badge
-                                    variant="destructive"
+                                <div
                                     className={cn(
-                                        "absolute -top-1 -right-1 h-4 min-w-4 p-0 flex items-center justify-center text-[10px] border-2 border-background",
+                                        "absolute top-0.5 right-0.5 h-2 w-2 rounded-full bg-red-500 border-2 border-background shadow-sm",
                                         isPulsing && "animate-pulse"
                                     )}
-                                >
-                                    {peopleCount}
-                                </Badge>
+                                />
                             )}
                         </Button>
                     </PopoverTrigger>

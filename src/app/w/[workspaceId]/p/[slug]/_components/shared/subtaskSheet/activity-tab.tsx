@@ -3,7 +3,7 @@ import { formatIST, APP_DATE_FORMAT } from "@/lib/utils";
 
 import { Badge } from "@/components/ui/badge";
 import { TabsContent } from "@/components/ui/tabs";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Loader2, ArrowRight, Link as LinkIcon } from "lucide-react";
 
 interface Activity {
@@ -19,9 +19,7 @@ interface Activity {
     } | null;
     author: {
         id: string;
-        name: string;
         surname: string;
-        image: string;
     };
     createdAt: Date;
 }
@@ -45,8 +43,34 @@ export function ActivityTab({ activities, isLoadingActivity }: ActivityTabProps)
         <TabsContent value="review" className="flex-1 flex flex-col m-0 data-[state=inactive]:hidden overflow-hidden">
             <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 bg-muted/20 min-h-0">
                 {isLoadingActivity && activities.length === 0 ? (
-                    <div className="flex items-center justify-center h-full">
-                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    <div className="space-y-4">
+                        {[1, 2, 3].map((i) => (
+                            <div key={i} className="bg-background border rounded-lg p-4 shadow-sm animate-pulse">
+                                {/* Author Info */}
+                                <div className="flex items-center gap-3 mb-3">
+                                    <div className="h-8 w-8 rounded-full bg-muted" />
+                                    <div className="flex-1 space-y-1.5">
+                                        <div className="h-4 w-24 bg-muted rounded" />
+                                        <div className="h-3 w-32 bg-muted rounded" />
+                                    </div>
+                                    <div className="flex flex-col items-end gap-1.5">
+                                        <div className="h-5 w-16 bg-amber-50 border border-amber-200 rounded-full" />
+                                        {i === 1 && <div className="h-4 w-20 bg-muted rounded-sm" />}
+                                    </div>
+                                </div>
+
+                                {/* Activity Text and Link */}
+                                <div className="flex flex-col items-start gap-2 w-full">
+                                    <div className="space-y-1.5 w-full">
+                                        <div className="h-4 w-full bg-muted rounded" />
+                                        <div className="h-4 w-2/3 bg-muted rounded" />
+                                    </div>
+                                    {i % 2 !== 0 && (
+                                        <div className="h-8 w-64 bg-blue-50/50 border border-blue-100 rounded-md mt-1" />
+                                    )}
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 ) : activities.length === 0 ? (
                     <div className="flex items-center justify-center h-full text-muted-foreground text-sm">

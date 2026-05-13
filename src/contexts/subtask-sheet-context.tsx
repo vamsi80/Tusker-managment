@@ -1,69 +1,75 @@
-import { useSubTaskSheetStore } from "@/lib/store/subtask-sheet-store";
-import { usePathname, useSearchParams } from "next/navigation";
-import { useCallback } from "react";
+"use client";
 
-/**
- * DEPRECATED: Use useSubTaskSheetStore directly for state.
- * This hook is maintained for backward compatibility.
- */
-export function useSubTaskSheet() {
-    const store = useSubTaskSheetStore();
-    const actions = useSubTaskSheetActions();
-    
-    return {
-        ...store,
-        ...actions
-    };
+import { createContext, useContext, useState, useCallback, useMemo } from "react";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
+
+interface SubTaskSheetContextType {
+    subTask: any | null;
+    isOpen: boolean;
+    openSubTaskSheet: (task: any) => void;
+    openSubTaskSheetLoading: () => void;
+    closeSubTaskSheet: () => void;
+    patchSubTask: (updatedData: any) => void;
 }
 
-/**
- * Optimized hook for components that ONLY need to open/close the sheet.
- * Automatically handles URL synchronization when opening/closing.
- * 
- * Works WITHOUT a Provider.
- */
-export function useSubTaskSheetActions() {
-    const store = useSubTaskSheetStore();
+const SubTaskSheetContext = createContext<SubTaskSheetContextType | null>(null);
+
+export function SubTaskSheetProvider({ children }: { children: React.ReactNode }) {
+    const [subTask, setSubTask] = useState<any | null>(null);
+    const [isOpen, setIsOpen] = useState(false);
+    
     const pathname = usePathname();
     const searchParams = useSearchParams();
+    const router = useRouter();
 
     const openSubTaskSheet = useCallback((task: any) => {
-        const slug = task?.taskSlug || task?.id;
-        const params = new URLSearchParams(searchParams.toString());
-
-        if (slug && params.get("subtask") !== slug) {
-            params.set("subtask", slug);
-            window.history.replaceState(null, "", `${pathname}?${params.toString()}`);
-        }
-
-        store.openSubTaskSheet(task);
-    }, [store.openSubTaskSheet, pathname, searchParams]);
+        setSubTask(task);
+        setIsOpen(true);
+    }, []);
 
     const openSubTaskSheetLoading = useCallback(() => {
-        store.openSubTaskSheetLoading();
-    }, [store.openSubTaskSheetLoading]);
+        setSubTask(null);
+        setIsOpen(true);
+    }, []);
 
     const closeSubTaskSheet = useCallback(() => {
-        const params = new URLSearchParams(searchParams.toString());
-        if (params.has("subtask")) {
-            params.delete("subtask");
-            const newUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
-            window.history.replaceState(null, "", newUrl);
-        }
-        store.closeSubTaskSheet();
-    }, [store.closeSubTaskSheet, pathname, searchParams]);
+        setIsOpen(false);
+        // Delay clearing task for exit animation
+        setTimeout(() => setSubTask(null), 250);
+    }, []);
 
-    return {
-        ...store,
+    const patchSubTask = useCallback((updatedData: any) => {
+        setSubTask((prev: any) => {
+            if (!prev) return prev;
+            return { ...prev, ...updatedData };
+        });
+    }, []);
+
+    const value = useMemo(() => ({
+        subTask,
+        isOpen,
         openSubTaskSheet,
         openSubTaskSheetLoading,
         closeSubTaskSheet,
-        patchSubTask: store.patchSubTask
-    };
+        patchSubTask
+    }), [subTask, isOpen, openSubTaskSheet, openSubTaskSheetLoading, closeSubTaskSheet, patchSubTask]);
+
+    return (
+        <SubTaskSheetContext.Provider value={value}>
+            {children}
+        </SubTaskSheetContext.Provider>
+    );
 }
 
-// Dummy provider for backward compatibility
-export function SubTaskSheetProvider({ children }: { children: React.ReactNode }) {
-    return <>{children}</>;
+export function useSubTaskSheet() {
+    const context = useContext(SubTaskSheetContext);
+    if (!context) {
+        throw new Error("useSubTaskSheet must be used within a SubTaskSheetProvider");
+    }
+    return context;
+}
+
+export function useSubTaskSheetActions() {
+    return useSubTaskSheet();
 }
 
