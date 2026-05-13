@@ -14,7 +14,7 @@ import { UserMinus, Loader2, LogIn, ChevronLeft, ChevronRight, CalendarDays } fr
 import { AttendanceLogger } from "./attendance-logger";
 import { Calendar as ShadcnCalendar } from "@/components/ui/calendar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MapPin, Clock, Filter, X, Calendar as CalendarIcon } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -606,6 +606,7 @@ export function AttendanceTable({
                     </Button>
                 </DialogTrigger>
                 <DialogContent className="p-0 border-none bg-transparent shadow-none max-w-sm">
+                    <DialogTitle className="sr-only">Mark Attendance</DialogTitle>
                     <AttendanceLogger workspaceId={workspaceId} />
                 </DialogContent>
             </Dialog>

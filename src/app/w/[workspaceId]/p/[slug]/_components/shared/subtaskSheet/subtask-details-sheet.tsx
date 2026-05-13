@@ -5,7 +5,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { apiClient } from "@/lib/api-client";
 import { pubsub, EVENTS } from "@/lib/pubsub";
 import { useSearchParams, usePathname, useRouter } from "next/navigation";
-import { useState, useRef, useEffect, useCallback, Suspense } from "react";
+import { useState, useRef, useEffect, useCallback, Suspense, useMemo } from "react";
 import type { TaskByIdType } from "@/server/services/task/tasks.service";
 import { SheetTitle, SheetDescription } from "@/components/ui/sheet";
 
@@ -87,7 +87,31 @@ interface Activity {
     createdAt: Date;
 }
 
-// No client-side cache, everything runs fresh on load
+// 🚀 Global Cache for "Magic Instant Load"
+const PREFETCH_CACHE: Record<string, { data: any, timestamp: number }> = {};
+const CACHE_TTL = 1000 * 60 * 5; // 5 minutes
+
+/**
+ * Prefetches subtask data (comments/activity) to make the sheet load instantly
+ */
+export const prefetchSubTask = async (taskId: string) => {
+    if (!taskId || PREFETCH_CACHE[taskId]) return;
+
+    try {
+        // We only prefetch comments and activity for now as they are the heaviest
+        const [comments, activities] = await Promise.all([
+            apiClient.comments.getComments(taskId),
+            apiClient.comments.getActivities(taskId)
+        ]);
+
+        PREFETCH_CACHE[taskId] = {
+            data: { comments: comments.data, activities: activities.data },
+            timestamp: Date.now()
+        };
+    } catch (e) {
+        console.error("Prefetch failed for:", taskId);
+    }
+};
 
 /**
  * Subtask Details Sheet Component (Refactored)
@@ -104,6 +128,17 @@ export function SubTaskDetailsSheet({
     isAdmin = false,
     isProjectManager = false,
 }: SubTaskDetailsSheetProps) {
+    // Check prefetch cache on mount
+    const cachedData = useMemo(() => {
+        if (!subTask?.id) return null;
+        const cached = PREFETCH_CACHE[subTask.id];
+        if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+            console.log(`✨ [MAGIC] Instant load for ${subTask.name} (Hit Pre-fetch Cache)`);
+            return cached.data;
+        }
+        return null;
+    }, [subTask?.id, subTask?.name]);
+
     const searchParams = useSearchParams();
     const pathname = usePathname();
     const router = useRouter();
@@ -150,10 +185,15 @@ export function SubTaskDetailsSheet({
     // Set initial states
     useEffect(() => {
         if (subTask) {
-            setComments(initialComments as Comment[]);
-            setActivities(initialActivities as Activity[]);
+            if (cachedData) {
+                setComments(cachedData.comments || []);
+                setActivities(cachedData.activities || []);
+            } else {
+                setComments(initialComments as Comment[]);
+                setActivities(initialActivities as Activity[]);
+            }
         }
-    }, [subTask?.id, isOpen]);
+    }, [subTask?.id, isOpen, cachedData]);
 
     // Performance tracking
     const mountTimeRef = useRef<number>(0);
