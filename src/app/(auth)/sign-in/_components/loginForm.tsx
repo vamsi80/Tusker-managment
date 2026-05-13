@@ -132,9 +132,13 @@ export const LoginForm = () => {
             },
           },
         });
-      } catch (error) {
+      } catch (error: any) {
         toast.error("An error occurred during sign in");
-        console.error(error);
+        console.error("[Login Error Details]:", {
+          message: error?.message,
+          error: error,
+          stack: error?.stack
+        });
       }
     });
   }
