@@ -62,22 +62,16 @@ export function TaskTableSkeleton() {
 
 export function SubTaskSkeleton({ columnVisibility, count = 1 }: SubTaskSkeletonProps) {
     // Calculate total columns
-    let colSpan = 2; // drag handle + task name
-    if (columnVisibility.description) colSpan++;
-    if (columnVisibility.assignee) colSpan++;
-    if (columnVisibility.reviewer) colSpan++;
-    if (columnVisibility.status) colSpan++;
-    if (columnVisibility.startDate) colSpan++;
-    if (columnVisibility.dueDate) colSpan++;
-    if (columnVisibility.progress) colSpan++;
-    if (columnVisibility.tag) colSpan++;
-    colSpan++; // actions column
+    const visiblePropsCount = Object.entries(columnVisibility)
+        .filter(([key, visible]) => key !== 'project' && visible)
+        .length;
+    const totalColSpan = 2 + visiblePropsCount + 1;
 
     return (
         <>
             {Array.from({ length: count }).map((_, index) => (
                 <TableRow key={index} className="bg-muted/10 animate-pulse">
-                    <TableCell colSpan={colSpan} className="h-12 pl-12">
+                    <TableCell colSpan={totalColSpan} className="h-12 pl-12">
                         <div className="flex items-center gap-2">
                             <Skeleton className="h-4 w-full animate-pulse" />
                         </div>

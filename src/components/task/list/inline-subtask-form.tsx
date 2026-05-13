@@ -72,63 +72,43 @@ export function InlineSubTaskForm({
         (subTask?.status as typeof SubTaskStatus[number]) || "TO_DO"
     );
     const [startDate, setStartDate] = useState(
-        subTask?.startDate ? (() => {
-            const d = new Date(subTask.startDate);
-            const year = d.getFullYear();
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            const hours = String(d.getHours()).padStart(2, '0');
-            const minutes = String(d.getMinutes()).padStart(2, '0');
-            return `${year}-${month}-${day}T${hours}:${minutes}`;
-        })() : (() => {
-            const now = new Date(Date.now() + 10 * 60000);
-            const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const day = String(now.getDate()).padStart(2, '0');
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            return `${year}-${month}-${day}T${hours}:${minutes}`;
-        })()
+        subTask?.startDate ? new Date(subTask.startDate).toISOString() : new Date(Date.now() + 10 * 60000).toISOString()
     );
     const [dueDate, setDueDate] = useState(
-        (subTask as any)?.dueDate ? (() => {
-            const d = new Date((subTask as any).dueDate);
-            const year = d.getFullYear();
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            const hours = String(d.getHours()).padStart(2, '0');
-            const minutes = String(d.getMinutes()).padStart(2, '0');
-            return `${year}-${month}-${day}T${hours}:${minutes}`;
-        })() : (() => {
-            const now = new Date(Date.now() + 30 * 60000);
-            const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const day = String(now.getDate()).padStart(2, '0');
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            return `${year}-${month}-${day}T${hours}:${minutes}`;
-        })()
+        (subTask as any)?.dueDate ? new Date((subTask as any).dueDate).toISOString() : new Date(Date.now() + 30 * 60000).toISOString()
     );
     const [tagIds, setTagIds] = useState<string[]>(subTask?.tags?.map(t => t.id) || []);
     const [days, setDays] = useState<number>(subTask?.days || 1);
 
     const handleStartDateChange = (val: string) => {
+        const selectedDate = new Date(val);
+        const now = new Date();
+        
+        // Only prevent past dates for NEW selections or in create mode
+        if (selectedDate < now && mode === "create") {
+            toast.error("Start date cannot be in the past");
+            return;
+        }
+
         setStartDate(val);
         if (val && days) {
             const start = parseIST(val);
             if (start) {
                 const due = new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
-                const year = due.getFullYear();
-                const month = String(due.getMonth() + 1).padStart(2, '0');
-                const day = String(due.getDate()).padStart(2, '0');
-                const hours = String(due.getHours()).padStart(2, '0');
-                const minutes = String(due.getMinutes()).padStart(2, '0');
-                setDueDate(`${year}-${month}-${day}T${hours}:${minutes}`);
+                setDueDate(due.toISOString());
             }
         }
     };
 
     const handleDueDateChange = (val: string) => {
+        const selectedDate = new Date(val);
+        const now = new Date();
+        
+        if (selectedDate < now && mode === "create") {
+            toast.error("Due date cannot be in the past");
+            return;
+        }
+
         setDueDate(val);
         if (startDate && val) {
             const start = parseIST(startDate);
@@ -147,12 +127,7 @@ export function InlineSubTaskForm({
             const start = parseIST(startDate);
             if (start) {
                 const due = new Date(start.getTime() + val * 24 * 60 * 60 * 1000);
-                const year = due.getFullYear();
-                const month = String(due.getMonth() + 1).padStart(2, '0');
-                const day = String(due.getDate()).padStart(2, '0');
-                const hours = String(due.getHours()).padStart(2, '0');
-                const minutes = String(due.getMinutes()).padStart(2, '0');
-                setDueDate(`${year}-${month}-${day}T${hours}:${minutes}`);
+                setDueDate(due.toISOString());
             }
         }
     };
@@ -186,7 +161,7 @@ export function InlineSubTaskForm({
                 setReviewers(fetchedReviewers);
 
                 // For create mode, set Project Manager as default reviewer if available
-                if (mode === "create" && !reviewer) {
+                if (mode === "create" && !reviewer && fetchedReviewers && Array.isArray(fetchedReviewers)) {
                     const projectManager = (fetchedReviewers as ProjectReviewer[]).find(r => r.role === "PROJECT_MANAGER");
                     if (projectManager) {
                         setReviewer(projectManager.id);
@@ -211,9 +186,10 @@ export function InlineSubTaskForm({
     const getRoleShortcut = (role: string): string => {
         const shortcuts: Record<string, string> = {
             'PROJECT_MANAGER': 'PM',
-            'LEAD': 'Lead',
-            'OWNER': 'Owner',
-            'ADMIN': 'Admin',
+            'LEAD': 'LEAD',
+            'OWNER': 'OWN',
+            'ADMIN': 'ADM',
+            'MEMBER': 'MBR',
         };
         return shortcuts[role] || role;
     };
@@ -332,252 +308,259 @@ export function InlineSubTaskForm({
                 toast.success("Subtask saved");
             });
         };
+    };
 
-        if (pending) {
-            const colCount = 2 + Object.values(columnVisibility).filter(Boolean).length + 1;
-            return <SingleTableSkeleton visibleColumnsCount={colCount} />;
-        }
+    if (pending) {
+        const visiblePropsCount = Object.entries(columnVisibility)
+            .filter(([key, visible]) => key !== 'project' && visible)
+            .length;
+        const colCount = 2 + visiblePropsCount + 1;
+        return <SingleTableSkeleton visibleColumnsCount={colCount} />;
+    }
 
-        return (
-            <TableRow className={cn(
+    return (
+        <TableRow
+            key={mode === "edit" ? `edit-${subTask?.id}` : "create-subtask-form"}
+            className={cn(
                 mode === "edit" ? "bg-primary/5 hover:bg-primary/10" : "bg-muted/20 hover:bg-muted/30",
                 "h-10 transition-colors"
-            )}>
-                {/* Drag Handle - Empty with hierarchy gap */}
-                <TableCell className="w-[50px] pl-4 sm:pl-4">
-                    <div className="flex items-center">
-                        <div className="w-8 shrink-0" />
-                    </div>
-                </TableCell>
+            )}
+        >
+            {/* Drag Handle - Empty with hierarchy gap */}
+            <TableCell className="w-[50px] pl-4 sm:pl-4">
+                <div className="flex items-center">
+                    <div className="w-8 shrink-0" />
+                </div>
+            </TableCell>
 
-                {/* SubTask Name Input */}
-                <TableCell className="w-[80px] sm:w-[120px] md:w-[220px] px-2">
-                    <div className="flex flex-col">
-                        <Input
-                            placeholder="SubTask name..."
-                            value={subTaskName}
-                            onChange={(e) => setSubTaskName(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter" && !e.shiftKey) {
-                                    e.preventDefault();
-                                    handleSubmit(e);
-                                }
-                                if (e.key === "Escape") {
-                                    onCancel();
-                                }
-                            }}
-                            autoFocus
-                            disabled={pending}
-                            className="h-8 border-primary/50 focus-visible:ring-primary"
-                        />
-                        {subTaskName.trim().length > 0 && (
-                            <p className="text-[10px] text-muted-foreground mt-0.5 px-1">
-                                Slug: <span className="font-mono">{slugify(subTaskName.trim(), { lower: true, strict: true })}</span>
-                            </p>
-                        )}
-                    </div>
-                </TableCell>
+            {/* SubTask Name Input */}
+            <TableCell className="w-[80px] sm:w-[120px] md:w-[220px] px-2">
+                <div className="flex flex-col">
+                    <Input
+                        placeholder="SubTask name..."
+                        value={subTaskName}
+                        onChange={(e) => setSubTaskName(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSubmit(e);
+                            }
+                            if (e.key === "Escape") {
+                                onCancel();
+                            }
+                        }}
+                        autoFocus
+                        disabled={pending}
+                        className="h-8 border-primary/50 focus-visible:ring-primary"
+                    />
+                    {subTaskName.trim().length > 0 && (
+                        <p className="text-[10px] text-muted-foreground mt-0.5 px-1">
+                            Slug: <span className="font-mono">{slugify(subTaskName.trim(), { lower: true, strict: true })}</span>
+                        </p>
+                    )}
+                </div>
+            </TableCell>
 
-                {/* Description - Popover with Textarea */}
-                {columnVisibility.description && (
-                    <TableCell className="w-[200px] px-2">
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    className="h-8 w-full justify-start text-left font-normal"
+            {/* Description - Popover with Textarea */}
+            {columnVisibility.description && (
+                <TableCell className="w-[200px] px-2">
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button
+                                variant="outline"
+                                className="h-8 w-full justify-start text-left font-normal"
+                                disabled={pending}
+                            >
+                                <span className={cn(
+                                    "truncate block",
+                                    description ? "text-foreground" : "text-muted-foreground"
+                                )}>
+                                    {description || "Add description..."}
+                                </span>
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80" align="start">
+                            <div className="space-y-2">
+                                <h4 className="font-medium text-sm">Description</h4>
+                                <Textarea
+                                    placeholder="Enter description..."
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
                                     disabled={pending}
-                                >
-                                    <span className={cn(
-                                        "truncate block",
-                                        description ? "text-foreground" : "text-muted-foreground"
-                                    )}>
-                                        {description || "Add description..."}
-                                    </span>
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-80" align="start">
-                                <div className="space-y-2">
-                                    <h4 className="font-medium text-sm">Description</h4>
-                                    <Textarea
-                                        placeholder="Enter description..."
-                                        value={description}
-                                        onChange={(e) => setDescription(e.target.value)}
-                                        disabled={pending}
-                                        className="min-h-[100px] resize-none"
-                                        autoFocus
-                                    />
-                                </div>
-                            </PopoverContent>
-                        </Popover>
-                    </TableCell>
-                )}
+                                    className="min-h-[100px] resize-none"
+                                    autoFocus
+                                />
+                            </div>
+                        </PopoverContent>
+                    </Popover>
+                </TableCell>
+            )}
 
-                {/* Assignee */}
-                {columnVisibility.assignee && (
-                    <TableCell className="w-[100px] max-w-[100px] px-2">
-                        <Select value={assignee} onValueChange={setAssignee} disabled={pending}>
-                            <SelectTrigger className="h-8 w-full">
-                                <SelectValue placeholder="Select assignee..." className="truncate" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {availableMembers
-                                    .filter(m => m.projectRole !== "VIEWER" && m.workspaceRole !== "OWNER")
-                                    .map((member) => (
-                                        <SelectItem key={member.userId} value={member.userId}>
-                                            <span className="truncate block">
-                                                {member.user.surname || member.user.name}
-                                            </span>
-                                        </SelectItem>
-                                    ))}
-                            </SelectContent>
-                        </Select>
-                    </TableCell>
-                )}
-
-                {/* Reviewer */}
-                {columnVisibility.reviewer && (
-                    <TableCell className="w-[100px] max-w-[100px] px-2">
-                        <Select value={reviewer} onValueChange={setReviewer} disabled={pending}>
-                            <SelectTrigger className="h-8 w-full">
-                                <SelectValue placeholder="Select reviewer..." className="truncate" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {reviewers.map((rev) => (
-                                    <SelectItem key={rev.id} value={rev.id}>
+            {/* Assignee */}
+            {columnVisibility.assignee && (
+                <TableCell className="w-[100px] max-w-[100px] px-2">
+                    <Select value={assignee} onValueChange={setAssignee} disabled={pending}>
+                        <SelectTrigger className="h-8 w-full">
+                            <SelectValue placeholder="Select assignee..." className="truncate" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {availableMembers
+                                .filter(m => m.projectRole !== "VIEWER")
+                                .map((member) => (
+                                    <SelectItem key={member.userId} value={member.userId}>
                                         <span className="truncate block">
-                                            {rev.surname} ({getRoleShortcut(rev.role)})
+                                            {member.user.surname || member.user.name} ({getRoleShortcut(member.workspaceRole || member.projectRole)})
                                         </span>
                                     </SelectItem>
                                 ))}
-                            </SelectContent>
-                        </Select>
-                    </TableCell>
-                )}
+                        </SelectContent>
+                    </Select>
+                </TableCell>
+            )}
 
-                {/* Status */}
-                {columnVisibility.status && (
-                    <TableCell className="w-[120px] max-w-[120px] px-2">
-                        <Select value={status} onValueChange={(value) => setStatus(value as typeof SubTaskStatus[number])} disabled={pending}>
-                            <SelectTrigger className="h-8 w-full">
-                                <SelectValue className="truncate" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {STATUS_OPTIONS.map((option) => {
-                                    const statusColors = getStatusColors(option.value);
-                                    const hexMatch = statusColors?.bgColor?.match(/#([A-Fa-f0-9]{6})/);
-                                    const hex = hexMatch ? `#${hexMatch[1]}` : undefined;
+            {/* Reviewer */}
+            {columnVisibility.reviewer && (
+                <TableCell className="w-[100px] max-w-[100px] px-2">
+                    <Select value={reviewer} onValueChange={setReviewer} disabled={pending}>
+                        <SelectTrigger className="h-8 w-full">
+                            <SelectValue placeholder="Select reviewer..." className="truncate" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {(reviewers || []).map((rev) => (
+                                <SelectItem key={rev.id} value={rev.id}>
+                                    <span className="truncate block">
+                                        {rev.surname} ({getRoleShortcut(rev.role)})
+                                    </span>
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </TableCell>
+            )}
 
-                                    return (
-                                        <SelectItem key={option.value} value={option.value}>
-                                            <div className="flex items-center gap-2">
-                                                {hex ? (
-                                                    <div
-                                                        className="h-2 w-2 rounded-full border border-black/5 dark:border-white/10"
-                                                        style={{ backgroundColor: hex }}
-                                                    />
-                                                ) : (
-                                                    <div className={cn(
-                                                        "h-2 w-2 rounded-full",
-                                                        statusColors?.color?.replace("text-", "bg-") || "bg-slate-400"
-                                                    )} />
-                                                )}
-                                                {option.label}
-                                            </div>
-                                        </SelectItem>
-                                    );
-                                })}
-                            </SelectContent>
-                        </Select>
-                    </TableCell>
-                )}
+            {/* Status */}
+            {columnVisibility.status && (
+                <TableCell className="w-[120px] max-w-[120px] px-2">
+                    <Select value={status} onValueChange={(value) => setStatus(value as typeof SubTaskStatus[number])} disabled={pending}>
+                        <SelectTrigger className="h-8 w-full">
+                            <SelectValue className="truncate" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {STATUS_OPTIONS.map((option) => {
+                                const statusColors = getStatusColors(option.value);
+                                const hexMatch = statusColors?.bgColor?.match(/#([A-Fa-f0-9]{6})/);
+                                const hex = hexMatch ? `#${hexMatch[1]}` : undefined;
 
-                {/* Start Date */}
-                {columnVisibility.startDate && (
-                    <TableCell className="w-[120px] px-2">
-                        <DateTimePicker
-                            value={startDate}
-                            onChange={handleStartDateChange}
-                            disabled={pending}
-                        />
-                    </TableCell>
-                )}
+                                return (
+                                    <SelectItem key={option.value} value={option.value}>
+                                        <div className="flex items-center gap-2">
+                                            {hex ? (
+                                                <div
+                                                    className="h-2 w-2 rounded-full border border-black/5 dark:border-white/10"
+                                                    style={{ backgroundColor: hex }}
+                                                />
+                                            ) : (
+                                                <div className={cn(
+                                                    "h-2 w-2 rounded-full",
+                                                    statusColors?.color?.replace("text-", "bg-") || "bg-slate-400"
+                                                )} />
+                                            )}
+                                            {option.label}
+                                        </div>
+                                    </SelectItem>
+                                );
+                            })}
+                        </SelectContent>
+                    </Select>
+                </TableCell>
+            )}
 
-                {/* Deadline */}
-                {columnVisibility.dueDate && (
-                    <TableCell className="w-[120px] px-2">
-                        <DateTimePicker
-                            value={dueDate}
-                            onChange={handleDueDateChange}
-                            disabled={pending}
-                        />
-                    </TableCell>
-                )}
+            {/* Start Date */}
+            {columnVisibility.startDate && (
+                <TableCell className="w-[120px] px-2">
+                    <DateTimePicker
+                        value={startDate}
+                        onChange={handleStartDateChange}
+                        disabled={pending}
+                    />
+                </TableCell>
+            )}
 
-                {/* Days Column (Replaces Progress for better UX) */}
-                {columnVisibility.progress && (
-                    <TableCell className="w-[80px] px-2">
-                        <Input
-                            type="number"
-                            min={1}
-                            max={365}
-                            value={days}
-                            onChange={(e) => {
-                                const val = parseInt(e.target.value);
-                                if (!isNaN(val)) {
-                                    handleDaysChange(Math.max(1, Math.min(365, val)));
-                                }
-                            }}
-                            disabled={pending}
-                            className="h-8 border-primary/30"
-                            placeholder="Days"
-                        />
-                    </TableCell>
-                )}
+            {/* Deadline */}
+            {columnVisibility.dueDate && (
+                <TableCell className="w-[120px] px-2">
+                    <DateTimePicker
+                        value={dueDate}
+                        onChange={handleDueDateChange}
+                        disabled={pending}
+                    />
+                </TableCell>
+            )}
 
-                {columnVisibility.tag && (
-                    <TableCell className="w-[180px] max-w-[180px] px-2">
-                        <MultiSelectTags
-                            options={tags}
-                            selected={tagIds}
-                            onChange={setTagIds}
-                            placeholder="Tags..."
-                            className="w-full"
-                        />
-                    </TableCell>
-                )}
-
+            {/* Days Column (Replaces Progress for better UX) */}
+            {columnVisibility.progress && (
                 <TableCell className="w-[80px] px-2">
-                    <div className="flex items-center justify-center gap-0.5">
-                        {subTaskName.trim().length >= 3 && (
-                            <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-6 w-6 hover:bg-green-100 hover:text-green-600"
-                                onClick={handleSubmit}
-                                disabled={pending}
-                                title="Save (Enter)"
-                            >
-                                {pending ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                    <Check className="h-3.5 w-3.5" />
-                                )}
-                            </Button>
-                        )}
+                    <Input
+                        type="number"
+                        min={1}
+                        max={365}
+                        value={days}
+                        onChange={(e) => {
+                            const val = parseInt(e.target.value);
+                            if (!isNaN(val)) {
+                                handleDaysChange(Math.max(1, Math.min(365, val)));
+                            }
+                        }}
+                        disabled={pending}
+                        className="h-8 border-primary/30"
+                        placeholder="Days"
+                    />
+                </TableCell>
+            )}
+
+            {columnVisibility.tag && (
+                <TableCell className="w-[180px] max-w-[180px] px-2">
+                    <MultiSelectTags
+                        options={tags}
+                        selected={tagIds}
+                        onChange={setTagIds}
+                        placeholder="Tags..."
+                        className="w-full"
+                    />
+                </TableCell>
+            )}
+
+            <TableCell className="w-[80px] px-2">
+                <div className="flex items-center justify-center gap-0.5">
+                    {subTaskName.trim().length >= 3 && (
                         <Button
                             size="icon"
                             variant="ghost"
-                            className="h-6 w-6 hover:bg-red-100 hover:text-red-600"
-                            onClick={onCancel}
+                            className="h-6 w-6 hover:bg-green-100 hover:text-green-600"
+                            onClick={handleSubmit}
                             disabled={pending}
-                            title="Cancel (Esc)"
+                            title="Save (Enter)"
                         >
-                            <X className="h-3.5 w-3.5" />
+                            {pending ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                                <Check className="h-3.5 w-3.5" />
+                            )}
                         </Button>
-                    </div>
-                </TableCell>
-            </TableRow>
-        );
-    }
+                    )}
+                    <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6 hover:bg-red-100 hover:text-red-600"
+                        onClick={onCancel}
+                        disabled={pending}
+                        title="Cancel (Esc)"
+                    >
+                        <X className="h-3.5 w-3.5" />
+                    </Button>
+                </div>
+            </TableCell>
+        </TableRow>
+    );
 }
+

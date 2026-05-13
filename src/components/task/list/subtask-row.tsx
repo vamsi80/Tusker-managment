@@ -327,7 +327,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                 )}
 
                 {columnVisibility.startDate && (
-                    <TableCell className="w-[90px] sm:w-[120px]">
+                    <TableCell className="w-[120px] sm:w-[150px]">
                         {subTask.startDate ? (
                             <div className="flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs text-muted-foreground">
                                 <Calendar className="h-3 w-3 flex-shrink-0 hidden xs:block" />
@@ -340,7 +340,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                 )}
 
                 {columnVisibility.dueDate && (
-                    <TableCell className="w-[90px] sm:w-[120px]">
+                    <TableCell className="w-[120px] sm:w-[150px]">
                         {dueDate ? (
                             <div className="flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs font-medium">
                                 <Calendar className="h-3 w-3 flex-shrink-0 hidden xs:block" />

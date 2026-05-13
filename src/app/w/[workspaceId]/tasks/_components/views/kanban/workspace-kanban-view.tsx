@@ -18,15 +18,10 @@ interface WorkspaceKanbanViewProps {
 export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewProps) {
     const userPromise = requireUser();
     const membersPromise = ProjectService.getWorkspaceProjectMembers(workspaceId);
-    const tagsPromise = getWorkspaceTags(workspaceId);
-    const assignmentsPromise = ProjectService.getWorkspaceProjectAssignments(workspaceId);
     const leadersPromise = ProjectService.getWorkspaceProjectLeaders(workspaceId);
 
     // 2. Wait for user safely before launching the dependent queries
     const user = await userPromise;
-    const projectsPromise = ProjectService.getWorkspaceProjects(workspaceId, user.id);
-
-    const COLUMNS = ["TO_DO", "IN_PROGRESS", "REVIEW", "COMPLETED", "HOLD", "CANCELLED"] as const;
 
     // 3. Launch the final large queries
     const viewStartTime = performance.now();
@@ -40,7 +35,7 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
         leadersPromise,
     ]);
     const duration = performance.now() - viewStartTime;
-    
+
     console.log(`DEBUG: Workspace Kanban Project Managers for ${workspaceId}:`, projectManagers);
 
     if (duration > 600) {

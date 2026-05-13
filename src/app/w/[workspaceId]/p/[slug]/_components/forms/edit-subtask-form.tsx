@@ -187,12 +187,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
         const start = parseIST(startDate);
         if (start) {
             const due = new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
-            const year = due.getFullYear();
-            const month = String(due.getMonth() + 1).padStart(2, '0');
-            const day = String(due.getDate()).padStart(2, '0');
-            const hours = String(due.getHours()).padStart(2, '0');
-            const minutes = String(due.getMinutes()).padStart(2, '0');
-            form.setValue("dueDate", `${year}-${month}-${day}T${hours}:${minutes}`, { shouldDirty: true, shouldValidate: true });
+            form.setValue("dueDate", due.toISOString(), { shouldDirty: true, shouldValidate: true });
         }
     };
 
@@ -205,6 +200,18 @@ export function EditSubTaskForm<T extends SubTaskBase>({
             const calculatedDays = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)));
             form.setValue("days", calculatedDays, { shouldDirty: true, shouldValidate: true });
         }
+    };
+
+    // Helper function to get role shortcuts
+    const getRoleShortcut = (role: string): string => {
+        const shortcuts: Record<string, string> = {
+            'PROJECT_MANAGER': 'PM',
+            'LEAD': 'LEAD',
+            'OWNER': 'OWN',
+            'ADMIN': 'ADM',
+            'MEMBER': 'MBR',
+        };
+        return shortcuts[role] || role;
     };
 
 
@@ -271,7 +278,28 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                 toast.success(responseMessage);
 
                 if (onSubTaskUpdated) {
-                    onSubTaskUpdated(updatedData);
+                    // Enrich the updated data with UI-specific objects (assignee, tags, etc.)
+                    // so the row reflects changes immediately without a full refresh
+                    const selectedMember = (projectMembers.length > 0 ? projectMembers : members).find(m => m.userId === values.assignee);
+                    const selectedReviewer = reviewers.find(r => r.id === values.reviewerId);
+                    
+                    const enrichedData = {
+                        ...updatedData,
+                        assignee: selectedMember ? {
+                            id: selectedMember.userId,
+                            surname: selectedMember.user.surname || selectedMember.user.name,
+                        } : null,
+                        reviewer: selectedReviewer ? {
+                            id: selectedReviewer.id,
+                            surname: selectedReviewer.surname,
+                        } : null,
+                        tags: values.tagIds.map(id => {
+                            const tag = tags.find(t => t.id === id);
+                            return tag ? { id: tag.id, name: tag.name } : { id };
+                        })
+                    };
+                    
+                    onSubTaskUpdated(enrichedData as any);
                 }
 
                 setOpen(false);
@@ -569,8 +597,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                                             <CommandGroup>
                                                                  {(projectMembers.length > 0 ? projectMembers : members)?.filter((member) => {
                                                                      const role = member.projectRole;
-                                                                     const wsRole = member.workspaceRole;
-                                                                     return role !== "VIEWER" && wsRole !== "OWNER";
+                                                                     return role !== "VIEWER";
                                                                  }).map((member) => {
                                                                     const user = member.user;
                                                                     const userName = `${user.surname}`;
@@ -584,14 +611,20 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                                                             onSelect={() => {
                                                                                 field.onChange(userId);
                                                                             }}
+                                                                            className="flex justify-between items-center"
                                                                         >
-                                                                            <Check
-                                                                                className={cn(
-                                                                                    "mr-2 h-4 w-4",
-                                                                                    isSelected ? "opacity-100" : "opacity-0"
-                                                                                )}
-                                                                            />
-                                                                            {userName}
+                                                                            <div className="flex items-center">
+                                                                                <Check
+                                                                                    className={cn(
+                                                                                        "mr-2 h-4 w-4",
+                                                                                        isSelected ? "opacity-100" : "opacity-0"
+                                                                                    )}
+                                                                                />
+                                                                                {userName}
+                                                                            </div>
+                                                                            <span className="text-[10px] text-muted-foreground ml-2">
+                                                                                ({getRoleShortcut(member.workspaceRole || member.projectRole)})
+                                                                            </span>
                                                                         </CommandItem>
                                                                     );
                                                                 })}
@@ -665,9 +698,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                                                             </div>
                                                                             {reviewer.role && (
                                                                                 <span className="text-[10px] text-muted-foreground ml-2">
-                                                                                    {reviewer.role === "PROJECT_MANAGER" ? "PM" :
-                                                                                        reviewer.role === "LEAD" ? "Lead" :
-                                                                                            reviewer.role}
+                                                                                    ({getRoleShortcut(reviewer.role)})
                                                                                 </span>
                                                                             )}
                                                                         </CommandItem>

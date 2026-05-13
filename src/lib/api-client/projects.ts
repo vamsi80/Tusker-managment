@@ -47,7 +47,7 @@ export const projectsClient = {
    */
   getMembers: async (projectId: string): Promise<any[]> => {
     const res = await apiFetch<any>(`/projects/${projectId}/members`);
-    return res.data;
+    return res.data ?? [];
   },
 
   /**
@@ -70,7 +70,8 @@ export const projectsClient = {
    * Get available reviewers
    */
   getReviewers: async (projectId: string): Promise<any[]> => {
-    return apiFetch<any>(`/projects/${projectId}/reviewers`);
+    const res = await apiFetch<any>(`/projects/${projectId}/reviewers`);
+    return res.data ?? [];
   },
 
   /**
