@@ -84,6 +84,8 @@ export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onO
             role: "MEMBER",
             workspaceId,
             designation: "",
+            employeeId: "",
+            dateOfBirth: "",
             reportToId: "",
         },
     });
@@ -238,6 +240,43 @@ export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onO
                                 </FormItem>
                             )}
                         />
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField
+                                control={form.control}
+                                name="employeeId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Employee ID</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                placeholder="e.g. EMP001"
+                                                {...field}
+                                                disabled={pending}
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="dateOfBirth"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Date of Birth</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                type="date"
+                                                {...field}
+                                                disabled={pending}
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <FormField

@@ -52,6 +52,8 @@ export const inviteUserSchema = z.object({
         .nullable()
         .or(z.literal("")),
     designation: z.string().min(1, { message: "Designation is required" }),
+    employeeId: z.string().min(1, { message: "Employee ID is required" }),
+    dateOfBirth: z.string().min(1, { message: "Date of Birth is required" }),
     reportToId: z.string().optional().nullable().or(z.literal("")),
     // role and workspaceId are required for the link
     role: z.enum(workspaceMemberRole, { message: "Role is required" }),
@@ -79,6 +81,8 @@ export const updateMemberSchema = z.object({
         .nullable()
         .or(z.literal("")),
     designation: z.string().min(1, { message: "Designation is required" }),
+    employeeId: z.string().min(1, { message: "Employee ID is required" }),
+    dateOfBirth: z.string().or(z.date()).refine((val) => !!val, { message: "Date of Birth is required" }),
     reportToId: z.string().optional().nullable().or(z.literal("")),
     role: z.enum(workspaceMemberRole),
     workspaceId: z.string(),

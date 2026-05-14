@@ -45,6 +45,8 @@ export type WorkspaceMemberRow = {
   workspaceRole: WorkspaceRole;
   designation?: string | null;
   reportToId?: string | null;
+  employeeId?: string | null;
+  dateOfBirth?: string | Date | null;
   name?: string;
   surname?: string;
   email?: string;

@@ -129,7 +129,10 @@ export class WorkspaceService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: "desc" },
+        orderBy: [
+          { position: "asc" },
+          { createdAt: "desc" }
+        ],
         include: {
           user: {
             select: {
@@ -165,6 +168,8 @@ export class WorkspaceService {
         email: m.user?.email ?? "",
         phoneNumber: m.user?.phoneNumber ?? null,
         designation: m.designation ?? null,
+        employeeId: m.employeeId ?? null,
+        dateOfBirth: m.dateOfBirth ?? null,
         workspaceRole: m.workspaceRole,
         reportToName: m.reportTo?.user?.surname ?? null,
         reportToId: m.reportToId,
@@ -195,7 +200,10 @@ export class WorkspaceService {
           }
         }
       },
-      orderBy: { user: { surname: "asc" } }
+      orderBy: [
+        { position: "asc" },
+        { user: { surname: "asc" } }
+      ]
     });
 
     return members.map(m => ({
@@ -436,6 +444,51 @@ export class WorkspaceService {
     });
 
     return { status: "success", message: "Invitation email resent successfully" };
+  }
+
+  /**
+   * Send password reset email to a member
+   */
+  static async resetMemberPassword(workspaceId: string, memberId: string, actor: { id: string; name: string }) {
+    // 1. Fetch member info
+    const member = await prisma.workspaceMember.findUnique({
+      where: { id: memberId },
+      include: {
+        user: true,
+      }
+    });
+
+    if (!member || member.workspaceId !== workspaceId) {
+      throw new Error("Member not found in this workspace.");
+    }
+
+    // 2. Trigger password reset through Better Auth
+    // We use the email from the user record
+    const { auth } = await import("@/lib/auth");
+    
+    try {
+      await (auth.api as any).requestPasswordReset({
+        body: {
+          email: member.user.email,
+          redirectTo: "/reset-password",
+        }
+      });
+
+      // 3. Record Activity
+      await recordActivity({
+        userId: actor.id,
+        userName: actor.name,
+        action: "REQUESTED_PASSWORD_RESET",
+        entityId: member.id,
+        workspaceId,
+        newData: { memberName: member.user.name || member.user.email }
+      });
+
+      return { status: "success", message: "Password reset email sent successfully" };
+    } catch (err: any) {
+      console.error("[WorkspaceService.resetMemberPassword] Error:", err);
+      throw new Error(err.message || "Failed to send password reset email");
+    }
   }
 
   /**
@@ -700,6 +753,8 @@ export class WorkspaceService {
       phoneNumber?: string | null;
       role: string;
       designation?: string | null;
+      employeeId?: string | null;
+      dateOfBirth?: Date | string | null;
       reportToId?: string | null;
     },
     actorId: string,
@@ -777,6 +832,8 @@ export class WorkspaceService {
         data: {
           workspaceRole: data.role as any,
           designation: data.designation,
+          employeeId: data.employeeId,
+          dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
           reportToId: data.reportToId && data.reportToId.trim() !== "" ? data.reportToId : null
         },
       });
@@ -1214,6 +1271,7 @@ export class WorkspaceService {
           },
         },
       },
+      orderBy: { position: "asc" },
     });
 
     return managers.map((m) => ({

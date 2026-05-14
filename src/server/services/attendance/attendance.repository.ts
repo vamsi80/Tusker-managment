@@ -66,9 +66,10 @@ export class AttendanceRepository {
                     }
                 }
             },
-            orderBy: {
-                date: 'desc'
-            },
+            orderBy: [
+                { date: 'desc' },
+                { WorkspaceMember: { position: 'asc' } }
+            ],
             skip,
             take
         });

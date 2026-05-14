@@ -342,7 +342,7 @@ export class TaskRepository {
     return prisma.task.findMany({
       where,
       select: select || undefined,
-      orderBy: sorts ? buildOrderBy(sorts, "list") : undefined,
+      orderBy: buildOrderBy(sorts, "list"),
       take: limit ? limit + 1 : undefined,
       cursor: cursor ? { id: cursor.id } : undefined,
       skip: cursor ? 1 : undefined,

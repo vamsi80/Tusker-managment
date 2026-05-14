@@ -21,7 +21,8 @@ export type AuditAction =
   | "ATTENDANCE_SETTINGS_UPDATED"
   | "LEAVE_REQUESTED"
   | "LEAVE_APPROVED"
-  | "LEAVE_REJECTED";
+  | "LEAVE_REJECTED"
+  | "REQUESTED_PASSWORD_RESET";
 
 interface RecordActivityOptions {
   userId: string;
@@ -186,6 +187,10 @@ export async function recordActivity(options: RecordActivityOptions) {
         }
       }
       if (action === "COMMENT_CREATED") actionLabel = "added a comment";
+      if (action === "REQUESTED_PASSWORD_RESET") {
+        const targetName = newData?.payload?.memberName || metadata?.payload?.memberName || "a member";
+        actionLabel = `requested a password reset for ${targetName}`;
+      }
 
       const message = `${userName} ${actionLabel}`;
       const eventPayload = {

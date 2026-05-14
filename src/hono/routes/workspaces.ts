@@ -205,6 +205,30 @@ workspaces.post("/:workspaceId/members/:memberId/resend-invite", async (c) => {
 });
 
 /**
+ * POST /api/v1/workspaces/:workspaceId/members/:memberId/reset-password
+ * Send password reset email
+ */
+workspaces.post("/:workspaceId/members/:memberId/reset-password", async (c) => {
+  const user = c.get("user");
+  const workspaceId = c.req.param("workspaceId");
+  const memberId = c.req.param("memberId");
+
+  // 1. Permission Check
+  const { isWorkspaceAdmin } = await getWorkspacePermissions(workspaceId, user.id);
+  if (!isWorkspaceAdmin) {
+    throw AppError.Forbidden("Only workspace admins can reset passwords.");
+  }
+
+  const result = await WorkspaceService.resetMemberPassword(
+    workspaceId,
+    memberId,
+    { id: user.id, name: user.name || "Admin" },
+  );
+
+  return c.json(result);
+});
+
+/**
  * PATCH /api/v1/workspaces/:workspaceId/members/:memberId
  * Update a member's information
  */

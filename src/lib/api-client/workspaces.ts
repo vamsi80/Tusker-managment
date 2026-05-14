@@ -17,6 +17,7 @@ export interface WorkspacesClient {
     removeMember(workspaceId: string, memberId: string): Promise<ApiResponse>;
     updateMember(workspaceId: string, memberId: string, values: any): Promise<ApiResponse>;
     resendInvite(workspaceId: string, memberId: string): Promise<ApiResponse>;
+    resetPassword(workspaceId: string, memberId: string): Promise<ApiResponse>;
     getManagers(workspaceId: string): Promise<ApiResponse>;
     getAll(): Promise<WorkspacesResult>;
     getById(workspaceId: string): Promise<WorkspaceData>;
@@ -149,6 +150,20 @@ export const workspacesClient: WorkspacesClient = {
         return {
             status: (response.status as any) || (response.success ? "success" : "error"),
             message: response.message || "Invitation resent",
+        };
+    },
+
+    /**
+     * Send password reset email
+     */
+    resetPassword: async (workspaceId: string, memberId: string): Promise<ApiResponse> => {
+        const response = await apiFetch<{ status?: string; message: string; success?: boolean }>(`/workspaces/${workspaceId}/members/${memberId}/reset-password`, {
+            method: "POST",
+        });
+
+        return {
+            status: (response.status as any) || (response.success ? "success" : "error"),
+            message: response.message || "Password reset email sent",
         };
     },
 

@@ -1343,6 +1343,13 @@ export class TasksService {
           }
         }
       });
+
+      // 🚀 NEW: Ensure subtasks are sorted by position
+      allTasks.forEach((task) => {
+        if (task.subTasks && task.subTasks.length > 1) {
+          task.subTasks.sort((a: any, b: any) => (a.position ?? 0) - (b.position ?? 0));
+        }
+      });
     }
 
     allTasks.forEach((task) => {
@@ -2563,7 +2570,7 @@ export class TasksService {
         TaskRepository.findMany(
           singleParentWhere,
           { ...subtaskSelect, parentTaskId: true },
-          [{ field: "createdAt", direction: "desc" }],
+          buildOrderBy(undefined, viewMode),
           pageSize + 1
         ),
         TaskRepository.findById(
@@ -2590,7 +2597,7 @@ export class TasksService {
     const rawSubTasksAll = (await TaskRepository.findMany(
       countWhere,
       { ...batchSelect, parentTaskId: true },
-      [{ field: "createdAt", direction: "desc" }],
+      buildOrderBy(undefined, viewMode),
       TasksService.BATCH_HARD_LIMIT
     )) as any[];
 
