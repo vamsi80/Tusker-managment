@@ -25,14 +25,7 @@ export default async function ActivityPage({ params }: ActivityPageProps) {
     const { workspaceId } = await params;
 
     return (
-        <div className="w-full space-y-6">
-            <div className="flex flex-col gap-1">
-                <h1 className="text-2xl font-bold tracking-tight">Activity Log</h1>
-                <p className="text-muted-foreground">
-                    Monitor all changes and login activities in this workspace.
-                </p>
-            </div>
-
+        <div className="w-full">
             <Suspense fallback={<AppLoader />}>
                 <ActivityContent workspaceId={workspaceId} />
             </Suspense>

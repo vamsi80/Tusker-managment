@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { ReportDetailModal } from "./report-detail-sheet";
 import { Loader2, CalendarIcon, UserIcon, X, ChevronDown, Clock, Search, ChevronRight, ChevronsUpDown, ChevronsDownUp } from "lucide-react";
-import { loadMoreReportsAction } from "@/actions/daily-report/load-reports";
+import { apiClient } from "@/lib/api-client";
 import { useWorkspaceMemberStore, useRealtimeMemberSync } from "@/lib/store/workspace-member-store";
 
 interface Props {
@@ -183,7 +183,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
 
         setIsLoadingMore(true);
         try {
-            const nextBatch = await loadMoreReportsAction({
+            const response = await apiClient.reports.getReports({
                 workspaceId,
                 date: initialDate,
                 userId: initialUserId,
@@ -191,10 +191,10 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
                 take: 30
             });
 
-            if (nextBatch.length === 0) {
+            if (response.status === "error" || !response.data || response.data.length === 0) {
                 setHasMore(false);
             } else {
-                setData((prev: any[]) => [...prev, ...nextBatch]);
+                setData((prev: any[]) => [...prev, ...response.data]);
                 setSkip((prev: number) => prev + 30);
             }
         } catch (error) {

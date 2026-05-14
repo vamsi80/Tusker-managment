@@ -57,7 +57,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
 
   return (
     <Sidebar collapsible="icon" {...props} className="border-r bg-sidebar border-border/50">
-      <SidebarHeader className="h-(--header-height) justify-center border-b border-sidebar-border/50">
+      <SidebarHeader className="min-h-(--header-height) h-auto justify-center py-2">
         <SidebarMenu>
           <SidebarMenuItem>
             <NavWorkspacesSelector data={workspaces as any} workspaceId={workspaceId} />
@@ -102,8 +102,6 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <div className="py-2" />
-
         <NavProjects
           workspaceId={workspaceId}
           isAdmin={permissions?.isWorkspaceAdmin ?? false}
@@ -113,11 +111,9 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
         />
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border/50 p-4">
+      <SidebarFooter>
         <NavFooter items={footerNavItems} />
-        <div className="mt-4">
-          <NavUser />
-        </div>
+        <NavUser />
       </SidebarFooter>
     </Sidebar>
   );

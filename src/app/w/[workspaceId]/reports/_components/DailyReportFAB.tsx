@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ClipboardList, CheckCircle2 } from "lucide-react";
-import { getDailyReportStatus, getDailyReportFormData } from "@/actions/daily-report-actions";
+import { apiClient } from "@/lib/api-client";
 import dynamic from "next/dynamic";
 
 const DailyReportModal = dynamic(() => import("./DailyReportModal").then(mod => mod.DailyReportModal), {
@@ -21,9 +21,9 @@ export function DailyReportFAB() {
         let mounted = true;
         const fetchStatus = async () => {
             try {
-                const data = await getDailyReportStatus(workspaceId);
-                if (mounted) {
-                    setStatus((data.status as "SUBMITTED" | "ABSENT" | "NOT_SUBMITTED") || "NOT_SUBMITTED");
+                const response = await apiClient.reports.getStatus(workspaceId);
+                if (mounted && response.status === "success") {
+                    setStatus((response.data.status as "SUBMITTED" | "ABSENT" | "NOT_SUBMITTED") || "NOT_SUBMITTED");
                 }
             } catch (error) {
                 if (mounted) setStatus("NOT_SUBMITTED");

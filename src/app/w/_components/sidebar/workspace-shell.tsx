@@ -35,7 +35,7 @@ function WorkspaceShellContent({ children }: { children: React.ReactNode }) {
           {
             "--sidebar-width": "18rem",
             "--sidebar-width-mobile": "20rem",
-            "--header-height": "4rem",
+            "--header-height": "3rem",
           } as React.CSSProperties
         }
       >
@@ -45,7 +45,7 @@ function WorkspaceShellContent({ children }: { children: React.ReactNode }) {
           <SiteHeader />
           <main className="flex flex-1 flex-col w-full max-w-full">
             <div className="@container/main h-full w-full flex-1 flex flex-col min-w-0">
-              <div className="flex h-full grow flex-col gap-6 py-6 px-4 sm:px-6 lg:px-8 w-full max-w-full animate-in fade-in duration-500 flex-1">
+              <div className="flex h-full grow flex-col gap-6 pb-6 px-2 sm:px-4 lg:px-6 w-full max-w-full animate-in fade-in duration-500 flex-1">
                 {children}
               </div>
             </div>
