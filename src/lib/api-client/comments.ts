@@ -14,12 +14,14 @@ export const commentsClient = {
   /**
    * Fetch all comments for a task
    */
-  getComments: async (taskId: string): Promise<CommentActionResponse<any[]>> => {
+  getComments: async (taskId: string, cursor?: string, limit: number = 10): Promise<CommentActionResponse<{ items: any[], nextCursor: string | null }>> => {
     try {
-      const response = await apiFetch<{ success: boolean; data: any[] }>(
-        `/comments/task/${taskId}`
+      const query = new URLSearchParams({ limit: limit.toString() });
+      if (cursor) query.set("cursor", cursor);
+      const response = await apiFetch<any>(
+        `/comments/task/${taskId}?${query.toString()}`
       );
-      return { data: response.data || [] };
+      return { data: { items: response.items || [], nextCursor: response.nextCursor || null } };
     } catch (error: any) {
       return { error: { message: error.message || "Failed to fetch comments" } };
     }
@@ -28,12 +30,14 @@ export const commentsClient = {
   /**
    * Fetch all activities for a subtask
    */
-  getActivities: async (subTaskId: string): Promise<CommentActionResponse<any[]>> => {
+  getActivities: async (subTaskId: string, cursor?: string, limit: number = 10): Promise<CommentActionResponse<{ items: any[], nextCursor: string | null }>> => {
     try {
-      const response = await apiFetch<{ success: boolean; data: any[] }>(
-        `/comments/activities/${subTaskId}`
+      const query = new URLSearchParams({ limit: limit.toString() });
+      if (cursor) query.set("cursor", cursor);
+      const response = await apiFetch<any>(
+        `/comments/activities/${subTaskId}?${query.toString()}`
       );
-      return { data: response.data || [] };
+      return { data: { items: response.items || [], nextCursor: response.nextCursor || null } };
     } catch (error: any) {
       return { error: { message: error.message || "Failed to fetch activities" } };
     }

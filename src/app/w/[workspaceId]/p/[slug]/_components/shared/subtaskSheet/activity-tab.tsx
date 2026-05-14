@@ -1,6 +1,6 @@
-"use client";
-import { formatIST, APP_DATE_FORMAT } from "@/lib/utils";
-
+import { formatRelativeTime } from "@/lib/utils";
+import { useInView } from "react-intersection-observer";
+import { useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { TabsContent } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -27,52 +27,31 @@ interface Activity {
 interface ActivityTabProps {
     activities: Activity[];
     isLoadingActivity: boolean;
+    hasMore: boolean;
+    onLoadMore: () => void;
 }
 
-/**
- * Activity Tab Component
- * 
- * Displays activities with:
- * - Author information
- * - Review text
- * - Attachments (if any)
- * - Download functionality
- */
-export function ActivityTab({ activities, isLoadingActivity }: ActivityTabProps) {
+export function ActivityTab({ activities, isLoadingActivity, hasMore, onLoadMore }: ActivityTabProps) {
+    const { ref, inView } = useInView({
+        threshold: 0,
+    });
+
+    useEffect(() => {
+        console.log("DEBUG [ActivityTab] Mounted");
+        return () => console.log("DEBUG [ActivityTab] Unmounted");
+    }, []);
+
+    useEffect(() => {
+        if (inView && hasMore && !isLoadingActivity) {
+            console.log("DEBUG [ActivityTab] Loading more activities...");
+            onLoadMore();
+        }
+    }, [inView, hasMore, isLoadingActivity, onLoadMore]);
+
     return (
         <TabsContent value="review" className="flex-1 flex flex-col m-0 data-[state=inactive]:hidden overflow-hidden">
             <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 bg-muted/20 min-h-0">
-                {isLoadingActivity && activities.length === 0 ? (
-                    <div className="space-y-4">
-                        {[1, 2, 3].map((i) => (
-                            <div key={i} className="bg-background border rounded-lg p-4 shadow-sm animate-pulse">
-                                {/* Author Info */}
-                                <div className="flex items-center gap-3 mb-3">
-                                    <div className="h-8 w-8 rounded-full bg-muted" />
-                                    <div className="flex-1 space-y-1.5">
-                                        <div className="h-4 w-24 bg-muted rounded" />
-                                        <div className="h-3 w-32 bg-muted rounded" />
-                                    </div>
-                                    <div className="flex flex-col items-end gap-1.5">
-                                        <div className="h-5 w-16 bg-amber-50 border border-amber-200 rounded-full" />
-                                        {i === 1 && <div className="h-4 w-20 bg-muted rounded-sm" />}
-                                    </div>
-                                </div>
-
-                                {/* Activity Text and Link */}
-                                <div className="flex flex-col items-start gap-2 w-full">
-                                    <div className="space-y-1.5 w-full">
-                                        <div className="h-4 w-full bg-muted rounded" />
-                                        <div className="h-4 w-2/3 bg-muted rounded" />
-                                    </div>
-                                    {i % 2 !== 0 && (
-                                        <div className="h-8 w-64 bg-blue-50/50 border border-blue-100 rounded-md mt-1" />
-                                    )}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                ) : activities.length === 0 ? (
+                {activities.length === 0 && !isLoadingActivity ? (
                     <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
                         No activity yet.
                     </div>
@@ -96,8 +75,8 @@ export function ActivityTab({ activities, isLoadingActivity }: ActivityTabProps)
                                             <p className="text-sm font-semibold">
                                                 {author?.surname || ""}
                                             </p>
-                                            <p className="text-xs text-muted-foreground">
-                                                {formatIST(activity.createdAt, `${APP_DATE_FORMAT} h:mm a`)}
+                                            <p className="text-[11px] text-muted-foreground">
+                                                {formatRelativeTime(activity.createdAt)}
                                             </p>
                                         </div>
                                         <div className="flex flex-col items-end gap-1.5">
@@ -133,6 +112,13 @@ export function ActivityTab({ activities, isLoadingActivity }: ActivityTabProps)
                                 </div>
                             );
                         })}
+
+                        {/* Infinite Scroll Trigger */}
+                        <div ref={ref} className="h-10 flex items-center justify-center">
+                            {isLoadingActivity && (
+                                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                            )}
+                        </div>
                     </div>
                 )}
             </div>

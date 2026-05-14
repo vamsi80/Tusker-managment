@@ -11,8 +11,10 @@ const comments = new Hono<{ Variables: HonoVariables }>();
  */
 comments.get("/task/:taskId", async (c) => {
     const taskId = c.req.param("taskId");
-    const comments = await CommentService.getTaskComments(taskId);
-    return c.json({ success: true, data: comments });
+    const limit = parseInt(c.req.query("limit") || "10", 10);
+    const cursor = c.req.query("cursor");
+    const result = await CommentService.getTaskCommentsPaginated(taskId, limit, cursor);
+    return c.json({ success: true, ...result });
 });
 
 /**
@@ -21,8 +23,10 @@ comments.get("/task/:taskId", async (c) => {
  */
 comments.get("/activities/:subTaskId", async (c) => {
     const subTaskId = c.req.param("subTaskId");
-    const activities = await CommentService.getActivities(subTaskId);
-    return c.json({ success: true, data: activities });
+    const limit = parseInt(c.req.query("limit") || "10", 10);
+    const cursor = c.req.query("cursor");
+    const result = await CommentService.getActivitiesPaginated(subTaskId, limit, cursor);
+    return c.json({ success: true, ...result });
 });
 
 /**

@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useState, useMemo } from "react";
+import { memo, useState, useMemo, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
@@ -32,6 +32,11 @@ interface TaskTableProps {
 }
 
 function TaskTable(props: TaskTableProps) {
+  useEffect(() => {
+    console.log("DEBUG [TaskTable] Mounted");
+    return () => console.log("DEBUG [TaskTable] Unmounted");
+  }, []);
+
   const { data: layoutData } = useWorkspaceLayout();
   const projects = layoutData.projects || [];
   const leadProjectIds = layoutData.permissions?.leadProjectIds || [];

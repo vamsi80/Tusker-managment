@@ -163,74 +163,84 @@ export class CommentRepository {
   }
 
   /**
-   * Find all comments for a task
+   * Find all comments for a task (Legacy - all at once)
    */
   static async findTaskComments(taskId: string) {
     return prisma.comment.findMany({
       where: {
         taskId,
         isDeleted: false,
-        parentCommentId: null, // Only top level comments, replies are included
+        parentCommentId: null,
       },
       include: {
-        user: {
-          select: {
-            id: true,
-            surname: true,
-          },
-        },
-        readBy: {
-          select: {
-            userId: true,
-          },
-        },
+        user: { select: { id: true, surname: true } },
+        readBy: { select: { userId: true } },
         replies: {
-          where: {
-            isDeleted: false,
-          },
+          where: { isDeleted: false },
           include: {
-            user: {
-              select: {
-                id: true,
-                surname: true,
-              },
-            },
-            readBy: {
-              select: {
-                userId: true,
-              },
-            },
+            user: { select: { id: true, surname: true } },
+            readBy: { select: { userId: true } },
           },
-          orderBy: {
-            createdAt: 'asc',
-          },
+          orderBy: { createdAt: 'asc' },
         },
       },
-      orderBy: {
-        createdAt: 'asc',
-      },
+      orderBy: { createdAt: 'asc' },
     });
   }
 
   /**
-   * Find all activities for a subtask
+   * Find comments for a task with cursor-based pagination
+   */
+  static async findTaskCommentsPaginated(taskId: string, limit: number = 10, cursor?: string) {
+    return prisma.comment.findMany({
+      where: {
+        taskId,
+        isDeleted: false,
+        parentCommentId: null,
+      },
+      take: limit,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+      include: {
+        user: { select: { id: true, surname: true } },
+        readBy: { select: { userId: true } },
+        replies: {
+          where: { isDeleted: false },
+          include: {
+            user: { select: { id: true, surname: true } },
+            readBy: { select: { userId: true } },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+      orderBy: { createdAt: 'desc' }, // Latest first for conversational pagination
+    });
+  }
+
+  /**
+   * Find all activities for a subtask (Legacy - all at once)
    */
   static async findActivities(subTaskId: string) {
     return prisma.activity.findMany({
-      where: {
-        subTaskId,
-      },
+      where: { subTaskId },
       include: {
-        author: {
-          select: {
-            id: true,
-            surname: true,
-          },
-        },
+        author: { select: { id: true, surname: true } },
       },
-      orderBy: {
-        createdAt: 'desc',
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
+   * Find activities for a subtask with cursor-based pagination
+   */
+  static async findActivitiesPaginated(subTaskId: string, limit: number = 10, cursor?: string) {
+    return prisma.activity.findMany({
+      where: { subTaskId },
+      take: limit,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+      include: {
+        author: { select: { id: true, surname: true } },
       },
+      orderBy: { createdAt: 'desc' },
     });
   }
 

@@ -14,6 +14,8 @@ interface ProjectLayoutContextType {
     workspaceId: string;
     projectId: string;
     isLoading: boolean;
+    expandedTasks: Record<string, boolean>;
+    setExpandedTasks: (val: Record<string, boolean> | ((prev: Record<string, boolean>) => Record<string, boolean>)) => void;
     revalidate: () => Promise<void>;
 }
 
@@ -32,6 +34,7 @@ export function ProjectLayoutProvider({
     const [projectMembers, setProjectMembers] = useState<ProjectMembersType>([]);
     const [projectPermissions, setProjectPermissions] = useState<UserPermissionsType | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({});
 
     const fetchProjectData = useCallback(async (isSilent = false) => {
         if (!projectId) return;
@@ -77,6 +80,8 @@ export function ProjectLayoutProvider({
         workspaceId,
         projectId,
         isLoading,
+        expandedTasks,
+        setExpandedTasks,
         revalidate
     };
 

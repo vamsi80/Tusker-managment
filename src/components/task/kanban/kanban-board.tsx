@@ -143,6 +143,7 @@ export function KanbanBoard({
   }, [projects]);
 
   const lastSyncRef = useRef<Record<string, number>>({});
+  const isSubmittingActivityRef = useRef(false);
 
   const renderCount = useRef(0);
   renderCount.current++;
@@ -794,6 +795,7 @@ export function KanbanBoard({
       (previousStatus === "IN_PROGRESS" && newStatus === "TO_DO");
 
     if (isMandatory) {
+      console.log(`DEBUG [Kanban] Mandatory move detected for ${subTaskId}: ${previousStatus} -> ${newStatus}. Opening Activity Dialog.`);
       // 1. Optimistically move immediately 
       moveSubTaskBetweenColumns(subTaskId, previousStatus, newStatus);
 
@@ -817,32 +819,64 @@ export function KanbanBoard({
     fromStatus: TaskStatus,
     toStatus: TaskStatus,
   ) => {
-    // 2. Synchronize the LOCAL columnData state immediately
+    console.log(`DEBUG [Kanban] Optimistically moving task ${subTaskId} from ${fromStatus} to ${toStatus}`);
+    // 1. Move the actual task object in kanbanTasks (Robust search)
+    setKanbanTasks((prev) => {
+      const next = { ...prev };
+      let taskToMove: any = null;
+      let actualFromStatus: TaskStatus | null = null;
+
+      // Find the task anywhere to be safe
+      for (const status of Object.keys(next) as TaskStatus[]) {
+        const task = next[status]?.find(t => t.id === subTaskId);
+        if (task) {
+          taskToMove = task;
+          actualFromStatus = status;
+          break;
+        }
+      }
+      
+      if (taskToMove && actualFromStatus) {
+        // Remove from actual source
+        next[actualFromStatus] = next[actualFromStatus].filter(t => t.id !== subTaskId);
+        // Add to target with updated status
+        const updatedTask = { ...taskToMove, status: toStatus };
+        next[toStatus] = [updatedTask, ...(next[toStatus] || [])];
+      }
+      return next;
+    });
+
+    // 2. Synchronize the LOCAL columnData state immediately (Robust search)
     setColumnData((prev) => {
-      const fromCol = prev[fromStatus];
-      const toCol = prev[toStatus];
-      if (!fromCol || !toCol) return prev;
+      const next = { ...prev };
+      let actualFromStatus: TaskStatus | null = null;
 
-      // Avoid double-moving if already moved by another sync
-      if (!fromCol.subTaskIds.includes(subTaskId)) return prev;
+      for (const status of Object.keys(next) as TaskStatus[]) {
+        if (next[status].subTaskIds.includes(subTaskId)) {
+          actualFromStatus = status;
+          break;
+        }
+      }
 
-      return {
-        ...prev,
-        [fromStatus]: {
-          ...fromCol,
-          subTaskIds: fromCol.subTaskIds.filter((id) => id !== subTaskId),
-          totalCount: Math.max(0, fromCol.totalCount - 1),
-        },
-        [toStatus]: {
-          ...toCol,
-          subTaskIds: toCol.subTaskIds.includes(subTaskId)
-            ? toCol.subTaskIds
-            : [subTaskId, ...toCol.subTaskIds],
-          totalCount: toCol.subTaskIds.includes(subTaskId)
-            ? toCol.totalCount
-            : toCol.totalCount + 1,
-        },
-      };
+      if (actualFromStatus && next[toStatus]) {
+        // Remove from source
+        next[actualFromStatus] = {
+          ...next[actualFromStatus],
+          subTaskIds: next[actualFromStatus].subTaskIds.filter((id) => id !== subTaskId),
+          totalCount: Math.max(0, next[actualFromStatus].totalCount - 1),
+        };
+        // Add to target
+        next[toStatus] = {
+          ...next[toStatus],
+          subTaskIds: next[toStatus].subTaskIds.includes(subTaskId)
+            ? next[toStatus].subTaskIds
+            : [subTaskId, ...next[toStatus].subTaskIds],
+          totalCount: next[toStatus].subTaskIds.includes(subTaskId)
+            ? next[toStatus].totalCount
+            : next[toStatus].totalCount + 1,
+        };
+      }
+      return next;
     });
   };
 
@@ -877,6 +911,7 @@ export function KanbanBoard({
     comment?: string,
     attachmentData?: any,
   ) => {
+    console.log(`DEBUG [Kanban] performStatusUpdate starting for ${subTaskId}: ${previousStatus} -> ${newStatus}`);
     // Optimistic move only if status is actually changing and not already moved by drag-end
     if (newStatus !== previousStatus) {
       moveSubTaskBetweenColumns(subTaskId, previousStatus, newStatus);
@@ -898,6 +933,7 @@ export function KanbanBoard({
       );
 
       if (result.status === "success") {
+        console.log(`DEBUG [Kanban] API success for ${subTaskId}. Updating task data in-place.`);
         if (result.data) {
           updateSubTaskInPlace(subTaskId, result.data);
         }
@@ -905,12 +941,14 @@ export function KanbanBoard({
           id: toastId,
         });
       } else {
+        console.warn(`DEBUG [Kanban] API error for ${subTaskId}:`, result.message);
         moveSubTaskBetweenColumns(subTaskId, newStatus, previousStatus);
         toast.error(result.message || "Failed to update subtask status", {
           id: toastId,
         });
       }
     } catch (error: any) {
+      console.error(`DEBUG [Kanban] Network/System error for ${subTaskId}:`, error);
       moveSubTaskBetweenColumns(subTaskId, newStatus, previousStatus);
       const errorMessage =
         error?.message || "Failed to update subtask status. Let's try again.";
@@ -980,8 +1018,12 @@ export function KanbanBoard({
     if (!pendingReviewMove) return;
 
     const { subTaskId, targetStatus, previousStatus } = pendingReviewMove;
+    console.log(`DEBUG [Kanban] Activity Dialog submitted for ${subTaskId}. Target: ${targetStatus}`);
+    
+    // 1. Mark as submitting so handleActivityClose doesn't revert the optimistic move
+    isSubmittingActivityRef.current = true;
 
-    // 1. Instantly close dialog and clear pending move to make it feel "done"
+    // 2. Instantly close dialog and clear pending move to make it feel "done"
     setPendingReviewMove(null);
     setIsActivityDialogOpen(false);
 
@@ -994,33 +1036,35 @@ export function KanbanBoard({
       }
 
       // 2. Perform the update in the background (exactly like non-mandatory moves)
-      // We pass targetStatus as the 'current' status because the UI has already optimistically moved it.
+      // We pass the actual previousStatus so that if the update fails, 
+      // performStatusUpdate can correctly revert it.
       await performStatusUpdate(
         subTaskId,
         targetStatus,
-        targetStatus, // Avoid redundant move
+        previousStatus,
         undefined,
         commentStr,
         attachmentData,
       );
     } catch (error) {
       console.error("Error submitting activity in background:", error);
-      // Revert if background update fails
-      moveSubTaskBetweenColumns(subTaskId, targetStatus, previousStatus);
-      toast.error("Failed to save activity record. The card has been reverted.");
-
-      // Also clear updating state in case performStatusUpdate didn't reach finally
-      setUpdatingTaskIds(prev => {
-        const next = new Set(prev);
-        next.delete(subTaskId);
-        return next;
-      });
+      toast.error("An unexpected error occurred. Please try again.");
+      // If it fails, we set it to false so that if the user tries to cancel now, it works.
+      isSubmittingActivityRef.current = false;
     }
   };
 
   const handleActivityClose = () => {
+    // 🛡️ Guard: If we are closing because of a successful submission, don't revert!
+    if (isSubmittingActivityRef.current) {
+      console.log("DEBUG [Kanban] Activity Dialog closing due to submission. Skipping reversion and resetting ref.");
+      isSubmittingActivityRef.current = false;
+      return;
+    }
+
     if (pendingReviewMove) {
       const { subTaskId } = pendingReviewMove;
+      console.log(`DEBUG [Kanban] Activity Dialog cancelled/closed for ${subTaskId}. Reverting move to ${pendingReviewMove.previousStatus}`);
 
       // Remove from updating state
       setUpdatingTaskIds(prev => {
@@ -1209,7 +1253,7 @@ export function KanbanBoard({
         onSubmit={handleActivitySubmit}
         subTaskName={
           pendingReviewMove
-            ? kanbanTasks[pendingReviewMove.previousStatus]?.find(t => t.id === pendingReviewMove.subTaskId)?.name || "Subtask"
+            ? Object.values(kanbanTasks).flat().find(t => t.id === pendingReviewMove.subTaskId)?.name || "Subtask"
             : ""
         }
       />
