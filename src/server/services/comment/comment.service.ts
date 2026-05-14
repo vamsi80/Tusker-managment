@@ -260,6 +260,28 @@ export class CommentService {
   }
 
   /**
+   * Get task comments with cursor-based pagination
+   */
+  static async getTaskCommentsPaginated(taskId: string, limit: number = 10, cursor?: string) {
+    const comments = await CommentRepository.findTaskCommentsPaginated(taskId, limit, cursor);
+    return {
+      items: comments,
+      nextCursor: comments.length === limit ? comments[comments.length - 1].id : null,
+    };
+  }
+
+  /**
+   * Get subtask activities with cursor-based pagination
+   */
+  static async getActivitiesPaginated(subTaskId: string, limit: number = 10, cursor?: string) {
+    const activities = await CommentRepository.findActivitiesPaginated(subTaskId, limit, cursor);
+    return {
+      items: activities,
+      nextCursor: activities.length === limit ? activities[activities.length - 1].id : null,
+    };
+  }
+
+  /**
    * Get task comments with caching
    */
   static async getTaskComments(taskId: string) {

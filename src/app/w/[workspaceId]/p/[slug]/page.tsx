@@ -31,39 +31,31 @@ export default async function ProjectPage({ params, searchParams }: iAppProps) {
   const loader = <AppLoader />;
 
   return (
-    <>
+    <div className="flex-1 flex flex-col min-h-0 relative">
       {currentView === "dashboard" && (
-        <ReloadableView skeleton={loader}>
-          <Suspense fallback={loader}>
-            <ProjectDashboard />
-          </Suspense>
-        </ReloadableView>
+        <Suspense fallback={loader}>
+          <ProjectDashboard />
+        </Suspense>
       )}
 
       {currentView === "list" && (
-        <ReloadableView skeleton={loader}>
-          <Suspense fallback={loader}>
-            <ProjectTaskListViewServer workspaceId={workspaceId} slug={slug} />
-          </Suspense>
-        </ReloadableView>
+        <Suspense fallback={loader}>
+          <ProjectTaskListViewServer workspaceId={workspaceId} slug={slug} />
+        </Suspense>
       )}
 
       {currentView === "kanban" && (
-        <ReloadableView skeleton={loader}>
-          <Suspense fallback={loader}>
-            <ProjectKanbanViewServer workspaceId={workspaceId} slug={slug} />
-          </Suspense>
-        </ReloadableView>
+        <Suspense fallback={loader}>
+          <ProjectKanbanViewServer workspaceId={workspaceId} slug={slug} />
+        </Suspense>
       )}
 
       {currentView === "gantt" && (
-        <ReloadableView skeleton={loader}>
-          <Suspense fallback={loader}>
-            <ProjectGanttViewServer workspaceId={workspaceId} slug={slug} />
-          </Suspense>
-        </ReloadableView>
+        <Suspense fallback={loader}>
+          <ProjectGanttViewServer workspaceId={workspaceId} slug={slug} />
+        </Suspense>
       )}
-    </>
+    </div>
   );
 }
 

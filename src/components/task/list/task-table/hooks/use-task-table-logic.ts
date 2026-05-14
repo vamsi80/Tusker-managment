@@ -13,6 +13,7 @@ import {
 import type { SubTaskType } from "@/types/task";
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 import { apiClient } from "@/lib/api-client";
+import { useProjectLayout } from "@/app/w/[workspaceId]/p/[slug]/_components/project-layout-context";
 
 export function useTaskTableLogic({
   initialTasks,
@@ -43,7 +44,15 @@ export function useTaskTableLogic({
   }, []);
   const [isLoadingFilters, setIsLoadingFilters] = useState(false);
   const [isCurrentlyFiltered, setIsCurrentlyFiltered] = useState(false);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
+  // 🚀 Persistent State Sync: Try to use ProjectLayoutContext if available
+  let projectCtx: any = null;
+  try { projectCtx = useProjectLayout(); } catch (e) { }
+
+  const [localExpanded, setLocalExpanded] = useState<Record<string, boolean>>({});
+  const expanded = (level === "project" && projectCtx) ? projectCtx.expandedTasks : localExpanded;
+  const setExpanded = (level === "project" && projectCtx) ? projectCtx.setExpandedTasks : setLocalExpanded;
+
   const [loadingSubTasks, setLoadingSubTasks] = useState<Record<string, boolean>>({});
   const [loadingMoreSubTasks, setLoadingMoreSubTasks] = useState<Record<string, boolean>>({});
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
@@ -434,7 +443,7 @@ export function useTaskTableLogic({
       });
 
       if (changed) {
-        setExpanded(prev => ({ ...prev, ...newExpanded }));
+        setExpanded((prev: Record<string, boolean>) => ({ ...prev, ...newExpanded }));
         if (idsToFetch.length > 0) {
           handleRequestSubtasksBatch(idsToFetch);
         }
@@ -448,7 +457,7 @@ export function useTaskTableLogic({
     if (currentPagination.isLoading || !currentPagination.hasMore) return;
 
     projectPaginationRef.current = { ...projectPaginationRef.current, [targetProjectId]: { ...currentPagination, isLoading: true } };
-    setProjectPagination((prev) => ({ ...prev, [targetProjectId]: { ...currentPagination, isLoading: true } }));
+    setProjectPagination((prev: Record<string, any>) => ({ ...prev, [targetProjectId]: { ...currentPagination, isLoading: true } }));
 
     const params = new URLSearchParams({ w: workspaceId, vm: "list", hm: "parents", sub: "false", l: "50" });
     if (targetProjectId !== "__global_filter__") params.set("p", targetProjectId);
@@ -475,7 +484,7 @@ export function useTaskTableLogic({
       if (response.success) {
         const resultData = response.data;
 
-        setTasks((prev) => {
+        setTasks((prev: TaskWithSubTasks[]) => {
           const merged = [...prev, ...resultData.tasks];
           return hydrateTasks(orderRootTasks(merged));
         });
@@ -660,20 +669,23 @@ export function useTaskTableLogic({
 
   // toggleExpand
   const toggleExpand = useCallback((taskId: string) => {
-    setExpanded((prev) => {
+    let shouldFetch = false;
+    
+    setExpanded((prev: Record<string, boolean>) => {
       const isExpanding = !prev[taskId];
       if (isExpanding) {
-        const t = tasksRef.current.find((x) => x.id === taskId);
-        // 🚀 Fetch if we haven't processed this task in the current session, 
-        // even if it has some cached subtasks (to avoid missing old server data).
         const hasNotProcessed = !processedSubTasksRef.current.has(taskId);
-
-        if (t && hasNotProcessed && (filtersActive || t.subtaskCount > 0)) {
-          handleRequestSubtasks(taskId);
-        }
+        if (hasNotProcessed) shouldFetch = true;
       }
       return { ...prev, [taskId]: isExpanding };
     });
+
+    if (shouldFetch) {
+      const t = tasksRef.current.find((x) => x.id === taskId);
+      if (t && (filtersActive || t.subtaskCount > 0)) {
+        handleRequestSubtasks(taskId);
+      }
+    }
   }, [handleRequestSubtasks, filtersActive]);
 
   // Intersection Observer
@@ -784,7 +796,7 @@ export function useTaskTableLogic({
         }
       });
 
-      setExpanded((prev) => ({ ...prev, ...newExpanded }));
+      setExpanded((prev: Record<string, boolean>) => ({ ...prev, ...newExpanded }));
       if (idsToFetch.length > 0) {
         handleRequestSubtasksBatch(idsToFetch);
       }

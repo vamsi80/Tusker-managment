@@ -1,8 +1,18 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { format, parse } from "date-fns"
+import { format, parse, formatDistanceToNow } from "date-fns"
  
 export const APP_DATE_FORMAT = "d MMM yyyy";
+
+/**
+ * Formats a date as a relative time string (e.g., "5 mins ago", "2 days ago")
+ */
+export function formatRelativeTime(date: string | Date | null | undefined): string {
+  if (!date) return "-";
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return "-";
+  return formatDistanceToNow(d, { addSuffix: true });
+}
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))

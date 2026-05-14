@@ -19,13 +19,13 @@ class PerformanceLogger {
         const timestamp = new Date().toISOString();
         const metaStr = Object.keys(metadata).length > 0 ? ` | Meta: ${JSON.stringify(metadata)}` : '';
 
-        console.log(
-            `%c[PERF] %c${timestamp} %c| ${label}: %c${duration.toFixed(2)}ms${metaStr}`,
-            'color: #8b5cf6; font-weight: bold;', // Purple
-            'color: #6b7280; font-style: italic;', // Gray
-            'color: #10b981; font-weight: bold;', // Green
-            'color: #f59e0b; font-weight: bold;'  // Amber
-        );
+        // console.log(
+        //     `%c[PERF] %c${timestamp} %c| ${label}: %c${duration.toFixed(2)}ms${metaStr}`,
+        //     'color: #8b5cf6; font-weight: bold;', // Purple
+        //     'color: #6b7280; font-style: italic;', // Gray
+        //     'color: #10b981; font-weight: bold;', // Green
+        //     'color: #f59e0b; font-weight: bold;'  // Amber
+        // );
     }
 
     serverPerf(label: string, duration: number, metadata: Record<string, any> = {}) {
