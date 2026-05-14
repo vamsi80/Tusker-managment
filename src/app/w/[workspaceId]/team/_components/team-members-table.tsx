@@ -35,6 +35,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { apiClient, type ApiResponse } from "@/lib/api-client";
 import { type WorkspaceMemberRow } from "@/types/workspace";
+import { format } from "date-fns";
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -106,6 +107,8 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination }: TeamMemb
             phoneNumber: "",
             role: "MEMBER",
             designation: "",
+            employeeId: "",
+            dateOfBirth: "",
             reportToId: "",
             workspaceId: workspaceId,
         },
@@ -125,11 +128,13 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination }: TeamMemb
             phoneNumber: member.phoneNumber || "",
             role: member.workspaceRole as any,
             designation: member.designation || "",
+            employeeId: member.employeeId || "",
+            dateOfBirth: member.dateOfBirth ? (member.dateOfBirth instanceof Date ? member.dateOfBirth.toISOString().split('T')[0] : member.dateOfBirth.toString().split('T')[0]) : "",
             reportToId: member.reportToId || "",
             workspaceId: workspaceId,
         });
         setEditDialogOpen(true);
-    }, [editForm]);
+    }, [editForm, workspaceId]);
 
     const handleEditConfirm = async (values: UpdateMemberSchemaType) => {
         if (!memberToEdit) return;
@@ -183,18 +188,18 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination }: TeamMemb
         }
     };
 
-    const handleResendInvite = React.useCallback(async (member: WorkspaceMemberRow) => {
+    const handleResetPassword = React.useCallback(async (member: WorkspaceMemberRow) => {
         if (!member.email) return;
 
         toast.promise(
-            apiClient.workspaces.resendInvite(workspaceId, member.id),
+            apiClient.workspaces.resetPassword(workspaceId, member.id),
             {
-                loading: `Resending invitation to ${member.email}...`,
+                loading: `Sending password reset email to ${member.name}...`,
                 success: (result: any) => {
                     if (result.status === "error") throw new Error(result.message);
-                    return result.message || "Invitation resent successfully";
+                    return result.message || "Password reset email sent successfully";
                 },
-                error: (err) => err.message || "Failed to resend invitation",
+                error: (err) => err.message || "Failed to send password reset email",
             }
         );
     }, [workspaceId]);
@@ -205,9 +210,9 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination }: TeamMemb
             handleViewMember,
             handleEditMember,
             handleDeleteMember,
-            handleResendInvite
+            handleResetPassword
         ),
-        [isAdmin, handleViewMember, handleEditMember, handleDeleteMember, handleResendInvite]
+        [isAdmin, handleViewMember, handleEditMember, handleDeleteMember, handleResetPassword]
     );
 
     return (
@@ -277,6 +282,18 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination }: TeamMemb
                                     <span className="text-muted-foreground">Role:</span>
                                     <span className="font-medium capitalize">
                                         {memberToView.workspaceRole.toLowerCase().replace("_", " ")}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Employee ID:</span>
+                                    <span className="font-medium font-mono text-xs">
+                                        {memberToView.employeeId || "N/A"}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">DOB:</span>
+                                    <span className="font-medium">
+                                        {memberToView.dateOfBirth ? format(new Date(memberToView.dateOfBirth), "dd MMM yyyy") : "N/A"}
                                     </span>
                                 </div>
                                 <div className="flex justify-between">
@@ -360,6 +377,35 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination }: TeamMemb
                                     </FormItem>
                                 )}
                             />
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <FormField
+                                    control={editForm.control}
+                                    name="employeeId"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Employee ID</FormLabel>
+                                            <FormControl>
+                                                <Input {...field} value={field.value || ""} disabled={isUpdating} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={editForm.control}
+                                    name="dateOfBirth"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Date of Birth</FormLabel>
+                                            <FormControl>
+                                                <Input {...field} type="date" value={field.value instanceof Date ? field.value.toISOString().split('T')[0] : (field.value || "")} disabled={isUpdating} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <FormField

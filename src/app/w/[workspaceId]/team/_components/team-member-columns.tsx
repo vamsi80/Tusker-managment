@@ -6,9 +6,10 @@ import {
     createActionsColumn,
     DataTableCellAction,
 } from "@/components/data-table/column-helpers";
-import { Eye, Edit, Trash, Mail } from "lucide-react";
+import { Eye, Edit, Trash, Mail, CalendarDays, Hash } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { type WorkspaceMemberRow } from "@/types/workspace";
+import { format } from "date-fns";
 
 import { cn } from "@/lib/utils";
 
@@ -55,6 +56,37 @@ export function createTeamMemberColumns(
                         {surname || "—"}
                     </div>
                 );
+            },
+        },
+        {
+            accessorKey: "employeeId",
+            header: "Emp ID",
+            cell: ({ row }) => {
+                const empId = row.original.employeeId;
+                return (
+                    <div className="flex items-center gap-1.5 font-mono text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-1 rounded w-fit border border-slate-200 dark:border-slate-700">
+                        <Hash className="h-3 w-3 opacity-50" />
+                        {empId || "—"}
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: "dateOfBirth",
+            header: "DOB",
+            cell: ({ row }) => {
+                const dob = row.original.dateOfBirth;
+                if (!dob) return <span className="text-muted-foreground text-xs">—</span>;
+                try {
+                    return (
+                        <div className="flex items-center gap-1.5 text-muted-foreground text-sm">
+                            <CalendarDays className="h-3 w-3 opacity-50" />
+                            {format(new Date(dob), "dd MMM yyyy")}
+                        </div>
+                    );
+                } catch (e) {
+                    return <span className="text-muted-foreground text-xs">—</span>;
+                }
             },
         },
 
@@ -168,11 +200,9 @@ export function createTeamMemberColumns(
     // Dynamic actions based on member state
     if (isAdmin) {
         actions.push({
-            label: "Resend Invitation",
+            label: "Reset Password",
             onClick: onResend,
             icon: <Mail className="h-4 w-4" />,
-            // Only show if not verified
-            hidden: (row: WorkspaceMemberRow) => row.status === "Verified"
         });
     }
 

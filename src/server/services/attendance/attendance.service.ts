@@ -59,10 +59,10 @@ export class AttendanceService {
 
         const openRecord = await AttendanceRepository.findByMemberAndDate(member.id, yesterday);
 
-        // Use yesterday's record ONLY if it is still open and recently started (< 14 hours ago)
+        // Use yesterday's record ONLY if it is still open and recently started (< 22 hours ago)
         if (openRecord && !openRecord.checkOut && openRecord.checkIn) {
             const hoursSinceCheckIn = (now.getTime() - openRecord.checkIn.getTime()) / (1000 * 60 * 60);
-            if (hoursSinceCheckIn < 14) {
+            if (hoursSinceCheckIn < 22) {
                 return openRecord;
             }
         }
@@ -154,7 +154,8 @@ export class AttendanceService {
                 checkInAddress: finalAddress,
                 status: status,
                 lateThreshold: lateThresholdStr,
-                notes: params.notes,
+                checkInNotes: params.notes,
+                notes: params.notes, // Legacy fallback
                 updatedAt: now,
             },
             {
@@ -164,7 +165,8 @@ export class AttendanceService {
                 checkInAddress: finalAddress,
                 status: status,
                 lateThreshold: lateThresholdStr,
-                notes: params.notes,
+                checkInNotes: params.notes,
+                notes: params.notes, // Legacy fallback
                 updatedAt: now,
             }
         );
@@ -212,7 +214,7 @@ export class AttendanceService {
             
             if (openRecord && !openRecord.checkOut && openRecord.checkIn) {
                 const hoursSinceCheckIn = (now.getTime() - openRecord.checkIn.getTime()) / (1000 * 60 * 60);
-                if (hoursSinceCheckIn < 16) {
+                if (hoursSinceCheckIn < 24) {
                     existing = openRecord;
                 }
             }
@@ -269,7 +271,8 @@ export class AttendanceService {
             checkOutAddress: finalAddress,
             isOvertime,
             overtimeThreshold: otThreshold,
-            notes: params.notes || existing.notes,
+            checkOutNotes: params.notes,
+            notes: params.notes || existing.notes, // Legacy fallback
             updatedAt: now,
         });
 

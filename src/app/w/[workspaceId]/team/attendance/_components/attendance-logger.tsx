@@ -86,57 +86,17 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
         });
     };
 
-    const [networkLocation, setNetworkLocation] = useState<{ city: string; region: string; country: string } | null>(null);
-    const [address, setAddress] = useState<string | null>(null);
     const [accuracy, setAccuracy] = useState<number | null>(null);
-    const [isVerifying, setIsVerifying] = useState(false);
 
     const handleAttendanceAction = async (action: "check-in" | "check-out", providedNote?: string) => {
         setIsLoading(true);
-        setIsVerifying(true);
         setLocationError(null);
-        setAddress(null);
-        setNetworkLocation(null);
 
         try {
             // 1. Get GPS location (Optimized & Fresh)
             const result = await requestLocation();
             setLocation({ lat: result.lat, lng: result.lng });
             setAccuracy(result.accuracy);
-
-            // 2. Parallel check: Get Network (IP-based) location to detect Fake GPS
-            const networkPromise = fetch('https://ipapi.co/json/')
-                .then(res => res.json())
-                .catch(() => null);
-
-            // 3. Geocoding for the GPS coordinates
-            const geocodePromise = fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${result.lat}&lon=${result.lng}&zoom=18&addressdetails=1`)
-                .then(res => res.json())
-                .catch(() => null);
-
-            const [netData, geoData] = await Promise.all([
-                networkPromise,
-                Promise.race([
-                    geocodePromise,
-                    new Promise(resolve => setTimeout(() => resolve(null), 1500))
-                ])
-            ]) as any;
-
-            setIsVerifying(false);
-
-            if (netData?.city) {
-                setNetworkLocation({
-                    city: netData.city,
-                    region: netData.region,
-                    country: netData.country_name
-                });
-            }
-
-            let detectedAddress = "Location captured";
-            if (geoData?.display_name) {
-                detectedAddress = geoData.display_name;
-                setAddress(detectedAddress);
-            }
 
             const res = await fetch(`/api/v1/attendance/${action}`, {
                 method: "POST",
@@ -148,9 +108,9 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
                     latitude: result.lat,
                     longitude: result.lng,
                     accuracy: result.accuracy,
-                    address: detectedAddress,
-                    city: geoData?.address?.city || geoData?.address?.town || geoData?.address?.village || null,
-                    networkLocation: netData ? `${netData.city}, ${netData.region}, ${netData.country_name}` : null,
+                    address: "Location captured",
+                    city: null,
+                    networkLocation: null,
                     notes: providedNote,
                 }),
             });
@@ -172,11 +132,6 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
 
             toast.success(`Successfully ${action === "check-in" ? "checked in" : "checked out"}!`);
             setRecord(data.data);
-            if (action === "check-in" && data.data.checkInAddress) {
-                setAddress(data.data.checkInAddress);
-            } else if (action === "check-out" && data.data.checkOutAddress) {
-                setAddress(data.data.checkOutAddress);
-            }
             setStatus(action === "check-in" ? "CHECKED_IN" : "CHECKED_OUT");
             setShowNoteDialog(false);
             setNote("");
@@ -196,7 +151,6 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
             toast.error(error.message || `Failed to ${action}`);
         } finally {
             setIsLoading(false);
-            setIsVerifying(false);
         }
     };
 
@@ -240,50 +194,6 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
                     </div>
                 )}
 
-                {isVerifying && (
-                    <div className="bg-blue-500/5 border border-blue-500/10 rounded-xl p-4 flex items-center gap-3 animate-pulse">
-                        <div className="p-2 bg-blue-500/10 rounded-lg">
-                            <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-blue-600">Verification</span>
-                            <span className="text-xs font-semibold text-blue-500">Securing your actual location...</span>
-                        </div>
-                    </div>
-                )}
-
-                {(address || networkLocation) && (
-                    <div className="bg-muted/40 border border-border/50 rounded-xl p-4 space-y-4 shadow-inner">
-                        {address && (
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-1.5">
-                                        <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                                        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">GPS Coordinates</span>
-                                    </div>
-                                    {accuracy !== null && (
-                                        <span className="text-[9px] font-bold bg-muted px-2 py-0.5 rounded-full text-muted-foreground border">
-                                            ±{accuracy.toFixed(1)}m
-                                        </span>
-                                    )}
-                                </div>
-                                <p className="text-xs font-medium leading-relaxed text-foreground/80 pl-3 border-l-2 border-green-500/30">{address}</p>
-                            </div>
-                        )}
-
-                        {networkLocation && (
-                            <div className="pt-3 border-t border-border/50 space-y-2">
-                                <div className="flex items-center gap-1.5">
-                                    <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                                    <span className="text-[10px] font-bold uppercase tracking-widest text-blue-500/80">Network Verify</span>
-                                </div>
-                                <p className="text-[11px] font-semibold text-foreground/70 pl-3 border-l-2 border-blue-500/30">
-                                    {networkLocation?.city}, {networkLocation?.region}, {networkLocation?.country}
-                                </p>
-                            </div>
-                        )}
-                    </div>
-                )}
 
                 <div className="space-y-4">
                     {status === "IDLE" && (

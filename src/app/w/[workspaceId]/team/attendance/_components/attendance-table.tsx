@@ -35,6 +35,8 @@ interface AttendanceRecord {
     checkInAddress: string | null;
     checkOutAddress: string | null;
     notes: string | null;
+    checkInNotes: string | null;
+    checkOutNotes: string | null;
     WorkspaceMember: {
         id: string;
         casualLeaveBalance: number;
@@ -224,7 +226,8 @@ export function AttendanceTable({
 
             const url = `/api/v1/attendance?${params.toString()}${force ? '&refresh=true' : ''}`;
             const res = await fetch(url, {
-                headers: { "x-workspace-id": workspaceId }
+                headers: { "x-workspace-id": workspaceId },
+                cache: 'no-store' // Ensure we don't get cached browser results
             });
             const data = await res.json();
             if (data.success) {
@@ -509,14 +512,28 @@ export function AttendanceTable({
             },
         },
         {
-            accessorKey: "notes",
-            header: "Notes",
-            meta: { className: "min-w-[200px]" },
+            accessorKey: "checkInNotes",
+            header: "In-Notes",
+            meta: { className: "min-w-[150px]" },
             cell: ({ row }) => {
-                const notes = row.original.notes;
+                const notes = row.original.checkInNotes;
                 if (!notes) return <div className="text-xs text-muted-foreground italic">—</div>;
                 return (
-                    <div className="max-w-[200px] truncate text-xs font-medium text-foreground/60" title={notes}>
+                    <div className="max-w-[150px] truncate text-xs font-medium text-foreground/60" title={notes}>
+                        {notes}
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: "checkOutNotes",
+            header: "Out-Notes",
+            meta: { className: "min-w-[150px]" },
+            cell: ({ row }) => {
+                const notes = row.original.checkOutNotes;
+                if (!notes) return <div className="text-xs text-muted-foreground italic">—</div>;
+                return (
+                    <div className="max-w-[150px] truncate text-xs font-medium text-foreground/60" title={notes}>
                         {notes}
                     </div>
                 );
