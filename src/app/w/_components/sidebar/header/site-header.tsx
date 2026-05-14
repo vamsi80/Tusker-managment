@@ -40,7 +40,7 @@ export function SiteHeader() {
   });
 
   return (
-    <header className="sticky top-0 z-[40] flex h-(--header-height) w-full shrink-0 items-center border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-[40] flex min-h-(--header-height) h-auto w-full shrink-0 items-center border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 py-2">
       <div className="flex w-full items-center gap-2 px-4">
         <div className="flex items-center gap-2">
             <SidebarTrigger className="-ml-1" />

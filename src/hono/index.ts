@@ -10,6 +10,7 @@ import tags from "./routes/tags";
 import workspaces from "./routes/workspaces";
 import auth from "./routes/auth";
 import comments from "./routes/comments";
+import reports from "./routes/reports";
 import { HonoVariables } from "./types";
 import { authMiddleware } from "./middleware/auth";
 import { AppError } from "../lib/errors/app-error";
@@ -124,6 +125,9 @@ app.route("/workspaces", workspaces);
 
 // Comments API
 app.route("/comments", comments);
+
+// Reports API
+app.route("/reports", reports);
 
 
 export default app;

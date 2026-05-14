@@ -444,10 +444,10 @@ export function DraggableSubtaskBar({
     return (
         <div ref={containerRef} className="h-6 relative w-full group/bar">
             <TooltipProvider delayDuration={100}>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        {/* Bar Container for Tooltip */}
-                        <div className="relative h-full w-full">
+                <div className="relative h-full w-full">
+                    {/* Main Bar Tooltip */}
+                    <Tooltip>
+                        <TooltipTrigger asChild>
                             <div
                                 ref={barRef}
                                 className={cn(
@@ -456,7 +456,6 @@ export function DraggableSubtaskBar({
                                     "focus:outline-none focus:ring-2 focus:ring-offset-1",
                                     canEdit && "cursor-grab active:cursor-grabbing",
                                     isDragging && "opacity-70 scale-105",
-                                    // Status-based colors from centralized utility
                                     statusColors.barClass
                                 )}
                                 style={{
@@ -502,83 +501,91 @@ export function DraggableSubtaskBar({
                                     </>
                                 )}
                             </div>
-
-                            {/* Delay Extension Bar */}
-                            {delayWidthPercent > 0 && (() => {
-                                const statusHex = statusColors.hex;
-
-                                return (
-                                    <div
-                                        className="absolute top-1.5 h-2 rounded-r-md z-0 overflow-hidden"
-                                        style={{
-                                            left: `${leftPercent + widthPercent}%`,
-                                            width: `${delayWidthPercent}%`,
-                                            backgroundImage: `repeating-linear-gradient(
-                                                ${isSettled ? '-45deg' : '45deg'},
-                                                ${statusHex}1A,
-                                                ${statusHex}1A 4px,
-                                                ${statusHex}66 4px,
-                                                ${statusHex}66 8px
-                                            )`,
-                                            border: `1px solid ${statusHex}80`,
-                                            borderLeft: 'none',
-                                            backgroundColor: `${statusHex}0D`
-                                        }}
-                                        title={`Delayed by ${Math.round((delayWidthPercent / 100) * totalDays)} days`}
-                                    />
-                                );
-                            })()}
-                        </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="bg-popover text-popover-foreground border shadow-lg max-w-xs">
-                        <div className="space-y-1.5">
-                            <div className="flex items-center gap-2">
-                                <p className="font-medium text-sm">{optimisticSubtask.name}</p>
-                                {isCompleted && (
-                                    <span className="px-1.5 py-0.5 text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded">
-                                        DONE
-                                    </span>
-                                )}
-                                {remainingDays !== null && (
-                                    <span className={cn(
-                                        "px-1.5 py-0.5 text-[10px] rounded flex items-center gap-1 font-bold border",
-                                        delayStyles.bgColor,
-                                        delayStyles.color,
-                                        delayStyles.borderColor,
-                                        !isSettled && isDelayed && "animate-pulse"
-                                    )}>
-                                        <AlertCircle className="h-3 w-3" />
-                                        {delayText.toUpperCase()}
-                                    </span>
-                                )}
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                                {startDate ? formatDate(startDate) : 'N/A'} — {endDate ? formatDate(endDate) : 'N/A'}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                                {duration} days
-                                {isDelayed && !isSettled && ` (+${Math.round((delayWidthPercent / 100) * totalDays)}d delay)`}
-                            </p>
-                            <div className="flex items-center gap-2 pt-1 border-t border-neutral-200 dark:border-neutral-700 mt-1">
-                                <div className="flex-1 h-1.5 bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden">
-                                    <div
-                                        className="h-full bg-blue-500 rounded-full"
-                                        style={{ width: `${subtask.progress}%` }}
-                                    />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="bg-popover text-popover-foreground border shadow-lg max-w-xs">
+                            <div className="space-y-1.5">
+                                <div className="flex items-center gap-2">
+                                    <p className="font-medium text-sm">{optimisticSubtask.name}</p>
+                                    {isCompleted && (
+                                        <span className="px-1.5 py-0.5 text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded">
+                                            DONE
+                                        </span>
+                                    )}
+                                    {remainingDays !== null && (
+                                        <span className={cn(
+                                            "px-1.5 py-0.5 text-[10px] rounded flex items-center gap-1 font-bold border",
+                                            delayStyles.bgColor,
+                                            delayStyles.color,
+                                            delayStyles.borderColor,
+                                            !isSettled && isDelayed && "animate-pulse"
+                                        )}>
+                                            <AlertCircle className="h-3 w-3" />
+                                            {delayText.toUpperCase()}
+                                        </span>
+                                    )}
                                 </div>
-                                <span className="text-[10px] font-bold">{subtask.progress}%</span>
-                            </div>
-                            {canEdit && (
-                                <p className="text-xs text-blue-600 dark:text-blue-400 pt-1 border-t">
-                                    💡 Drag to move • Drag edge to resize
+                                <p className="text-xs text-muted-foreground">
+                                    {startDate ? formatDate(startDate) : 'N/A'} — {endDate ? formatDate(endDate) : 'N/A'}
                                 </p>
-                            )}
+                                <p className="text-xs text-muted-foreground">
+                                    {duration} days
+                                    {isDelayed && !isSettled && ` (+${Math.round((delayWidthPercent / 100) * totalDays)}d delay)`}
+                                </p>
+                                <div className="flex items-center gap-2 pt-1 border-t border-neutral-200 dark:border-neutral-700 mt-1">
+                                    <div className="flex-1 h-1.5 bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-blue-500 rounded-full"
+                                            style={{ width: `${subtask.progress}%` }}
+                                        />
+                                    </div>
+                                    <span className="text-[10px] font-bold">{subtask.progress}%</span>
+                                </div>
+                                {canEdit && (
+                                    <p className="text-xs text-blue-600 dark:text-blue-400 pt-1 border-t">
+                                        💡 Drag to move • Drag edge to resize
+                                    </p>
+                                )}
+                            </div>
+                        </TooltipContent>
+                    </Tooltip>
 
-
-                        </div>
-                    </TooltipContent>
-                </Tooltip>
+                    {/* Delay Bar Tooltip */}
+                    {delayWidthPercent > 0 && (
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <div
+                                    className="absolute top-1.5 h-2 rounded-r-md z-0 overflow-hidden"
+                                    style={{
+                                        left: `${leftPercent + widthPercent}%`,
+                                        width: `${delayWidthPercent}%`,
+                                        backgroundImage: `repeating-linear-gradient(
+                                            ${isSettled ? '-45deg' : '45deg'},
+                                            ${statusColors.hex}1A,
+                                            ${statusColors.hex}1A 4px,
+                                            ${statusColors.hex}66 4px,
+                                            ${statusColors.hex}66 8px
+                                        )`,
+                                        border: `1px solid ${statusColors.hex}80`,
+                                        borderLeft: 'none',
+                                        backgroundColor: `${statusColors.hex}0D`
+                                    }}
+                                    title={`Delayed by ${Math.round((delayWidthPercent / 100) * totalDays)} days`}
+                                />
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="bg-popover text-popover-foreground border shadow-lg max-w-xs">
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center gap-2">
+                                        <p className="font-medium text-sm">{optimisticSubtask.name} (Delayed)</p>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        This task is delayed by {Math.round((delayWidthPercent / 100) * totalDays)} days beyond its scheduled end date.
+                                    </p>
+                                </div>
+                            </TooltipContent>
+                        </Tooltip>
+                    )}
+                </div>
             </TooltipProvider>
-        </div >
+        </div>
     );
 }

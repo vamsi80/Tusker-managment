@@ -10,7 +10,7 @@ import { useEffect, useState, useTransition } from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { DailyReportFormType } from "@/lib/zodSchemas";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { getDailyReportFormData, submitDailyReport } from "@/actions/daily-report-actions";
+import { apiClient } from "@/lib/api-client";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
@@ -36,8 +36,10 @@ export function DailyReportModal({ workspaceId, isOpen, onClose, onSubmitted }: 
 
     const fetchData = async () => {
         try {
-            const data = await getDailyReportFormData(workspaceId);
-            setSuggestedTasks(data.suggestedTasks || []);
+            const response = await apiClient.reports.getFormData(workspaceId);
+            if (response.status === "success") {
+                setSuggestedTasks(response.data.suggestedTasks || []);
+            }
         } catch (error) {
             console.error("Failed to load suggested tasks", error);
         }
@@ -65,11 +67,16 @@ export function DailyReportModal({ workspaceId, isOpen, onClose, onSubmitted }: 
 
         startTransition(async () => {
             try {
-                await submitDailyReport({
+                const response = await apiClient.reports.submitReport({
                     workspaceId,
                     entries,
                     date: formatIST(new Date(), "d MMM yyyy")
                 });
+                
+                if (response.status === "error") {
+                    throw new Error(response.message || "Failed to submit report");
+                }
+                
                 toast.success("Daily report submitted successfully!");
                 onSubmitted?.();
                 onClose();
