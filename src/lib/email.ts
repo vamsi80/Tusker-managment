@@ -28,8 +28,10 @@ const transporter = nodemailer.createTransport({
   tls: {
     // Do not fail on invalid certs
     rejectUnauthorized: false
-  }
-});
+  },
+  // Force IPv4 to avoid ETIMEDOUT issues with IPv6
+  family: 4
+} as any);
 
 // Verify transporter configuration on startup (Skip during build to avoid noise)
 if (process.env.NEXT_PHASE !== 'phase-production-build') {
