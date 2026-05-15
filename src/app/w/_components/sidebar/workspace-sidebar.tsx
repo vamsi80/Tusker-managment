@@ -46,12 +46,12 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
     url: string;
     icon: "Settings" | "BarChart3" | "LayoutDashboard";
   }> = [
-      {
-        title: "My Space",
-        url: `/w/${workspaceId}/my-board`,
-        icon: "LayoutDashboard"
-      },
-      { title: "Reports", url: `/w/${workspaceId}/reports`, icon: "BarChart3" },
+      // {
+      //   title: "My Space",
+      //   url: `/w/${workspaceId}/my-board`,
+      //   icon: "LayoutDashboard"
+      // },
+      // { title: "Reports", url: `/w/${workspaceId}/reports`, icon: "BarChart3" },
       { title: "Settings", url: `/w/${workspaceId}/settings`, icon: "Settings" },
     ];
 
