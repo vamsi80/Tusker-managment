@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useParams, useRouter } from "next/navigation";
 import { pubsub, EVENTS } from "@/lib/pubsub";
@@ -13,8 +13,8 @@ export function RealtimeNotificationListener() {
   const workspaceId = params?.workspaceId as string;
   const projectId = params?.projectId as string;
 
-  const refreshTimeoutRef = (typeof window !== "undefined") ? { current: null as any } : { current: null };
-  const processedEventsRef = (typeof window !== "undefined") ? { current: new Set<string>() } : { current: new Set<string>() };
+  const refreshTimeoutRef = useRef<any>(null);
+  const processedEventsRef = useRef(new Set<string>());
 
   useEffect(() => {
     if (!workspaceId) return;
@@ -27,7 +27,7 @@ export function RealtimeNotificationListener() {
      */
     const handleSurgicalSync = (data: any) => {
       const isActor = data.userId === session?.user?.id;
-      
+
       // 🚀 DEDUPLICATION: Prevent double-processing of the same event (activity_log + team_update)
       const eventId = data.pusherEventId || `${data.entityId}-${data.action || data.type}-${data.createdAt || Date.now()}`;
       if (processedEventsRef.current.has(eventId)) return;
@@ -43,7 +43,7 @@ export function RealtimeNotificationListener() {
                 data.type === "CHECK_OUT" ? "CHECKED_OUT" :
                   data.type === "LEAVE_REQUESTED" ? "LEAVE_REQUESTED" :
                     "");
-      
+
       // 🚀 SURGICAL PAYLOAD: Prioritize newData for updates
       const payload = data.newData || data.payload || data.metadata?.payload || data.metadata || data;
       const entityId = data.entityId || payload?.id;

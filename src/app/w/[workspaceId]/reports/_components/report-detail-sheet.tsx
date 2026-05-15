@@ -30,12 +30,7 @@ interface ReportDetailModalProps {
 export function ReportDetailModal({ isOpen, onOpenChange, report }: ReportDetailModalProps) {
     const [currentEntryIndex, setCurrentEntryIndex] = useState(0);
 
-    // Reset index when modal opens for a new report
-    useEffect(() => {
-        if (isOpen) {
-            setCurrentEntryIndex(0);
-        }
-    }, [isOpen, report?.id]);
+    // Reset index when modal opens for a new report is handled by the 'key' prop on SheetContent
 
     if (!report) return null;
 
@@ -44,7 +39,11 @@ export function ReportDetailModal({ isOpen, onOpenChange, report }: ReportDetail
 
     return (
         <Sheet open={isOpen} onOpenChange={onOpenChange}>
-            <SheetContent side="right" className="w-full sm:max-w-2xl p-0 flex flex-col h-full bg-background border-l">
+            <SheetContent 
+                key={`${isOpen}-${report?.id}`}
+                side="right" 
+                className="w-full sm:max-w-2xl p-0 flex flex-col h-full bg-background border-l"
+            >
                 <SheetHeader className="p-4 bg-muted/30 shrink-0 border-b">
                     <SheetTitle className="text-lg font-bold flex items-center justify-between">
                         <span>Work Report Details</span>

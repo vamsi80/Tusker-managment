@@ -45,7 +45,7 @@ interface ProjectTaskGroupProps {
     scrollContainerRef: React.RefObject<HTMLDivElement | null>;
     level: "workspace" | "project";
     paginationState?: { isLoading: boolean; hasMore: boolean; nextCursor?: any };
-    getObserver: () => IntersectionObserver | null;
+    observer: IntersectionObserver | null;
     filtersActive: boolean;
     activeInlineProjectId: string | null;
     setActiveInlineProjectId: (id: string | null) => void;
@@ -85,7 +85,7 @@ export function ProjectTaskGroup({
     scrollContainerRef,
     level,
     paginationState = { isLoading: false, hasMore: true },
-    getObserver,
+    observer,
     filtersActive,
     activeInlineProjectId,
     setActiveInlineProjectId,
@@ -207,7 +207,7 @@ export function ProjectTaskGroup({
                 <TableRow
                     key={`sentinel-init-${filtersActive}-${tasks.length}`}
                     ref={(node) => {
-                        if (node) getObserver()?.observe(node);
+                        if (node && observer) observer.observe(node);
                     }}
                     data-project-id={projectId}
                     className="hover:bg-transparent border-0"
@@ -226,7 +226,7 @@ export function ProjectTaskGroup({
                 <TableRow
                     key={`sentinel-more-${filtersActive}-${tasks.length}`}
                     ref={(node) => {
-                        if (node) getObserver()?.observe(node);
+                        if (node && observer) observer.observe(node);
                     }}
                     data-project-id={projectId}
                 >

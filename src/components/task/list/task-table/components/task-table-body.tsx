@@ -1,14 +1,18 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { useTaskTableContext } from "../context/task-table-context";
 import { SortedTaskList } from "../../sort/sorted-task-list";
 import { ProjectTaskGroup } from "../../group/project-task-group";
+import { ProjectRow } from "../../project-row";
 import { FlatTaskList } from "../../group/flat-task-list";
 import { LoadMoreSentinel } from "../../table/load-more-sentinel";
 import { TableLoading } from "../../table/table-loading";
 import { EmptyState } from "../../table/empty-state";
 import { TaskWithSubTasks } from "@/components/task/shared/types";
+import { TaskRow } from "../../task-row";
+import { SubTaskRow } from "../../subtask-row";
+import { TableCell, TableRow } from "@/components/ui/table";
 
 interface TaskTableBodyProps {
   mode: "sorted" | "hierarchy";
@@ -32,7 +36,7 @@ interface TaskTableBodyProps {
   handleRequestSubtasks: (taskId: string) => void;
   getCachedSubTasks: (taskId: string) => any;
   projectPagination: Record<string, any>;
-  getObserver: () => IntersectionObserver;
+  observer: IntersectionObserver | null;
   filtersActive: boolean;
   activeInlineProjectId: string | null;
   setActiveInlineProjectId: (id: string | null) => void;
@@ -44,6 +48,9 @@ interface TaskTableBodyProps {
   loadMoreSorted: () => void;
   isLoadingFilters: boolean;
   setTasks: React.Dispatch<React.SetStateAction<TaskWithSubTasks[]>>;
+  isSubtaskFirstMode?: boolean;
+  filterPagination: { hasMore: boolean; nextCursor: any; isLoading: boolean };
+  loadMoreFiltered: () => void;
 }
 
 export function TaskTableBody({
@@ -68,7 +75,7 @@ export function TaskTableBody({
   handleRequestSubtasks,
   getCachedSubTasks,
   projectPagination,
-  getObserver,
+  observer,
   filtersActive,
   activeInlineProjectId,
   setActiveInlineProjectId,
@@ -80,6 +87,9 @@ export function TaskTableBody({
   loadMoreSorted,
   isLoadingFilters,
   setTasks,
+  isSubtaskFirstMode,
+  filterPagination,
+  loadMoreFiltered,
 }: TaskTableBodyProps) {
   const {
     workspaceId,
@@ -153,7 +163,7 @@ export function TaskTableBody({
               handleSubTaskClick={handleSubTaskClick}
               level={level}
               paginationState={projectPagination[currentProjectId]}
-              getObserver={getObserver}
+              observer={observer}
               filtersActive={filtersActive}
               activeInlineProjectId={activeInlineProjectId}
               setActiveInlineProjectId={setActiveInlineProjectId}
@@ -164,6 +174,93 @@ export function TaskTableBody({
             />
           );
         })
+      ) : isSubtaskFirstMode ? (
+        (() => {
+          // 1. Double grouping: Project ID -> Parent Task ID
+          const projectGroups: Record<string, Record<string, { parentTask: any; subtasks: TaskWithSubTasks[] }>> = {};
+
+          tasks.forEach((t) => {
+            const prId = t.projectId || "unknown";
+            const paId = t.parentTaskId || "unknown";
+
+            if (!projectGroups[prId]) projectGroups[prId] = {};
+            if (!projectGroups[prId][paId]) {
+              projectGroups[prId][paId] = {
+                // Construct a minimal parent task object from embedded parentTask info
+                parentTask: {
+                  id: t.parentTaskId || paId,
+                  name: (t as any).parentTask?.name || "Unknown Task",
+                  taskSlug: (t as any).parentTask?.taskSlug || "",
+                  isParent: true,
+                  subtaskCount: 0,
+                  completedSubtaskCount: 0,
+                  projectId: t.projectId,
+                  workspaceId: t.workspaceId,
+                  createdAt: t.createdAt,
+                  subTasks: [],
+                },
+                subtasks: [],
+              };
+            }
+            projectGroups[prId][paId].subtasks.push(t);
+            // Update the subtask count and embed them for TaskRow logic
+            projectGroups[prId][paId].parentTask.subtaskCount = projectGroups[prId][paId].subtasks.length;
+            projectGroups[prId][paId].parentTask.subTasks = projectGroups[prId][paId].subtasks;
+          });
+
+          // 2. Render ProjectRow -> Parent TaskRows -> SubTaskRows
+          return Object.entries(projectGroups).map(([prId, parentGroups]) => {
+            const project = projectMap[prId] || { id: prId, name: "Unknown Project" };
+            const isProjectExpanded = expandedProjects[prId] !== false; // Usually expanded by default in filter view
+
+            return (
+              <ProjectRow
+                key={prId}
+                project={project}
+                isExpanded={isProjectExpanded}
+                onToggle={() => toggleProjectExpand(prId)}
+                colSpan={visibleColumnsCount}
+              >
+                {Object.entries(parentGroups).map(([paId, group]) => (
+                  <React.Fragment key={paId}>
+                    {/* Parent Task Row — always shown expanded */}
+                    <TaskRow
+                      task={group.parentTask as TaskWithSubTasks}
+                      isExpanded={expanded[paId] !== false}
+                      onToggleExpand={() => toggleExpand(paId)}
+                      columnVisibility={columnVisibility}
+                      permissions={permissions}
+                      userId={userId}
+                      isWorkspaceAdmin={isWorkspaceAdmin}
+                      leadProjectIds={leadProjectIds}
+                      projects={projects}
+                      scrollContainerRef={scrollContainerRef}
+                    />
+                    {/* Matching Subtask Rows rendered as siblings, same as normal expanded view */}
+                    {expanded[paId] !== false && group.subtasks.map((subTask) => (
+                      <SubTaskRow
+                        key={subTask.id}
+                        subTask={subTask as any}
+                        columnVisibility={columnVisibility}
+                        onClick={handleSubTaskClick}
+                        members={members as any}
+                        projectId={subTask.projectId || projectId}
+                        parentTaskId={subTask.parentTaskId || paId}
+                        tags={tags}
+                        permissions={permissions}
+                        userId={userId}
+                        isWorkspaceAdmin={isWorkspaceAdmin}
+                        leadProjectIds={leadProjectIds}
+                        projects={projects}
+                        projectMap={projectMap}
+                      />
+                    ))}
+                  </React.Fragment>
+                ))}
+              </ProjectRow>
+            );
+          });
+        })()
       ) : (
         <FlatTaskList
           initialTasks={tasks}
@@ -201,7 +298,7 @@ export function TaskTableBody({
         <LoadMoreSentinel
           visibleColumnsCount={visibleColumnsCount}
           projectId={projectId}
-          observer={getObserver()}
+          observer={observer}
         />
       )}
 
@@ -217,9 +314,54 @@ export function TaskTableBody({
         <LoadMoreSentinel
           visibleColumnsCount={visibleColumnsCount}
           projectId="__global_filter__"
-          observer={getObserver()}
+          observer={observer}
+        />
+      )}
+
+      {isSubtaskFirstMode && filterPagination.hasMore && (
+        <FilterLoadMoreSentinel
+          visibleColumnsCount={visibleColumnsCount}
+          onLoadMore={loadMoreFiltered}
+          isLoading={filterPagination.isLoading}
         />
       )}
     </tbody>
+  );
+}
+
+/**
+ * Custom sentinel for filtered results infinite scroll
+ */
+function FilterLoadMoreSentinel({ visibleColumnsCount, onLoadMore, isLoading }: {
+  visibleColumnsCount: number;
+  onLoadMore: () => void;
+  isLoading: boolean;
+}) {
+  const ref = useRef<HTMLTableRowElement>(null);
+
+  useEffect(() => {
+    if (!ref.current) return;
+    const obs = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && !isLoading) {
+        onLoadMore();
+      }
+    }, { rootMargin: "200px" });
+
+    obs.observe(ref.current);
+    return () => obs.disconnect();
+  }, [onLoadMore, isLoading]);
+
+  return (
+    <TableRow ref={ref} className="hover:bg-transparent border-0">
+      <TableCell colSpan={visibleColumnsCount} className="py-8 text-center">
+        {isLoading ? (
+          <span className="text-sm text-muted-foreground animate-pulse font-medium">
+            Loading more filtered results...
+          </span>
+        ) : (
+          <div className="h-px w-full" />
+        )}
+      </TableCell>
+    </TableRow>
   );
 }

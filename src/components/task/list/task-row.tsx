@@ -7,7 +7,7 @@ import { ColumnVisibility } from "../shared/column-visibility";
 import { TaskWithSubTasks } from "@/components/task/shared/types";
 import type { UserPermissionsType } from "@/data/user/get-user-permissions";
 import { useRef, useEffect, useState, memo, cloneElement } from "react";
-import { ChevronDown, ChevronRight, MoreHorizontal } from "lucide-react";
+import { ChevronDown, ChevronRight, MoreHorizontal, CornerDownRight } from "lucide-react";
 import { EditTaskDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/edit-task-form";
 import { DeleteTaskDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/delete-task-form";
 import {
@@ -16,6 +16,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
 
 interface TaskRowProps {
@@ -38,6 +39,7 @@ interface TaskRowProps {
     isCached?: boolean;
     scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
     children?: React.ReactNode;
+    isSubtaskRow?: boolean;
 }
 
 export const TaskRow = memo(function TaskRow({
@@ -57,6 +59,8 @@ export const TaskRow = memo(function TaskRow({
     projects,
     onRequestSubtasks,
     isCached = false,
+    isSubtask = false,
+    isSubtaskRow = false,
     scrollContainerRef,
     children,
 }: TaskRowProps) {
@@ -191,28 +195,39 @@ export const TaskRow = memo(function TaskRow({
                 className="group [&_td]:py-2 hover:bg-muted/30 transition-colors"
             >
                 <TableCell className="w-[40px] md:w-[50px]">
-                    <div className="flex items-center justify-center">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 shrink-0 p-0"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onToggleExpand();
-                            }}
-                        >
-                            {isExpanded ? (
-                                <ChevronDown className="h-4 w-4" />
-                            ) : (
-                                <ChevronRight className="h-4 w-4" />
-                            )}
-                        </Button>
-                    </div>
+                    {isSubtaskRow ? (
+                        <div className="flex items-center justify-center pl-4">
+                            <CornerDownRight className="h-3.5 w-3.5 text-muted-foreground/50" />
+                        </div>
+                    ) : (
+                        !isSubtask && subtaskCount > 0 && (
+                            <div className="flex items-center justify-center">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 shrink-0 p-0"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onToggleExpand();
+                                    }}
+                                >
+                                    {isExpanded ? (
+                                        <ChevronDown className="h-4 w-4" />
+                                    ) : (
+                                        <ChevronRight className="h-4 w-4" />
+                                    )}
+                                </Button>
+                            </div>
+                        )
+                    )}
                 </TableCell>
 
                 <TableCell className="px-2" colSpan={totalColSpan}>
                     <div className="flex items-center gap-2 min-w-0">
-                        <span className="truncate font-semibold text-sm cursor-pointer hover:text-primary transition-colors">
+                        <span className={cn(
+                            "truncate text-sm cursor-pointer hover:text-primary transition-colors",
+                            isSubtaskRow ? "text-muted-foreground" : "font-semibold"
+                        )}>
                             {task.name}
                         </span>
                         {subtaskCount > 0 && (

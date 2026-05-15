@@ -73,38 +73,38 @@ export const CreateSubTaskForm = ({
         return parentTasks;
     }, [level, selectedProjectId, parentTasks]);
 
-    const form = useForm<SubTaskSchemaType>({
-        resolver: zodResolver(subTaskSchema) as unknown as Resolver<SubTaskSchemaType>,
-        defaultValues: {
+    const defaultValues = useMemo<SubTaskSchemaType>(() => {
+        const startNow = new Date(Date.now() + 10 * 60000); // 10 minutes in future
+        const dueNow = new Date(Date.now() + 30 * 60000); // 30 minutes in future for due date
+        
+        const format = (date: Date) => {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        };
+
+        return {
             reviewerId: "",
             days: 1,
             name: "",
             description: "",
             taskSlug: "",
-            startDate: (() => {
-                const now = new Date(Date.now() + 10 * 60000); // 10 minutes in future
-                const year = now.getFullYear();
-                const month = String(now.getMonth() + 1).padStart(2, '0');
-                const day = String(now.getDate()).padStart(2, '0');
-                const hours = String(now.getHours()).padStart(2, '0');
-                const minutes = String(now.getMinutes()).padStart(2, '0');
-                return `${year}-${month}-${day}T${hours}:${minutes}`;
-            })(),
-            dueDate: (() => {
-                const now = new Date(Date.now() + 30 * 60000); // 30 minutes in future for due date
-                const year = now.getFullYear();
-                const month = String(now.getMonth() + 1).padStart(2, '0');
-                const day = String(now.getDate()).padStart(2, '0');
-                const hours = String(now.getHours()).padStart(2, '0');
-                const minutes = String(now.getMinutes()).padStart(2, '0');
-                return `${year}-${month}-${day}T${hours}:${minutes}`;
-            })(),
+            startDate: format(startNow),
+            dueDate: format(dueNow),
             assignee: "",
             status: "TO_DO",
             tagIds: tags.length > 0 ? [tags[0].id] : [],
             projectId: projectId || (parentTasks.length > 0 ? parentTasks[0].projectId : "") || "",
             parentTaskId: parentTaskId || (parentTasks.length > 0 ? parentTasks[0].id : "") || "",
-        },
+        };
+    }, [projectId, parentTaskId, tags, level, parentTasks]);
+
+    const form = useForm<SubTaskSchemaType>({
+        resolver: zodResolver(subTaskSchema) as unknown as Resolver<SubTaskSchemaType>,
+        defaultValues,
     });
 
     useEffect(() => {

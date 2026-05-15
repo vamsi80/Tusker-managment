@@ -38,6 +38,8 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
     const assigneeUser = task.assignee;
     const reviewerUser = task.reviewer;
 
+    const isParent = !task.parentTaskId;
+
     return (
         <TableRow
             className="hover:bg-muted/50 cursor-pointer transition-colors"
@@ -92,7 +94,7 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
             {/* Assignee */}
             {columnVisibility.assignee && (
                 <TableCell className="w-[80px] sm:w-[100px]">
-                    {assigneeUser ? (
+                    {!isParent && assigneeUser ? (
                         <div className="flex items-center gap-2 min-w-0">
                             <Avatar className="h-5 w-5 flex-shrink-0">
                                 <AvatarFallback className="text-[10px]">
@@ -112,7 +114,7 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
             {/* Reviewer */}
             {columnVisibility.reviewer && (
                 <TableCell className="w-[80px] sm:w-[100px]">
-                    {reviewerUser ? (
+                    {!isParent && reviewerUser ? (
                         <div className="flex items-center gap-2 min-w-0">
                             <Avatar className="h-5 w-5 flex-shrink-0">
                                 <AvatarFallback className="text-[10px]">
@@ -132,17 +134,21 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
             {/* Status */}
             {columnVisibility.status && (
                 <TableCell className="w-[90px] sm:w-[120px]">
-                    <Badge
-                        variant="outline"
-                        className={cn(
-                            "text-xs font-medium border",
-                            statusColors.color,
-                            statusColors.bgColor,
-                            statusColors.borderColor
-                        )}
-                    >
-                        {getStatusLabel(task.status)}
-                    </Badge>
+                    {!isParent && task.status ? (
+                        <Badge
+                            variant="outline"
+                            className={cn(
+                                "text-xs font-medium border",
+                                statusColors.color,
+                                statusColors.bgColor,
+                                statusColors.borderColor
+                            )}
+                        >
+                            {getStatusLabel(task.status)}
+                        </Badge>
+                    ) : (
+                        <span className="text-muted-foreground text-sm">-</span>
+                    )}
                 </TableCell>
             )}
 
@@ -150,7 +156,7 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
             {columnVisibility.startDate && (
                 <TableCell className="w-[90px] sm:w-[120px]">
                     <div className="text-sm">
-                        {task.startDate ? formatDate(new Date(task.startDate)) : "-"}
+                        {!isParent && task.startDate ? formatDate(new Date(task.startDate)) : "-"}
                     </div>
                 </TableCell>
             )}
@@ -159,7 +165,7 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
             {columnVisibility.dueDate && (
                 <TableCell className="w-[90px] sm:w-[120px]">
                     <div className="text-sm">
-                        {dueDate ? formatDate(dueDate) : "-"}
+                        {!isParent && dueDate ? formatDate(dueDate) : "-"}
                     </div>
                 </TableCell>
             )}
@@ -167,7 +173,7 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
             {/* Deadline */}
             {columnVisibility.progress && (
                 <TableCell className="w-[100px] sm:w-[150px]">
-                    {remainingDays !== null ? (
+                    {!isParent && remainingDays !== null ? (
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <div className="flex items-center gap-2 min-w-0 cursor-help">
@@ -189,7 +195,7 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
                         </Tooltip>
                     ) : (
                         <div className="text-sm">
-                            {task.days ? `${task.days} days` : "-"}
+                            {!isParent && task.days ? `${task.days} days` : "-"}
                         </div>
                     )}
                 </TableCell>

@@ -14,6 +14,8 @@ const nextConfig: NextConfig = {
       "@tabler/icons-react",
       "lucide-react",
       "date-fns",
+      "recharts",
+      "framer-motion",
       "@radix-ui/react-icons",
       "@radix-ui/react-dialog",
       "@radix-ui/react-dropdown-menu",
@@ -32,6 +34,9 @@ const nextConfig: NextConfig = {
       "@dnd-kit/utilities",
       "@dnd-kit/modifiers"
     ]
+  },
+  typescript: {
+    ignoreBuildErrors: false,
   },
   serverExternalPackages: [
     '@prisma/client',

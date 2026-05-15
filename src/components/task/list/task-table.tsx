@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useState, useMemo, useEffect } from "react";
+import { memo, useState, useMemo, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
@@ -36,9 +36,9 @@ function TaskTable(props: TaskTableProps) {
     console.log("DEBUG [TaskTable] Mounted");
     return () => console.log("DEBUG [TaskTable] Unmounted");
   }, []);
-
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const { data: layoutData } = useWorkspaceLayout();
-  const projects = layoutData.projects || [];
+  const projects = useMemo(() => layoutData.projects || [], [layoutData.projects]);
   const leadProjectIds = layoutData.permissions?.leadProjectIds || [];
 
   const [columnVisibility, setColumnVisibility] = useState({
@@ -87,7 +87,7 @@ function TaskTable(props: TaskTableProps) {
     projects,
     projectMap,
     leadProjectIds,
-    scrollContainerRef: logic.scrollContainerRef,
+    scrollContainerRef,
   };
 
   const mode = logic.sorts.length > 0 ? "sorted" : "hierarchy";
@@ -96,9 +96,11 @@ function TaskTable(props: TaskTableProps) {
     .length;
   const visibleColumnsCount = 2 + visiblePropsCount + 1; // Chevron + Name + Props + Actions
 
-  // Grouping logic for workspace view
+  // Grouping logic for workspace view — skip if in subtask-first mode (filters active),
+  // because subtasks need to be rendered flat with parent-label headers, not in ProjectTaskGroup
   const groupedTasks = useMemo(() => {
     if (props.level !== "workspace") return null;
+    if (logic.isSubtaskFirstMode) return null; // Let isSubtaskFirstMode branch handle rendering
     const groups: Record<string, TaskWithSubTasks[]> = {};
     logic.tasks.forEach((task) => {
       const pId = task.projectId || "unknown";
@@ -106,7 +108,7 @@ function TaskTable(props: TaskTableProps) {
       groups[pId].push(task);
     });
     return groups;
-  }, [logic.tasks, props.level]);
+  }, [logic.tasks, props.level, logic.isSubtaskFirstMode]);
 
   const orderedWorkspaceProjects = useMemo(() => {
     if (props.level !== "workspace") return projects;
@@ -121,7 +123,7 @@ function TaskTable(props: TaskTableProps) {
   }, [logic.tasks]);
 
   return (
-    <TaskTableProvider value={contextValue}>
+    <TaskTableProvider value={{ ...contextValue, scrollContainerRef }}>
       <div className="space-y-4 mt-0">
         <GlobalFilterToolbar
           className="flex-1"
@@ -145,7 +147,7 @@ function TaskTable(props: TaskTableProps) {
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           )}
-          <div ref={logic.scrollContainerRef} className={cn("overflow-auto", props.level === "workspace" ? "max-h-[70vh]" : "max-h-[65vh]", "mt-0")}>
+          <div ref={scrollContainerRef} className={cn("overflow-auto", props.level === "workspace" ? "max-h-[70vh]" : "max-h-[65vh]", "mt-0")}>
             <table className="w-full caption-bottom text-sm table-fixed">
               <TaskTableHeader
                 sorts={logic.sorts}
@@ -174,7 +176,7 @@ function TaskTable(props: TaskTableProps) {
                 handleRequestSubtasks={logic.handleRequestSubtasks}
                 getCachedSubTasks={() => ({})}
                 projectPagination={logic.projectPagination}
-                getObserver={logic.getObserver}
+                observer={logic.observer}
                 filtersActive={logic.filtersActive}
                 activeInlineProjectId={logic.activeInlineProjectId}
                 setActiveInlineProjectId={logic.setActiveInlineProjectId}
@@ -186,6 +188,9 @@ function TaskTable(props: TaskTableProps) {
                 loadMoreSorted={logic.loadMoreSorted}
                 isLoadingFilters={logic.isLoadingFilters}
                 setTasks={logic.setTasks}
+                isSubtaskFirstMode={logic.isSubtaskFirstMode}
+                filterPagination={logic.filterPagination}
+                loadMoreFiltered={logic.loadMoreFiltered}
               />
             </table>
           </div>

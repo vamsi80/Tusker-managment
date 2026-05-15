@@ -129,5 +129,5 @@ export function useRealtimeMemberSync(workspaceId: string, onUpdate?: () => void
             console.log(`[RealtimeMemberSync] Unsubscribing from team-${workspaceId}`);
             pusherClient?.unsubscribe(`team-${workspaceId}`);
         };
-    }, [workspaceId]);
+    }, [workspaceId, onUpdate]);
 }

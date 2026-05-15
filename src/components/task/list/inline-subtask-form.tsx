@@ -71,10 +71,10 @@ export function InlineSubTaskForm({
     const [status, setStatus] = useState<typeof SubTaskStatus[number]>(
         (subTask?.status as typeof SubTaskStatus[number]) || "TO_DO"
     );
-    const [startDate, setStartDate] = useState(
+    const [startDate, setStartDate] = useState(() => 
         subTask?.startDate ? new Date(subTask.startDate).toISOString() : new Date(Date.now() + 10 * 60000).toISOString()
     );
-    const [dueDate, setDueDate] = useState(
+    const [dueDate, setDueDate] = useState(() => 
         (subTask as any)?.dueDate ? new Date((subTask as any).dueDate).toISOString() : new Date(Date.now() + 30 * 60000).toISOString()
     );
     const [tagIds, setTagIds] = useState<string[]>(subTask?.tags?.map(t => t.id) || []);

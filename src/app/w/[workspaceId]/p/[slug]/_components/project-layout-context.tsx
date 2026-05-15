@@ -19,7 +19,7 @@ interface ProjectLayoutContextType {
     revalidate: () => Promise<void>;
 }
 
-const ProjectLayoutContext = createContext<ProjectLayoutContextType | null>(null);
+export const ProjectLayoutContext = createContext<ProjectLayoutContextType | null>(null);
 
 export function ProjectLayoutProvider({
     children,
