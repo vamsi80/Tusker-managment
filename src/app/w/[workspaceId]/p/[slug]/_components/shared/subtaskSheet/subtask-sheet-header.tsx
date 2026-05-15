@@ -46,9 +46,12 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
 
     if (!subTask) return null;
 
-    // Get project name from workspace layout context if not in subTask
+    // Get project name from workspace layout context using slug OR projectId
     const projectSlug = params.slug as string;
-    const currentProject = workspaceData.projects?.find((p: any) => p.slug === projectSlug);
+    const currentProject = workspaceData.projects?.find((p: any) => 
+        (projectSlug && p.slug === projectSlug) || 
+        (subTask.projectId && p.id === subTask.projectId)
+    );
     const projectName = currentProject?.name || subTask.project?.name;
 
     // Assignee calculation
@@ -65,15 +68,17 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
             <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
                     {/* Project & Parent Breadcrumb */}
-                    {projectName && (
+                    {(projectName || subTask.parentTask) && (
                         <div className="mb-2.5 flex items-center gap-2 overflow-hidden">
-                            <Badge variant="secondary" className="bg-primary/10 text-primary border-none text-[10px] font-bold px-2 py-0.5 uppercase tracking-wider rounded-md shrink-0">
-                                {projectName}
-                            </Badge>
+                            {projectName && (
+                                <Badge variant="secondary" className="bg-primary/10 text-primary border-none text-[10px] font-bold px-2 py-0.5 uppercase tracking-wider rounded-md shrink-0">
+                                    {projectName}
+                                </Badge>
+                            )}
                             {subTask.parentTask && (
                                 <div className="flex items-center gap-2 min-w-0">
-                                    <span className="text-muted-foreground/40 text-[10px] font-bold">/</span>
-                                    <span className="text-[10px] font-no text-muted-foreground/60 uppercase tracking-widest truncate">
+                                    {projectName && <span className="text-muted-foreground/40 text-[10px] font-bold">/</span>}
+                                    <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest truncate">
                                         {subTask.parentTask.name}
                                     </span>
                                 </div>
