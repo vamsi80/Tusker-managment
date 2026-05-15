@@ -30,7 +30,7 @@ interface SortedTaskRowProps {
  */
 export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVisibility, onClick }: SortedTaskRowProps) {
     const statusColors = getStatusColors(task.status);
-    const { remainingDays, isOverdue, dueDate } = useRemainingDays(task.startDate, task.days);
+    const { remainingDays, dueDate } = useRemainingDays(task.startDate, task.days);
 
     const delayStyles = getDelayColors(remainingDays, task.status);
     const delayText = getDelayText(remainingDays, task.status);
@@ -52,11 +52,6 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
                     <div
                         className="font-medium text-foreground truncate hover:underline"
                         title={task.name}
-                        onMouseEnter={() => {
-                            import("@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/subtask-details-sheet").then(m => {
-                                m.prefetchSubTask(task.id);
-                            });
-                        }}
                     >
                         {task.name}
                     </div>

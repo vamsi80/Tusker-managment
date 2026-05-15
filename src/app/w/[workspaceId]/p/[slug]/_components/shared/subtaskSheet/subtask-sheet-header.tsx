@@ -5,11 +5,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Calendar, Tag, User, FileCheck, Edit } from "lucide-react";
+import { Calendar, Tag, User, FileCheck } from "lucide-react";
 import { cn, formatIST } from "@/lib/utils";
 import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { memo, useState, useEffect } from "react";
-import { EditSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/edit-subtask-form";
+
 import { InlineAssigneePicker } from "@/components/task/shared/inline-assignee-picker";
 import { useRemainingDays } from "@/hooks/use-due-date";
 import { useParams } from "next/navigation";
@@ -87,25 +87,7 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
 
                 </div>
 
-                {/* Edit Button for authorized users */}
-                {subTask && (subTask.createdBy?.id === currentUserId || (subTask as any).createdById === currentUserId) && (
-                    <div className="ml-4 flex-shrink-0">
-                        <EditSubTaskForm
-                            subTask={subTask as any}
-                            projectId={subTask.projectId}
-                            parentTaskId={subTask.parentTaskId!}
-                            tags={tags}
-                            members={members}
-                            onSubTaskUpdated={onSubTaskUpdated}
-                            trigger={
-                                <Button variant="outline" size="sm" className="h-8 gap-2">
-                                    <Edit className="h-4 w-4" />
-                                    <span>Edit</span>
-                                </Button>
-                            }
-                        />
-                    </div>
-                )}
+
             </div>
 
             {/* Full-width Description Section */}
