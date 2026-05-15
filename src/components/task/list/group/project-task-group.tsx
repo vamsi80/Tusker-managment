@@ -12,6 +12,7 @@ import { EmptyState } from "../table/empty-state";
 import type { TaskWithSubTasks } from "../../shared/types";
 import type { ColumnVisibility } from "../../shared/column-visibility";
 import type { UserPermissionsType } from "@/data/user/get-user-permissions";
+import { useLoadMoreSentinel } from "@/hooks/use-load-more-sentinel";
 
 interface ProjectTaskGroupProps {
     projectId: string;
@@ -45,7 +46,7 @@ interface ProjectTaskGroupProps {
     scrollContainerRef: React.RefObject<HTMLDivElement | null>;
     level: "workspace" | "project";
     paginationState?: { isLoading: boolean; hasMore: boolean; nextCursor?: any };
-    observer: IntersectionObserver | null;
+    onLoadMore?: (projectId: string) => void;
     filtersActive: boolean;
     activeInlineProjectId: string | null;
     setActiveInlineProjectId: (id: string | null) => void;
@@ -85,7 +86,7 @@ export function ProjectTaskGroup({
     scrollContainerRef,
     level,
     paginationState = { isLoading: false, hasMore: true },
-    observer,
+    onLoadMore,
     filtersActive,
     activeInlineProjectId,
     setActiveInlineProjectId,
@@ -94,6 +95,22 @@ export function ProjectTaskGroup({
     onSubTaskUpdated,
 }: ProjectTaskGroupProps) {
     const tasks = initialTasks || [];
+
+    const handleLoadMore = useCallback(() => {
+        if (onLoadMore) onLoadMore(projectId);
+    }, [onLoadMore, projectId]);
+
+    const initSentinelRef = useLoadMoreSentinel<HTMLTableRowElement>({
+        onLoadMore: handleLoadMore,
+        isLoading: paginationState.isLoading,
+        hasMore: paginationState.hasMore,
+    });
+
+    const moreSentinelRef = useLoadMoreSentinel<HTMLTableRowElement>({
+        onLoadMore: handleLoadMore,
+        isLoading: paginationState.isLoading,
+        hasMore: paginationState.hasMore,
+    });
 
     const handleTaskUpdated = useCallback((taskId: string, updatedTask: any) => {
         if (onTasksChange) onTasksChange((prev: any) => prev.map((t: any) => t.id === taskId ? { ...t, ...updatedTask } : t));
@@ -206,9 +223,7 @@ export function ProjectTaskGroup({
             {isExpanded && !paginationState.isLoading && tasks.length === 0 && paginationState.hasMore && (
                 <TableRow
                     key={`sentinel-init-${filtersActive}-${tasks.length}`}
-                    ref={(node) => {
-                        if (node && observer) observer.observe(node);
-                    }}
+                    ref={initSentinelRef}
                     data-project-id={projectId}
                     className="hover:bg-transparent border-0"
                 >
@@ -222,12 +237,10 @@ export function ProjectTaskGroup({
                 <TableLoadingSkeleton visibleColumnsCount={visibleColumnsCount} count={5} />
             )}
 
-            {isExpanded && paginationState.hasMore && !paginationState.isLoading && (
+            {isExpanded && paginationState.hasMore && !paginationState.isLoading && tasks.length > 0 && (
                 <TableRow
                     key={`sentinel-more-${filtersActive}-${tasks.length}`}
-                    ref={(node) => {
-                        if (node && observer) observer.observe(node);
-                    }}
+                    ref={moreSentinelRef}
                     data-project-id={projectId}
                 >
                     <TableCell colSpan={visibleColumnsCount} className="py-2 h-1"></TableCell>

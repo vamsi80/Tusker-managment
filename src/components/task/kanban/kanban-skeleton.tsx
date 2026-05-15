@@ -66,18 +66,14 @@ export function KanbanColumnSkeleton({ title }: { title: string }) {
 
 export function KanbanToolbarSkeleton() {
     return (
-        <div className="flex items-center justify-between gap-4 p-1 rounded-lg">
-            <div className="flex items-center gap-3 flex-1">
-                <div className="flex items-center gap-2">
-                    <Skeleton className="h-4 w-4" />
-                    <Skeleton className="w-[200px] h-9 rounded-md" />
-                </div>
-                <div className="flex items-center gap-2">
-                    <Skeleton className="h-4 w-4" />
-                    <Skeleton className="w-[200px] h-9 rounded-md" />
-                </div>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+            <div className="flex-1">
+                <Skeleton className="h-10 w-full rounded-md" />
             </div>
-            <Skeleton className="h-9 w-32 rounded-md" />
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+                <Skeleton className="h-10 w-24 rounded-md" />
+                <Skeleton className="h-10 w-32 rounded-md" />
+            </div>
         </div>
     );
 }

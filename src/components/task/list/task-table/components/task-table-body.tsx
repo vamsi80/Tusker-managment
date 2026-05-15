@@ -12,6 +12,7 @@ import { EmptyState } from "../../table/empty-state";
 import { TaskWithSubTasks } from "@/components/task/shared/types";
 import { TaskRow } from "../../task-row";
 import { SubTaskRow } from "../../subtask-row";
+import { useLoadMoreSentinel } from "@/hooks/use-load-more-sentinel";
 import { TableCell, TableRow } from "@/components/ui/table";
 
 interface TaskTableBodyProps {
@@ -36,7 +37,7 @@ interface TaskTableBodyProps {
   handleRequestSubtasks: (taskId: string) => void;
   getCachedSubTasks: (taskId: string) => any;
   projectPagination: Record<string, any>;
-  observer: IntersectionObserver | null;
+  loadProjectTasks: (id: string) => void;
   filtersActive: boolean;
   activeInlineProjectId: string | null;
   setActiveInlineProjectId: (id: string | null) => void;
@@ -75,7 +76,7 @@ export function TaskTableBody({
   handleRequestSubtasks,
   getCachedSubTasks,
   projectPagination,
-  observer,
+  loadProjectTasks,
   filtersActive,
   activeInlineProjectId,
   setActiveInlineProjectId,
@@ -163,7 +164,7 @@ export function TaskTableBody({
               handleSubTaskClick={handleSubTaskClick}
               level={level}
               paginationState={projectPagination[currentProjectId]}
-              observer={observer}
+              onLoadMore={loadProjectTasks}
               filtersActive={filtersActive}
               activeInlineProjectId={activeInlineProjectId}
               setActiveInlineProjectId={setActiveInlineProjectId}
@@ -298,7 +299,9 @@ export function TaskTableBody({
         <LoadMoreSentinel
           visibleColumnsCount={visibleColumnsCount}
           projectId={projectId}
-          observer={observer}
+          onLoadMore={() => loadProjectTasks(projectId)}
+          hasMore={projectPagination[projectId]?.hasMore}
+          isLoading={projectPagination[projectId]?.isLoading}
         />
       )}
 
@@ -314,7 +317,9 @@ export function TaskTableBody({
         <LoadMoreSentinel
           visibleColumnsCount={visibleColumnsCount}
           projectId="__global_filter__"
-          observer={observer}
+          onLoadMore={() => loadProjectTasks("__global_filter__")}
+          hasMore={projectPagination["__global_filter__"]?.hasMore}
+          isLoading={projectPagination["__global_filter__"]?.isLoading}
         />
       )}
 
@@ -323,6 +328,7 @@ export function TaskTableBody({
           visibleColumnsCount={visibleColumnsCount}
           onLoadMore={loadMoreFiltered}
           isLoading={filterPagination.isLoading}
+          hasMore={filterPagination.hasMore}
         />
       )}
     </tbody>
@@ -332,24 +338,17 @@ export function TaskTableBody({
 /**
  * Custom sentinel for filtered results infinite scroll
  */
-function FilterLoadMoreSentinel({ visibleColumnsCount, onLoadMore, isLoading }: {
+function FilterLoadMoreSentinel({ visibleColumnsCount, onLoadMore, isLoading, hasMore }: {
   visibleColumnsCount: number;
   onLoadMore: () => void;
   isLoading: boolean;
+  hasMore: boolean;
 }) {
-  const ref = useRef<HTMLTableRowElement>(null);
-
-  useEffect(() => {
-    if (!ref.current) return;
-    const obs = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting && !isLoading) {
-        onLoadMore();
-      }
-    }, { rootMargin: "200px" });
-
-    obs.observe(ref.current);
-    return () => obs.disconnect();
-  }, [onLoadMore, isLoading]);
+  const ref = useLoadMoreSentinel<HTMLTableRowElement>({
+    onLoadMore,
+    isLoading,
+    hasMore,
+  });
 
   return (
     <TableRow ref={ref} className="hover:bg-transparent border-0">

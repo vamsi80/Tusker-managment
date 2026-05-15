@@ -10,6 +10,7 @@ import { exportGanttToExcel, exportGanttToPDF } from "./export-utils";
 import { GanttTask, TimelineGranularity } from "./types";
 import { TimelineHeader, TimelineGrid } from "./timeline-grid";
 import { calculateTimelineRange, getDaysBetween } from "./utils";
+import { useLoadMoreSentinel } from "@/hooks/use-load-more-sentinel";
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { ProjectMembersType } from "@/types/project";
 import { GanttRowSkeleton } from "./gantt-row-skeleton";
@@ -67,7 +68,6 @@ export function GanttChart({
     permissions
 }: GanttChartProps & { groupByProject?: boolean }) {
     const [granularity, setGranularity] = useState<TimelineGranularity>('days');
-    console.log("[GanttChart] Rendering. onSubtaskClick present:", !!onSubtaskClick);
     const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
     const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
     const [isExpandAllMode, setIsExpandAllMode] = useState(false); // 🚀 Persistent expansion for lazy-loading
@@ -184,28 +184,17 @@ export function GanttChart({
         });
     };
 
-    const projectsLoaderRef = useRef<HTMLDivElement>(null);
-    const flatTasksLoaderRef = useRef<HTMLDivElement>(null);
+    const projectsLoaderRef = useLoadMoreSentinel<HTMLDivElement>({
+        onLoadMore: onLoadMore || (() => { }),
+        isLoading: !!isLoading,
+        hasMore: !!hasMore,
+    });
 
-    useEffect(() => {
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting && !isLoading) {
-                    if (entry.target === projectsLoaderRef.current && hasMore) {
-                        onLoadMore?.();
-                    }
-                    if (entry.target === flatTasksLoaderRef.current && !groupByProject && hasMore) {
-                        onLoadMore?.();
-                    }
-                }
-            });
-        }, { threshold: 0.1, rootMargin: '200px' });
-
-        if (projectsLoaderRef.current) observer.observe(projectsLoaderRef.current);
-        if (flatTasksLoaderRef.current) observer.observe(flatTasksLoaderRef.current);
-
-        return () => observer.disconnect();
-    }, [hasMore, groupByProject, onLoadMore, isLoading]);
+    const flatTasksLoaderRef = useLoadMoreSentinel<HTMLDivElement>({
+        onLoadMore: onLoadMore || (() => { }),
+        isLoading: !!isLoading,
+        hasMore: !!hasMore,
+    });
 
     useEffect(() => {
         if (!scrollContainerRef.current) return;
@@ -258,34 +247,22 @@ export function GanttChart({
 
     const handleSubtaskClick = useCallback((subtaskId: string) => {
         try {
-            console.log("[GanttChart] handleSubtaskClick START for:", subtaskId);
-            console.log("[GanttChart] onSubtaskClick type:", typeof onSubtaskClick);
             if (!onSubtaskClick) {
-                console.warn("[GanttChart] onSubtaskClick is UNDEFINED!");
                 return;
             }
 
-            console.log("[GanttChart] Searching in tasks. Count:", tasks?.length);
             const allSubtasks = tasks.flatMap(t => t.subtasks || []);
-            console.log("[GanttChart] Total subtasks found:", allSubtasks.length);
 
             const subtask = allSubtasks.find(s => s.id === subtaskId);
 
             if (subtask) {
-                console.log("[GanttChart] Subtask found! projectId:", subtask.projectId);
                 const project = projectMap?.get(subtask.projectId);
                 if (project) {
-                    console.log("[GanttChart] Project found for decoration:", project.name);
                     (subtask as any).projectName = project.name;
                     (subtask as any).projectColor = project.color;
-                } else {
-                    console.warn("[GanttChart] Project NOT found in map for ID:", subtask.projectId);
                 }
-            } else {
-                console.warn("[GanttChart] Subtask NOT found in local list!");
             }
 
-            console.log("[GanttChart] Final step: Calling parent onSubtaskClick...");
             onSubtaskClick(subtaskId);
         } catch (err) {
             console.error("[GanttChart] CRITICAL ERROR in handleSubtaskClick:", err);

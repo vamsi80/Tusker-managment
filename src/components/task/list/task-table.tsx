@@ -176,7 +176,7 @@ function TaskTable(props: TaskTableProps) {
                 handleRequestSubtasks={logic.handleRequestSubtasks}
                 getCachedSubTasks={() => ({})}
                 projectPagination={logic.projectPagination}
-                observer={logic.observer}
+                loadProjectTasks={logic.loadProjectTasks}
                 filtersActive={logic.filtersActive}
                 activeInlineProjectId={logic.activeInlineProjectId}
                 setActiveInlineProjectId={logic.setActiveInlineProjectId}
