@@ -41,6 +41,7 @@ interface FlatTaskListProps {
     setActiveInlineProjectId: (id: string | null) => void;
     onTasksChange?: (update: any) => void;
     scrollContainerRef: React.RefObject<HTMLDivElement | null>;
+    isSubTaskRow?: boolean;
 }
 
 export function FlatTaskList({
@@ -72,7 +73,8 @@ export function FlatTaskList({
     activeInlineProjectId,
     setActiveInlineProjectId,
     onTasksChange,
-    scrollContainerRef
+    scrollContainerRef,
+    isSubTaskRow = false
 }: FlatTaskListProps) {
     const tasks = initialTasks || [];
 
@@ -136,6 +138,7 @@ export function FlatTaskList({
                     onRequestSubtasks={onRequestSubtasks}
                     isCached={!!getCachedSubTasks(task.id)}
                     scrollContainerRef={scrollContainerRef}
+                    isSubtaskRow={isSubTaskRow}
                 >
                     <SubTaskList
                         task={task}

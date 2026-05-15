@@ -83,7 +83,7 @@ export function useRemainingDays(
             isDueSoon: diffDays > 0 && diffDays <= 3, // Due within 3 days
             dueDate,
         };
-    }, [startDate, days]);
+    }, [startDate, days, providedDueDate]);
 }
 
 /**

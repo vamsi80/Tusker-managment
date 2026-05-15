@@ -49,6 +49,7 @@ export const SubTaskRow = memo(function SubTaskRow({
     members,
     projectId,
     parentTaskId,
+    parentTaskProject,
     onSubTaskUpdated,
     onSubTaskDeleted,
     tags = [],
@@ -106,14 +107,14 @@ export const SubTaskRow = memo(function SubTaskRow({
     // 👤 Robust Surname Resolver: Prioritizes pre-fetched data, falls back to member list lookup
     const getUserDisplayName = (userObj: any) => {
         if (!userObj) return "";
-        
+
         // Check if the user object is nested inside workspaceMember
         const user = userObj.workspaceMember?.user || userObj;
 
         // 1. Try pre-fetched data from the user object directly
         if (user.surname) return user.surname;
         if (user.name) return user.name;
-        
+
         // 2. Fallback to member list lookup using the ID
         const member = members.find(m => m.id === user.id || m.userId === user.id);
         return member?.user.surname || member?.user.name || "";
@@ -235,8 +236,6 @@ export const SubTaskRow = memo(function SubTaskRow({
                         {subTask.name}
                     </span>
                 </TableCell>
-
-                {/* Project column removed */}
 
                 {columnVisibility.description && (
                     <TableCell className="w-[150px] sm:w-[200px]">

@@ -188,7 +188,6 @@ export function buildSubTaskConditions(filters: TaskFilters): any {
     // ============================================================
     if (filters.search && filters.search.trim().length > 0) {
         const searchTerm = filters.search.trim();
-
         const searchOR = [
             { name: { contains: searchTerm, mode: 'insensitive' } },
             { description: { contains: searchTerm, mode: 'insensitive' } },
@@ -196,14 +195,16 @@ export function buildSubTaskConditions(filters: TaskFilters): any {
         ];
 
         if (conditions.OR) {
-            // If we already have an OR (from dates), we must wrap everything in AND to avoid conflict
-            const currentOR = conditions.OR;
+            // Merge existing OR with search OR using AND
+            const existingOR = conditions.OR;
             delete conditions.OR;
             conditions.AND = [
                 ...(conditions.AND || []),
-                { OR: currentOR },
+                { OR: existingOR },
                 { OR: searchOR }
             ];
+        } else if (conditions.AND) {
+            conditions.AND.push({ OR: searchOR });
         } else {
             conditions.OR = searchOR;
         }

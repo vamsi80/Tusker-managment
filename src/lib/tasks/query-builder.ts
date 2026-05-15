@@ -1,6 +1,6 @@
 import { Prisma } from "@/generated/prisma";
 
-export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = false, extraFields?: string[], subtaskFilter?: Prisma.TaskWhereInput): Prisma.TaskSelect {
+export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = false, extraFields?: string[], subtaskFilter?: Prisma.TaskWhereInput, isSubtaskFirst: boolean = false): Prisma.TaskSelect {
     const isList = view_mode === "list" || view_mode === "default" || !view_mode;
     const isKanban = view_mode === "kanban";
     const isGantt = view_mode === "gantt";
@@ -76,8 +76,8 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
         select.description = true;
     }
 
-    // Include detailed createdBy only if NOT in Gantt view to save on payload/joins
-    if (!isGantt) {
+    // Include detailed createdBy only if NOT in Gantt view or subtask-first mode to save on payload/joins
+    if (!isGantt && !isSubtaskFirst) {
         select.createdBy = {
             select: {
                 workspaceMember: {
@@ -493,11 +493,13 @@ export function buildSubtaskExpansionWhere(
     // Search filter
     if (opts.search && opts.search.trim().length > 0) {
         const q = opts.search.trim();
-        where.OR = [
-            { name: { contains: q, mode: "insensitive" } },
-            { taskSlug: { contains: q, mode: "insensitive" } },
-            { description: { contains: q, mode: "insensitive" } },
-        ];
+        appendAnd(where, {
+            OR: [
+                { name: { contains: q, mode: "insensitive" } },
+                { taskSlug: { contains: q, mode: "insensitive" } },
+                { description: { contains: q, mode: "insensitive" } },
+            ]
+        });
     }
 
     if (opts.cursor) {
@@ -623,9 +625,9 @@ export function buildWorkspaceFilterWhere(
     }
 
     if (opts.assigneeId) {
-        // 🚀 CRITICAL: In Search/Filter/Kanban modes, we want STRICT assignee matching.
-        // We do NOT want to pull in a Parent task just because its SubTask matches the assignee.
-        const useStrictFilter = !!(opts.excludeParents || opts.view_mode === "kanban" || opts.onlySubtasks || (opts.status && opts.status.length > 0) || (opts.search && opts.search.length > 0));
+        // 🚀 CRITICAL: If an explicit assignee filter is applied, we usually want STRICT matching.
+        // The user wants to see tasks assigned to the target person, not unrelated parents.
+        const useStrictFilter = true; 
         appendAnd(where, buildParentAssigneeFilter(opts.assigneeId, useStrictFilter));
     }
 
@@ -672,6 +674,23 @@ export function buildWorkspaceFilterWhere(
         } else if (opts.excludeParents || opts.onlySubtasks || opts.view_mode === "kanban") {
             where.parentTaskId = { not: null };
             where.isParent = false;
+        } else if (opts.view_mode !== "gantt") {
+            // 🚀 DEFAULT: Hierarchical root view (Parents only)
+            // If no explicit filter is pulling in subtasks, only show root parents at the top level.
+            const hasFilters = !!(
+                (opts.status && opts.status.length > 0) ||
+                opts.assigneeId ||
+                opts.tagId ||
+                (opts.search && opts.search.trim().length > 0) ||
+                opts.dueAfter ||
+                opts.dueBefore ||
+                (opts.ids && opts.ids.length > 0)
+            );
+            
+            if (!hasFilters) {
+                where.parentTaskId = null;
+                where.isParent = true;
+            }
         }
     }
 

@@ -5,7 +5,7 @@ import { ChevronDown, ChevronRight, Folder } from "lucide-react";
 
 interface ProjectRowProps {
     project: { id: string; name: string; color?: string };
-    totalTasksCount?: number; // Total parent tasks for this project (if available)
+    totalTasksCount?: number;
     isExpanded: boolean;
     onToggle: () => void;
     colSpan: number;

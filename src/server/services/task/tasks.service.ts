@@ -285,11 +285,11 @@ export class TasksService {
               workspaceId: project.workspaceId,
               createdById: creatorProjectMemberId!,
               isParent: true,
-              status: firstRow.status ? (firstRow.status as any) : undefined,
-              assigneeId: parentAssigneeId,
-              reviewerId: parentReviewerId,
-              startDate: parentStartDate,
-              days: firstRow.days,
+              status: null,
+              assigneeId: null,
+              reviewerId: null,
+              startDate: null,
+              days: null,
               tags: { connect: parentTagIds.map(id => ({ id })) },
               subtaskCount: subtaskCountVal,
               completedSubtaskCount: completedSubtaskCountVal,
@@ -599,7 +599,9 @@ export class TasksService {
         !projectId &&
         !hasExplicitFilters &&
         !opts.expandedProjectIds?.length &&
-        hierarchyMode !== "parents"
+        hierarchyMode !== "parents" &&
+        !isAdmin &&
+        opts.view_mode !== "list"
       ) {
         strategy = "SAFETY_GUARD";
         return {
@@ -1189,6 +1191,22 @@ export class TasksService {
       opts.dueBefore
     );
 
+    // Execution filters trigger subtask-first mode
+    const hasExecutionFilters = !!(
+      (opts.status && toArray(opts.status)?.length) ||
+      (opts.assigneeId && toArray(opts.assigneeId)?.length) ||
+      (opts.tagId && toArray(opts.tagId)?.length) ||
+      opts.dueAfter ||
+      opts.dueBefore
+    );
+
+    const isSubtaskFirstMode = hasExecutionFilters && opts.view_mode === "list";
+
+    // For subtask-first mode: we want to page through results grouped by parent.
+    // Use parentTaskId ASC, id ASC so all subtasks for a parent come in one page.
+    // For this, we handle the cursor separately (not through buildWorkspaceFilterWhere)
+    // to avoid conflicting with the generic createdAt-based cursor logic.
+    const subtaskFirstCursor = isSubtaskFirstMode ? opts.cursor : undefined;
     const matchWhere = buildWorkspaceFilterWhere(
       {
         workspaceId,
@@ -1208,62 +1226,85 @@ export class TasksService {
             : undefined,
         includeSubTasks: opts.includeSubTasks,
         onlyParents: !hasExplicitFilters && opts.hierarchyMode === "parents",
-        onlySubtasks: !hasExplicitFilters && opts.hierarchyMode === "children",
+        onlySubtasks: isSubtaskFirstMode || (!hasExplicitFilters && opts.hierarchyMode === "children"),
+        excludeParents: isSubtaskFirstMode,
         view_mode: opts.view_mode,
         ids: opts.ids,
+        // Only pass cursor for non-subtask-first mode (handled separately below)
+        cursor: isSubtaskFirstMode ? undefined : opts.cursor,
       },
       userId,
     );
 
-    const expansionMatchWhere = { ...matchWhere };
-    delete (expansionMatchWhere as any).isParent;
-    delete (expansionMatchWhere as any).parentTaskId;
+    // In subtask-first mode, inject the cursor as a parentTaskId+id seek condition
+    // so pagination is stable per-parent (all subtasks of a parent come together)
+    if (isSubtaskFirstMode && subtaskFirstCursor?.parentTaskId && subtaskFirstCursor?.id) {
+      const seekCond = {
+        OR: [
+          { parentTaskId: { gt: subtaskFirstCursor.parentTaskId } },
+          {
+            AND: [
+              { parentTaskId: subtaskFirstCursor.parentTaskId },
+              { id: { gt: subtaskFirstCursor.id } }
+            ]
+          }
+        ]
+      };
+      if (!matchWhere.AND) (matchWhere as any).AND = [];
+      (matchWhere.AND as any[]).push(seekCond);
+    }
 
     const primarySortFieldForSelect = opts.sorts?.[0]?.field || "createdAt";
     const dbFieldForSelect = SORT_MAP[primarySortFieldForSelect]?.dbField || "createdAt";
 
+    // Use parentTaskId+id ordering in subtask-first mode so all subtasks for a given
+    // parent come in a single page. For normal mode, use the configured sort order.
+    const orderByForQuery = isSubtaskFirstMode
+      ? [{ parentTaskId: "asc" as const }, { id: "asc" as const }]
+      : buildOrderBy(opts.sorts, opts.view_mode);
+
     const rawMatches = (await TaskRepository.findTasksByWhere(
-      buildWorkspaceFilterWhere(
-        {
-          ...opts,
-          workspaceId,
-          projectId: opts.projectId,
-          assigneeId: toArray(opts.assigneeId),
-          status: toArray(opts.status),
-          tagId: toArray(opts.tagId),
-          dueAfter: opts.dueAfter,
-          dueBefore: opts.dueBefore,
-          isAdmin,
-          fullAccessProjectIds,
-          restrictedProjectIds,
-          projectIds:
-            !opts.projectId && opts.expandedProjectIds?.length
-              ? opts.expandedProjectIds
-              : undefined,
-          includeSubTasks: opts.includeSubTasks,
-          onlyParents: !hasExplicitFilters && opts.hierarchyMode === "parents",
-          onlySubtasks:
-            !hasExplicitFilters && opts.hierarchyMode === "children",
-          cursor: opts.cursor,
-        },
-        userId,
-      ),
+      matchWhere,
       limit + 1,
       getTaskSelect(
         opts.view_mode,
         opts.view_mode === "gantt" || opts.isMinimal,
         opts.extraFields ? [...opts.extraFields, (dbFieldForSelect || "createdAt")] : (dbFieldForSelect ? [dbFieldForSelect] : []),
-        subtaskFilter
+        subtaskFilter,
+        isSubtaskFirstMode
       ),
-      buildOrderBy(opts.sorts, opts.view_mode)
+      orderByForQuery
     )) as any[];
 
     const hasMore = rawMatches.length > limit;
     const matches = rawMatches.slice(0, limit);
 
     if (matches.length === 0) {
-      return { tasks: [], totalCount: 0, hasMore: false, nextCursor: null };
+      return { tasks: [], totalCount: 0, hasMore: false, nextCursor: null, isSubtaskFirstMode };
     }
+
+    // 🚀 SUBTASK-FIRST SHORTCUT: If in subtask-first mode, skip expansion and return flat list
+    if (isSubtaskFirstMode) {
+      const lastMatch = matches[matches.length - 1];
+      // Cursor includes parentTaskId so seek condition is stable per-parent
+      const nextCursor = hasMore ? {
+        id: lastMatch.id,
+        parentTaskId: lastMatch.parentTaskId,
+        createdAt: lastMatch.createdAt
+      } : null;
+
+      return {
+        tasks: matches,
+        totalCount: matches.length,
+        hasMore,
+        nextCursor,
+        isSubtaskFirstMode: true
+      };
+    }
+
+    const expansionMatchWhere = { ...matchWhere };
+    delete (expansionMatchWhere as any).isParent;
+    delete (expansionMatchWhere as any).parentTaskId;
 
     const taskMap = new Map<string, any>();
     // For Gantt mode, we strictly honor includeSubTasks even if filters are active to prevent N+1 bloat
@@ -1882,35 +1923,48 @@ export class TasksService {
     if (data.name) updateData.name = data.name;
     if (data.description !== undefined)
       updateData.description = data.description;
-    if (data.status) updateData.status = data.status;
+    
+    // 🚀 Constraint: Parent tasks cannot have status, assignee, or dates.
+    if (!task.parentTaskId) {
+      updateData.status = null;
+      updateData.assigneeId = null;
+      updateData.reviewerId = null;
+      updateData.startDate = null;
+      updateData.dueDate = null;
+      updateData.days = null;
+    } else {
+      // It's a subtask, allow updates to execution fields
+      if (data.status) updateData.status = data.status;
+      if (data.days !== undefined) updateData.days = data.days;
+      if (data.startDate !== undefined)
+        updateData.startDate = parseIST(data.startDate as any);
+      if (data.dueDate !== undefined)
+        updateData.dueDate = parseIST(data.dueDate as any);
+
+      if (data.assigneeUserId !== undefined) {
+        updateData.assigneeId = data.assigneeUserId
+          ? await this.resolveOrJoinProjectMember(
+            data.assigneeUserId,
+            projectId,
+            workspaceId,
+          )
+          : null;
+      }
+      if (data.reviewerUserId !== undefined) {
+        updateData.reviewerId = data.reviewerUserId
+          ? await this.resolveOrJoinProjectMember(
+            data.reviewerUserId,
+            projectId,
+            workspaceId,
+          )
+          : null;
+      }
+    }
+
     if (data.tagIds !== undefined) {
       updateData.tags = {
         set: data.tagIds.map(id => ({ id }))
       };
-    }
-    if (data.days !== undefined) updateData.days = data.days;
-    if (data.startDate !== undefined)
-      updateData.startDate = parseIST(data.startDate as any);
-    if (data.dueDate !== undefined)
-      updateData.dueDate = parseIST(data.dueDate as any);
-
-    if (data.assigneeUserId !== undefined) {
-      updateData.assigneeId = data.assigneeUserId
-        ? await this.resolveOrJoinProjectMember(
-          data.assigneeUserId,
-          projectId,
-          workspaceId,
-        )
-        : null;
-    }
-    if (data.reviewerUserId !== undefined) {
-      updateData.reviewerId = data.reviewerUserId
-        ? await this.resolveOrJoinProjectMember(
-          data.reviewerUserId,
-          projectId,
-          workspaceId,
-        )
-        : null;
     }
 
     const updated = await TaskRepository.updateTaskAndParentCount(
@@ -2506,28 +2560,38 @@ export class TasksService {
       ...buildSubTaskConditions({ ...filters, workspaceId, projectId, dueAfter, dueBefore }),
     };
 
+    // Apply RBAC Access Control as an mandatory AND condition to avoid overwriting UI filters (like assignee filter)
     if (!isAdmin) {
+      const accessConditions: any[] = [];
       if (fullAccessProjectIds.length > 0 && restrictedProjectIds.length > 0) {
-        countWhere.OR = [
-          { projectId: { in: fullAccessProjectIds } },
-          {
-            projectId: { in: restrictedProjectIds },
-            OR: [
-              { assignee: { workspaceMember: { userId } } },
-              { createdBy: { workspaceMember: { userId } } },
-            ]
-          },
-        ];
+        accessConditions.push({
+          OR: [
+            { projectId: { in: fullAccessProjectIds } },
+            {
+              projectId: { in: restrictedProjectIds },
+              OR: [
+                { assignee: { workspaceMember: { userId } } },
+                { createdBy: { workspaceMember: { userId } } },
+              ]
+            },
+          ]
+        });
       } else if (fullAccessProjectIds.length > 0) {
-        countWhere.projectId = { in: fullAccessProjectIds };
+        accessConditions.push({ projectId: { in: fullAccessProjectIds } });
       } else if (restrictedProjectIds.length > 0) {
-        countWhere.projectId = { in: restrictedProjectIds };
-        countWhere.OR = [
-          { assignee: { workspaceMember: { userId } } },
-          { createdBy: { workspaceMember: { userId } } },
-        ];
+        accessConditions.push({ 
+          projectId: { in: restrictedProjectIds },
+          OR: [
+            { assignee: { workspaceMember: { userId } } },
+            { createdBy: { workspaceMember: { userId } } },
+          ]
+        });
       } else {
         return parentTaskIds.map(parentTaskId => ({ parentTaskId, subTasks: [], totalCount: 0, hasMore: false }));
+      }
+
+      if (accessConditions.length > 0) {
+        countWhere.AND = [...(countWhere.AND || []), ...accessConditions];
       }
     }
 
@@ -2553,16 +2617,23 @@ export class TasksService {
       }
 
       if (!isAdmin) {
+        const accessConditions: any[] = [];
         if (fullAccessProjectIds.length > 0 && restrictedProjectIds.length > 0) {
-          singleParentWhere.OR = [
-            { projectId: { in: fullAccessProjectIds } },
-            { projectId: { in: restrictedProjectIds }, assignee: { workspaceMember: { userId } } },
-          ];
+          accessConditions.push({
+            OR: [
+              { projectId: { in: fullAccessProjectIds } },
+              { projectId: { in: restrictedProjectIds }, assignee: { workspaceMember: { userId } } },
+            ]
+          });
         } else if (fullAccessProjectIds.length > 0) {
-          singleParentWhere.projectId = { in: fullAccessProjectIds };
+          accessConditions.push({ projectId: { in: fullAccessProjectIds } });
         } else if (restrictedProjectIds.length > 0) {
-          singleParentWhere.projectId = { in: restrictedProjectIds };
-          singleParentWhere.assignee = { workspaceMember: { userId } };
+          accessConditions.push({ projectId: { in: restrictedProjectIds } });
+          accessConditions.push({ assignee: { workspaceMember: { userId } } });
+        }
+        
+        if (accessConditions.length > 0) {
+          singleParentWhere.AND = [...(singleParentWhere.AND || []), ...accessConditions];
         }
       }
 
