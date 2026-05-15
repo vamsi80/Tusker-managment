@@ -330,13 +330,6 @@ export const KanbanCard = React.memo(function KanbanCard({
               <h5
                 className="font-semibold text-[13px] leading-snug flex-1 cursor-pointer hover:text-primary transition-colors line-clamp-1"
                 onClick={handleNameClick}
-                onMouseEnter={() => {
-                  import(
-                    "@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/subtask-details-sheet"
-                  ).then((m) => {
-                    m.prefetchSubTask(subTask.id);
-                  });
-                }}
                 title={subTask.name}
               >
                 {subTask.name}
@@ -474,7 +467,7 @@ export const KanbanCard = React.memo(function KanbanCard({
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Avatar 
+                    <Avatar
                       className="h-6 w-6 cursor-pointer border-2 border-background"
                     >
                       <AvatarFallback className="text-[10px]">
