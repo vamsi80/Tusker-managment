@@ -11,10 +11,11 @@ import { TaskFilters } from "@/components/task/shared/types";
 import { transformToGanttTasks, transformToGanttSubtasks } from "@/components/task/gantt/transform-tasks";
 import { ProjectMembersType } from "@/types/project";
 import { useFilterStore } from "@/lib/store/filter-store";
+import { useWorkspaceTags } from "@/hooks/use-workspace-tags";
+import { useFilteredFetch } from "@/hooks/use-filtered-fetch";
 
 import { toast } from "sonner";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
-import { workspacesClient } from "@/lib/api-client/workspaces";
 
 interface ProjectGanttClientProps {
     workspaceId: string;
@@ -40,38 +41,69 @@ export function ProjectGanttClient({
     const { data: layoutData } = useWorkspaceLayout();
     const permissions = layoutData.permissions;
     const projects = layoutData.projects || [];
-    const [tags, setTags] = useState<{ id: string; name: string }[]>([]);
-
-    useEffect(() => {
-        let mounted = true;
-        const fetchTags = async () => {
-            try {
-                const workspaceTags = await workspacesClient.getTags(workspaceId);
-                if (mounted) {
-                    setTags(workspaceTags.map((t) => ({ id: t.id, name: t.name })));
-                }
-            } catch (error) {
-                console.error("Failed to fetch tags for ProjectGanttClient:", error);
-            }
-        };
-        fetchTags();
-        return () => {
-            mounted = false;
-        };
-    }, [workspaceId]);
+    const tags = useWorkspaceTags(workspaceId);
 
     const [tasks, setTasks] = useState<GanttTask[]>(initialTasks);
     const [localTaskDataMap, setLocalTaskDataMap] = useState<Record<string, WorkspaceTaskType>>(subtaskDataMap);
-    const [nextCursor, setNextCursor] = useState<any>(null);
-    const [hasMore, setHasMore] = useState<boolean>(true);
-    const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
     const [loadingSubtasks, setLoadingSubtasks] = useState<Set<string>>(new Set());
-    const fetchingIdsRef = useRef<Set<string>>(new Set());
-    const fetchingSubtasksRef = useRef<Set<string>>(new Set()); // 🚀 NEW: Per-task lock for infinite scroll
+    const fetchingSubtasksRef = useRef<Set<string>>(new Set());
     const expandedTaskIdsRef = useRef<Set<string>>(new Set());
+    const fetchingIdsRef = useRef<Set<string>>(new Set()); // Lock for subtask expansion
 
     const { filters, setFilters, searchQuery, setSearchQuery, clearFilters } = useFilterStore();
     const [isPending, startTransition] = useTransition();
+    const lastFiltersActiveRef = useRef(false);
+
+    const onFilteredResults = useCallback((newRawTasks: any[], meta: any) => {
+        const newGanttTasks = transformToGanttTasks(newRawTasks);
+
+        setLocalTaskDataMap(prev => {
+            const next = { ...prev };
+            newRawTasks.forEach((t: any) => {
+                next[t.id] = t;
+                if (t.subTasks) t.subTasks.forEach((s: any) => next[s.id] = s);
+            });
+            return next;
+        });
+
+        setTasks(newGanttTasks);
+    }, []);
+
+    const onAppendFilteredResults = useCallback((newRawTasks: any[], meta: any) => {
+        const newGanttTasks = transformToGanttTasks(newRawTasks);
+
+        setLocalTaskDataMap(prev => {
+            const next = { ...prev };
+            newRawTasks.forEach((t: any) => {
+                next[t.id] = t;
+                if (t.subTasks) t.subTasks.forEach((s: any) => next[s.id] = s);
+            });
+            return next;
+        });
+
+        setTasks(prev => {
+            const existingIds = new Set(prev.map(t => t.id));
+            const uniqueNew = newGanttTasks.filter(t => !existingIds.has(t.id));
+            return [...prev, ...uniqueNew];
+        });
+    }, []);
+
+    const ganttExtraParams = useMemo(() => ({ hm: "parents", sub: "false" }), []);
+
+    const {
+        isLoading: isFilteredLoading,
+        loadMore: loadMoreFiltered,
+        pagination: filterPagination,
+        filtersActive
+    } = useFilteredFetch({
+        workspaceId,
+        projectId,
+        level: "project",
+        viewMode: "gantt",
+        extraParams: ganttExtraParams,
+        onResults: onFilteredResults,
+        onAppendResults: onAppendFilteredResults,
+    });
 
     // Use global subtask sheet context
     const { openSubTaskSheet } = useSubTaskSheetActions();
@@ -212,108 +244,25 @@ export function ProjectGanttClient({
         [filters, searchQuery, workspaceId, projectId]
     );
 
-    const fetchTasks = async (isLoadMore = false): Promise<void> => {
-        if (isLoadMore && (!hasMore || isLoadingMore)) return;
-
-        const params = new URLSearchParams();
-        params.append("w", workspaceId);
-        params.append("p", projectId);
-        params.append("vm", "gantt");
-        params.append("hm", "parents"); // Only fetch root tasks
-        params.append("sub", "false"); // 🚀 True lazy loading: exclude subtasks in root fetch
-        params.append("l", "50"); // 🔋 Reverted to 50 for faster initial response
-
-        if (isLoadMore && nextCursor) {
-            params.append("c", JSON.stringify(nextCursor));
-        }
-
-        if (filters.status) params.append("s", filters.status);
-        if (filters.assigneeId) params.append("a", filters.assigneeId);
-        if (filters.tagId) params.append("t", filters.tagId);
-        if (filters.dueDateFilter) params.append("dt", filters.dueDateFilter);
-        if (filters.startDate) params.append("da", filters.startDate instanceof Date ? filters.startDate.toISOString() : filters.startDate);
-        if (filters.endDate) params.append("db", filters.endDate instanceof Date ? filters.endDate.toISOString() : filters.endDate);
-        if (searchQuery) params.append("q", searchQuery);
-
-        const fetchKey = `gantt-fetch-${params.toString()}`;
-        if (fetchingIdsRef.current.has(fetchKey)) return;
-        fetchingIdsRef.current.add(fetchKey);
-
-        if (isLoadMore) setIsLoadingMore(true);
-
-        try {
-            const res = await fetch(`/api/v1/tasks?${params.toString()}`);
-            const json = await res.json();
-            if (json.success) {
-                const result = json.data;
-                const newRawTasks = result.tasks || [];
-
-                // For Gantt, we might need some date formatting logic or just use as is
-                // We'll transform these into GanttTasks
-                const newGanttTasks = transformToGanttTasks(newRawTasks);
-
-                // Update local data map for all tasks that arrived
-                setLocalTaskDataMap(prev => {
-                    const next = { ...prev };
-                    newRawTasks.forEach((t: any) => {
-                        next[t.id] = t;
-                        if (t.subTasks) t.subTasks.forEach((s: any) => next[s.id] = s);
-                    });
-                    return next;
-                });
-
-                setTasks(prev => {
-                    if (!isLoadMore) return newGanttTasks;
-                    const existingIds = new Set(prev.map(t => t.id));
-                    const uniqueNew = newGanttTasks.filter(t => !existingIds.has(t.id));
-                    return [...prev, ...uniqueNew];
-                });
-                setNextCursor(result.nextCursor);
-                setHasMore(result.hasMore);
-                lastFetchTimeRef.current = Date.now(); // Track last successful fetch
-            }
-        } catch (err) {
-            console.error("Failed to fetch gantt tasks:", err);
-            toast.error("Failed to load tasks");
-        } finally {
-            fetchingIdsRef.current.delete(fetchKey);
-            if (isLoadMore) setIsLoadingMore(false);
-        }
-    };
-
+    // 🧹 RESTORE Logic: When filters are cleared, restore the original hierarchical view
     useEffect(() => {
-        // 🚿 Clear subtasks and expanded tracking on every filter change
-        setTasks(prev => prev.map(t => ({ ...t, subtasks: undefined })));
-        expandedTaskIdsRef.current.clear();
-
-        const timer = setTimeout(() => {
-            startTransition(() => {
-                fetchTasks(false);
-            });
-        }, 300);
-        return () => clearTimeout(timer);
-    }, [workspaceId, projectId, filters, searchQuery]);
-
-    const lastFetchTimeRef = useRef(0);
+        if (!filtersActive && lastFiltersActiveRef.current) {
+            setTasks(initialTasks);
+            setLocalTaskDataMap(subtaskDataMap);
+            lastFiltersActiveRef.current = false;
+        } else if (filtersActive) {
+            lastFiltersActiveRef.current = true;
+        }
+    }, [filtersActive, initialTasks, subtaskDataMap]);
 
     const handleLoadMore = () => {
-        // 🛡️ Guard: Prevent overlapping fetches or too-frequent pagination triggers
-        const now = Date.now();
-        if (now - lastFetchTimeRef.current < 2000) return; // 2s cooldown for pagination
-
-        startTransition(() => {
-            fetchTasks(true);
-        });
+        if (filtersActive) {
+            loadMoreFiltered();
+        }
     };
 
     const handleRequestSubtasks = async (taskId: string) => {
         if (fetchingIdsRef.current.has(taskId)) return;
-
-        // 🧠 Cache Strategy: Bypass cache if any filters are active
-        const hasActiveFilters = !!(filters.status || filters.assigneeId || filters.tagId || searchQuery || filters.startDate || filters.endDate);
-
-        // Removed manual caching to stay consistent with "Zero-Optimistic" architecture.
-
         fetchingIdsRef.current.add(taskId);
         setLoadingSubtasks(prev => new Set(prev).add(taskId));
 
@@ -538,7 +487,8 @@ export function ProjectGanttClient({
                     onRequestSubtasks={handleRequestSubtasks}
                     onRequestMoreSubtasks={handleRequestMoreSubtasks}
                     loadingSubtasks={loadingSubtasks}
-                    isLoading={isLoadingMore || isPending}
+                    isLoading={isFilteredLoading || isPending}
+                    hasMore={filtersActive ? filterPagination.hasMore : false}
                 />
             </div>
         </div>

@@ -14,6 +14,9 @@ import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 import { apiClient } from "@/lib/api-client";
 import { ProjectLayoutContext } from "@/app/w/[workspaceId]/p/[slug]/_components/project-layout-context";
 import { useContext } from "react";
+import { useWorkspaceTags } from "@/hooks/use-workspace-tags";
+import { useFilterStore } from "@/lib/store/filter-store";
+import { useFilteredFetch } from "@/hooks/use-filtered-fetch";
 
 export function useTaskTableLogic({
   initialTasks,
@@ -30,20 +33,25 @@ export function useTaskTableLogic({
   };
 
   // Initialize state directly from initialTasks (no global cache)
-  const [tasks, setTasks] = useState<TaskWithSubTasks[]>(() => dedupeTasks(initialTasks || []));
+  const tags = useWorkspaceTags(workspaceId);
+  const {
+    filters, setFilters,
+    searchQuery, setSearchQuery,
+    clearFilters: clearGlobalFilters,
+    isCurrentlyFiltered,
+    setIsCurrentlyFiltered
+  } = useFilterStore();
 
-  const [tags, setTags] = useState<{ id: string; name: string }[]>([]);
-  const [filters, setFilters] = useState<TaskFilters>({});
-  const [searchQuery, setSearchQuery] = useState("");
-  const clearFilters = useCallback(() => {
-    setFilters({});
-    setSearchQuery("");
-    setIsSubtaskFirstMode(false);
-    setIsCurrentlyFiltered(false);
-    setFilterPagination({ hasMore: false, nextCursor: null, isLoading: false });
-  }, []);
-  const [isLoadingFilters, setIsLoadingFilters] = useState(false);
-  const [isCurrentlyFiltered, setIsCurrentlyFiltered] = useState(false);
+  const tasksRef = useRef<TaskWithSubTasks[]>([]);
+  const fetchingIdsRef = useRef<Set<string>>(new Set());
+  const isInitialMountRef = useRef<boolean>(true);
+  const projectPaginationRef = useRef<Record<string, any>>({});
+  const processedSubTasksRef = useRef<Set<string>>(new Set());
+  const fetchingSubTasksRef = useRef<Set<string>>(new Set());
+  const subTaskBatchQueueRef = useRef<Set<string>>(new Set());
+  const subTaskBatchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const [tasks, setTasks] = useState<TaskWithSubTasks[]>(() => dedupeTasks(initialTasks || []));
   const [isSubtaskFirstMode, setIsSubtaskFirstMode] = useState(false);
 
   // 🚀 Persistent State Sync: Try to use ProjectLayoutContext if available
@@ -65,23 +73,13 @@ export function useTaskTableLogic({
   const [isSortedViewLoading, setIsSortedViewLoading] = useState(false);
   const [projectPagination, setProjectPagination] = useState<Record<string, any>>({});
   const [activeInlineProjectIdState, setActiveInlineProjectIdState] = useState<string | null>(null);
-  const [filterPagination, setFilterPagination] = useState<{
-    hasMore: boolean;
-    nextCursor: any;
-    isLoading: boolean;
-  }>({ hasMore: false, nextCursor: null, isLoading: false });
 
-  const filtersActive = hasActiveFilters(filters) || !!searchQuery;
-  const tasksRef = useRef<TaskWithSubTasks[]>([]);
-  const fetchingIdsRef = useRef<Set<string>>(new Set());
-  const isInitialMountRef = useRef<boolean>(true);
-  const projectPaginationRef = useRef<Record<string, any>>({});
-  const processedSubTasksRef = useRef<Set<string>>(new Set());
-  const fetchingSubTasksRef = useRef<Set<string>>(new Set());
-  const subTaskBatchQueueRef = useRef<Set<string>>(new Set());
-  const subTaskBatchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const clearFilters = useCallback(() => {
+    clearGlobalFilters();
+    setIsSubtaskFirstMode(false);
+    setIsCurrentlyFiltered(false);
+  }, [clearGlobalFilters, setIsCurrentlyFiltered]);
   const [isAutoExpanded, setIsAutoExpanded] = useState(false);
-  const [observer, setObserver] = useState<IntersectionObserver | null>(null);
 
   const { openSubTaskSheet } = useSubTaskSheetActions();
 
@@ -184,6 +182,54 @@ export function useTaskTableLogic({
       };
     });
   }, [orderSubTasksForParent]);
+
+  const hydrateTasksRef = useRef(hydrateTasks);
+  const normalizeFilteredTasksRef = useRef(normalizeFilteredTasks);
+  const orderRootTasksRef = useRef(orderRootTasks);
+
+  useEffect(() => {
+    hydrateTasksRef.current = hydrateTasks;
+    normalizeFilteredTasksRef.current = normalizeFilteredTasks;
+    orderRootTasksRef.current = orderRootTasks;
+  }, [hydrateTasks, normalizeFilteredTasks, orderRootTasks]);
+
+  // 🚀 Centralized Filter Fetch Logic
+  const {
+    isLoading: isLoadingFilters,
+    pagination: filterPaginationFromHook,
+    loadMore: loadMoreFiltered,
+    filtersActive
+  } = useFilteredFetch({
+    workspaceId,
+    projectId,
+    level,
+    viewMode: "list",
+    onResults: useCallback((fetchedTasks: TaskWithSubTasks[], meta: any) => {
+      const isFirstMode = meta.isSubtaskFirstMode || false;
+      setIsSubtaskFirstMode(isFirstMode);
+
+      if (!isFirstMode) {
+        fetchedTasks.forEach((t: TaskWithSubTasks) => {
+          if (t.isParent) processedSubTasksRef.current.add(t.id);
+        });
+      }
+
+      setTasks(hydrateTasksRef.current(orderRootTasksRef.current(fetchedTasks)));
+    }, []),
+    onAppendResults: useCallback((newTasks: TaskWithSubTasks[]) => {
+      setTasks(prev => {
+        const existingIds = new Set(prev.map(t => t.id));
+        const fresh = newTasks.filter(t => !existingIds.has(t.id));
+        const merged = [...prev, ...fresh];
+        return hydrateTasksRef.current(merged);
+      });
+    }, [])
+  });
+
+  const filterPagination = {
+    ...filterPaginationFromHook,
+    isLoading: isLoadingFilters
+  };
 
   const handleRequestSubtasksBatch = useCallback(async (taskIds: string[]) => {
     // Filter out already processed or currently fetching IDs
@@ -304,46 +350,10 @@ export function useTaskTableLogic({
       fetchingIdsRef.current.clear();
       processedSubTasksRef.current.clear();
       fetchingSubTasksRef.current.clear();
-
-      // 🚀 FORCE RE-OBSERVE: Disconnect and let useEffect re-create if needed
-      observer?.disconnect();
     }
-  }, [workspaceId, projectId, initialTasks, hydrateTasks, orderRootTasks, observer]);
+  }, [workspaceId, projectId, initialTasks, hydrateTasks, orderRootTasks]);
 
-  const preFilterTasksRef = useRef<TaskWithSubTasks[]>([]);
   const lastFiltersActiveRef = useRef(false);
-
-  // 🚀 Handle filter clearing separately to avoid using stale initialTasks
-  useEffect(() => {
-    // 1. Transition: Start Filtering (was not filtering, now is)
-    if (filtersActive && !lastFiltersActiveRef.current) {
-      console.log("[TASK_TABLE] 🔍 Filtering started. Saving pre-filter state.");
-      preFilterTasksRef.current = tasks;
-      lastFiltersActiveRef.current = true;
-    }
-
-    // 2. Transition: End Filtering (was filtering, now is not)
-    if (!filtersActive && lastFiltersActiveRef.current) {
-      console.log("[TASK_TABLE] ✨ Filtering ended. Restoring pre-filter state.");
-      
-      // Reset all expansion/fetch state so subtasks can be re-fetched correctly
-      processedSubTasksRef.current.clear();
-      fetchingSubTasksRef.current.clear();
-      
-      // Restore tasks from pre-filter state if available, otherwise use initialTasks
-      const restoredTasks = preFilterTasksRef.current.length > 0 
-        ? preFilterTasksRef.current 
-        : initialTasks;
-        
-      setTasks(hydrateTasks(orderRootTasks(restoredTasks || [])));
-      
-      setIsSubtaskFirstMode(false);
-      setIsCurrentlyFiltered(false);
-      setFilterPagination({ hasMore: false, nextCursor: null, isLoading: false });
-      setExpanded({});
-      lastFiltersActiveRef.current = false;
-    }
-  }, [filtersActive, initialTasks, hydrateTasks, orderRootTasks]);
 
   // Keep tasksRef in sync for batch expansion logic
   useEffect(() => {
@@ -445,12 +455,6 @@ export function useTaskTableLogic({
     window.addEventListener("realtime-task-sync", handleSync as any);
     return () => window.removeEventListener("realtime-task-sync", handleSync as any);
   }, [hydrateTasks, orderRootTasks, level, projectId, orderSubTasksForParent]);
-  // Expansion Lock Removal (on filter change)
-  useEffect(() => {
-    processedSubTasksRef.current.clear();
-    fetchingSubTasksRef.current.clear();
-    // Don't clear isAutoExpanded here, keep the mode active if user wants it
-  }, [filters, searchQuery]);
 
   // Auto-expand rows when filters are active OR when isAutoExpanded is toggled.
   // IMPORTANT: When only filtersActive is true, the filtered API response already
@@ -535,168 +539,29 @@ export function useTaskTableLogic({
     }
   }, [workspaceId, hydrateTasks, orderRootTasks, filters, searchQuery]);
 
-  const hydrateTasksRef = useRef(hydrateTasks);
-  const normalizeFilteredTasksRef = useRef(normalizeFilteredTasks);
-  const orderRootTasksRef = useRef(orderRootTasks);
-
-  useEffect(() => {
-    hydrateTasksRef.current = hydrateTasks;
-    normalizeFilteredTasksRef.current = normalizeFilteredTasks;
-    orderRootTasksRef.current = orderRootTasks;
-  }, [hydrateTasks, normalizeFilteredTasks, orderRootTasks]);
-
-  // Fetch Filtered (Applied with debounce)
-  const fetchFiltered = useCallback(async (isAbortedRef: { current: boolean }) => {
-    setIsLoadingFilters(true);
-    setIsCurrentlyFiltered(true);
-    setFilterPagination(prev => ({ ...prev, isLoading: true }));
-    try {
-      const params = new URLSearchParams({
-        w: workspaceId,
-        vm: "list",
-        l: "50",
-        facets: "true",
-        ef: "description" // Include description for filtered results (especially subtasks)
-      });
-      if (level === "project" && projectId) params.set("p", projectId);
-
-      // Apply active filters
-      const activeFilters = getActiveFilters(filters);
-      activeFilters.forEach(f => {
-        if (f.key === "startDate" || f.key === "endDate") {
-          params.set(f.key, new Date(f.value).toISOString());
-        } else {
-          params.set(f.key, String(f.value));
-        }
-      });
-      if (searchQuery) params.set("search", searchQuery);
-
-      const res = await fetch(`/api/v1/tasks?${params.toString()}`);
-      const response = await res.json();
-      if (!isAbortedRef.current && response.success) {
-        const fetchedTasks: TaskWithSubTasks[] = response.data.tasks || [];
-        const isFirstMode = response.data.isSubtaskFirstMode || false;
-
-        setIsSubtaskFirstMode(isFirstMode);
-
-        // Mark all returned parent tasks as "processed" so the auto-expand effect
-        // never fires redundant batch calls — subtasks are already embedded inline.
-        // Skip this in isSubtaskFirstMode as subtasks are already top-level results.
-        if (!isFirstMode) {
-          fetchedTasks.forEach((t: TaskWithSubTasks) => {
-            if (t.isParent) {
-              processedSubTasksRef.current.add(t.id);
-            }
-          });
-        }
-
-        setTasks(hydrateTasksRef.current(orderRootTasksRef.current(fetchedTasks)));
-
-        setFilterPagination({
-          hasMore: response.data.hasMore ?? false,
-          nextCursor: response.data.nextCursor ?? null,
-          isLoading: false,
-        });
-
-        if (response.data.facets?.projects) {
-          // You could also store facets in the store if needed
-        }
-      }
-    } finally {
-      if (!isAbortedRef.current) {
-        setIsLoadingFilters(false);
-        setFilterPagination(prev => ({ ...prev, isLoading: false }));
-      }
-    }
-  }, [workspaceId, projectId, level, filters, searchQuery]);
-
-  // Load More Filtered (Subtask-first mode infinite scroll)
-  const loadMoreFiltered = useCallback(async () => {
-    if (!filterPagination.hasMore || filterPagination.isLoading) return;
-
-    setFilterPagination(prev => ({ ...prev, isLoading: true }));
-
-    try {
-      const params = new URLSearchParams({
-        w: workspaceId,
-        vm: "list",
-        l: "50",
-        ef: "description",
-      });
-      if (level === "project" && projectId) params.set("p", projectId);
-
-      // Re-apply all active filters
-      const activeFilters = getActiveFilters(filters);
-      activeFilters.forEach(f => {
-        if (f.key === "startDate" || f.key === "endDate") {
-          params.set(f.key, new Date(f.value).toISOString());
-        } else {
-          params.set(f.key, String(f.value));
-        }
-      });
-      if (searchQuery) params.set("search", searchQuery);
-
-      // Pass the cursor for the next page
-      if (filterPagination.nextCursor) {
-        params.set("c", JSON.stringify(filterPagination.nextCursor));
-      }
-
-      const res = await fetch(`/api/v1/tasks?${params.toString()}`);
-      const response = await res.json();
-      if (response.success) {
-        const newTasks: TaskWithSubTasks[] = response.data.tasks || [];
-        // APPEND to existing tasks. Do NOT re-sort (orderRootTasks) here —
-        // the backend already guarantees parentTaskId+id order.
-        // Re-sorting would scatter new subtasks into existing parent groups at the top.
-        setTasks(prev => {
-          const existingIds = new Set(prev.map(t => t.id));
-          const fresh = newTasks.filter(t => !existingIds.has(t.id));
-          const merged = [...prev, ...fresh];
-          // Only hydrate (normalize fields), do NOT re-order
-          return hydrateTasksRef.current(merged);
-        });
-        setFilterPagination({
-          hasMore: response.data.hasMore ?? false,
-          nextCursor: response.data.nextCursor ?? null,
-          isLoading: false,
-        });
-      }
-    } catch (error) {
-      console.error("[TASK_TABLE] Error loading more filtered tasks:", error);
-      setFilterPagination(prev => ({ ...prev, isLoading: false }));
-    }
-  }, [workspaceId, projectId, level, filters, searchQuery, filterPagination]);
-
-  // Effect to trigger filtering
+  // 🧹 RESTORE Logic: When filters are cleared, restore the original hierarchical view
   useEffect(() => {
     if (isInitialMountRef.current) {
       isInitialMountRef.current = false;
-      // Fetch tags on mount
-      const fetchTags = async () => {
-        try {
-          const res = await fetch(`/api/v1/workspace-tags?workspaceId=${workspaceId}`);
-          const data = await res.json();
-          if (data.success) setTags(data.tags);
-        } catch (e) { }
-      };
-      fetchTags();
       return;
     }
 
-    const abortRef = { current: false };
-    if (filtersActive || searchQuery) {
-      const timer = setTimeout(() => {
-        fetchFiltered(abortRef);
-      }, 500);
-      return () => {
-        abortRef.current = true;
-        clearTimeout(timer);
-      };
-    } else {
-      setIsCurrentlyFiltered(false);
+    if (!filtersActive) {
+      if (lastFiltersActiveRef.current) {
+        // Clear all expansion states and markers when filters clear
+        setIsCurrentlyFiltered(false);
+        setTasks(hydrateTasksRef.current(dedupeTasks(initialTasks || [])));
+        processedSubTasksRef.current = new Set();
+        fetchingSubTasksRef.current = new Set();
+        setExpanded({});
+        setExpandedProjects({});
+        lastFiltersActiveRef.current = false;
+      }
+      return;
     }
-  }, [filters, searchQuery, filtersActive, fetchFiltered]);
 
+    lastFiltersActiveRef.current = true;
+  }, [filtersActive, initialTasks]);
 
   const loadMoreSubTasks = async (taskId: string) => {
     const task = tasks.find((t) => t.id === taskId);
@@ -806,20 +671,6 @@ export function useTaskTableLogic({
     }
   }, [handleRequestSubtasks, filtersActive, setExpanded]);
 
-  // Initialize Intersection Observer
-  useEffect(() => {
-    const obs = new IntersectionObserver((entries) => {
-      entries.forEach((e) => {
-        if (e.isIntersecting) {
-          const pId = (e.target as HTMLElement).dataset.projectId;
-          if (pId) loadProjectTasks(pId);
-        }
-      });
-    }, { rootMargin: "200px" });
-
-    setObserver(obs);
-    return () => obs.disconnect();
-  }, [loadProjectTasks]);
 
   // handleSort
   const handleSort = (field: SortField) => {
@@ -869,7 +720,7 @@ export function useTaskTableLogic({
 
   return {
     tasks, setTasks,
-    tags, setTags, filters, setFilters, searchQuery, setSearchQuery, clearFilters,
+    tags, filters, setFilters, searchQuery, setSearchQuery, clearFilters,
     isLoadingFilters, isCurrentlyFiltered,
     expanded, setExpanded,
     loadingSubTasks, setLoadingSubTasks,
@@ -893,7 +744,6 @@ export function useTaskTableLogic({
     projectPagination,
     handleRequestSubtasks,
     toggleExpand,
-    observer,
     handleSubTaskClick,
     handleSubTaskUpdated,
     loadMoreSubTasks,
@@ -927,20 +777,20 @@ export function useTaskTableLogic({
     },
     handleCollapseAll: () => {
       setIsAutoExpanded(false);
-      
+
       // If filters are active, we need to explicitly set all current parent tasks and projects to false 
       // because the UI defaults to 'true' if the ID is missing from the state.
       if (isSubtaskFirstMode) {
         const collapsedState: Record<string, boolean> = {};
         const collapsedProjects: Record<string, boolean> = {};
-        
+
         tasks.forEach(t => {
           if (t.parentTaskId) collapsedState[t.parentTaskId] = false;
         });
         projects.forEach((p: any) => {
           collapsedProjects[p.id] = false;
         });
-        
+
         setExpanded(collapsedState);
         setExpandedProjects(collapsedProjects);
       } else {

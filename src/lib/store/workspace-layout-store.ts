@@ -119,7 +119,6 @@ import { useEffect } from 'react';
  * Hook to automatically sync the layout store with real-time updates.
  */
 export function useRealtimeLayoutSync(workspaceId: string) {
-    const { revalidate, optimisticRemoveProject, optimisticAddProject } = useWorkspaceLayoutStore();
 
     useEffect(() => {
         if (!workspaceId) return;
@@ -127,19 +126,19 @@ export function useRealtimeLayoutSync(workspaceId: string) {
         // Use the centralized pubsub service for all workspace events
         const unsubscribe = pubsub.subscribe(EVENTS.TEAM_UPDATE, (eventData: any) => {
             const store = useWorkspaceLayoutStore.getState();
-            
+
             // Handle project-specific updates surgically
             if (eventData.projectId || eventData.payload?.id) {
                 const projectId = eventData.projectId || eventData.payload?.id;
-                
+
                 if (eventData.type === "DELETE") {
                     store.optimisticRemoveProject(workspaceId, projectId);
                 }
-                
+
                 if (eventData.type === "CREATE" && eventData.payload) {
                     store.optimisticAddProject(workspaceId, eventData.payload);
                 }
-                
+
                 // Silent revalidation backup
                 setTimeout(() => {
                     store.revalidate(workspaceId, true);

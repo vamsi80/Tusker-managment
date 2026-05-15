@@ -29,12 +29,12 @@ import {
 } from "@dnd-kit/core";
 
 import { Loader2 } from "lucide-react";
-import { logger } from "@/lib/logger";
 import { UserPermissionsType } from "@/data/user/get-user-permissions";
 import { useFilterStore } from "@/lib/store/filter-store";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
-import { workspacesClient } from "@/lib/api-client/workspaces";
+import { useWorkspaceTags } from "@/hooks/use-workspace-tags";
+import { useFilteredFetch } from "@/hooks/use-filtered-fetch";
 
 export type TaskStatus =
   | "TO_DO"
@@ -108,29 +108,8 @@ export function KanbanBoard({
 }: KanbanBoardProps) {
   const { data: layoutData } = useWorkspaceLayout();
   const projects = layoutData.projects || [];
-  const [tags, setTags] = useState<{ id: string; name: string }[]>([]);
+  const tags = useWorkspaceTags(workspaceId);
 
-  useEffect(() => {
-    let mounted = true;
-    const fetchTags = async () => {
-      try {
-        const workspaceTags = await workspacesClient.getTags(workspaceId);
-        if (mounted) {
-          setTags(workspaceTags.map((t) => ({ id: t.id, name: t.name })));
-        }
-      } catch (error) {
-        console.error("Failed to fetch tags for KanbanBoard:", error);
-      }
-    };
-    fetchTags();
-
-    // Debug: Print project managers
-    console.log("DEBUG: Kanban Project Managers:", projectManagers);
-
-    return () => {
-      mounted = false;
-    };
-  }, [workspaceId, projectManagers]);
   const isMobile = useIsMobile();
   const [kanbanTasks, setKanbanTasks] = useState<Record<string, any[]>>({});
 
@@ -142,11 +121,8 @@ export function KanbanBoard({
     return map;
   }, [projects]);
 
-  const lastSyncRef = useRef<Record<string, number>>({});
   const isSubmittingActivityRef = useRef(false);
 
-  const renderCount = useRef(0);
-  renderCount.current++;
   const hasFetchedRef = useRef(
     isShell &&
     initialData &&
@@ -156,7 +132,6 @@ export function KanbanBoard({
         (col.tasks?.length > 0 || col.subTasks?.length > 0),
     ),
   );
-  logger.perf("KANBAN_RENDER", 0, { count: renderCount.current });
 
   // State for each column's data - INITIALIZE WITH PROPS ONLY FOR HYDRATION SAFETY
   const [columnData, setColumnData] = useState<
@@ -382,214 +357,73 @@ export function KanbanBoard({
     }),
   );
 
-  const [isFiltering, setIsFiltering] = useState(false);
-  const [isCurrentlyFiltered, setIsCurrentlyFiltered] = useState(false);
+  const [isManualFiltering, setIsManualFiltering] = useState(false);
 
-  // Server-side filtering effect
+  const onFilteredResults = useCallback((_tasks: any[], meta: any) => {
+    const groupedData: any = {};
+    const groupedTasks: any = {};
+    const facetCounts = (meta.facets as any)?.status || {};
+
+    COLUMNS.forEach((col) => {
+      const serverCol = meta.tasksByStatus?.[col.id];
+      // In kanban mode the API returns tasks grouped by status in tasksByStatus.
+      // Each column only shows subtasks (leaf tasks), not parent task rows.
+      const allColTasks = serverCol?.tasks || [];
+      const colTasks = allColTasks.filter((t: any) => !t.isParent);
+
+      groupedData[col.id] = {
+        subTaskIds: Array.from(new Set(colTasks.map((t: any) => t.id))),
+        totalCount: facetCounts[col.id] ?? serverCol?.totalCount ?? colTasks.length,
+        hasMore: serverCol?.hasMore || false,
+        nextCursor: serverCol?.nextCursor || null,
+      };
+      groupedTasks[col.id] = colTasks;
+    });
+
+    setColumnData(groupedData);
+    setKanbanTasks(groupedTasks);
+    setIsManualFiltering(false);
+  }, []);
+
+  const kanbanExtraParams = useMemo(() => ({ excludeParents: "true" }), []);
+
+  const {
+    isLoading: isFetchLoading,
+    filtersActive
+  } = useFilteredFetch({
+    workspaceId,
+    projectId,
+    level,
+    viewMode: "kanban",
+    extraParams: kanbanExtraParams,
+    limit: 10,
+    onResults: onFilteredResults,
+    alwaysFetch: true,
+  });
+
+  const isFiltering = isManualFiltering || isFetchLoading;
+  const { isCurrentlyFiltered, setIsCurrentlyFiltered } = useFilterStore();
+  const lastFiltersActiveRef = useRef(false);
+
+  // Track when filters become active so we can clear the flag when they clear.
+  // The hook already re-fetches (alwaysFetch) when filters clear, so we just need
+  // to reset the isCurrentlyFiltered global flag.
   useEffect(() => {
-    let isAborted = false;
-
-    const timer = setTimeout(async () => {
-      // Check if there are truly any filters active that should bypass the local cache
-      const activeFilterCount = Object.values(filters).filter(
-        (v) => v !== undefined && v !== "",
-      ).length;
-      const isBaseProjectView =
-        !searchQuery &&
-        (activeFilterCount === 0 ||
-          (activeFilterCount === 1 && filters.projectId === projectId));
-      const hasFilters = !isBaseProjectView;
-      const isBoardEmpty = Object.values(columnData).every(
-        (col) => col.subTaskIds.length === 0,
-      );
-
-      // 🛡️ Mount Guard: If we have initial data and filters are neutral, skip the first fetch
-      const isNeutral =
-        !searchQuery &&
-        Object.values(filters).every(
-          (v) =>
-            v === undefined || v === "" || (Array.isArray(v) && v.length === 0),
-        );
-
-      const hasInitialData =
-        initialData &&
-        Object.values(initialData).some(
-          (col: any) =>
-            (col.tasks || col.subTasks) &&
-            (col.tasks?.length > 0 || col.subTasks?.length > 0),
-        );
-
-      if (!hasFetchedRef.current && hasInitialData && isNeutral) {
-        hasFetchedRef.current = true;
-        setIsFiltering(false);
-        return;
-      }
-
-      // 🔄 Revalidation Logic:
-      // Fetch if (has filters) OR (board is empty) OR (previously filtered and now resetting) OR (first mount)
-      const shouldFetch =
-        hasFilters || isBoardEmpty || isCurrentlyFiltered || !hasFetchedRef.current;
-
-      if (!shouldFetch) {
-        // Reset to initial unfiltered data ONLY if we were previously filtering
-        if (isCurrentlyFiltered) {
-          // Reset to initial unfiltered data
-          if (isCurrentlyFiltered) {
-            const resetData: any = {};
-            const resetTasks: any = {};
-
-            COLUMNS.forEach((col) => {
-              const serverCol = initialData?.[col.id];
-              const tasks = (serverCol as any)?.tasks || (serverCol as any)?.subTasks || [];
-
-              resetData[col.id] = {
-                subTaskIds: tasks.map((t: any) => t.id),
-                totalCount: serverCol?.totalCount || 0,
-                hasMore: serverCol?.hasMore || false,
-                nextCursor: serverCol?.nextCursor || undefined,
-              };
-              resetTasks[col.id] = tasks;
-            });
-
-            if (!isAborted) {
-              setColumnData(resetData);
-              setKanbanTasks(resetTasks);
-              setIsCurrentlyFiltered(false);
-              setLoadingColumns(
-                Object.fromEntries(COLUMNS.map((col) => [col.id, false])) as any,
-              );
-              setIsFiltering(false);
-            }
-          }
-        } else {
-          if (!isAborted) setIsFiltering(false);
-        }
-        return;
-      }
-
-      if (isAborted) return;
-      setIsCurrentlyFiltered(true);
-
-      // Performance Tracking for Filtering
-      const startTime = performance.now();
-
-      // Set loading state
-      setLoadingColumns(
-        Object.fromEntries(COLUMNS.map((col) => [col.id, true])) as Record<
-          TaskStatus,
-          boolean
-        >,
-      );
-
-      try {
-        const targetProjectId = filters.projectId || projectId;
-        const params = new URLSearchParams();
-        params.set("w", workspaceId);
-        if (targetProjectId) params.set("p", targetProjectId);
-        params.set("vm", "kanban");
-        params.set("excludeParents", "true");
-        params.set("l", "5");
-        params.set("facets", "true");
-        if (searchQuery) params.set("q", searchQuery);
-        if (filters.assigneeId) params.set("a", filters.assigneeId);
-        if (filters.tagId) params.set("t", filters.tagId);
-        if (filters.startDate)
-          params.set("da", new Date(filters.startDate).toISOString());
-        if (filters.endDate)
-          params.set("db", new Date(filters.endDate).toISOString());
-        if (filters.dueDateFilter)
-          params.set("dt", filters.dueDateFilter);
-        if (filters.parentTaskId) params.set("pt", filters.parentTaskId);
-        params.set("ef", JSON.stringify(["description"]));
-
-        const apiRes = await fetch(`/api/v1/tasks?${params.toString()}`);
-
-        if (!apiRes.ok) {
-          if (apiRes.status === 401) {
-            if (!isAborted) toast.error("Session expired. Please log in again.");
-            return;
-          }
-          throw new Error(`API returned ${apiRes.status}`);
-        }
-
-        const response = await apiRes.json();
-
-        if (isAborted) return;
-
-        if (response.success && response.data) {
-          // Log payload weight for optimization verification
-          const sizeInBytes = new TextEncoder().encode(
-            JSON.stringify(response.data),
-          ).length;
-          console.log(
-            `%c[KANBAN_WEIGHT] Data: ${(sizeInBytes / 1024).toFixed(2)} KB`,
-            "color: #10b981; font-weight: bold;",
-          );
-
-          const counts = (response.data.facets as any)?.status || {};
-          const groupedData: any = {};
-          const groupedTasks: any = {};
-
-          COLUMNS.forEach((col) => {
-            const serverCol = response.data.tasksByStatus[col.id];
-            const allColTasks = serverCol?.tasks || [];
-            // Don't display parent as a card
-            const colTasks = allColTasks.filter((t: any) => !t.isParent);
-
-            // Use the server-provided pagination state directly
-            groupedData[col.id] = {
-              subTaskIds: Array.from(new Set(colTasks.map((t: any) => t.id))),
-              totalCount: counts[col.id] || colTasks.length,
-              hasMore: serverCol?.hasMore || false,
-              nextCursor: serverCol?.nextCursor || null,
-            };
-            groupedTasks[col.id] = colTasks;
-          });
-          setColumnData(groupedData);
-          setKanbanTasks(groupedTasks);
-
-          const duration = performance.now() - startTime;
-          logger.perf("KANBAN_FILTER_APPLIED", duration, {
-            workspaceId,
-            projectId,
-            search: searchQuery,
-          });
-        } else {
-          if (!isAborted) toast.error(response.error || "Failed to apply filters");
-        }
-      } catch (err) {
-        if (!isAborted) {
-          console.error("Error filtering subtasks", err);
-          toast.error("Network error. Please check your connection.");
-        }
-      } finally {
-        if (!isAborted) {
-          setLoadingColumns(
-            Object.fromEntries(COLUMNS.map((col) => [col.id, false])) as Record<
-              TaskStatus,
-              boolean
-            >,
-          );
-          setIsFiltering(false);
-          setIsCurrentlyFiltered(hasFilters);
-          hasFetchedRef.current = true; // Mark as fetched after successful background refresh
-        }
-      }
-    }, 300); // Debounce
-
-    return () => {
-      isAborted = true;
-      clearTimeout(timer);
-    };
-  }, [filters, searchQuery, workspaceId, projectId, initialData]);
+    if (filtersActive) {
+      lastFiltersActiveRef.current = true;
+    } else if (lastFiltersActiveRef.current) {
+      setIsCurrentlyFiltered(false);
+      lastFiltersActiveRef.current = false;
+    }
+  }, [filtersActive, setIsCurrentlyFiltered]);
 
   const handleFilterChange = (val: TaskFilters) => {
-    setIsFiltering(true);
+    setIsManualFiltering(true);
     setFilters(val);
   };
 
   const handleSearchChange = (val: string) => {
-    setIsFiltering(true);
+    setIsManualFiltering(true);
     setSearchQuery(val);
   };
 
@@ -835,7 +669,7 @@ export function KanbanBoard({
           break;
         }
       }
-      
+
       if (taskToMove && actualFromStatus) {
         // Remove from actual source
         next[actualFromStatus] = next[actualFromStatus].filter(t => t.id !== subTaskId);
@@ -1019,7 +853,7 @@ export function KanbanBoard({
 
     const { subTaskId, targetStatus, previousStatus } = pendingReviewMove;
     console.log(`DEBUG [Kanban] Activity Dialog submitted for ${subTaskId}. Target: ${targetStatus}`);
-    
+
     // 1. Mark as submitting so handleActivityClose doesn't revert the optimistic move
     isSubmittingActivityRef.current = true;
 
@@ -1159,7 +993,7 @@ export function KanbanBoard({
         onFilterChange={handleFilterChange}
         onSearchChange={handleSearchChange}
         onClearAll={() => {
-          setIsFiltering(true);
+          setIsManualFiltering(true);
           setFilters({});
           setSearchQuery("");
         }}
@@ -1181,7 +1015,7 @@ export function KanbanBoard({
               <div className="flex flex-col items-center gap-2">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <span className="text-sm font-medium text-muted-foreground">
-                  Filtering...
+                  {filtersActive ? "Filtering..." : "Loading Board..."}
                 </span>
               </div>
             </div>
