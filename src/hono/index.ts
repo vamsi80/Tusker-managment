@@ -12,6 +12,8 @@ import auth from "./routes/auth";
 import comments from "./routes/comments";
 import reports from "./routes/reports";
 import memberTodos from "./routes/member-todos";
+import conversations from "./routes/conversations";
+import presence from "./routes/presence";
 import { HonoVariables } from "./types";
 import { authMiddleware } from "./middleware/auth";
 import { AppError } from "../lib/errors/app-error";
@@ -132,6 +134,12 @@ app.route("/reports", reports);
 
 // Member Todos API
 app.route("/member-todos", memberTodos);
+
+// Conversations API
+app.route("/conversations", conversations);
+
+// Presence API
+app.route("/presence", presence);
 
 
 export default app;

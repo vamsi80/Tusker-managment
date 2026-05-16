@@ -29,12 +29,23 @@ export function SiteHeader() {
     
     // Formatting logic for labels
     let label = segment.charAt(0).toUpperCase() + segment.slice(1);
+    
     if (segment === "w") label = "Workspace";
+    if (segment === "p") label = "Projects";
+    if (segment === "myspace") label = "My Space";
+    if (segment === "conversations") label = "Messages";
+    
+    // UUID detection (simple check for length or dashes)
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(segment) || segment.length > 20;
+
     if (segment === workspaceId) {
         const currentWorkspace = data.workspaces?.workspaces?.find((w: any) => w.id === workspaceId);
         label = currentWorkspace?.name || "Dashboard";
+    } else if (isUUID && pathSegments[index - 1] === "conversations") {
+        label = "Chat";
+    } else if (isUUID) {
+        label = "Details";
     }
-    if (segment === "p") label = "Projects";
     
     return { label, url, isLast };
   });

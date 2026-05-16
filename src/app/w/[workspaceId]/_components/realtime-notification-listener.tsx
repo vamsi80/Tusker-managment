@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useParams, useRouter } from "next/navigation";
 import { pubsub, EVENTS } from "@/lib/pubsub";
 import { authClient } from "@/lib/auth-client";
+import { usePresenceHeartbeat } from "@/hooks/use-presence-heartbeat";
 
 export function RealtimeNotificationListener() {
   const router = useRouter();
@@ -12,6 +13,9 @@ export function RealtimeNotificationListener() {
   const { data: session } = authClient.useSession();
   const workspaceId = params?.workspaceId as string;
   const projectId = params?.projectId as string;
+
+  // ✅ Global Presence Heartbeat — fires on ALL workspace pages
+  usePresenceHeartbeat(workspaceId);
 
   const refreshTimeoutRef = useRef<any>(null);
   const processedEventsRef = useRef(new Set<string>());

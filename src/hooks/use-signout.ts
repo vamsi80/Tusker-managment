@@ -6,7 +6,20 @@ export function useSignout() {
 
     const router = useRouter();
 
-    const handleSignOut = async function signOut() {
+    const handleSignOut = async function signOut(workspaceId?: string) {
+        // Send offline heartbeat immediately before signing out to clear status
+        if (workspaceId) {
+            try {
+                await fetch(`/api/v1/presence/${workspaceId}`, { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: 'offline' }),
+                });
+            } catch (e) {
+                console.error("Failed to send offline status on signout", e);
+            }
+        }
+
         await authClient.signOut({
             fetchOptions: {
                 onSuccess: () => {
@@ -14,7 +27,7 @@ export function useSignout() {
                     toast.success("Signed out successfully");
                 },
                 onError: () => {
-                    toast.error("Sign out failed: ");
+                    toast.error("Sign out failed");
                 },
             },
         });
