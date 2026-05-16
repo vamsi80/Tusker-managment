@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import { useParams } from "next/navigation";
 
 interface ConversationsContextType {
@@ -23,6 +23,37 @@ export function ConversationsProvider({ children }: { children: ReactNode }) {
   const [members, setMembers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isMembersLoading, setIsMembersLoading] = useState(false);
+
+  const fetchConversations = useCallback(async () => {
+    if (!workspaceId) return;
+    try {
+      const res = await fetch(`/api/v1/conversations/${workspaceId}`);
+      const data = await res.json();
+      if (data.success) {
+        setConversations(data.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch conversations", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [workspaceId]);
+
+  const fetchMembers = useCallback(async () => {
+    if (!workspaceId) return;
+    setIsMembersLoading(true);
+    try {
+      const res = await fetch(`/api/v1/conversations/${workspaceId}/members`);
+      const data = await res.json();
+      if (data.success) {
+        setMembers(data.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch members", error);
+    } finally {
+      setIsMembersLoading(false);
+    }
+  }, [workspaceId]);
 
   // Use the centralized pubsub for presence and conversation updates
   useEffect(() => {
@@ -56,42 +87,13 @@ export function ConversationsProvider({ children }: { children: ReactNode }) {
       unsubscribePresence();
       unsubscribeConversation();
     };
-  }, [workspaceId]);
-
-  const fetchConversations = async () => {
-    try {
-      const res = await fetch(`/api/v1/conversations/${workspaceId}`);
-      const data = await res.json();
-      if (data.success) {
-        setConversations(data.data);
-      }
-    } catch (error) {
-      console.error("Failed to fetch conversations", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const fetchMembers = async () => {
-    setIsMembersLoading(true);
-    try {
-      const res = await fetch(`/api/v1/conversations/${workspaceId}/members`);
-      const data = await res.json();
-      if (data.success) {
-        setMembers(data.data);
-      }
-    } catch (error) {
-      console.error("Failed to fetch members", error);
-    } finally {
-      setIsMembersLoading(false);
-    }
-  };
+  }, [workspaceId, fetchConversations]);
 
   useEffect(() => {
     if (workspaceId) {
       fetchConversations();
     }
-  }, [workspaceId]);
+  }, [workspaceId, fetchConversations]);
 
   return (
     <ConversationsContext.Provider value={{
