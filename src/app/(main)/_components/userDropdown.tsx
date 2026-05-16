@@ -24,7 +24,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { toast } from "sonner"
 import { useSignout } from "@/hooks/use-signout"
 
 interface iAppProps {
@@ -86,7 +85,7 @@ export function UserDropdown({ name, email, image }: iAppProps) {
 
         <DropdownMenuSeparator />
 
-        <DropdownMenuItem onClick={handleSignOut}>
+        <DropdownMenuItem onClick={() => handleSignOut()}>
           <LogOutIcon size={16} className="opacity-60" aria-hidden="true" />
           <span>Logout</span>
         </DropdownMenuItem>
