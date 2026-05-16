@@ -1,6 +1,6 @@
 "use client"
 
-import { LayoutDashboard, MoreVertical, LogOut, HomeIcon, Tv2 } from "lucide-react"
+import { LayoutDashboard, MoreVertical, LogOut, HomeIcon, Tv2, ListTodo } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar"
@@ -9,14 +9,23 @@ import Link from "next/link"
 import { useSignout } from "@/hooks/use-signout"
 import { useMounted } from "@/hooks/use-mounted"
 import { useSafeNavigation } from "@/hooks/use-safe-navigation"
+import { usePathname, useSearchParams } from "next/navigation"
 
-export function NavUser() {
+export function NavUser({ workspaceId }: { workspaceId?: string }) {
   const { isMobile, setOpenMobile } = useSidebar()
   const handleSignOut = useSignout();
   const mounted = useMounted();
   const router = useSafeNavigation();
 
   const { data: session, isPending } = authClient.useSession();
+
+  const openMySpace = () => {
+    if (!workspaceId) return;
+    router.push(`/w/${workspaceId}/myspace`);
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
 
   if (isPending) {
     return null;
@@ -94,6 +103,12 @@ export function NavUser() {
                     Homepage
                   </Link>
                 </DropdownMenuItem>
+                {workspaceId && (
+                  <DropdownMenuItem onClick={openMySpace} className="cursor-pointer">
+                    <ListTodo />
+                    My Space
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
