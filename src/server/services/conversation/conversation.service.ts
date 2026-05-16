@@ -158,8 +158,14 @@ export class ConversationService {
   /**
    * Send a message
    */
-  static async sendMessage(conversationId: string, senderId: string, content: string) {
+  /**
+   * Send a message
+   */
+  static async sendMessage(conversationId: string, senderId: string, content: string, workspaceId: string) {
+    const { recordActivity } = await import("@/lib/audit");
+
     return prisma.$transaction(async (tx) => {
+      // 1. Create message
       const message = await tx.direct_message.create({
         data: {
           conversationId,
@@ -181,12 +187,45 @@ export class ConversationService {
         }
       });
 
+      // 2. Update conversation
       await tx.conversation.update({
         where: { id: conversationId },
         data: {
           lastMessageAt: new Date()
         }
       });
+
+      // 3. Handle Notification if recipient is offline
+      const conversation = await tx.conversation.findUnique({
+        where: { id: conversationId },
+        include: {
+          UserConversations: {
+            where: { A: { not: senderId } },
+            include: { user: { select: { id: true, lastActiveAt: true } } }
+          }
+        }
+      });
+
+      const recipient = conversation?.UserConversations[0]?.user;
+      if (recipient) {
+        const isOffline = !recipient.lastActiveAt || 
+          (new Date().getTime() - new Date(recipient.lastActiveAt).getTime() > 120000);
+
+        if (isOffline) {
+          // Record activity which creates a persistent notification and broadcasts activity_log
+          await recordActivity({
+            userId: senderId,
+            userName: message.user.surname || "Member",
+            workspaceId,
+            action: "DM_MESSAGE" as any,
+            entityType: "CONVERSATION",
+            entityId: conversationId,
+            newData: { content: content.substring(0, 100) },
+            targetUserIds: [recipient.id],
+            broadcastEvent: "conversation_update"
+          });
+        }
+      }
 
       return message;
     });

@@ -52,7 +52,7 @@ const app = new Hono<{ Variables: HonoVariables }>()
     if (!user) return c.json({ success: false, error: "Unauthorized" }, 401);
 
     const { content } = c.req.valid("json");
-    const message = await ConversationService.sendMessage(conversationId, user.id, content);
+    const message = await ConversationService.sendMessage(conversationId, user.id, content, workspaceId);
 
     // Trigger Pusher event to refresh conversation lists for all participants
     if (pusherServer) {

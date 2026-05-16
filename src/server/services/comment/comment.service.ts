@@ -235,21 +235,37 @@ export class CommentService {
       }
     };
 
-    const { unreadComments, recentComments } = await CommentRepository.findNotifications(where, commentInclude, limit, offset);
+    // Concurrently fetch comments, activities, and direct notifications
+    const [
+      { unreadComments, recentComments },
+      activities,
+      directNotifications
+    ] = await Promise.all([
+      CommentRepository.findNotifications(where, commentInclude, limit, offset),
+      CommentRepository.findRecentActivities({
+        workspaceId,
+        authorId: { not: userId },
+        createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }, // Last 30 days
+        subTask: perms.isWorkspaceAdmin ? {} : where.task
+      }),
+      import("@/lib/db").then(m => m.default.notification.findMany({
+        where: {
+          userId,
+          workspaceId,
+          type: "DM_MESSAGE"
+        },
+        orderBy: { createdAt: "desc" },
+        take: limit,
+        include: { user: { select: { name: true, surname: true, image: true } } }
+      }))
+    ]);
 
     const commentMap = new Map();
     [...unreadComments, ...recentComments].forEach(c => commentMap.set(c.id, c));
     const comments = Array.from(commentMap.values())
       .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-    const activities = await CommentRepository.findRecentActivities({
-      workspaceId,
-      authorId: { not: userId },
-      createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
-      subTask: perms.isWorkspaceAdmin ? {} : where.task
-    });
-
-    return CommentMapper.toNotifications(comments, activities, limit);
+    return CommentMapper.toNotifications(comments, activities, limit, directNotifications);
   }
 
   /**

@@ -97,16 +97,31 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
     }, [workspaceId, session?.user?.id, isOpen]);
 
     const handleNotificationClick = async (notif: any) => {
-        // 1. Synchronize URL programmatically with explicit order
+        // 1. Direct Message Redirection
+        if (notif.type === "DM_MESSAGE") {
+            router.push(`/w/${workspaceId}/myspace/conversations/${notif.conversationId}`);
+            setIsOpen(false);
+
+            // Mark as read in DB if it's a generic notification record
+            if (notif.id && notif.isNew) {
+                apiClient.workspaces.markNotificationRead(workspaceId, notif.id);
+                setUnreadNotifications(prev => prev.filter(n => n.id !== notif.id));
+                setReadNotifications(prev => [{ ...notif, isNew: false }, ...prev]);
+                setPeopleCount(prev => Math.max(0, prev - 1));
+            }
+            return;
+        }
+
+        // 2. Synchronize URL programmatically with explicit order (Tasks/Subtasks)
         const params = new URLSearchParams();
-        
+
         // Preserve other essential params but reset subtask/tab
         currentSearchParams.forEach((value, key) => {
             if (key !== "subtask" && key !== "tab") params.set(key, value);
         });
 
         params.set("subtask", notif.taskSlug);
-        
+
         // 🚀 Only add tab if it's activity
         if (notif.type === "activity") {
             params.set("tab", "activity");
@@ -116,7 +131,7 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
             router.push(`${pathname}?${params.toString()}`);
         }
 
-        // 2. Mark as read and close popover
+        // 3. Mark as read and close popover
         if (notif.isNew !== false) {
             handleMarkRead(notif.taskId);
         } else {
