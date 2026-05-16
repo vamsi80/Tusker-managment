@@ -4,6 +4,7 @@ import { WorkspaceService } from "@/server/services/workspace.service";
 import { workSpaceSchema, updateWorkspaceInfoSchema, updateMemberSchema } from "@/lib/zodSchemas";
 import { AppError } from "@/lib/errors/app-error";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import prisma from "@/lib/db";
 
 const workspaces = new Hono<{ Variables: HonoVariables }>();
 
@@ -365,5 +366,20 @@ workspaces.get("/:workspaceId/paginated-members", async (c) => {
   return c.json({ success: true, data: { members, nextCursor } });
 });
 
+
+/**
+ * GET /api/v1/workspaces/:workspaceId/notifications/:id/read
+ * Mark a generic notification as read
+ */
+workspaces.get("/:workspaceId/notifications/:id/read", async (c) => {
+  const { id } = c.req.param();
+
+  await prisma.notification.update({
+    where: { id },
+    data: { isRead: true }
+  });
+
+  return c.json({ success: true });
+});
 
 export default workspaces;

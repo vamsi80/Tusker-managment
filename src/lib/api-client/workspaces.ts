@@ -27,6 +27,7 @@ export interface WorkspacesClient {
     getAssignmentMaps(workspaceId: string): Promise<any>;
     getTaskCreationData(workspaceId: string): Promise<any>;
     getTags(workspaceId: string): Promise<any[]>;
+    markNotificationRead(workspaceId: string, id: string): Promise<ApiResponse>;
     update(workspaceId: string, values: Partial<UpdateWorkspaceInfoType>): Promise<ApiResponse>;
 }
 
@@ -247,4 +248,14 @@ export const workspacesClient: WorkspacesClient = {
         return response.tags || [];
     },
 
+    /**
+     * Mark a generic notification as read
+     */
+    markNotificationRead: async (workspaceId: string, id: string): Promise<ApiResponse> => {
+        const response = await apiFetch<{ success: boolean }>(`/workspaces/${workspaceId}/notifications/${id}/read`);
+        return {
+            status: response.success ? "success" : "error",
+            message: response.success ? "Notification marked as read" : "Failed to mark notification as read",
+        };
+    },
 };
