@@ -26,8 +26,12 @@ import { TaskEvents } from "./task.events";
 
 import { TaskStatus, CreateTaskParams, CreateSubTaskParams } from "@/types/task";
 
-const toArray = <T>(v: T | T[] | undefined): T[] | undefined =>
-  v === undefined ? undefined : Array.isArray(v) ? v : [v];
+const toArray = <T>(v: T | T[] | undefined): T[] | undefined => {
+  if (v === undefined) return undefined;
+  const arr = Array.isArray(v) ? v : [v];
+  const cleaned = arr.filter((i) => i !== null && i !== undefined && i !== "");
+  return cleaned.length > 0 ? cleaned : undefined;
+};
 
 export class TasksService {
   /**
@@ -572,16 +576,20 @@ export class TasksService {
       : undefined;
 
     try {
-      const toArray = <T>(v: T | T[] | undefined): T[] | undefined =>
-        v === undefined ? undefined : Array.isArray(v) ? v : [v];
+      const toArray = <T>(v: T | T[] | undefined): T[] | undefined => {
+        if (v === undefined) return undefined;
+        const arr = Array.isArray(v) ? v : [v];
+        const cleaned = arr.filter((i) => i !== null && i !== undefined && i !== "");
+        return cleaned.length > 0 ? cleaned : undefined;
+      };
 
       const isMinimal =
         opts.hierarchyMode === "parents" && !opts.includeSubTasks;
 
       const hasExplicitFilters = !!(
-        (opts.status && toArray(opts.status)?.length) ||
-        (opts.assigneeId && toArray(opts.assigneeId)?.length) ||
-        (opts.tagId && toArray(opts.tagId)?.length) ||
+        (opts.status && toArray(opts.status)) ||
+        (opts.assigneeId && toArray(opts.assigneeId)) ||
+        (opts.tagId && toArray(opts.tagId)) ||
         (opts.search && opts.search.trim().length > 0) ||
         opts.dueAfter ||
         opts.dueBefore ||
@@ -1081,12 +1089,23 @@ export class TasksService {
       TaskRepository.findMany(
         where,
         getTaskSelect(opts.view_mode, true, opts.extraFields ? [...opts.extraFields, dbField] : [dbField], subtaskFilter), // TRUE for minimal parent select, include sort field
-        opts.sorts
+        opts.sorts,
+        limit
       ),
     ]);
 
     const hasMore = rawTasks.length > limit;
     if (hasMore) rawTasks.pop();
+
+    if (rawTasks.length === 0) {
+        return {
+          tasks: [],
+          totalCount: 0,
+          hasMore: false,
+          nextCursor: null,
+          facets: { status: {}, assignee: {}, tags: {}, projects: {} },
+        };
+    }
 
     const lastTask = rawTasks[rawTasks.length - 1] as any;
 

@@ -38,7 +38,7 @@ export async function WorkspaceListView({
             workspaceId,
             hierarchyMode: "parents",
             includeSubTasks: false,
-            limit: 50,
+            limit: 25,
             expandedProjectIds: topProjectIds, // 🎯 SSR Optimization: Preload tasks for top 3 projects
             includeFacets: true,
             view_mode: "list",

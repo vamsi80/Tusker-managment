@@ -35,9 +35,8 @@ export async function ProjectTaskListView({
             projectId,
             hierarchyMode: "parents",
             includeSubTasks: false,
-            limit: 50,
+            limit: 25,
             view_mode: "list",
-            extraFields: ["description"]
         }, user.id)
     ]);
 

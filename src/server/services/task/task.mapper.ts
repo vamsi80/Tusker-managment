@@ -87,7 +87,7 @@ export class TaskMapper {
       this.toFlatMetadata(task);
       if (task?.isParent) {
         const allowedFields = [
-          "id", "name", "taskSlug", "isParent", "projectId", "subTasks", "subtaskCount", "completedSubtaskCount",
+          "id", "name", "taskSlug", "isParent", "parentTaskId", "projectId", "subTasks", "subtaskCount", "completedSubtaskCount",
           "createdAt", "tags", "position", "assignee", "reviewer", "description",
           "status", "startDate", "dueDate", "progress", "days"
         ];
