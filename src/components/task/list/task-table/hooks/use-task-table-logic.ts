@@ -550,6 +550,7 @@ export function useTaskTableLogic({
       if (lastFiltersActiveRef.current) {
         // Clear all expansion states and markers when filters clear
         setIsCurrentlyFiltered(false);
+        setIsSubtaskFirstMode(false); // 🚀 FIX: Reset subtask mode on manual clear
         setTasks(hydrateTasksRef.current(dedupeTasks(initialTasks || [])));
         processedSubTasksRef.current = new Set();
         fetchingSubTasksRef.current = new Set();

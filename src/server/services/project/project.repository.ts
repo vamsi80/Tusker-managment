@@ -30,7 +30,6 @@ export class ProjectRepository {
             name: true,
             surname: true,
             email: true,
-            image: true,
           }
         }
       }
@@ -120,9 +119,23 @@ export class ProjectRepository {
   static async getProjectMembers(projectId: string) {
     return prisma.projectMember.findMany({
       where: { projectId },
-      include: {
+      select: {
+        id: true,
+        projectRole: true,
         workspaceMember: {
-          include: { user: true }
+          select: {
+            id: true,
+            userId: true,
+            workspaceRole: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                surname: true,
+                image: true,
+              }
+            }
+          }
         }
       }
     });
@@ -141,9 +154,23 @@ export class ProjectRepository {
   static async getProjectMembersByWorkspace(workspaceId: string) {
     return prisma.projectMember.findMany({
       where: { project: { workspaceId } },
-      include: {
+      select: {
+        id: true,
+        projectId: true,
         workspaceMember: {
-          include: { user: true }
+          select: {
+            id: true,
+            userId: true,
+            workspaceRole: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                surname: true,
+                image: true,
+              }
+            }
+          }
         }
       }
     });

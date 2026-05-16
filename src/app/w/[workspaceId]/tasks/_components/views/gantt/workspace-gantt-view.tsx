@@ -28,7 +28,7 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
             workspaceId,
             hierarchyMode: "parents",
             includeSubTasks: false, // 🚀 ZERO-WEIGHT: Don't load subtasks initially
-            limit: 50, // 🔋 Standard limit for initial load
+            limit: 25, // 🔋 Standard limit for initial load
             includeFacets: true,
             view_mode: "gantt"
         }, user.id),

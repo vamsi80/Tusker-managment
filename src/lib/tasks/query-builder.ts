@@ -14,6 +14,7 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
             name: true,
             taskSlug: true,
             isParent: true,
+            parentTaskId: true,
             projectId: true,
             workspaceId: true,
             createdAt: true,
@@ -72,7 +73,7 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
         assigneeId: !isKanban // Redundant with assignee object
     };
 
-    if (isList || isSubtask || isKanban) {
+    if (extraFields && extraFields.includes("description")) {
         select.description = true;
     }
 
@@ -116,15 +117,6 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
             select: {
                 id: true,
                 name: true,
-            }
-        };
-    }
-
-    // 4. Extended Info: Description & Reviewer
-    if (isList || isSearch || isCalendar || isSubtask || isKanban) {
-        select.reviewer = {
-            select: {
-                workspaceMember: { select: { user: { select: { id: true, name: true, surname: true } } } }
             }
         };
     }
@@ -603,10 +595,21 @@ export function buildWorkspaceFilterWhere(
         where.projectId = { in: opts.projectIds };
     }
 
-    // 2. Apply Filters (Hierarchical for Milestone containers)
-    if (opts.status && opts.status.length > 0) {
-        // 🚀 CRITICAL: In Kanban or when excluding parents, we want STRICT status matching.
-        // We do NOT want to pull in a Parent task just because its SubTask matches the status.
+    // Helper to check for non-empty filter arrays
+    const cleanArray = (arr: any) => (Array.isArray(arr) ? arr.filter(v => v !== null && v !== undefined && v !== "") : (arr ? [arr] : []));
+
+    // 2. Determine if any explicit filters are active
+    const hasStatus = cleanArray(opts.status).length > 0;
+    const hasAssignee = cleanArray(opts.assigneeId).length > 0;
+    const hasTag = cleanArray(opts.tagId).length > 0;
+    const hasSearch = opts.search && opts.search.trim().length > 0;
+    const hasDate = !!(opts.dueAfter || opts.dueBefore);
+    const hasIds = opts.ids && opts.ids.length > 0;
+
+    const hasExplicitFilters = hasStatus || hasAssignee || hasTag || hasSearch || hasDate || hasIds;
+
+    // 2. Apply Filters
+    if (hasStatus) {
         if (opts.excludeParents || opts.view_mode === "kanban" || opts.onlySubtasks) {
             where.status = { in: opts.status as any };
         } else {
@@ -619,23 +622,22 @@ export function buildWorkspaceFilterWhere(
         }
     }
 
-    if (opts.tagId) {
-        const tIds = Array.isArray(opts.tagId) ? opts.tagId : [opts.tagId];
+    if (hasTag) {
+        const rawIds = Array.isArray(opts.tagId) ? opts.tagId : [opts.tagId];
+        const tIds = rawIds.filter((id): id is string => !!id);
         where.tags = { some: { id: { in: tIds } } };
     }
 
-    if (opts.assigneeId) {
-        // 🚀 CRITICAL: If an explicit assignee filter is applied, we usually want STRICT matching.
-        // The user wants to see tasks assigned to the target person, not unrelated parents.
+    if (hasAssignee) {
         const useStrictFilter = true; 
-        appendAnd(where, buildParentAssigneeFilter(opts.assigneeId, useStrictFilter));
+        appendAnd(where, buildParentAssigneeFilter(opts.assigneeId!, useStrictFilter));
     }
 
     if (opts.parentTaskId) {
         where.parentTaskId = opts.parentTaskId;
     }
 
-    if (opts.dueAfter || opts.dueBefore) {
+    if (hasDate) {
         const dateFilter: any = {
             ...(opts.dueAfter ? { gte: opts.dueAfter } : {}),
             ...(opts.dueBefore ? { lt: new Date(new Date(opts.dueBefore).getTime() + 24 * 60 * 60 * 1000) } : {}),
@@ -643,8 +645,8 @@ export function buildWorkspaceFilterWhere(
         where.dueDate = dateFilter;
     }
 
-    if (opts.search && opts.search.trim().length > 0) {
-        const q = opts.search.trim();
+    if (hasSearch) {
+        const q = opts.search!.trim();
         const searchMatches: Prisma.TaskWhereInput = {
             OR: [
                 { name: { contains: q, mode: "insensitive" } },
@@ -661,13 +663,10 @@ export function buildWorkspaceFilterWhere(
             ]
         });
     }
-
     // 3. Apply Hierarchy/View Logic (Ignore if specific IDs are requested)
-    if (!opts.ids || opts.ids.length === 0) {
+    if (!hasIds) {
         if (opts.onlyParents) {
             where.isParent = true;
-            // For Gantt view hierarchies, we might want all parents regardless of level.
-            // But for standard root views, we stick to parentTaskId: null.
             if (opts.view_mode !== "gantt") {
                 where.parentTaskId = null;
             }
@@ -675,19 +674,9 @@ export function buildWorkspaceFilterWhere(
             where.parentTaskId = { not: null };
             where.isParent = false;
         } else if (opts.view_mode !== "gantt") {
-            // 🚀 DEFAULT: Hierarchical root view (Parents only)
-            // If no explicit filter is pulling in subtasks, only show root parents at the top level.
-            const hasFilters = !!(
-                (opts.status && opts.status.length > 0) ||
-                opts.assigneeId ||
-                opts.tagId ||
-                (opts.search && opts.search.trim().length > 0) ||
-                opts.dueAfter ||
-                opts.dueBefore ||
-                (opts.ids && opts.ids.length > 0)
-            );
-            
-            if (!hasFilters) {
+            // 🚀 DEFAULT: Hierarchical root view
+            // If no explicit filter is applied, only show root parents at the top level.
+            if (!hasExplicitFilters) {
                 where.parentTaskId = null;
                 where.isParent = true;
             }
