@@ -6,8 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Mail, Shield, User as UserIcon, Calendar } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
+import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
+
 export default function MySpaceInfoPage() {
-  const { data: session, isPending } = authClient.useSession();
+  const { data: session, isPending: isSessionPending } = authClient.useSession();
+  const { data: layoutData, isLoading: isLayoutLoading } = useWorkspaceLayout();
+
+  const isPending = isSessionPending || isLayoutLoading;
 
   if (isPending) {
     return (
@@ -26,6 +31,7 @@ export default function MySpaceInfoPage() {
   if (!session) return null;
 
   const user = session.user;
+  const workspaceRole = layoutData?.permissions?.workspaceRole;
 
   return (
     <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500 px-2">
@@ -62,8 +68,8 @@ export default function MySpaceInfoPage() {
                 <Shield className="h-5 w-5 text-blue-500" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Role</p>
-                <p className="text-sm font-semibold capitalize">{user.role || "User"}</p>
+                <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Workspace Role</p>
+                <p className="text-sm font-semibold capitalize text-blue-600">{workspaceRole || "Member"}</p>
               </div>
             </div>
 
