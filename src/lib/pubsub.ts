@@ -46,7 +46,7 @@ class RealtimeService {
       }
 
       // 2. Bind to standard updates (refreshes/surgical sync)
-      const standardEvents = ["team_update", "task_update", "subtask_update", "project_update", "attendance_update"];
+      const standardEvents = ["team_update", "task_update", "subtask_update", "project_update", "attendance_update", "conversation_update"];
       standardEvents.forEach(eventName => {
         const handler = (data: any) => {
           console.log(`[REALTIME_SERVICE] 📥 Received ${eventName}:`, data.action || data.type);
@@ -72,6 +72,20 @@ class RealtimeService {
 
         channel.bind(eventName, handler);
         if (personalChannel) personalChannel.bind(eventName, handler);
+
+        // Map Pusher event to PubSub event
+        if (eventName === "conversation_update") {
+          channel.bind(eventName, (data: any) => this.publish(EVENTS.CONVERSATION_UPDATE, data));
+          if (personalChannel) personalChannel.bind(eventName, (data: any) => this.publish(EVENTS.CONVERSATION_UPDATE, data));
+        }
+      });
+
+      // 3. Bind to presence updates
+      channel.bind("user-active", (data: any) => {
+        this.publish(EVENTS.PRESENCE_UPDATE, { ...data, status: "active" });
+      });
+      channel.bind("user-inactive", (data: any) => {
+        this.publish(EVENTS.PRESENCE_UPDATE, { ...data, status: "inactive" });
       });
     }
   }
@@ -130,4 +144,6 @@ export const EVENTS = {
   PROJECT_UPDATE: "project_update",
   MEMBER_UPDATE: "member_update",
   ATTENDANCE_UPDATE: "attendance_update",
+  PRESENCE_UPDATE: "presence_update",
+  CONVERSATION_UPDATE: "conversation_update",
 } as const;

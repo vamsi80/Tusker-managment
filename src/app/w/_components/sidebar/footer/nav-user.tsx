@@ -111,7 +111,7 @@ export function NavUser({ workspaceId }: { workspaceId?: string }) {
                 )}
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
+              <DropdownMenuItem onClick={() => handleSignOut(workspaceId)} className="cursor-pointer">
                 <LogOut />
                 Log out
               </DropdownMenuItem>
