@@ -1,6 +1,5 @@
 
 import {
-  BookOpen,
   ChevronDownIcon,
   Home,
   LayoutDashboardIcon,
@@ -10,7 +9,6 @@ import {
 import {
   Avatar,
   AvatarFallback,
-  AvatarImage,
 } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -23,28 +21,22 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { useSignout } from "@/hooks/use-signout"
 
 interface iAppProps {
   name: string;
   email: string;
-  image: string;
 }
 
 
-export function UserDropdown({ name, email, image }: iAppProps) {
+export function UserDropdown({ name, email }: iAppProps) {
 
-  const router = useRouter()
   const handleSignOut = useSignout()
-
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="h-auto p-0 hover:bg-transparent">
           <Avatar>
-            <AvatarImage src={image} alt="Profile image" />
             <AvatarFallback className="bg-primary text-primary-foreground">{name[0].toUpperCase()}</AvatarFallback>
           </Avatar>
           <ChevronDownIcon

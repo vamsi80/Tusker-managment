@@ -266,14 +266,22 @@ export function PersonalListContainer({
                <div className="mt-1 shrink-0 text-muted-foreground/50">
                  {isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4.5 w-4.5 stroke-[2px]" />}
                </div>
-               <form onSubmit={handleAddTodo} className="flex-1">
+               <form onSubmit={handleAddTodo} className="flex-1 flex items-center gap-2">
                  <Input
                    placeholder="Add a new task..."
                    value={newTodoText}
                    onChange={(e) => setNewTodoText(e.target.value)}
                    disabled={isAdding}
-                   className="h-auto p-0 bg-transparent border-0 focus-visible:ring-0 text-base font-medium placeholder:text-muted-foreground/50 shadow-none"
+                   className="h-auto p-0 bg-transparent border-0 focus-visible:ring-0 text-base font-medium placeholder:text-muted-foreground/50 shadow-none flex-1"
                  />
+                 {newTodoText.trim() && !isAdding && (
+                   <button 
+                     type="submit"
+                     className="p-1 rounded-lg bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-all active:scale-90 animate-in fade-in slide-in-from-right-2 duration-200"
+                   >
+                     <Check className="h-4 w-4 stroke-[2.5px]" />
+                   </button>
+                 )}
                </form>
             </div>
 

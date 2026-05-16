@@ -1,5 +1,8 @@
 "use client";
 
+import { authClient } from "@/lib/auth-client";
+import { useState, useEffect, useMemo } from "react";
+import { useConversations } from "./conversations-context";
 import { Search, MessageSquare } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -7,9 +10,6 @@ import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { authClient } from "@/lib/auth-client";
-import { useState, useEffect, useMemo } from "react";
-import { useConversations } from "./conversations-context";
 
 interface ConversationListProps {
   conversations: any[];
@@ -131,8 +131,8 @@ export function ConversationList({ conversations, isLoading }: ConversationListP
             <>
               {unifiedList.map((item) => {
                 const otherUser = item.otherUser;
-                const isActive = item.type === "conversation" 
-                  ? conversationId === item.id 
+                const isActive = item.type === "conversation"
+                  ? conversationId === item.id
                   : conversations.find(c => c.id === conversationId)?.otherUser?.id === item.id;
 
                 const content = (
