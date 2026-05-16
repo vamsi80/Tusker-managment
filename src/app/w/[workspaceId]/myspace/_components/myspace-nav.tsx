@@ -17,7 +17,7 @@ export function MySpaceNav({ workspaceId }: { workspaceId: string }) {
   ];
 
   return (
-    <div className="pt-4 mb-6">
+    <div className="pt-0 mb-2">
       <div className="flex h-11 items-center gap-4 overflow-x-auto scrollbar-hide px-2 border-b border-border/50">
         <div className="flex items-center gap-2 pr-4 border-r border-border/50 h-6 flex-shrink-0">
           <LayoutGrid className="h-3.5 w-3.5 text-primary" />
@@ -27,9 +27,6 @@ export function MySpaceNav({ workspaceId }: { workspaceId: string }) {
         {navTabs.map((tab) => {
           const isActive = pathname === tab.href || (tab.id !== "info" && pathname.startsWith(tab.href));
           const Icon = tab.icon;
-
-          // Check if we are deeper than the tab href
-          const isDeeper = isActive && pathname !== tab.href;
 
           return (
             <div key={tab.id} className="flex items-center h-full">

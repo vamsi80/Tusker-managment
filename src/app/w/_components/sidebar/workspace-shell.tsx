@@ -9,6 +9,7 @@ import { DataLoadReporter } from "@/app/w/[workspaceId]/_components/data-load-re
 import { WorkspaceLayoutProvider } from "../../[workspaceId]/_components/workspace-layout-context";
 import { TopLoader } from "@/components/shared/top-loader";
 import { WorkspaceLayoutData } from "@/types/workspace";
+import { usePathname } from "next/navigation";
 
 interface WorkspaceShellProps {
   children: React.ReactNode;
@@ -25,6 +26,7 @@ export function WorkspaceShell({ children, workspaceId, initialData }: Workspace
 }
 
 function WorkspaceShellContent({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
 
   return (
     <WorkspaceClientProviders>

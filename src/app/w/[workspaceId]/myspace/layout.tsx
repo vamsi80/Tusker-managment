@@ -2,6 +2,7 @@
 
 import { use } from "react";
 import { MySpaceNav } from "./_components/myspace-nav";
+import { usePathname } from "next/navigation";
 
 interface LayoutProps {
   children: React.ReactNode;

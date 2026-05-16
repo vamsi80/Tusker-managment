@@ -182,14 +182,14 @@ export function PersonalListContainer({
       key={todo.id}
       className={cn(
         "group flex items-start gap-3 py-1.5 transition-all duration-200",
-        todo.completed ? "opacity-40" : "opacity-100"
+        todo.completed ? "opacity-60" : "opacity-100"
       )}
     >
       <button 
         onClick={() => handleToggleTodo(todo.id)}
         className={cn(
           "mt-1 shrink-0 transition-all active:scale-90",
-          todo.completed ? "text-primary" : "text-muted-foreground/40 hover:text-primary"
+          todo.completed ? "text-emerald-500" : "text-muted-foreground/60 hover:text-primary"
         )}
       >
         {todo.completed ? <CheckCircle2 className="h-4.5 w-4.5" /> : <Circle className="h-4.5 w-4.5 stroke-[2px]" />}
@@ -220,7 +220,7 @@ export function PersonalListContainer({
             }}
             className={cn(
               "text-base font-medium leading-relaxed transition-all cursor-text",
-              todo.completed && "line-through text-muted-foreground font-normal"
+              todo.completed && "line-through text-muted-foreground/80 font-normal"
             )}
           >
             {todo.text}
@@ -257,13 +257,13 @@ export function PersonalListContainer({
           {/* Column 1: Active Tasks + Input */}
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2 mb-4">
-               <span className="text-xs font-bold uppercase tracking-widest text-primary/60">Ongoing</span>
-               <div className="h-px flex-1 bg-primary/10" />
+               <span className="text-xs font-bold uppercase tracking-widest text-primary">Ongoing</span>
+               <div className="h-px flex-1 bg-primary/30" />
             </div>
 
             {/* Input Row */}
             <div className="group flex items-start gap-3 py-1.5 transition-all mb-2">
-               <div className="mt-1 shrink-0 text-muted-foreground/30">
+               <div className="mt-1 shrink-0 text-muted-foreground/50">
                  {isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4.5 w-4.5 stroke-[2px]" />}
                </div>
                <form onSubmit={handleAddTodo} className="flex-1">
@@ -272,7 +272,7 @@ export function PersonalListContainer({
                    value={newTodoText}
                    onChange={(e) => setNewTodoText(e.target.value)}
                    disabled={isAdding}
-                   className="h-auto p-0 bg-transparent border-0 focus-visible:ring-0 text-base font-medium placeholder:text-muted-foreground/30 shadow-none"
+                   className="h-auto p-0 bg-transparent border-0 focus-visible:ring-0 text-base font-medium placeholder:text-muted-foreground/50 shadow-none"
                  />
                </form>
             </div>
@@ -291,8 +291,8 @@ export function PersonalListContainer({
           {/* Column 2: Completed Tasks */}
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2 mb-4">
-               <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60">Completed</span>
-               <div className="h-px flex-1 bg-border/50" />
+               <span className="text-xs font-bold uppercase tracking-widest text-emerald-500/80">Completed</span>
+               <div className="h-px flex-1 bg-emerald-500/20" />
             </div>
             
             <ScrollArea className="flex-1">
