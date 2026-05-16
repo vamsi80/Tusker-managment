@@ -30,12 +30,13 @@ model User {
   workspaces          WorkspaceMember[]
   UserConversations   UserConversations[]
   accounts            Account[]
+  activityReads       ActivityRead[]
   auditLogs           AuditLog[]
   comments            Comment[]
   commentReads        CommentRead[]
-  activityReads       ActivityRead[]
   dailyReports        DailyReport[]
   direct_message      direct_message[]
+
   notification        notification[]
   sessions            Session[]
 
@@ -148,12 +149,13 @@ model WorkspaceMember {
   updatedAt              DateTime               @updatedAt
   workspaceRole          WorkspaceRole          @default(MEMBER)
   designation            String?
-  employeeId             String?
-  dateOfBirth            DateTime?
   reportToId             String?
   accruedDaysCount       Int                    @default(0)
   casualLeaveBalance     Float                  @default(0)
   sickLeaveBalance       Float                  @default(12)
+  position               Int                    @default(0)
+  dateOfBirth            DateTime?
+  employeeId             String?
   managedProjects        Project[]              @relation("ProjectManager")
   projectMembers         ProjectMember[]
   reportTo               WorkspaceMember?       @relation("ReportTo", fields: [reportToId], references: [id])
@@ -172,8 +174,9 @@ model WorkspaceMember {
   approvedPurchaseOrders PurchaseOrder[]        @relation("POApprover")
   createdPurchaseOrders  PurchaseOrder[]        @relation("POCreator")
   recordedPayments       PurchaseOrderPayment[] @relation("PaymentRecorder")
-  createdUnits           Unit[]
-  position               Int                    @default(0)
+   createdUnits           Unit[]
+   memberTodos            MemberTodo[]
+
 
   @@unique([userId, workspaceId])
   @@index([workspaceId, workspaceRole])
@@ -698,8 +701,6 @@ model attendance {
   checkOutLongitude Float?
   status            AttendanceStatus @default(PRESENT)
   notes             String?
-  checkInNotes      String?
-  checkOutNotes     String?
   createdAt         DateTime         @default(now())
   updatedAt         DateTime
   checkInAddress    String?
@@ -707,6 +708,8 @@ model attendance {
   isOvertime        Boolean          @default(false)
   lateThreshold     String?
   overtimeThreshold String?
+  checkInNotes      String?
+  checkOutNotes     String?
   Workspace         Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   WorkspaceMember   WorkspaceMember  @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
 
@@ -851,6 +854,21 @@ model UserConversations {
   @@index([B], map: "_UserConversations_B_index")
   @@map("_UserConversations")
 }
+
+model MemberTodo {
+  id          String          @id @default(uuid())
+  memberId    String
+  text        String
+  completed   Boolean         @default(false)
+  createdAt   DateTime        @default(now())
+  completedAt DateTime?
+  updatedAt   DateTime        @updatedAt
+  member      WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId])
+  @@map("member_todos")
+}
+
 
 enum IndentItemStatus {
   PENDING

@@ -11,6 +11,7 @@ import workspaces from "./routes/workspaces";
 import auth from "./routes/auth";
 import comments from "./routes/comments";
 import reports from "./routes/reports";
+import memberTodos from "./routes/member-todos";
 import { HonoVariables } from "./types";
 import { authMiddleware } from "./middleware/auth";
 import { AppError } from "../lib/errors/app-error";
@@ -128,6 +129,9 @@ app.route("/comments", comments);
 
 // Reports API
 app.route("/reports", reports);
+
+// Member Todos API
+app.route("/member-todos", memberTodos);
 
 
 export default app;

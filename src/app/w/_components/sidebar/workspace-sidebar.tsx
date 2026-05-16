@@ -113,7 +113,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
 
       <SidebarFooter>
         <NavFooter items={footerNavItems} />
-        <NavUser />
+        <NavUser workspaceId={workspaceId} />
       </SidebarFooter>
     </Sidebar>
   );
