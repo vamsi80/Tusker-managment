@@ -117,8 +117,9 @@ export class AttendanceService {
         }
 
         // Accuracy Check (Filtering out poor signals/spoofs)
-        if (params.accuracy && params.accuracy > 100) {
-            throw AppError.ValidationError(`GPS accuracy too low (${Math.round(params.accuracy)}m). Please wait for a better signal.`);
+        // Accuracy Check (Filtering out poor signals/spoofs)
+        if (params.accuracy && params.accuracy > 200) {
+            throw AppError.ValidationError(`GPS accuracy too low (${Math.round(params.accuracy)}m). Please move near a window or outdoor space to get a better signal.`);
         }
 
         // Location Matching & Enforcement
@@ -126,7 +127,7 @@ export class AttendanceService {
         
         let finalAddress = address;
         if (latitude && longitude) {
-            const nearbyLoc = await this.findNearbyLocation(workspaceId, latitude, longitude);
+            const nearbyLoc = await this.findNearbyLocation(workspaceId, latitude, longitude, params.accuracy);
             if (nearbyLoc) {
                 finalAddress = nearbyLoc.name;
             } else if (workspaceLocations > 0 && !params.notes) {
@@ -245,8 +246,9 @@ export class AttendanceService {
             : (istTotalMinutes > otTotalMinutes);
 
         // Accuracy Check
-        if (params.accuracy && params.accuracy > 100) {
-            throw AppError.ValidationError(`GPS accuracy too low (${Math.round(params.accuracy)}m). Please wait for a better signal.`);
+        // Accuracy Check
+        if (params.accuracy && params.accuracy > 200) {
+            throw AppError.ValidationError(`GPS accuracy too low (${Math.round(params.accuracy)}m). Please move near a window or outdoor space to get a better signal.`);
         }
 
         // Location Matching & Enforcement
@@ -254,7 +256,7 @@ export class AttendanceService {
 
         let finalAddress = address;
         if (latitude && longitude) {
-            const nearbyLoc = await this.findNearbyLocation(workspaceId, latitude, longitude);
+            const nearbyLoc = await this.findNearbyLocation(workspaceId, latitude, longitude, params.accuracy);
             if (nearbyLoc) {
                 finalAddress = nearbyLoc.name;
             } else if (workspaceLocations > 0 && !params.notes) {
@@ -566,16 +568,18 @@ export class AttendanceService {
     }
 
     /**
-     * Find nearby attendance location
+     * Find nearby attendance location with dynamic GPS accuracy filtering
      */
-    private static async findNearbyLocation(workspaceId: string, lat: number, lng: number) {
+    private static async findNearbyLocation(workspaceId: string, lat: number, lng: number, accuracy = 0) {
         const locations = await prisma.attendanceLocation.findMany({
             where: { workspaceId }
         });
 
         for (const loc of locations) {
-            const distance = this.calculateDistance(lat, lng, loc.latitude, loc.longitude);
-            if (distance <= loc.radius) {
+            const rawDistance = this.calculateDistance(lat, lng, loc.latitude, loc.longitude);
+            // Subtract accuracy error margin from the raw distance to get the effective distance
+            const effectiveDistance = Math.max(0, rawDistance - accuracy);
+            if (effectiveDistance <= loc.radius) {
                 return loc;
             }
         }

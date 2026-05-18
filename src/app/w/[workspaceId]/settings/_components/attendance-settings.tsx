@@ -219,6 +219,26 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
         }
     };
 
+    const handleReverseGeocode = async (idx: number, lat: number, lon: number) => {
+        if (!lat || !lon) return;
+        try {
+            setIsLoading(true);
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+            const data = await res.json();
+            if (data && data.display_name) {
+                const newLocs = attendanceLocations.map((loc, i) =>
+                    i === idx ? { ...loc, address: data.display_name } : loc
+                );
+                setAttendanceLocations(newLocs);
+                toast.success("Address fetched from coordinates!");
+            }
+        } catch (error) {
+            console.error("Reverse geocoding error:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const rows = [
         {
             id: "shiftStartTime",
@@ -518,7 +538,17 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
 
                                     <div className="grid grid-cols-2 gap-2">
                                         <div className="space-y-1">
-                                            <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Latitude</Label>
+                                            <div className="flex items-center justify-between">
+                                                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Latitude</Label>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleReverseGeocode(idx, loc.latitude, loc.longitude)}
+                                                    disabled={!isAdmin || isLoading || !loc.latitude || !loc.longitude}
+                                                    className="text-[9px] font-bold uppercase tracking-tight text-primary hover:underline disabled:opacity-50 disabled:no-underline bg-transparent border-0 cursor-pointer p-0"
+                                                >
+                                                    Get Address
+                                                </button>
+                                            </div>
                                             <Input
                                                 type="number"
                                                 step="any"
@@ -528,6 +558,11 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                                                         i === idx ? { ...l, latitude: parseFloat(e.target.value) || 0 } : l
                                                     );
                                                     setAttendanceLocations(newLocs);
+                                                }}
+                                                onBlur={() => {
+                                                    if (loc.latitude && loc.longitude) {
+                                                        handleReverseGeocode(idx, loc.latitude, loc.longitude);
+                                                    }
                                                 }}
                                                 className="h-9 text-xs bg-background/50"
                                                 disabled={!isAdmin || isLoading}
@@ -544,6 +579,11 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                                                         i === idx ? { ...l, longitude: parseFloat(e.target.value) || 0 } : l
                                                     );
                                                     setAttendanceLocations(newLocs);
+                                                }}
+                                                onBlur={() => {
+                                                    if (loc.latitude && loc.longitude) {
+                                                        handleReverseGeocode(idx, loc.latitude, loc.longitude);
+                                                    }
                                                 }}
                                                 className="h-9 text-xs bg-background/50"
                                                 disabled={!isAdmin || isLoading}

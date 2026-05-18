@@ -57,7 +57,7 @@ export function TimelineHeader({
     const headerHeight = granularity === 'days' ? 72 : 40;
 
     // 🚀 Horizontal Virtualization: Determine visible indices
-    const sidebarWidth = showDetails ? 650 : 250; // Dynamic sidebar width
+    const sidebarWidth = showDetails ? 660 : 230; // Dynamic sidebar width
     const visibleStartIndex = Math.max(0, Math.floor((scrollX - sidebarWidth) / columnWidth));
     const visibleEndIndex = Math.min(columns.length, Math.ceil((scrollX + viewportWidth) / columnWidth));
 
@@ -325,7 +325,7 @@ export function TimelineGrid({ startDate, endDate, granularity, tasks, children,
     const totalWidth = columns.length * columnWidth;
 
     // 🚀 Horizontal Virtualization
-    const sidebarWidth = showDetails ? 650 : 250;
+    const sidebarWidth = showDetails ? 660 : 230;
     const visibleStartIndex = Math.max(0, Math.floor((scrollX - sidebarWidth) / columnWidth));
     const visibleEndIndex = Math.min(columns.length, Math.ceil((scrollX + viewportWidth) / columnWidth));
 
@@ -408,17 +408,25 @@ export function TimelineGrid({ startDate, endDate, granularity, tasks, children,
                 <div style={{ width: (columns.length - visibleEndIndex) * columnWidth }} className="shrink-0" />
             </div>
 
-            {/* Today Indicator Line */}
-            {todayPosition !== null && (
-                <div
-                    className="absolute top-0 bottom-0 w-0.5 bg-red-500/80 dark:bg-red-400/80 z-30 pointer-events-none"
-                    style={{
-                        left: `calc(var(--gantt-sidebar-width) + ${todayPosition}px)`,
-                    }}
-                >
-                    <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-red-500 shadow-sm" />
-                </div>
-            )}
+            {/* Today Indicator — clipped to timeline area only and lowered z-index to z-20 */}
+            <div
+                className="absolute top-0 bottom-0 pointer-events-none overflow-hidden z-20"
+                style={{
+                    left: 'var(--gantt-sidebar-width)',
+                    right: 0,
+                }}
+            >
+                {todayPosition !== null && (
+                    <div
+                        className="absolute top-0 bottom-0 w-0.5 bg-red-500/80 dark:bg-red-400/80"
+                        style={{
+                            left: `${todayPosition}px`,
+                        }}
+                    >
+                        <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-red-500 shadow-sm" />
+                    </div>
+                )}
+            </div>
 
             {/* Content Container (Vertical List of Rows) */}
             <div className="flex flex-col relative z-20">

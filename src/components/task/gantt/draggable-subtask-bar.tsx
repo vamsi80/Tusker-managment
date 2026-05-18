@@ -8,6 +8,7 @@ import { useRemainingDays } from "@/hooks/use-due-date";
 import { getDelayColors, getDelayText } from "@/lib/colors/delay-colors";
 import { toast } from "sonner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { GanttSubtask } from "./types";
 import { apiClient } from "@/lib/api-client";
@@ -55,6 +56,9 @@ export function DraggableSubtaskBar({
 
     // Track if we're waiting for server update
     const [isPendingUpdate, setIsPendingUpdate] = useState(false);
+
+    const [popoverOpen, setPopoverOpen] = useState(false);
+    const hasMovedRef = useRef(false);
 
     const barRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -168,6 +172,7 @@ export function DraggableSubtaskBar({
         if (!canEdit || isResizing || !startDate) return;
 
         e.preventDefault();
+        hasMovedRef.current = false;
         setIsDragging(true);
         setDragStart({ x: e.clientX, date: startDate });
     };
@@ -177,6 +182,7 @@ export function DraggableSubtaskBar({
 
         e.stopPropagation();
         e.preventDefault();
+        hasMovedRef.current = false;
         setIsResizing(true);
         setResizeEdge('right');
         setDragStart({ x: e.clientX, date: endDate });
@@ -188,6 +194,7 @@ export function DraggableSubtaskBar({
 
         e.stopPropagation();
         e.preventDefault();
+        hasMovedRef.current = false;
         setIsResizing(true);
         setResizeEdge('left');
         setDragStart({ x: e.clientX, date: startDate });
@@ -203,8 +210,12 @@ export function DraggableSubtaskBar({
 
             const containerRect = container.getBoundingClientRect();
             const deltaX = e.clientX - dragStart.x;
+            if (Math.abs(deltaX) < 3) return; // 3px drag threshold to filter out micro-wiggles
+            hasMovedRef.current = true;
+
             const pixelsPerDay = containerRect.width / totalDays;
-            const daysDelta = Math.round(deltaX / pixelsPerDay);
+            const rawDays = deltaX / pixelsPerDay;
+            const daysDelta = Math.round(rawDays);
 
             if (isDragging) {
                 daysDeltaRef.current = Math.abs(daysDelta);
@@ -255,10 +266,19 @@ export function DraggableSubtaskBar({
             const container = containerRef.current.parentElement;
             if (!container) return;
 
+            if (!hasMovedRef.current) {
+                setIsDragging(false);
+                setIsResizing(false);
+                setResizeEdge(null);
+                setLivePosition(null);
+                return;
+            }
+
             const containerRect = container.getBoundingClientRect();
             const deltaX = e.clientX - dragStart.x;
             const pixelsPerDay = containerRect.width / totalDays;
-            const daysDelta = Math.round(deltaX / pixelsPerDay);
+            const rawDays = deltaX / pixelsPerDay;
+            const daysDelta = Math.round(rawDays);
 
             if (isDragging && daysDelta !== 0) {
                 const dragBaseDate = dragStart.date;
@@ -433,156 +453,149 @@ export function DraggableSubtaskBar({
 
     const handleBarClick = (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (daysDeltaRef.current === 0) {
+        if (!hasMovedRef.current) {
             onToggleHighlight?.();
+            setPopoverOpen(prev => !prev);
         }
     };
 
     return (
         <div ref={containerRef} className="h-6 relative w-full group/bar">
-            <TooltipProvider delayDuration={100}>
-                <div className="relative h-full w-full">
-                    {/* Main Bar Tooltip */}
-                    <Tooltip>
-                        <TooltipTrigger asChild>
+            <div className="relative h-full w-full">
+                {/* Main Bar Popover (Triggers on Click) */}
+                <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+                    <PopoverTrigger asChild>
+                        <div
+                            ref={barRef}
+                            className={cn(
+                                "absolute top-1 h-3 rounded-md transition-all duration-200 ease-out gantt-subtask-bar-hitbox z-10",
+                                "shadow-sm hover:shadow-md",
+                                "focus:outline-none focus:ring-2 focus:ring-offset-1",
+                                canEdit && "cursor-grab active:cursor-grabbing",
+                                isDragging && "opacity-70 scale-105",
+                                statusColors.barClass
+                            )}
+                            style={{
+                                left: `${leftPercent}%`,
+                                width: `${widthPercent}%`,
+                                minWidth: '20px'
+                            }}
+                            onMouseDown={handleBarMouseDown}
+                            onClick={handleBarClick}
+                            tabIndex={0}
+                            role="button"
+                            aria-label={`${optimisticSubtask.name}: ${startDate ? formatDate(startDate) : 'N/A'} to ${endDate ? formatDate(endDate) : 'N/A'}`}
+                        >
+                            {/* Progress Overlay */}
                             <div
-                                ref={barRef}
-                                className={cn(
-                                    "absolute top-1 h-3 rounded-md transition-all duration-200 ease-out gantt-subtask-bar-hitbox",
-                                    "shadow-sm hover:shadow-md",
-                                    "focus:outline-none focus:ring-2 focus:ring-offset-1",
-                                    canEdit && "cursor-grab active:cursor-grabbing",
-                                    isDragging && "opacity-70 scale-105",
-                                    statusColors.barClass
-                                )}
+                                className="absolute inset-y-0 left-0 bg-black/15 dark:bg-white/15 rounded-l-md transition-all duration-300 pointer-events-none"
                                 style={{
-                                    left: `${leftPercent}%`,
-                                    width: `${widthPercent}%`,
-                                    minWidth: '20px'
+                                    width: `${subtask.progress}%`,
+                                    borderRadius: subtask.progress === 100 ? 'inherit' : undefined
                                 }}
-                                onMouseDown={handleBarMouseDown}
-                                onClick={handleBarClick}
-                                tabIndex={0}
-                                role="button"
-                                aria-label={`${optimisticSubtask.name}: ${startDate ? formatDate(startDate) : 'N/A'} to ${endDate ? formatDate(endDate) : 'N/A'}`}
-                            >
-                                {/* Progress Overlay */}
-                                <div
-                                    className="absolute inset-y-0 left-0 bg-black/15 dark:bg-white/15 rounded-l-md transition-all duration-300 pointer-events-none"
-                                    style={{
-                                        width: `${subtask.progress}%`,
-                                        borderRadius: subtask.progress === 100 ? 'inherit' : undefined
-                                    }}
-                                />
+                            />
 
-                                {/* Resize handles */}
-                                {canEdit && (
-                                    <>
-                                        {/* Left resize handle */}
-                                        <div
-                                            className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize opacity-0 group-hover/bar:opacity-100 hover:bg-white/30 rounded-l-md"
-                                            onMouseDown={handleResizeLeftMouseDown}
-                                            title="Drag to change start date"
-                                        >
-                                            <GripHorizontal className="h-full w-full text-white/50" />
-                                        </div>
+                            {/* Resize handles (positioned slightly OUTSIDE for pixel-perfect precision) */}
+                            {canEdit && (
+                                <>
+                                    {/* Left resize handle */}
+                                    <div
+                                        className="absolute -left-2 top-0 bottom-0 w-4 cursor-ew-resize opacity-0 group-hover/bar:opacity-100 hover:bg-white/30 rounded-l-md z-20 flex items-center justify-center"
+                                        onMouseDown={handleResizeLeftMouseDown}
+                                        title="Drag to change start date"
+                                    >
+                                        <GripHorizontal className="h-full w-2 text-white/50" />
+                                    </div>
 
-                                        {/* Right resize handle */}
-                                        <div
-                                            className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize opacity-0 group-hover/bar:opacity-100 hover:bg-white/30 rounded-r-md"
-                                            onMouseDown={handleResizeRightMouseDown}
-                                            title="Drag to change end date"
-                                        >
-                                            <GripHorizontal className="h-full w-full text-white/50" />
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="bg-popover text-popover-foreground border shadow-lg max-w-xs">
-                            <div className="space-y-1.5">
-                                <div className="flex items-center gap-2">
-                                    <p className="font-medium text-sm">{optimisticSubtask.name}</p>
+                                    {/* Right resize handle */}
+                                    <div
+                                        className="absolute -right-2 top-0 bottom-0 w-4 cursor-ew-resize opacity-0 group-hover/bar:opacity-100 hover:bg-white/30 rounded-r-md z-20 flex items-center justify-center"
+                                        onMouseDown={handleResizeRightMouseDown}
+                                        title="Drag to change end date"
+                                    >
+                                        <GripHorizontal className="h-full w-2 text-white/50" />
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </PopoverTrigger>
+                    <PopoverContent side="top" align="center" className="bg-popover text-popover-foreground border shadow-xl max-w-xs p-3 rounded-xl z-50">
+                        <div className="space-y-3">
+                            <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <p className="font-semibold text-sm tracking-tight text-neutral-900 dark:text-neutral-50">{optimisticSubtask.name}</p>
                                     {isCompleted && (
-                                        <span className="px-1.5 py-0.5 text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded">
+                                        <span className="px-1.5 py-0.5 text-[10px] font-bold bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300 rounded">
                                             DONE
                                         </span>
                                     )}
                                     {remainingDays !== null && (
                                         <span className={cn(
-                                            "px-1.5 py-0.5 text-[10px] rounded flex items-center gap-1 font-bold border",
+                                            "px-1.5 py-0.5 text-[9px] rounded flex items-center gap-1 font-bold border shrink-0",
                                             delayStyles.bgColor,
                                             delayStyles.color,
                                             delayStyles.borderColor,
                                             !isSettled && isDelayed && "animate-pulse"
                                         )}>
-                                            <AlertCircle className="h-3 w-3" />
+                                            <AlertCircle className="h-2.5 w-2.5" />
                                             {delayText.toUpperCase()}
                                         </span>
                                     )}
                                 </div>
                                 <p className="text-xs text-muted-foreground">
-                                    {startDate ? formatDate(startDate) : 'N/A'} — {endDate ? formatDate(endDate) : 'N/A'}
+                                    {startDate ? formatDate(startDate) : 'N/A'} — {endDate ? formatDate(endDate) : 'N/A'} ({duration} days)
                                 </p>
-                                <p className="text-xs text-muted-foreground">
-                                    {duration} days
-                                    {isDelayed && !isSettled && ` (+${Math.round((delayWidthPercent / 100) * totalDays)}d delay)`}
-                                </p>
-                                <div className="flex items-center gap-2 pt-1 border-t border-neutral-200 dark:border-neutral-700 mt-1">
-                                    <div className="flex-1 h-1.5 bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden">
-                                        <div
-                                            className="h-full bg-blue-500 rounded-full"
-                                            style={{ width: `${subtask.progress}%` }}
-                                        />
-                                    </div>
-                                    <span className="text-[10px] font-bold">{subtask.progress}%</span>
-                                </div>
-                                {canEdit && (
-                                    <p className="text-xs text-blue-600 dark:text-blue-400 pt-1 border-t">
-                                        💡 Drag to move • Drag edge to resize
+                                {isDelayed && !isSettled && (
+                                    <p className="text-[10px] font-bold text-red-600 dark:text-red-400 mt-0.5 animate-pulse">
+                                        ⚠️ Delayed by {Math.round((delayWidthPercent / 100) * totalDays)} days
                                     </p>
                                 )}
                             </div>
-                        </TooltipContent>
-                    </Tooltip>
 
-                    {/* Delay Bar Tooltip */}
-                    {delayWidthPercent > 0 && (
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <div
-                                    className="absolute top-1.5 h-2 rounded-r-md z-0 overflow-hidden"
-                                    style={{
-                                        left: `${leftPercent + widthPercent}%`,
-                                        width: `${delayWidthPercent}%`,
-                                        backgroundImage: `repeating-linear-gradient(
-                                            ${isSettled ? '-45deg' : '45deg'},
-                                            ${statusColors.hex}1A,
-                                            ${statusColors.hex}1A 4px,
-                                            ${statusColors.hex}66 4px,
-                                            ${statusColors.hex}66 8px
-                                        )`,
-                                        border: `1px solid ${statusColors.hex}80`,
-                                        borderLeft: 'none',
-                                        backgroundColor: `${statusColors.hex}0D`
-                                    }}
-                                    title={`Delayed by ${Math.round((delayWidthPercent / 100) * totalDays)} days`}
-                                />
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="bg-popover text-popover-foreground border shadow-lg max-w-xs">
-                                <div className="space-y-1.5">
-                                    <div className="flex items-center gap-2">
-                                        <p className="font-medium text-sm">{optimisticSubtask.name} (Delayed)</p>
-                                    </div>
-                                    <p className="text-xs text-muted-foreground">
-                                        This task is delayed by {Math.round((delayWidthPercent / 100) * totalDays)} days beyond its scheduled end date.
-                                    </p>
+                            <div className="space-y-1">
+                                <div className="flex items-center justify-between text-xs">
+                                    <span className="text-muted-foreground font-medium">Progress</span>
+                                    <span className="font-bold text-neutral-800 dark:text-neutral-200">{subtask.progress}%</span>
                                 </div>
-                            </TooltipContent>
-                        </Tooltip>
-                    )}
-                </div>
-            </TooltipProvider>
+                                <div className="w-full h-1.5 bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full bg-blue-500 rounded-full transition-all duration-300"
+                                        style={{ width: `${subtask.progress}%` }}
+                                    />
+                                </div>
+                            </div>
+
+                            {canEdit && (
+                                <p className="text-[10px] text-blue-600 dark:text-blue-400 font-medium text-center pt-2 border-t border-neutral-100 dark:border-neutral-800">
+                                    💡 Drag to move • Drag edge to resize
+                                </p>
+                            )}
+                        </div>
+                    </PopoverContent>
+                </Popover>
+
+                {/* Delay Bar (purely visual representation) */}
+                {delayWidthPercent > 0 && (
+                    <div
+                        className="absolute top-1.5 h-2 rounded-r-md z-0 overflow-hidden"
+                        style={{
+                            left: `${leftPercent + widthPercent}%`,
+                            width: `${delayWidthPercent}%`,
+                            backgroundImage: `repeating-linear-gradient(
+                                ${isSettled ? '-45deg' : '45deg'},
+                                ${statusColors.hex}1A,
+                                ${statusColors.hex}1A 4px,
+                                ${statusColors.hex}66 4px,
+                                ${statusColors.hex}66 8px
+                            )`,
+                            border: `1px solid ${statusColors.hex}80`,
+                            borderLeft: 'none',
+                            backgroundColor: `${statusColors.hex}0D`
+                        }}
+                        title={`Delayed by ${Math.round((delayWidthPercent / 100) * totalDays)} days`}
+                    />
+                )}
+            </div>
         </div>
     );
 }

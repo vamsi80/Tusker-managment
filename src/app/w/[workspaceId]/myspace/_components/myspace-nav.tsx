@@ -12,7 +12,7 @@ export function MySpaceNav({ workspaceId }: { workspaceId: string }) {
 
   const navTabs = [
     { id: "info", name: "My Info", href: baseUrl, icon: User },
-    { id: "todo", name: "Todo's", href: `${baseUrl}/todos`, icon: ListTodo },
+    { id: "todo", name: "To-Do's", href: `${baseUrl}/todos`, icon: ListTodo },
     { id: "conversations", name: "Conversations", href: `${baseUrl}/conversations`, icon: MessageSquare },
   ];
 

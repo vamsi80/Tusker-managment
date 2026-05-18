@@ -58,31 +58,74 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
     const requestLocation = (): Promise<{ lat: number; lng: number; accuracy: number }> => {
         return new Promise((resolve, reject) => {
             if (!navigator.geolocation) {
-                reject(new Error("Geolocation is not supported."));
+                reject(new Error("Geolocation is not supported by your browser."));
                 return;
             }
 
-            // Use a simpler getCurrentPosition for speed
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
+            let bestPosition: GeolocationPosition | null = null;
+            let watchId: number | null = null;
+            const startTime = Date.now();
+            const timeoutDuration = 12000; // Wait up to 12 seconds to stabilize accuracy
+
+            const cleanUp = () => {
+                if (watchId !== null) {
+                    navigator.geolocation.clearWatch(watchId);
+                }
+            };
+
+            const checkFinished = () => {
+                if (bestPosition) {
+                    cleanUp();
                     resolve({
-                        lat: position.coords.latitude,
-                        lng: position.coords.longitude,
-                        accuracy: position.coords.accuracy,
+                        lat: bestPosition.coords.latitude,
+                        lng: bestPosition.coords.longitude,
+                        accuracy: bestPosition.coords.accuracy,
                     });
+                } else {
+                    cleanUp();
+                    reject(new Error("Failed to get a precise location signal. Please ensure GPS is enabled and you are in a location with clear signal."));
+                }
+            };
+
+            // Use watchPosition to warm up the GPS sensor and acquire more satellites, which dramatically improves accuracy indoors over a few seconds!
+            watchId = navigator.geolocation.watchPosition(
+                (position) => {
+                    setAccuracy(position.coords.accuracy);
+                    setLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
+
+                    // Keep the position with the best (lowest number) accuracy
+                    if (!bestPosition || position.coords.accuracy < bestPosition.coords.accuracy) {
+                        bestPosition = position;
+                    }
+
+                    // If we have achieved a very high accuracy signal (15 meters or better), resolve immediately!
+                    if (position.coords.accuracy <= 15) {
+                        cleanUp();
+                        resolve({
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude,
+                            accuracy: position.coords.accuracy,
+                        });
+                    }
                 },
                 (error) => {
-                    let msg = "Failed to get location.";
-                    if (error.code === error.PERMISSION_DENIED) msg = "Location permission denied.";
-                    else if (error.code === error.TIMEOUT) msg = "Location request timed out.";
-                    reject(new Error(msg));
+                    // Do not reject immediately on intermediate errors, just log them unless it's a permission failure
+                    if (error.code === error.PERMISSION_DENIED) {
+                        cleanUp();
+                        reject(new Error("Location permission denied. Please allow location access in your browser settings."));
+                    }
                 },
                 {
                     enableHighAccuracy: true,
-                    timeout: 10000,
-                    maximumAge: 0 // Force fresh location, no caching (harder to spoof)
+                    timeout: timeoutDuration,
+                    maximumAge: 0,
                 }
             );
+
+            // Timeout fallback to return the best position we got so far
+            setTimeout(() => {
+                checkFinished();
+            }, timeoutDuration);
         });
     };
 
@@ -179,8 +222,28 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
                         </p>
                     </div>
                 </div>
-                <div className="mt-3 flex items-center gap-1.5 px-2 py-0.5 bg-primary/10 border border-primary/20 rounded-full w-fit">
-                    <span className="text-[10px] font-normal uppercase tracking-wider">High Accuracy GPS Required</span>
+                <div className="mt-3">
+                    {!accuracy ? (
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-muted border border-border rounded-full w-fit">
+                            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-pulse" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">GPS Waiting</span>
+                        </div>
+                    ) : accuracy <= 20 ? (
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full w-fit">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Strong GPS Signal ({Math.round(accuracy)}m)</span>
+                        </div>
+                    ) : accuracy <= 60 ? (
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full w-fit">
+                            <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600">Moderate GPS Signal ({Math.round(accuracy)}m)</span>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-rose-500/10 border border-rose-500/20 rounded-full w-fit">
+                            <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600">Weak GPS Signal ({Math.round(accuracy)}m) — Move near a window</span>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -203,8 +266,17 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
                             disabled={isLoading}
                             className="w-full h-12 gap-3 text-base font-bold shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all rounded-xl"
                         >
-                            {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <LogIn className="h-5 w-5" />}
-                            Check In
+                            {isLoading ? (
+                                <>
+                                    <Loader2 className="h-5 w-5 animate-spin" />
+                                    Acquiring GPS... {accuracy ? `(${Math.round(accuracy)}m)` : ""}
+                                </>
+                            ) : (
+                                <>
+                                    <LogIn className="h-5 w-5" />
+                                    Check In
+                                </>
+                            )}
                         </Button>
                     )}
 
@@ -233,8 +305,17 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
                                 disabled={isLoading}
                                 className="w-full h-12 gap-3 text-base font-bold shadow-lg shadow-destructive/20 hover:shadow-destructive/30 transition-all rounded-xl border-b-4 border-destructive/50 active:border-b-0 active:translate-y-1"
                             >
-                                {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <LogOut className="h-5 w-5" />}
-                                Check Out
+                                {isLoading ? (
+                                    <>
+                                        <Loader2 className="h-5 w-5 animate-spin" />
+                                        Acquiring GPS... {accuracy ? `(${Math.round(accuracy)}m)` : ""}
+                                    </>
+                                ) : (
+                                    <>
+                                        <LogOut className="h-5 w-5" />
+                                        Check Out
+                                    </>
+                                )}
                             </Button>
                         </div>
                     )}
