@@ -45,18 +45,35 @@ export function InlineDateRangePicker({
   const [selectedRange, setSelectedRange] = React.useState<DateRange | undefined>(initialRange);
 
   React.useEffect(() => {
-    setSelectedRange(initialRange);
-  }, [initialRange]);
+    if (open) {
+      setSelectedRange(initialRange);
+    }
+  }, [open, initialRange]);
 
   const handleSelect = (range: DateRange | undefined) => {
     setSelectedRange(range);
-    if (range?.from && range?.to) {
-      const days = Math.round((range.to.getTime() - range.from.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-      const startStr = format(range.from, APP_DATE_FORMAT);
-      const endStr = format(range.to, APP_DATE_FORMAT);
+  };
+
+  const handleApply = () => {
+    if (selectedRange?.from && selectedRange?.to) {
+      const days = Math.round((selectedRange.to.getTime() - selectedRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      const startStr = format(selectedRange.from, APP_DATE_FORMAT);
+      const endStr = format(selectedRange.to, APP_DATE_FORMAT);
+      onSave(startStr, endStr, days);
+      setOpen(false);
+    } else if (selectedRange?.from) {
+      // Fallback: Treat single-date selection as a 1-day range
+      const days = 1;
+      const startStr = format(selectedRange.from, APP_DATE_FORMAT);
+      const endStr = format(selectedRange.from, APP_DATE_FORMAT);
       onSave(startStr, endStr, days);
       setOpen(false);
     }
+  };
+
+  const handleCancel = () => {
+    setSelectedRange(initialRange);
+    setOpen(false);
   };
 
   const displayText = React.useMemo(() => {
@@ -88,13 +105,30 @@ export function InlineDateRangePicker({
           {displayText}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <Calendar
-          mode="range"
-          selected={selectedRange}
-          onSelect={handleSelect}
-          initialFocus
-        />
+      <PopoverContent className="w-auto p-0 flex flex-col max-h-[min(94vh,420px)] overflow-hidden" align="start" collisionPadding={12}>
+        <div className="overflow-y-auto p-3 flex-1">
+          <Calendar
+            mode="range"
+            selected={selectedRange}
+            onSelect={handleSelect}
+            initialFocus
+          />
+        </div>
+        <div className="flex items-center justify-end gap-2 border-t p-3 bg-neutral-50 dark:bg-neutral-900 rounded-b-md">
+          <button
+            onClick={handleCancel}
+            className="px-2.5 py-1 text-xs font-medium rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 text-muted-foreground transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleApply}
+            disabled={!selectedRange?.from}
+            className="px-3 py-1 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded transition-colors shadow-sm"
+          >
+            Apply
+          </button>
+        </div>
       </PopoverContent>
     </Popover>
   );
