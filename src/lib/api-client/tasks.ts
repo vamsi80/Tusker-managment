@@ -213,6 +213,37 @@ export const tasksClient = {
   },
 
   /**
+   * Patch specific fields of a task (Universal)
+   */
+  patchTaskFields: async (
+    taskId: string,
+    workspaceId: string,
+    projectId: string,
+    data: {
+      startDate?: string | Date | null;
+      dueDate?: string | Date | null;
+      assigneeUserId?: string | null;
+      tagIds?: string[];
+    },
+  ): Promise<ApiResponse> => {
+    const response = await apiFetch<{ success: boolean; data: any }>(
+      `/tasks/${taskId}/fields`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ ...data, workspaceId, projectId }),
+      },
+    );
+
+    return {
+      status: response.success ? "success" : "error",
+      message: response.success
+        ? "Task fields patched successfully"
+        : "Failed to patch task fields",
+      data: response.data,
+    };
+  },
+
+  /**
    * Reorder subtasks (Bulk)
    */
   reorderTasks: async (

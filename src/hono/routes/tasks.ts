@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { z } from "zod";
 import prisma from "@/lib/db";
 import { HonoVariables } from "../types";
 import { AppError } from "@/lib/errors/app-error";
@@ -496,6 +497,57 @@ tasks.patch("/:taskId/dates", async (c) => {
     taskId,
   }).catch((err) => console.error("[CACHE_ERROR] Invalidation failed:", err));
   return c.json({ success: true, data: updated });
+});
+
+/**
+ * PATCH /api/v1/tasks/:taskId/fields
+ * Universal task patch endpoint to update specific fields (dates, assignee, tags)
+ */
+tasks.patch("/:taskId/fields", async (c) => {
+  const user = c.get("user");
+  const taskId = c.req.param("taskId");
+  const body = await c.req.json();
+
+  const patchTaskFieldsSchema = z.object({
+    workspaceId: z.string(),
+    projectId: z.string(),
+    startDate: z.string().optional().nullable(),
+    dueDate: z.string().optional().nullable(),
+    assigneeUserId: z.string().optional().nullable(),
+    tagIds: z.array(z.string()).optional(),
+  });
+
+  const validation = patchTaskFieldsSchema.safeParse(body);
+  if (!validation.success) {
+    throw AppError.ValidationError("Invalid patch task data");
+  }
+
+  const { workspaceId, projectId, startDate, dueDate, assigneeUserId, tagIds } = validation.data;
+
+  const permissions = await getUserPermissions(workspaceId, projectId, user.id);
+
+  const updated = await TasksService.patchTaskFields({
+    taskId,
+    workspaceId,
+    projectId,
+    userId: user.id,
+    permissions,
+    data: {
+      startDate: startDate ?? undefined,
+      dueDate: dueDate ?? undefined,
+      assigneeUserId,
+      tagIds,
+    },
+  });
+
+  invalidateTaskMutation({
+    projectId,
+    workspaceId,
+    userId: user.id,
+    taskId,
+  }).catch((err) => console.error("[CACHE_ERROR] Invalidation failed:", err));
+
+  return c.json({ success: true, data: TasksService.mapToFlatMetadata(updated) });
 });
 
 // --- 3. MAIN RESOURCE ROUTES (General Handle) ---

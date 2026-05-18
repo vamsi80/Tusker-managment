@@ -288,12 +288,11 @@ export function DraggableSubtaskBar({
                 setIsPendingUpdate(true);
                 const toastId = toast.loading("Updating task dates...");
                 startTransition(async () => {
-                    const result = await apiClient.tasks.updateDates(
+                    const result = await apiClient.tasks.patchTaskFields(
                         subtask.id,
                         workspaceId!,
                         projectId!,
-                        startStr,
-                        endStr
+                        { startDate: startStr, dueDate: endStr }
                     );
 
                     if (result.status !== "success") {
@@ -329,12 +328,11 @@ export function DraggableSubtaskBar({
                         setIsPendingUpdate(true);
                         const toastId = toast.loading("Updating task duration...");
                         startTransition(async () => {
-                            const result = await apiClient.tasks.updateDates(
+                            const result = await apiClient.tasks.patchTaskFields(
                                 subtask.id,
                                 workspaceId!,
                                 projectId!,
-                                startStr,
-                                endStr
+                                { startDate: startStr, dueDate: endStr }
                             );
 
                             if (result.status !== "success") {
@@ -370,12 +368,11 @@ export function DraggableSubtaskBar({
                         setIsPendingUpdate(true);
                         const toastId = toast.loading("Updating task start date...");
                         startTransition(async () => {
-                            const result = await apiClient.tasks.updateDates(
+                            const result = await apiClient.tasks.patchTaskFields(
                                 subtask.id,
                                 workspaceId!,
                                 projectId!,
-                                startStr,
-                                endStr
+                                { startDate: startStr, dueDate: endStr }
                             );
 
                             if (result.status !== "success") {

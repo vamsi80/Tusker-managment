@@ -9,6 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { CornerDownRight, GripVertical, Link2 } from "lucide-react";
 import { DraggableSubtaskBar } from "./draggable-subtask-bar";
 import { cn, APP_DATE_FORMAT } from "@/lib/utils";
+import { InlineDateRangePicker } from "./inline-date-range-picker";
+import { InlineDaysPicker } from "./inline-days-picker";
+import { ganttDateToISO } from "./utils";
 import { InlineAssigneePicker } from "../shared/inline-assignee-picker";
 import { ProjectMembersType } from "@/types/project";
 import { useSortable } from "@dnd-kit/sortable";
@@ -17,7 +20,9 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { restrictToVerticalAxis, restrictToWindowEdges } from "@dnd-kit/modifiers";
 import { DependencyPicker } from "./dependency-picker";
-import { getStatusColors } from "@/lib/colors/status-colors";
+import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ActivityDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/activity-form";
 
 interface SortableSubtaskRowProps {
     subtask: GanttSubtask;
@@ -61,6 +66,111 @@ function SortableSubtaskRow({
     const isHighlighted = subtask.id === highlightedSubtaskId;
     const statusColors = getStatusColors(subtask.status);
     const [showDepPicker, setShowDepPicker] = useState(false);
+    const [isActivityOpen, setIsActivityOpen] = useState(false);
+    const [pendingStatus, setPendingStatus] = useState<string | null>(null);
+
+    const patchAndUpdate = async (data: {
+        startDate?: string;
+        dueDate?: string;
+        days?: number;
+    }) => {
+        const optimisticUpdate: Partial<GanttSubtask> = {};
+        if (data.startDate) optimisticUpdate.start = data.startDate;
+        if (data.dueDate) optimisticUpdate.end = data.dueDate;
+        if (data.days) optimisticUpdate.days = data.days;
+
+        onSubTaskUpdate?.(subtask.id, optimisticUpdate);
+
+        const toastId = toast.loading("Saving changes...");
+        try {
+            const result = await apiClient.tasks.patchTaskFields(
+                subtask.id,
+                workspaceId,
+                projectId,
+                {
+                    startDate: data.startDate ? ganttDateToISO(data.startDate) : undefined,
+                    dueDate: data.dueDate ? ganttDateToISO(data.dueDate) : undefined,
+                }
+            );
+
+            if (result.status !== "success") {
+                toast.error(result.message || "Failed to save changes", { id: toastId });
+                // Rollback
+                onSubTaskUpdate?.(subtask.id, {
+                    start: subtask.start,
+                    end: subtask.end,
+                    days: subtask.days,
+                });
+            } else {
+                toast.success("Changes saved successfully", { id: toastId });
+            }
+        } catch (error) {
+            toast.error("Failed to save changes", { id: toastId });
+            // Rollback
+            onSubTaskUpdate?.(subtask.id, {
+                start: subtask.start,
+                end: subtask.end,
+                days: subtask.days,
+            });
+        }
+    };
+
+    const handleStatusChange = async (newStatus: string) => {
+        if (newStatus === subtask.status) return;
+
+        if (subtask.status === "IN_PROGRESS" && newStatus === "COMPLETED") {
+            toast.error("In-Progress tasks must go to Review before being marked as Completed.");
+            return;
+        }
+
+        const isMandatory =
+            ["HOLD", "CANCELLED", "REVIEW"].includes(newStatus) ||
+            ["HOLD", "CANCELLED"].includes(subtask.status) ||
+            (subtask.status === "REVIEW" &&
+                (newStatus === "TO_DO" || newStatus === "IN_PROGRESS")) ||
+            (subtask.status === "IN_PROGRESS" && newStatus === "TO_DO");
+
+        if (isMandatory) {
+            setPendingStatus(newStatus);
+            setIsActivityOpen(true);
+        } else {
+            await performStatusUpdate(newStatus);
+        }
+    };
+
+    const performStatusUpdate = async (newStatus: string, comment?: string, attachmentData?: any) => {
+        const previousStatus = subtask.status;
+        onSubTaskUpdate?.(subtask.id, { status: newStatus });
+
+        const toastId = toast.loading("Updating status...");
+        try {
+            const result = await apiClient.tasks.updateStatus(
+                subtask.id,
+                workspaceId,
+                projectId,
+                newStatus,
+                comment,
+                attachmentData
+            );
+
+            if (result.status === "success") {
+                toast.success("Status updated successfully", { id: toastId });
+            } else {
+                toast.error(result.message || "Failed to update status", { id: toastId });
+                onSubTaskUpdate?.(subtask.id, { status: previousStatus });
+            }
+        } catch (error) {
+            toast.error("Failed to update status", { id: toastId });
+            onSubTaskUpdate?.(subtask.id, { status: previousStatus });
+        }
+    };
+
+    const handleActivitySubmit = async (comment: string, attachmentLink?: string) => {
+        if (!pendingStatus) return;
+        const attachmentData = attachmentLink ? { url: attachmentLink } : undefined;
+        await performStatusUpdate(pendingStatus, comment, attachmentData);
+        setPendingStatus(null);
+    };
 
     const {
         attributes,
@@ -209,32 +319,66 @@ function SortableSubtaskRow({
                         </div>
 
                         <div className="w-[var(--col-status)] flex items-center px-2 shrink-0 border-r border-neutral-200 dark:border-neutral-700 h-full">
-                            <Badge
-                                variant="outline"
-                                className={cn(
-                                    "text-[9px] px-1 py-0 h-4 font-normal uppercase whitespace-nowrap border-0",
-                                    getStatusColors(subtask.status).color,
-                                    getStatusColors(subtask.status).bgColor,
-                                    getStatusColors(subtask.status).borderColor
-                                )}
-                            >
-                                {subtask.status?.replace('_', ' ') || 'TO-DO'}
-                            </Badge>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild disabled={!canManage}>
+                                    <button className="focus:outline-none">
+                                        <Badge
+                                            variant="outline"
+                                            className={cn(
+                                                "text-[9px] px-1 py-0 h-4 font-normal uppercase whitespace-nowrap border-0 hover:opacity-80 transition-opacity cursor-pointer",
+                                                getStatusColors(subtask.status).color,
+                                                getStatusColors(subtask.status).bgColor,
+                                                getStatusColors(subtask.status).borderColor
+                                            )}
+                                        >
+                                            {getStatusLabel(subtask.status)}
+                                        </Badge>
+                                    </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start">
+                                    {(["TO_DO", "IN_PROGRESS", "REVIEW", "HOLD", "COMPLETED", "CANCELLED"] as const).map((status) => (
+                                        <DropdownMenuItem
+                                            key={status}
+                                            onSelect={() => handleStatusChange(status)}
+                                            className="text-xs uppercase"
+                                        >
+                                            <Badge
+                                                variant="outline"
+                                                className={cn(
+                                                    "text-[9px] px-1 py-0 h-4 font-normal uppercase whitespace-nowrap border-0 mr-2",
+                                                    getStatusColors(status).color,
+                                                    getStatusColors(status).bgColor,
+                                                    getStatusColors(status).borderColor
+                                                )}
+                                            >
+                                                {getStatusLabel(status)}
+                                            </Badge>
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </div>
 
                         <div className="w-[var(--col-days)] flex items-center px-2 shrink-0 border-r border-neutral-200 dark:border-neutral-700 h-full justify-center">
-                            <span className="text-[10px] text-muted-foreground font-medium">
-                                {subtask.days || "-"}
-                            </span>
+                            <InlineDaysPicker
+                                days={subtask.days}
+                                start={subtask.start}
+                                disabled={!canManage}
+                                onSave={(days, newEnd) =>
+                                    patchAndUpdate({ dueDate: newEnd, days })
+                                }
+                            />
                         </div>
 
                         <div className="w-[var(--col-dates)] flex items-center px-2 shrink-0 h-full">
-                            <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                                {subtask.start && subtask.end
-                                    ? `${format(new Date(subtask.start), APP_DATE_FORMAT)} - ${format(new Date(subtask.end), APP_DATE_FORMAT)}`
-                                    : "No dates"
+                            <InlineDateRangePicker
+                                start={subtask.start}
+                                end={subtask.end}
+                                disabled={!canManage}
+                                onSave={(startStr, endStr, days) =>
+                                    patchAndUpdate({ startDate: startStr, dueDate: endStr, days })
                                 }
-                            </span>
+                            />
                         </div>
                     </>
                 )}
@@ -269,6 +413,18 @@ function SortableSubtaskRow({
                     workspaceId={workspaceId}
                     projectId={projectId}
                     onUpdate={(id, data) => onSubTaskUpdate?.(id, data)}
+                />
+            )}
+
+            {isActivityOpen && (
+                <ActivityDialog
+                    isOpen={isActivityOpen}
+                    onClose={() => {
+                        setIsActivityOpen(false);
+                        setPendingStatus(null);
+                    }}
+                    onSubmit={handleActivitySubmit}
+                    subTaskName={subtask.name}
                 />
             )}
         </div>
@@ -309,6 +465,13 @@ export function SortableSubtaskList({
     useEffect(() => {
         setItems(initialSubtasks);
     }, [initialSubtasks]);
+
+    const handleSubTaskUpdate = (subTaskId: string, data: Partial<any>) => {
+        setItems((prev) =>
+            prev.map((s) => (s.id === subTaskId ? { ...s, ...data } : s))
+        );
+        props.onSubTaskUpdate?.(subTaskId, data);
+    };
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -374,6 +537,7 @@ export function SortableSubtaskList({
                             subtask={subtask}
                             onSubtaskClick={onSubtaskClick}
                             {...props}
+                            onSubTaskUpdate={handleSubTaskUpdate}
                         />
                     ))}
                 </div>

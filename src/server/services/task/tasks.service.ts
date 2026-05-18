@@ -2522,6 +2522,156 @@ export class TasksService {
   }
 
   /**
+   * Universal field patch for specific task parameters (reusable for Gantt, Kanban, etc.)
+   */
+  static async patchTaskFields({
+    taskId,
+    workspaceId,
+    projectId,
+    userId,
+    permissions,
+    data,
+  }: {
+    taskId: string;
+    workspaceId: string;
+    projectId: string;
+    userId: string;
+    permissions: any;
+    data: {
+      startDate?: string | Date;
+      dueDate?: string | Date;
+      assigneeUserId?: string | null;
+      tagIds?: string[];
+    };
+  }) {
+    const task = (await TaskRepository.findById(taskId, {
+      id: true,
+      createdById: true,
+      assigneeId: true,
+      parentTaskId: true,
+      startDate: true,
+      dueDate: true,
+      status: true,
+      name: true,
+    })) as any;
+
+    if (!task) throw AppError.NotFound("Task not found");
+
+    const currentProjectMemberId = permissions.projectMember?.id;
+    const isWorkspaceAdmin = permissions.isWorkspaceAdmin;
+    const isProjectManager = permissions.isProjectManager;
+
+    // 1. Permission Check
+    const isAuthorized =
+      isWorkspaceAdmin ||
+      isProjectManager ||
+      (currentProjectMemberId &&
+        (task.createdById === currentProjectMemberId ||
+          task.assigneeId === currentProjectMemberId));
+
+    if (!isAuthorized) {
+      throw AppError.Forbidden(
+        "You don't have permission to update this task.",
+      );
+    }
+
+    // 2. Hierarchy Check
+    if (task.assigneeId) {
+      const assignee = await TaskRepository.findAssigneeRole(task.assigneeId);
+
+      if (assignee?.projectRole === "PROJECT_MANAGER" && !isWorkspaceAdmin) {
+        throw AppError.Forbidden(
+          "Only a Workspace Admin can edit tasks assigned to a Project Manager.",
+        );
+      }
+      if (
+        assignee?.projectRole === "LEAD" &&
+        !isWorkspaceAdmin &&
+        !isProjectManager
+      ) {
+        throw AppError.Forbidden(
+          "Only a Workspace Admin or Project Manager can edit tasks assigned to a Project Lead.",
+        );
+      }
+    }
+
+    // Prepare update data
+    const patchData: any = {};
+
+    // Handle Dates
+    if (data.startDate !== undefined) {
+      patchData.startDate = data.startDate ? parseIST(data.startDate as any) : null;
+    }
+    if (data.dueDate !== undefined) {
+      patchData.dueDate = data.dueDate ? parseIST(data.dueDate as any) : null;
+    }
+
+    const start = patchData.startDate !== undefined ? patchData.startDate : task.startDate;
+    const end = patchData.dueDate !== undefined ? patchData.dueDate : task.dueDate;
+
+    if (start && end) {
+      const startDateObj = new Date(start);
+      const dueDateObj = new Date(end);
+      if (startDateObj > dueDateObj) {
+        throw AppError.ValidationError("Start date must be before end date");
+      }
+      patchData.days = Math.ceil((dueDateObj.getTime() - startDateObj.getTime()) / (1000 * 60 * 60 * 24)) || 1;
+    } else if (data.startDate !== undefined || data.dueDate !== undefined) {
+      // If one of them was set to null and other is also null (or we cleared dates)
+      patchData.days = null;
+    }
+
+    // Handle Assignee
+    if (data.assigneeUserId !== undefined) {
+      patchData.assigneeId = data.assigneeUserId
+        ? await this.resolveOrJoinProjectMember(
+            data.assigneeUserId,
+            projectId,
+            workspaceId,
+          )
+        : null;
+    }
+
+    // Handle Tags
+    if (data.tagIds !== undefined) {
+      patchData.tags = {
+        set: data.tagIds.map(id => ({ id }))
+      };
+    }
+
+    if (Object.keys(patchData).length === 0) {
+      return task;
+    }
+
+    const updated = await TaskRepository.updateTaskAndParentCount(
+      taskId,
+      patchData,
+      task.parentTaskId,
+      task.status === "COMPLETED",
+      task.status === "COMPLETED"
+    );
+
+    const oldData: any = {};
+    if (data.startDate !== undefined) oldData.startDate = task.startDate;
+    if (data.dueDate !== undefined) oldData.dueDate = task.dueDate;
+    if (data.assigneeUserId !== undefined) oldData.assigneeId = task.assigneeId;
+
+    await TaskEvents.onTaskUpdated({
+      taskId,
+      isSubTask: !!task.parentTaskId,
+      projectId,
+      workspaceId,
+      userId,
+      userName: permissions.userSurname || (() => { throw new Error("Permission error: userSurname is missing."); })(),
+      oldData,
+      newData: patchData,
+    });
+
+    return updated;
+  }
+
+
+  /**
    * Resolves a target user's ProjectMember.id, auto-joining them if they are a Workspace Admin/Owner.
    */
   private static async resolveOrJoinProjectMember(
