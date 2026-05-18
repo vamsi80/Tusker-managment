@@ -179,17 +179,18 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                 const lat = parseFloat(match[1]);
                 const lon = parseFloat(match[2]);
 
-                const newLocs = [...attendanceLocations];
-                newLocs[idx].latitude = lat;
-                newLocs[idx].longitude = lon;
+                const newLocs = attendanceLocations.map((loc, i) =>
+                    i === idx ? { ...loc, latitude: lat, longitude: lon } : loc
+                );
                 setAttendanceLocations(newLocs);
 
                 // Reverse geocode to get the address name
                 const revRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
                 const revData = await revRes.json();
                 if (revData && revData.display_name) {
-                    const locs = [...attendanceLocations];
-                    locs[idx].address = revData.display_name;
+                    const locs = attendanceLocations.map((loc, i) =>
+                        i === idx ? { ...loc, address: revData.display_name } : loc
+                    );
                     setAttendanceLocations(locs);
                 }
 
@@ -202,10 +203,9 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
             const data = await res.json();
             if (data && data.length > 0) {
                 const { lat, lon, display_name } = data[0];
-                const newLocs = [...attendanceLocations];
-                newLocs[idx].latitude = parseFloat(lat);
-                newLocs[idx].longitude = parseFloat(lon);
-                newLocs[idx].address = display_name;
+                const newLocs = attendanceLocations.map((loc, i) =>
+                    i === idx ? { ...loc, latitude: parseFloat(lat), longitude: parseFloat(lon), address: display_name } : loc
+                );
                 setAttendanceLocations(newLocs);
                 toast.success(`Location found!`);
             } else {
@@ -373,8 +373,9 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                                             <Input
                                                 value={holiday.name}
                                                 onChange={(e) => {
-                                                    const newHolidays = [...publicHolidays];
-                                                    newHolidays[idx].name = e.target.value;
+                                                    const newHolidays = publicHolidays.map((h, i) =>
+                                                        i === idx ? { ...h, name: e.target.value } : h
+                                                    );
                                                     setPublicHolidays(newHolidays);
                                                 }}
                                                 placeholder="Holiday Name"
@@ -385,8 +386,9 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                                                 type="date"
                                                 value={holiday.date instanceof Date ? holiday.date.toISOString().split('T')[0] : (holiday.date as string).split('T')[0]}
                                                 onChange={(e) => {
-                                                    const newHolidays = [...publicHolidays];
-                                                    newHolidays[idx].date = e.target.value;
+                                                    const newHolidays = publicHolidays.map((h, i) =>
+                                                        i === idx ? { ...h, date: e.target.value } : h
+                                                    );
                                                     setPublicHolidays(newHolidays);
                                                 }}
                                                 className="bg-transparent border-none text-[10px] text-muted-foreground font-medium focus:outline-none block w-full"
@@ -458,8 +460,9 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                                             <Input
                                                 value={loc.name}
                                                 onChange={(e) => {
-                                                    const newLocs = [...attendanceLocations];
-                                                    newLocs[idx].name = e.target.value;
+                                                    const newLocs = attendanceLocations.map((l, i) =>
+                                                        i === idx ? { ...l, name: e.target.value } : l
+                                                    );
                                                     setAttendanceLocations(newLocs);
                                                 }}
                                                 placeholder="Main Office"
@@ -485,8 +488,9 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                                             <Input
                                                 value={loc.address || ""}
                                                 onChange={(e) => {
-                                                    const newLocs = [...attendanceLocations];
-                                                    newLocs[idx].address = e.target.value;
+                                                    const newLocs = attendanceLocations.map((l, i) =>
+                                                        i === idx ? { ...l, address: e.target.value } : l
+                                                    );
                                                     setAttendanceLocations(newLocs);
                                                 }}
                                                 placeholder="Enter full address..."
@@ -520,8 +524,9 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                                                 step="any"
                                                 value={loc.latitude}
                                                 onChange={(e) => {
-                                                    const newLocs = [...attendanceLocations];
-                                                    newLocs[idx].latitude = parseFloat(e.target.value) || 0;
+                                                    const newLocs = attendanceLocations.map((l, i) =>
+                                                        i === idx ? { ...l, latitude: parseFloat(e.target.value) || 0 } : l
+                                                    );
                                                     setAttendanceLocations(newLocs);
                                                 }}
                                                 className="h-9 text-xs bg-background/50"
@@ -535,8 +540,9 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                                                 step="any"
                                                 value={loc.longitude}
                                                 onChange={(e) => {
-                                                    const newLocs = [...attendanceLocations];
-                                                    newLocs[idx].longitude = parseFloat(e.target.value) || 0;
+                                                    const newLocs = attendanceLocations.map((l, i) =>
+                                                        i === idx ? { ...l, longitude: parseFloat(e.target.value) || 0 } : l
+                                                    );
                                                     setAttendanceLocations(newLocs);
                                                 }}
                                                 className="h-9 text-xs bg-background/50"
@@ -557,8 +563,9 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                                             type="number"
                                             value={loc.radius}
                                             onChange={(e) => {
-                                                const newLocs = [...attendanceLocations];
-                                                newLocs[idx].radius = e.target.value;
+                                                const newLocs = attendanceLocations.map((l, i) =>
+                                                    i === idx ? { ...l, radius: parseFloat(e.target.value) || 0 } : l
+                                                );
                                                 setAttendanceLocations(newLocs);
                                             }}
                                             className="h-9 text-xs bg-background/50"

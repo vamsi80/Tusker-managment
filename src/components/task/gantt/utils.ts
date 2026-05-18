@@ -329,3 +329,11 @@ export function formatDateRange(start: Date | null, end: Date | null): string {
 //     }
 //     return lines;
 // }
+
+/**
+ * Converts a Gantt date display string (e.g., "15 Apr 2026") to an ISO 8601 string for the API
+ */
+export function ganttDateToISO(dateStr: string | null | undefined): string | undefined {
+    const d = parseGanttDate(dateStr);
+    return d ? d.toISOString() : undefined;
+}
