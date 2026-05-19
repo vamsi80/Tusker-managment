@@ -56,6 +56,7 @@ interface DataTableProps<TData, TValue> {
     onPaginationChange?: (pagination: { pageIndex: number; pageSize: number }) => void;
     manualFiltering?: boolean;
     containerClassName?: string;
+    enableGlobalFilter?: boolean;
 }
 
 export function DataTable<TData, TValue>({
@@ -85,11 +86,13 @@ export function DataTable<TData, TValue>({
     onFilterChange,
     onPaginationChange,
     containerClassName,
+    enableGlobalFilter = false,
 }: DataTableProps<TData, TValue> & { getRowId?: (row: TData) => string }) {
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
     const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
     const [internalRowSelection, setInternalRowSelection] = React.useState({});
+    const [globalFilter, setGlobalFilter] = React.useState("");
     const mounted = useMounted();
 
     const rowSelection = controlledRowSelection ?? internalRowSelection;
@@ -123,6 +126,7 @@ export function DataTable<TData, TValue>({
         getFacetedUniqueValues: getFacetedUniqueValues(),
         onColumnVisibilityChange: setColumnVisibility,
         onRowSelectionChange: setRowSelection,
+        onGlobalFilterChange: setGlobalFilter,
         getRowId,
         enableRowSelection,
         state: {
@@ -130,6 +134,7 @@ export function DataTable<TData, TValue>({
             columnFilters,
             columnVisibility,
             rowSelection,
+            globalFilter,
             pagination: {
                 pageIndex,
                 pageSize,
@@ -140,7 +145,7 @@ export function DataTable<TData, TValue>({
     return (
         <div className="space-y-4">
             {/* Toolbar */}
-            {(searchKey || (filterFields && filterFields.length > 0) || extraToolbarContent || showColumnToggle) && (
+            {(searchKey || enableGlobalFilter || (filterFields && filterFields.length > 0) || extraToolbarContent || showColumnToggle) && (
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
                     {/* Search */}
                     {searchKey && (
@@ -152,6 +157,22 @@ export function DataTable<TData, TValue>({
                                     value={(table.getColumn(searchKey)?.getFilterValue() as string) ?? ""}
                                     onChange={(event) =>
                                         table.getColumn(searchKey)?.setFilterValue(event.target.value)
+                                    }
+                                    className="pl-9 w-full h-9 bg-background/50 border-muted-foreground/20 focus:ring-primary/20"
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {enableGlobalFilter && (
+                        <div className="flex items-center flex-1 max-w-sm w-full">
+                            <div className="relative w-full">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    placeholder={searchPlaceholder}
+                                    value={globalFilter ?? ""}
+                                    onChange={(event) =>
+                                        setGlobalFilter(event.target.value)
                                     }
                                     className="pl-9 w-full h-9 bg-background/50 border-muted-foreground/20 focus:ring-primary/20"
                                 />

@@ -3,25 +3,18 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Search, Truck, MoreVertical, Ban, CheckCircle, ExternalLink } from "lucide-react";
+import { Plus, Truck, MoreVertical, Ban, CheckCircle, ExternalLink, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { DataTable } from "@/components/data-table/data-table";
+import { ColumnDef } from "@tanstack/react-table";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 export default function VendorsPage() {
   const params = useParams();
@@ -30,7 +23,6 @@ export default function VendorsPage() {
 
   const [vendors, setVendors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     fetchVendors();
@@ -57,7 +49,6 @@ export default function VendorsPage() {
     const isBlacklisted = currentStatus === "BLACKLISTED";
     try {
       if (isBlacklisted) {
-        // Change status to ACTIVE
         const res = await fetch(`/api/v1/procurement/vendors/${vendorId}?w=${workspaceId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -71,7 +62,6 @@ export default function VendorsPage() {
           toast.error(data.error || "Failed to activate vendor");
         }
       } else {
-        // Call DELETE endpoint (which blacklists)
         const res = await fetch(`/api/v1/procurement/vendors/${vendorId}?w=${workspaceId}`, {
           method: "DELETE",
         });
@@ -88,147 +78,183 @@ export default function VendorsPage() {
     }
   };
 
-  const filteredVendors = vendors.filter((v) => {
-    const search = searchQuery.toLowerCase();
-    return (
-      v.name.toLowerCase().includes(search) ||
-      (v.companyName && v.companyName.toLowerCase().includes(search)) ||
-      (v.gstNumber && v.gstNumber.toLowerCase().includes(search))
-    );
-  });
+  const columns: ColumnDef<any>[] = [
+    {
+      accessorKey: "name",
+      header: "Vendor Name",
+      cell: ({ row }) => <span className="font-medium text-foreground">{row.getValue("name")}</span>,
+    },
+    {
+      accessorKey: "companyName",
+      header: "Company Name",
+      cell: ({ row }) => row.getValue("companyName") || "-",
+    },
+    {
+      accessorKey: "email",
+      header: "Email",
+      cell: ({ row }) => row.getValue("email") || "-",
+    },
+    {
+      accessorKey: "phoneNumber",
+      header: "Phone",
+      cell: ({ row }) => row.getValue("phoneNumber") || "-",
+    },
+    {
+      id: "location",
+      accessorFn: (row) => {
+        const parts = [row.city, row.state].filter(Boolean);
+        return parts.length > 0 ? parts.join(", ") : "";
+      },
+      header: "Location",
+      cell: ({ row }) => row.getValue("location") || "-",
+      filterFn: (row, columnId, filterValue) => {
+        if (!filterValue || filterValue.length === 0) return true;
+        const val = row.getValue(columnId) as string;
+        return filterValue.includes(val);
+      },
+    },
+    {
+      accessorKey: "contactPerson",
+      header: "Contact Person",
+      cell: ({ row }) => row.getValue("contactPerson") || "-",
+    },
+    {
+      accessorKey: "gstNumber",
+      header: "GSTIN",
+      cell: ({ row }) => {
+        const val = row.getValue("gstNumber") as string;
+        return <span className="font-mono text-sm tracking-wide">{val || "-"}</span>;
+      },
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }) => {
+        const status = row.getValue("status") as string;
+        return (
+          <Badge
+            variant={status === "ACTIVE" ? "outline" : "destructive"}
+            className={
+              status === "ACTIVE"
+                ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500/15"
+                : "bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/15"
+            }
+          >
+            {status}
+          </Badge>
+        );
+      },
+      filterFn: (row, columnId, filterValue) => {
+        if (!filterValue || filterValue.length === 0) return true;
+        const val = row.getValue(columnId) as string;
+        return filterValue.includes(val);
+      },
+    },
+    {
+      id: "actions",
+      header: () => <div className="text-right">Actions</div>,
+      cell: ({ row }) => {
+        const vendor = row.original;
+        return (
+          <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1"
+              onClick={() => router.push(`/w/${workspaceId}/vendors/${vendor.id}`)}
+            >
+              Capabilities <ExternalLink className="h-3 w-3" />
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => router.push(`/w/${workspaceId}/vendors/${vendor.id}/edit`)}
+                >
+                  <Edit className="mr-2 h-4 w-4" /> Edit Vendor Details
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleToggleBlacklist(vendor.id, vendor.status)}
+                  className={
+                    vendor.status === "BLACKLISTED"
+                      ? "text-emerald-600 hover:text-emerald-700 font-medium"
+                      : "text-red-600 hover:text-red-700 font-medium"
+                  }
+                >
+                  {vendor.status === "BLACKLISTED" ? (
+                    <>
+                      <CheckCircle className="mr-2 h-4 w-4" /> Activate Supplier
+                    </>
+                  ) : (
+                    <>
+                      <Ban className="mr-2 h-4 w-4" /> Blacklist Supplier
+                    </>
+                  )}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        );
+      },
+    },
+  ];
+
+  // Get all unique locations for the faceted filter
+  const locationOptions = Array.from(
+    new Set(
+      vendors
+        .map((v) => {
+          const parts = [v.city, v.state].filter(Boolean);
+          return parts.length > 0 ? parts.join(", ") : "";
+        })
+        .filter(Boolean)
+    )
+  ).map((loc) => ({
+    label: loc,
+    value: loc,
+  }));
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900 flex items-center gap-2">
-            <Truck className="h-6 w-6 text-primary" /> Vendor Directory
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage your procurement ecosystem, onboard new suppliers, and track material capabilities.
-          </p>
-        </div>
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-2xl font-normal leading-tight tracking-tighter md:text-2xl text-foreground">
+          Vendors
+        </h1>
 
         <Button onClick={() => router.push(`/w/${workspaceId}/vendors/new`)} className="gap-2">
           <Plus className="h-4 w-4" /> Onboard Vendor
         </Button>
       </div>
 
-      <Card>
-        <CardHeader className="pb-4">
-          <div className="flex items-center gap-2 max-w-sm">
-            <Search className="h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by vendor, company name, or GST..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-9"
-            />
-          </div>
-        </CardHeader>
+      <Card className="border-none shadow-sm bg-transparent">
         <CardContent className="p-0">
-          <div className="rounded-md border-t">
-            <Table>
-              <TableHeader className="bg-gray-50/50">
-                <TableRow>
-                  <TableHead className="font-semibold">Supplier Details</TableHead>
-                  <TableHead className="font-semibold">Contact Person</TableHead>
-                  <TableHead className="font-semibold">GSTIN</TableHead>
-                  <TableHead className="font-semibold">Status</TableHead>
-                  <TableHead className="font-semibold text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-12 text-gray-500">
-                      Loading your vendor ecosystem...
-                    </TableCell>
-                  </TableRow>
-                ) : filteredVendors.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-12 text-gray-500">
-                      No vendors onboarded in this workspace yet.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredVendors.map((vendor) => (
-                    <TableRow key={vendor.id} className="hover:bg-gray-50/50 transition">
-                      <TableCell>
-                        <div className="font-medium text-gray-900">{vendor.name}</div>
-                        {vendor.companyName && (
-                          <div className="text-xs text-muted-foreground">{vendor.companyName}</div>
-                        )}
-                        <div className="text-xs text-muted-foreground/80 mt-0.5">
-                          {vendor.email || "No email"} • {vendor.phoneNumber || "No phone"}
-                          {(vendor.city || vendor.state) && (
-                            <span> • {[vendor.city, vendor.state].filter(Boolean).join(", ")}</span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm font-medium text-gray-700">
-                        {vendor.contactPerson || "-"}
-                      </TableCell>
-                      <TableCell className="font-mono text-sm tracking-wide">
-                        {vendor.gstNumber || "-"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={vendor.status === "ACTIVE" ? "outline" : "destructive"}
-                          className={
-                            vendor.status === "ACTIVE"
-                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-50"
-                              : "bg-red-50 text-red-700 border border-red-200 hover:bg-red-50"
-                          }
-                        >
-                          {vendor.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 gap-1"
-                            onClick={() => router.push(`/w/${workspaceId}/vendors/${vendor.id}`)}
-                          >
-                            Capabilities <ExternalLink className="h-3 w-3" />
-                          </Button>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={() => handleToggleBlacklist(vendor.id, vendor.status)}
-                                className={
-                                  vendor.status === "BLACKLISTED"
-                                    ? "text-emerald-600 hover:text-emerald-700 font-medium"
-                                    : "text-red-600 hover:text-red-700 font-medium"
-                                }
-                              >
-                                {vendor.status === "BLACKLISTED" ? (
-                                  <>
-                                    <CheckCircle className="mr-2 h-4 w-4" /> Activate Supplier
-                                  </>
-                                ) : (
-                                  <>
-                                    <Ban className="mr-2 h-4 w-4" /> Blacklist Supplier
-                                  </>
-                                )}
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+          <DataTable
+            columns={columns}
+            data={vendors}
+            isLoading={loading}
+            enableGlobalFilter={true}
+            searchPlaceholder="Search by name, company, GST, location..."
+            onRowClick={(row) => router.push(`/w/${workspaceId}/vendors/${row.id}`)}
+            filterFields={[
+              {
+                label: "Status",
+                value: "status",
+                options: [
+                  { label: "Active", value: "ACTIVE" },
+                  { label: "Blacklisted", value: "BLACKLISTED" },
+                ],
+              },
+              {
+                label: "Location",
+                value: "location",
+                options: locationOptions,
+              },
+            ]}
+          />
         </CardContent>
       </Card>
     </div>

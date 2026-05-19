@@ -1,19 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, Truck, FileText, User, Mail, Phone, Building } from "lucide-react";
+import { ArrowLeft, Truck, FileText, User, Mail, Phone, Building, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { countryDialCodes } from "@/lib/country-codes";
 
-export default function OnboardVendorPage() {
+export default function EditVendorPage() {
   const params = useParams();
   const router = useRouter();
   const workspaceId = params.workspaceId as string;
+  const vendorId = params.vendorId as string;
 
   // Form states
   const [name, setName] = useState("");
@@ -32,7 +33,56 @@ export default function OnboardVendorPage() {
   const [pincode, setPincode] = useState("");
   const [country, setCountry] = useState("India");
 
+  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    fetchVendorDetails();
+  }, [vendorId, workspaceId]);
+
+  const fetchVendorDetails = async () => {
+    try {
+      const res = await fetch(`/api/v1/procurement/vendors/${vendorId}?w=${workspaceId}`);
+      const data = await res.json();
+      if (data.success) {
+        const v = data.data;
+        setName(v.name || "");
+        setCompanyName(v.companyName || "");
+        setContactPerson(v.contactPerson || "");
+        setEmail(v.email || "");
+        setGstNumber(v.gstNumber || "");
+        
+        // Parse dial code and phone number
+        const rawPhone = v.phoneNumber || "";
+        let parsedDial = "+91";
+        let parsedPhone = rawPhone;
+        for (const code of Object.values(countryDialCodes)) {
+          if (rawPhone.startsWith(code)) {
+            parsedDial = code;
+            parsedPhone = rawPhone.slice(code.length).trim();
+            break;
+          }
+        }
+        setDialCode(parsedDial);
+        setPhoneNumber(parsedPhone);
+
+        setAddressLine1(v.addressLine1 || "");
+        setAddressLine2(v.addressLine2 || "");
+        setCity(v.city || "");
+        setState(v.state || "");
+        setPincode(v.pincode || "");
+        setCountry(v.country || "India");
+      } else {
+        toast.error("Failed to load vendor details");
+        router.push(`/w/${workspaceId}/vendors`);
+      }
+    } catch (error) {
+      toast.error("Error loading vendor details");
+      router.push(`/w/${workspaceId}/vendors`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,11 +98,10 @@ export default function OnboardVendorPage() {
         .filter(Boolean)
         .join(", ");
 
-      const res = await fetch(`/api/v1/procurement/vendors`, {
-        method: "POST",
+      const res = await fetch(`/api/v1/procurement/vendors/${vendorId}?w=${workspaceId}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          workspaceId,
           name,
           companyName: companyName || undefined,
           contactPerson: contactPerson || undefined,
@@ -71,13 +120,13 @@ export default function OnboardVendorPage() {
 
       const data = await res.json();
       if (data.success) {
-        toast.success("Vendor onboarded successfully");
+        toast.success("Vendor updated successfully");
         router.push(`/w/${workspaceId}/vendors`);
       } else {
-        toast.error(data.error || "Failed to onboard vendor");
+        toast.error(data.error || "Failed to update vendor");
       }
     } catch (error) {
-      toast.error("Failed to onboard vendor");
+      toast.error("Failed to update vendor");
     } finally {
       setSubmitting(false);
     }
@@ -101,6 +150,15 @@ export default function OnboardVendorPage() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2 text-sm text-muted-foreground">Loading vendor details...</span>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -113,7 +171,7 @@ export default function OnboardVendorPage() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-2xl font-normal leading-tight tracking-tighter md:text-2xl text-foreground">
-          Onboard New Vendor
+          Edit Vendor Profile
         </h1>
       </div>
 
@@ -123,13 +181,13 @@ export default function OnboardVendorPage() {
             <CardTitle className="text-lg font-semibold flex items-center gap-2 text-card-foreground">
               <FileText className="h-4 w-4 text-muted-foreground" /> Company Details
             </CardTitle>
-            <CardDescription>Enter primary registry and identification details.</CardDescription>
+            <CardDescription>Update primary registry and identification details.</CardDescription>
           </CardHeader>
           <CardContent className="p-6 space-y-6">
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-foreground/90 flex items-center gap-1.5">
-                  Vendor / Supplier Name <span className="text-destructive">*</span>
+                  Vendor Name <span className="text-destructive">*</span>
                 </label>
                 <Input
                   required
@@ -213,13 +271,12 @@ export default function OnboardVendorPage() {
           </CardContent>
         </Card>
 
-        {/* Card 2: Registered Business Address */}
         <Card className="shadow-sm border-border/50">
           <CardHeader className="border-b bg-muted/30 py-2.5 px-6">
             <CardTitle className="text-lg font-semibold flex items-center gap-2 text-card-foreground">
               <Building className="h-4 w-4 text-muted-foreground" /> Registered Business Address
             </CardTitle>
-            <CardDescription>Specify the legal and physical location of the supplier.</CardDescription>
+            <CardDescription>Update the legal and physical location of the supplier.</CardDescription>
           </CardHeader>
           <CardContent className="p-6 space-y-6">
             <div className="grid md:grid-cols-2 gap-6">
@@ -294,7 +351,7 @@ export default function OnboardVendorPage() {
                 Cancel
               </Button>
               <Button type="submit" disabled={submitting} className="px-6">
-                {submitting ? "Onboarding..." : "Onboard Supplier"}
+                {submitting ? "Saving..." : "Save Changes"}
               </Button>
             </div>
           </CardContent>

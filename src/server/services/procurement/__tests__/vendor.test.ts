@@ -104,4 +104,21 @@ describe("Vendor Onboarding & Comparison Tests", () => {
     });
     expect(count).toBe(1);
   });
+
+  test("can add manual capability with custom serviceType", async () => {
+    const cap = await VendorService.addManualCapability(
+      activeVendorId,
+      mockWorkspaceId,
+      "plumbing works",
+      "sqm",
+      "LABOUR"
+    );
+
+    expect(cap.serviceType).toBe("LABOUR");
+
+    const fetched = await prisma.vendorMaterialCapability.findUnique({
+      where: { id: cap.id }
+    });
+    expect(fetched?.serviceType).toBe("LABOUR");
+  });
 });

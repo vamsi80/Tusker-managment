@@ -48,19 +48,28 @@ export class VendorService {
     });
   }
 
-  static async addManualCapability(vendorId: string, workspaceId: string, materialName: string, unit?: string) {
+  static async addManualCapability(
+    vendorId: string,
+    workspaceId: string,
+    materialName: string,
+    unit?: string,
+    serviceType?: "SUPPLY" | "LABOUR" | "LABOUR_WITH_MATERIAL"
+  ) {
     const normalized = materialName.toLowerCase().trim();
     const vendor = await prisma.vendor.findFirst({
       where: { id: vendorId, workspaceId },
     });
     if (!vendor) throw AppError.NotFound("Vendor not found");
 
-    // Idempotent Upsert
+    const resolvedServiceType = serviceType || "SUPPLY";
+
+    // Idempotent Upsert using the new multi-column unique constraint
     return prisma.vendorMaterialCapability.upsert({
       where: {
-        vendorId_materialName: {
+        vendorId_materialName_serviceType: {
           vendorId,
           materialName: normalized,
+          serviceType: resolvedServiceType,
         },
       },
       update: {
@@ -72,6 +81,7 @@ export class VendorService {
         unit: unit || null,
         workspaceId,
         source: "MANUAL",
+        serviceType: resolvedServiceType,
       },
     });
   }

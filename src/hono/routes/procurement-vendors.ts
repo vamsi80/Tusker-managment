@@ -51,6 +51,71 @@ procurementVendors.post("/", zValidator("json", CreateVendorSchema), async (c) =
 });
 
 /**
+ * GET /api/v1/procurement/vendors/materials/all
+ * List all active materials in a workspace
+ */
+procurementVendors.get("/materials/all", async (c) => {
+  const user = c.get("user");
+  const workspaceId = c.req.query("w");
+
+  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+
+  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  if (!perms.hasAccess) {
+    throw AppError.Forbidden("Access denied to this workspace");
+  }
+
+  const materials = await prisma.material.findMany({
+    where: {
+      workspaceId,
+      isActive: true,
+    },
+    select: {
+      id: true,
+      name: true,
+      defaultUnit: {
+        select: {
+          abbreviation: true,
+        },
+      },
+    },
+    orderBy: {
+      name: "asc",
+    },
+  });
+
+  const capabilities = await prisma.vendorMaterialCapability.findMany({
+    where: {
+      workspaceId,
+    },
+    select: {
+      materialName: true,
+      unit: true,
+    },
+    distinct: ["materialName"],
+  });
+
+  const merged: any[] = materials.map((m) => ({
+    id: m.id,
+    name: m.name,
+    defaultUnit: m.defaultUnit,
+  }));
+
+  capabilities.forEach((cap) => {
+    const exists = merged.some((m) => m.name.toLowerCase() === cap.materialName.toLowerCase());
+    if (!exists) {
+      merged.push({
+        id: `cap-${cap.materialName}`,
+        name: cap.materialName,
+        defaultUnit: cap.unit ? { abbreviation: cap.unit } : null,
+      });
+    }
+  });
+
+  return c.json({ success: true, data: merged });
+});
+
+/**
  * GET /api/v1/procurement/vendors
  * List vendors
  */
@@ -188,6 +253,7 @@ procurementVendors.get("/:id/capabilities", async (c) => {
 procurementVendors.post("/:id/capabilities", zValidator("json", z.object({
   materialName: z.string().min(1),
   unit: z.string().optional(),
+  serviceType: z.enum(["SUPPLY", "LABOUR", "LABOUR_WITH_MATERIAL"]).optional().default("SUPPLY"),
 })), async (c) => {
   const user = c.get("user");
   const vendorId = c.req.param("id");
@@ -202,7 +268,8 @@ procurementVendors.post("/:id/capabilities", zValidator("json", z.object({
     vendorId,
     workspaceId,
     data.materialName,
-    data.unit
+    data.unit,
+    data.serviceType
   );
 
   return c.json({ success: true, data: capability }, 201);
