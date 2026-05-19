@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, Truck, FileText, User, Mail, Phone, MapPin } from "lucide-react";
+import { ArrowLeft, Truck, FileText, User, Mail, Phone, MapPin, Building } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,9 +18,17 @@ export default function OnboardVendorPage() {
   const [companyName, setCompanyName] = useState("");
   const [contactPerson, setContactPerson] = useState("");
   const [email, setEmail] = useState("");
-  const [address, setAddress] = useState("");
   const [gstNumber, setGstNumber] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+
+  // Structured Address Form States
+  const [addressLine1, setAddressLine1] = useState("");
+  const [addressLine2, setAddressLine2] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
+  const [pincode, setPincode] = useState("");
+  const [country, setCountry] = useState("India");
+
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -32,6 +40,11 @@ export default function OnboardVendorPage() {
 
     setSubmitting(true);
     try {
+      // Keep legacy address field filled as fallback for compatibility (joining structured fields)
+      const legacyAddress = [addressLine1, addressLine2, city, state, pincode, country]
+        .filter(Boolean)
+        .join(", ");
+
       const res = await fetch(`/api/v1/procurement/vendors`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -41,9 +54,15 @@ export default function OnboardVendorPage() {
           companyName: companyName || undefined,
           contactPerson: contactPerson || undefined,
           email: email || undefined,
-          address: address || undefined,
-          gstNumber: gstNumber || undefined,
           phoneNumber: phoneNumber || undefined,
+          gstNumber: gstNumber || undefined,
+          address: legacyAddress || undefined,
+          addressLine1: addressLine1 || undefined,
+          addressLine2: addressLine2 || undefined,
+          city: city || undefined,
+          state: state || undefined,
+          pincode: pincode || undefined,
+          country: country || undefined,
         }),
       });
 
@@ -76,13 +95,10 @@ export default function OnboardVendorPage() {
           <h1 className="text-2xl font-bold tracking-tight text-gray-900 flex items-center gap-2">
             <Truck className="h-6 w-6 text-primary" /> Onboard New Vendor
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Register a new vendor in your workspace. You can map material capabilities later.
-          </p>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} className="space-y-6">
         <Card className="shadow-sm border-border/50">
           <CardHeader className="border-b bg-gray-50/50 py-4 px-6">
             <CardTitle className="text-lg font-semibold flex items-center gap-2 text-gray-800">
@@ -161,16 +177,73 @@ export default function OnboardVendorPage() {
                 />
               </div>
             </div>
+          </CardContent>
+        </Card>
 
-            <div className="space-y-2 border-t pt-6">
-              <label className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
-                <MapPin className="h-4 w-4 text-muted-foreground" /> Full Postal Address
-              </label>
-              <Input
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="e.g. Plot No 12, Phase 1, GIDC Industrial Estate, Mumbai"
-              />
+        {/* Card 2: Registered Business Address */}
+        <Card className="shadow-sm border-border/50">
+          <CardHeader className="border-b bg-gray-50/50 py-4 px-6">
+            <CardTitle className="text-lg font-semibold flex items-center gap-2 text-gray-800">
+              <Building className="h-4 w-4 text-muted-foreground" /> Registered Business Address
+            </CardTitle>
+            <CardDescription>Specify the legal and physical location of the supplier.</CardDescription>
+          </CardHeader>
+          <CardContent className="p-6 space-y-6">
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-700">Address Line 1</label>
+                <Input
+                  value={addressLine1}
+                  onChange={(e) => setAddressLine1(e.target.value)}
+                  placeholder="Plot / Door No / Building / Road"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-700">Address Line 2</label>
+                <Input
+                  value={addressLine2}
+                  onChange={(e) => setAddressLine2(e.target.value)}
+                  placeholder="Area / Locality / Landmark"
+                />
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-700">City / Town</label>
+                <Input
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="e.g. Mumbai"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-700">State / Province</label>
+                <Input
+                  value={state}
+                  onChange={(e) => setState(e.target.value)}
+                  placeholder="e.g. Maharashtra"
+                />
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-700">PIN / ZIP Code</label>
+                <Input
+                  value={pincode}
+                  onChange={(e) => setPincode(e.target.value)}
+                  placeholder="e.g. 400001"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-700">Country</label>
+                <Input
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  placeholder="e.g. India"
+                />
+              </div>
             </div>
 
             <div className="flex justify-end gap-3 border-t pt-6">

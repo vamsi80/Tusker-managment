@@ -20,6 +20,8 @@ import { InlineSubTaskForm } from "./inline-subtask-form";
 import { ColumnVisibility } from "../shared/column-visibility";
 import { InlineAssigneePicker } from "../shared/inline-assignee-picker";
 import type { UserPermissionsType } from "@/data/user/get-user-permissions";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface SubTaskRowProps {
     subTask: SubTaskType;
@@ -64,6 +66,22 @@ export const SubTaskRow = memo(function SubTaskRow({
     const [isEditing, setIsEditing] = useState(false);
     const [editOpen, setEditOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
+
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging
+    } = useSortable({ id: subTask.id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        zIndex: isDragging ? 50 : undefined,
+        opacity: isDragging ? 0.5 : 1,
+    };
 
     const canEditSubTask = () => {
         const subTaskCreatorId = subTask.createdBy?.id || (subTask as any).createdById;
@@ -203,16 +221,27 @@ export const SubTaskRow = memo(function SubTaskRow({
     return (
         <>
             <TableRow
+                ref={setNodeRef}
+                style={style}
                 className={cn(
                     "h-8 [&_td]:py-2 transition-colors",
+                    isDragging && "bg-blue-50/50 dark:bg-blue-900/10",
                     (!assigneeUser && subTask.status !== "COMPLETED" && subTask.status !== "CANCELLED")
                         ? "bg-red-500/10 hover:bg-red-500/20 animate-[pulse_2s_infinite] border-y border-red-500/40"
                         : "bg-muted/10 hover:bg-muted/20"
                 )}
             >
                 <TableCell className="pl-4 sm:pl-4 w-[50px]">
-                    <div className="flex items-center">
-                        <div className="w-3 shrink-0" />
+                    <div className="flex items-center gap-1">
+                        {canEditSubTask() && (
+                            <div
+                                {...attributes}
+                                {...listeners}
+                                className="cursor-grab active:cursor-grabbing p-0.5 text-muted-foreground/30 hover:text-muted-foreground transition-colors shrink-0"
+                            >
+                                <GripVertical className="h-3.5 w-3.5" />
+                            </div>
+                        )}
                         <div className="h-6 w-6 flex items-center justify-center shrink-0">
                             <CornerDownRight className="h-3.5 w-3.5 text-muted-foreground/50" />
                         </div>

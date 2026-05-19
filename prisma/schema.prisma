@@ -542,6 +542,12 @@ model Vendor {
   contactPerson  String?
   email          String?
   address        String?
+  addressLine1   String?
+  addressLine2   String?
+  city           String?
+  state          String?
+  pincode        String?
+  country        String?                    @default("India")
   gstNumber      String?
   workspaceId    String
   isActive       Boolean                    @default(true)
@@ -882,6 +888,7 @@ model MemberTodo {
   memberId    String
   text        String
   completed   Boolean         @default(false)
+  position    Int             @default(0)
   createdAt   DateTime        @default(now())
   completedAt DateTime?
   updatedAt   DateTime        @updatedAt

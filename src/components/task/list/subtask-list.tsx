@@ -12,6 +12,24 @@ import { InlineSubTaskForm } from "./inline-subtask-form";
 import { SubTaskRow } from "./subtask-row";
 import type { TaskWithSubTasks } from "@/components/task/shared/types";
 import type { UserPermissionsType } from "@/data/user/get-user-permissions";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { restrictToVerticalAxis, restrictToWindowEdges } from "@dnd-kit/modifiers";
+import { toast } from "sonner";
+import { apiClient } from "@/lib/api-client";
 
 interface SubTaskListProps {
     task: TaskWithSubTasks;
@@ -27,6 +45,7 @@ interface SubTaskListProps {
     onSubTaskUpdated?: (subTaskId: string, updatedData: Partial<SubTaskType>) => void;
     onSubTaskDeleted?: (subTaskId: string) => void;
     onSubTaskCreated?: (subTask: any, tempId?: string) => void;
+    onSubTasksReordered?: (parentId: string, newSubTasks: any[]) => void;
     selectedSubTasks?: Set<string>;
     onSelectSubTask?: (subTaskId: string, checked: boolean) => void;
     level?: "workspace" | "project";
@@ -54,6 +73,7 @@ export function SubTaskList({
     onSubTaskUpdated,
     onSubTaskDeleted,
     onSubTaskCreated,
+    onSubTasksReordered,
     selectedSubTasks = new Set(),
     onSelectSubTask,
     level = "project",
@@ -68,6 +88,63 @@ export function SubTaskList({
 }: SubTaskListProps) {
     const [showInlineSubTaskForm, setShowInlineSubTaskForm] = useState(false);
     const bottomRef = useRef<HTMLTableRowElement>(null);
+    const [container, setContainer] = useState<HTMLElement | null>(null);
+
+    useEffect(() => {
+        setContainer(document.body);
+    }, []);
+
+    const [items, setItems] = useState<SubTaskType[]>(task.subTasks || []);
+
+    useEffect(() => {
+        setItems(task.subTasks || []);
+    }, [task.subTasks]);
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: { distance: 5 }
+        }),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
+
+    const handleDragEnd = async (event: DragEndEvent) => {
+        const { active, over } = event;
+
+        if (over && active.id !== over.id) {
+            const oldIndex = items.findIndex((item) => item.id === active.id);
+            const newIndex = items.findIndex((item) => item.id === over.id);
+
+            const newItems = arrayMove(items, oldIndex, newIndex);
+            setItems(newItems);
+
+            // Notify parent about the new subtask order so it is saved in the state
+            onSubTasksReordered?.(task.id, newItems);
+
+            const toastId = toast.loading("Updating subtask positions...");
+            // Call Hono API via apiClient
+            try {
+                const result = await apiClient.tasks.reorderTasks(
+                    workspaceId,
+                    projectId,
+                    newItems.map(item => item.id)
+                );
+                if (result.status === "error") {
+                    toast.error(result.message || "Failed to reorder tasks", { id: toastId });
+                    setItems(task.subTasks || []); // Rollback
+                    onSubTasksReordered?.(task.id, task.subTasks || []);
+                } else {
+                    toast.success("Tasks reordered successfully", { id: toastId });
+                }
+            } catch (error) {
+                toast.error("Failed to reorder tasks", { id: toastId });
+                setItems(task.subTasks || []); // Rollback
+                onSubTasksReordered?.(task.id, task.subTasks || []);
+            }
+        }
+    };
+
     useEffect(() => {
         if (!task.subTasksHasMore || isLoadingMore) return;
 
@@ -141,35 +218,46 @@ export function SubTaskList({
         );
     }
 
-    // When sorts are active, subtasks are already ordered by orderSubTasksForParent
-    // which applies the user's chosen sort field. Skip position-based re-sort.
-    const sortedSubTasks = task.subTasks;
-
     return (
         <>
-            {sortedSubTasks.map((subTask) => (
-                <SubTaskRow
-                    key={subTask.id}
-                    subTask={subTask as any}
-                    columnVisibility={columnVisibility}
-                    onClick={onSubTaskClick}
-                    members={members}
-                    projectId={projectId}
-                    parentTaskId={task.id}
-                    parentTaskProject={task.project}
-                    isSelected={selectedSubTasks.has(subTask.id)}
-                    onSelectChange={(checked: boolean) => onSelectSubTask?.(subTask.id, checked)}
-                    onSubTaskUpdated={onSubTaskUpdated}
-                    onSubTaskDeleted={onSubTaskDeleted}
-                    tags={tags}
-                    permissions={permissions}
-                    userId={userId}
-                    isWorkspaceAdmin={isWorkspaceAdmin}
-                    leadProjectIds={leadProjectIds}
-                    projects={projects}
-                    projectMap={projectMap}
-                />
-            ))}
+            <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+                modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
+                accessibility={{
+                    container: container || undefined,
+                }}
+            >
+                <SortableContext
+                    items={items.map((i) => i.id)}
+                    strategy={verticalListSortingStrategy}
+                >
+                    {items.map((subTask) => (
+                        <SubTaskRow
+                            key={subTask.id}
+                            subTask={subTask as any}
+                            columnVisibility={columnVisibility}
+                            onClick={onSubTaskClick}
+                            members={members}
+                            projectId={projectId}
+                            parentTaskId={task.id}
+                            parentTaskProject={task.project}
+                            isSelected={selectedSubTasks.has(subTask.id)}
+                            onSelectChange={(checked: boolean) => onSelectSubTask?.(subTask.id, checked)}
+                            onSubTaskUpdated={onSubTaskUpdated}
+                            onSubTaskDeleted={onSubTaskDeleted}
+                            tags={tags}
+                            permissions={permissions}
+                            userId={userId}
+                            isWorkspaceAdmin={isWorkspaceAdmin}
+                            leadProjectIds={leadProjectIds}
+                            projects={projects}
+                            projectMap={projectMap}
+                        />
+                    ))}
+                </SortableContext>
+            </DndContext>
 
             {task.subTasksHasMore && (
                 <TableRow ref={bottomRef} className="bg-muted/10 animate-pulse">
