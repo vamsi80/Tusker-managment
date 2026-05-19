@@ -40,9 +40,11 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
     const params = useParams();
     const { data: workspaceData } = useWorkspaceLayout();
 
-    useEffect(() => {
-        console.log("Subtask Sheet Data:", subTask);
-    }, [subTask]);
+    const { remainingDays, isOverdue, dueDate } = useRemainingDays(
+        subTask?.startDate ?? null,
+        subTask?.days ?? null,
+        subTask?.dueDate ?? null
+    );
 
     if (!subTask) return null;
 
@@ -56,12 +58,6 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
 
     // Assignee calculation
     const assignee = (subTask.assignee as any)?.workspaceMember?.user || subTask.assignee;
-
-    const { remainingDays, isOverdue, dueDate } = useRemainingDays(
-        subTask.startDate,
-        subTask.days,
-        subTask.dueDate
-    );
 
     return (
         <div className="px-4 sm:px-6 pt-6 pb-4 border-b flex-shrink-0">

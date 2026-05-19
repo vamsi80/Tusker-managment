@@ -91,16 +91,22 @@ export function GanttChart({
     // Initial expansion effects
     const initializedRef = useRef(false);
     useEffect(() => {
+        let timeoutId: any;
         if (groupByProject && tasks.length > 0 && !initializedRef.current) {
             const firstTask = tasks.find(t => t.projectId);
             if (firstTask && firstTask.projectId) {
                 const pid = firstTask.projectId;
-                setTimeout(() => {
+                timeoutId = setTimeout(() => {
                     setExpandedProjects(new Set([pid]));
                 }, 0);
             }
             initializedRef.current = true;
         }
+        return () => {
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+            }
+        };
     }, [groupByProject]);
 
     // 🚀 Performance: Virtualization & Windowing

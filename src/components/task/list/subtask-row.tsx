@@ -221,16 +221,19 @@ export const SubTaskRow = memo(function SubTaskRow({
 
                 <TableCell className="w-[80px] sm:w-[120px] md:w-[220px]">
                     <span
-                        className="truncate text-muted-foreground text-sm block cursor-pointer hover:text-foreground transition-colors"
-                        onMouseEnter={() => {
-                            // 🚀 Preload ALL sheet JS chunks on hover for instant click
-                            import("@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/subtask-details-sheet");
-                            import("@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/messages-tab");
-                            import("@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/activity-tab");
-                        }}
+                        role="button"
+                        tabIndex={0}
+                        className="truncate text-muted-foreground text-sm block cursor-pointer hover:text-foreground focus:text-foreground focus:outline-none transition-colors"
                         onClick={(e) => {
                             e.stopPropagation();
                             if (onClick) onClick(subTask);
+                        }}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (onClick) onClick(subTask);
+                            }
                         }}
                     >
                         {subTask.name}

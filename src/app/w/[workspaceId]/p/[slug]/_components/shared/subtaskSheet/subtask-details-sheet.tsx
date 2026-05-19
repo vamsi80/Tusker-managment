@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useProjectLayout as useOptionalProjectLayout } from "../../project-layout-context";
+import { useOptionalProjectLayout } from "../../project-layout-context";
 import { SubtaskSheetHeader } from "./subtask-sheet-header";
 import { SubtaskSheetNavBar } from "./subtask-sheet-navbar";
 import { MessagesTab } from "./messages-tab";
@@ -26,8 +26,7 @@ export function SubTaskDetailsSheet({
     onSubTaskAssigned
 }: SubTaskDetailsSheetProps) {
     // 🚀 Context Safety: GlobalSubTaskSheet might be used outside ProjectLayout
-    let projectCtx: any = null;
-    try { projectCtx = useOptionalProjectLayout(); } catch (e) { }
+    const projectCtx = useOptionalProjectLayout();
 
     const { data: workspaceData, workspaceId: workspaceIdFromContext } = useWorkspaceLayout();
     
