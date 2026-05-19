@@ -16,6 +16,12 @@ const CreateVendorSchema = z.object({
   contactPerson: z.string().optional(),
   email: z.string().email().optional().or(z.literal("")),
   address: z.string().optional(),
+  addressLine1: z.string().optional().or(z.literal("")),
+  addressLine2: z.string().optional().or(z.literal("")),
+  city: z.string().optional().or(z.literal("")),
+  state: z.string().optional().or(z.literal("")),
+  pincode: z.string().optional().or(z.literal("")),
+  country: z.string().optional().default("India"),
   gstNumber: z.string().regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, "Invalid GST Format").optional().or(z.literal("")),
   phoneNumber: z.string().optional(),
 });
@@ -74,6 +80,31 @@ procurementVendors.get("/", async (c) => {
   });
 
   return c.json({ success: true, data: vendors });
+});
+
+/**
+ * GET /api/v1/procurement/vendors/:id
+ * Get single vendor details
+ */
+procurementVendors.get("/:id", async (c) => {
+  const user = c.get("user");
+  const id = c.req.param("id");
+  const workspaceId = c.req.query("w");
+
+  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+
+  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  if (!perms.hasAccess) {
+    throw AppError.Forbidden("Access denied to this workspace");
+  }
+
+  const vendor = await prisma.vendor.findFirst({
+    where: { id, workspaceId }
+  });
+
+  if (!vendor) throw AppError.NotFound("Vendor not found");
+
+  return c.json({ success: true, data: vendor });
 });
 
 /**

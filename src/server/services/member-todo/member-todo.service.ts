@@ -10,6 +10,7 @@ export class MemberTodoService {
       where: { memberId },
       orderBy: [
         { completed: "asc" },
+        { position: "asc" },
         { createdAt: "desc" }
       ],
     });
@@ -23,10 +24,18 @@ export class MemberTodoService {
       throw AppError.ValidationError("Todo text is required");
     }
 
+    const lastTodo = await prisma.memberTodo.findFirst({
+      where: { memberId },
+      orderBy: { position: "desc" },
+    });
+
+    const nextPosition = lastTodo ? lastTodo.position + 1 : 0;
+
     return prisma.memberTodo.create({
       data: {
         memberId,
         text: text.trim(),
+        position: nextPosition,
       },
     });
   }
@@ -89,6 +98,20 @@ export class MemberTodoService {
       where: { id },
     });
 
+    return { success: true };
+  }
+
+  /**
+   * Reorder todos for a member
+   */
+  static async reorderTodos(memberId: string, todoIds: string[]) {
+    const updates = todoIds.map((id, index) =>
+      prisma.memberTodo.updateMany({
+        where: { id, memberId },
+        data: { position: index },
+      })
+    );
+    await prisma.$transaction(updates);
     return { success: true };
   }
 }

@@ -10,7 +10,8 @@ import {
   Loader2, 
   CheckCircle2, 
   Circle, 
-  Check
+  Check,
+  GripVertical
 } from "lucide-react";
 import {
   AlertDialog,
@@ -25,12 +26,158 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { restrictToVerticalAxis, restrictToWindowEdges } from "@dnd-kit/modifiers";
+
 interface Todo {
   id: string;
   text: string;
   completed: boolean;
   createdAt: string;
   completedAt: string | null;
+}
+
+interface TodoItemProps {
+  todo: Todo;
+  editingId: string | null;
+  editingText: string;
+  setEditingId: (id: string | null) => void;
+  setEditingText: (text: string) => void;
+  handleToggleTodo: (id: string) => void;
+  handleEditTodo: (id: string) => void;
+  handleDeleteClick: (id: string) => void;
+  isSortable?: boolean;
+}
+
+function TodoItem({
+  todo,
+  editingId,
+  editingText,
+  setEditingId,
+  setEditingText,
+  handleToggleTodo,
+  handleEditTodo,
+  handleDeleteClick,
+  isSortable = false,
+}: TodoItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: todo.id,
+    disabled: !isSortable,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : todo.completed ? 0.6 : 1,
+    zIndex: isDragging ? 50 : undefined,
+    position: 'relative' as const,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "group flex items-start gap-3 py-1.5 transition-colors duration-200 hover:bg-muted/5 px-2 rounded-xl",
+        isDragging && "shadow-lg bg-background border border-border"
+      )}
+    >
+      {isSortable && !todo.completed && (
+        <div
+          {...attributes}
+          {...listeners}
+          className={cn(
+            "mt-1.5 shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground/45 hover:text-muted-foreground transition-opacity",
+            isDragging ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          )}
+        >
+          <GripVertical className="h-4 w-4" />
+        </div>
+      )}
+      
+      <button 
+        onClick={() => handleToggleTodo(todo.id)}
+        className={cn(
+          "mt-1 shrink-0 transition-all active:scale-90",
+          todo.completed ? "text-emerald-500" : "text-muted-foreground/60 hover:text-primary"
+        )}
+      >
+        {todo.completed ? <CheckCircle2 className="h-4.5 w-4.5" /> : <Circle className="h-4.5 w-4.5 stroke-[2px]" />}
+      </button>
+      
+      <div className="flex-1 min-w-0">
+        {editingId === todo.id ? (
+          <div className="flex items-center gap-2">
+            <Input
+              autoFocus
+              value={editingText}
+              onChange={(e) => setEditingText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleEditTodo(todo.id);
+                if (e.key === "Escape") setEditingId(null);
+              }}
+              className="h-auto p-0 bg-transparent border-0 focus-visible:ring-0 text-base font-medium shadow-none"
+            />
+            <button onClick={() => handleEditTodo(todo.id)} className="text-primary hover:text-primary/80 transition-colors">
+              <Check className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : (
+          <p 
+            onClick={() => {
+              setEditingId(todo.id);
+              setEditingText(todo.text);
+            }}
+            className={cn(
+              "text-base font-medium leading-relaxed transition-all cursor-text",
+              todo.completed && "line-through text-muted-foreground/80 font-normal"
+            )}
+          >
+            {todo.text}
+          </p>
+        )}
+      </div>
+
+      {editingId !== todo.id && (
+        <div className="flex items-center gap-1 opacity-20 group-hover:opacity-100 transition-opacity">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5 p-0 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer flex items-center justify-center"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDeleteClick(todo.id);
+            }}
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function PersonalListContainer({ 
@@ -177,73 +324,58 @@ export function PersonalListContainer({
     setPendingAction(null);
   };
 
-  const renderTodoItem = (todo: Todo) => (
-    <div 
-      key={todo.id}
-      className={cn(
-        "group flex items-start gap-3 py-1.5 transition-all duration-200",
-        todo.completed ? "opacity-60" : "opacity-100"
-      )}
-    >
-      <button 
-        onClick={() => handleToggleTodo(todo.id)}
-        className={cn(
-          "mt-1 shrink-0 transition-all active:scale-90",
-          todo.completed ? "text-emerald-500" : "text-muted-foreground/60 hover:text-primary"
-        )}
-      >
-        {todo.completed ? <CheckCircle2 className="h-4.5 w-4.5" /> : <Circle className="h-4.5 w-4.5 stroke-[2px]" />}
-      </button>
-      
-      <div className="flex-1 min-w-0">
-        {editingId === todo.id ? (
-          <div className="flex items-center gap-2">
-            <Input
-              autoFocus
-              value={editingText}
-              onChange={(e) => setEditingText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleEditTodo(todo.id);
-                if (e.key === "Escape") setEditingId(null);
-              }}
-              className="h-auto p-0 bg-transparent border-0 focus-visible:ring-0 text-base font-medium shadow-none"
-            />
-            <button onClick={() => handleEditTodo(todo.id)} className="text-primary hover:text-primary/80 transition-colors">
-              <Check className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        ) : (
-          <p 
-            onClick={() => {
-              setEditingId(todo.id);
-              setEditingText(todo.text);
-            }}
-            className={cn(
-              "text-base font-medium leading-relaxed transition-all cursor-text",
-              todo.completed && "line-through text-muted-foreground/80 font-normal"
-            )}
-          >
-            {todo.text}
-          </p>
-        )}
-      </div>
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 5 }
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
-      {editingId !== todo.id && (
-        <div className="flex items-center gap-1 opacity-20 group-hover:opacity-100 transition-opacity">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-5 w-5 p-0 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer flex items-center justify-center"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDeleteClick(todo.id);
-            }}
-          >
-            <Trash2 className="h-2 w-2" />
-          </Button>
-        </div>
-      )}
-    </div>
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const activeList = todos.filter(t => !t.completed);
+    const oldIndex = activeList.findIndex((item) => item.id === active.id);
+    const newIndex = activeList.findIndex((item) => item.id === over.id);
+
+    if (oldIndex !== -1 && newIndex !== -1) {
+      const reorderedActive = arrayMove(activeList, oldIndex, newIndex);
+      const completedList = todos.filter(t => t.completed);
+      const newTodos = [...reorderedActive, ...completedList];
+      
+      setTodos(newTodos);
+
+      try {
+        const res = await fetch(`/api/v1/member-todos/${workspaceId}/reorder`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ todoIds: reorderedActive.map(t => t.id) }),
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error();
+      } catch (error) {
+        toast.error("Failed to save reordered list");
+        fetchTodos();
+      }
+    }
+  };
+
+  const renderTodoItem = (todo: Todo, isSortable = false) => (
+    <TodoItem
+      key={todo.id}
+      todo={todo}
+      editingId={editingId}
+      editingText={editingText}
+      setEditingId={setEditingId}
+      setEditingText={setEditingText}
+      handleToggleTodo={handleToggleTodo}
+      handleEditTodo={handleEditTodo}
+      handleDeleteClick={handleDeleteClick}
+      isSortable={isSortable}
+    />
   );
 
   return (
@@ -286,13 +418,25 @@ export function PersonalListContainer({
             </div>
 
             <ScrollArea className="flex-1">
-              <div className="flex flex-col">
-                {activeTodos.length === 0 ? (
-                  <p className="text-sm text-muted-foreground/40 italic py-4">No pending tasks. You're all caught up!</p>
-                ) : (
-                  activeTodos.map(renderTodoItem)
-                )}
-              </div>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+                modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
+              >
+                <SortableContext
+                  items={activeTodos.map((t) => t.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="flex flex-col gap-1">
+                    {activeTodos.length === 0 ? (
+                      <p className="text-sm text-muted-foreground/40 italic py-4 px-2">No pending tasks. You're all caught up!</p>
+                    ) : (
+                      activeTodos.map((todo) => renderTodoItem(todo, true))
+                    )}
+                  </div>
+                </SortableContext>
+              </DndContext>
             </ScrollArea>
           </div>
 
@@ -304,11 +448,11 @@ export function PersonalListContainer({
             </div>
             
             <ScrollArea className="flex-1">
-              <div className="flex flex-col">
+              <div className="flex flex-col px-2">
                 {completedTodos.length === 0 ? (
                   <p className="text-sm text-muted-foreground/40 italic py-4">No completed tasks yet.</p>
                 ) : (
-                  completedTodos.map(renderTodoItem)
+                  completedTodos.map((todo) => renderTodoItem(todo, false))
                 )}
               </div>
             </ScrollArea>

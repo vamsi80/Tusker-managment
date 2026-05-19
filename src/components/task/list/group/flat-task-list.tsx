@@ -116,6 +116,10 @@ export function FlatTaskList({
         }));
     }, [onTasksChange]);
 
+    const handleSubTasksReordered = useCallback((parentId: string, newSubTasks: any[]) => {
+        if (onTasksChange) onTasksChange((prev: any) => prev.map((t: any) => t.id === parentId ? { ...t, subTasks: newSubTasks } : t));
+    }, [onTasksChange]);
+
     return (
         <>
             {tasks?.map((task) => (
@@ -163,6 +167,7 @@ export function FlatTaskList({
                         onSubTaskUpdated={handleSubTaskUpdated}
                         onSubTaskDeleted={(stId) => handleSubTaskDeleted(stId, task.id)}
                         onSubTaskCreated={(st) => handleSubTaskCreated(st, task.id)}
+                        onSubTasksReordered={(parentId, newSubTasks) => handleSubTasksReordered(parentId, newSubTasks)}
                         permissions={permissions}
                         userId={userId}
                         isWorkspaceAdmin={isWorkspaceAdmin}

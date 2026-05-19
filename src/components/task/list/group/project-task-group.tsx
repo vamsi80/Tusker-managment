@@ -139,6 +139,10 @@ export function ProjectTaskGroup({
         }));
     }, [onTasksChange]);
 
+    const handleSubTasksReordered = useCallback((parentId: string, newSubTasks: any[]) => {
+        if (onTasksChange) onTasksChange((prev: any) => prev.map((t: any) => t.id === parentId ? { ...t, subTasks: newSubTasks } : t));
+    }, [onTasksChange]);
+
     const handleTaskDeleted = useCallback((taskId: string) => {
         if (onTasksChange) onTasksChange((prev: any) => prev.filter((t: any) => t.id !== taskId));
     }, [onTasksChange]);
@@ -202,6 +206,7 @@ export function ProjectTaskGroup({
                             onSubTaskUpdated={handleSubTaskUpdated}
                             onSubTaskDeleted={(stId) => handleSubTaskDeleted(stId, task.id)}
                             onSubTaskCreated={(st) => handleSubTaskCreated(st, task.id)}
+                            onSubTasksReordered={(parentId, newSubTasks) => handleSubTasksReordered(parentId, newSubTasks)}
                             permissions={permissions}
                             userId={userId}
                             isWorkspaceAdmin={isWorkspaceAdmin}

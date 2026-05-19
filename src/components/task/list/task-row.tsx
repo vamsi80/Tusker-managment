@@ -288,6 +288,13 @@ export const TaskRow = memo(function TaskRow({
                         handleSubTaskCreated(newSubTask);
                         (children as any).props.onSubTaskCreated?.(newSubTask);
                     },
+                    onSubTasksReordered: (parentId: string, newSubTasks: any[]) => {
+                        setTask((prev) => ({
+                            ...prev,
+                            subTasks: newSubTasks,
+                        }));
+                        (children as any).props.onSubTasksReordered?.(parentId, newSubTasks);
+                    },
                 })}
         </>
     );

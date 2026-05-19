@@ -61,6 +61,28 @@ memberTodos.put("/:workspaceId/:id", async (c) => {
 });
 
 /**
+ * PATCH /api/v1/member-todos/:workspaceId/reorder
+ * Reorder todos
+ */
+memberTodos.patch("/:workspaceId/reorder", async (c) => {
+  const user = c.get("user");
+  const workspaceId = c.req.param("workspaceId");
+  const { todoIds } = await c.req.json();
+
+  if (!Array.isArray(todoIds)) {
+    throw AppError.ValidationError("todoIds must be an array of IDs");
+  }
+
+  const { workspaceMemberId } = await getWorkspacePermissions(workspaceId, user.id);
+  if (!workspaceMemberId) {
+    throw AppError.Forbidden("You are not a member of this workspace");
+  }
+
+  const result = await MemberTodoService.reorderTodos(workspaceMemberId, todoIds);
+  return c.json({ success: true, data: result });
+});
+
+/**
  * PATCH /api/v1/member-todos/:workspaceId/:id
  * Toggle todo completed status
  */

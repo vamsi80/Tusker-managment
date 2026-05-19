@@ -161,6 +161,9 @@ export default function VendorsPage() {
                         )}
                         <div className="text-xs text-muted-foreground/80 mt-0.5">
                           {vendor.email || "No email"} • {vendor.phoneNumber || "No phone"}
+                          {(vendor.city || vendor.state) && (
+                            <span> • {[vendor.city, vendor.state].filter(Boolean).join(", ")}</span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="text-sm font-medium text-gray-700">
