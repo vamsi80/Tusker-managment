@@ -27,6 +27,14 @@ export const exportGanttToExcel = async (
   fileName: string = "gantt-export.xlsx",
 ) => {
   const XLSX = await import("xlsx-js-style");
+  const {
+    json_to_sheet,
+    sheet_add_json,
+    encode_cell,
+    encode_col,
+    book_new,
+    book_append_sheet,
+  } = XLSX.utils;
   // 1. Calculate Date Range for Timeline
   const allDates: Date[] = [];
   tasks.forEach((t) => {
@@ -107,8 +115,8 @@ export const exportGanttToExcel = async (
     });
   });
 
-  const worksheet = XLSX.utils.json_to_sheet([]);
-  XLSX.utils.sheet_add_json(worksheet, rows, {
+  const worksheet = json_to_sheet([]);
+  sheet_add_json(worksheet, rows, {
     skipHeader: true,
     origin: "A2",
   });
@@ -124,7 +132,7 @@ export const exportGanttToExcel = async (
   ];
 
   staticHeaders.forEach((h, i) => {
-    const cellRef = XLSX.utils.encode_cell({ c: i, r: 0 });
+    const cellRef = encode_cell({ c: i, r: 0 });
     worksheet[cellRef] = {
       t: "s",
       v: h,
@@ -142,7 +150,7 @@ export const exportGanttToExcel = async (
 
   timelineDates.forEach((date, i) => {
     const colIndex = 7 + i;
-    const cellRef = XLSX.utils.encode_cell({ c: colIndex, r: 0 });
+    const cellRef = encode_cell({ c: colIndex, r: 0 });
     worksheet[cellRef] = {
       t: "d",
       v: date,
@@ -175,7 +183,7 @@ export const exportGanttToExcel = async (
     const isParentRow = rowData._type === "Task";
 
     for (let c = 0; c < 7; c++) {
-      const cellRef = XLSX.utils.encode_cell({ c: c, r: worksheetRowIndex });
+      const cellRef = encode_cell({ c: c, r: worksheetRowIndex });
 
       // Ensure cell exists for styling (even if value is null)
       if (!worksheet[cellRef]) {
@@ -192,13 +200,13 @@ export const exportGanttToExcel = async (
       };
     }
 
-    const startCellRef = XLSX.utils.encode_cell({ c: 3, r: worksheetRowIndex });
+    const startCellRef = encode_cell({ c: 3, r: worksheetRowIndex });
     if (worksheet[startCellRef] && worksheet[startCellRef].v) {
       worksheet[startCellRef].z = "d mmm yyyy";
     }
 
     if (rowData.start && rowData.end) {
-      const endCellRef = XLSX.utils.encode_cell({ c: 4, r: worksheetRowIndex });
+      const endCellRef = encode_cell({ c: 4, r: worksheetRowIndex });
       const startRef = `D${excelRowNumber}`;
       const durRef = `F${excelRowNumber}`;
 
@@ -221,8 +229,8 @@ export const exportGanttToExcel = async (
       const taskEnd = rowData.end;
 
       for (let c = colStart; c <= colEnd; c++) {
-        const cellRef = XLSX.utils.encode_cell({ c: c, r: worksheetRowIndex });
-        const colLetter = XLSX.utils.encode_col(c);
+        const cellRef = encode_cell({ c: c, r: worksheetRowIndex });
+        const colLetter = encode_col(c);
         const timelineDate = timelineDates[c - colStart];
 
         const isWithinRange =
@@ -269,7 +277,7 @@ export const exportGanttToExcel = async (
     } else {
       // For parent tasks (no dates), add borders to timeline cells
       for (let c = colStart; c <= colEnd; c++) {
-        const cellRef = XLSX.utils.encode_cell({ c: c, r: worksheetRowIndex });
+        const cellRef = encode_cell({ c: c, r: worksheetRowIndex });
         worksheet[cellRef] = {
           t: "s",
           v: "",
@@ -302,10 +310,10 @@ export const exportGanttToExcel = async (
   // Set the range for the worksheet
   const lastRow = rowCount + 1;
   const lastCol = colEnd;
-  worksheet["!ref"] = `A1:${XLSX.utils.encode_col(lastCol)}${lastRow}`;
+  worksheet["!ref"] = `A1:${encode_col(lastCol)}${lastRow}`;
 
   // 7. Create workbook
-  const workbook = XLSX.utils.book_new();
+  const workbook = book_new();
   workbook.Props = {
     Title: "Gantt Chart Export",
     Subject: "Task Timeline",
@@ -321,7 +329,7 @@ export const exportGanttToExcel = async (
     ],
   };
 
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Gantt Tasks");
+  book_append_sheet(workbook, worksheet, "Gantt Tasks");
 
   // 8. Write file with styling support
   XLSX.writeFile(workbook, fileName, {

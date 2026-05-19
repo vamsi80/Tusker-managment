@@ -99,3 +99,7 @@ export function useProjectLayout() {
     }
     return context;
 }
+
+export function useOptionalProjectLayout() {
+    return useContext(ProjectLayoutContext);
+}
