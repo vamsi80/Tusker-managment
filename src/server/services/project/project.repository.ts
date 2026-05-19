@@ -132,6 +132,7 @@ export class ProjectRepository {
                 id: true,
                 name: true,
                 surname: true,
+                email: true,
                 image: true,
               }
             }
@@ -167,6 +168,7 @@ export class ProjectRepository {
                 id: true,
                 name: true,
                 surname: true,
+                email: true,
                 image: true,
               }
             }

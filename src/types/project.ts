@@ -14,7 +14,7 @@ export type ProjectMemberUI = {
     id: string;
     name: string | null;
     surname: string | null;
-    email?: string;
+    email: string | null;
   };
   workspaceRole?: string;
 };

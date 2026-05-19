@@ -288,6 +288,14 @@ tasks.post("/bulk", async (c) => {
     userId: user.id
   });
 
+  if (result.success && result.workspaceId) {
+    invalidateTaskMutation({
+      projectId,
+      workspaceId: result.workspaceId,
+      userId: user.id,
+    }).catch((err) => console.error("[CACHE_ERROR] Bulk invalidation failed:", err));
+  }
+
   return c.json({
     success: result.success,
     message: result.message,

@@ -394,6 +394,7 @@ export class TasksService {
       success: true,
       message,
       data: result.tasks,
+      workspaceId: project.workspaceId,
     };
   }
 
@@ -2940,15 +2941,7 @@ export class TasksService {
   // ─────────────────────────────────────────────────────────────────────────
 
   static async getTasks(opts: GetTasksOptions, userId: string) {
-    const { unstable_cache } = await import("next/cache");
-    const { CacheTags } = await import("@/data/cache-tags");
-    const tags = [...CacheTags.workspaceTasks(opts.workspaceId, userId)];
-    if (opts.projectId) tags.push(`project-tasks-${opts.projectId}`);
-    return unstable_cache(
-      () => TasksService.listTasks(opts, userId),
-      [`getTasks-${userId}-${JSON.stringify(opts)}`],
-      { tags, revalidate: 3600 },
-    )();
+    return TasksService.listTasks(opts, userId);
   }
 }
 
