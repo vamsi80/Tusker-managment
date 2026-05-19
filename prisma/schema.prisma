@@ -17,7 +17,6 @@ model User {
   image               String?
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @default(now()) @updatedAt
-  lastActiveAt        DateTime?           @default(now())
   role                String?
   banned              Boolean?            @default(false)
   banReason           String?
@@ -26,6 +25,7 @@ model User {
   phoneNumber         String?             @unique
   phoneNumberVerified Boolean             @default(false)
   pushToken           String?
+  lastActiveAt        DateTime?           @default(now())
   activities          Activity[]
   workspaceOwner      Workspace[]
   workspaces          WorkspaceMember[]
@@ -37,7 +37,6 @@ model User {
   commentReads        CommentRead[]
   dailyReports        DailyReport[]
   direct_message      direct_message[]
-
   notification        notification[]
   sessions            Session[]
 
@@ -90,15 +89,15 @@ model Verification {
 }
 
 model Workspace {
-  id                     String               @id @default(uuid())
+  id                     String                     @id @default(uuid())
   name                   String
-  slug                   String               @unique
+  slug                   String                     @unique
   description            String?
   ownerId                String
-  createdAt              DateTime             @default(now())
-  image_url              String               @default("")
-  updatedAt              DateTime             @updatedAt
-  inviteCode             String               @unique
+  createdAt              DateTime                   @default(now())
+  image_url              String                     @default("")
+  updatedAt              DateTime                   @updatedAt
+  inviteCode             String                     @unique
   addressLine1           String?
   addressLine2           String?
   city                   String?
@@ -114,17 +113,17 @@ model Workspace {
   pincode                String?
   state                  String?
   website                String?
-  lateThreshold          String               @default("21:30")
-  overtimeThreshold      String               @default("07:00")
-  halfDayThreshold       String               @default("23:00")
-  shiftEndTime           String               @default("07:00")
-  shiftStartTime         String               @default("21:30")
-  sickLeaveLimit         Int                  @default(12)
-  casualLeaveAccrualDays Int                  @default(20)
+  lateThreshold          String                     @default("21:30")
+  overtimeThreshold      String                     @default("07:00")
+  halfDayThreshold       String                     @default("23:00")
+  shiftEndTime           String                     @default("07:00")
+  shiftStartTime         String                     @default("21:30")
+  sickLeaveLimit         Int                        @default(12)
+  casualLeaveAccrualDays Int                        @default(20)
   clints                 Clints[]
   projects               Project[]
   tags                   Tag[]
-  owner                  User                 @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  owner                  User                       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   members                WorkspaceMember[]
   attendance             attendance[]
   attendanceLocations    AttendanceLocation[]
@@ -132,6 +131,7 @@ model Workspace {
   boardItems             Board[]
   conversation           conversation[]
   dailyReports           DailyReport[]
+  indents                Indent[]
   leaveRequests          leave_request[]
   materials              Material[]
   notification           notification[]
@@ -140,6 +140,7 @@ model Workspace {
   purchaseOrders         PurchaseOrder[]
   units                  Unit[]
   vendors                Vendor[]
+  vendorCapabilities     VendorMaterialCapability[]
 }
 
 model WorkspaceMember {
@@ -166,18 +167,21 @@ model WorkspaceMember {
   attendance             attendance[]
   assignedBoardItems     Board[]                @relation("BoardAssigner")
   boardItems             Board[]                @relation("BoardMember")
+  indentsAssigned        Indent[]               @relation("IndentAssignee")
+  indentsApproved        Indent[]               @relation("IndentFinalApprover")
+  indentsRequested       Indent[]               @relation("IndentRequester")
   assignedIndents        IndentDetails[]        @relation("IndentAssignee")
   requestedIndents       IndentDetails[]        @relation("IndentRequestor")
   finalApprovedItems     IndentItem[]           @relation("FinalApprover")
   quantityApprovedItems  IndentItem[]           @relation("QuantityApprover")
   processedLeaveRequests leave_request[]        @relation("LeaveProcessor")
   leaveRequests          leave_request[]
+  memberTodos            MemberTodo[]
   approvedPurchaseOrders PurchaseOrder[]        @relation("POApprover")
   createdPurchaseOrders  PurchaseOrder[]        @relation("POCreator")
   recordedPayments       PurchaseOrderPayment[] @relation("PaymentRecorder")
-   createdUnits           Unit[]
-   memberTodos            MemberTodo[]
-
+  createdUnits           Unit[]
+  quotesReviewed         VendorQuote[]          @relation("QuoteReviewer")
 
   @@unique([userId, workspaceId])
   @@index([workspaceId, workspaceRole])
@@ -205,6 +209,7 @@ model Project {
   workspace        Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   projectMembers   ProjectMember[]
   tasks            Task[]
+  indents          Indent[]
   indentDetails    IndentDetails[]
   procurementTasks ProcurementTask[]
   purchaseOrders   PurchaseOrder[]
@@ -310,6 +315,7 @@ model Task {
   reviewer              ProjectMember?     @relation("TaskReviewer", fields: [reviewerId], references: [id])
   comments              Comment[]
   dailyReportEntries    DailyReportEntry[]
+  indent                Indent?
   indentDetails         IndentDetails[]
   procurementTask       ProcurementTask?
   Task_TaskDependency_A Task[]             @relation("TaskDependency")
@@ -530,7 +536,7 @@ model Material {
 }
 
 model Vendor {
-  id             String          @id @default(uuid())
+  id             String                     @id @default(uuid())
   name           String
   companyName    String?
   contactPerson  String?
@@ -538,14 +544,17 @@ model Vendor {
   address        String?
   gstNumber      String?
   workspaceId    String
-  isActive       Boolean         @default(true)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  isActive       Boolean                    @default(true)
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
   phoneNumber    String?
+  status         VendorStatus               @default(ACTIVE)
   indentItems    IndentItem[]
   purchaseOrders PurchaseOrder[]
-  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  materials      Material[]      @relation("MaterialToVendor")
+  workspace      Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  capabilities   VendorMaterialCapability[]
+  quotes         VendorQuote[]
+  materials      Material[]                 @relation("MaterialToVendor")
 
   @@index([workspaceId])
   @@index([name])
@@ -779,7 +788,7 @@ model conversation {
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @default(now()) @updatedAt
   lastMessageAt     DateTime?           @default(now())
-  type              String              @default("direct") // "direct" | "group"
+  type              String              @default("direct")
   UserConversations UserConversations[]
   Workspace         Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   direct_message    direct_message[]
@@ -792,11 +801,11 @@ model direct_message {
   id             String       @id @default(uuid())
   content        String
   createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @default(now()) @updatedAt
-  isRead         Boolean      @default(false)
-  isDeleted      Boolean      @default(false)
   senderId       String
   conversationId String
+  isDeleted      Boolean      @default(false)
+  isRead         Boolean      @default(false)
+  updatedAt      DateTime     @default(now()) @updatedAt
   conversation   conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   user           User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
 
@@ -882,6 +891,113 @@ model MemberTodo {
   @@map("member_todos")
 }
 
+model VendorMaterialCapability {
+  id           String    @id @default(cuid())
+  vendorId     String
+  materialName String
+  unit         String?
+  workspaceId  String
+  source       String    @default("MANUAL")
+  createdAt    DateTime  @default(now())
+  vendor       Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([vendorId, materialName])
+  @@index([workspaceId, materialName])
+  @@map("vendor_material_capability")
+}
+
+model Indent {
+  id                String           @id @default(uuid())
+  indentId          String?          @unique
+  workspaceId       String
+  projectId         String
+  taskId            String           @unique
+  name              String
+  description       String?
+  status            IndentStatus     @default(DRAFT)
+  expectedDelivery  DateTime?
+  requestedById     String
+  assignedToId      String?
+  submittedAt       DateTime?
+  finalApprovedAt   DateTime?
+  finalApprovedById String?
+  cancelledAt       DateTime?
+  cancelReason      String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  assignedTo        WorkspaceMember? @relation("IndentAssignee", fields: [assignedToId], references: [id])
+  finalApprovedBy   WorkspaceMember? @relation("IndentFinalApprover", fields: [finalApprovedById], references: [id])
+  project           Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  requestedBy       WorkspaceMember  @relation("IndentRequester", fields: [requestedById], references: [id])
+  task              Task             @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  workspace         Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  lineItems         IndentLineItem[]
+
+  @@index([workspaceId, status])
+  @@index([projectId, status])
+  @@index([taskId])
+  @@index([requestedById])
+  @@index([workspaceId, createdAt(sort: Desc)])
+  @@map("indent")
+}
+
+model IndentLineItem {
+  id                 String         @id @default(uuid())
+  indentId           String
+  materialName       String
+  description        String?
+  unit               String
+  quantity           Int
+  estimatedUnitPrice Int?
+  specifications     String?
+  status             LineItemStatus @default(PENDING)
+  rfqSentAt          DateTime?
+  rfqDeadline        DateTime?
+  approvedQuoteId    String?
+  rejectionReason    String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  approvedQuote      VendorQuote?   @relation("ApprovedQuote", fields: [approvedQuoteId], references: [id])
+  indent             Indent         @relation(fields: [indentId], references: [id], onDelete: Cascade)
+  vendorQuotes       VendorQuote[]
+
+  @@index([indentId])
+  @@index([status])
+  @@index([materialName])
+  @@map("indent_line_item")
+}
+
+model VendorQuote {
+  id                   String           @id @default(uuid())
+  lineItemId           String
+  vendorId             String
+  unitPrice            Decimal          @db.Decimal(15, 2)
+  quantity             Decimal          @db.Decimal(15, 3)
+  totalPrice           Decimal          @db.Decimal(15, 2)
+  currency             String           @default("INR")
+  leadTimeDays         Int?
+  validUntil           DateTime?
+  notes                String?
+  attachmentUrl        String?
+  status               QuoteStatus      @default(SUBMITTED)
+  submittedAt          DateTime         @default(now())
+  reviewedAt           DateTime?
+  reviewedById         String?
+  rejectionReason      String?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  approvedForLineItems IndentLineItem[] @relation("ApprovedQuote")
+  lineItem             IndentLineItem   @relation(fields: [lineItemId], references: [id], onDelete: Cascade)
+  reviewedBy           WorkspaceMember? @relation("QuoteReviewer", fields: [reviewedById], references: [id])
+  vendor               Vendor           @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([lineItemId, vendorId])
+  @@index([lineItemId])
+  @@index([vendorId])
+  @@index([status])
+  @@map("vendor_quote")
+}
 
 enum IndentItemStatus {
   PENDING
@@ -911,6 +1027,7 @@ enum WorkspaceRole {
   OWNER
   VIEWER
   MANAGER
+  PROCUREMENT
 }
 
 enum ProjectRole {
@@ -962,4 +1079,35 @@ enum AttendanceStatus {
 enum BoardStatus {
   DONE
   NOT_DONE
+}
+
+enum VendorStatus {
+  ACTIVE
+  INACTIVE
+  BLACKLISTED
+}
+
+enum QuoteStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+enum IndentStatus {
+  DRAFT
+  SUBMITTED
+  ASSIGNED
+  APPROVED
+  CANCELLED
+}
+
+enum LineItemStatus {
+  PENDING
+  RFQ_SENT
+  QUOTES_RECEIVED
+  APPROVED
+  PO_CREATED
+  REJECTED
 }
