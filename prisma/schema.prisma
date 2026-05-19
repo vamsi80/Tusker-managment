@@ -904,12 +904,13 @@ model VendorMaterialCapability {
   materialName String
   unit         String?
   workspaceId  String
-  source       String    @default("MANUAL")
-  createdAt    DateTime  @default(now())
+  source       String                @default("MANUAL")
+  serviceType  CapabilityServiceType @default(SUPPLY)
+  createdAt    DateTime              @default(now())
   vendor       Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  @@unique([vendorId, materialName])
+  @@unique([vendorId, materialName, serviceType])
   @@index([workspaceId, materialName])
   @@map("vendor_material_capability")
 }
@@ -1117,4 +1118,10 @@ enum LineItemStatus {
   APPROVED
   PO_CREATED
   REJECTED
+}
+
+enum CapabilityServiceType {
+  SUPPLY
+  LABOUR
+  LABOUR_WITH_MATERIAL
 }
