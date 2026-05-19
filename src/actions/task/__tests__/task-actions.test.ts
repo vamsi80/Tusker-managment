@@ -35,6 +35,7 @@ describe("Task Actions", () => {
             (requireUser as any).mockResolvedValue({ id: "user_admin", email: "admin@example.com" });
             (prisma.project.findUnique as any).mockResolvedValue({ workspaceId: validWorkspaceId });
             (getUserPermissions as any).mockResolvedValue({
+                workspaceMemberId: "wm_admin",
                 workspaceMember: { id: "wm_admin" },
                 projectMember: { id: "pm_admin" },
                 isProjectManager: true
@@ -44,6 +45,18 @@ describe("Task Actions", () => {
                 { id: "pm_member", workspaceMember: { user: { email: "member@example.com", id: "user_member" } } }
             ]);
             (prisma.tag.findMany as any).mockResolvedValue([]);
+            (prisma.task.findMany as any).mockResolvedValue([
+                {
+                    id: "task_1",
+                    isParent: true,
+                    name: "Parent Task 1",
+                    status: "TODO",
+                    assignee: null,
+                    reviewer: null,
+                    tags: [],
+                    _count: { subTasks: 0 },
+                }
+            ]);
 
             const result = await TasksService.bulkUploadTasksAndSubtasks({ ...bulkData, userId: "user_admin" });
 
@@ -56,6 +69,7 @@ describe("Task Actions", () => {
             (requireUser as any).mockResolvedValue({ id: "user_admin", email: "admin@example.com" });
             (prisma.project.findUnique as any).mockResolvedValue({ workspaceId: validWorkspaceId });
             (getUserPermissions as any).mockResolvedValue({
+                workspaceMemberId: "wm_admin",
                 workspaceMember: { id: "wm_admin" },
                 projectMember: { id: "pm_admin" },
                 isProjectManager: true
@@ -73,6 +87,7 @@ describe("Task Actions", () => {
             (requireUser as any).mockResolvedValue({ id: "user_admin", email: "admin@example.com" });
             (prisma.project.findUnique as any).mockResolvedValue({ workspaceId: validWorkspaceId });
             (getUserPermissions as any).mockResolvedValue({
+                workspaceMemberId: "wm_admin",
                 workspaceMember: { id: "wm_admin" },
                 projectMember: { id: "pm_admin" },
                 isProjectManager: true
@@ -93,6 +108,7 @@ describe("Task Actions", () => {
             (requireUser as any).mockResolvedValue({ id: "user_admin", email: "admin@example.com" });
             (prisma.project.findUnique as any).mockResolvedValue({ workspaceId: validWorkspaceId });
             (getUserPermissions as any).mockResolvedValue({
+                workspaceMemberId: "wm_admin",
                 workspaceMember: { id: "wm_admin" },
                 projectMember: { id: "pm_admin" },
                 isProjectManager: true

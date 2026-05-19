@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { tryCatch } from "@/hooks/try-catch";
 import { useConfetti } from "@/hooks/use-confetti";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import { useTaskContext } from "@/app/w/[workspaceId]/_components/shared/task-context";
 import { ApiResponse } from "@/lib/types";
 
@@ -44,7 +43,6 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
     const [pending, startTransition] = useTransition();
     const { triggerConfetti } = useConfetti();
     const [open, setOpen] = useState(false);
-    const router = useRouter();
     const { setIsAddingTask } = useTaskContext();
     const { projectMembers, workspaceId, workspaceTags, revalidate } = useProjectLayout();
     const [fileName, setFileName] = useState<string>("");
@@ -528,11 +526,28 @@ ${tagList}
                     toast.success('Tasks uploaded successfully!', { id: toastId });
                     triggerConfetti();
 
+                    // Dispatch only parent tasks — subtasks load from DB on expand
+                    if (result.data && Array.isArray(result.data)) {
+                        result.data
+                            .filter((t: any) => t.isParent)
+                            .forEach((task: any) => {
+                                window.dispatchEvent(
+                                    new CustomEvent("realtime-task-sync", {
+                                        detail: {
+                                            action: "TASK_CREATED",
+                                            record: task,
+                                        },
+                                    })
+                                );
+                            });
+                    }
 
-
-                    setTimeout(() => {
+                    setTimeout(async () => {
                         setOpen(false);
-                        router.refresh();
+                        setParsedData([]);
+                        setFileName("");
+                        setProgress(0);
+                        await revalidate();
                     }, 500);
                 } else {
                     toast.error('Upload failed. Please try again.', { id: toastId });

@@ -371,8 +371,8 @@ export function useTaskTableLogic({
       const taskRecord = {
         ...record,
         parentTaskId,
-        subTasks: record.subTasks || [],
-        isParent: !parentTaskId
+        subTasks: record.isParent ? undefined : (record.subTasks || []),
+        isParent: record.isParent ?? !parentTaskId
       } as TaskWithSubTasks;
 
       switch (action) {
