@@ -4,8 +4,8 @@ import { describe, test, expect, beforeAll, beforeEach, vi } from "vitest";
 vi.unmock("@/lib/db");
 
 import { PrismaClient } from "@/generated/prisma";
-import { VendorService } from "../vendor.service";
-import { VendorRepository } from "../vendor.repository";
+import { VendorService } from "../vendor/vendor.service";
+import { VendorRepository } from "../vendor/vendor.repository";
 
 const prisma = new PrismaClient();
 

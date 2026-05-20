@@ -1,22 +1,29 @@
 "use client";
 
-import { MessageSquare, FileCheck } from "lucide-react";
+import { MessageSquare, FileCheck, ShoppingBag } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SubtaskSheetNavBarProps {
-    activeTab: "messages" | "review";
-    onTabChange: (tab: "messages" | "review") => void;
+    activeTab: "messages" | "review" | "procurement";
+    onTabChange: (tab: "messages" | "review" | "procurement") => void;
     messagesCount: number;
     activityCount: number;
+    showProcurement?: boolean;
 }
 
 export function SubtaskSheetNavBar({
     activeTab,
     onTabChange,
     messagesCount,
-    activityCount
+    activityCount,
+    showProcurement = false,
 }: SubtaskSheetNavBarProps) {
-    const tabs = [
+    const tabs: {
+        name: string;
+        value: "messages" | "review" | "procurement";
+        icon: any;
+        count: number;
+    }[] = [
         {
             name: "Messages",
             value: "messages" as const,
@@ -30,6 +37,15 @@ export function SubtaskSheetNavBar({
             count: activityCount,
         },
     ];
+
+    if (showProcurement) {
+        tabs.push({
+            name: "Procurement",
+            value: "procurement" as const,
+            icon: ShoppingBag,
+            count: 0, // No badge counts needed for procurement tab
+        });
+    }
 
     return (
         <div className="border-b">
@@ -50,14 +66,16 @@ export function SubtaskSheetNavBar({
                         >
                             <Icon className="h-3 w-3" />
                             <span>{tab.name}</span>
-                            <span className={cn(
-                                "ml-1 rounded-full px-2 py-0.5 text-xs font-medium",
-                                isActive
-                                    ? "bg-primary/10 text-primary"
-                                    : "bg-muted text-muted-foreground"
-                            )}>
-                                {tab.count}
-                            </span>
+                            {tab.count > 0 && (
+                                <span className={cn(
+                                    "ml-1 rounded-full px-2 py-0.5 text-xs font-medium",
+                                    isActive
+                                        ? "bg-primary/10 text-primary"
+                                        : "bg-muted text-muted-foreground"
+                                )}>
+                                    {tab.count}
+                                </span>
+                            )}
                         </button>
                     );
                 })}

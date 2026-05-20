@@ -3,7 +3,7 @@ import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { HonoVariables } from "../types";
 import { AppError } from "@/lib/errors/app-error";
-import { VendorService } from "@/server/services/procurement/vendor.service";
+import { VendorService } from "@/server/services/procurement";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import prisma from "@/lib/db";
 
