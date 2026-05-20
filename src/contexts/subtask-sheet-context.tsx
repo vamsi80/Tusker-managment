@@ -49,7 +49,14 @@ export function SubTaskSheetProvider({ children }: { children: React.ReactNode }
         
         // Optimistically set the data if we have it
         setSubTask(task);
-        lastLoadedSlugRef.current = slug;
+        
+        // If it's a fully loaded task, set lastLoadedSlugRef.current.
+        // If it's missing workspaceId (meaning it's partial), don't set lastLoadedSlugRef.current so it triggers API fetch.
+        if (task && task.workspaceId && task.projectId) {
+            lastLoadedSlugRef.current = slug;
+        } else {
+            lastLoadedSlugRef.current = null;
+        }
     }, [pathname, searchParams]);
 
     const openSubTaskSheetLoading = useCallback(() => {

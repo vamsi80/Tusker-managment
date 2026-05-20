@@ -206,7 +206,22 @@ export class ProjectRepository {
         workspaceId: true,
         description: true,
         createdAt: true,
-        updatedAt: true
+        updatedAt: true,
+        projectManagerId: true,
+        projectManager: {
+          select: {
+            id: true,
+            designation: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                surname: true,
+                image: true
+              }
+            }
+          }
+        }
       }
     });
   }

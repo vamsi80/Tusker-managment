@@ -463,8 +463,20 @@ export class TaskRepository {
   }
 
   static async autoJoinAdmin(projectId: string, workspaceMemberId: string) {
-    return prisma.projectMember.create({
-      data: { projectId, workspaceMemberId, projectRole: ProjectRole.PROJECT_MANAGER, hasAccess: true },
+    return prisma.projectMember.upsert({
+      where: {
+        workspaceMemberId_projectId: {
+          workspaceMemberId,
+          projectId
+        }
+      },
+      update: {},
+      create: {
+        projectId,
+        workspaceMemberId,
+        projectRole: ProjectRole.MEMBER,
+        hasAccess: true
+      }
     });
   }
 

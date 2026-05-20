@@ -642,4 +642,110 @@ export class ProjectService {
   static async getWorkspaceClients(workspaceId: string) {
     return ProjectRepository.getWorkspaceClients(workspaceId);
   }
+
+  static async getProjectDashboardData(workspaceId: string, slug: string) {
+    const project = await ProjectRepository.getProjectBySlug(workspaceId, slug);
+    if (!project) return null;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Week boundaries (Monday -> Sunday)
+    const dayOfWeek = today.getDay();
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+
+    const baseTaskWhere = { projectId: project.id, isParent: false };
+    const [totalCount, todoCount, completedCount, allMembers, absentRecords, dueThisWeek] = await Promise.all([
+      // 1a. Total tasks (all statuses including null)
+      prisma.task.count({ where: baseTaskWhere }),
+
+      // 1b. Pending tasks (TO_DO)
+      prisma.task.count({ where: { ...baseTaskWhere, status: "TO_DO" } }),
+
+      // 1c. Completed tasks
+      prisma.task.count({ where: { ...baseTaskWhere, status: "COMPLETED" } }),
+
+      // 2. All project members with their assigned tasks count
+      prisma.projectMember.findMany({
+        where: { projectId: project.id },
+        select: {
+          id: true,
+          projectRole: true,
+          workspaceMember: {
+            select: {
+              id: true,
+              userId: true,
+              workspaceRole: true,
+              user: { select: { id: true, name: true, surname: true, image: true } },
+            },
+          },
+          assignedTasks: {
+            where: { projectId: project.id, isParent: false },
+            select: { id: true },
+          },
+        },
+      }),
+
+      // 3. Attendance - workspace members who are ABSENT or ON_LEAVE today
+      prisma.attendance.findMany({
+        where: {
+          workspaceId,
+          date: today,
+          status: { in: ["ABSENT", "ON_LEAVE"] },
+        },
+        select: { workspaceMemberId: true, status: true },
+      }),
+
+      // 4. Tasks due this week (not completed/cancelled)
+      prisma.task.findMany({
+        where: {
+          projectId: project.id,
+          isParent: false,
+          dueDate: { gte: weekStart, lte: weekEnd },
+          status: { notIn: ["COMPLETED", "CANCELLED"] },
+        },
+        select: {
+          id: true,
+          name: true,
+          taskSlug: true,
+          dueDate: true,
+          status: true,
+          assignee: {
+            select: {
+              workspaceMember: {
+                select: {
+                  user: {
+                    select: {
+                      id: true,
+                      name: true,
+                      surname: true,
+                      image: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        orderBy: { dueDate: "asc" },
+      }),
+
+    ]);
+
+    return {
+      project,
+      totalCount,
+      todoCount,
+      completedCount,
+      allMembers,
+      absentRecords,
+      dueThisWeek,
+      weekStart,
+      weekEnd,
+    };
+  }
 }
