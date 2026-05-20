@@ -644,8 +644,23 @@ export class ProjectService {
   }
 
   static async getProjectDashboardData(workspaceId: string, slug: string) {
+    const { requireUser } = await import("@/lib/auth/require-user");
+    const { getUserPermissions } = await import("@/data/user/get-user-permissions");
+
     const project = await ProjectRepository.getProjectBySlug(workspaceId, slug);
     if (!project) return null;
+
+    // Get current user and their role in this project
+    const currentUser = await requireUser();
+    const permissions = await getUserPermissions(workspaceId, project.id, currentUser.id);
+
+    const hasFullAccess =
+      permissions.isWorkspaceAdmin ||
+      permissions.isProjectManager ||
+      permissions.isProjectLead;
+
+    // Workspace member ID for the current user (used to scope queries for members)
+    const currentWorkspaceMemberId = permissions.workspaceMemberId;
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -658,25 +673,41 @@ export class ProjectService {
     weekEnd.setDate(weekStart.getDate() + 6);
     weekEnd.setHours(23, 59, 59, 999);
 
-    const baseTaskWhere = { projectId: project.id, isParent: false };
+    const baseTaskWhere: any = { projectId: project.id, isParent: false };
+
+    // For MEMBERs: scope all task queries to only their assigned tasks
+    const memberTaskWhere = hasFullAccess
+      ? baseTaskWhere
+      : { ...baseTaskWhere, assigneeId: permissions.projectMember?.id };
+
+    const dueThisWeekWhere: any = {
+      projectId: project.id,
+      isParent: false,
+      dueDate: { gte: weekStart, lte: weekEnd },
+      status: { notIn: ["COMPLETED", "CANCELLED"] },
+      ...(hasFullAccess ? {} : { assigneeId: permissions.projectMember?.id }),
+    };
+
     const [totalCount, todoCount, completedCount, allMembers, absentRecords, dueThisWeek] = await Promise.all([
-      // 1a. Total tasks (all statuses including null)
-      prisma.task.count({ where: baseTaskWhere }),
+      // 1a. Total tasks
+      prisma.task.count({ where: memberTaskWhere }),
 
       // 1b. Pending tasks (not COMPLETED, HOLD, or CANCELLED)
       prisma.task.count({
         where: {
-          ...baseTaskWhere,
+          ...memberTaskWhere,
           status: { notIn: ["COMPLETED", "HOLD", "CANCELLED"] },
         },
       }),
 
       // 1c. Completed tasks
-      prisma.task.count({ where: { ...baseTaskWhere, status: "COMPLETED" } }),
+      prisma.task.count({ where: { ...memberTaskWhere, status: "COMPLETED" } }),
 
-      // 2. All project members with their assigned tasks count
+      // 2. Project members: full list for PM/Lead, or just self for MEMBER
       prisma.projectMember.findMany({
-        where: { projectId: project.id },
+        where: hasFullAccess
+          ? { projectId: project.id }
+          : { projectId: project.id, workspaceMemberId: currentWorkspaceMemberId ?? "__none__" },
         select: {
           id: true,
           projectRole: true,
@@ -705,14 +736,9 @@ export class ProjectService {
         select: { workspaceMemberId: true },
       }),
 
-      // 4. Tasks due this week (not completed/cancelled)
+      // 4. Tasks due this week
       prisma.task.findMany({
-        where: {
-          projectId: project.id,
-          isParent: false,
-          dueDate: { gte: weekStart, lte: weekEnd },
-          status: { notIn: ["COMPLETED", "CANCELLED"] },
-        },
+        where: dueThisWeekWhere,
         select: {
           id: true,
           name: true,
@@ -726,9 +752,7 @@ export class ProjectService {
                   user: {
                     select: {
                       id: true,
-                      name: true,
                       surname: true,
-                      image: true,
                     },
                   },
                 },
@@ -754,6 +778,7 @@ export class ProjectService {
       dueThisWeek,
       weekStart,
       weekEnd,
+      hasFullAccess,
     };
   }
 }

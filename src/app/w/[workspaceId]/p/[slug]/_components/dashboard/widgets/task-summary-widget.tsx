@@ -8,6 +8,7 @@ interface TaskSummaryWidgetProps {
   todoCount: number;
   completedCount: number;
   absentCount: number;
+  showAbsent?: boolean;
 }
 
 export function TaskSummaryWidget({
@@ -15,6 +16,7 @@ export function TaskSummaryWidget({
   todoCount,
   completedCount,
   absentCount,
+  showAbsent = true,
 }: TaskSummaryWidgetProps) {
   const stats = [
     {
@@ -41,18 +43,24 @@ export function TaskSummaryWidget({
       bgColor: "bg-emerald-500/10",
       borderColor: "border-emerald-500/20",
     },
-    {
-      label: "Absent Today",
-      value: absentCount,
-      icon: UserMinus,
-      color: "text-rose-500",
-      bgColor: "bg-rose-500/10",
-      borderColor: "border-rose-500/20",
-    },
+    ...(showAbsent
+      ? [{
+          label: "Absent Today",
+          value: absentCount,
+          icon: UserMinus,
+          color: "text-rose-500",
+          bgColor: "bg-rose-500/10",
+          borderColor: "border-rose-500/20",
+        }]
+      : []),
   ];
 
+  const colClass = showAbsent
+    ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4"
+    : "grid grid-cols-1 sm:grid-cols-3 gap-4";
+
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+    <div className={colClass}>
       {stats.map((stat, idx) => {
         const Icon = stat.icon;
         return (

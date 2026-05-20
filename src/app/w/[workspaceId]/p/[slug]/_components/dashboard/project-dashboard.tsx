@@ -29,6 +29,7 @@ interface DashboardData {
   dueThisWeek: any[];
   weekStart: Date | string;
   weekEnd: Date | string;
+  hasFullAccess: boolean;
 }
 
 interface ProjectDashboardProps {
@@ -47,14 +48,17 @@ export function ProjectDashboard({ data }: ProjectDashboardProps) {
     dueThisWeek,
     weekStart,
     weekEnd,
+    hasFullAccess,
   } = data;
 
-  // Calculate the count of absent members (those who haven't marked attendance today, excluding workspace owners/admins)
-  const absentCount = allMembers.filter((member) =>
-    member.workspaceMember?.workspaceRole !== "OWNER" &&
-    member.workspaceMember?.workspaceRole !== "ADMIN" &&
-    !presentRecords.some((r) => r.workspaceMemberId === member.workspaceMember?.id)
-  ).length;
+  // Absent count: only meaningful for PM/Lead who can see all members
+  const absentCount = hasFullAccess
+    ? allMembers.filter((member) =>
+      member.workspaceMember?.workspaceRole !== "OWNER" &&
+      member.workspaceMember?.workspaceRole !== "ADMIN" &&
+      !presentRecords.some((r) => r.workspaceMemberId === member.workspaceMember?.id)
+    ).length
+    : 0;
 
   return (
     <div className="flex-1 flex flex-col space-y-6 overflow-y-auto">
@@ -63,15 +67,16 @@ export function ProjectDashboard({ data }: ProjectDashboardProps) {
         todoCount={todoCount}
         completedCount={completedCount}
         absentCount={absentCount}
+        showAbsent={hasFullAccess}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className={`grid grid-cols-1 ${hasFullAccess ? "md:grid-cols-2" : ""} gap-6`}>
         <DueThisWeekWidget
           dueThisWeek={dueThisWeek}
           weekStart={new Date(weekStart)}
           weekEnd={new Date(weekEnd)}
         />
-        <UnassignedMembersWidget allMembers={allMembers} />
+        {hasFullAccess && <UnassignedMembersWidget allMembers={allMembers} />}
       </div>
     </div>
   );
