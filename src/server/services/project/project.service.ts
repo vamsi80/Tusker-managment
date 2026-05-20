@@ -663,8 +663,13 @@ export class ProjectService {
       // 1a. Total tasks (all statuses including null)
       prisma.task.count({ where: baseTaskWhere }),
 
-      // 1b. Pending tasks (TO_DO)
-      prisma.task.count({ where: { ...baseTaskWhere, status: "TO_DO" } }),
+      // 1b. Pending tasks (not COMPLETED, HOLD, or CANCELLED)
+      prisma.task.count({
+        where: {
+          ...baseTaskWhere,
+          status: { notIn: ["COMPLETED", "HOLD", "CANCELLED"] },
+        },
+      }),
 
       // 1c. Completed tasks
       prisma.task.count({ where: { ...baseTaskWhere, status: "COMPLETED" } }),
