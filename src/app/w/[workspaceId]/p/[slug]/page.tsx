@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { ProjectService } from "@/server/services/project";
-import { ProjectDashboard } from "./_components/dashboard/project-dashboard";
+import { ProjectDashboardServer } from "./_components/dashboard/project-dashboard-server";
 import { ReloadableView } from "./_components/shared/reloadable-view";
 import { ProjectTaskListView } from "./_components/list/project-task-list-view";
 import { requireUser } from "@/lib/auth/require-user";
@@ -34,7 +34,7 @@ export default async function ProjectPage({ params, searchParams }: iAppProps) {
     <div className="flex-1 flex flex-col min-h-0 relative">
       {currentView === "dashboard" && (
         <Suspense fallback={loader}>
-          <ProjectDashboard />
+          <ProjectDashboardServer workspaceId={workspaceId} slug={slug} />
         </Suspense>
       )}
 
