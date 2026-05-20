@@ -65,52 +65,45 @@ procurementVendors.get("/materials/all", async (c) => {
     throw AppError.Forbidden("Access denied to this workspace");
   }
 
-  const materials = await prisma.material.findMany({
-    where: {
-      workspaceId,
-      isActive: true,
-    },
-    select: {
-      id: true,
-      name: true,
-      defaultUnit: {
-        select: {
-          abbreviation: true,
-        },
-      },
-    },
-    orderBy: {
-      name: "asc",
-    },
-  });
-
   const capabilities = await prisma.vendorMaterialCapability.findMany({
-    where: {
-      workspaceId,
-    },
-    select: {
-      materialName: true,
-      unit: true,
-    },
+    where: { workspaceId },
+    select: { materialName: true, unit: true },
     distinct: ["materialName"],
   });
 
-  const merged: any[] = materials.map((m) => ({
-    id: m.id,
-    name: m.name,
-    defaultUnit: m.defaultUnit,
-  }));
+  const indentItems = await prisma.indentLineItem.findMany({
+    where: { indent: { workspaceId } },
+    select: { materialName: true, unit: true },
+    distinct: ["materialName"],
+  });
+
+  const mergedMap = new Map<string, any>();
+
+  indentItems.forEach((item) => {
+    const key = item.materialName.toLowerCase();
+    if (!mergedMap.has(key)) {
+      mergedMap.set(key, {
+        id: `ind-${item.materialName}`,
+        name: item.materialName,
+        defaultUnit: item.unit ? { abbreviation: item.unit } : null,
+      });
+    }
+  });
 
   capabilities.forEach((cap) => {
-    const exists = merged.some((m) => m.name.toLowerCase() === cap.materialName.toLowerCase());
-    if (!exists) {
-      merged.push({
+    const key = cap.materialName.toLowerCase();
+    if (!mergedMap.has(key)) {
+      mergedMap.set(key, {
         id: `cap-${cap.materialName}`,
         name: cap.materialName,
         defaultUnit: cap.unit ? { abbreviation: cap.unit } : null,
       });
     }
   });
+
+  const merged = Array.from(mergedMap.values()).sort((a, b) => 
+    a.name.localeCompare(b.name)
+  );
 
   return c.json({ success: true, data: merged });
 });

@@ -355,13 +355,7 @@ export class TasksService {
               });
 
               if (shouldAddToProcurement) {
-                await tx.procurementTask.create({
-                  data: {
-                    taskId: createdSubtask.id,
-                    projectId,
-                    workspaceId: project.workspaceId,
-                  },
-                });
+                // Procurement task creation is handled implicitly via the "procurement" tag now.
               }
 
               createdTasks.push(createdSubtask.id);

@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, LayoutList, LayoutGrid, GanttChartSquare, Folder } from "lucide-react";
+import { LayoutDashboard, LayoutList, LayoutGrid, GanttChartSquare, Folder, ShoppingCart } from "lucide-react";
 import { useSafeNavigation } from "@/hooks/use-safe-navigation";
 import { CreateTaskForm } from "../forms/create-task-form";
 import { BulkUploadForm } from "../forms/bulk-upload-form";
@@ -28,39 +28,46 @@ export function ProjectNav({
     canPerformBulkOperations 
 }: ProjectNavProps) {
     const pathname = usePathname();
-    const searchParams = useSearchParams();
     const router = useSafeNavigation();
     const isPending = router.isNavigating;
     const baseUrl = `/w/${workspaceId}/p/${slug}`;
 
-    const currentView = searchParams.get('view') || 'dashboard';
+    const viewMatch = pathname.match(new RegExp(`^/w/[^/]+/p/[^/]+/([^/]+)`));
+    const currentView = viewMatch ? viewMatch[1] : 'dashboard';
 
-    const isProjectPage = pathname === baseUrl;
+    const isProjectPage = pathname === baseUrl || 
+      ['dashboard', 'list', 'kanban', 'gantt', 'procurement'].some(v => pathname === `${baseUrl}/${v}`);
 
     const viewTabs = [
         {
             name: "Dashboard",
-            href: `${baseUrl}?view=dashboard`,
+            href: `${baseUrl}/dashboard`,
             icon: LayoutDashboard,
             value: "dashboard"
         },
         {
             name: "List",
-            href: `${baseUrl}?view=list`,
+            href: `${baseUrl}/list`,
             icon: LayoutList,
             value: "list"
         },
         {
             name: "Kanban",
-            href: `${baseUrl}?view=kanban`,
+            href: `${baseUrl}/kanban`,
             icon: LayoutGrid,
             value: "kanban"
         },
         {
             name: "Gantt",
-            href: `${baseUrl}?view=gantt`,
+            href: `${baseUrl}/gantt`,
             icon: GanttChartSquare,
             value: "gantt"
+        },
+        {
+            name: "Procurement",
+            href: `${baseUrl}/procurement`,
+            icon: ShoppingCart,
+            value: "procurement"
         },
     ];
 

@@ -133,55 +133,43 @@ model Workspace {
   dailyReports           DailyReport[]
   indents                Indent[]
   leaveRequests          leave_request[]
-  materials              Material[]
-  notification           notification[]
-  procurementTasks       ProcurementTask[]
-  publicHolidays         public_holiday[]
-  purchaseOrders         PurchaseOrder[]
-  units                  Unit[]
-  vendors                Vendor[]
   vendorCapabilities     VendorMaterialCapability[]
+  notifications          notification[]
+  publicHolidays         public_holiday[]
+  vendors                Vendor[]
 }
 
 model WorkspaceMember {
-  id                     String                 @id @default(uuid())
+  id                     String            @id @default(uuid())
   userId                 String
   workspaceId            String
-  createdAt              DateTime               @default(now())
-  updatedAt              DateTime               @updatedAt
-  workspaceRole          WorkspaceRole          @default(MEMBER)
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+  workspaceRole          WorkspaceRole     @default(MEMBER)
   designation            String?
   reportToId             String?
-  accruedDaysCount       Int                    @default(0)
-  casualLeaveBalance     Float                  @default(0)
-  sickLeaveBalance       Float                  @default(12)
-  position               Int                    @default(0)
+  accruedDaysCount       Int               @default(0)
+  casualLeaveBalance     Float             @default(0)
+  sickLeaveBalance       Float             @default(12)
+  position               Int               @default(0)
   dateOfBirth            DateTime?
   employeeId             String?
-  managedProjects        Project[]              @relation("ProjectManager")
+  managedProjects        Project[]         @relation("ProjectManager")
   projectMembers         ProjectMember[]
-  reportTo               WorkspaceMember?       @relation("ReportTo", fields: [reportToId], references: [id])
-  subordinates           WorkspaceMember[]      @relation("ReportTo")
-  user                   User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspace              Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  reportTo               WorkspaceMember?  @relation("ReportTo", fields: [reportToId], references: [id])
+  subordinates           WorkspaceMember[] @relation("ReportTo")
+  user                   User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace              Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   attendance             attendance[]
-  assignedBoardItems     Board[]                @relation("BoardAssigner")
-  boardItems             Board[]                @relation("BoardMember")
-  indentsAssigned        Indent[]               @relation("IndentAssignee")
-  indentsApproved        Indent[]               @relation("IndentFinalApprover")
-  indentsRequested       Indent[]               @relation("IndentRequester")
-  assignedIndents        IndentDetails[]        @relation("IndentAssignee")
-  requestedIndents       IndentDetails[]        @relation("IndentRequestor")
-  finalApprovedItems     IndentItem[]           @relation("FinalApprover")
-  quantityApprovedItems  IndentItem[]           @relation("QuantityApprover")
-  processedLeaveRequests leave_request[]        @relation("LeaveProcessor")
+  assignedBoardItems     Board[]           @relation("BoardAssigner")
+  boardItems             Board[]           @relation("BoardMember")
+  indentsAssigned        Indent[]          @relation("IndentAssignee")
+  indentsApproved        Indent[]          @relation("IndentFinalApprover")
+  indentsRequested       Indent[]          @relation("IndentRequester")
+  processedLeaveRequests leave_request[]   @relation("LeaveProcessor")
   leaveRequests          leave_request[]
   memberTodos            MemberTodo[]
-  approvedPurchaseOrders PurchaseOrder[]        @relation("POApprover")
-  createdPurchaseOrders  PurchaseOrder[]        @relation("POCreator")
-  recordedPayments       PurchaseOrderPayment[] @relation("PaymentRecorder")
-  createdUnits           Unit[]
-  quotesReviewed         VendorQuote[]          @relation("QuoteReviewer")
+  quotesReviewed         VendorQuote[]     @relation("QuoteReviewer")
 
   @@unique([userId, workspaceId])
   @@index([workspaceId, workspaceRole])
@@ -192,27 +180,24 @@ model WorkspaceMember {
 }
 
 model Project {
-  id               String            @id @default(uuid())
+  id               String           @id @default(uuid())
   name             String
   description      String?
   workspaceId      String
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  slug             String            @unique
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  slug             String           @unique
   color            String
   createdBy        String?
   projectManagerId String?
   clintId          String?
-  legacyClints     Clints[]          @relation("LegacyProjectClints")
-  clint            Clints?           @relation(fields: [clintId], references: [id])
-  projectManager   WorkspaceMember?  @relation("ProjectManager", fields: [projectManagerId], references: [id])
-  workspace        Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  legacyClints     Clints[]         @relation("LegacyProjectClints")
+  clint            Clints?          @relation(fields: [clintId], references: [id])
+  projectManager   WorkspaceMember? @relation("ProjectManager", fields: [projectManagerId], references: [id])
+  workspace        Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   projectMembers   ProjectMember[]
   tasks            Task[]
   indents          Indent[]
-  indentDetails    IndentDetails[]
-  procurementTasks ProcurementTask[]
-  purchaseOrders   PurchaseOrder[]
 
   @@index([workspaceId, slug])
   @@index([workspaceId, createdAt])
@@ -316,8 +301,6 @@ model Task {
   comments              Comment[]
   dailyReportEntries    DailyReportEntry[]
   indent                Indent?
-  indentDetails         IndentDetails[]
-  procurementTask       ProcurementTask?
   Task_TaskDependency_A Task[]             @relation("TaskDependency")
   Task_TaskDependency_B Task[]             @relation("TaskDependency")
   tags                  Tag[]              @relation("TaskTags")
@@ -405,269 +388,6 @@ model CommentRead {
   @@index([userId])
   @@index([commentId])
   @@map("comment_read")
-}
-
-model ProcurementTask {
-  id            String    @id @default(uuid())
-  taskId        String    @unique
-  projectId     String
-  workspaceId   String
-  createdAt     DateTime  @default(now())
-  indentCreated Boolean   @default(false)
-  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  task          Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-
-  @@index([workspaceId])
-  @@index([projectId])
-  @@map("procurement_task")
-}
-
-model IndentDetails {
-  id               String           @id @default(uuid())
-  key              String           @unique
-  name             String
-  workspaceId      String
-  projectId        String
-  taskId           String?
-  description      String?
-  expectedDelivery DateTime?
-  requiresVendor   Boolean          @default(true)
-  requestedAt      DateTime         @default(now())
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  assignedTo       String?
-  requestedBy      String
-  assignee         WorkspaceMember? @relation("IndentAssignee", fields: [assignedTo], references: [id])
-  project          Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  requestor        WorkspaceMember  @relation("IndentRequestor", fields: [requestedBy], references: [id])
-  task             Task?            @relation(fields: [taskId], references: [id])
-  items            IndentItem[]
-
-  @@index([workspaceId])
-  @@index([projectId])
-  @@index([taskId])
-  @@index([requestedBy])
-  @@index([assignedTo])
-  @@index([key])
-  @@map("indent_details")
-}
-
-model IndentItem {
-  id                  String              @id @default(uuid())
-  indentDetailsId     String
-  materialId          String
-  quantity            Float
-  unitId              String?
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
-  estimatedPrice      Float?
-  vendorId            String?
-  status              IndentItemStatus    @default(PENDING)
-  quantityApproved    Boolean             @default(false)
-  quantityApprovedAt  DateTime?
-  finalApproved       Boolean             @default(false)
-  finalApprovedAt     DateTime?
-  rejectionReason     String?
-  finalApprovedBy     String?
-  quantityApprovedBy  String?
-  documentDisplayName String              @default("")
-  finalApprover       WorkspaceMember?    @relation("FinalApprover", fields: [finalApprovedBy], references: [id])
-  indentDetails       IndentDetails       @relation(fields: [indentDetailsId], references: [id], onDelete: Cascade)
-  material            Material            @relation(fields: [materialId], references: [id])
-  quantityApprover    WorkspaceMember?    @relation("QuantityApprover", fields: [quantityApprovedBy], references: [id])
-  unit                Unit?               @relation(fields: [unitId], references: [id], onDelete: Restrict)
-  vendor              Vendor?             @relation(fields: [vendorId], references: [id])
-  purchaseOrderItems  PurchaseOrderItem[]
-
-  @@index([indentDetailsId])
-  @@index([materialId])
-  @@index([vendorId])
-  @@index([status])
-  @@index([quantityApprovedBy])
-  @@index([finalApprovedBy])
-  @@map("indent_item")
-}
-
-model Unit {
-  id                 String              @id @default(uuid())
-  name               String
-  abbreviation       String
-  category           String?
-  isDefault          Boolean             @default(false)
-  isActive           Boolean             @default(true)
-  workspaceId        String?
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  createdBy          String?
-  indentItems        IndentItem[]
-  materials          Material[]
-  purchaseOrderItems PurchaseOrderItem[]
-  creator            WorkspaceMember?    @relation(fields: [createdBy], references: [id])
-  workspace          Workspace?          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-
-  @@unique([workspaceId, abbreviation])
-  @@index([isActive])
-  @@index([isDefault])
-  @@index([createdBy])
-  @@index([workspaceId])
-  @@map("unit")
-}
-
-model Material {
-  id                 String              @id @default(uuid())
-  name               String              @unique
-  specifications     String?
-  defaultUnitId      String
-  workspaceId        String
-  isActive           Boolean             @default(true)
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  indentItems        IndentItem[]
-  defaultUnit        Unit                @relation(fields: [defaultUnitId], references: [id])
-  workspace          Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  purchaseOrderItems PurchaseOrderItem[]
-  vendors            Vendor[]            @relation("MaterialToVendor")
-
-  @@index([workspaceId])
-  @@index([isActive])
-  @@index([name])
-  @@map("material")
-}
-
-model Vendor {
-  id             String                     @id @default(uuid())
-  name           String
-  companyName    String?
-  contactPerson  String?
-  email          String?
-  address        String?
-  addressLine1   String?
-  addressLine2   String?
-  city           String?
-  state          String?
-  pincode        String?
-  country        String?                    @default("India")
-  gstNumber      String?
-  workspaceId    String
-  isActive       Boolean                    @default(true)
-  createdAt      DateTime                   @default(now())
-  updatedAt      DateTime                   @updatedAt
-  phoneNumber    String?
-  status         VendorStatus               @default(ACTIVE)
-  indentItems    IndentItem[]
-  purchaseOrders PurchaseOrder[]
-  workspace      Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  capabilities   VendorMaterialCapability[]
-  quotes         VendorQuote[]
-  materials      Material[]                 @relation("MaterialToVendor")
-
-  @@index([workspaceId])
-  @@index([name])
-  @@map("vendor")
-}
-
-model PurchaseOrder {
-  id                    String                 @id @default(uuid())
-  poNumber              String                 @unique
-  workspaceId           String
-  vendorId              String
-  projectId             String
-  subtotalAmount        Decimal                @default(0) @db.Decimal(15, 2)
-  totalTaxAmount        Decimal                @default(0) @db.Decimal(15, 2)
-  totalAmount           Decimal                @db.Decimal(15, 2)
-  currency              String                 @default("INR")
-  createdById           String
-  approvedById          String?
-  createdAt             DateTime               @default(now())
-  approvedAt            DateTime?
-  updatedAt             DateTime               @updatedAt
-  deliveryAddressLine1  String
-  deliveryAddressLine2  String?
-  deliveryCity          String
-  deliveryCountry       String
-  deliveryPincode       String?
-  deliveryState         String
-  deliveryingAt         DateTime
-  termsAndConditions    String?
-  purchaseOrderTerms    PurchaseOrderTerm[]
-  approvedBy            WorkspaceMember?       @relation("POApprover", fields: [approvedById], references: [id])
-  createdBy             WorkspaceMember        @relation("POCreator", fields: [createdById], references: [id])
-  project               Project                @relation(fields: [projectId], references: [id])
-  vendor                Vendor                 @relation(fields: [vendorId], references: [id])
-  workspace             Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  items                 PurchaseOrderItem[]
-  purchaseOrderPayments PurchaseOrderPayment[]
-
-  @@index([workspaceId])
-  @@index([vendorId])
-  @@index([projectId])
-  @@index([createdById])
-  @@index([approvedById])
-  @@index([poNumber])
-  @@index([workspaceId, createdAt])
-  @@map("purchase_order")
-}
-
-model PurchaseOrderItem {
-  id              String        @id @default(uuid())
-  purchaseOrderId String
-  materialId      String
-  unitId          String
-  orderedQuantity Decimal       @db.Decimal(15, 3)
-  unitPrice       Decimal       @db.Decimal(15, 2)
-  sgstPercent     Decimal?      @db.Decimal(5, 2)
-  cgstPercent     Decimal?      @db.Decimal(5, 2)
-  lineTotal       Decimal       @db.Decimal(15, 2)
-  taxAmount       Decimal       @default(0) @db.Decimal(15, 2)
-  totalAmount     Decimal       @db.Decimal(15, 2)
-  indentItemId    String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  status          POStatus      @default(ORDERED)
-  indentItem      IndentItem?   @relation(fields: [indentItemId], references: [id])
-  material        Material      @relation(fields: [materialId], references: [id])
-  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  unit            Unit          @relation(fields: [unitId], references: [id])
-
-  @@index([purchaseOrderId])
-  @@index([materialId])
-  @@index([indentItemId])
-  @@map("purchase_order_item")
-}
-
-model PurchaseOrderTerm {
-  id              String        @id @default(uuid())
-  purchaseOrderId String
-  termNumber      Int
-  title           String?
-  content         String
-  createdAt       DateTime      @default(now())
-  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-
-  @@unique([purchaseOrderId, termNumber])
-  @@index([purchaseOrderId])
-}
-
-model PurchaseOrderPayment {
-  id              String          @id @default(uuid())
-  purchaseOrderId String
-  amountPaid      Decimal         @db.Decimal(15, 2)
-  paymentDate     DateTime
-  remarks         String?
-  workspaceId     String
-  recordedById    String
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  purchaseOrder   PurchaseOrder   @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  recordedBy      WorkspaceMember @relation("PaymentRecorder", fields: [recordedById], references: [id])
-
-  @@index([purchaseOrderId])
-  @@index([workspaceId])
-  @@index([recordedById])
-  @@index([paymentDate])
-  @@index([purchaseOrderId, paymentDate])
-  @@map("purchase_order_payment")
 }
 
 model DailyReport {
@@ -899,7 +619,7 @@ model MemberTodo {
 }
 
 model VendorMaterialCapability {
-  id           String    @id @default(cuid())
+  id           String                @id @default(cuid())
   vendorId     String
   materialName String
   unit         String?
@@ -907,8 +627,8 @@ model VendorMaterialCapability {
   source       String                @default("MANUAL")
   serviceType  CapabilityServiceType @default(SUPPLY)
   createdAt    DateTime              @default(now())
-  vendor       Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  vendor       Vendor                @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  workspace    Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@unique([vendorId, materialName, serviceType])
   @@index([workspaceId, materialName])
@@ -974,6 +694,35 @@ model IndentLineItem {
   @@index([status])
   @@index([materialName])
   @@map("indent_line_item")
+}
+
+model Vendor {
+  id            String                     @id @default(uuid())
+  name          String
+  companyName   String?
+  contactPerson String?
+  email         String?
+  address       String?
+  addressLine1  String?
+  addressLine2  String?
+  city          String?
+  state         String?
+  pincode       String?
+  country       String?                    @default("India")
+  gstNumber     String?
+  workspaceId   String
+  isActive      Boolean                    @default(true)
+  createdAt     DateTime                   @default(now())
+  updatedAt     DateTime                   @updatedAt
+  phoneNumber   String?
+  status        VendorStatus               @default(ACTIVE)
+  workspace     Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  capabilities  VendorMaterialCapability[]
+  quotes        VendorQuote[]
+
+  @@index([workspaceId])
+  @@index([name])
+  @@map("vendor")
 }
 
 model VendorQuote {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -12,11 +12,74 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trash2, Plus, CornerDownRight, ChevronRight } from "lucide-react";
+import { Trash2, Plus, CornerDownRight, ChevronRight, Check, ChevronsUpDown, Loader2 } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { VendorMatchPill } from "./vendor-match-pill";
 import { RfqSheet } from "./rfq-sheet";
+
+function AutoCompleteInput({ 
+  value, 
+  onChange, 
+  onUnitAutoFill,
+  disabled, 
+  catalog,
+  isLoading 
+}: { 
+  value: string; 
+  onChange: (val: string) => void;
+  onUnitAutoFill?: (unit: string) => void;
+  disabled: boolean;
+  catalog: any[];
+  isLoading: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  
+  const filtered = value
+    ? catalog.filter(c => c.name.toLowerCase().includes(value.toLowerCase()))
+    : catalog;
+
+  return (
+    <div className="relative w-full">
+      <Input
+        placeholder={isLoading ? "Loading..." : "e.g. TMT Steel 10mm"}
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          if (!open) setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => {
+          setTimeout(() => setOpen(false), 200);
+        }}
+        disabled={disabled || isLoading}
+        className="h-8 text-xs bg-background"
+      />
+      {open && filtered.length > 0 && (
+        <div className="absolute top-full left-0 mt-1 w-[300px] bg-popover border border-border/80 rounded-md shadow-lg z-[100] max-h-48 overflow-y-auto overflow-x-hidden">
+          {filtered.map(item => (
+            <div
+              key={item.id}
+              className="px-3 py-2 text-xs cursor-pointer hover:bg-accent text-popover-foreground flex items-center transition-colors"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onChange(item.name);
+                if (item.unit && onUnitAutoFill) {
+                  onUnitAutoFill(item.unit);
+                }
+                setOpen(false);
+              }}
+            >
+              {item.name}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface LineItemTableProps {
   indent: any;
@@ -34,10 +97,14 @@ export function LineItemTable({
   onUpdate,
 }: LineItemTableProps) {
   const [isAdding, setIsAdding] = useState(false);
-  const [materialName, setMaterialName] = useState("");
   const [unit, setUnit] = useState("pcs");
   const [quantity, setQuantity] = useState<number | "">("");
   const [estimatedUnitPrice, setEstimatedUnitPrice] = useState<number | "">("");
+
+  // Input state
+  const [materialName, setMaterialName] = useState("");
+  const [existingItems, setExistingItems] = useState<{ id: string; name: string; type: "material" | "tag"; unit?: string }[]>([]);
+  const [isLoadingCatalog, setIsLoadingCatalog] = useState(true);
 
   // RFQ sheet state
   const [rfqLineItem, setRfqLineItem] = useState<any | null>(null);
@@ -52,6 +119,59 @@ export function LineItemTable({
   const canReviewQuotes =
     isWorkspaceAdmin ||
     ["OWNER", "ADMIN", "MANAGER", "PROCUREMENT"].includes(workspaceRole || "");
+
+  // Fetch Master Catalog for Combobox
+  useEffect(() => {
+    const fetchExistingTagsAndMaterials = async () => {
+      try {
+        const matRes = await fetch(`/api/v1/procurement/vendors/materials/all?w=${workspaceId}`);
+        const matData = await matRes.json();
+
+        const tagRes = await fetch(`/api/v1/tags?workspaceId=${workspaceId}`);
+        const tagData = await tagRes.json();
+
+        const items: any[] = [];
+
+        if (matData.success && matData.data) {
+          matData.data.forEach((m: any) => {
+            items.push({
+              id: m.id,
+              name: m.name,
+              type: "material",
+              unit: m.defaultUnit?.abbreviation,
+            });
+          });
+        }
+
+        if (tagData.success && tagData.tags) {
+          tagData.tags.forEach((t: any) => {
+            items.push({
+              id: t.id,
+              name: t.name,
+              type: "tag",
+            });
+          });
+        }
+
+        // De-duplicate items by case-insensitive name
+        const uniqueItems = items.filter(
+          (item, index, self) =>
+            self.findIndex((i) => i.name.toLowerCase() === item.name.toLowerCase()) === index
+        );
+
+        setExistingItems(uniqueItems);
+      } catch (error) {
+        console.error("Failed to fetch existing tags/materials:", error);
+      } finally {
+        setIsLoadingCatalog(false);
+      }
+    };
+
+    if (isDraft) {
+      fetchExistingTagsAndMaterials();
+    }
+  }, [workspaceId, isDraft]);
+
 
   const openRfqSheet = (item: any) => {
     setRfqLineItem(item);
@@ -90,14 +210,20 @@ export function LineItemTable({
 
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!materialName.trim()) { toast.error("Please enter material name"); return; }
+    
+    const finalMaterialName = materialName.trim();
+
+    if (!finalMaterialName) {
+      toast.error("Please select or enter a material name");
+      return;
+    }
     if (!unit.trim()) { toast.error("Please enter unit"); return; }
     if (!quantity || Number(quantity) <= 0) { toast.error("Please enter valid quantity"); return; }
 
     try {
       setIsAdding(true);
       const payload = {
-        materialName: materialName.trim(),
+        materialName: finalMaterialName.trim(),
         unit: unit.trim(),
         quantity: Number(quantity),
         estimatedUnitPrice: estimatedUnitPrice
@@ -123,6 +249,8 @@ export function LineItemTable({
       if (fetchRes.ok && fetchJson.data) onUpdate(fetchJson.data);
 
       toast.success("Line item added");
+      
+      // Reset form
       setMaterialName("");
       setUnit("pcs");
       setQuantity("");
@@ -155,16 +283,13 @@ export function LineItemTable({
     }
   };
 
-  // Refresh a single line item in the indent after RFQ action
   const handleLineItemUpdated = async (updatedItem: any) => {
-    // Refetch full indent to get latest state
     const fetchRes = await fetch(
       `/api/v1/procurement/indents/${indent.id}?w=${workspaceId}`
     );
     const fetchJson = await fetchRes.json();
     if (fetchRes.ok && fetchJson.data) {
       onUpdate(fetchJson.data);
-      // Keep rfqLineItem in sync
       const fresh = fetchJson.data.lineItems?.find(
         (li: any) => li.id === rfqLineItem?.id
       );
@@ -190,22 +315,22 @@ export function LineItemTable({
           <Table>
             <TableHeader className="bg-muted/30">
               <TableRow>
-                <TableHead className="text-[10px] font-bold uppercase tracking-wider h-8 pl-3">
+                <TableHead className="text-[10px] font-bold uppercase tracking-wider h-8 pl-3 min-w-[200px]">
                   Material
                 </TableHead>
-                <TableHead className="text-[10px] font-bold uppercase tracking-wider h-8 w-12">
+                <TableHead className="text-[10px] font-bold uppercase tracking-wider h-8 w-16">
                   Unit
                 </TableHead>
-                <TableHead className="text-[10px] font-bold uppercase tracking-wider h-8 w-14">
+                <TableHead className="text-[10px] font-bold uppercase tracking-wider h-8 w-20">
                   Qty
                 </TableHead>
-                <TableHead className="text-[10px] font-bold uppercase tracking-wider h-8 w-20">
+                <TableHead className="text-[10px] font-bold uppercase tracking-wider h-8 w-24">
                   Est. ₹
                 </TableHead>
                 <TableHead className="text-[10px] font-bold uppercase tracking-wider h-8 w-24">
                   Status
                 </TableHead>
-                <TableHead className="text-[10px] font-bold uppercase tracking-wider h-8 w-12 text-center">
+                <TableHead className="text-[10px] font-bold uppercase tracking-wider h-8 w-16 text-center">
                   Vendors
                 </TableHead>
                 {isDraft && (
@@ -305,13 +430,14 @@ export function LineItemTable({
                       onSubmit={handleAddItem}
                       className="grid grid-cols-12 gap-2 items-center"
                     >
-                      <div className="col-span-4">
-                        <Input
-                          placeholder="Material / service name…"
+                      <div className="col-span-5 relative">
+                        <AutoCompleteInput
                           value={materialName}
-                          onChange={(e) => setMaterialName(e.target.value)}
+                          onChange={setMaterialName}
+                          onUnitAutoFill={setUnit}
+                          catalog={existingItems}
+                          isLoading={isLoadingCatalog}
                           disabled={isAdding}
-                          className="h-8 text-xs bg-background"
                         />
                       </div>
                       <div className="col-span-2">
@@ -320,7 +446,7 @@ export function LineItemTable({
                           value={unit}
                           onChange={(e) => setUnit(e.target.value)}
                           disabled={isAdding}
-                          className="h-8 text-xs bg-background"
+                          className="h-8 text-xs bg-background px-2"
                         />
                       </div>
                       <div className="col-span-2">
@@ -332,7 +458,7 @@ export function LineItemTable({
                             setQuantity(e.target.value === "" ? "" : Number(e.target.value))
                           }
                           disabled={isAdding}
-                          className="h-8 text-xs bg-background"
+                          className="h-8 text-xs bg-background px-2"
                         />
                       </div>
                       <div className="col-span-2">
@@ -346,17 +472,17 @@ export function LineItemTable({
                             )
                           }
                           disabled={isAdding}
-                          className="h-8 text-xs bg-background"
+                          className="h-8 text-xs bg-background px-2"
                         />
                       </div>
-                      <div className="col-span-2 flex justify-end">
+                      <div className="col-span-1 flex justify-end">
                         <Button
                           type="submit"
                           disabled={isAdding}
                           size="sm"
-                          className="h-8 text-xs font-bold px-3 gap-1"
+                          className="h-8 text-xs font-bold px-2 w-full gap-1"
                         >
-                          <Plus className="h-3.5 w-3.5" /> Add
+                          {isAdding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
                         </Button>
                       </div>
                     </form>
