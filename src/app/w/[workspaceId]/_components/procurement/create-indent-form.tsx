@@ -1,12 +1,78 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Trash2, CalendarIcon } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Trash2, CalendarIcon, Check, ChevronsUpDown, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+
+import { useRef } from "react";
+
+function AutoCompleteInput({ 
+  value, 
+  onChange, 
+  onUnitAutoFill,
+  disabled, 
+  catalog,
+  isLoading 
+}: { 
+  value: string; 
+  onChange: (val: string) => void;
+  onUnitAutoFill?: (unit: string) => void;
+  disabled: boolean;
+  catalog: any[];
+  isLoading: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  
+  const filtered = value
+    ? catalog.filter(c => c.name.toLowerCase().includes(value.toLowerCase()))
+    : catalog;
+
+  return (
+    <div className="relative w-full">
+      <Input
+        placeholder={isLoading ? "Loading..." : "e.g. TMT Steel 10mm"}
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          if (!open) setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => {
+          setTimeout(() => setOpen(false), 200);
+        }}
+        disabled={disabled || isLoading}
+        className="h-8 text-xs bg-background"
+      />
+      {open && filtered.length > 0 && (
+        <div className="absolute top-full mt-1 w-[300px] bg-popover border border-border/80 rounded-md shadow-lg z-50 max-h-48 overflow-y-auto overflow-x-hidden">
+          {filtered.map(item => (
+            <div
+              key={item.id}
+              className="px-3 py-2 text-xs cursor-pointer hover:bg-accent text-popover-foreground flex items-center transition-colors"
+              onMouseDown={(e) => {
+                e.preventDefault(); // prevent blur
+                onChange(item.name);
+                if (item.defaultUnit?.abbreviation && onUnitAutoFill) {
+                  onUnitAutoFill(item.defaultUnit.abbreviation);
+                }
+                setOpen(false);
+              }}
+            >
+              {item.name}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface LineItemInput {
   materialName: string;
@@ -17,9 +83,10 @@ interface LineItemInput {
 }
 
 interface CreateIndentFormProps {
-  taskId: string;
+  taskId?: string; // made optional for project-level creation
   projectId: string;
   workspaceId: string;
+  tasks?: { id: string; name: string }[]; // added for dropdown
   onSuccess: (indent: any) => void;
   onCancel?: () => void;
 }
@@ -28,16 +95,39 @@ export function CreateIndentForm({
   taskId,
   projectId,
   workspaceId,
+  tasks = [],
   onSuccess,
   onCancel,
 }: CreateIndentFormProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [expectedDelivery, setExpectedDelivery] = useState("");
+  const [selectedTaskId, setSelectedTaskId] = useState(taskId || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lineItems, setLineItems] = useState<LineItemInput[]>([
     { materialName: "", unit: "pcs", quantity: 1, estimatedUnitPrice: undefined, specifications: "" },
   ]);
+  const [catalog, setCatalog] = useState<any[]>([]);
+  const [isLoadingCatalog, setIsLoadingCatalog] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchCatalog = async () => {
+      try {
+        const res = await fetch(`/api/v1/procurement/vendors/materials/all?w=${workspaceId}`);
+        const json = await res.json();
+        if (mounted && json.success && json.data) {
+          setCatalog(json.data);
+        }
+      } catch (err) {
+        console.error("Failed to load catalog", err);
+      } finally {
+        if (mounted) setIsLoadingCatalog(false);
+      }
+    };
+    fetchCatalog();
+    return () => { mounted = false; };
+  }, [workspaceId]);
 
   const handleAddRow = () => {
     setLineItems([
@@ -67,6 +157,11 @@ export function CreateIndentForm({
       return;
     }
 
+    if (!selectedTaskId) {
+      toast.error("Please select a task for this indent");
+      return;
+    }
+
     // Validate line items
     for (let i = 0; i < lineItems.length; i++) {
       const item = lineItems[i];
@@ -87,7 +182,7 @@ export function CreateIndentForm({
     try {
       setIsSubmitting(true);
       const payload = {
-        taskId,
+        taskId: selectedTaskId,
         projectId,
         workspaceId,
         name,
@@ -129,11 +224,29 @@ export function CreateIndentForm({
       <div className="flex flex-col space-y-1">
         <h3 className="text-lg font-bold tracking-tight text-foreground">Create Indent</h3>
         <p className="text-xs text-muted-foreground">
-          Create an indent to request materials or services for this subtask.
+          Create an indent to request materials or services.
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {!taskId && tasks.length > 0 && (
+          <div className="space-y-1.5 md:col-span-2">
+            <Label htmlFor="indent-task" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Link to Task</Label>
+            <select
+              id="indent-task"
+              value={selectedTaskId}
+              onChange={(e) => setSelectedTaskId(e.target.value)}
+              disabled={isSubmitting}
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="" disabled>Select a task...</option>
+              {tasks.map(t => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div className="space-y-1.5">
           <Label htmlFor="indent-name" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Indent Name</Label>
           <Input
@@ -196,12 +309,13 @@ export function CreateIndentForm({
             >
               <div className="col-span-5 space-y-1">
                 <Label className="text-[10px] font-bold text-muted-foreground">Material Name</Label>
-                <Input
-                  placeholder="e.g. TMT Steel 10mm"
+                <AutoCompleteInput
                   value={item.materialName}
-                  onChange={(e) => handleRowChange(index, "materialName", e.target.value)}
+                  onChange={(val) => handleRowChange(index, "materialName", val)}
+                  onUnitAutoFill={(autoUnit) => handleRowChange(index, "unit", autoUnit)}
                   disabled={isSubmitting}
-                  className="h-8 text-xs"
+                  catalog={catalog}
+                  isLoading={isLoadingCatalog}
                 />
               </div>
 

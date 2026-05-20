@@ -11,10 +11,10 @@ export async function getVendors(workspaceId: string) {
                 createdAt: "desc",
             },
             include: {
-                materials: {
+                capabilities: {
                     select: {
                         id: true,
-                        name: true,
+                        materialName: true,
                     }
                 }
             }

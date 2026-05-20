@@ -2,7 +2,6 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import cron from "./routes/cron";
-import units from "./routes/units";
 import { attendanceRouter } from "./routes/attendance";
 import tasks from "./routes/tasks";
 import projects from "./routes/projects";
@@ -112,7 +111,6 @@ app.route("/auth", auth);
 app.use("*", authMiddleware);
 
 // Units API
-app.route("/units", units);
 
 // Attendance API
 app.route("/attendance", attendanceRouter);
