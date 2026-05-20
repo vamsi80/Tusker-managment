@@ -16,6 +16,7 @@ import conversations from "./routes/conversations";
 import presence from "./routes/presence";
 import procurementVendors from "./routes/procurement-vendors";
 import procurementIndents from "./routes/procurement-indents";
+import procurementRfq from "./routes/procurement-rfq";
 import { HonoVariables } from "./types";
 import { authMiddleware } from "./middleware/auth";
 import { AppError } from "../lib/errors/app-error";
@@ -146,6 +147,7 @@ app.route("/presence", presence);
 // Procurement APIs
 app.route("/procurement/vendors", procurementVendors);
 app.route("/procurement/indents", procurementIndents);
+app.route("/procurement/rfq", procurementRfq);
 
 export default app;
 export type AppType = typeof app;

@@ -118,8 +118,8 @@ export default function OnboardVendorPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <Card className="shadow-sm border-border/50">
-          <CardHeader className="border-b bg-muted/30 py-2.5 px-6">
+        <Card className="shadow-sm border-border/50 !py-0 !gap-0">
+          <CardHeader className="border-b bg-muted/30 py-2.5 !pb-2.5 px-6">
             <CardTitle className="text-lg font-semibold flex items-center gap-2 text-card-foreground">
               <FileText className="h-4 w-4 text-muted-foreground" /> Company Details
             </CardTitle>
@@ -214,8 +214,8 @@ export default function OnboardVendorPage() {
         </Card>
 
         {/* Card 2: Registered Business Address */}
-        <Card className="shadow-sm border-border/50">
-          <CardHeader className="border-b bg-muted/30 py-2.5 px-6">
+        <Card className="shadow-sm border-border/50 !py-0 !gap-0">
+          <CardHeader className="border-b bg-muted/30 py-2.5 !pb-2.5 px-6">
             <CardTitle className="text-lg font-semibold flex items-center gap-2 text-card-foreground">
               <Building className="h-4 w-4 text-muted-foreground" /> Registered Business Address
             </CardTitle>

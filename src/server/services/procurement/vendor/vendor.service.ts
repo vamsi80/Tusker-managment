@@ -63,7 +63,7 @@ export class VendorService {
 
     const resolvedServiceType = serviceType || "SUPPLY";
 
-    // Idempotent Upsert using the new multi-column unique constraint
+    // Idempotent Upsert using the multi-column unique constraint
     return prisma.vendorMaterialCapability.upsert({
       where: {
         vendorId_materialName_serviceType: {

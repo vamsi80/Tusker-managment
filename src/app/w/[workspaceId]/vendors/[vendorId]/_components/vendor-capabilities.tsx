@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +10,8 @@ import { Loader2, Trash2, Check, ChevronsUpDown, Plus } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { DataTable } from "@/components/data-table";
+import { ColumnDef } from "@tanstack/react-table";
 
 interface VendorCapabilitiesProps {
   vendorId: string;
@@ -38,12 +39,12 @@ export function VendorCapabilities({ vendorId, workspaceId }: VendorCapabilities
     try {
       const matRes = await fetch(`/api/v1/procurement/vendors/materials/all?w=${workspaceId}`);
       const matData = await matRes.json();
-      
+
       const tagRes = await fetch(`/api/v1/tags?workspaceId=${workspaceId}`);
       const tagData = await tagRes.json();
 
       const items: any[] = [];
-      
+
       if (matData.success && matData.data) {
         matData.data.forEach((m: any) => {
           items.push({
@@ -107,8 +108,8 @@ export function VendorCapabilities({ vendorId, workspaceId }: VendorCapabilities
 
   const handleAddCapability = async (e: React.FormEvent) => {
     e.preventDefault();
-    const materialName = selectedMaterialId === "CUSTOM" 
-      ? customMaterialName.trim() 
+    const materialName = selectedMaterialId === "CUSTOM"
+      ? customMaterialName.trim()
       : (existingItems.find((i) => i.id === selectedMaterialId)?.name || "");
 
     if (!materialName) {
@@ -163,6 +164,87 @@ export function VendorCapabilities({ vendorId, workspaceId }: VendorCapabilities
     }
   };
 
+  const columns = useMemo<ColumnDef<any>[]>(
+    () => [
+      {
+        accessorKey: "materialName",
+        header: "Material / Service Name",
+        cell: ({ row }) => (
+          <div className="font-medium capitalize text-foreground">
+            {row.original.materialName}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "unit",
+        header: "Unit",
+        cell: ({ row }) => (
+          <span className="text-muted-foreground">{row.original.unit || "-"}</span>
+        ),
+      },
+      {
+        accessorKey: "serviceType",
+        header: "Service Type",
+        cell: ({ row }) => {
+          const serviceType = row.original.serviceType;
+          return (
+            <Badge
+              variant="outline"
+              className={
+                serviceType === "SUPPLY"
+                  ? "bg-blue-500/10 text-blue-500 border-blue-500/20 hover:bg-blue-500/15"
+                  : serviceType === "LABOUR"
+                    ? "bg-orange-500/10 text-orange-500 border-orange-500/20 hover:bg-orange-500/15"
+                    : "bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500/15"
+              }
+            >
+              {serviceType === "SUPPLY" ? "📦 Supply" : serviceType === "LABOUR" ? "🔨 Labour" : "🔄 Labour + Material"}
+            </Badge>
+          );
+        },
+      },
+      {
+        accessorKey: "source",
+        header: "Source",
+        cell: ({ row }) => {
+          const source = row.original.source;
+          return (
+            <Badge
+              variant={source === "AUTO" ? "secondary" : "outline"}
+              className={
+                source === "AUTO"
+                  ? "bg-blue-500/10 text-blue-500 border-blue-500/20 hover:bg-blue-500/15"
+                  : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
+              }
+            >
+              {source}
+            </Badge>
+          );
+        },
+      },
+      {
+        id: "actions",
+        header: " ",
+        cell: ({ row }) => (
+          <div className="text-right">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleRemoveCapability(row.original.id)}
+              className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        ),
+        meta: {
+          className: "w-[80px] text-right",
+        },
+      },
+    ],
+    [capabilities]
+  );
+
   const newMaterialName = selectedMaterialId === "CUSTOM"
     ? customMaterialName.trim()
     : (existingItems.find((i) => i.id === selectedMaterialId)?.name || "");
@@ -174,13 +256,10 @@ export function VendorCapabilities({ vendorId, workspaceId }: VendorCapabilities
   );
 
   return (
-    <Card className="shadow-sm border-border/50 h-full">
-      <CardHeader className="border-b bg-muted/30 py-2.5 px-6">
-        <CardTitle className="text-md font-semibold text-card-foreground">Material Capabilities</CardTitle>
-      </CardHeader>
-      <CardContent className="p-6 space-y-6">
-        <form onSubmit={handleAddCapability} className="space-y-4 bg-muted/10 p-4 rounded-lg border border-dashed border-border">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+    <div >
+      <CardContent className="p-0 space-y-6">
+        <form onSubmit={handleAddCapability} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
             <div className="space-y-1 md:col-span-5">
               <label className="text-xs font-semibold text-muted-foreground">Material / Service Name</label>
               <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
@@ -281,7 +360,8 @@ export function VendorCapabilities({ vendorId, workspaceId }: VendorCapabilities
                 <option value="LABOUR_WITH_MATERIAL" className="bg-background text-foreground">🔄 Labour & Material (Turnkey)</option>
               </select>
             </div>
-            <div className="md:col-span-1">
+            <div className="space-y-1 md:col-span-1">
+              <label className="text-xs font-semibold text-muted-foreground invisible">Add</label>
               <Button
                 type="submit"
                 disabled={adding || !newMaterialName.trim() || capabilityExists}
@@ -300,78 +380,35 @@ export function VendorCapabilities({ vendorId, workspaceId }: VendorCapabilities
           )}
         </form>
 
-        <div className="rounded-md border overflow-hidden">
-          <Table>
-            <TableHeader className="bg-muted/30">
-              <TableRow>
-                <TableHead className="font-semibold">Material / Service Name</TableHead>
-                <TableHead className="font-semibold">Unit</TableHead>
-                <TableHead className="font-semibold">Service Type</TableHead>
-                <TableHead className="font-semibold">Source</TableHead>
-                <TableHead className="w-[80px] text-right font-semibold">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loadingCaps ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-gray-500">
-                    <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
-                  </TableCell>
-                </TableRow>
-              ) : capabilities.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                    No capabilities recorded for this vendor yet.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                capabilities.map((cap) => (
-                  <TableRow key={cap.id} className="hover:bg-muted/30">
-                    <TableCell className="font-medium capitalize text-foreground">{cap.materialName}</TableCell>
-                    <TableCell className="text-muted-foreground">{cap.unit || "-"}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={
-                          cap.serviceType === "SUPPLY"
-                            ? "bg-blue-500/10 text-blue-500 border-blue-500/20 hover:bg-blue-500/15"
-                            : cap.serviceType === "LABOUR"
-                              ? "bg-orange-500/10 text-orange-500 border-orange-500/20 hover:bg-orange-500/15"
-                              : "bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500/15"
-                        }
-                      >
-                        {cap.serviceType === "SUPPLY" ? "📦 Supply" : cap.serviceType === "LABOUR" ? "🔨 Labour" : "🔄 Labour + Material"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={cap.source === "AUTO" ? "secondary" : "outline"}
-                        className={
-                          cap.source === "AUTO"
-                            ? "bg-blue-500/10 text-blue-500 border-blue-500/20 hover:bg-blue-500/15"
-                            : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
-                        }
-                      >
-                        {cap.source}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleRemoveCapability(cap.id)}
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+        <DataTable
+          columns={columns}
+          data={capabilities}
+          isLoading={loadingCaps}
+          showPagination={true}
+          showColumnToggle={true}
+          searchKey="materialName"
+          searchPlaceholder="Search materials..."
+          filterFields={[
+            {
+              label: "Service Type",
+              value: "serviceType",
+              options: [
+                { label: "Supply", value: "SUPPLY" },
+                { label: "Labour", value: "LABOUR" },
+                { label: "Labour & Material", value: "LABOUR_WITH_MATERIAL" },
+              ],
+            },
+            {
+              label: "Source",
+              value: "source",
+              options: [
+                { label: "Auto", value: "AUTO" },
+                { label: "Manual", value: "MANUAL" },
+              ],
+            },
+          ]}
+        />
       </CardContent>
-    </Card>
+    </div>
   );
 }
