@@ -531,12 +531,12 @@ export class TasksService {
           ...(wsPerms.viewerProjectIds || []),
         ];
 
-      const fullAccessProjectIds = (wsPerms.isProjectLead || wsPerms.isProjectManager)
-        ? authorizedProjectIds
-        : [
-          ...(wsPerms.leadProjectIds ?? []),
-          ...(wsPerms.managedProjectIds ?? []),
-        ];
+      // Full access = ONLY projects where user is explicitly a LEAD or PROJECT_MANAGER.
+      // Being a PM in Project A does NOT grant full access to Project B (where they may be just a MEMBER).
+      const fullAccessProjectIds = [
+        ...(wsPerms.leadProjectIds ?? []),
+        ...(wsPerms.managedProjectIds ?? []),
+      ];
 
       const restrictedProjectIds = authorizedProjectIds.filter(
         (id) => !fullAccessProjectIds.includes(id),
@@ -1628,7 +1628,7 @@ export class TasksService {
         data: {
           projectId,
           workspaceMemberId: permissions.workspaceMemberId!,
-          projectRole: "PROJECT_MANAGER",
+          projectRole: "MEMBER",
           hasAccess: true,
         },
       });

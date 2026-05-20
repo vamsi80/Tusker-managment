@@ -685,7 +685,7 @@ export class ProjectService {
               id: true,
               userId: true,
               workspaceRole: true,
-              user: { select: { id: true, name: true, surname: true, image: true } },
+              user: { select: { id: true, surname: true } },
             },
           },
           assignedTasks: {
@@ -695,14 +695,14 @@ export class ProjectService {
         },
       }),
 
-      // 3. Attendance - workspace members who are ABSENT or ON_LEAVE today
+      // 3. Attendance - workspace members who marked attendance as PRESENT/LATE/HALF_DAY today
       prisma.attendance.findMany({
         where: {
           workspaceId,
           date: today,
-          status: { in: ["ABSENT", "ON_LEAVE"] },
+          status: { in: ["PRESENT", "LATE", "HALF_DAY"] },
         },
-        select: { workspaceMemberId: true, status: true },
+        select: { workspaceMemberId: true },
       }),
 
       // 4. Tasks due this week (not completed/cancelled)
@@ -741,13 +741,16 @@ export class ProjectService {
 
     ]);
 
+    // Rename for clarity: these are members who DID mark attendance today
+    const presentRecords = absentRecords;
+
     return {
       project,
       totalCount,
       todoCount,
       completedCount,
       allMembers,
-      absentRecords,
+      presentRecords,
       dueThisWeek,
       weekStart,
       weekEnd,
