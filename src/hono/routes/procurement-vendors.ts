@@ -65,47 +65,91 @@ procurementVendors.get("/materials/all", async (c) => {
     throw AppError.Forbidden("Access denied to this workspace");
   }
 
+  const catalog = await prisma.materialCatalog.findMany({
+    where: { workspaceId },
+    orderBy: { name: "asc" },
+  });
+
+  const formatted = catalog.map((m) => ({
+    id: m.id,
+    name: m.name,
+    defaultUnit: m.unit ? { abbreviation: m.unit } : null,
+  }));
+
+  return c.json({ success: true, data: formatted });
+});
+
+/**
+ * GET /api/v1/procurement/vendors/materials/coverage
+ * Get list of all materials and their vendor coverage
+ */
+procurementVendors.get("/materials/coverage", async (c) => {
+  const user = c.get("user");
+  const workspaceId = c.req.query("w");
+
+  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+
+  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  if (!perms.hasAccess) {
+    throw AppError.Forbidden("Access denied to this workspace");
+  }
+
+  const catalog = await prisma.materialCatalog.findMany({
+    where: { workspaceId },
+    orderBy: { name: "asc" },
+  });
+
   const capabilities = await prisma.vendorMaterialCapability.findMany({
     where: { workspaceId },
-    select: { materialName: true, unit: true },
-    distinct: ["materialName"],
+    include: {
+      vendor: {
+        select: {
+          id: true,
+          name: true,
+          status: true,
+        },
+      },
+    },
   });
 
-  const indentItems = await prisma.indentLineItem.findMany({
-    where: { indent: { workspaceId } },
-    select: { materialName: true, unit: true },
-    distinct: ["materialName"],
-  });
+  const coverageMap = new Map<string, { materialName: string; unit: string | null; vendors: { id: string; name: string }[] }>();
 
-  const mergedMap = new Map<string, any>();
-
-  indentItems.forEach((item) => {
-    const key = item.materialName.toLowerCase();
-    if (!mergedMap.has(key)) {
-      mergedMap.set(key, {
-        id: `ind-${item.materialName}`,
-        name: item.materialName,
-        defaultUnit: item.unit ? { abbreviation: item.unit } : null,
-      });
-    }
+  catalog.forEach((m) => {
+    coverageMap.set(m.name.toLowerCase().trim(), {
+      materialName: m.name,
+      unit: m.unit,
+      vendors: [],
+    });
   });
 
   capabilities.forEach((cap) => {
-    const key = cap.materialName.toLowerCase();
-    if (!mergedMap.has(key)) {
-      mergedMap.set(key, {
-        id: `cap-${cap.materialName}`,
-        name: cap.materialName,
-        defaultUnit: cap.unit ? { abbreviation: cap.unit } : null,
+    const key = cap.materialName.toLowerCase().trim();
+    const entry = coverageMap.get(key);
+    if (entry) {
+      const exists = entry.vendors.some((v) => v.id === cap.vendor.id);
+      if (!exists && cap.vendor.status === "ACTIVE") {
+        entry.vendors.push({
+          id: cap.vendor.id,
+          name: cap.vendor.name,
+        });
+      }
+    } else {
+      coverageMap.set(key, {
+        materialName: cap.materialName,
+        unit: cap.unit || null,
+        vendors: [{ id: cap.vendor.id, name: cap.vendor.name }],
       });
     }
   });
 
-  const merged = Array.from(mergedMap.values()).sort((a, b) => 
-    a.name.localeCompare(b.name)
-  );
+  const result = Array.from(coverageMap.values()).map((entry) => ({
+    materialName: entry.materialName,
+    unit: entry.unit,
+    vendorCount: entry.vendors.length,
+    vendors: entry.vendors,
+  }));
 
-  return c.json({ success: true, data: merged });
+  return c.json({ success: true, data: result });
 });
 
 /**

@@ -163,6 +163,22 @@ export class RFQService {
           serviceType: "SUPPLY",
         },
       });
+
+      // 5. Keep MaterialCatalog in sync with AUTO-discovered vendor materials
+      await tx.materialCatalog.upsert({
+        where: {
+          workspaceId_name: { workspaceId, name: normalizedMaterialName },
+        },
+        create: {
+          workspaceId,
+          name: normalizedMaterialName,
+          unit: quote.lineItem.unit,
+          source: "VENDOR",
+        },
+        update: {
+          ...(quote.lineItem.unit ? { unit: quote.lineItem.unit } : {}),
+        },
+      });
     });
   }
 

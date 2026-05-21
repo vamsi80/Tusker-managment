@@ -45,6 +45,35 @@ const AssignIndentSchema = z.object({
 });
 
 /**
+ * GET /api/v1/procurement/indents
+ * List all indents in workspace
+ */
+procurementIndents.get("/", async (c) => {
+  const user = c.get("user");
+  const workspaceId = c.req.query("w");
+
+  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+
+  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  if (!perms.hasAccess) {
+    throw AppError.Forbidden("Access denied to this workspace");
+  }
+
+  const indents = await prisma.indent.findMany({
+    where: { workspaceId },
+    include: {
+      project: { select: { id: true, name: true, slug: true } },
+      requestedBy: { select: { user: { select: { name: true, surname: true } } } },
+      task: { select: { name: true } },
+      _count: { select: { lineItems: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return c.json({ success: true, data: indents });
+});
+
+/**
  * GET /api/v1/procurement/indents/task/:taskId
  * Fetch indent details by taskId if one exists
  */
@@ -56,6 +85,64 @@ procurementIndents.get("/task/:taskId", async (c) => {
 
   const indent = await IndentRepository.findByTaskId(taskId);
   return c.json({ success: true, data: indent });
+});
+
+/**
+ * GET /api/v1/procurement/indents/line-items
+ * Fetch all line items from approved indents in the workspace (with optional status/project filter)
+ */
+procurementIndents.get("/line-items", async (c) => {
+  const user = c.get("user");
+  const workspaceId = c.req.query("w");
+  const statusFilter = c.req.query("status"); // optional LineItemStatus
+  const projectId = c.req.query("projectId"); // optional project id filter
+
+  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+
+  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  const allowedRoles = ["OWNER", "ADMIN", "MANAGER", "PROCUREMENT"];
+  if (!perms || !allowedRoles.includes(perms.workspaceRole)) {
+    throw AppError.Forbidden("Insufficient permissions to view workspace procurement line items");
+  }
+
+  const items = await prisma.indentLineItem.findMany({
+    where: {
+      indent: {
+        workspaceId,
+        ...(projectId && projectId !== "ALL" ? { projectId } : {}),
+      },
+      ...(statusFilter && statusFilter !== "ALL" ? { status: statusFilter as any } : {}),
+    },
+    include: {
+      indent: {
+        include: {
+          project: { select: { id: true, name: true, slug: true } },
+        },
+      },
+      vendorQuotes: { select: { id: true, status: true } },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const shaped = items.map((item) => ({
+    id: item.id,
+    materialName: item.materialName,
+    unit: item.unit,
+    quantity: item.quantity,
+    specifications: item.specifications,
+    status: item.status,
+    rfqDeadline: item.rfqDeadline,
+    indent: {
+      id: item.indent.id,
+      name: item.indent.name,
+      status: item.indent.status,
+      project: item.indent.project,
+    },
+    quotesCount: item.vendorQuotes.length,
+    hasApprovedQuote: item.vendorQuotes.some((q) => q.status === "APPROVED"),
+  }));
+
+  return c.json({ success: true, data: shaped });
 });
 
 /**

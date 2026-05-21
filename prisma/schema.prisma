@@ -137,6 +137,7 @@ model Workspace {
   notifications          notification[]
   publicHolidays         public_holiday[]
   vendors                Vendor[]
+  materialCatalog        MaterialCatalog[]
 }
 
 model WorkspaceMember {
@@ -633,6 +634,21 @@ model VendorMaterialCapability {
   @@unique([vendorId, materialName, serviceType])
   @@index([workspaceId, materialName])
   @@map("vendor_material_capability")
+}
+
+model MaterialCatalog {
+  id          String    @id @default(cuid())
+  workspaceId String
+  name        String
+  unit        String?
+  source      String    @default("INDENT") // INDENT | MANUAL
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+  @@map("material_catalog")
 }
 
 model Indent {
