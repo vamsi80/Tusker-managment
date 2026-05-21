@@ -1779,11 +1779,19 @@ export class TasksService {
       }
     }
 
-    // Specific Restriction: Tasks in REVIEW status
+    // 🔒 COMPLETED is a Project Manager-only privilege.
+    // Leads and Members (including workspace admins who are just Members here) cannot complete tasks.
+    if (newStatus === "COMPLETED" && !isProjectManager) {
+      throw AppError.Forbidden(
+        "Only the Project Manager can mark tasks as Completed.",
+      );
+    }
+
+    // Specific Restriction: Tasks in REVIEW status can only be moved by PM
     if (subTask.status === "REVIEW") {
-      if (isAssignee && !isWorkspaceAdmin && !isProjectManager) {
+      if (isAssignee && !isProjectManager) {
         throw AppError.Forbidden(
-          "As the assignee, you cannot move this task out of Review status.",
+          "As the assignee, you cannot move this task out of Review status. Only the Project Manager can.",
         );
       }
     }
@@ -1793,7 +1801,7 @@ export class TasksService {
       return subTask; // No change needed
     }
 
-    // Constraint: IN_PROGRESS -> COMPLETED is forbidden (must go to REVIEW)
+    // Constraint: IN_PROGRESS -> COMPLETED is forbidden (must go via REVIEW)
     if (subTask.status === "IN_PROGRESS" && newStatus === "COMPLETED") {
       throw AppError.ValidationError(
         "Tasks in In-Progress must be moved to Review before marking as Completed.",

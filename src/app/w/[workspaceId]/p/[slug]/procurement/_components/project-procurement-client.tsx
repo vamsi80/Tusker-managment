@@ -19,14 +19,12 @@ interface ProjectProcurementClientProps {
   workspaceId: string;
   projectId: string;
   indents: any[];
-  tasks: { id: string; name: string; taskSlug: string }[];
 }
 
 export function ProjectProcurementClient({
   workspaceId,
   projectId,
   indents,
-  tasks,
 }: ProjectProcurementClientProps) {
   const router = useSafeNavigation();
   const { slug } = useParams();

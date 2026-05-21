@@ -7,6 +7,19 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+
+const COMMON_UNITS = [
+  { value: "pcs", label: "Pieces (pcs)" },
+  { value: "kg", label: "Kilograms (kg)" },
+  { value: "bags", label: "Bags" },
+  { value: "cum", label: "Cubic Meters (cum)" },
+  { value: "sqft", label: "Square Feet (sqft)" },
+  { value: "rft", label: "Running Feet (rft)" },
+  { value: "ton", label: "Tons" },
+  { value: "liters", label: "Liters" },
+  { value: "nos", label: "Numbers (nos)" },
+];
 
 // ---------------------------------------------------------------------------
 // AutoCompleteInput
@@ -27,10 +40,18 @@ function AutoCompleteInput({
   isLoading: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [newMaterialName, setNewMaterialName] = useState("");
+  const [selectedUnit, setSelectedUnit] = useState("pcs");
+  const [customUnit, setCustomUnit] = useState("");
 
   const filtered = value
     ? catalog.filter((c) => c.name.toLowerCase().includes(value.toLowerCase()))
     : catalog;
+
+  const exactMatch = catalog.some(
+    (c) => c.name.toLowerCase() === value.trim().toLowerCase()
+  );
 
   return (
     <div className="relative w-full">
@@ -48,7 +69,7 @@ function AutoCompleteInput({
         disabled={disabled || isLoading}
         className="h-8 text-xs bg-background"
       />
-      {open && filtered.length > 0 && (
+      {open && (filtered.length > 0 || (value.trim() && !exactMatch)) && (
         <div className="absolute top-full mt-1 w-[300px] bg-popover border border-border/80 rounded-md shadow-lg z-50 max-h-48 overflow-y-auto overflow-x-hidden">
           {filtered.map((item) => (
             <div
@@ -66,8 +87,110 @@ function AutoCompleteInput({
               {item.name}
             </div>
           ))}
+          {value.trim() && !exactMatch && (
+            <div
+              className="px-3 py-2 text-xs cursor-pointer hover:bg-accent text-primary flex items-center transition-colors font-medium border-t border-border/40"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                setNewMaterialName(value.trim());
+                setSelectedUnit("pcs");
+                setCustomUnit("");
+                setDialogOpen(true);
+                setOpen(false);
+              }}
+            >
+              + Create &quot;{value.trim()}&quot;
+            </div>
+          )}
         </div>
       )}
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-bold uppercase tracking-wider text-foreground">
+              Create New Material
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 py-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="new-material-name" className="text-xs font-bold text-muted-foreground uppercase">
+                Material Name
+              </Label>
+              <Input
+                id="new-material-name"
+                value={newMaterialName}
+                onChange={(e) => setNewMaterialName(e.target.value)}
+                className="h-9 text-xs"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="new-material-unit" className="text-xs font-bold text-muted-foreground uppercase">
+                Default Unit
+              </Label>
+              <select
+                id="new-material-unit"
+                value={selectedUnit}
+                onChange={(e) => setSelectedUnit(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                {COMMON_UNITS.map((u) => (
+                  <option key={u.value} value={u.value}>
+                    {u.label}
+                  </option>
+                ))}
+                <option value="custom">Other / Custom</option>
+              </select>
+            </div>
+            {selectedUnit === "custom" && (
+              <div className="flex flex-col gap-1.5 animate-in fade-in duration-200">
+                <Label htmlFor="custom-unit" className="text-xs font-bold text-muted-foreground uppercase">
+                  Custom Unit Name
+                </Label>
+                <Input
+                  id="custom-unit"
+                  placeholder="e.g. box, roll"
+                  value={customUnit}
+                  onChange={(e) => setCustomUnit(e.target.value)}
+                  className="h-9 text-xs"
+                />
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDialogOpen(false)}
+              className="h-8 text-xs px-3"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                if (!newMaterialName.trim()) {
+                  toast.error("Please enter a material name");
+                  return;
+                }
+                const unitToUse = selectedUnit === "custom" ? customUnit.trim() : selectedUnit;
+                if (!unitToUse) {
+                  toast.error("Please enter a unit");
+                  return;
+                }
+                onChange(newMaterialName.trim());
+                if (onUnitAutoFill) {
+                  onUnitAutoFill(unitToUse);
+                }
+                setDialogOpen(false);
+              }}
+              className="h-8 text-xs px-3"
+            >
+              Confirm
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -79,7 +202,6 @@ interface LineItemInput {
   materialName: string;
   unit: string;
   quantity: number;
-  estimatedUnitPrice?: number;
   specifications?: string;
 }
 
@@ -87,7 +209,7 @@ interface CreateIndentFormProps {
   taskId?: string;
   projectId: string;
   workspaceId: string;
-  tasks?: { id: string; name: string }[];
+  tasks?: { id: string; name: string; taskSlug?: string; dueDate?: Date | string | null }[];
   onSuccess: (indent: any) => void;
   onCancel?: () => void;
 }
@@ -109,10 +231,41 @@ export function CreateIndentForm({
   const [selectedTaskId, setSelectedTaskId] = useState(taskId || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lineItems, setLineItems] = useState<LineItemInput[]>([
-    { materialName: "", unit: "pcs", quantity: 1, estimatedUnitPrice: undefined, specifications: "" },
+    { materialName: "", unit: "pcs", quantity: 1, specifications: "" },
   ]);
   const [catalog, setCatalog] = useState<any[]>([]);
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(true);
+
+  // Auto-fill expected delivery date when taskId changes or is prefilled
+  useEffect(() => {
+    const tId = taskId || selectedTaskId;
+    if (tId && tasks.length > 0) {
+      const selected = tasks.find((t) => t.id === tId);
+      if (selected?.dueDate) {
+        try {
+          const dateStr = new Date(selected.dueDate).toISOString().split("T")[0];
+          setExpectedDelivery(dateStr);
+        } catch (e) {
+          console.error("Invalid task due date", e);
+        }
+      }
+    }
+  }, [taskId, selectedTaskId, tasks]);
+
+  const handleTaskChange = (val: string) => {
+    setSelectedTaskId(val);
+    if (val) {
+      const selected = tasks.find((t) => t.id === val);
+      if (selected?.dueDate) {
+        try {
+          const dateStr = new Date(selected.dueDate).toISOString().split("T")[0];
+          setExpectedDelivery(dateStr);
+        } catch (e) {
+          console.error("Invalid task due date", e);
+        }
+      }
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -136,7 +289,7 @@ export function CreateIndentForm({
   const handleAddRow = () => {
     setLineItems([
       ...lineItems,
-      { materialName: "", unit: "pcs", quantity: 1, estimatedUnitPrice: undefined, specifications: "" },
+      { materialName: "", unit: "pcs", quantity: 1, specifications: "" },
     ]);
   };
 
@@ -158,10 +311,6 @@ export function CreateIndentForm({
       toast.error("Please enter an indent name");
       return;
     }
-    if (!selectedTaskId) {
-      toast.error("Please select a task for this indent");
-      return;
-    }
     for (let i = 0; i < lineItems.length; i++) {
       const item = lineItems[i];
       if (!item.materialName.trim()) {
@@ -181,7 +330,7 @@ export function CreateIndentForm({
     try {
       setIsSubmitting(true);
       const payload = {
-        taskId: selectedTaskId,
+        taskId: selectedTaskId || undefined,
         projectId,
         workspaceId,
         name,
@@ -191,9 +340,6 @@ export function CreateIndentForm({
           materialName: item.materialName.trim(),
           unit: item.unit.trim(),
           quantity: Number(item.quantity),
-          estimatedUnitPrice: item.estimatedUnitPrice
-            ? Math.round(Number(item.estimatedUnitPrice) * 100)
-            : undefined,
           specifications: item.specifications?.trim() || undefined,
         })),
       };
@@ -221,34 +367,40 @@ export function CreateIndentForm({
       onSubmit={handleSubmit}
       className="flex flex-col h-full bg-background rounded-lg border border-border p-5 gap-5 overflow-hidden"
     >
-      {/* Title */}
-      <div className="flex flex-col gap-1 shrink-0">
-        <h3 className="text-lg font-bold tracking-tight text-foreground">Create Indent</h3>
-        <p className="text-xs text-muted-foreground">
-          Create an indent to request materials or services.
-        </p>
+      {/* Title & Indent ID */}
+      <div className="flex items-center justify-between shrink-0">
+        <div className="flex flex-col gap-1">
+          <h3 className="text-lg font-bold tracking-tight text-foreground">Create Indent</h3>
+          <p className="text-xs text-muted-foreground">
+            Create an indent to request materials or services.
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1 bg-muted/40 px-3 py-1.5 rounded-md border border-border/80">
+          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Indent ID</span>
+          <span className="text-xs font-semibold text-foreground">Auto-assigned on save</span>
+        </div>
       </div>
 
       {/* ── Split Panel ── */}
       <div className="flex flex-1 gap-5 overflow-hidden min-h-0">
 
         {/* ── LEFT: Indent Details ── */}
-        <div className="flex flex-col gap-4 w-1/2 overflow-y-auto pr-2">
+        <div className="flex flex-col gap-4 w-[30%] overflow-y-auto pr-2">
 
           {/* Task Selector */}
           {!taskId && tasks.length > 0 && (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="indent-task" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Link to Task
+                Link to Subtask (Optional)
               </Label>
               <select
                 id="indent-task"
                 value={selectedTaskId}
-                onChange={(e) => setSelectedTaskId(e.target.value)}
+                onChange={(e) => handleTaskChange(e.target.value)}
                 disabled={isSubmitting}
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <option value="" disabled>Select a task...</option>
+                <option value="">None / Project-level</option>
                 {tasks.map((t) => (
                   <option key={t.id} value={t.id}>{t.name}</option>
                 ))}
@@ -303,7 +455,7 @@ export function CreateIndentForm({
         </div>
 
         {/* ── RIGHT: Line Items ── */}
-        <div className="flex flex-col gap-3 w-1/2 border-l border-border/30 pl-5 overflow-hidden">
+        <div className="flex flex-col gap-3 w-[70%] border-l border-border/30 pl-5 overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between shrink-0">
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -329,7 +481,7 @@ export function CreateIndentForm({
                 className="grid grid-cols-12 gap-2 items-end border border-border/60 rounded-md p-3 bg-muted/20 group hover:border-border transition-colors"
               >
                 {/* Material */}
-                <div className="col-span-5 flex flex-col gap-1">
+                <div className="col-span-7 flex flex-col gap-1">
                   <Label className="text-[10px] font-bold text-muted-foreground">Material Name</Label>
                   <AutoCompleteInput
                     value={item.materialName}
@@ -362,25 +514,6 @@ export function CreateIndentForm({
                     value={item.quantity}
                     onChange={(e) =>
                       handleRowChange(index, "quantity", e.target.value === "" ? "" : Number(e.target.value))
-                    }
-                    disabled={isSubmitting}
-                    className="h-8 text-xs"
-                  />
-                </div>
-
-                {/* Price */}
-                <div className="col-span-2 flex flex-col gap-1">
-                  <Label className="text-[10px] font-bold text-muted-foreground">Est. ₹/unit</Label>
-                  <Input
-                    type="number"
-                    placeholder="—"
-                    value={item.estimatedUnitPrice ?? ""}
-                    onChange={(e) =>
-                      handleRowChange(
-                        index,
-                        "estimatedUnitPrice",
-                        e.target.value === "" ? undefined : Number(e.target.value)
-                      )
                     }
                     disabled={isSubmitting}
                     className="h-8 text-xs"

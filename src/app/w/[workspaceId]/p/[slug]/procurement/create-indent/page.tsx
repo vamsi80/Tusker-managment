@@ -56,8 +56,19 @@ async function CreateIndentServer({
   if (!project) return null;
 
   const tasks = await db.task.findMany({
-    where: { projectId: project.id },
-    select: { id: true, name: true, taskSlug: true },
+    where: {
+      projectId: project.id,
+      isParent: false,
+      tags: {
+        some: {
+          OR: [
+            { requirePurchase: true },
+            { name: { equals: "procurement", mode: "insensitive" } },
+          ],
+        },
+      },
+    },
+    select: { id: true, name: true, taskSlug: true, dueDate: true },
     orderBy: { createdAt: "desc" },
   });
 

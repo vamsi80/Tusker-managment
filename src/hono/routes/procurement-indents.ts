@@ -11,7 +11,7 @@ const procurementIndents = new Hono<{ Variables: HonoVariables }>();
 
 // Zod validation schemas
 const CreateIndentSchema = z.object({
-  taskId: z.string(),
+  taskId: z.string().optional().nullable(),
   projectId: z.string(),
   workspaceId: z.string(),
   name: z.string().min(1),
@@ -79,7 +79,7 @@ procurementIndents.post("/", zValidator("json", CreateIndentSchema), async (c) =
 
   const indent = await IndentService.createIndent(
     {
-      taskId: body.taskId,
+      taskId: body.taskId || undefined,
       projectId: body.projectId,
       workspaceId: body.workspaceId,
       name: body.name,

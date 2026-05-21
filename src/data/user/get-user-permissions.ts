@@ -2,7 +2,6 @@
 
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
-import { CacheTags } from "@/data/cache-tags";
 
 /**
  * Get workspace-level permissions for the current user
@@ -105,14 +104,14 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
                 },
             });
 
-            leadProjectIds = projectRoles.filter(p => p.projectRole === "LEAD").map(p => p.projectId);
             managedProjectIds = projectRoles.filter(p => p.projectRole === "PROJECT_MANAGER").map(p => p.projectId);
+            leadProjectIds = projectRoles.filter(p => p.projectRole === "LEAD").map(p => p.projectId);
             memberProjectIds = projectRoles.filter(p => p.projectRole === "MEMBER").map(p => p.projectId);
             viewerProjectIds = projectRoles.filter(p => p.projectRole === "VIEWER").map(p => p.projectId);
         }
 
-        const isProjectLead = isWorkspaceAdmin || leadProjectIds.length > 0;
         const isProjectManager = isWorkspaceAdmin || managedProjectIds.length > 0;
+        const isProjectLead = isWorkspaceAdmin || leadProjectIds.length > 0;
         const hasAccess = isWorkspaceAdmin || isProjectManager || isProjectLead || memberProjectIds.length > 0 || viewerProjectIds.length > 0;
 
         return {
@@ -209,13 +208,16 @@ async function _getUserPermissionsInternal(workspaceId: string, projectId: strin
 
         const isWorkspaceAdmin = workspaceMember.workspaceRole === "OWNER" || workspaceMember.workspaceRole === "ADMIN";
 
-        // Logical overrides for Admins
-        const isProjectManager = isWorkspaceAdmin || projectMember?.projectRole === "PROJECT_MANAGER";
-        const isProjectLead = isWorkspaceAdmin || projectMember?.projectRole === "LEAD";
-        const isMember = !isWorkspaceAdmin && !isProjectManager && !isProjectLead && !!projectMember;
+        // Project role is determined STRICTLY from the ProjectMember table for THIS project.
+        // Workspace ADMIN/OWNER status does NOT automatically grant PM or Lead rights here.
+        // isWorkspaceAdmin is still available as a separate flag for system-level operations.
+        const isProjectManager = projectMember?.projectRole === "PROJECT_MANAGER";
+        const isProjectLead = projectMember?.projectRole === "LEAD";
+        const isMember = projectMember?.projectRole === "MEMBER";
 
-        const canCreateSubTask = isWorkspaceAdmin || isProjectManager || isProjectLead;
-        const canPerformBulkOperations = isWorkspaceAdmin || isProjectManager || isProjectLead;
+        // Only PM and Lead can create subtasks or perform bulk operations.
+        const canCreateSubTask = isProjectManager || isProjectLead;
+        const canPerformBulkOperations = isProjectManager || isProjectLead;
 
         return {
             isWorkspaceAdmin,
