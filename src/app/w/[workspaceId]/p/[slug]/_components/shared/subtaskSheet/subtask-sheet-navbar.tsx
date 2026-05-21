@@ -1,14 +1,13 @@
 "use client";
 
-import { MessageSquare, FileCheck, ShoppingBag } from "lucide-react";
+import { MessageSquare, FileCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SubtaskSheetNavBarProps {
-    activeTab: "messages" | "review" | "procurement";
-    onTabChange: (tab: "messages" | "review" | "procurement") => void;
+    activeTab: "messages" | "review";
+    onTabChange: (tab: "messages" | "review") => void;
     messagesCount: number;
     activityCount: number;
-    showProcurement?: boolean;
 }
 
 export function SubtaskSheetNavBar({
@@ -16,11 +15,10 @@ export function SubtaskSheetNavBar({
     onTabChange,
     messagesCount,
     activityCount,
-    showProcurement = false,
 }: SubtaskSheetNavBarProps) {
     const tabs: {
         name: string;
-        value: "messages" | "review" | "procurement";
+        value: "messages" | "review";
         icon: any;
         count: number;
     }[] = [
@@ -37,15 +35,6 @@ export function SubtaskSheetNavBar({
             count: activityCount,
         },
     ];
-
-    if (showProcurement) {
-        tabs.push({
-            name: "Procurement",
-            value: "procurement" as const,
-            icon: ShoppingBag,
-            count: 0, // No badge counts needed for procurement tab
-        });
-    }
 
     return (
         <div className="border-b">

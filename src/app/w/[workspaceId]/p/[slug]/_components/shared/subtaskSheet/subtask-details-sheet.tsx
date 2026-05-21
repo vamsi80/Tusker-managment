@@ -8,7 +8,6 @@ import { MessagesTab } from "./messages-tab";
 import { ActivityTab } from "./activity-tab";
 import { Tabs } from "@/components/ui/tabs";
 import { apiClient } from "@/lib/api-client";
-import { ProcurementTab } from "@/app/w/[workspaceId]/_components/procurement/procurement-tab";
 import type { SubTaskType } from "@/types/task";
 import { toast } from "sonner";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
@@ -50,7 +49,7 @@ export function SubTaskDetailsSheet({
     const isAdmin = permissions.isWorkspaceAdmin;
     const isProjectManager = permissions.isProjectManager;
 
-    const [activeTab, setActiveTab] = useState<"messages" | "review" | "procurement">("messages");
+    const [activeTab, setActiveTab] = useState<"messages" | "review">("messages");
     const [comments, setComments] = useState<any[]>([]);
     const [activities, setActivities] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -183,7 +182,7 @@ export function SubTaskDetailsSheet({
         }
     }, [subTask?.id, isOpen]);
 
-    const handleTabChange = (tab: "messages" | "review" | "procurement") => {
+    const handleTabChange = (tab: "messages" | "review") => {
         setActiveTab(tab);
     };
 
@@ -203,9 +202,6 @@ export function SubTaskDetailsSheet({
     }, [subTask?.id, workspaceId, projectId, projectCtx]);
 
     const task = isOpen ? subTask : lastValidTask.current;
-    const hasProcurementTag = task?.tags?.some(
-        (t: any) => t.name.toLowerCase() === "procurement"
-    ) ?? false;
 
     if (!task && isOpen) {
         return (
@@ -245,13 +241,12 @@ export function SubTaskDetailsSheet({
                     />
 
                     <div className="border-t flex-1 flex flex-col min-h-0">
-                        <Tabs value={activeTab} onValueChange={(v) => handleTabChange(v as "messages" | "review" | "procurement")} className="flex flex-col h-full">
+                        <Tabs value={activeTab} onValueChange={(v) => handleTabChange(v as "messages" | "review")} className="flex flex-col h-full">
                             <SubtaskSheetNavBar
                                 activeTab={activeTab}
                                 onTabChange={handleTabChange}
                                 messagesCount={comments.length}
                                 activityCount={activities.length}
-                                showProcurement={hasProcurementTag}
                             />
 
                             <div className="flex-1 flex flex-col min-h-0 relative">
@@ -277,16 +272,6 @@ export function SubTaskDetailsSheet({
                                         onLoadMore={() => loadActivities(true)}
                                     />
                                 </div>
-
-                                {hasProcurementTag && (
-                                    <div className={activeTab === "procurement" ? "flex-1 flex flex-col min-h-0" : "hidden"}>
-                                        <ProcurementTab
-                                            taskId={task.id}
-                                            projectId={projectId || ""}
-                                            workspaceId={workspaceId || ""}
-                                        />
-                                    </div>
-                                )}
                             </div>
                         </Tabs>
                     </div>

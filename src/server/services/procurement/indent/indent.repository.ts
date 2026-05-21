@@ -111,32 +111,60 @@ export class IndentRepository {
       specifications?: string;
     }[];
   }) {
-    return prisma.indent.create({
-      data: {
-        workspaceId: data.workspaceId,
-        projectId: data.projectId,
-        taskId: data.taskId || null,
-        name: data.name,
-        description: data.description,
-        expectedDelivery: data.expectedDelivery,
-        requestedById: data.requestedById,
-        status: "DRAFT",
-        lineItems: data.lineItems
-          ? {
-              create: data.lineItems.map((item) => ({
-                materialName: item.materialName,
-                unit: item.unit,
-                quantity: item.quantity,
-                estimatedUnitPrice: item.estimatedUnitPrice,
-                specifications: item.specifications,
-                status: "PENDING",
-              })),
-            }
-          : undefined,
-      },
-      include: {
-        lineItems: true,
-      },
+    return prisma.$transaction(async (tx) => {
+      const indent = await tx.indent.create({
+        data: {
+          workspaceId: data.workspaceId,
+          projectId: data.projectId,
+          taskId: data.taskId || null,
+          name: data.name,
+          description: data.description,
+          expectedDelivery: data.expectedDelivery,
+          requestedById: data.requestedById,
+          status: "DRAFT",
+          lineItems: data.lineItems
+            ? {
+                create: data.lineItems.map((item) => ({
+                  materialName: item.materialName,
+                  unit: item.unit,
+                  quantity: item.quantity,
+                  estimatedUnitPrice: item.estimatedUnitPrice,
+                  specifications: item.specifications,
+                  status: "PENDING",
+                })),
+              }
+            : undefined,
+        },
+        include: {
+          lineItems: true,
+        },
+      });
+
+      if (data.lineItems && data.lineItems.length > 0) {
+        await Promise.all(
+          data.lineItems.map((item) =>
+            tx.materialCatalog.upsert({
+              where: {
+                workspaceId_name: {
+                  workspaceId: data.workspaceId,
+                  name: item.materialName.trim(),
+                },
+              },
+              create: {
+                workspaceId: data.workspaceId,
+                name: item.materialName.trim(),
+                unit: item.unit.trim(),
+                source: "INDENT",
+              },
+              update: {
+                unit: item.unit.trim(),
+              },
+            })
+          )
+        );
+      }
+
+      return indent;
     });
   }
 

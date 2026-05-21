@@ -55,22 +55,35 @@ async function CreateIndentServer({
 
   if (!project) return null;
 
-  const tasks = await db.task.findMany({
-    where: {
-      projectId: project.id,
-      isParent: false,
-      tags: {
-        some: {
-          OR: [
-            { requirePurchase: true },
-            { name: { equals: "procurement", mode: "insensitive" } },
-          ],
+  // Fetch tasks with procurement tags AND existing indent taskIds in parallel
+  const [allTasks, existingIndents] = await Promise.all([
+    db.task.findMany({
+      where: {
+        projectId: project.id,
+        isParent: false,
+        tags: {
+          some: {
+            OR: [
+              { requirePurchase: true },
+              { name: { equals: "procurement", mode: "insensitive" } },
+            ],
+          },
         },
       },
-    },
-    select: { id: true, name: true, taskSlug: true, dueDate: true },
-    orderBy: { createdAt: "desc" },
-  });
+      select: { id: true, name: true, taskSlug: true, dueDate: true },
+      orderBy: { createdAt: "desc" },
+    }),
+    db.indent.findMany({
+      where: { projectId: project.id, taskId: { not: null } },
+      select: { taskId: true },
+    }),
+  ]);
+
+  // Build a set of taskIds that already have an indent
+  const claimedTaskIds = new Set(existingIndents.map((i) => i.taskId));
+
+  // Exclude tasks that already have an indent (unless it's the prefilled one being edited)
+  const tasks = allTasks.filter((t) => !claimedTaskIds.has(t.id));
 
   return (
     <CreateIndentPageClient

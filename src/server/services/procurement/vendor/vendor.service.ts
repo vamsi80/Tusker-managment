@@ -63,26 +63,47 @@ export class VendorService {
 
     const resolvedServiceType = serviceType || "SUPPLY";
 
-    // Idempotent Upsert using the multi-column unique constraint
-    return prisma.vendorMaterialCapability.upsert({
-      where: {
-        vendorId_materialName_serviceType: {
+    // Upsert capability + sync to MaterialCatalog in one transaction
+    return prisma.$transaction(async (tx) => {
+      const capability = await tx.vendorMaterialCapability.upsert({
+        where: {
+          vendorId_materialName_serviceType: {
+            vendorId,
+            materialName: normalized,
+            serviceType: resolvedServiceType,
+          },
+        },
+        update: {
+          unit: unit || null,
+        },
+        create: {
           vendorId,
           materialName: normalized,
+          unit: unit || null,
+          workspaceId,
+          source: "MANUAL",
           serviceType: resolvedServiceType,
         },
-      },
-      update: {
-        unit: unit || null,
-      },
-      create: {
-        vendorId,
-        materialName: normalized,
-        unit: unit || null,
-        workspaceId,
-        source: "MANUAL",
-        serviceType: resolvedServiceType,
-      },
+      });
+
+      // Keep MaterialCatalog in sync
+      await tx.materialCatalog.upsert({
+        where: {
+          workspaceId_name: { workspaceId, name: normalized },
+        },
+        create: {
+          workspaceId,
+          name: normalized,
+          unit: unit?.trim() || null,
+          source: "VENDOR",
+        },
+        update: {
+          // Only update unit if we have one (don't overwrite with null)
+          ...(unit ? { unit: unit.trim() } : {}),
+        },
+      });
+
+      return capability;
     });
   }
 
