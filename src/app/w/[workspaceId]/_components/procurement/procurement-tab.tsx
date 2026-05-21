@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
-import { CreateIndentForm } from "./create-indent-form";
+
 import { IndentHeader } from "./indent-header";
 import { IndentWorkflowStepper } from "./indent-workflow-stepper";
 import { LineItemTable } from "./line-item-table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { CreateIndentForm } from "../../p/[slug]/procurement/create-indent/_components/create-indent-form";
 
 interface ProcurementTabProps {
   taskId: string;

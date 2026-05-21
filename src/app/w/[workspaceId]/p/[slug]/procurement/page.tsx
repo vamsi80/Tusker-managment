@@ -23,6 +23,6 @@ export default async function ProcurementPage({ params }: iAppProps) {
 async function ProjectProcurementViewServer({ workspaceId, slug }: { workspaceId: string, slug: string }) {
   const [project, user] = await Promise.all([ProjectService.getProjectBySlug(workspaceId, slug), requireUser()]);
   if (!project) return null;
-  const { ProjectProcurementView } = await import("../_components/procurement/project-procurement-view");
+  const { ProjectProcurementView } = await import("./_components/project-procurement-view");
   return <ProjectProcurementView workspaceId={workspaceId} projectId={project.id} userId={user.id} />;
 }

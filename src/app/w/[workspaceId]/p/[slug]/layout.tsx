@@ -27,7 +27,7 @@ export default async function ProjectLayout({
     return (
         <ProjectLayoutProvider workspaceId={workspaceId} projectId={project.id}>
             <TaskPageWrapper>
-                <div className="flex flex-col gap-0 pb-3 px-0 h-full">
+                <div className="flex flex-col gap-0 pb-3 px-0 h-full overflow-hidden">
                     <ProjectNav
                         workspaceId={workspaceId}
                         slug={slug}
@@ -37,7 +37,7 @@ export default async function ProjectLayout({
                         userRole={project.userRole}
                         canPerformBulkOperations={project.canPerformBulkOperations}
                     />
-                    <div className="flex-1 mt-3">{children}</div>
+                    <div className="flex-1 min-h-0 overflow-hidden mt-3">{children}</div>
                 </div>
             </TaskPageWrapper>
         </ProjectLayoutProvider>

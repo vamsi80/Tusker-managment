@@ -35,8 +35,7 @@ export function ProjectNav({
     const viewMatch = pathname.match(new RegExp(`^/w/[^/]+/p/[^/]+/([^/]+)`));
     const currentView = viewMatch ? viewMatch[1] : 'dashboard';
 
-    const isProjectPage = pathname === baseUrl || 
-      ['dashboard', 'list', 'kanban', 'gantt', 'procurement'].some(v => pathname === `${baseUrl}/${v}`);
+    const isProjectPage = pathname.startsWith(baseUrl);
 
     const viewTabs = [
         {
