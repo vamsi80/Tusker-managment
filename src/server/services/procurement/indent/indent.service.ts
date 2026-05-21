@@ -6,7 +6,7 @@ import { INDENT_TRANSITIONS, assertTransition } from "../utils/state-machine";
 export class IndentService {
   static async createIndent(
     data: {
-      taskId: string;
+      taskId?: string;
       projectId: string;
       workspaceId: string;
       name: string;
@@ -22,8 +22,10 @@ export class IndentService {
     },
     userId: string
   ) {
-    const existing = await IndentRepository.findByTaskId(data.taskId);
-    if (existing) throw AppError.Conflict("An indent already exists for this task");
+    if (data.taskId) {
+      const existing = await IndentRepository.findByTaskId(data.taskId);
+      if (existing) throw AppError.Conflict("An indent already exists for this task");
+    }
 
     const member = await IndentRepository.findWorkspaceMember(userId, data.workspaceId);
     if (!member) throw AppError.Forbidden("Not a workspace member");

@@ -7,7 +7,7 @@ interface CreateIndentPageClientProps {
   workspaceId: string;
   projectId: string;
   slug: string;
-  tasks: { id: string; name: string; taskSlug: string }[];
+  tasks: { id: string; name: string; taskSlug: string; dueDate?: Date | null }[];
   prefilledTaskId?: string;
 }
 

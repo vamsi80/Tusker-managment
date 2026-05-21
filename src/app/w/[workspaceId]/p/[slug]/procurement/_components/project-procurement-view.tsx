@@ -20,19 +20,12 @@ export async function ProjectProcurementView({
     orderBy: { createdAt: "desc" }
   });
 
-  const tasks = await db.task.findMany({
-    where: { projectId },
-    select: { id: true, name: true, taskSlug: true },
-    orderBy: { createdAt: "desc" }
-  });
-
   return (
     <div className="h-full flex flex-col overflow-hidden">
       <ProjectProcurementClient
         workspaceId={workspaceId}
         projectId={projectId}
         indents={indents}
-        tasks={tasks}
       />
     </div>
   );

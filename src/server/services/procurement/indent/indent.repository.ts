@@ -98,7 +98,7 @@ export class IndentRepository {
   static async create(data: {
     workspaceId: string;
     projectId: string;
-    taskId: string;
+    taskId?: string;
     name: string;
     description?: string;
     expectedDelivery?: Date;
@@ -115,7 +115,7 @@ export class IndentRepository {
       data: {
         workspaceId: data.workspaceId,
         projectId: data.projectId,
-        taskId: data.taskId,
+        taskId: data.taskId || null,
         name: data.name,
         description: data.description,
         expectedDelivery: data.expectedDelivery,

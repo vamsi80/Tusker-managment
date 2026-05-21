@@ -640,7 +640,7 @@ model Indent {
   indentId          String?          @unique
   workspaceId       String
   projectId         String
-  taskId            String           @unique
+  taskId            String?          @unique
   name              String
   description       String?
   status            IndentStatus     @default(DRAFT)
@@ -658,7 +658,7 @@ model Indent {
   finalApprovedBy   WorkspaceMember? @relation("IndentFinalApprover", fields: [finalApprovedById], references: [id])
   project           Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
   requestedBy       WorkspaceMember  @relation("IndentRequester", fields: [requestedById], references: [id])
-  task              Task             @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task              Task?            @relation(fields: [taskId], references: [id], onDelete: Cascade)
   workspace         Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   lineItems         IndentLineItem[]
 
