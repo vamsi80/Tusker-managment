@@ -8,6 +8,7 @@ import { DataTable } from "@/components/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
 import Link from "next/link";
+import { Plus } from "lucide-react";
 
 interface RfqsClientProps {
   workspaceId: string;
@@ -118,14 +119,27 @@ export function RfqsClient({ workspaceId }: RfqsClientProps) {
   ];
 
   return (
-    <DataTable
-      columns={rfqColumns}
-      data={lineItems}
-      searchKey="materialName"
-      searchPlaceholder="Search materials in RFQ..."
-      isLoading={isLoading}
-      showPagination={true}
-      showColumnToggle={true}
-    />
+    <div className="flex-1 flex flex-col gap-4">
+      <div className="flex items-center justify-between shrink-0">
+        <div>
+          <h1 className="text-base font-bold text-foreground">Active RFQs</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">Track and compare vendor quotes for sent RFQs</p>
+        </div>
+        <Link href={`/w/${workspaceId}/procurement/rfqs/create`}>
+          <Button size="sm" className="h-8 text-xs font-semibold flex items-center gap-1">
+            <Plus className="h-3.5 w-3.5" /> Create RFQ
+          </Button>
+        </Link>
+      </div>
+      <DataTable
+        columns={rfqColumns}
+        data={lineItems}
+        searchKey="materialName"
+        searchPlaceholder="Search materials in RFQ..."
+        isLoading={isLoading}
+        showPagination={true}
+        showColumnToggle={true}
+      />
+    </div>
   );
 }
