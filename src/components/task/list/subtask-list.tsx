@@ -100,6 +100,16 @@ export function SubTaskList({
         setItems(task.subTasks || []);
     }, [task.subTasks]);
 
+    const hasSettledRef = useRef(false);
+
+    useEffect(() => {
+        hasSettledRef.current = false;
+        const timer = setTimeout(() => {
+            hasSettledRef.current = true;
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [task.id]);
+
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: { distance: 5 }
@@ -146,31 +156,33 @@ export function SubTaskList({
     };
 
     useEffect(() => {
-        if (!task.subTasksHasMore || isLoadingMore) return;
+        if (!task.subTasksHasMore || isLoadingMore || !scrollContainerRef?.current) return;
 
-        const observer = new IntersectionObserver(
-            (entries) => {
-                if (entries[0].isIntersecting) {
-                    onLoadMore();
-                }
-            },
-            {
-                root: scrollContainerRef?.current || null,
-                rootMargin: "200px"
-            }
-        );
+        const container = scrollContainerRef.current;
 
-        const currentRef = bottomRef.current;
-        if (currentRef) {
-            observer.observe(currentRef);
-        }
+        const handleScroll = () => {
+            if (!hasSettledRef.current || isLoadingMore) return;
 
-        return () => {
-            if (currentRef) {
-                observer.unobserve(currentRef);
+            const sentinel = bottomRef.current;
+            if (!sentinel) return;
+
+            const containerRect = container.getBoundingClientRect();
+            const sentinelRect = sentinel.getBoundingClientRect();
+
+            // Fire only when the sentinel is near the container's bottom edge (within 80px)
+            const distanceFromContainerBottom = sentinelRect.bottom - containerRect.bottom;
+
+            if (distanceFromContainerBottom <= 80) {
+                onLoadMore();
             }
         };
-    }, [task.subTasksHasMore, isLoadingMore, onLoadMore]);
+
+        container.addEventListener("scroll", handleScroll, { passive: true });
+
+        return () => {
+            container.removeEventListener("scroll", handleScroll);
+        };
+    }, [task.subTasksHasMore, isLoadingMore, onLoadMore, scrollContainerRef]);
 
     const visiblePropsCount = Object.entries(columnVisibility)
         .filter(([key, visible]) => key !== 'project' && visible)

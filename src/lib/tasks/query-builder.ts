@@ -151,6 +151,7 @@ export const TASK_CORE_SELECT = getTaskSelect("list");
 export interface TaskCursor {
     id: string;
     createdAt: Date;
+    position?: number;
 }
 
 /**
@@ -495,8 +496,23 @@ export function buildSubtaskExpansionWhere(
     }
 
     if (opts.cursor) {
-        // Default orderBy is DESC (newest-first) → cursor must use "desc" to get older tasks (lt)
-        appendAnd(where, buildCursorWhere(opts.cursor, "desc"));
+        const cursor = opts.cursor;
+        if (typeof (cursor as any).position === "number") {
+            appendAnd(where, {
+                OR: [
+                    { position: { gt: (cursor as any).position } },
+                    {
+                        AND: [
+                            { position: (cursor as any).position },
+                            { id: { gt: cursor.id } }
+                        ]
+                    }
+                ]
+            });
+        } else {
+            // Default orderBy is DESC (newest-first) → cursor must use "desc" to get older tasks (lt)
+            appendAnd(where, buildCursorWhere(opts.cursor, "desc"));
+        }
     }
 
     return where;

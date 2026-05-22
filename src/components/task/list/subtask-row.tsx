@@ -87,9 +87,15 @@ export const SubTaskRow = memo(function SubTaskRow({
         const subTaskCreatorId = subTask.createdBy?.id || (subTask as any).createdById;
 
         if (permissions) {
+            // Use projectMember.id (ProjectMember record ID) — same ID stored in subTask.createdById
+            const currentProjectMemberId = permissions.projectMember?.id;
+            const isCreator = currentProjectMemberId
+                ? subTaskCreatorId === currentProjectMemberId
+                : false;
+
             return permissions.isWorkspaceAdmin ||
                 permissions.isProjectManager ||
-                (permissions.isProjectLead && subTaskCreatorId === userId);
+                (permissions.isProjectLead && isCreator);
         }
 
         if (isWorkspaceAdmin) return true;

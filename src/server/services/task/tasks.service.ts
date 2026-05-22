@@ -1173,6 +1173,7 @@ export class TasksService {
       ? {
         id: finalTasks[finalTasks.length - 1].id,
         createdAt: finalTasks[finalTasks.length - 1].createdAt,
+        position: finalTasks[finalTasks.length - 1].position,
       }
       : null;
 
@@ -1779,19 +1780,24 @@ export class TasksService {
       }
     }
 
-    // 🔒 COMPLETED is a Project Manager-only privilege.
-    // Leads and Members (including workspace admins who are just Members here) cannot complete tasks.
-    if (newStatus === "COMPLETED" && !isProjectManager) {
+    // 🔒 COMPLETED rule:
+    // - Project Manager: always allowed.
+    // - Project Lead: allowed ONLY on subtasks they personally created.
+    // - Member / others: never allowed.
+    const leadCanComplete = isProjectLead && isCreator;
+    if (newStatus === "COMPLETED" && !isProjectManager && !leadCanComplete) {
       throw AppError.Forbidden(
-        "Only the Project Manager can mark tasks as Completed.",
+        "Only the Project Manager (or the Lead who created this task) can mark tasks as Completed.",
       );
     }
 
-    // Specific Restriction: Tasks in REVIEW status can only be moved by PM
+    // Specific Restriction: Tasks in REVIEW status
+    // - Only PM can move any task out of REVIEW.
+    // - Lead who created the task can also move it out of REVIEW (they own the review decision).
     if (subTask.status === "REVIEW") {
-      if (isAssignee && !isProjectManager) {
+      if (isAssignee && !isProjectManager && !leadCanComplete) {
         throw AppError.Forbidden(
-          "As the assignee, you cannot move this task out of Review status. Only the Project Manager can.",
+          "As the assignee, you cannot move this task out of Review status. Only the Project Manager (or the creating Lead) can.",
         );
       }
     }
@@ -2784,7 +2790,32 @@ export class TasksService {
 
       if (cursor) {
         const cursorDate = typeof cursor.createdAt === "string" ? new Date(cursor.createdAt) : cursor.createdAt;
-        const cursorClause = { OR: [{ createdAt: { lt: cursorDate } }, { AND: [{ createdAt: cursorDate }, { id: { lt: cursor.id } }] }] };
+        let cursorClause: any;
+        if (cursor.position !== undefined && cursor.position !== null) {
+          cursorClause = {
+            OR: [
+              { position: { gt: cursor.position } },
+              {
+                AND: [
+                  { position: cursor.position },
+                  {
+                    OR: [
+                      { createdAt: { lt: cursorDate } },
+                      {
+                        AND: [
+                          { createdAt: cursorDate },
+                          { id: { lt: cursor.id } }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          };
+        } else {
+          cursorClause = { OR: [{ createdAt: { lt: cursorDate } }, { AND: [{ createdAt: cursorDate }, { id: { lt: cursor.id } }] }] };
+        }
         singleParentWhere.AND = [...(singleParentWhere.AND ?? []), cursorClause];
       }
 
@@ -2813,7 +2844,7 @@ export class TasksService {
         TaskRepository.findMany(
           singleParentWhere,
           { ...subtaskSelect, parentTaskId: true },
-          buildOrderBy(undefined, viewMode),
+          undefined,
           pageSize + 1
         ),
         TaskRepository.findById(
@@ -2828,7 +2859,11 @@ export class TasksService {
       const hasMore = rawTasks.length > pageSize;
       const finalTasks = (hasMore ? rawTasks.slice(0, pageSize) : rawTasks).map((t: any) => TasksService.mapToFlatMetadata(t));
       const nextCursor = hasMore && finalTasks.length > 0
-        ? { id: finalTasks[finalTasks.length - 1].id, createdAt: finalTasks[finalTasks.length - 1].createdAt }
+        ? {
+            id: finalTasks[finalTasks.length - 1].id,
+            createdAt: finalTasks[finalTasks.length - 1].createdAt,
+            position: finalTasks[finalTasks.length - 1].position
+          }
         : undefined;
       return [{ parentTaskId: parentId, subTasks: finalTasks, totalCount: finalTasks.length, hasMore, nextCursor }];
     }
@@ -2840,7 +2875,7 @@ export class TasksService {
     const rawSubTasksAll = (await TaskRepository.findMany(
       countWhere,
       { ...batchSelect, parentTaskId: true },
-      buildOrderBy(undefined, viewMode),
+      undefined,
       TasksService.BATCH_HARD_LIMIT
     )) as any[];
 
@@ -2865,7 +2900,11 @@ export class TasksService {
       const hasMore = totalCount > pageSize;
       const pagedSubTasks = hasMore ? subTasks.slice(0, pageSize) : subTasks;
       const nextCursor = hasMore && pagedSubTasks.length > 0
-        ? { id: pagedSubTasks[pagedSubTasks.length - 1].id, createdAt: pagedSubTasks[pagedSubTasks.length - 1].createdAt }
+        ? {
+            id: pagedSubTasks[pagedSubTasks.length - 1].id,
+            createdAt: pagedSubTasks[pagedSubTasks.length - 1].createdAt,
+            position: pagedSubTasks[pagedSubTasks.length - 1].position
+          }
         : undefined;
       return { parentTaskId, subTasks: pagedSubTasks, totalCount, hasMore, nextCursor };
     });
