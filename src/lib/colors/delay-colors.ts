@@ -70,7 +70,30 @@ export function getDelayColors(remainingDays: number | null, status: string | nu
         };
     }
 
-    // Days left (> 0) -> Red ring (as user requested: if my task days left it should be red color Ring)
+    // Days left (> 0)
+    // More than 20 days left -> Green ring
+    if (remainingDays > 20) {
+        return {
+            color: "text-emerald-600 dark:text-emerald-400",
+            bgColor: "bg-emerald-500/10",
+            dotColor: "bg-emerald-500",
+            borderColor: "border-emerald-500/20",
+            dotVariant: "ring",
+        };
+    }
+
+    // More than 10 days left -> Orange solid
+    if (remainingDays > 10) {
+        return {
+            color: "text-orange-600 dark:text-orange-400",
+            bgColor: "bg-orange-500/10",
+            dotColor: "bg-orange-500",
+            borderColor: "border-orange-500/20",
+            dotVariant: "solid",
+        };
+    }
+
+    // Days left <= 10 -> Red ring
     return {
         color: "text-rose-600 dark:text-rose-400",
         bgColor: "bg-rose-500/10",
