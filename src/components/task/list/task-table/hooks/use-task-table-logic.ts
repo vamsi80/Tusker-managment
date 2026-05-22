@@ -50,6 +50,7 @@ export function useTaskTableLogic({
   const fetchingSubTasksRef = useRef<Set<string>>(new Set());
   const subTaskBatchQueueRef = useRef<Set<string>>(new Set());
   const subTaskBatchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const manuallyCollapsedRef = useRef<Set<string>>(new Set());
 
   const [tasks, setTasks] = useState<TaskWithSubTasks[]>(() => dedupeTasks(initialTasks || []));
   const [isSubtaskFirstMode, setIsSubtaskFirstMode] = useState(false);
@@ -467,7 +468,7 @@ export function useTaskTableLogic({
       let changed = false;
 
       tasks.forEach(t => {
-        if (t.isParent && !expanded[t.id]) {
+        if (t.isParent && !expanded[t.id] && !manuallyCollapsedRef.current.has(t.id)) {
           newExpanded[t.id] = true;
           changed = true;
 
@@ -658,8 +659,11 @@ export function useTaskTableLogic({
     setExpanded((prev: Record<string, boolean>) => {
       const isExpanding = !prev[taskId];
       if (isExpanding) {
+        manuallyCollapsedRef.current.delete(taskId);
         const hasNotProcessed = !processedSubTasksRef.current.has(taskId);
         if (hasNotProcessed) shouldFetch = true;
+      } else {
+        manuallyCollapsedRef.current.add(taskId);
       }
       return { ...prev, [taskId]: isExpanding };
     });
@@ -752,6 +756,7 @@ export function useTaskTableLogic({
     loadMoreFiltered,
     filterPagination,
     handleExpandAll: () => {
+      manuallyCollapsedRef.current.clear();
       setIsAutoExpanded(true);
       // Expand all projects
       setExpandedProjects(projects.reduce((a: any, p: any) => ({ ...a, [p.id]: true }), {}));
@@ -777,6 +782,7 @@ export function useTaskTableLogic({
       }
     },
     handleCollapseAll: () => {
+      manuallyCollapsedRef.current.clear();
       setIsAutoExpanded(false);
 
       // If filters are active, we need to explicitly set all current parent tasks and projects to false 
