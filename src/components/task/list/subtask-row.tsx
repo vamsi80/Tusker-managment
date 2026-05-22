@@ -7,10 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { CornerDownRight, GripVertical, Calendar, Tag, MoreHorizontal } from "lucide-react";
+import { CornerDownRight, GripVertical, Calendar, MoreHorizontal } from "lucide-react";
 import type { SubTaskType } from "@/types/task";
 import type { ProjectMembersType } from "@/types/project";
-import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatDateUTC, formatIST } from "@/lib/utils";
 import { getDelayColors, getDelayText } from "@/lib/colors/delay-colors";
@@ -85,18 +84,29 @@ export const SubTaskRow = memo(function SubTaskRow({
     };
 
     const canEditSubTask = () => {
-        const subTaskCreatorId = subTask.createdBy?.id || (subTask as any).createdById;
+        const subTaskCreatorUserId = subTask.createdBy?.id;
+        const subTaskCreatorMemberId = (subTask as any).createdById;
+        const subTaskAssigneeUserId = subTask.assignee?.id;
+        const subTaskAssigneeMemberId = (subTask as any).assigneeId;
+
+        const currentUserId = permissions?.userId || userId;
+        const currentProjectMemberId = permissions?.projectMember?.id;
+
+        const isCreator = !!(
+            (currentUserId && subTaskCreatorUserId && currentUserId === subTaskCreatorUserId) ||
+            (currentProjectMemberId && subTaskCreatorMemberId && currentProjectMemberId === subTaskCreatorMemberId)
+        );
+
+        const isAssignee = !!(
+            (currentUserId && subTaskAssigneeUserId && currentUserId === subTaskAssigneeUserId) ||
+            (currentProjectMemberId && subTaskAssigneeMemberId && currentProjectMemberId === subTaskAssigneeMemberId)
+        );
 
         if (permissions) {
-            // Use projectMember.id (ProjectMember record ID) — same ID stored in subTask.createdById
-            const currentProjectMemberId = permissions.projectMember?.id;
-            const isCreator = currentProjectMemberId
-                ? subTaskCreatorId === currentProjectMemberId
-                : false;
-
             return permissions.isWorkspaceAdmin ||
+                isAssignee ||
                 permissions.isProjectManager ||
-                (permissions.isProjectLead && isCreator);
+                isCreator;
         }
 
         if (isWorkspaceAdmin) return true;
@@ -106,12 +116,13 @@ export const SubTaskRow = memo(function SubTaskRow({
         const taskProject = projectMap ? projectMap[projectIdToCheck] : projects?.find(p => p.id === projectIdToCheck);
         if (taskProject?.canManageMembers) return true;
 
-        // Check if user is LEAD in this project and created the task
-        if (leadProjectIds?.includes(projectIdToCheck) && subTaskCreatorId === userId) {
+        // Check if user is LEAD in this project and created/assigned the task
+        const isUserCreatorOrAssignee = isCreator || isAssignee || subTaskCreatorUserId === userId || subTaskAssigneeUserId === userId;
+        if (leadProjectIds?.includes(projectIdToCheck) && isUserCreatorOrAssignee) {
             return true;
         }
 
-        return false;
+        return isUserCreatorOrAssignee;
     };
 
     const handleSubTaskUpdated = (updatedData: Partial<SubTaskType>) => {

@@ -65,21 +65,48 @@ export function SubtaskStatusChanger({
         return <span className="text-muted-foreground text-xs text-center block">-</span>;
     }
 
+    const currentUserId = permissions?.userId || userId;
     const currentProjectMemberId = permissions?.projectMember?.id;
     const isPM = permissions?.isProjectManager || isWorkspaceAdmin;
     const isLead = permissions?.isProjectLead || leadProjectIds?.includes(projectId || "");
-    const subTaskCreatorId = subTask.createdBy?.id || (subTask as any).createdById;
-    const subTaskAssigneeId = subTask.assignee?.id || (subTask as any).assigneeId;
+    const subTaskCreatorUserId = subTask.createdBy?.id;
+    const subTaskCreatorMemberId = (subTask as any).createdById;
+    const subTaskAssigneeUserId = subTask.assignee?.id;
+    const subTaskAssigneeMemberId = (subTask as any).assigneeId;
 
-    const isCreator = currentProjectMemberId ? subTaskCreatorId === currentProjectMemberId : false;
-    const isAssignee = currentProjectMemberId ? subTaskAssigneeId === currentProjectMemberId : false;
+    const isCreator = !!(
+        (currentUserId && subTaskCreatorUserId && currentUserId === subTaskCreatorUserId) ||
+        (currentProjectMemberId && subTaskCreatorMemberId && currentProjectMemberId === subTaskCreatorMemberId)
+    );
+
+    const isAssignee = !!(
+        (currentUserId && subTaskAssigneeUserId && currentUserId === subTaskAssigneeUserId) ||
+        (currentProjectMemberId && subTaskAssigneeMemberId && currentProjectMemberId === subTaskAssigneeMemberId)
+    );
 
     // A user can change status if they are Admin/PM, or if they are Lead & creator/assignee, or if they are Member & creator/assignee
-    const canEditThisSubTask = isPM || (isLead && isCreator) || (isCreator || isAssignee);
+    const canEditThisSubTask = isPM || isCreator || isAssignee;
 
     const isTransitionAllowed = (targetStatus: TaskStatus): { allowed: boolean; reason?: string } => {
         if (!canEditThisSubTask) {
             return { allowed: false, reason: "You do not have permission to update this task." };
+        }
+
+        // If the user is the assignee of this subtask, they are treated as a worker/member for this subtask
+        // and can only change the status till REVIEW (cannot mark COMPLETED, HOLD, CANCELLED, cannot move out of REVIEW).
+        if (isAssignee) {
+            if (targetStatus === "COMPLETED") {
+                return { allowed: false, reason: "As the assignee, you cannot mark this task as Completed." };
+            }
+            if (targetStatus === "HOLD") {
+                return { allowed: false, reason: "As the assignee, you cannot put this task on Hold." };
+            }
+            if (targetStatus === "CANCELLED") {
+                return { allowed: false, reason: "As the assignee, you cannot cancel this task." };
+            }
+            if (subTask.status === "REVIEW") {
+                return { allowed: false, reason: "As the assignee, you cannot move this task out of Review status." };
+            }
         }
 
         // 🔒 COMPLETED rule:
