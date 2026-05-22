@@ -51,6 +51,7 @@ export function useTaskTableLogic({
   const subTaskBatchQueueRef = useRef<Set<string>>(new Set());
   const subTaskBatchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const manuallyCollapsedRef = useRef<Set<string>>(new Set());
+  const loadingMoreSubTasksRef = useRef<Record<string, boolean>>({});
 
   const [tasks, setTasks] = useState<TaskWithSubTasks[]>(() => dedupeTasks(initialTasks || []));
   const [isSubtaskFirstMode, setIsSubtaskFirstMode] = useState(false);
@@ -259,7 +260,9 @@ export function useTaskTableLogic({
 
         const params = new URLSearchParams(paramsInit);
 
-        const res = await fetch(`/api/v1/tasks/expansion/batch?${params.toString()}`);
+        const res = await fetch(`/api/v1/tasks/expansion/batch?${params.toString()}`, {
+          cache: "no-store"
+        });
         const responseData = await res.json();
 
         if (responseData.success && Array.isArray(responseData.data)) {
@@ -360,6 +363,10 @@ export function useTaskTableLogic({
   useEffect(() => {
     tasksRef.current = tasks;
   }, [tasks]);
+
+  useEffect(() => {
+    loadingMoreSubTasksRef.current = loadingMoreSubTasks;
+  }, [loadingMoreSubTasks]);
 
   // 🚀 Real-time synchronization is now handled via local state setters
   // mapped from global RealtimeNotificationListener events.
@@ -565,9 +572,9 @@ export function useTaskTableLogic({
     lastFiltersActiveRef.current = true;
   }, [filtersActive, initialTasks]);
 
-  const loadMoreSubTasks = async (taskId: string) => {
-    const task = tasks.find((t) => t.id === taskId);
-    if (!task || !task.subTasks || loadingMoreSubTasks[taskId]) return;
+  const loadMoreSubTasks = useCallback(async (taskId: string) => {
+    const task = tasksRef.current.find((t) => t.id === taskId);
+    if (!task || !task.subTasks || loadingMoreSubTasksRef.current[taskId]) return;
     setLoadingMoreSubTasks((prev) => ({ ...prev, [taskId]: true }));
 
     try {
@@ -602,7 +609,7 @@ export function useTaskTableLogic({
     } finally {
       setLoadingMoreSubTasks((prev) => ({ ...prev, [taskId]: false }));
     }
-  };
+  }, [workspaceId, projectId, orderSubTasksForParent]);
 
   const loadMoreSorted = async () => {
     if (!sortedHasMore || isLoadingMoreSorted) return;
