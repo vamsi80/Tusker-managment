@@ -10,6 +10,7 @@ export interface DelayColors {
     bgColor: string;
     dotColor: string;
     borderColor: string;
+    dotVariant: "solid" | "ring" | "blink";
 }
 
 /**
@@ -23,6 +24,7 @@ export function getDelayColors(remainingDays: number | null, status: string | nu
             bgColor: "bg-emerald-500/10",
             dotColor: "bg-emerald-500",
             borderColor: "border-emerald-500/20",
+            dotVariant: "solid",
         };
     }
     if (status === "CANCELLED") {
@@ -31,6 +33,7 @@ export function getDelayColors(remainingDays: number | null, status: string | nu
             bgColor: "bg-muted/50",
             dotColor: "bg-slate-400",
             borderColor: "border-slate-400/20",
+            dotVariant: "solid",
         };
     }
 
@@ -41,35 +44,39 @@ export function getDelayColors(remainingDays: number | null, status: string | nu
             bgColor: "bg-muted/30",
             dotColor: "bg-gray-300",
             borderColor: "border-gray-300/20",
+            dotVariant: "solid",
         };
     }
 
-    // Overdue or Critical (<= 7 days)
-    if (remainingDays < 0 || remainingDays <= 7) {
+    // Overdue/Delayed
+    if (remainingDays < 0) {
         return {
             color: "text-rose-600 dark:text-rose-400",
             bgColor: "bg-rose-500/10",
             dotColor: "bg-rose-500",
             borderColor: "border-rose-500/20",
+            dotVariant: "blink",
         };
     }
 
-    // Warning (8-10 days)
-    if (remainingDays <= 10) {
+    // Due today
+    if (remainingDays === 0) {
         return {
-            color: "text-amber-600 dark:text-amber-400",
-            bgColor: "bg-amber-500/10",
-            dotColor: "bg-amber-500",
-            borderColor: "border-amber-500/20",
+            color: "text-rose-600 dark:text-rose-400",
+            bgColor: "bg-rose-500/10",
+            dotColor: "bg-rose-500",
+            borderColor: "border-rose-500/20",
+            dotVariant: "solid",
         };
     }
 
-    // Healthy (> 10 days)
+    // Days left (> 0) -> Red ring (as user requested: if my task days left it should be red color Ring)
     return {
-        color: "text-emerald-600 dark:text-emerald-400",
-        bgColor: "bg-emerald-500/10",
-        dotColor: "bg-emerald-500",
-        borderColor: "border-emerald-500/20",
+        color: "text-rose-600 dark:text-rose-400",
+        bgColor: "bg-rose-500/10",
+        dotColor: "bg-rose-500",
+        borderColor: "border-rose-500/20",
+        dotVariant: "ring",
     };
 }
 

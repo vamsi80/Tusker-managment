@@ -19,7 +19,7 @@ import { NavProjects } from "./projectsList/nav-projects";
 import { NavWorkspacesSelector } from "./header/nav-workspaces-selector";
 import { NavFooter } from "./footer/nav-footer";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
-import { LayoutDashboard, Users, CheckSquare, Truck } from "lucide-react";
+import { LayoutDashboard, Users, CheckSquare } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSafeNavigation } from "@/hooks/use-safe-navigation";
@@ -39,8 +39,8 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
     { id: "dashboard", title: "Dashboard", url: `/w/${workspaceId}`, icon: LayoutDashboard },
     { id: "team", title: "Team", url: `/w/${workspaceId}/team`, icon: Users },
     { id: "tasks", title: "Tasks", url: `/w/${workspaceId}/tasks`, icon: CheckSquare },
-    { id: "vendors", title: "Vendors", url: `/w/${workspaceId}/vendors`, icon: Truck },
-    { id: "procurement", title: "Procurement", url: `/w/${workspaceId}/procurement`, icon: Truck },
+    // { id: "vendors", title: "Vendors", url: `/w/${workspaceId}/vendors`, icon: Truck },
+    // { id: "procurement", title: "Procurement", url: `/w/${workspaceId}/procurement`, icon: Truck },
   ];
 
   const footerNavItems: Array<{
@@ -48,12 +48,6 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
     url: string;
     icon: "Settings" | "BarChart3" | "LayoutDashboard";
   }> = [
-      // {
-      //   title: "My Space",
-      //   url: `/w/${workspaceId}/my-board`,
-      //   icon: "LayoutDashboard"
-      // },
-      // { title: "Reports", url: `/w/${workspaceId}/reports`, icon: "BarChart3" },
       { title: "Settings", url: `/w/${workspaceId}/settings`, icon: "Settings" },
     ];
 

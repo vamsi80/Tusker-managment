@@ -383,7 +383,18 @@ export const SubTaskRow = memo(function SubTaskRow({
                     <TableCell className="w-[100px] sm:w-[150px]">
                         {remainingDays !== null || subTask.status === "COMPLETED" || subTask.status === "CANCELLED" ? (
                             <div className="flex items-center gap-2 min-w-0">
-                                <div className={cn("h-2.5 w-2.5 rounded-full flex-shrink-0", delayStyles.dotColor)} />
+                                {delayStyles.dotVariant === "ring" && (
+                                    <div className="h-3 w-3 rounded-full border-2 border-rose-500 bg-transparent flex-shrink-0" />
+                                )}
+                                {delayStyles.dotVariant === "blink" && (
+                                    <span className="relative flex h-3 w-3 flex-shrink-0">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
+                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500" />
+                                    </span>
+                                )}
+                                {delayStyles.dotVariant === "solid" && (
+                                    <div className={cn("h-2.5 w-2.5 rounded-full flex-shrink-0", delayStyles.dotColor)} />
+                                )}
                                 <span className={cn("text-[10px] sm:text-xs truncate font-medium", delayStyles.color)}>
                                     {delayText}
                                 </span>
