@@ -22,6 +22,7 @@ import { InlineAssigneePicker } from "../shared/inline-assignee-picker";
 import type { UserPermissionsType } from "@/data/user/get-user-permissions";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { SubtaskStatusChanger } from "../shared/subtask-status-changer";
 
 interface SubTaskRowProps {
     subTask: SubTaskType;
@@ -341,21 +342,15 @@ export const SubTaskRow = memo(function SubTaskRow({
 
                 {columnVisibility.status && (
                     <TableCell className="w-[90px] sm:w-[120px]">
-                        {subTask.status ? (
-                            <Badge
-                                variant="outline"
-                                className={cn(
-                                    "text-[10px] sm:text-xs font-medium h-5 px-1.5 flex items-center justify-center whitespace-nowrap",
-                                    getStatusColors(subTask.status).color,
-                                    getStatusColors(subTask.status).bgColor,
-                                    getStatusColors(subTask.status).borderColor
-                                )}
-                            >
-                                {getStatusLabel(subTask.status)}
-                            </Badge>
-                        ) : (
-                            <span className="text-muted-foreground text-xs text-center block">-</span>
-                        )}
+                        <SubtaskStatusChanger
+                            subTask={subTask}
+                            onSubTaskUpdated={(id, updatedData) => handleSubTaskUpdated(updatedData)}
+                            projectId={(subTask as any).projectId || projectId}
+                            permissions={permissions}
+                            userId={userId}
+                            isWorkspaceAdmin={isWorkspaceAdmin}
+                            leadProjectIds={leadProjectIds}
+                        />
                     </TableCell>
                 )}
 
@@ -390,7 +385,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                         {remainingDays !== null || subTask.status === "COMPLETED" || subTask.status === "CANCELLED" ? (
                             <div className="flex items-center gap-2 min-w-0">
                                 {delayStyles.dotVariant === "ring" && (
-                                    <div className="h-3 w-3 rounded-full border-2 border-rose-500 bg-transparent flex-shrink-0" />
+                                    <div className={cn("h-3 w-3 rounded-full border-2 border-current bg-transparent flex-shrink-0", delayStyles.color)} />
                                 )}
                                 {delayStyles.dotVariant === "blink" && (
                                     <span className="relative flex h-3 w-3 flex-shrink-0">
