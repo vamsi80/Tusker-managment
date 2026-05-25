@@ -4,7 +4,7 @@ import { useState, memo } from "react";
 import { useRemainingDays } from "@/hooks/use-due-date";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { CornerDownRight, GripVertical, Calendar, MoreHorizontal } from "lucide-react";
@@ -104,9 +104,8 @@ export const SubTaskRow = memo(function SubTaskRow({
 
         if (permissions) {
             return permissions.isWorkspaceAdmin ||
-                isAssignee ||
-                permissions.isProjectManager ||
-                isCreator;
+                isCreator ||
+                permissions.isProjectManager;
         }
 
         if (isWorkspaceAdmin) return true;
@@ -122,7 +121,7 @@ export const SubTaskRow = memo(function SubTaskRow({
             return true;
         }
 
-        return isUserCreatorOrAssignee;
+        return false;
     };
 
     const handleSubTaskUpdated = (updatedData: Partial<SubTaskType>) => {

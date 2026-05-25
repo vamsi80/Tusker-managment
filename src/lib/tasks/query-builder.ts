@@ -687,7 +687,9 @@ export function buildWorkspaceFilterWhere(
                 where.parentTaskId = null;
             }
         } else if (opts.excludeParents || opts.onlySubtasks || opts.view_mode === "kanban") {
-            where.parentTaskId = { not: null };
+            if (!opts.parentTaskId) {
+                where.parentTaskId = { not: null };
+            }
             where.isParent = false;
         } else if (opts.view_mode !== "gantt") {
             // 🚀 DEFAULT: Hierarchical root view

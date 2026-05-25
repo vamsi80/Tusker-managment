@@ -200,7 +200,7 @@ export const TaskRow = memo(function TaskRow({
                             <CornerDownRight className="h-3.5 w-3.5 text-muted-foreground/50" />
                         </div>
                     ) : (
-                        !isSubtask && subtaskCount > 0 && (
+                        !isSubtask && (
                             <div className="flex items-center justify-center">
                                 <Button
                                     variant="ghost"
