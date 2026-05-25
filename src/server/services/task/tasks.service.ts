@@ -588,7 +588,8 @@ export class TasksService {
         (opts.search && opts.search.trim().length > 0) ||
         opts.dueAfter ||
         opts.dueBefore ||
-        (opts.sorts && opts.sorts.length > 0)
+        (opts.sorts && opts.sorts.length > 0) ||
+        opts.filterParentTaskId
       );
 
       const emptyFacets = {
@@ -616,7 +617,7 @@ export class TasksService {
         };
       }
 
-      if (filterParentTaskId) {
+      if (filterParentTaskId && opts.groupBy !== "status") {
         strategy = "SUBTASK_EXPANSION";
         const result = await this._fetchSubtasks(
           filterParentTaskId,
@@ -764,6 +765,7 @@ export class TasksService {
                 (!hasExplicitFilters && hierarchyMode === "children"),
               excludeParents: opts.excludeParents,
               view_mode: opts.view_mode,
+              parentTaskId: opts.filterParentTaskId,
             },
             userId,
           );
@@ -863,6 +865,7 @@ export class TasksService {
                   (!hasExplicitFilters && hierarchyMode === "children"),
                 excludeParents: opts.excludeParents,
                 view_mode: opts.view_mode,
+                parentTaskId: opts.filterParentTaskId,
               },
               userId,
             ),
@@ -911,6 +914,7 @@ export class TasksService {
                   (!hasExplicitFilters && hierarchyMode === "children"),
                 excludeParents: opts.excludeParents,
                 view_mode: opts.view_mode,
+                parentTaskId: opts.filterParentTaskId,
               },
               userId,
             );
