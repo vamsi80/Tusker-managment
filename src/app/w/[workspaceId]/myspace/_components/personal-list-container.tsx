@@ -111,9 +111,14 @@ function TodoItem({
           {...attributes}
           {...listeners}
           className={cn(
-            "mt-1.5 shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground/45 hover:text-muted-foreground transition-opacity",
+            "mt-1.5 shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground/45 hover:text-muted-foreground transition-opacity select-none touch-none",
             isDragging ? "opacity-100" : "opacity-70 lg:opacity-0 lg:group-hover:opacity-100"
           )}
+          style={{
+            WebkitUserSelect: "none",
+            userSelect: "none",
+            WebkitTouchCallout: "none",
+          }}
         >
           <GripVertical className="h-4 w-4" />
         </div>
