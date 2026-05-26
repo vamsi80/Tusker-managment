@@ -137,7 +137,8 @@ function TodoItem({
               value={editingText}
               onChange={(e) => setEditingText(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
+                const isMobile = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+                if (e.key === "Enter" && !e.shiftKey && !isMobile) {
                   e.preventDefault();
                   handleEditTodo(todo.id);
                 }
@@ -421,7 +422,8 @@ export function PersonalListContainer({
                    value={newTodoText}
                    onChange={(e) => setNewTodoText(e.target.value)}
                    onKeyDown={(e) => {
-                     if (e.key === "Enter" && !e.shiftKey) {
+                     const isMobile = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+                     if (e.key === "Enter" && !e.shiftKey && !isMobile) {
                        e.preventDefault();
                        if (newTodoText.trim() && !isAdding) {
                          handleAddTodo(e);
