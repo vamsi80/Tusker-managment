@@ -30,7 +30,8 @@ import {
   DndContext,
   closestCenter,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragEndEvent,
@@ -111,7 +112,7 @@ function TodoItem({
           {...listeners}
           className={cn(
             "mt-1.5 shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground/45 hover:text-muted-foreground transition-opacity",
-            isDragging ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+            isDragging ? "opacity-100" : "opacity-70 lg:opacity-0 lg:group-hover:opacity-100"
           )}
         >
           <GripVertical className="h-4 w-4" />
@@ -131,15 +132,26 @@ function TodoItem({
       <div className="flex-1 min-w-0">
         {editingId === todo.id ? (
           <div className="flex items-center gap-2">
-            <Input
+            <textarea
               autoFocus
               value={editingText}
               onChange={(e) => setEditingText(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") handleEditTodo(todo.id);
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleEditTodo(todo.id);
+                }
                 if (e.key === "Escape") setEditingId(null);
               }}
-              className="h-auto p-0 bg-transparent border-0 focus-visible:ring-0 text-base font-medium shadow-none"
+              rows={1}
+              className="w-full bg-transparent border-0 focus:ring-0 text-base font-medium shadow-none resize-none p-0 focus:outline-none focus-visible:ring-0"
+              style={{ height: "auto" }}
+              ref={(el) => {
+                if (el) {
+                  el.style.height = "auto";
+                  el.style.height = `${el.scrollHeight}px`;
+                }
+              }}
             />
             <button onClick={() => handleEditTodo(todo.id)} className="text-primary hover:text-primary/80 transition-colors">
               <Check className="h-3.5 w-3.5" />
@@ -148,12 +160,14 @@ function TodoItem({
         ) : (
           <p 
             onClick={() => {
-              setEditingId(todo.id);
-              setEditingText(todo.text);
+              if (!todo.completed) {
+                setEditingId(todo.id);
+                setEditingText(todo.text);
+              }
             }}
             className={cn(
-              "text-base font-medium leading-relaxed transition-all cursor-text",
-              todo.completed && "line-through text-muted-foreground/80 font-normal"
+              "text-base font-medium leading-relaxed transition-all whitespace-pre-wrap",
+              todo.completed ? "line-through text-muted-foreground/80 font-normal cursor-default" : "cursor-text"
             )}
           >
             {todo.text}
@@ -325,8 +339,11 @@ export function PersonalListContainer({
   };
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(MouseSensor, {
       activationConstraint: { distance: 5 }
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 250, tolerance: 5 }
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
@@ -399,12 +416,28 @@ export function PersonalListContainer({
                  {isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4.5 w-4.5 stroke-[2px]" />}
                </div>
                <form onSubmit={handleAddTodo} className="flex-1 flex items-center gap-2">
-                 <Input
+                 <textarea
                    placeholder="Add a new task..."
                    value={newTodoText}
                    onChange={(e) => setNewTodoText(e.target.value)}
+                   onKeyDown={(e) => {
+                     if (e.key === "Enter" && !e.shiftKey) {
+                       e.preventDefault();
+                       if (newTodoText.trim() && !isAdding) {
+                         handleAddTodo(e);
+                       }
+                     }
+                   }}
                    disabled={isAdding}
-                   className="h-auto p-0 bg-transparent border-0 focus-visible:ring-0 text-base font-medium placeholder:text-muted-foreground/50 shadow-none flex-1"
+                   rows={1}
+                   className="w-full bg-transparent border-0 focus:ring-0 text-base font-medium placeholder:text-muted-foreground/50 resize-none min-h-[24px] max-h-[120px] overflow-y-auto scrollbar-none flex-1 focus-visible:ring-0 shadow-none p-0 focus:outline-none"
+                   style={{ height: "auto" }}
+                   ref={(el) => {
+                     if (el) {
+                       el.style.height = "auto";
+                       el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+                     }
+                   }}
                  />
                  {newTodoText.trim() && !isAdding && (
                    <button 

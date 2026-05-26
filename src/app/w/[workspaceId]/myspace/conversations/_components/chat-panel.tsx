@@ -149,13 +149,29 @@ export function ChatPanel({
       {/* Input */}
       <div className="p-4 bg-background/80 backdrop-blur-md border-t">
         <form onSubmit={handleSend} className="max-w-4xl mx-auto flex gap-3 items-end">
-          <div className="flex-1 min-h-[44px] bg-muted/40 rounded-3xl flex items-center px-4 relative">
-            <Input
+          <div className="flex-1 min-h-[44px] bg-muted/40 rounded-3xl flex items-center px-4 relative py-1">
+            <textarea
               placeholder="Write something..."
               value={content}
               onChange={(e) => setContent(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  if (content.trim() && !isSending) {
+                    handleSend(e);
+                  }
+                }
+              }}
               disabled={isSending}
-              className="bg-transparent border-none focus-visible:ring-0 text-sm h-11 p-0 shadow-none placeholder:text-muted-foreground/30"
+              rows={1}
+              className="w-full bg-transparent border-none focus:outline-none focus:ring-0 text-sm py-2.5 px-0 resize-none placeholder:text-muted-foreground/30 min-h-[24px] max-h-[120px] overflow-y-auto scrollbar-none"
+              style={{ height: "auto" }}
+              ref={(el) => {
+                if (el) {
+                  el.style.height = "auto";
+                  el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+                }
+              }}
             />
           </div>
           <Button
