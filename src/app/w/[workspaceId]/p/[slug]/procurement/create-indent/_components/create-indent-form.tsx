@@ -8,6 +8,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 
 const COMMON_UNITS = [
   { value: "pcs", label: "Pieces (pcs)" },
@@ -31,6 +40,8 @@ function AutoCompleteInput({
   disabled,
   catalog,
   isLoading,
+  currentUnit,
+  onFocusTrigger,
 }: {
   value: string;
   onChange: (val: string) => void;
@@ -38,6 +49,8 @@ function AutoCompleteInput({
   disabled: boolean;
   catalog: any[];
   isLoading: boolean;
+  currentUnit?: string;
+  onFocusTrigger?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -53,30 +66,52 @@ function AutoCompleteInput({
     (c) => c.name.toLowerCase() === value.trim().toLowerCase()
   );
 
+  // Auto-fill unit if the user types or enters the exact name of an existing material
+  useEffect(() => {
+    if (!value.trim()) return;
+    const matched = catalog.find(
+      (c) => c.name.toLowerCase() === value.trim().toLowerCase()
+    );
+    if (matched && matched.defaultUnit?.abbreviation && onUnitAutoFill) {
+      if (currentUnit !== matched.defaultUnit.abbreviation) {
+        onUnitAutoFill(matched.defaultUnit.abbreviation);
+      }
+    }
+  }, [value, catalog, onUnitAutoFill, currentUnit]);
+
   return (
     <div className="relative w-full">
-      <Input
-        placeholder={isLoading ? "Loading..." : "e.g. TMT Steel 10mm"}
-        value={value}
-        onChange={(e) => {
-          onChange(e.target.value);
-          if (!open) setOpen(true);
-        }}
-        onFocus={() => setOpen(true)}
-        onBlur={() => {
-          setTimeout(() => setOpen(false), 200);
-        }}
-        disabled={disabled || isLoading}
-        className="h-8 text-xs bg-background"
-      />
-      {open && (filtered.length > 0 || (value.trim() && !exactMatch)) && (
-        <div className="absolute top-full mt-1 w-[300px] bg-popover border border-border/80 rounded-md shadow-lg z-50 max-h-48 overflow-y-auto overflow-x-hidden">
+      <Popover open={!!(open && (filtered.length > 0 || (value.trim() && !exactMatch)))} onOpenChange={setOpen}>
+        <PopoverAnchor asChild>
+          <Input
+            placeholder={isLoading ? "Loading..." : "e.g. TMT Steel 10mm"}
+            value={value}
+            onChange={(e) => {
+              onChange(e.target.value);
+              if (!open) setOpen(true);
+              if (onFocusTrigger) onFocusTrigger();
+            }}
+            onFocus={() => {
+              setOpen(true);
+              if (onFocusTrigger) onFocusTrigger();
+            }}
+            disabled={disabled || isLoading}
+            className="h-8 text-xs bg-background"
+          />
+        </PopoverAnchor>
+        <PopoverContent
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          onCloseAutoFocus={(e) => e.preventDefault()}
+          className="w-[300px] p-0 bg-popover border border-border/80 rounded-md shadow-lg z-50 max-h-48 overflow-y-auto overflow-x-hidden"
+          align="start"
+        >
           {filtered.map((item) => (
             <div
               key={item.id}
               className="px-3 py-2 text-xs cursor-pointer hover:bg-accent text-popover-foreground flex items-center transition-colors"
               onMouseDown={(e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 onChange(item.name);
                 if (item.defaultUnit?.abbreviation && onUnitAutoFill) {
                   onUnitAutoFill(item.defaultUnit.abbreviation);
@@ -92,6 +127,7 @@ function AutoCompleteInput({
               className="px-3 py-2 text-xs cursor-pointer hover:bg-accent text-primary flex items-center transition-colors font-medium border-t border-border/40"
               onMouseDown={(e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 setNewMaterialName(value.trim());
                 setSelectedUnit("pcs");
                 setCustomUnit("");
@@ -102,8 +138,8 @@ function AutoCompleteInput({
               + Create &quot;{value.trim()}&quot;
             </div>
           )}
-        </div>
-      )}
+        </PopoverContent>
+      </Popover>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-[400px]">
@@ -207,9 +243,10 @@ interface LineItemInput {
 
 interface CreateIndentFormProps {
   taskId?: string;
-  projectId: string;
+  projectId?: string;
   workspaceId: string;
   tasks?: { id: string; name: string; taskSlug?: string; dueDate?: Date | string | null }[];
+  projects?: { id: string; name: string; slug: string }[];
   onSuccess: (indent: any) => void;
   onCancel?: () => void;
 }
@@ -219,12 +256,21 @@ interface CreateIndentFormProps {
 // ---------------------------------------------------------------------------
 export function CreateIndentForm({
   taskId,
-  projectId,
+  projectId = "",
   workspaceId,
   tasks = [],
+  projects = [],
   onSuccess,
   onCancel,
 }: CreateIndentFormProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const [activeProjectId, setActiveProjectId] = useState(projectId);
+  const [projectTasks, setProjectTasks] = useState(tasks);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [expectedDelivery, setExpectedDelivery] = useState("");
@@ -233,14 +279,47 @@ export function CreateIndentForm({
   const [lineItems, setLineItems] = useState<LineItemInput[]>([
     { materialName: "", unit: "pcs", quantity: 1, specifications: "" },
   ]);
+  const [shouldLoadCatalog, setShouldLoadCatalog] = useState(false);
   const [catalog, setCatalog] = useState<any[]>([]);
-  const [isLoadingCatalog, setIsLoadingCatalog] = useState(true);
+  const [isLoadingCatalog, setIsLoadingCatalog] = useState(false);
+
+  // Dynamic fetch of project tasks if we change projects at workspace level
+  useEffect(() => {
+    // If we are at project level, use the tasks prop
+    if (projectId) {
+      setProjectTasks(tasks);
+      return;
+    }
+
+    // If we are at workspace level, fetch tasks when activeProjectId changes
+    if (!activeProjectId) {
+      if (projectTasks.length > 0) {
+        setProjectTasks([]);
+      }
+      return;
+    }
+
+    let mounted = true;
+    const fetchProjectTasks = async () => {
+      try {
+        const res = await fetch(`/api/v1/procurement/indents/projects/${activeProjectId}/tasks?w=${workspaceId}`);
+        const json = await res.json();
+        if (mounted && json.success && json.data) {
+          setProjectTasks(json.data);
+        }
+      } catch (err) {
+        console.error("Failed to load project tasks", err);
+      }
+    };
+    fetchProjectTasks();
+    return () => { mounted = false; };
+  }, [activeProjectId, projectId, workspaceId]);
 
   // Auto-fill expected delivery date when taskId changes or is prefilled
   useEffect(() => {
     const tId = taskId || selectedTaskId;
-    if (tId && tasks.length > 0) {
-      const selected = tasks.find((t) => t.id === tId);
+    if (tId && projectTasks.length > 0) {
+      const selected = projectTasks.find((t) => t.id === tId);
       if (selected?.dueDate) {
         try {
           const dateStr = new Date(selected.dueDate).toISOString().split("T")[0];
@@ -250,12 +329,12 @@ export function CreateIndentForm({
         }
       }
     }
-  }, [taskId, selectedTaskId, tasks]);
+  }, [taskId, selectedTaskId, projectTasks]);
 
   const handleTaskChange = (val: string) => {
     setSelectedTaskId(val);
     if (val) {
-      const selected = tasks.find((t) => t.id === val);
+      const selected = projectTasks.find((t) => t.id === val);
       if (selected?.dueDate) {
         try {
           const dateStr = new Date(selected.dueDate).toISOString().split("T")[0];
@@ -268,7 +347,10 @@ export function CreateIndentForm({
   };
 
   useEffect(() => {
+    if (!shouldLoadCatalog) return;
+
     let mounted = true;
+    setIsLoadingCatalog(true);
     const fetchCatalog = async () => {
       try {
         const res = await fetch(`/api/v1/procurement/vendors/materials/all?w=${workspaceId}`);
@@ -284,7 +366,7 @@ export function CreateIndentForm({
     };
     fetchCatalog();
     return () => { mounted = false; };
-  }, [workspaceId]);
+  }, [workspaceId, shouldLoadCatalog]);
 
   const handleAddRow = () => {
     setLineItems([
@@ -299,14 +381,20 @@ export function CreateIndentForm({
   };
 
   const handleRowChange = (index: number, field: keyof LineItemInput, value: any) => {
-    const updated = [...lineItems];
-    updated[index] = { ...updated[index], [field]: value };
-    setLineItems(updated);
+    setLineItems((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!activeProjectId) {
+      toast.error("Please select a project");
+      return;
+    }
     if (!name.trim()) {
       toast.error("Please enter an indent name");
       return;
@@ -331,7 +419,7 @@ export function CreateIndentForm({
       setIsSubmitting(true);
       const payload = {
         taskId: selectedTaskId || undefined,
-        projectId,
+        projectId: activeProjectId,
         workspaceId,
         name,
         description: description || undefined,
@@ -362,6 +450,10 @@ export function CreateIndentForm({
     }
   };
 
+  if (!mounted) {
+    return null;
+  }
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -387,8 +479,32 @@ export function CreateIndentForm({
         {/* ── LEFT: Indent Details ── */}
         <div className="flex flex-col gap-4 w-[30%] overflow-y-auto pr-2">
 
+          {/* Project Selector (only workspace level) */}
+          {projects && projects.length > 0 && !projectId && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="indent-project" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Project
+              </Label>
+              <select
+                id="indent-project"
+                value={activeProjectId}
+                onChange={(e) => {
+                  setActiveProjectId(e.target.value);
+                  setSelectedTaskId(""); // reset task link when project changes
+                }}
+                disabled={isSubmitting}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="">Select a Project...</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Task Selector */}
-          {!taskId && tasks.length > 0 && (
+          {!taskId && projectTasks.length > 0 && (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="indent-task" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 Link to Subtask (Optional)
@@ -401,7 +517,7 @@ export function CreateIndentForm({
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <option value="">None / Project-level</option>
-                {tasks.map((t) => (
+                {projectTasks.map((t) => (
                   <option key={t.id} value={t.id}>{t.name}</option>
                 ))}
               </select>
@@ -473,68 +589,79 @@ export function CreateIndentForm({
             </Button>
           </div>
 
-          {/* Rows */}
-          <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-3">
-            {lineItems.map((item, index) => (
-              <div
-                key={index}
-                className="grid grid-cols-12 gap-2 items-end border border-border/60 rounded-md p-3 bg-muted/20 group hover:border-border transition-colors"
-              >
-                {/* Material */}
-                <div className="col-span-7 flex flex-col gap-1">
-                  <Label className="text-[10px] font-bold text-muted-foreground">Material Name</Label>
-                  <AutoCompleteInput
-                    value={item.materialName}
-                    onChange={(val) => handleRowChange(index, "materialName", val)}
-                    onUnitAutoFill={(unit) => handleRowChange(index, "unit", unit)}
-                    disabled={isSubmitting}
-                    catalog={catalog}
-                    isLoading={isLoadingCatalog}
-                  />
-                </div>
-
-                {/* Unit */}
-                <div className="col-span-2 flex flex-col gap-1">
-                  <Label className="text-[10px] font-bold text-muted-foreground">Unit</Label>
-                  <Input
-                    placeholder="pcs"
-                    value={item.unit}
-                    onChange={(e) => handleRowChange(index, "unit", e.target.value)}
-                    disabled={isSubmitting}
-                    className="h-8 text-xs"
-                  />
-                </div>
-
-                {/* Qty */}
-                <div className="col-span-2 flex flex-col gap-1">
-                  <Label className="text-[10px] font-bold text-muted-foreground">Qty</Label>
-                  <Input
-                    type="number"
-                    placeholder="10"
-                    value={item.quantity}
-                    onChange={(e) =>
-                      handleRowChange(index, "quantity", e.target.value === "" ? "" : Number(e.target.value))
-                    }
-                    disabled={isSubmitting}
-                    className="h-8 text-xs"
-                  />
-                </div>
-
-                {/* Delete */}
-                <div className="col-span-1 flex justify-center">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleRemoveRow(index)}
-                    disabled={lineItems.length === 1 || isSubmitting}
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-50"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+          {/* Rows Table */}
+          <div className="flex-1 overflow-y-auto pr-1">
+            <Table>
+              <TableHeader className="bg-muted/40">
+                <TableRow>
+                  <TableHead className="text-xs">Material Name</TableHead>
+                  <TableHead className="text-xs w-[90px]">Unit</TableHead>
+                  <TableHead className="text-xs w-[90px]">Qty</TableHead>
+                  <TableHead className="text-xs">Specifications (Optional)</TableHead>
+                  <TableHead className="text-xs text-right w-[50px]"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {lineItems.map((item, index) => (
+                  <TableRow key={index} className="hover:bg-muted/5">
+                    <TableCell className="py-2">
+                      <AutoCompleteInput
+                        value={item.materialName}
+                        currentUnit={item.unit}
+                        onChange={(val) => handleRowChange(index, "materialName", val)}
+                        onUnitAutoFill={(unit) => handleRowChange(index, "unit", unit)}
+                        onFocusTrigger={() => setShouldLoadCatalog(true)}
+                        disabled={isSubmitting}
+                        catalog={catalog}
+                        isLoading={isLoadingCatalog}
+                      />
+                    </TableCell>
+                    <TableCell className="py-2">
+                      <Input
+                        placeholder="pcs"
+                        value={item.unit}
+                        onChange={(e) => handleRowChange(index, "unit", e.target.value)}
+                        disabled={isSubmitting}
+                        className="h-8 text-xs bg-background"
+                      />
+                    </TableCell>
+                    <TableCell className="py-2">
+                      <Input
+                        type="number"
+                        placeholder="10"
+                        value={item.quantity}
+                        onChange={(e) =>
+                          handleRowChange(index, "quantity", e.target.value === "" ? "" : Number(e.target.value))
+                        }
+                        disabled={isSubmitting}
+                        className="h-8 text-xs bg-background font-mono"
+                      />
+                    </TableCell>
+                    <TableCell className="py-2">
+                      <Input
+                        placeholder="e.g. Grade 500D"
+                        value={item.specifications || ""}
+                        onChange={(e) => handleRowChange(index, "specifications", e.target.value)}
+                        disabled={isSubmitting}
+                        className="h-8 text-xs bg-background text-muted-foreground"
+                      />
+                    </TableCell>
+                    <TableCell className="text-right py-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleRemoveRow(index)}
+                        disabled={lineItems.length === 1 || isSubmitting}
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
         </div>
       </div>
