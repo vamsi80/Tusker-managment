@@ -1,0 +1,56 @@
+import { requireUser } from "@/lib/auth/require-user";
+import db from "@/lib/db";
+import { redirect } from "next/navigation";
+import { CreateWorkspaceIndentClient } from "./_components/create-workspace-indent-client";
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
+
+interface PageProps {
+  params: Promise<{
+    workspaceId: string;
+  }>;
+}
+
+export default async function WorkspaceProcurementCreateIndent({ params }: PageProps) {
+  const { workspaceId } = await params;
+  const user = await requireUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  // Fetch active projects for this workspace to populate the selector
+  const projects = await db.project.findMany({
+    where: {
+      workspaceId,
+    },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+    },
+    orderBy: {
+      name: "asc",
+    },
+  });
+
+  return (
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden h-full">
+      {/* Back breadcrumb */}
+      <div className="shrink-0 px-4 py-3 border-b border-border/50 bg-background flex items-center gap-2">
+        <Link
+          href={`/w/${workspaceId}/procurement/indents`}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Back to Indents Registry
+        </Link>
+      </div>
+
+      {/* Form wrapper */}
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <CreateWorkspaceIndentClient workspaceId={workspaceId} projects={projects} />
+      </div>
+    </div>
+  );
+}

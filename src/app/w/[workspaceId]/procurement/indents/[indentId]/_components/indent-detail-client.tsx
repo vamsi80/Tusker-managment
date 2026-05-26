@@ -23,8 +23,16 @@ import {
   Package,
   FileText,
   FileCheck,
+  Edit,
+  Trash2,
+  Save,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
+import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
+
+const UNITS = ["pcs", "kg", "meter", "box", "bag", "ton", "liter", "sqft", "cum"];
 
 interface IndentDetailClientProps {
   workspaceId: string;
@@ -33,12 +41,45 @@ interface IndentDetailClientProps {
 
 export function IndentDetailClient({ workspaceId, indent: initialIndent }: IndentDetailClientProps) {
   const router = useRouter();
+  const { data: workspaceData } = useWorkspaceLayout();
+  const workspaceRole = workspaceData?.permissions?.workspaceRole;
+  const isApprover = workspaceRole === "OWNER" || workspaceRole === "ADMIN" || workspaceRole === "MANAGER";
+
   const [indent, setIndent] = useState(initialIndent);
   const [isPending, startTransition] = useTransition();
+
+  const canEdit = indent.status === "DRAFT" || (isApprover && (indent.status === "SUBMITTED" || indent.status === "ASSIGNED"));
+
+  // Edit row states
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editMaterialName, setEditMaterialName] = useState("");
+  const [editQuantity, setEditQuantity] = useState(0);
+  const [editUnit, setEditUnit] = useState("pcs");
+  const [editSpecifications, setEditSpecifications] = useState("");
+
+  // Add row states
+  const [addMaterialName, setAddMaterialName] = useState("");
+  const [addQuantity, setAddQuantity] = useState(1);
+  const [addUnit, setAddUnit] = useState("pcs");
+  const [addSpecifications, setAddSpecifications] = useState("");
 
   useEffect(() => {
     setIndent(initialIndent);
   }, [initialIndent]);
+
+  const showErrorToast = (errPayload: any, fallback: string) => {
+    if (!errPayload) {
+      toast.error(fallback);
+      return;
+    }
+    if (typeof errPayload === "string") {
+      toast.error(errPayload);
+    } else if (errPayload && typeof errPayload.message === "string") {
+      toast.error(errPayload.message);
+    } else {
+      toast.error(fallback);
+    }
+  };
 
   const getIndentStatusBadge = (status: string) => {
     switch (status) {
@@ -64,12 +105,11 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
         const data = await res.json();
         if (data.success) {
           toast.success("Indent approved successfully");
-          // Re-fetch or update state
           const updated = { ...indent, status: "APPROVED" };
           setIndent(updated);
           router.refresh();
         } else {
-          toast.error(data.error || "Failed to approve indent");
+          showErrorToast(data.error, "Failed to approve indent");
         }
       } catch (error) {
         toast.error("Request failed");
@@ -98,9 +138,144 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
           setIndent(updated);
           router.refresh();
         } else {
-          toast.error(data.error || "Failed to reject indent");
+          showErrorToast(data.error, "Failed to reject indent");
         }
       } catch (error) {
+        toast.error("Request failed");
+      }
+    });
+  };
+
+  const handleSubmitForApproval = async () => {
+    if (!indent.lineItems || indent.lineItems.length === 0) {
+      toast.error("Cannot submit an empty indent. Please add at least one material.");
+      return;
+    }
+    startTransition(async () => {
+      try {
+        const res = await fetch(`/api/v1/procurement/indents/${indent.id}/submit?w=${workspaceId}`, {
+          method: "POST",
+        });
+        const data = await res.json();
+        if (data.success) {
+          toast.success("Indent submitted for approval");
+          const updated = { ...indent, status: "SUBMITTED" };
+          setIndent(updated);
+          router.refresh();
+        } else {
+          showErrorToast(data.error, "Failed to submit indent");
+        }
+      } catch (error) {
+        toast.error("Request failed");
+      }
+    });
+  };
+
+  const handleEditStart = (item: any) => {
+    setEditingItemId(item.id);
+    setEditMaterialName(item.materialName);
+    setEditQuantity(item.quantity);
+    setEditUnit(item.unit || "pcs");
+    setEditSpecifications(item.specifications || "");
+  };
+
+  const handleEditCancel = () => {
+    setEditingItemId(null);
+  };
+
+  const handleEditSave = async (itemId: string) => {
+    if (!editMaterialName.trim()) {
+      toast.error("Material name is required");
+      return;
+    }
+    if (editQuantity <= 0) {
+      toast.error("Quantity must be greater than 0");
+      return;
+    }
+    startTransition(async () => {
+      try {
+        const res = await fetch(`/api/v1/procurement/indents/${indent.id}/items/${itemId}?w=${workspaceId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            materialName: editMaterialName.trim(),
+            quantity: Number(editQuantity),
+            unit: editUnit.trim(),
+            specifications: editSpecifications.trim() || null,
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          toast.success("Material updated");
+          const updatedItems = indent.lineItems.map((li: any) =>
+            li.id === itemId ? data.data : li
+          );
+          setIndent({ ...indent, lineItems: updatedItems });
+          setEditingItemId(null);
+        } else {
+          showErrorToast(data.error, "Failed to update item");
+        }
+      } catch (err) {
+        toast.error("Request failed");
+      }
+    });
+  };
+
+  const handleDeleteItem = async (itemId: string) => {
+    if (!window.confirm("Are you sure you want to remove this material from the indent?")) return;
+    startTransition(async () => {
+      try {
+        const res = await fetch(`/api/v1/procurement/indents/${indent.id}/items/${itemId}?w=${workspaceId}`, {
+          method: "DELETE",
+        });
+        const data = await res.json();
+        if (data.success) {
+          toast.success("Material removed");
+          const updatedItems = indent.lineItems.filter((li: any) => li.id !== itemId);
+          setIndent({ ...indent, lineItems: updatedItems });
+        } else {
+          showErrorToast(data.error, "Failed to delete item");
+        }
+      } catch (err) {
+        toast.error("Request failed");
+      }
+    });
+  };
+
+  const handleAddItem = async () => {
+    if (!addMaterialName.trim()) {
+      toast.error("Material name is required");
+      return;
+    }
+    if (addQuantity <= 0) {
+      toast.error("Quantity must be greater than 0");
+      return;
+    }
+    startTransition(async () => {
+      try {
+        const res = await fetch(`/api/v1/procurement/indents/${indent.id}/items?w=${workspaceId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            materialName: addMaterialName.trim(),
+            quantity: Number(addQuantity),
+            unit: addUnit.trim(),
+            specifications: addSpecifications.trim() || undefined,
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          toast.success("Material added to indent");
+          const updatedItems = [...(indent.lineItems || []), data.data];
+          setIndent({ ...indent, lineItems: updatedItems });
+          setAddMaterialName("");
+          setAddQuantity(1);
+          setAddUnit("pcs");
+          setAddSpecifications("");
+        } else {
+          showErrorToast(data.error, "Failed to add item");
+        }
+      } catch (err) {
         toast.error("Request failed");
       }
     });
@@ -147,6 +322,17 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
               className="h-8 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white"
             >
               <Check className="mr-1.5 h-3.5 w-3.5" /> Approve
+            </Button>
+          </div>
+        )}
+        {indent.status === "DRAFT" && (
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={handleSubmitForApproval}
+              disabled={isPending}
+              className="h-8 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5"
+            >
+              <FileCheck className="h-3.5 w-3.5" /> Submit for Approval
             </Button>
           </div>
         )}
@@ -241,31 +427,189 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
                 <TableHeader className="bg-muted/30">
                   <TableRow>
                     <TableHead className="text-xs">Material Name</TableHead>
-                    <TableHead className="text-xs">Quantity</TableHead>
+                    <TableHead className="text-xs w-[180px]">Quantity</TableHead>
                     <TableHead className="text-xs">Specifications</TableHead>
-                    <TableHead className="text-xs text-right">Status</TableHead>
+                    <TableHead className="text-xs">Status</TableHead>
+                    {canEdit && <TableHead className="text-xs text-right w-[100px]">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {indent.lineItems?.map((item: any) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-semibold text-xs text-foreground py-2.5">
-                        {item.materialName}
+                  {indent.lineItems?.map((item: any) => {
+                    const isEditing = editingItemId === item.id;
+                    return (
+                      <TableRow key={item.id}>
+                        {isEditing ? (
+                          <>
+                            <TableCell className="py-2">
+                              <Input
+                                value={editMaterialName}
+                                onChange={(e) => setEditMaterialName(e.target.value)}
+                                className="h-8 text-xs font-semibold"
+                                disabled={isPending}
+                              />
+                            </TableCell>
+                            <TableCell className="py-2">
+                              <div className="flex items-center gap-1.5">
+                                <Input
+                                  type="number"
+                                  value={editQuantity}
+                                  onChange={(e) => setEditQuantity(Number(e.target.value))}
+                                  className="h-8 w-20 text-xs font-mono"
+                                  disabled={isPending}
+                                />
+                                <select
+                                  value={editUnit}
+                                  onChange={(e) => setEditUnit(e.target.value)}
+                                  className="h-8 rounded-md border border-input bg-transparent px-2 text-xs"
+                                  disabled={isPending}
+                                >
+                                  {UNITS.map((u) => (
+                                    <option key={u} value={u}>{u}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-2">
+                              <Input
+                                value={editSpecifications}
+                                onChange={(e) => setEditSpecifications(e.target.value)}
+                                className="h-8 text-xs text-muted-foreground"
+                                disabled={isPending}
+                              />
+                            </TableCell>
+                            <TableCell className="py-2 align-middle">
+                              <Badge variant="secondary" className="text-[10px] font-semibold">
+                                {item.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right py-2">
+                              <div className="flex justify-end gap-1.5">
+                                <Button
+                                  size="icon"
+                                  variant="outline"
+                                  onClick={handleEditCancel}
+                                  disabled={isPending}
+                                  className="h-7 w-7 text-red-600 hover:bg-red-50"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  onClick={() => handleEditSave(item.id)}
+                                  disabled={isPending}
+                                  className="h-7 w-7 bg-emerald-600 hover:bg-emerald-700 text-white"
+                                >
+                                  <Check className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </>
+                        ) : (
+                          <>
+                            <TableCell className="font-semibold text-xs text-foreground py-2.5">
+                              {item.materialName}
+                            </TableCell>
+                            <TableCell className="font-mono text-xs text-foreground py-2.5">
+                              {item.quantity} {item.unit}
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground py-2.5 max-w-[200px] truncate">
+                              {item.specifications || "—"}
+                            </TableCell>
+                            <TableCell className="py-2.5 align-middle">
+                              <Badge variant="secondary" className="text-[10px] font-semibold">
+                                {item.status}
+                              </Badge>
+                            </TableCell>
+                            {canEdit && (
+                              <TableCell className="text-right py-2.5">
+                                <div className="flex justify-end gap-1.5">
+                                  <Button
+                                    size="icon"
+                                    variant="outline"
+                                    onClick={() => handleEditStart(item)}
+                                    disabled={isPending}
+                                    className="h-7 w-7 text-blue-600 hover:bg-blue-50"
+                                  >
+                                    <Edit className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button
+                                    size="icon"
+                                    variant="outline"
+                                    onClick={() => handleDeleteItem(item.id)}
+                                    disabled={isPending}
+                                    className="h-7 w-7 text-red-600 hover:bg-red-50"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            )}
+                          </>
+                        )}
+                      </TableRow>
+                    );
+                  })}
+
+                  {/* Add row form at the bottom */}
+                  {canEdit && (
+                    <TableRow className="bg-muted/10 hover:bg-muted/10">
+                      <TableCell className="py-2">
+                        <Input
+                          placeholder="Add new material name..."
+                          value={addMaterialName}
+                          onChange={(e) => setAddMaterialName(e.target.value)}
+                          className="h-8 text-xs font-semibold"
+                          disabled={isPending}
+                        />
                       </TableCell>
-                      <TableCell className="font-mono text-xs text-foreground py-2.5">
-                        {item.quantity} {item.unit}
+                      <TableCell className="py-2">
+                        <div className="flex items-center gap-1.5">
+                          <Input
+                            type="number"
+                            min={1}
+                            value={addQuantity}
+                            onChange={(e) => setAddQuantity(Number(e.target.value))}
+                            className="h-8 w-20 text-xs font-mono"
+                            disabled={isPending}
+                          />
+                          <select
+                            value={addUnit}
+                            onChange={(e) => setAddUnit(e.target.value)}
+                            className="h-8 rounded-md border border-input bg-transparent px-2 text-xs"
+                            disabled={isPending}
+                          >
+                            {UNITS.map((u) => (
+                              <option key={u} value={u}>{u}</option>
+                            ))}
+                          </select>
+                        </div>
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground py-2.5 max-w-[200px] truncate">
-                        {item.specifications || "—"}
+                      <TableCell className="py-2">
+                        <Input
+                          placeholder="Specifications (optional)..."
+                          value={addSpecifications}
+                          onChange={(e) => setAddSpecifications(e.target.value)}
+                          className="h-8 text-xs text-muted-foreground"
+                          disabled={isPending}
+                        />
                       </TableCell>
-                      <TableCell className="text-right py-2.5">
-                        <Badge variant="secondary" className="text-[10px] font-semibold">
-                          {item.status}
-                        </Badge>
+                      <TableCell className="py-2 text-muted-foreground text-[10px] italic align-middle">
+                        Pending
+                      </TableCell>
+                      <TableCell className="text-right py-2">
+                        <Button
+                          size="sm"
+                          onClick={handleAddItem}
+                          disabled={isPending}
+                          className="h-8 text-xs px-3 bg-primary hover:bg-primary/90 flex items-center gap-1"
+                        >
+                          <Plus className="h-3.5 w-3.5" /> Add
+                        </Button>
                       </TableCell>
                     </TableRow>
-                  ))}
-                  {(!indent.lineItems || indent.lineItems.length === 0) && (
+                  )}
+
+                  {(!indent.lineItems || indent.lineItems.length === 0) && !canEdit && (
                     <TableRow>
                       <TableCell colSpan={4} className="h-24 text-center text-xs text-muted-foreground">
                         No materials found in this indent.
