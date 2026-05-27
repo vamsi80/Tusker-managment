@@ -241,6 +241,22 @@ interface LineItemInput {
   specifications?: string;
 }
 
+const FALLBACK_UNITS = [
+  { abbreviation: "pcs", name: "Pieces" },
+  { abbreviation: "nos", name: "Numbers" },
+  { abbreviation: "kg", name: "Kilogram" },
+  { abbreviation: "ton", name: "Tonne" },
+  { abbreviation: "gm", name: "Gram" },
+  { abbreviation: "ltr", name: "Litre" },
+  { abbreviation: "ml", name: "Millilitre" },
+  { abbreviation: "mtr", name: "Metre" },
+  { abbreviation: "ft", name: "Feet" },
+  { abbreviation: "sqft", name: "Square Feet" },
+  { abbreviation: "bag", name: "Bag" },
+  { abbreviation: "box", name: "Box" },
+  { abbreviation: "roll", name: "Roll" },
+];
+
 interface CreateIndentFormProps {
   taskId?: string;
   projectId?: string;
@@ -286,6 +302,7 @@ export function CreateIndentForm({
   ]);
   const [shouldLoadCatalog, setShouldLoadCatalog] = useState(false);
   const [catalog, setCatalog] = useState<any[]>([]);
+  const [units, setUnits] = useState<{ abbreviation: string; name: string }[]>([]);
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(false);
 
   // Dynamic fetch of project tasks if we change projects at workspace level
@@ -356,20 +373,30 @@ export function CreateIndentForm({
 
     let mounted = true;
     setIsLoadingCatalog(true);
-    const fetchCatalog = async () => {
+    const fetchCatalogAndUnits = async () => {
       try {
-        const res = await fetch(`/api/v1/procurement/vendors/materials/all?w=${workspaceId}`);
-        const json = await res.json();
-        if (mounted && json.success && json.data) {
-          setCatalog(json.data);
+        const [catalogRes, unitsRes] = await Promise.all([
+          fetch(`/api/v1/procurement/vendors/materials/all?w=${workspaceId}`),
+          fetch(`/api/v1/procurement/indents/units?w=${workspaceId}`)
+        ]);
+        const catalogJson = await catalogRes.json();
+        const unitsJson = await unitsRes.json();
+
+        if (mounted) {
+          if (catalogJson.success && catalogJson.data) {
+            setCatalog(catalogJson.data);
+          }
+          if (unitsJson.success && unitsJson.data) {
+            setUnits(unitsJson.data);
+          }
         }
       } catch (err) {
-        console.error("Failed to load catalog", err);
+        console.error("Failed to load catalog or units", err);
       } finally {
         if (mounted) setIsLoadingCatalog(false);
       }
     };
-    fetchCatalog();
+    fetchCatalogAndUnits();
     return () => { mounted = false; };
   }, [workspaceId, shouldLoadCatalog]);
 
@@ -459,6 +486,8 @@ export function CreateIndentForm({
   if (!mounted) {
     return null;
   }
+
+  const displayedUnits = units.length > 0 ? units : FALLBACK_UNITS;
 
   return (
     <form
@@ -641,13 +670,18 @@ export function CreateIndentForm({
                       />
                     </TableCell>
                     <TableCell className="py-2">
-                      <Input
-                        placeholder="pcs"
+                      <select
                         value={item.unit}
                         onChange={(e) => handleRowChange(index, "unit", e.target.value)}
                         disabled={isSubmitting}
-                        className="h-8 text-xs bg-background"
-                      />
+                        className="flex h-8 w-full rounded-md border border-input bg-background text-foreground px-2 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {displayedUnits.map((u) => (
+                          <option key={u.abbreviation} value={u.abbreviation} className="bg-background text-foreground">
+                            {u.abbreviation.toUpperCase()} ({u.name})
+                          </option>
+                        ))}
+                      </select>
                     </TableCell>
                     <TableCell className="py-2">
                       <Input

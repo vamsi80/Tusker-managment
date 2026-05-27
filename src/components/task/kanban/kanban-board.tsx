@@ -612,10 +612,10 @@ export function KanbanBoard({
 
     const previousStatus = currentStatus;
 
-    // 1. HARD BLOCK for IN_PROGRESS -> COMPLETED (Must go to REVIEW first)
-    if (previousStatus === "IN_PROGRESS" && newStatus === "COMPLETED") {
+    // 1. HARD BLOCK: COMPLETED status can only be reached from REVIEW
+    if (newStatus === "COMPLETED" && previousStatus !== "REVIEW") {
       toast.error(
-        "In-Progress tasks must go to Review before being marked as Completed.",
+        "Before marking a task as Completed, you must first move it to Review status.",
         { id: "status-block" },
       );
       return;
@@ -623,7 +623,7 @@ export function KanbanBoard({
 
     const isMandatory =
       ["HOLD", "CANCELLED", "REVIEW"].includes(newStatus) ||
-      ["HOLD", "CANCELLED"].includes(previousStatus) ||
+      ["HOLD", "CANCELLED", "COMPLETED"].includes(previousStatus) ||
       (previousStatus === "REVIEW" &&
         (newStatus === "TO_DO" || newStatus === "IN_PROGRESS")) ||
       (previousStatus === "IN_PROGRESS" && newStatus === "TO_DO");
@@ -810,9 +810,9 @@ export function KanbanBoard({
     currentStatus: TaskStatus,
   ) => {
     // Re-use the same validation logic as handleDragEnd
-    if (currentStatus === "IN_PROGRESS" && newStatus === "COMPLETED") {
+    if (newStatus === "COMPLETED" && currentStatus !== "REVIEW") {
       toast.error(
-        "In-Progress tasks must go to Review before being marked as Completed.",
+        "Before marking a task as Completed, you must first move it to Review status.",
         { id: "status-block" },
       );
       return;
@@ -820,7 +820,7 @@ export function KanbanBoard({
 
     const isMandatory =
       ["HOLD", "CANCELLED", "REVIEW"].includes(newStatus) ||
-      ["HOLD", "CANCELLED"].includes(currentStatus) ||
+      ["HOLD", "CANCELLED", "COMPLETED"].includes(currentStatus) ||
       (currentStatus === "REVIEW" &&
         (newStatus === "TO_DO" || newStatus === "IN_PROGRESS")) ||
       (currentStatus === "IN_PROGRESS" && newStatus === "TO_DO");

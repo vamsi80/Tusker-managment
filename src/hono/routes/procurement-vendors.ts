@@ -67,13 +67,18 @@ procurementVendors.get("/materials/all", async (c) => {
 
   const catalog = await prisma.materialCatalog.findMany({
     where: { workspaceId },
+    include: { defaultUnit: true },
     orderBy: { name: "asc" },
   });
 
   const formatted = catalog.map((m) => ({
     id: m.id,
     name: m.name,
-    defaultUnit: m.unit ? { abbreviation: m.unit } : null,
+    defaultUnit: m.defaultUnit
+      ? { abbreviation: m.defaultUnit.abbreviation, name: m.defaultUnit.name }
+      : m.unit
+        ? { abbreviation: m.unit }
+        : null,
   }));
 
   return c.json({ success: true, data: formatted });

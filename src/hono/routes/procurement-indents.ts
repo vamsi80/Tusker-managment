@@ -53,6 +53,32 @@ const AssignIndentSchema = z.object({
 });
 
 /**
+ * GET /api/v1/procurement/indents/units
+ * List all active units of measure in a workspace
+ */
+procurementIndents.get("/units", async (c) => {
+  const user = c.get("user");
+  const workspaceId = c.req.query("w");
+
+  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+
+  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  if (!perms.hasAccess) {
+    throw AppError.Forbidden("Access denied to this workspace");
+  }
+
+  const units = await prisma.unitOfMeasure.findMany({
+    where: { workspaceId },
+    orderBy: [
+      { isDefault: "desc" },
+      { abbreviation: "asc" }
+    ]
+  });
+
+  return c.json({ success: true, data: units });
+});
+
+/**
  * GET /api/v1/procurement/indents
  * List all indents in workspace
  */
@@ -130,7 +156,6 @@ procurementIndents.get("/line-items", async (c) => {
               user: {
                 select: {
                   id: true,
-                  name: true,
                   surname: true,
                 },
               },
