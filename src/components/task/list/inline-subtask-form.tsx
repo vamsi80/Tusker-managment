@@ -186,10 +186,12 @@ export function InlineSubTaskForm({
     const getRoleShortcut = (role: string): string => {
         const shortcuts: Record<string, string> = {
             'PROJECT_MANAGER': 'PM',
-            'LEAD': 'LEAD',
+            'PROJECT_COORDINATOR': 'CO',
+            'LEAD': 'LD',
             'OWNER': 'OWN',
             'ADMIN': 'ADM',
             'MEMBER': 'MBR',
+            'VIEWER': 'VWR',
         };
         return shortcuts[role] || role;
     };
@@ -409,7 +411,7 @@ export function InlineSubTaskForm({
                                 .map((member) => (
                                     <SelectItem key={member.userId} value={member.userId}>
                                         <span className="truncate block">
-                                            {member.user.surname || member.user.name} ({getRoleShortcut(member.workspaceRole || member.projectRole)})
+                                            {member.user.surname || member.user.name} ({getRoleShortcut(member.projectRole || member.workspaceRole || '')})
                                         </span>
                                     </SelectItem>
                                 ))}

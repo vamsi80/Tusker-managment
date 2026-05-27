@@ -2,14 +2,13 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { 
-  Plus, 
-  Trash2, 
-  Loader2, 
-  CheckCircle2, 
-  Circle, 
+import {
+  Plus,
+  Trash2,
+  Loader2,
+  CheckCircle2,
+  Circle,
   Check,
   GripVertical
 } from "lucide-react";
@@ -123,8 +122,8 @@ function TodoItem({
           <GripVertical className="h-4 w-4" />
         </div>
       )}
-      
-      <button 
+
+      <button
         onClick={() => handleToggleTodo(todo.id)}
         className={cn(
           "mt-1 shrink-0 transition-all active:scale-90",
@@ -133,7 +132,7 @@ function TodoItem({
       >
         {todo.completed ? <CheckCircle2 className="h-4.5 w-4.5" /> : <Circle className="h-4.5 w-4.5 stroke-[2px]" />}
       </button>
-      
+
       <div className="flex-1 min-w-0">
         {editingId === todo.id ? (
           <div className="flex items-center gap-2">
@@ -164,7 +163,7 @@ function TodoItem({
             </button>
           </div>
         ) : (
-          <p 
+          <p
             onClick={() => {
               if (!todo.completed) {
                 setEditingId(todo.id);
@@ -200,10 +199,10 @@ function TodoItem({
   );
 }
 
-export function PersonalListContainer({ 
-  workspaceId, 
-  hideHeader = false 
-}: { 
+export function PersonalListContainer({
+  workspaceId,
+  hideHeader = false
+}: {
   workspaceId: string;
   hideHeader?: boolean;
 }) {
@@ -368,7 +367,7 @@ export function PersonalListContainer({
       const reorderedActive = arrayMove(activeList, oldIndex, newIndex);
       const completedList = todos.filter(t => t.completed);
       const newTodos = [...reorderedActive, ...completedList];
-      
+
       setTodos(newTodos);
 
       try {
@@ -412,49 +411,49 @@ export function PersonalListContainer({
           {/* Column 1: Active Tasks + Input */}
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2 mb-4">
-               <span className="text-xs font-bold uppercase tracking-widest text-primary">Ongoing</span>
-               <div className="h-px flex-1 bg-primary/30" />
+              <span className="text-xs font-bold uppercase tracking-widest text-primary">Ongoing</span>
+              <div className="h-px flex-1 bg-primary/30" />
             </div>
 
             {/* Input Row */}
             <div className="group flex items-start gap-3 py-1.5 transition-all mb-2">
-               <div className="mt-1 shrink-0 text-muted-foreground/50">
-                 {isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4.5 w-4.5 stroke-[2px]" />}
-               </div>
-               <form onSubmit={handleAddTodo} className="flex-1 flex items-center gap-2">
-                 <textarea
-                   placeholder="Add a new task..."
-                   value={newTodoText}
-                   onChange={(e) => setNewTodoText(e.target.value)}
-                   onKeyDown={(e) => {
-                     const isMobile = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
-                     if (e.key === "Enter" && !e.shiftKey && !isMobile) {
-                       e.preventDefault();
-                       if (newTodoText.trim() && !isAdding) {
-                         handleAddTodo(e);
-                       }
-                     }
-                   }}
-                   disabled={isAdding}
-                   rows={1}
-                   className="w-full bg-transparent border-0 focus:ring-0 text-base font-medium placeholder:text-muted-foreground/50 resize-none min-h-[24px] max-h-[120px] overflow-y-auto scrollbar-none flex-1 focus-visible:ring-0 shadow-none p-0 focus:outline-none"
-                   style={{ height: "auto" }}
-                   ref={(el) => {
-                     if (el) {
-                       el.style.height = "auto";
-                       el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
-                     }
-                   }}
-                 />
-                 {newTodoText.trim() && !isAdding && (
-                   <button 
-                     type="submit"
-                     className="p-1 rounded-lg bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-all active:scale-90 animate-in fade-in slide-in-from-right-2 duration-200"
-                   >
-                     <Check className="h-4 w-4 stroke-[2.5px]" />
-                   </button>
-                 )}
-               </form>
+              <div className="mt-1 shrink-0 text-muted-foreground/50">
+                {isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4.5 w-4.5 stroke-[2px]" />}
+              </div>
+              <form onSubmit={handleAddTodo} className="flex-1 flex items-center gap-2">
+                <textarea
+                  placeholder="Add a new task..."
+                  value={newTodoText}
+                  onChange={(e) => setNewTodoText(e.target.value)}
+                  onKeyDown={(e) => {
+                    const isMobile = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+                    if (e.key === "Enter" && !e.shiftKey && !isMobile) {
+                      e.preventDefault();
+                      if (newTodoText.trim() && !isAdding) {
+                        handleAddTodo(e);
+                      }
+                    }
+                  }}
+                  disabled={isAdding}
+                  rows={1}
+                  className="w-full bg-transparent border-0 focus:ring-0 text-base font-medium placeholder:text-muted-foreground/50 resize-none min-h-[24px] max-h-[120px] overflow-y-auto scrollbar-none flex-1 focus-visible:ring-0 shadow-none p-0 focus:outline-none"
+                  style={{ height: "auto" }}
+                  ref={(el) => {
+                    if (el) {
+                      el.style.height = "auto";
+                      el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+                    }
+                  }}
+                />
+                {newTodoText.trim() && !isAdding && (
+                  <button
+                    type="submit"
+                    className="p-1 rounded-lg bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-all active:scale-90 animate-in fade-in slide-in-from-right-2 duration-200"
+                  >
+                    <Check className="h-4 w-4 stroke-[2.5px]" />
+                  </button>
+                )}
+              </form>
             </div>
 
             <ScrollArea className="flex-1">
@@ -483,10 +482,10 @@ export function PersonalListContainer({
           {/* Column 2: Completed Tasks */}
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2 mb-4">
-               <span className="text-xs font-bold uppercase tracking-widest text-emerald-500/80">Completed</span>
-               <div className="h-px flex-1 bg-emerald-500/20" />
+              <span className="text-xs font-bold uppercase tracking-widest text-emerald-500/80">Completed</span>
+              <div className="h-px flex-1 bg-emerald-500/20" />
             </div>
-            
+
             <ScrollArea className="flex-1">
               <div className="flex flex-col px-2">
                 {completedTodos.length === 0 ? (
@@ -508,14 +507,14 @@ export function PersonalListContainer({
               {pendingAction?.type === 'delete' ? "Delete Task?" : "Restore Task?"}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-base font-medium text-muted-foreground">
-              {pendingAction?.type === 'delete' 
-                ? "This action cannot be undone. This task will be permanently removed from your personal space." 
+              {pendingAction?.type === 'delete'
+                ? "This action cannot be undone. This task will be permanently removed from your personal space."
                 : "This task will be moved back to your ongoing list."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2">
             <AlertDialogCancel className="rounded-xl border-none bg-muted hover:bg-muted/80 font-bold">Cancel</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={handleConfirmAction}
               className={cn(
                 "rounded-xl font-bold",

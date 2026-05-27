@@ -6,6 +6,8 @@ import { CreateIndentForm } from "./create-indent-form";
 interface CreateIndentPageClientProps {
   workspaceId: string;
   projectId: string;
+  projectName?: string;
+  lockedProject?: boolean;
   slug: string;
   tasks: { id: string; name: string; taskSlug: string; dueDate?: Date | null }[];
   prefilledTaskId?: string;
@@ -14,6 +16,8 @@ interface CreateIndentPageClientProps {
 export function CreateIndentPageClient({
   workspaceId,
   projectId,
+  projectName,
+  lockedProject,
   slug,
   tasks,
   prefilledTaskId,
@@ -24,6 +28,8 @@ export function CreateIndentPageClient({
     <div className="h-full">
       <CreateIndentForm
         projectId={projectId}
+        projectName={projectName}
+        lockedProject={lockedProject}
         workspaceId={workspaceId}
         taskId={prefilledTaskId}
         tasks={tasks}

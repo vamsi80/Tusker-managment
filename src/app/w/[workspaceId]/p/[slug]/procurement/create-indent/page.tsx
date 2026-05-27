@@ -89,6 +89,8 @@ async function CreateIndentServer({
     <CreateIndentPageClient
       workspaceId={workspaceId}
       projectId={project.id}
+      projectName={project.name}
+      lockedProject={true}
       slug={slug}
       tasks={tasks}
       prefilledTaskId={taskId}

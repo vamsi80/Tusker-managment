@@ -102,6 +102,7 @@ export function TaskTableBody({
     userId,
     isWorkspaceAdmin,
     leadProjectIds,
+    coordinatorProjectIds,
     projects,
     projectMap,
     tags,
@@ -150,6 +151,7 @@ export function TaskTableBody({
               userId={userId}
               isWorkspaceAdmin={isWorkspaceAdmin}
               leadProjectIds={leadProjectIds}
+              coordinatorProjectIds={coordinatorProjectIds}
               projects={projects}
               projectMap={projectMap}
               onRequestSubtasks={handleRequestSubtasks}
@@ -234,6 +236,7 @@ export function TaskTableBody({
                       userId={userId}
                       isWorkspaceAdmin={isWorkspaceAdmin}
                       leadProjectIds={leadProjectIds}
+                      coordinatorProjectIds={coordinatorProjectIds}
                       projects={projects}
                       scrollContainerRef={scrollContainerRef}
                     />
@@ -252,6 +255,7 @@ export function TaskTableBody({
                         userId={userId}
                         isWorkspaceAdmin={isWorkspaceAdmin}
                         leadProjectIds={leadProjectIds}
+                        coordinatorProjectIds={coordinatorProjectIds}
                         projects={projects}
                         projectMap={projectMap}
                       />
@@ -275,6 +279,7 @@ export function TaskTableBody({
           userId={userId}
           isWorkspaceAdmin={isWorkspaceAdmin}
           leadProjectIds={leadProjectIds}
+          coordinatorProjectIds={coordinatorProjectIds}
           projects={projects}
           onRequestSubtasks={handleRequestSubtasks}
           getCachedSubTasks={getCachedSubTasks}

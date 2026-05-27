@@ -808,6 +808,7 @@ enum ProjectRole {
   MEMBER
   VIEWER
   PROJECT_MANAGER
+  PROJECT_COORDINATOR
 }
 
 enum TaskStatus {

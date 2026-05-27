@@ -244,6 +244,8 @@ interface LineItemInput {
 interface CreateIndentFormProps {
   taskId?: string;
   projectId?: string;
+  projectName?: string;
+  lockedProject?: boolean;
   workspaceId: string;
   tasks?: { id: string; name: string; taskSlug?: string; dueDate?: Date | string | null }[];
   projects?: { id: string; name: string; slug: string }[];
@@ -257,6 +259,8 @@ interface CreateIndentFormProps {
 export function CreateIndentForm({
   taskId,
   projectId = "",
+  projectName = "",
+  lockedProject = false,
   workspaceId,
   tasks = [],
   projects = [],
@@ -270,6 +274,7 @@ export function CreateIndentForm({
   }, []);
 
   const [activeProjectId, setActiveProjectId] = useState(projectId);
+  const [projectError, setProjectError] = useState("");
   const [projectTasks, setProjectTasks] = useState(tasks);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -392,6 +397,7 @@ export function CreateIndentForm({
     e.preventDefault();
 
     if (!activeProjectId) {
+      setProjectError("Please select a project");
       toast.error("Please select a project");
       return;
     }
@@ -479,29 +485,47 @@ export function CreateIndentForm({
         {/* ── LEFT: Indent Details ── */}
         <div className="flex flex-col gap-4 w-[30%] overflow-y-auto pr-2">
 
-          {/* Project Selector (only workspace level) */}
-          {projects && projects.length > 0 && !projectId && (
+          {/* Project Selector (only workspace level or locked display) */}
+          {lockedProject && activeProjectId ? (
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                Project <span className="text-destructive">*</span>
+              </Label>
+              <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-border/80 bg-muted/40 text-xs font-semibold text-muted-foreground">
+                <span>{projectName || "Selected Project"}</span>
+                <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-muted-foreground/80 bg-muted px-1.5 py-0.5 rounded border border-border/50 flex items-center gap-1">
+                  🔒 Locked
+                </span>
+              </div>
+            </div>
+          ) : projects && projects.length > 0 ? (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="indent-project" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Project
+                Project <span className="text-destructive">*</span>
               </Label>
               <select
                 id="indent-project"
                 value={activeProjectId}
                 onChange={(e) => {
                   setActiveProjectId(e.target.value);
+                  setProjectError("");
                   setSelectedTaskId(""); // reset task link when project changes
                 }}
                 disabled={isSubmitting}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                className={`flex h-9 w-full rounded-md border ${
+                  projectError ? "border-destructive focus-visible:ring-destructive" : "border-input"
+                } bg-transparent px-3 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50`}
               >
                 <option value="">Select a Project...</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
+              {projectError && (
+                <p className="text-[11px] text-destructive font-medium mt-0.5">{projectError}</p>
+              )}
             </div>
-          )}
+          ) : null}
 
           {/* Task Selector */}
           {!taskId && projectTasks.length > 0 && (

@@ -40,6 +40,7 @@ interface SubTaskRowProps {
     userId?: string;
     isWorkspaceAdmin?: boolean;
     leadProjectIds?: string[];
+    coordinatorProjectIds?: string[];
     projects?: Array<{ id: string; canManageMembers?: boolean; memberIds?: string[] }>; // For workspace view
     projectMap?: Record<string, any>;
 }
@@ -59,6 +60,7 @@ export const SubTaskRow = memo(function SubTaskRow({
     userId,
     isWorkspaceAdmin,
     leadProjectIds,
+    coordinatorProjectIds,
     projects,
     projectMap,
 }: SubTaskRowProps) {
@@ -104,6 +106,7 @@ export const SubTaskRow = memo(function SubTaskRow({
 
         if (permissions) {
             return permissions.isWorkspaceAdmin ||
+                permissions.isProjectCoordinator ||
                 isCreator ||
                 permissions.isProjectManager;
         }
@@ -111,6 +114,8 @@ export const SubTaskRow = memo(function SubTaskRow({
         if (isWorkspaceAdmin) return true;
 
         const projectIdToCheck = (subTask as any).projectId || projectId;
+
+        if (coordinatorProjectIds?.includes(projectIdToCheck)) return true;
 
         const taskProject = projectMap ? projectMap[projectIdToCheck] : projects?.find(p => p.id === projectIdToCheck);
         if (taskProject?.canManageMembers) return true;
@@ -360,6 +365,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                             userId={userId}
                             isWorkspaceAdmin={isWorkspaceAdmin}
                             leadProjectIds={leadProjectIds}
+                            coordinatorProjectIds={coordinatorProjectIds}
                         />
                     </TableCell>
                 )}

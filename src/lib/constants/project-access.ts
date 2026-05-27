@@ -78,13 +78,24 @@ export function getProjectPermissions(role: ProjectRole): ProjectPermission[] {
                 "comment:delete-any",
             ];
 
-        case "LEAD":
+        case "PROJECT_COORDINATOR":
             return [
-                // Limited execution authority - NO member management
+                // Full task management — NO project/member management
                 "task:create",
                 "task:update-any",
                 "task:delete-any",
                 "task:assign",
+                "task:view-all",
+                // Comments
+                "comment:create",
+                "comment:update-any",
+                "comment:delete-any",
+            ];
+
+        case "LEAD":
+            return [
+                // Limited execution authority - NO member management, NO task:update-any / task:delete-any (checked at service layer)
+                "task:create",
                 "task:view-all",
                 // Comments
                 "comment:create",
@@ -167,6 +178,8 @@ export function getProjectRoleLevel(role: ProjectRole): number {
     switch (role) {
         case "PROJECT_MANAGER":
             return 4;
+        case "PROJECT_COORDINATOR":
+            return 3;
         case "LEAD":
             return 3;
         case "MEMBER":
@@ -180,8 +193,9 @@ export function getProjectRoleLevel(role: ProjectRole): number {
 
 /**
  * Check if a user can update a specific task
- * - PROJECT_MANAGER and LEAD can update any task
- * - MEMBER can update tasks they created or are assigned to
+ * - PROJECT_MANAGER and PROJECT_COORDINATOR can update any task
+ * - LEAD can update only tasks they created
+ * - MEMBER can update tasks they created (status changes only, handled at service layer)
  * - VIEWER cannot update tasks
  */
 export function canUpdateTask(
@@ -189,12 +203,17 @@ export function canUpdateTask(
     isTaskCreator: boolean,
     isTaskAssignee: boolean
 ): boolean {
-    // PROJECT_MANAGER and LEAD can update any task
-    if (projectRole === "PROJECT_MANAGER" || projectRole === "LEAD") {
+    // PROJECT_MANAGER and PROJECT_COORDINATOR can update any task
+    if (projectRole === "PROJECT_MANAGER" || projectRole === "PROJECT_COORDINATOR") {
         return true;
     }
 
-    // MEMBER can update their own tasks or assigned tasks
+    // LEAD can update only tasks they created
+    if (projectRole === "LEAD") {
+        return isTaskCreator;
+    }
+
+    // MEMBER can update status on tasks they are assigned/created
     if (projectRole === "MEMBER") {
         return isTaskCreator || isTaskAssignee;
     }
@@ -204,21 +223,21 @@ export function canUpdateTask(
 
 /**
  * Check if a user can delete a specific task
- * - PROJECT_MANAGER and LEAD can delete any task
- * - MEMBER can delete tasks they created
+ * - PROJECT_MANAGER and PROJECT_COORDINATOR can delete any task
+ * - LEAD and MEMBER can delete tasks they created
  * - VIEWER cannot delete tasks
  */
 export function canDeleteTask(
     projectRole: ProjectRole | null,
     isTaskCreator: boolean
 ): boolean {
-    // PROJECT_MANAGER and LEAD can delete any task
-    if (projectRole === "PROJECT_MANAGER" || projectRole === "LEAD") {
+    // PROJECT_MANAGER and PROJECT_COORDINATOR can delete any task
+    if (projectRole === "PROJECT_MANAGER" || projectRole === "PROJECT_COORDINATOR") {
         return true;
     }
 
-    // MEMBER can delete their own tasks
-    if (projectRole === "MEMBER") {
+    // LEAD and MEMBER can delete their own tasks
+    if (projectRole === "LEAD" || projectRole === "MEMBER") {
         return isTaskCreator;
     }
 
@@ -232,6 +251,8 @@ export function getProjectRoleDisplayName(role: ProjectRole): string {
     switch (role) {
         case "PROJECT_MANAGER":
             return "Project Manager";
+        case "PROJECT_COORDINATOR":
+            return "Project Coordinator";
         case "LEAD":
             return "Lead";
         case "MEMBER":
@@ -250,10 +271,12 @@ export function getProjectRoleDescription(role: ProjectRole): string {
     switch (role) {
         case "PROJECT_MANAGER":
             return "Full project access, can manage all aspects including members";
+        case "PROJECT_COORDINATOR":
+            return "Full task management access. Cannot edit project settings or manage members.";
         case "LEAD":
-            return "Limited execution authority, can manage tasks but not members";
+            return "Limited execution authority, can manage tasks they created but not members";
         case "MEMBER":
-            return "Can create and manage own tasks";
+            return "Can view only assigned tasks, and edit status to to-do/in-progress/review";
         case "VIEWER":
             return "Read-only access to project";
         default:

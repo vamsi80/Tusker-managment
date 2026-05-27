@@ -462,6 +462,13 @@ export class ProjectService {
       });
     }
 
+    if (newRole === "PROJECT_COORDINATOR" && targetMember.projectRole !== "PROJECT_COORDINATOR") {
+      await prisma.projectMember.updateMany({
+        where: { projectId, projectRole: "PROJECT_COORDINATOR" },
+        data: { projectRole: "MEMBER" }
+      });
+    }
+
     await ProjectRepository.updateProjectMember(targetMember.id, { projectRole: newRole });
     await ProjectEvents.onMemberRoleUpdated(project.workspaceId, projectId, targetUserId);
   }
@@ -546,7 +553,7 @@ export class ProjectService {
     ]);
 
     if (!workspaceMember) return {
-      isWorkspaceAdmin: false, isProjectLead: false, isProjectManager: false, isMember: false,
+      isWorkspaceAdmin: false, isProjectLead: false, isProjectCoordinator: false, isProjectManager: false, isMember: false,
       canCreateSubTask: false, canPerformBulkOperations: false, workspaceMemberId: null,
       workspaceRole: null, userId: null, userSurname: null, projectMember: null
     };
@@ -575,7 +582,7 @@ export class ProjectService {
       include: { user: true }
     });
 
-    const leads = project.projectMembers.filter(pm => ["PROJECT_MANAGER", "LEAD"].includes(pm.projectRole));
+    const leads = project.projectMembers.filter(pm => ["PROJECT_MANAGER", "PROJECT_COORDINATOR", "LEAD"].includes(pm.projectRole));
 
     const reviewerMap = new Map<string, any>();
     admins.forEach(m => reviewerMap.set(m.userId, { id: m.userId, surname: m.user.surname || "", role: m.workspaceRole }));

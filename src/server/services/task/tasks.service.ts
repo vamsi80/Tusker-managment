@@ -503,8 +503,9 @@ export class TasksService {
       );
       const hasFullAccess =
         permissions.isWorkspaceAdmin ||
-        permissions.isProjectLead ||
-        permissions.isProjectManager;
+        permissions.isProjectManager ||
+        permissions.isProjectCoordinator ||
+        permissions.isProjectLead;
 
       return {
         permissions,
@@ -521,15 +522,17 @@ export class TasksService {
         : [
           ...(wsPerms.leadProjectIds || []),
           ...(wsPerms.managedProjectIds || []),
+          ...(wsPerms.coordinatorProjectIds || []),
           ...(wsPerms.memberProjectIds || []),
           ...(wsPerms.viewerProjectIds || []),
         ];
 
-      // Full access = ONLY projects where user is explicitly a LEAD or PROJECT_MANAGER.
+      // Full access = ONLY projects where user is explicitly a LEAD, PROJECT_COORDINATOR or PROJECT_MANAGER.
       // Being a PM in Project A does NOT grant full access to Project B (where they may be just a MEMBER).
       const fullAccessProjectIds = [
         ...(wsPerms.leadProjectIds ?? []),
         ...(wsPerms.managedProjectIds ?? []),
+        ...(wsPerms.coordinatorProjectIds ?? []),
       ];
 
       const restrictedProjectIds = authorizedProjectIds.filter(
@@ -1097,13 +1100,13 @@ export class TasksService {
     if (hasMore) rawTasks.pop();
 
     if (rawTasks.length === 0) {
-        return {
-          tasks: [],
-          totalCount: 0,
-          hasMore: false,
-          nextCursor: null,
-          facets: { status: {}, assignee: {}, tags: {}, projects: {} },
-        };
+      return {
+        tasks: [],
+        totalCount: 0,
+        hasMore: false,
+        nextCursor: null,
+        facets: { status: {}, assignee: {}, tags: {}, projects: {} },
+      };
     }
 
     const lastTask = rawTasks[rawTasks.length - 1] as any;
@@ -1759,6 +1762,7 @@ export class TasksService {
     const currentProjectMemberId = permissions.projectMember?.id;
     const isWorkspaceAdmin = permissions.isWorkspaceAdmin;
     const isProjectManager = permissions.isProjectManager;
+    const isProjectCoordinator = permissions.isProjectCoordinator;
     const isProjectLead = permissions.isProjectLead;
 
     const isCreator = currentProjectMemberId
@@ -1768,7 +1772,7 @@ export class TasksService {
       ? subTask.assigneeId === currentProjectMemberId
       : false;
 
-    if (!isWorkspaceAdmin && !isProjectManager) {
+    if (!isWorkspaceAdmin && !isProjectManager && !isProjectCoordinator) {
       if (isProjectLead) {
         if (!isCreator && !isAssignee) {
           throw AppError.Forbidden(
@@ -1784,24 +1788,31 @@ export class TasksService {
       }
     }
 
-    // 🔒 COMPLETED rule:
-    // - Project Manager: always allowed.
-    // - Project Lead: allowed ONLY on subtasks they personally created.
+    // 🔒 COMPLETED / HOLD / CANCELLED rule:
+    // - Workspace Admin, Project Manager, Project Coordinator: always allowed.
+    // - Project Lead: allowed ONLY on tasks they personally created.
     // - Member / others: never allowed.
-    const leadCanComplete = isProjectLead && isCreator;
-    if (newStatus === "COMPLETED" && !isProjectManager && !leadCanComplete) {
+    const canCompleteOrHoldOrCancel =
+      isWorkspaceAdmin ||
+      isProjectManager ||
+      isProjectCoordinator ||
+      (isProjectLead && isCreator);
+
+    if (
+      ["COMPLETED", "HOLD", "CANCELLED"].includes(newStatus) &&
+      !canCompleteOrHoldOrCancel
+    ) {
       throw AppError.Forbidden(
-        "Only the Project Manager (or the Lead who created this task) can mark tasks as Completed.",
+        "Only the Project Manager, Coordinator, or the Lead who created this task can mark tasks as Completed, On Hold, or Cancelled.",
       );
     }
 
     // Specific Restriction: Tasks in REVIEW status
-    // - Only PM can move any task out of REVIEW.
-    // - Lead who created the task can also move it out of REVIEW (they own the review decision).
+    // - Only PM, Coordinator, or creating Lead can move it out of REVIEW.
     if (subTask.status === "REVIEW") {
-      if (isAssignee && !isProjectManager && !leadCanComplete) {
+      if (!canCompleteOrHoldOrCancel) {
         throw AppError.Forbidden(
-          "As the assignee, you cannot move this task out of Review status. Only the Project Manager (or the creating Lead) can.",
+          "You cannot move this task out of Review status. Only the Project Manager, Coordinator, or the creating Lead can.",
         );
       }
     }
@@ -1915,14 +1926,17 @@ export class TasksService {
     const currentProjectMemberId = permissions.projectMember?.id;
     const isWorkspaceAdmin = permissions.isWorkspaceAdmin;
     const isProjectManager = permissions.isProjectManager;
+    const isProjectCoordinator = permissions.isProjectCoordinator;
+    const isProjectLead = permissions.isProjectLead;
 
     // 1. Base Authorization
     const isAuthorized =
       isWorkspaceAdmin ||
       isProjectManager ||
-      (currentProjectMemberId &&
-        (task.createdById === currentProjectMemberId ||
-          task.assigneeId === currentProjectMemberId));
+      isProjectCoordinator ||
+      (isProjectLead &&
+        currentProjectMemberId &&
+        task.createdById === currentProjectMemberId);
 
     if (!isAuthorized) {
       throw AppError.Forbidden(
@@ -1942,10 +1956,11 @@ export class TasksService {
       if (
         assignee?.projectRole === "LEAD" &&
         !isWorkspaceAdmin &&
-        !isProjectManager
+        !isProjectManager &&
+        !isProjectCoordinator
       ) {
         throw AppError.Forbidden(
-          "Only a Workspace Admin or Project Manager can edit tasks assigned to a Project Lead.",
+          "Only a Workspace Admin, Project Manager, or Project Coordinator can edit tasks assigned to a Project Lead.",
         );
       }
     }
@@ -1955,7 +1970,7 @@ export class TasksService {
     if (data.name) updateData.name = data.name;
     if (data.description !== undefined)
       updateData.description = data.description;
-    
+
     // 🚀 Constraint: Parent tasks cannot have status, assignee, or dates.
     if (!task.parentTaskId) {
       updateData.status = null;
@@ -2054,6 +2069,7 @@ export class TasksService {
     const isAuthorized =
       permissions.isWorkspaceAdmin ||
       permissions.isProjectManager ||
+      permissions.isProjectCoordinator ||
       (currentProjectMemberId && task.createdById === currentProjectMemberId);
 
     if (!isAuthorized) {
@@ -2127,19 +2143,21 @@ export class TasksService {
 
     const isWorkspaceAdmin = permissions.isWorkspaceAdmin;
     const isProjectManager = permissions.isProjectManager;
+    const isProjectCoordinator = permissions.isProjectCoordinator;
     const currentProjectMemberId = permissions.projectMember?.id;
 
     // 1. Permission Check
     const isAuthorized =
       isWorkspaceAdmin ||
       isProjectManager ||
+      isProjectCoordinator ||
       (permissions.isProjectLead &&
         currentProjectMemberId &&
         task.createdById === currentProjectMemberId);
 
     if (!isAuthorized) {
       throw AppError.Forbidden(
-        "Only Project Managers or the Task Creator can manage the timeline.",
+        "Only Project Managers, Coordinators, or the Task Creator can manage the timeline.",
       );
     }
 
@@ -2155,10 +2173,11 @@ export class TasksService {
       if (
         assignee?.projectRole === "LEAD" &&
         !isWorkspaceAdmin &&
-        !isProjectManager
+        !isProjectManager &&
+        !isProjectCoordinator
       ) {
         throw AppError.Forbidden(
-          "Only a Workspace Admin or Project Manager can update tasks assigned to a Project Lead.",
+          "Only a Workspace Admin, Project Manager, or Project Coordinator can update tasks assigned to a Project Lead.",
         );
       }
     }
@@ -2573,14 +2592,17 @@ export class TasksService {
     const currentProjectMemberId = permissions.projectMember?.id;
     const isWorkspaceAdmin = permissions.isWorkspaceAdmin;
     const isProjectManager = permissions.isProjectManager;
+    const isProjectCoordinator = permissions.isProjectCoordinator;
+    const isProjectLead = permissions.isProjectLead;
 
     // 1. Permission Check
     const isAuthorized =
       isWorkspaceAdmin ||
       isProjectManager ||
-      (currentProjectMemberId &&
-        (task.createdById === currentProjectMemberId ||
-          task.assigneeId === currentProjectMemberId));
+      isProjectCoordinator ||
+      (isProjectLead &&
+        currentProjectMemberId &&
+        task.createdById === currentProjectMemberId);
 
     if (!isAuthorized) {
       throw AppError.Forbidden(
@@ -2600,10 +2622,11 @@ export class TasksService {
       if (
         assignee?.projectRole === "LEAD" &&
         !isWorkspaceAdmin &&
-        !isProjectManager
+        !isProjectManager &&
+        !isProjectCoordinator
       ) {
         throw AppError.Forbidden(
-          "Only a Workspace Admin or Project Manager can edit tasks assigned to a Project Lead.",
+          "Only a Workspace Admin, Project Manager, or Project Coordinator can edit tasks assigned to a Project Lead.",
         );
       }
     }
@@ -2638,10 +2661,10 @@ export class TasksService {
     if (data.assigneeUserId !== undefined) {
       patchData.assigneeId = data.assigneeUserId
         ? await this.resolveOrJoinProjectMember(
-            data.assigneeUserId,
-            projectId,
-            workspaceId,
-          )
+          data.assigneeUserId,
+          projectId,
+          workspaceId,
+        )
         : null;
     }
 
@@ -2761,7 +2784,7 @@ export class TasksService {
       } else if (fullAccessProjectIds.length > 0) {
         accessConditions.push({ projectId: { in: fullAccessProjectIds } });
       } else if (restrictedProjectIds.length > 0) {
-        accessConditions.push({ 
+        accessConditions.push({
           projectId: { in: restrictedProjectIds },
           OR: [
             { assignee: { workspaceMember: { userId } } },
@@ -2838,7 +2861,7 @@ export class TasksService {
           accessConditions.push({ projectId: { in: restrictedProjectIds } });
           accessConditions.push({ assignee: { workspaceMember: { userId } } });
         }
-        
+
         if (accessConditions.length > 0) {
           singleParentWhere.AND = [...(singleParentWhere.AND || []), ...accessConditions];
         }
@@ -2864,10 +2887,10 @@ export class TasksService {
       const finalTasks = (hasMore ? rawTasks.slice(0, pageSize) : rawTasks).map((t: any) => TasksService.mapToFlatMetadata(t));
       const nextCursor = hasMore && finalTasks.length > 0
         ? {
-            id: finalTasks[finalTasks.length - 1].id,
-            createdAt: finalTasks[finalTasks.length - 1].createdAt,
-            position: finalTasks[finalTasks.length - 1].position
-          }
+          id: finalTasks[finalTasks.length - 1].id,
+          createdAt: finalTasks[finalTasks.length - 1].createdAt,
+          position: finalTasks[finalTasks.length - 1].position
+        }
         : undefined;
       return [{ parentTaskId: parentId, subTasks: finalTasks, totalCount: finalTasks.length, hasMore, nextCursor }];
     }
@@ -2905,10 +2928,10 @@ export class TasksService {
       const pagedSubTasks = hasMore ? subTasks.slice(0, pageSize) : subTasks;
       const nextCursor = hasMore && pagedSubTasks.length > 0
         ? {
-            id: pagedSubTasks[pagedSubTasks.length - 1].id,
-            createdAt: pagedSubTasks[pagedSubTasks.length - 1].createdAt,
-            position: pagedSubTasks[pagedSubTasks.length - 1].position
-          }
+          id: pagedSubTasks[pagedSubTasks.length - 1].id,
+          createdAt: pagedSubTasks[pagedSubTasks.length - 1].createdAt,
+          position: pagedSubTasks[pagedSubTasks.length - 1].position
+        }
         : undefined;
       return { parentTaskId, subTasks: pagedSubTasks, totalCount, hasMore, nextCursor };
     });

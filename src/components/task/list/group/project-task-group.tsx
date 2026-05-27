@@ -31,6 +31,7 @@ interface ProjectTaskGroupProps {
     userId?: string;
     isWorkspaceAdmin?: boolean;
     leadProjectIds?: string[];
+    coordinatorProjectIds?: string[];
     projects?: any[];
     projectMap: Record<string, any>;
     onRequestSubtasks: (taskId: string) => void;
@@ -72,6 +73,7 @@ export function ProjectTaskGroup({
     userId,
     isWorkspaceAdmin,
     leadProjectIds,
+    coordinatorProjectIds,
     projects,
     onRequestSubtasks,
     getCachedSubTasks,
@@ -179,6 +181,7 @@ export function ProjectTaskGroup({
                         userId={userId}
                         isWorkspaceAdmin={isWorkspaceAdmin}
                         leadProjectIds={leadProjectIds}
+                        coordinatorProjectIds={coordinatorProjectIds}
                         projects={projects}
                         onRequestSubtasks={onRequestSubtasks}
                         isCached={!!getCachedSubTasks(task.id)}
@@ -194,6 +197,7 @@ export function ProjectTaskGroup({
                                     ? canCreateSubTask
                                     : (canCreateSubTask && task.projectId ? (
                                         leadProjectIds?.includes(task.projectId) ||
+                                        coordinatorProjectIds?.includes(task.projectId) ||
                                         !!isWorkspaceAdmin ||
                                         !!projects?.find(p => p.id === task.projectId)?.canManageMembers
                                     ) : false)
@@ -211,6 +215,7 @@ export function ProjectTaskGroup({
                             userId={userId}
                             isWorkspaceAdmin={isWorkspaceAdmin}
                             leadProjectIds={leadProjectIds}
+                            coordinatorProjectIds={coordinatorProjectIds}
                             projects={projects}
                             projectMap={projectMap}
                             scrollContainerRef={scrollContainerRef}
