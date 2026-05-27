@@ -564,6 +564,7 @@ export class TaskRepository {
         projectId,
         OR: [
           { projectRole: ProjectRole.PROJECT_MANAGER },
+          { projectRole: ProjectRole.PROJECT_COORDINATOR },
           { workspaceMember: { workspaceRole: WorkspaceRole.ADMIN } },
           assigneeId ? { id: assigneeId } : {},
           reviewerId ? { id: reviewerId } : {},

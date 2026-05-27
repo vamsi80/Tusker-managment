@@ -33,6 +33,7 @@ interface TaskRowProps {
     userId?: string;
     isWorkspaceAdmin?: boolean;
     leadProjectIds?: string[];
+    coordinatorProjectIds?: string[];
     projects?: Array<{ id: string; canManageMembers?: boolean }>;
     isSubtask?: boolean;
     onRequestSubtasks?: (taskId: string) => void;
@@ -56,6 +57,7 @@ export const TaskRow = memo(function TaskRow({
     userId,
     isWorkspaceAdmin,
     leadProjectIds,
+    coordinatorProjectIds,
     projects,
     onRequestSubtasks,
     isCached = false,
@@ -153,11 +155,14 @@ export const TaskRow = memo(function TaskRow({
             return (
                 permissions.isWorkspaceAdmin ||
                 permissions.isProjectManager ||
+                permissions.isProjectCoordinator ||
                 (permissions.isProjectLead && taskCreatorId === userId)
             );
         }
 
         if (isWorkspaceAdmin) return true;
+
+        if (coordinatorProjectIds?.includes(task.projectId)) return true;
 
         const taskProject = projects?.find((p) => p.id === task.projectId);
         if (taskProject?.canManageMembers) return true;

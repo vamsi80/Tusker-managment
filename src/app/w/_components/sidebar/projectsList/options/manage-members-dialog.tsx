@@ -72,6 +72,8 @@ export const ManageProjectMembersDialog = ({
         (wm) => !currentMemberUserIds.has(wm.userId) && wm.workspaceRole !== "OWNER" && wm.workspaceRole !== "ADMIN"
     );
 
+    const hasCoordinatorAlready = members.some((m) => m.projectRole === "PROJECT_COORDINATOR");
+
     const handleAddMembers = () => {
         if (selectedMembersToAdd.length === 0) {
             toast.error("Please select at least one member to add.");
@@ -150,11 +152,20 @@ export const ManageProjectMembersDialog = ({
 
             if (result.success) {
                 toast.success(result.message || "Role updated successfully!");
-                // Optimistic update — update role immediately in local list
+                // Optimistic update — update role immediately and demote existing target roles
                 setMembers((prev) =>
-                    prev.map((m) =>
-                        m.userId === memberUserId ? { ...m, projectRole: newRole } : m
-                    )
+                    prev.map((m) => {
+                        if (m.userId === memberUserId) {
+                            return { ...m, projectRole: newRole };
+                        }
+                        if (newRole === "PROJECT_COORDINATOR" && m.projectRole === "PROJECT_COORDINATOR") {
+                            return { ...m, projectRole: "MEMBER" as ProjectRole };
+                        }
+                        if (newRole === "PROJECT_MANAGER" && m.projectRole === "PROJECT_MANAGER") {
+                            return { ...m, projectRole: "MEMBER" as ProjectRole };
+                        }
+                        return m;
+                    })
                 );
                 router.refresh();
             } else {
@@ -310,16 +321,25 @@ export const ManageProjectMembersDialog = ({
                                                                 variant={
                                                                     member.projectRole === "PROJECT_MANAGER"
                                                                         ? "default"
-                                                                        : member.projectRole === "LEAD"
+                                                                        : member.projectRole === "PROJECT_COORDINATOR"
                                                                             ? "secondary"
-                                                                            : "outline"
+                                                                            : member.projectRole === "LEAD"
+                                                                                ? "secondary"
+                                                                                : "outline"
                                                                 }
                                                                 className={cn(
                                                                     "text-xs",
-                                                                    member.projectRole === "PROJECT_MANAGER" && "bg-amber-500 hover:bg-amber-600"
+                                                                    member.projectRole === "PROJECT_MANAGER" && "bg-amber-500 hover:bg-amber-600",
+                                                                    member.projectRole === "PROJECT_COORDINATOR" && "bg-blue-600 text-white hover:bg-blue-700"
                                                                 )}
                                                             >
-                                                                {member.projectRole === "PROJECT_MANAGER" ? "Manager" : member.projectRole}
+                                                                {member.projectRole === "PROJECT_MANAGER"
+                                                                    ? "Manager"
+                                                                    : member.projectRole === "PROJECT_COORDINATOR"
+                                                                        ? "Coordinator"
+                                                                        : member.projectRole === "LEAD"
+                                                                            ? "Lead"
+                                                                            : member.projectRole}
                                                             </Badge>
                                                         </div>
                                                     </div>
@@ -339,6 +359,9 @@ export const ManageProjectMembersDialog = ({
                                                                 <SelectValue />
                                                             </SelectTrigger>
                                                             <SelectContent>
+                                                                {(member.projectRole === "PROJECT_COORDINATOR" || !hasCoordinatorAlready) && (
+																	<SelectItem value="PROJECT_COORDINATOR">Coordinator</SelectItem>
+																)}
                                                                 <SelectItem value="LEAD">Lead</SelectItem>
                                                                 <SelectItem value="MEMBER">Member</SelectItem>
                                                                 <SelectItem value="VIEWER">Viewer</SelectItem>

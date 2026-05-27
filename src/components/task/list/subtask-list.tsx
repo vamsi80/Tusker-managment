@@ -54,6 +54,7 @@ interface SubTaskListProps {
     userId?: string;
     isWorkspaceAdmin?: boolean;
     leadProjectIds?: string[];
+    coordinatorProjectIds?: string[];
     projects?: Array<{ id: string; canManageMembers?: boolean; memberIds?: string[] }>; // For workspace view
     projectMap?: Record<string, any>;
     scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
@@ -82,6 +83,7 @@ export function SubTaskList({
     userId,
     isWorkspaceAdmin,
     leadProjectIds,
+    coordinatorProjectIds,
     projects,
     projectMap,
     scrollContainerRef,
@@ -264,6 +266,7 @@ export function SubTaskList({
                             userId={userId}
                             isWorkspaceAdmin={isWorkspaceAdmin}
                             leadProjectIds={leadProjectIds}
+                            coordinatorProjectIds={coordinatorProjectIds}
                             projects={projects}
                             projectMap={projectMap}
                         />

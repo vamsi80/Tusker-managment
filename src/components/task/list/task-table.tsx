@@ -40,6 +40,7 @@ function TaskTable(props: TaskTableProps) {
   const { data: layoutData } = useWorkspaceLayout();
   const projects = useMemo(() => layoutData.projects || [], [layoutData.projects]);
   const leadProjectIds = layoutData.permissions?.leadProjectIds || [];
+  const coordinatorProjectIds = layoutData.permissions?.coordinatorProjectIds || [];
 
   const [columnVisibility, setColumnVisibility] = useState({
     assignee: true,
@@ -87,6 +88,7 @@ function TaskTable(props: TaskTableProps) {
     projects,
     projectMap,
     leadProjectIds,
+    coordinatorProjectIds,
     scrollContainerRef,
   };
 

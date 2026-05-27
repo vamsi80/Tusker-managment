@@ -157,9 +157,27 @@ export const KanbanCard = React.memo(function KanbanCard({
       (subTask as any).createdById;
 
     if (permissions) {
+      if (permissions.isWorkspaceAdmin) return true;
+
+      const workspacePerms = permissions as any;
+      if (
+        workspacePerms.managedProjectIds ||
+        workspacePerms.coordinatorProjectIds ||
+        workspacePerms.leadProjectIds
+      ) {
+        const projectIdToCheck = subTask.projectId || project?.id;
+        if (!projectIdToCheck) return false;
+
+        if (workspacePerms.managedProjectIds?.includes(projectIdToCheck)) return true;
+        if (workspacePerms.coordinatorProjectIds?.includes(projectIdToCheck)) return true;
+        if (workspacePerms.leadProjectIds?.includes(projectIdToCheck) && creatorId === userId) return true;
+
+        return false;
+      }
+
       return (
-        permissions.isWorkspaceAdmin ||
         permissions.isProjectManager ||
+        permissions.isProjectCoordinator ||
         (permissions.isProjectLead && creatorId === userId)
       );
     }

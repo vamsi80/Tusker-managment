@@ -30,6 +30,7 @@ interface SubtaskStatusChangerProps {
     userId?: string;
     isWorkspaceAdmin?: boolean;
     leadProjectIds?: string[];
+    coordinatorProjectIds?: string[];
 }
 
 export function SubtaskStatusChanger({
@@ -41,6 +42,7 @@ export function SubtaskStatusChanger({
     userId: propUserId,
     isWorkspaceAdmin: propIsWorkspaceAdmin,
     leadProjectIds: propLeadProjectIds,
+    coordinatorProjectIds: propCoordinatorProjectIds,
 }: SubtaskStatusChangerProps) {
     // Attempt to consume from context, fallback to props
     let context: any = null;
@@ -56,6 +58,7 @@ export function SubtaskStatusChanger({
     const userId = context?.userId || propUserId;
     const isWorkspaceAdmin = context?.isWorkspaceAdmin || propIsWorkspaceAdmin;
     const leadProjectIds = context?.leadProjectIds || propLeadProjectIds;
+    const coordinatorProjectIds = context?.coordinatorProjectIds || propCoordinatorProjectIds;
 
     const [isPending, startTransition] = useTransition();
     const [isActivityOpen, setIsActivityOpen] = useState(false);
@@ -68,6 +71,7 @@ export function SubtaskStatusChanger({
     const currentUserId = permissions?.userId || userId;
     const currentProjectMemberId = permissions?.projectMember?.id;
     const isPM = permissions?.isProjectManager || isWorkspaceAdmin;
+    const isCoordinator = permissions?.isProjectCoordinator || coordinatorProjectIds?.includes(projectId || "");
     const isLead = permissions?.isProjectLead || leadProjectIds?.includes(projectId || "");
     const subTaskCreatorUserId = subTask.createdBy?.id;
     const subTaskCreatorMemberId = (subTask as any).createdById;
@@ -84,8 +88,8 @@ export function SubtaskStatusChanger({
         (currentProjectMemberId && subTaskAssigneeMemberId && currentProjectMemberId === subTaskAssigneeMemberId)
     );
 
-    // A user can change status if they are Admin/PM, or if they are Lead & creator/assignee, or if they are Member & creator/assignee
-    const canEditThisSubTask = isPM || isCreator || isAssignee;
+    // A user can change status if they are Admin/PM/Coordinator, or if they are Lead & creator/assignee, or if they are Member & creator/assignee
+    const canEditThisSubTask = isPM || isCoordinator || isCreator || isAssignee;
 
     const isTransitionAllowed = (targetStatus: TaskStatus): { allowed: boolean; reason?: string } => {
         if (!canEditThisSubTask) {
@@ -94,7 +98,8 @@ export function SubtaskStatusChanger({
 
         // If the user is the assignee of this subtask, they are treated as a worker/member for this subtask
         // and can only change the status till REVIEW (cannot mark COMPLETED, HOLD, CANCELLED, cannot move out of REVIEW).
-        if (isAssignee) {
+        // Managers and Coordinators are not restricted even if they are assigned.
+        if (isAssignee && !isPM && !isCoordinator) {
             if (targetStatus === "COMPLETED") {
                 return { allowed: false, reason: "As the assignee, you cannot mark this task as Completed." };
             }
@@ -110,18 +115,18 @@ export function SubtaskStatusChanger({
         }
 
         // 🔒 COMPLETED rule:
-        // - Project Manager: always allowed.
+        // - Project Manager / Coordinator: always allowed.
         // - Project Lead: allowed ONLY on subtasks they personally created.
         // - Member / others: never allowed.
         const leadCanComplete = isLead && isCreator;
-        if (targetStatus === "COMPLETED" && !isPM && !leadCanComplete) {
-            return { allowed: false, reason: "Only the Project Manager (or the Lead who created this task) can mark tasks as Completed." };
+        if (targetStatus === "COMPLETED" && !isPM && !isCoordinator && !leadCanComplete) {
+            return { allowed: false, reason: "Only the Project Manager / Coordinator (or the Lead who created this task) can mark tasks as Completed." };
         }
 
         // Specific Restriction: Tasks in REVIEW status
-        // - Only PM/Lead-creator can move task out of REVIEW.
+        // - Only PM / Coordinator / Lead-creator can move task out of REVIEW.
         if (subTask.status === "REVIEW") {
-            if (isAssignee && !isPM && !leadCanComplete) {
+            if (isAssignee && !isPM && !isCoordinator && !leadCanComplete) {
                 return { allowed: false, reason: "As the assignee, you cannot move this task out of Review status." };
             }
         }

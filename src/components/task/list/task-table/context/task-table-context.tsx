@@ -20,6 +20,7 @@ interface TaskTableContextValue {
   projects: any[];
   projectMap: Record<string, any>;
   leadProjectIds: string[];
+  coordinatorProjectIds: string[];
   scrollContainerRef: React.RefObject<HTMLDivElement | null>;
 }
 

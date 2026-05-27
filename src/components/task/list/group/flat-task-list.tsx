@@ -23,6 +23,7 @@ interface FlatTaskListProps {
     userId?: string;
     isWorkspaceAdmin?: boolean;
     leadProjectIds?: string[];
+    coordinatorProjectIds?: string[];
     projects?: any[];
     onRequestSubtasks: (taskId: string) => void;
     getCachedSubTasks: (taskId: string) => any;
@@ -56,6 +57,7 @@ export function FlatTaskList({
     userId,
     isWorkspaceAdmin,
     leadProjectIds,
+    coordinatorProjectIds,
     projects,
     onRequestSubtasks,
     getCachedSubTasks,
@@ -138,6 +140,7 @@ export function FlatTaskList({
                     userId={userId}
                     isWorkspaceAdmin={isWorkspaceAdmin}
                     leadProjectIds={leadProjectIds}
+                    coordinatorProjectIds={coordinatorProjectIds}
                     projects={projects}
                     onRequestSubtasks={onRequestSubtasks}
                     isCached={!!getCachedSubTasks(task.id)}
@@ -155,6 +158,7 @@ export function FlatTaskList({
                                 ? canCreateSubTask
                                 : (canCreateSubTask && task.projectId ? (
                                     leadProjectIds?.includes(task.projectId) ||
+                                    coordinatorProjectIds?.includes(task.projectId) ||
                                     !!isWorkspaceAdmin ||
                                     !!projects?.find(p => p.id === task.projectId)?.canManageMembers
                                 ) : false)
@@ -172,6 +176,7 @@ export function FlatTaskList({
                         userId={userId}
                         isWorkspaceAdmin={isWorkspaceAdmin}
                         leadProjectIds={leadProjectIds}
+                        coordinatorProjectIds={coordinatorProjectIds}
                         projects={projects}
                         scrollContainerRef={scrollContainerRef}
                         level={level}

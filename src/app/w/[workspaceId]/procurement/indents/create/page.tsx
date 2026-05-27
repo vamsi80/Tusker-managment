@@ -9,10 +9,14 @@ interface PageProps {
   params: Promise<{
     workspaceId: string;
   }>;
+  searchParams: Promise<{
+    projectId?: string;
+  }>;
 }
 
-export default async function WorkspaceProcurementCreateIndent({ params }: PageProps) {
+export default async function WorkspaceProcurementCreateIndent({ params, searchParams }: PageProps) {
   const { workspaceId } = await params;
+  const { projectId: queryProjectId } = await searchParams;
   const user = await requireUser();
 
   if (!user) {
@@ -34,6 +38,17 @@ export default async function WorkspaceProcurementCreateIndent({ params }: PageP
     },
   });
 
+  // If projectId is prefilled via search param, fetch the project's name
+  let lockedProjectId: string | undefined = undefined;
+  let lockedProjectName: string | undefined = undefined;
+  if (queryProjectId) {
+    const foundProject = projects.find((p) => p.id === queryProjectId);
+    if (foundProject) {
+      lockedProjectId = foundProject.id;
+      lockedProjectName = foundProject.name;
+    }
+  }
+
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden h-full">
       {/* Back breadcrumb */}
@@ -49,7 +64,12 @@ export default async function WorkspaceProcurementCreateIndent({ params }: PageP
 
       {/* Form wrapper */}
       <div className="flex-1 min-h-0 overflow-hidden">
-        <CreateWorkspaceIndentClient workspaceId={workspaceId} projects={projects} />
+        <CreateWorkspaceIndentClient
+          workspaceId={workspaceId}
+          projects={projects}
+          lockedProjectId={lockedProjectId}
+          lockedProjectName={lockedProjectName}
+        />
       </div>
     </div>
   );

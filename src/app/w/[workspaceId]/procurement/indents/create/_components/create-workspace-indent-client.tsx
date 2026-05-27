@@ -12,11 +12,15 @@ interface ProjectItem {
 interface CreateWorkspaceIndentClientProps {
   workspaceId: string;
   projects: ProjectItem[];
+  lockedProjectId?: string;
+  lockedProjectName?: string;
 }
 
 export function CreateWorkspaceIndentClient({
   workspaceId,
   projects,
+  lockedProjectId,
+  lockedProjectName,
 }: CreateWorkspaceIndentClientProps) {
   const router = useRouter();
 
@@ -25,6 +29,9 @@ export function CreateWorkspaceIndentClient({
       <CreateIndentForm
         workspaceId={workspaceId}
         projects={projects}
+        projectId={lockedProjectId}
+        projectName={lockedProjectName}
+        lockedProject={!!lockedProjectId}
         onSuccess={() => {
           router.push(`/w/${workspaceId}/procurement/indents`);
           router.refresh();
