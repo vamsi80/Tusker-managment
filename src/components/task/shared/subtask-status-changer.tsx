@@ -91,15 +91,17 @@ export function SubtaskStatusChanger({
     // A user can change status if they are Admin/PM/Coordinator, or if they are Lead & creator/assignee, or if they are Member & creator/assignee
     const canEditThisSubTask = isPM || isCoordinator || isCreator || isAssignee;
 
+    const isActingAsManager = !isAssignee && (isPM || isCoordinator);
+
     const isTransitionAllowed = (targetStatus: TaskStatus): { allowed: boolean; reason?: string } => {
         if (!canEditThisSubTask) {
             return { allowed: false, reason: "You do not have permission to update this task." };
         }
 
-        // If the user is the assignee of this subtask, they are treated as a worker/member for this subtask
-        // and can only change the status till REVIEW (cannot mark COMPLETED, HOLD, CANCELLED, cannot move out of REVIEW).
-        // Managers and Coordinators are not restricted even if they are assigned.
-        if (isAssignee && !isPM && !isCoordinator) {
+        // If the user is the assignee of this subtask, they are ALWAYS treated as a worker/member for this subtask
+        // and can only change the status till REVIEW (cannot mark COMPLETED, HOLD, CANCELLED, cannot move out of REVIEW),
+        // even if they are a Project Manager or Coordinator.
+        if (isAssignee) {
             if (targetStatus === "COMPLETED") {
                 return { allowed: false, reason: "As the assignee, you cannot mark this task as Completed." };
             }
@@ -115,25 +117,25 @@ export function SubtaskStatusChanger({
         }
 
         // 🔒 COMPLETED rule:
-        // - Project Manager / Coordinator: always allowed.
-        // - Project Lead: allowed ONLY on subtasks they personally created.
+        // - Project Manager / Coordinator (not assigned as worker): always allowed.
+        // - Project Lead: allowed ONLY on subtasks they personally created (and not assigned as worker).
         // - Member / others: never allowed.
-        const leadCanComplete = isLead && isCreator;
-        if (targetStatus === "COMPLETED" && !isPM && !isCoordinator && !leadCanComplete) {
-            return { allowed: false, reason: "Only the Project Manager / Coordinator (or the Lead who created this task) can mark tasks as Completed." };
+        const leadCanComplete = !isAssignee && isLead && isCreator;
+        if (targetStatus === "COMPLETED" && !isActingAsManager && !leadCanComplete) {
+            return { allowed: false, reason: "Only the Project Manager / Coordinator (not assigned as worker) or the Lead who created this task can mark tasks as Completed." };
         }
 
         // Specific Restriction: Tasks in REVIEW status
-        // - Only PM / Coordinator / Lead-creator can move task out of REVIEW.
+        // - Only PM / Coordinator (not assigned as worker) or creating Lead (not assigned as worker) can move task out of REVIEW.
         if (subTask.status === "REVIEW") {
-            if (isAssignee && !isPM && !isCoordinator && !leadCanComplete) {
-                return { allowed: false, reason: "As the assignee, you cannot move this task out of Review status." };
+            if (!isActingAsManager && !leadCanComplete) {
+                return { allowed: false, reason: "Only the Project Manager / Coordinator (not assigned as worker) or the creating Lead can move this task out of Review status." };
             }
         }
 
-        // Constraint: IN_PROGRESS -> COMPLETED is forbidden (must go via REVIEW)
-        if (subTask.status === "IN_PROGRESS" && targetStatus === "COMPLETED") {
-            return { allowed: false, reason: "Tasks in In-Progress must be moved to Review before marking as Completed." };
+        // Constraint: COMPLETED status can only be reached from REVIEW
+        if (targetStatus === "COMPLETED" && subTask.status !== "REVIEW") {
+            return { allowed: false, reason: "Before marking a task as Completed, you must first move it to Review status." };
         }
 
         return { allowed: true };
@@ -143,7 +145,7 @@ export function SubtaskStatusChanger({
         const currentStatus = subTask.status;
         const isMandatory =
             ["HOLD", "CANCELLED", "REVIEW"].includes(targetStatus) ||
-            (currentStatus && ["HOLD", "CANCELLED"].includes(currentStatus)) ||
+            (currentStatus && ["HOLD", "CANCELLED", "COMPLETED"].includes(currentStatus)) ||
             (currentStatus === "REVIEW" && (targetStatus === "TO_DO" || targetStatus === "IN_PROGRESS")) ||
             (currentStatus === "IN_PROGRESS" && targetStatus === "TO_DO");
 

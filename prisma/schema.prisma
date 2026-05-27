@@ -138,6 +138,7 @@ model Workspace {
   publicHolidays         public_holiday[]
   vendors                Vendor[]
   materialCatalog        MaterialCatalog[]
+  units                  UnitOfMeasure[]
 }
 
 model WorkspaceMember {
@@ -637,18 +638,36 @@ model VendorMaterialCapability {
 }
 
 model MaterialCatalog {
-  id          String    @id @default(cuid())
-  workspaceId String
-  name        String
-  unit        String?
-  source      String    @default("INDENT") // INDENT | MANUAL
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id            String         @id @default(cuid())
+  workspaceId   String
+  name          String
+  unit          String?
+  defaultUnitId String?
+  source        String         @default("INDENT") // INDENT | MANUAL
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  defaultUnit   UnitOfMeasure? @relation(fields: [defaultUnitId], references: [id], onDelete: SetNull)
 
   @@unique([workspaceId, name])
   @@index([workspaceId])
   @@map("material_catalog")
+}
+
+model UnitOfMeasure {
+  id           String            @id @default(cuid())
+  workspaceId  String
+  name         String
+  abbreviation String
+  category     String?
+  isDefault    Boolean           @default(false)
+  createdAt    DateTime          @default(now())
+  workspace    Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  materials    MaterialCatalog[]
+
+  @@unique([workspaceId, abbreviation])
+  @@index([workspaceId])
+  @@map("unit_of_measure")
 }
 
 model Indent {

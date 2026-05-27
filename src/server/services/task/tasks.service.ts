@@ -1789,30 +1789,28 @@ export class TasksService {
     }
 
     // 🔒 COMPLETED / HOLD / CANCELLED rule:
-    // - Workspace Admin, Project Manager, Project Coordinator: always allowed.
-    // - Project Lead: allowed ONLY on tasks they personally created.
+    // - Workspace Admin, Project Manager, Project Coordinator (not assigned as worker): always allowed.
+    // - Project Lead: allowed ONLY on tasks they personally created (and not assigned as worker).
     // - Member / others: never allowed.
-    const canCompleteOrHoldOrCancel =
-      isWorkspaceAdmin ||
-      isProjectManager ||
-      isProjectCoordinator ||
-      (isProjectLead && isCreator);
+    const isActingAsManager = !isAssignee && (isWorkspaceAdmin || isProjectManager || isProjectCoordinator);
+    const leadCanComplete = !isAssignee && isProjectLead && isCreator;
+    const canCompleteOrHoldOrCancel = isActingAsManager || leadCanComplete;
 
     if (
       ["COMPLETED", "HOLD", "CANCELLED"].includes(newStatus) &&
       !canCompleteOrHoldOrCancel
     ) {
       throw AppError.Forbidden(
-        "Only the Project Manager, Coordinator, or the Lead who created this task can mark tasks as Completed, On Hold, or Cancelled.",
+        "Only the Project Manager, Coordinator, or Admin (not personally assigned) or the Lead who created this task can mark tasks as Completed, On Hold, or Cancelled.",
       );
     }
 
     // Specific Restriction: Tasks in REVIEW status
-    // - Only PM, Coordinator, or creating Lead can move it out of REVIEW.
+    // - Only PM, Coordinator, or creating Lead (not personally assigned) can move it out of REVIEW.
     if (subTask.status === "REVIEW") {
       if (!canCompleteOrHoldOrCancel) {
         throw AppError.Forbidden(
-          "You cannot move this task out of Review status. Only the Project Manager, Coordinator, or the creating Lead can.",
+          "You cannot move this task out of Review status. Only the Project Manager, Coordinator, or Admin (not personally assigned) or the creating Lead can.",
         );
       }
     }
@@ -1822,16 +1820,16 @@ export class TasksService {
       return subTask; // No change needed
     }
 
-    // Constraint: IN_PROGRESS -> COMPLETED is forbidden (must go via REVIEW)
-    if (subTask.status === "IN_PROGRESS" && newStatus === "COMPLETED") {
+    // Constraint: COMPLETED status can only be reached from REVIEW
+    if (newStatus === "COMPLETED" && subTask.status !== "REVIEW") {
       throw AppError.ValidationError(
-        "Tasks in In-Progress must be moved to Review before marking as Completed.",
+        "Before marking a task as Completed, you must first move it to Review status.",
       );
     }
 
     const isMandatoryTransition =
       ["HOLD", "CANCELLED", "REVIEW"].includes(newStatus) ||
-      (subTask.status && ["HOLD", "CANCELLED"].includes(subTask.status)) ||
+      (subTask.status && ["HOLD", "CANCELLED", "COMPLETED"].includes(subTask.status)) ||
       (subTask.status === "REVIEW" &&
         (newStatus === "TO_DO" || newStatus === "IN_PROGRESS")) ||
       (subTask.status === "IN_PROGRESS" && newStatus === "TO_DO");
@@ -1842,8 +1840,11 @@ export class TasksService {
       );
     }
 
-    // Business rule: We record an activity for every status change.
-    const activityText = (comment || "").trim() || `Status updated from ${subTask.status} to ${newStatus}`;
+    // Business rule: We record an activity showing the status transition and any user comment.
+    const transitionHeader = `${subTask.status} -> ${newStatus}`;
+    const activityText = comment && comment.trim()
+      ? `${transitionHeader}\n${comment.trim()}`
+      : transitionHeader;
 
     const result = await TaskRepository.updateStatus(
       subTaskId, newStatus, subTaskId,
