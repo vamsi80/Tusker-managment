@@ -416,45 +416,57 @@ export function PersonalListContainer({
             </div>
 
             {/* Input Row */}
-            <div className="group flex items-start gap-3 py-1.5 transition-all mb-2">
-              <div className="mt-1 shrink-0 text-muted-foreground/50">
-                {isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4.5 w-4.5 stroke-[2px]" />}
+            <form 
+              onSubmit={handleAddTodo} 
+              className="group flex items-start gap-3 py-2 px-3 transition-all mb-3 rounded-2xl border border-border bg-card/50 hover:bg-card focus-within:bg-card focus-within:border-primary/40 focus-within:shadow-[0_0_0_1px_rgba(var(--primary),0.1)]"
+            >
+              <div className="mt-1 shrink-0 text-muted-foreground/35 group-focus-within:text-primary/50 transition-colors">
+                <Circle className="h-4.5 w-4.5 stroke-[2px]" />
               </div>
-              <form onSubmit={handleAddTodo} className="flex-1 flex items-center gap-2">
-                <textarea
-                  placeholder="Add a new task..."
-                  value={newTodoText}
-                  onChange={(e) => setNewTodoText(e.target.value)}
-                  onKeyDown={(e) => {
-                    const isMobile = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
-                    if (e.key === "Enter" && !e.shiftKey && !isMobile) {
-                      e.preventDefault();
-                      if (newTodoText.trim() && !isAdding) {
-                        handleAddTodo(e);
-                      }
+              <textarea
+                placeholder="Add a new task..."
+                value={newTodoText}
+                onChange={(e) => setNewTodoText(e.target.value)}
+                onKeyDown={(e) => {
+                  const isMobile = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+                  if (e.key === "Enter" && !e.shiftKey && !isMobile) {
+                    e.preventDefault();
+                    if (newTodoText.trim() && !isAdding) {
+                      handleAddTodo(e);
                     }
-                  }}
-                  disabled={isAdding}
-                  rows={1}
-                  className="w-full bg-transparent border-0 focus:ring-0 text-base font-medium placeholder:text-muted-foreground/50 resize-none min-h-[24px] max-h-[120px] overflow-y-auto scrollbar-none flex-1 focus-visible:ring-0 shadow-none p-0 focus:outline-none"
-                  style={{ height: "auto" }}
-                  ref={(el) => {
-                    if (el) {
-                      el.style.height = "auto";
-                      el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
-                    }
-                  }}
-                />
-                {newTodoText.trim() && !isAdding && (
-                  <button
-                    type="submit"
-                    className="p-1 rounded-lg bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-all active:scale-90 animate-in fade-in slide-in-from-right-2 duration-200"
-                  >
-                    <Check className="h-4 w-4 stroke-[2.5px]" />
-                  </button>
+                  }
+                }}
+                disabled={isAdding}
+                rows={1}
+                className="w-full bg-transparent border-0 focus:ring-0 text-base font-medium placeholder:text-muted-foreground/40 resize-none min-h-[24px] max-h-[120px] overflow-y-auto scrollbar-none flex-1 focus-visible:ring-0 shadow-none p-0 focus:outline-none"
+                style={{ height: "auto" }}
+                ref={(el) => {
+                  if (el) {
+                    el.style.height = "auto";
+                    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+                  }
+                }}
+              />
+              <button
+                type="submit"
+                disabled={isAdding || !newTodoText.trim()}
+                className={cn(
+                  "shrink-0 transition-all duration-300 outline-none rounded-xl p-1.5 flex items-center justify-center shadow-md",
+                  newTodoText.trim() && !isAdding
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90 active:scale-90 cursor-pointer shadow-primary/20"
+                    : "bg-primary/40 text-primary-foreground/40 cursor-not-allowed opacity-60 shadow-none"
                 )}
-              </form>
-            </div>
+                aria-label="Add task"
+              >
+                {isAdding ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : newTodoText.trim() ? (
+                  <Check className="h-4 w-4 stroke-[3px] animate-in zoom-in-50 duration-300" />
+                ) : (
+                  <Plus className="h-4 w-4 stroke-[2.5px] transition-transform duration-300 group-hover:rotate-90" />
+                )}
+              </button>
+            </form>
 
             <ScrollArea className="flex-1">
               <DndContext
