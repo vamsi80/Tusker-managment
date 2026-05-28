@@ -30,19 +30,28 @@ export function SubTaskDetailsSheet({
 
     const { data: workspaceData, workspaceId: workspaceIdFromContext } = useWorkspaceLayout();
     
-    // Fallback to local state if project context is missing
+    // Fallback to local state if project context is missing or mismatched
     const [localMembers, setLocalMembers] = useState<any[]>([]);
     const [isLocalLoading, setIsLocalLoading] = useState(false);
 
-    const workspaceId = projectCtx?.workspaceId || subTask?.workspaceId || workspaceIdFromContext;
-    const projectId = projectCtx?.projectId || subTask?.projectId;
-    const members = projectCtx?.projectMembers || localMembers;
+    const isDifferentProject = !!(subTask?.projectId && projectCtx?.projectId && subTask.projectId !== projectCtx.projectId);
+
+    const workspaceId = subTask?.workspaceId || projectCtx?.workspaceId || workspaceIdFromContext;
+    const projectId = subTask?.projectId || projectCtx?.projectId;
+    const members = (!isDifferentProject && projectCtx?.projectMembers) ? projectCtx.projectMembers : localMembers;
     const tags = projectCtx?.workspaceTags || workspaceData?.tags || [];
     
-    const permissions = projectCtx?.projectPermissions || {
-        userId: workspaceData?.permissions?.userId,
-        isWorkspaceAdmin: workspaceData?.permissions?.workspaceRole === 'ADMIN' || workspaceData?.permissions?.workspaceRole === 'OWNER',
-        isProjectManager: false
+    const workspacePerms = workspaceData?.permissions;
+    const isUserWorkspaceAdmin = workspacePerms?.workspaceRole === 'ADMIN' || workspacePerms?.workspaceRole === 'OWNER';
+
+    const permissions = (!isDifferentProject && projectCtx?.projectPermissions) ? projectCtx.projectPermissions : {
+        userId: workspacePerms?.userId,
+        userSurname: null,
+        workspaceMemberId: workspacePerms?.workspaceMemberId,
+        isWorkspaceAdmin: isUserWorkspaceAdmin,
+        isProjectManager: isUserWorkspaceAdmin || !!workspacePerms?.managedProjectIds?.includes(projectId || ""),
+        isProjectCoordinator: !!workspacePerms?.coordinatorProjectIds?.includes(projectId || ""),
+        isProjectLead: !!workspacePerms?.leadProjectIds?.includes(projectId || ""),
     };
 
     const currentUserId = permissions.userId;
@@ -68,9 +77,10 @@ export function SubTaskDetailsSheet({
         lastValidTask.current = subTask;
     }
 
-    // Fetch members if context is missing
+    // Fetch members if context is missing or if project is mismatched
     useEffect(() => {
-        if (!projectCtx && projectId && isOpen) {
+        const isDifferentProject = !!(subTask?.projectId && projectCtx?.projectId && subTask.projectId !== projectCtx.projectId);
+        if ((!projectCtx || isDifferentProject) && projectId && isOpen) {
             const fetchMembers = async () => {
                 try {
                     setIsLocalLoading(true);
@@ -84,7 +94,7 @@ export function SubTaskDetailsSheet({
             };
             fetchMembers();
         }
-    }, [projectCtx, projectId, isOpen]);
+    }, [projectCtx, projectId, isOpen, subTask?.projectId]);
 
     const loadComments = useCallback(async (isLoadMore = false) => {
         if (!subTask?.id || (isLoadMore && !hasMoreComments) || isLoading) return;

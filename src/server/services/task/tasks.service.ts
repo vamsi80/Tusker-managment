@@ -1846,9 +1846,17 @@ export class TasksService {
       ? `${transitionHeader}\n${comment.trim()}`
       : transitionHeader;
 
+    const attachmentJson = {
+      previousStatus: subTask.status,
+      targetStatus: newStatus,
+      ...(attachmentData ? {
+        url: typeof attachmentData === "string" ? attachmentData : (attachmentData.url || attachmentData.data || attachmentData),
+      } : {})
+    };
+
     const result = await TaskRepository.updateStatus(
       subTaskId, newStatus, subTaskId,
-      { subTaskId, authorId: userId, workspaceId, text: activityText, attachment: attachmentData },
+      { subTaskId, authorId: userId, workspaceId, text: activityText, attachment: attachmentJson },
       subTask.parentTaskId, subTask.status === "COMPLETED", newStatus === "COMPLETED"
     );
 
