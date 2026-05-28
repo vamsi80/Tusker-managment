@@ -1930,18 +1930,26 @@ export class TasksService {
     const isProjectCoordinator = permissions.isProjectCoordinator;
     const isProjectLead = permissions.isProjectLead;
 
+    const isAssignee = currentProjectMemberId
+      ? task.assigneeId === currentProjectMemberId
+      : false;
+
     // 1. Base Authorization
+    // Assignees cannot edit task metadata (Name, Description, Dates, Assignee, Reviewer, Tags)
+    // even if they are Project Manager, Coordinator, or Lead, unless they are Workspace Admin.
     const isAuthorized =
       isWorkspaceAdmin ||
-      isProjectManager ||
-      isProjectCoordinator ||
-      (isProjectLead &&
-        currentProjectMemberId &&
-        task.createdById === currentProjectMemberId);
+      (!isAssignee && (
+        isProjectManager ||
+        isProjectCoordinator ||
+        (isProjectLead &&
+          currentProjectMemberId &&
+          task.createdById === currentProjectMemberId)
+      ));
 
     if (!isAuthorized) {
       throw AppError.Forbidden(
-        "You don't have permission to update this task.",
+        "You don't have permission to update this task because you are the assignee.",
       );
     }
 
@@ -1982,7 +1990,63 @@ export class TasksService {
       updateData.days = null;
     } else {
       // It's a subtask, allow updates to execution fields
-      if (data.status) updateData.status = data.status;
+      if (data.status && data.status !== task.status) {
+        const isAssignee = currentProjectMemberId
+          ? task.assigneeId === currentProjectMemberId
+          : false;
+
+        const isActingAsManager =
+          !isAssignee &&
+          (isWorkspaceAdmin || isProjectManager || isProjectCoordinator);
+
+        const leadCanComplete =
+          !isAssignee &&
+          isProjectLead &&
+          task.createdById === currentProjectMemberId;
+
+        const canCompleteOrHoldOrCancel = isActingAsManager || leadCanComplete;
+
+        // 1. Workflow check: COMPLETED can only come from REVIEW
+        if (data.status === "COMPLETED" && task.status !== "REVIEW") {
+          throw AppError.ValidationError(
+            "Before marking a task as Completed, you must first move it to Review status.",
+          );
+        }
+
+        // 2. Role check: COMPLETED/HOLD/CANCELLED
+        if (
+          ["COMPLETED", "HOLD", "CANCELLED"].includes(data.status) &&
+          !canCompleteOrHoldOrCancel
+        ) {
+          throw AppError.Forbidden(
+            "Only the Project Manager, Coordinator, or Admin (not personally assigned) can mark tasks as Completed, On Hold, or Cancelled.",
+          );
+        }
+
+        // 3. Review check: Moving out of REVIEW
+        if (task.status === "REVIEW" && !canCompleteOrHoldOrCancel) {
+          throw AppError.Forbidden(
+            "You cannot move this task out of Review status. Only the Project Manager, Coordinator, or Admin (not personally assigned) can.",
+          );
+        }
+
+        // 4. Comment check: Since general task editing does not collect transition comments,
+        // block any move that requires a comment and tell them to do it from the list/board status changer.
+        const isMandatoryTransition =
+          ["HOLD", "CANCELLED", "REVIEW"].includes(data.status) ||
+          (task.status && ["HOLD", "CANCELLED", "COMPLETED"].includes(task.status)) ||
+          (task.status === "REVIEW" &&
+            (data.status === "TO_DO" || data.status === "IN_PROGRESS")) ||
+          (task.status === "IN_PROGRESS" && data.status === "TO_DO");
+
+        if (isMandatoryTransition) {
+          throw AppError.ValidationError(
+            "This status transition requires an explanation comment. Please update the status directly from the board or list view.",
+          );
+        }
+
+        updateData.status = data.status;
+      }
       if (data.days !== undefined) updateData.days = data.days;
       if (data.startDate !== undefined)
         updateData.startDate = parseIST(data.startDate as any);

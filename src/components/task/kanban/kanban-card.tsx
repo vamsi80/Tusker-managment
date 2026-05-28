@@ -17,8 +17,6 @@ import {
   Edit,
   Trash2,
   MessageSquare,
-  Calendar,
-  AlertCircle,
   Tag,
 } from "lucide-react";
 import type { KanbanSubTaskType } from "@/types/task";
@@ -156,8 +154,31 @@ export const KanbanCard = React.memo(function KanbanCard({
       subTask.createdBy?.id ||
       (subTask as any).createdById;
 
+    const subTaskAssigneeUserId =
+      subTask.assignee?.id ||
+      (subTask.assignee as any)?.workspaceMember?.user?.id ||
+      (subTask as any).assigneeUserId;
+
+    const subTaskAssigneeMemberId = (subTask as any).assigneeId;
+
+    const currentUserId = permissions?.userId || userId;
+    const currentProjectMemberId = permissions?.projectMember?.id;
+
+    const isAssignee = !!(
+      (currentUserId && subTaskAssigneeUserId && currentUserId === subTaskAssigneeUserId) ||
+      (currentProjectMemberId && subTaskAssigneeMemberId && currentProjectMemberId === subTaskAssigneeMemberId)
+    );
+
+    const isUserWorkspaceAdmin = permissions?.isWorkspaceAdmin;
+
+    // Assignees cannot edit task details (metadata) even if they are PM, Lead or Coordinator,
+    // unless they are Workspace Admin.
+    if (isAssignee && !isUserWorkspaceAdmin) {
+      return false;
+    }
+
     if (permissions) {
-      if (permissions.isWorkspaceAdmin) return true;
+      if (isUserWorkspaceAdmin) return true;
 
       const workspacePerms = permissions as any;
       if (

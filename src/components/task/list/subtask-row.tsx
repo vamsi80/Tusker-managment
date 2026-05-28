@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, memo } from "react";
 import { useRemainingDays } from "@/hooks/use-due-date";
@@ -104,14 +104,22 @@ export const SubTaskRow = memo(function SubTaskRow({
             (currentProjectMemberId && subTaskAssigneeMemberId && currentProjectMemberId === subTaskAssigneeMemberId)
         );
 
+        const isUserWorkspaceAdmin = permissions?.isWorkspaceAdmin || isWorkspaceAdmin;
+
+        // Assignees cannot edit task details (metadata) even if they are PM, Lead or Coordinator,
+        // unless they are Workspace Admin.
+        if (isAssignee && !isUserWorkspaceAdmin) {
+            return false;
+        }
+
         if (permissions) {
-            return permissions.isWorkspaceAdmin ||
+            return isUserWorkspaceAdmin ||
                 permissions.isProjectCoordinator ||
-                isCreator ||
+                (permissions.isProjectLead && isCreator) ||
                 permissions.isProjectManager;
         }
 
-        if (isWorkspaceAdmin) return true;
+        if (isUserWorkspaceAdmin) return true;
 
         const projectIdToCheck = (subTask as any).projectId || projectId;
 
@@ -120,9 +128,8 @@ export const SubTaskRow = memo(function SubTaskRow({
         const taskProject = projectMap ? projectMap[projectIdToCheck] : projects?.find(p => p.id === projectIdToCheck);
         if (taskProject?.canManageMembers) return true;
 
-        // Check if user is LEAD in this project and created/assigned the task
-        const isUserCreatorOrAssignee = isCreator || isAssignee || subTaskCreatorUserId === userId || subTaskAssigneeUserId === userId;
-        if (leadProjectIds?.includes(projectIdToCheck) && isUserCreatorOrAssignee) {
+        // Check if user is LEAD in this project and created the task
+        if (leadProjectIds?.includes(projectIdToCheck) && isCreator) {
             return true;
         }
 
