@@ -120,7 +120,7 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
                             {/* Assignee */}
                             <div className="flex items-center justify-between group">
                                 <div className="flex items-center gap-2 text-muted-foreground">
-                                    <User className="h-3.5 w-3.5" />
+                                    <User className="size-3.5" />
                                     <span className="text-[10px] font-bold uppercase tracking-tight">Assignee</span>
                                 </div>
                                 {assignee ? (
@@ -151,7 +151,7 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
                             {/* Status */}
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2 text-muted-foreground">
-                                    <FileCheck className="h-3.5 w-3.5" />
+                                    <FileCheck className="size-3.5" />
                                     <span className="text-[10px] font-bold uppercase tracking-tight">Status</span>
                                 </div>
                                 {subTask.status ? (
@@ -175,7 +175,7 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
                             <div className="flex flex-col gap-1.5 pt-1 border-t border-dashed border-border/50">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2 text-muted-foreground">
-                                        <Tag className="h-3.5 w-3.5" />
+                                        <Tag className="size-3.5" />
                                         <span className="text-[10px] font-bold uppercase tracking-tight">Tags</span>
                                     </div>
                                     <div className="flex flex-wrap gap-1 justify-end max-w-[120px]">
@@ -201,7 +201,7 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
                             {/* Start Date */}
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2 text-muted-foreground">
-                                    <Calendar className="h-3.5 w-3.5" />
+                                    <Calendar className="size-3.5" />
                                     <span className="text-[10px] font-bold uppercase tracking-tight">Start Date</span>
                                 </div>
                                 <span className="text-xs font-bold">
@@ -212,7 +212,7 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
                             {/* Due Date */}
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2 text-muted-foreground">
-                                    <Calendar className="h-3.5 w-3.5" />
+                                    <Calendar className="size-3.5" />
                                     <span className="text-[10px] font-bold uppercase tracking-tight">Due Date</span>
                                 </div>
                                 <span className="text-xs font-bold">
@@ -224,7 +224,7 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
                             {isOverdue && (
                                 <div className="flex items-center justify-between pt-1 border-t border-dashed border-destructive/20">
                                     <div className="flex items-center gap-2 text-destructive">
-                                        <Calendar className="h-3.5 w-3.5" />
+                                        <Calendar className="size-3.5" />
                                         <span className="text-[10px] font-bold uppercase tracking-tight">Delayed</span>
                                     </div>
                                     <span className="text-xs font-black text-destructive animate-pulse">

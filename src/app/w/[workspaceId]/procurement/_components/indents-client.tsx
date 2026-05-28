@@ -195,7 +195,7 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
         </div>
         <Link href={`/w/${workspaceId}/procurement/indents/create`}>
           <Button size="sm" className="h-8 text-xs font-semibold flex items-center gap-1">
-            <Plus className="h-3.5 w-3.5" /> Create Indent
+            <Plus className="size-3.5" /> Create Indent
           </Button>
         </Link>
       </div>

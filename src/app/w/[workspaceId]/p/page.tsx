@@ -151,7 +151,7 @@ export default function WorkspaceProjectsPage() {
       <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
         {/* Search */}
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-muted-foreground/60" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4.5 text-muted-foreground/60" />
           <input
             type="text"
             placeholder="Search projects..."
@@ -232,7 +232,7 @@ export default function WorkspaceProjectsPage() {
                       {proj.name}
                     </h3>
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground/75 font-medium mt-0.5">
-                      <Calendar className="h-3.5 w-3.5" />
+                      <Calendar className="size-3.5" />
                       <span>
                         Created {new Date(proj.createdAt || Date.now()).toLocaleDateString(undefined, {
                           year: 'numeric',

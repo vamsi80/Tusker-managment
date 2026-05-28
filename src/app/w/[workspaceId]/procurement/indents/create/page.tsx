@@ -57,7 +57,7 @@ export default async function WorkspaceProcurementCreateIndent({ params, searchP
           href={`/w/${workspaceId}/procurement/indents`}
           className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
-          <ArrowLeft className="h-3.5 w-3.5" />
+          <ArrowLeft className="size-3.5" />
           Back to Indents Registry
         </Link>
       </div>

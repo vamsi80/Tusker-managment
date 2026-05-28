@@ -328,7 +328,7 @@ export function AttendanceTable({
                     return (
                         <div className="flex flex-col items-start">
                             <div className="flex items-center gap-1.5 text-sm text-emerald-600">
-                                <Clock className="h-3.5 w-3.5" />
+                                <Clock className="size-3.5" />
                                 {format(d, "hh:mm a")}
                             </div>
                         </div>
@@ -392,7 +392,7 @@ export function AttendanceTable({
                     return (
                         <div className="flex flex-col items-start gap-1">
                             <div className="flex items-center gap-1.5 text-sm text-rose-600">
-                                <Clock className="h-3.5 w-3.5" />
+                                <Clock className="size-3.5" />
                                 {format(dOut, "hh:mm a")}
                                 {isNextDay && (
                                     <Badge variant="outline" className="px-1 py-0 h-4 text-[9px] font-medium border-amber-200 bg-amber-50 text-amber-600">
@@ -464,7 +464,7 @@ export function AttendanceTable({
 
                     return (
                         <div className="flex items-center gap-1.5 font-medium text-sm text-primary/80">
-                            <Clock className="h-3.5 w-3.5" />
+                            <Clock className="size-3.5" />
                             {diffHrs}h {diffMins}m
                         </div>
                     );

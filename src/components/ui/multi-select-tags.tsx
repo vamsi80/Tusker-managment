@@ -91,7 +91,7 @@ export function MultiSelectTags({
                         }
                       }}
                     >
-                      <X className="h-2.5 w-2.5" />
+                      <X className="size-2.5" />
                     </div>
                   </Badge>
                 ))

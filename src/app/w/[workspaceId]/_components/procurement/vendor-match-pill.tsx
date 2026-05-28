@@ -66,7 +66,7 @@ export function VendorMatchPill({
           : "bg-muted text-muted-foreground border-transparent cursor-default"
       )}
     >
-      <Building2 className="h-2.5 w-2.5 flex-shrink-0" />
+      <Building2 className="size-2.5 flex-shrink-0" />
       <span>{hasVendors ? count : "–"}</span>
     </button>
   );

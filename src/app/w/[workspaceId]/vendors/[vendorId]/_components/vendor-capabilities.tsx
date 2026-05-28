@@ -334,7 +334,7 @@ export function VendorCapabilities({ vendorId, workspaceId }: VendorCapabilities
               </Popover>
               {selectedMaterialId === "CUSTOM" && (
                 <div className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 rounded px-1.5 py-0.5 mt-1.5 flex items-center gap-1 w-fit uppercase tracking-wider">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
                   New Material
                 </div>
               )}

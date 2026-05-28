@@ -507,7 +507,7 @@ export function ProcurementHubClient({
             onClick={() => setActiveTab("dashboard")}
             className="h-8 text-xs font-semibold flex items-center gap-1.5"
           >
-            <LayoutDashboard className="h-3.5 w-3.5" /> Dashboard
+            <LayoutDashboard className="size-3.5" /> Dashboard
           </Button>
 
           <Button
@@ -516,7 +516,7 @@ export function ProcurementHubClient({
             onClick={() => setActiveTab("indent")}
             className="h-8 text-xs font-semibold flex items-center gap-1.5"
           >
-            <FileText className="h-3.5 w-3.5" /> Indents List
+            <FileText className="size-3.5" /> Indents List
           </Button>
 
           <Button
@@ -525,7 +525,7 @@ export function ProcurementHubClient({
             onClick={() => setActiveTab("material")}
             className="h-8 text-xs font-semibold flex items-center gap-1.5"
           >
-            <Package className="h-3.5 w-3.5" /> Materials Hub
+            <Package className="size-3.5" /> Materials Hub
           </Button>
 
           <Button
@@ -534,7 +534,7 @@ export function ProcurementHubClient({
             onClick={() => setActiveTab("rfq")}
             className="h-8 text-xs font-semibold flex items-center gap-1.5"
           >
-            <Workflow className="h-3.5 w-3.5" /> RFQs Active
+            <Workflow className="size-3.5" /> RFQs Active
           </Button>
         </div>
       </div>
@@ -617,7 +617,7 @@ export function ProcurementHubClient({
                 </div>
                 <div className="flex gap-3">
                   <Button size="sm" onClick={() => setActiveTab("indent")} className="h-8 text-xs">
-                    Review Indents <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                    Review Indents <ArrowRight className="ml-1.5 size-3.5" />
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => setActiveTab("material")} className="h-8 text-xs">
                     Inspect Materials
@@ -843,7 +843,7 @@ export function ProcurementHubClient({
                           <Dialog open={isQuoteDialogOpen} onOpenChange={setIsQuoteDialogOpen}>
                             <DialogTrigger asChild>
                               <Button size="sm" variant="outline" className="h-8 text-xs font-semibold">
-                                <Plus className="mr-1.5 h-3.5 w-3.5" /> Enter Quote Manually
+                                <Plus className="mr-1.5 size-3.5" /> Enter Quote Manually
                               </Button>
                             </DialogTrigger>
                             <DialogContent className="sm:max-w-[425px]">
@@ -958,7 +958,7 @@ export function ProcurementHubClient({
                                             [s.vendor.id]: e.target.checked,
                                           });
                                         }}
-                                        className="h-3.5 w-3.5 text-primary border-border rounded"
+                                        className="size-3.5 text-primary border-border rounded"
                                       />
                                       <div className="flex flex-col">
                                         <span className="text-xs font-semibold text-foreground">{s.vendor.name}</span>
@@ -1002,7 +1002,7 @@ export function ProcurementHubClient({
                               disabled={isSendingRfq}
                               className="h-8 text-xs bg-primary hover:bg-primary/95 text-white flex items-center gap-1.5"
                             >
-                              <Send className="h-3.5 w-3.5" />
+                              <Send className="size-3.5" />
                               {isSendingRfq ? "Sending..." : "Dispatch RFQ"}
                             </Button>
                           </div>

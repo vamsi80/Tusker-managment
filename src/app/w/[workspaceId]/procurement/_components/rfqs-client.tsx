@@ -127,7 +127,7 @@ export function RfqsClient({ workspaceId }: RfqsClientProps) {
         </div>
         <Link href={`/w/${workspaceId}/procurement/rfqs/create`}>
           <Button size="sm" className="h-8 text-xs font-semibold flex items-center gap-1">
-            <Plus className="h-3.5 w-3.5" /> Create RFQ
+            <Plus className="size-3.5" /> Create RFQ
           </Button>
         </Link>
       </div>

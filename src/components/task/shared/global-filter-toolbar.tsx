@@ -326,7 +326,7 @@ export function GlobalFilterToolbar({
                                                             !filters.startDate && !filters.endDate && "text-muted-foreground"
                                                         )}
                                                     >
-                                                        <Calendar className="mr-1.5 h-3.5 w-3.5 flex-shrink-0" />
+                                                        <Calendar className="mr-1.5 size-3.5 flex-shrink-0" />
                                                         <span className="truncate">
                                                             {filters.startDate && filters.endDate ? (
                                                                 <>

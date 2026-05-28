@@ -20,7 +20,7 @@ export function MySpaceNav({ workspaceId }: { workspaceId: string }) {
     <div className="pt-0 mb-2">
       <div className="flex h-11 items-center gap-4 overflow-x-auto scrollbar-hide px-2 border-b border-border/50">
         <div className="flex items-center gap-2 pr-4 border-r border-border/50 h-6 flex-shrink-0">
-          <LayoutGrid className="h-3.5 w-3.5 text-primary" />
+          <LayoutGrid className="size-3.5 text-primary" />
           <span className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Personal</span>
         </div>
 

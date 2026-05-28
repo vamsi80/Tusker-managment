@@ -194,7 +194,7 @@ export function QuoteCard({
                 disabled={isLoading}
                 className="h-8 text-xs font-semibold flex-1 bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
               >
-                <Check className="h-3.5 w-3.5" /> Approve Quote
+                <Check className="size-3.5" /> Approve Quote
               </Button>
               <Button
                 size="sm"
@@ -203,7 +203,7 @@ export function QuoteCard({
                 disabled={isLoading}
                 className="h-8 text-xs font-semibold border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 gap-1.5"
               >
-                <XCircle className="h-3.5 w-3.5" /> Reject
+                <XCircle className="size-3.5" /> Reject
               </Button>
             </div>
           ) : (

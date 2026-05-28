@@ -170,9 +170,9 @@ export function MessagesTab({
                 {isLoading && hasMore && (
                     <div className="flex justify-center py-3 sticky top-0 z-10">
                         <div className="bg-muted/60 backdrop-blur rounded-full px-3 py-1 flex items-center gap-2">
-                            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                            <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
                             <span className="text-[10px] text-muted-foreground font-medium">
-                                Loading older messages…
+                                Loading older messages...
                             </span>
                         </div>
                     </div>
@@ -285,7 +285,7 @@ export function MessagesTab({
                     <Input
                         value={message}
                         onChange={(e) => setMessage(e.target.value)}
-                        placeholder="Type a message…"
+                        placeholder="Type a message..."
                         disabled={isSending}
                         className="flex-1 bg-muted/40 border-none focus-visible:ring-1 focus-visible:ring-emerald-500/20 rounded-[14px] h-12 px-4 text-[14.5px] placeholder:text-muted-foreground/40"
                     />

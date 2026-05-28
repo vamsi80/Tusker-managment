@@ -17,11 +17,12 @@ export function RealtimeNotificationListener() {
   // ✅ Global Presence Heartbeat — fires on ALL workspace pages
   usePresenceHeartbeat(workspaceId);
 
-  const refreshTimeoutRef = useRef<any>(null);
   const processedEventsRef = useRef(new Set<string>());
 
   useEffect(() => {
     if (!workspaceId) return;
+
+    let refreshTimeout: any = null;
 
     // 1. Initialize the central Real-Time Service
     pubsub.init(workspaceId, session?.user?.id);
@@ -84,8 +85,8 @@ export function RealtimeNotificationListener() {
         const requiresBackgroundRefresh = isProject || isMember || isAttendance;
 
         if (requiresBackgroundRefresh) {
-          if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
-          refreshTimeoutRef.current = setTimeout(() => {
+          if (refreshTimeout) clearTimeout(refreshTimeout);
+          refreshTimeout = setTimeout(() => {
             console.log(`[REALTIME_SYNC] 🔄 Background revalidation triggered for: ${action}`);
             router.refresh();
           }, 2000); // 2s debounce for background revalidation
@@ -119,7 +120,7 @@ export function RealtimeNotificationListener() {
     return () => {
       unsubscribeActivity();
       unsubscribeTeam();
-      if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
+      if (refreshTimeout) clearTimeout(refreshTimeout);
     };
   }, [
     workspaceId,

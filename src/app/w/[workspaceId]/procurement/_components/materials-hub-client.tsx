@@ -285,7 +285,7 @@ export function MaterialsHubClient({
             onClick={() => setSelectedGroupKey(row.original.groupKey)}
             className="h-7 text-xs px-2.5 flex items-center gap-1 ml-auto"
           >
-            <Eye className="h-3.5 w-3.5" /> Manage
+            <Eye className="size-3.5" /> Manage
           </Button>
         </div>
       ),
@@ -452,7 +452,7 @@ export function MaterialsHubClient({
                                     disabled={isSaving}
                                     className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1"
                                   >
-                                    <Check className="h-3.5 w-3.5" /> Save
+                                    <Check className="size-3.5" /> Save
                                   </Button>
                                   <Button
                                     size="sm"
@@ -461,7 +461,7 @@ export function MaterialsHubClient({
                                     disabled={isSaving}
                                     className="h-7 text-xs font-semibold flex items-center gap-1"
                                   >
-                                    <X className="h-3.5 w-3.5" /> Cancel
+                                    <X className="size-3.5" /> Cancel
                                   </Button>
                                 </>
                               ) : (
@@ -476,7 +476,7 @@ export function MaterialsHubClient({
                                       }}
                                       className="h-7 text-xs font-semibold flex items-center gap-1"
                                     >
-                                      <Pencil className="h-3.5 w-3.5" /> Edit
+                                      <Pencil className="size-3.5" /> Edit
                                     </Button>
                                   )}
                                   {isDraft && (
@@ -486,7 +486,7 @@ export function MaterialsHubClient({
                                       onClick={() => handleSubmitIndent(item.indent.id)}
                                       className="h-7 text-xs font-semibold flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100/80"
                                     >
-                                      <Send className="h-3.5 w-3.5" /> Submit
+                                      <Send className="size-3.5" /> Submit
                                     </Button>
                                   )}
                                   {isSubmittedOrAssigned && isApprover && (
@@ -495,7 +495,7 @@ export function MaterialsHubClient({
                                       onClick={() => handleApproveIndent(item.indent.id)}
                                       className="h-7 text-xs font-semibold flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
                                     >
-                                      <Check className="h-3.5 w-3.5" /> Approve
+                                      <Check className="size-3.5" /> Approve
                                     </Button>
                                   )}
                                 </>

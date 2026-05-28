@@ -50,7 +50,7 @@ export function DueThisWeekWidget({ dueThisWeek, weekStart, weekEnd }: DueThisWe
           <span className="text-xs text-muted-foreground">{formattedRange}</span>
         </div>
         <div className="p-1.5 rounded-xl bg-primary/10 text-primary">
-          <Calendar className="h-4.5 w-4.5" />
+          <Calendar className="size-4.5" />
         </div>
       </div>
 

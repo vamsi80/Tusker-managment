@@ -104,7 +104,7 @@ export function ConversationList({ conversations, isLoading }: ConversationListP
       {/* Search */}
       <div className="p-3">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
           <Input
             placeholder="Search team or chats..."
             value={search}
@@ -148,7 +148,7 @@ export function ConversationList({ conversations, isLoading }: ConversationListP
                         </AvatarFallback>
                       </Avatar>
                       {otherUser?.lastActiveAt && (new Date().getTime() - new Date(otherUser.lastActiveAt).getTime() < 120000) && (
-                        <div className="absolute bottom-0.5 right-0.5 h-2.5 w-2.5 bg-emerald-500 rounded-full border-2 border-background" />
+                        <div className="absolute bottom-0.5 right-0.5 size-2.5 bg-emerald-500 rounded-full border-2 border-background" />
                       )}
                     </div>
 

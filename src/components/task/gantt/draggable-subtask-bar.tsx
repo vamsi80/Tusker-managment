@@ -537,7 +537,7 @@ export function DraggableSubtaskBar({
                                             delayStyles.borderColor,
                                             !isSettled && isDelayed && "animate-pulse"
                                         )}>
-                                            <AlertCircle className="h-2.5 w-2.5" />
+                                            <AlertCircle className="size-2.5" />
                                             {delayText.toUpperCase()}
                                         </span>
                                     )}

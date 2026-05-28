@@ -225,22 +225,22 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
                 <div className="mt-3">
                     {!accuracy ? (
                         <div className="flex items-center gap-1.5 px-2.5 py-1 bg-muted border border-border rounded-full w-fit">
-                            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-pulse" />
+                            <span className="size-1.5 rounded-full bg-muted-foreground animate-pulse" />
                             <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">GPS Waiting</span>
                         </div>
                     ) : accuracy <= 20 ? (
                         <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full w-fit">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
                             <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Strong GPS Signal ({Math.round(accuracy)}m)</span>
                         </div>
                     ) : accuracy <= 60 ? (
                         <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full w-fit">
-                            <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                            <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" />
                             <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600">Moderate GPS Signal ({Math.round(accuracy)}m)</span>
                         </div>
                     ) : (
                         <div className="flex items-center gap-1.5 px-2.5 py-1 bg-rose-500/10 border border-rose-500/20 rounded-full w-fit">
-                            <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
+                            <span className="size-1.5 rounded-full bg-rose-500 animate-pulse" />
                             <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600">Weak GPS Signal ({Math.round(accuracy)}m) — Move near a window</span>
                         </div>
                     )}

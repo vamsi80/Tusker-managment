@@ -97,7 +97,7 @@ export function createVendorColumns(
                                 key={i}
                                 className={i < rating ? "text-yellow-500" : "text-gray-300"}
                             >
-                                â˜…
+                                â˜...
                             </span>
                         ))}
                         <span className="ml-1 text-sm text-muted-foreground">({rating})</span>

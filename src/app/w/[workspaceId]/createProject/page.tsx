@@ -466,7 +466,7 @@ export default function CreateProjectPage() {
                                 <Popover>
                                     <PopoverTrigger asChild>
                                         <Button variant="outline" size="sm" className="h-8 gap-2">
-                                            <Users className="h-3.5 w-3.5" />
+                                            <Users className="size-3.5" />
                                             Use Existing Client
                                         </Button>
                                     </PopoverTrigger>

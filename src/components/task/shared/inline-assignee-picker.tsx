@@ -254,7 +254,7 @@ export function InlineAssigneePicker({
                                             onSelect={() => handleSelect(member)}
                                             className="flex items-center gap-2 cursor-pointer text-xs"
                                         >
-                                            <Check className="h-3.5 w-3.5 opacity-0" />
+                                            <Check className="size-3.5 opacity-0" />
                                             <span className="flex-1 truncate">{displayName}</span>
                                             {roleLabel && (
                                                 <span className="text-[10px] text-muted-foreground shrink-0">

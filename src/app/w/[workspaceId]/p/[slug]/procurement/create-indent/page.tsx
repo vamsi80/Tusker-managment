@@ -24,7 +24,7 @@ export default async function CreateIndentPage({ params, searchParams }: iAppPro
           href={`/w/${workspaceId}/p/${slug}/procurement`}
           className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
-          <ArrowLeft className="h-3.5 w-3.5" />
+          <ArrowLeft className="size-3.5" />
           Back to Procurement
         </Link>
       </div>

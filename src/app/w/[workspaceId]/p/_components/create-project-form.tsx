@@ -363,7 +363,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
 
                                                         <PopoverContent className="p-0 w-64" align="start">
                                                             <Command>
-                                                                <CommandInput placeholder="Search managers…" />
+                                                                <CommandInput placeholder="Search managers..." />
                                                                 <CommandEmpty>No workspace managers found.</CommandEmpty>
 
                                                                 <CommandGroup className="max-h-64 overflow-y-auto">

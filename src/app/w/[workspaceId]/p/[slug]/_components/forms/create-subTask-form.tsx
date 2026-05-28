@@ -487,7 +487,7 @@ export const CreateSubTaskForm = ({
 
                                             <PopoverContent className="p-0 w-64">
                                                 <Command>
-                                                    <CommandInput placeholder="Search members…" />
+                                                    <CommandInput placeholder="Search members..." />
                                                     <CommandList>
                                                         <CommandEmpty>No members found.</CommandEmpty>
                                                         <CommandGroup>
@@ -555,7 +555,7 @@ export const CreateSubTaskForm = ({
 
                                             <PopoverContent className="p-0 w-64">
                                                 <Command>
-                                                    <CommandInput placeholder="Search reviewers…" />
+                                                    <CommandInput placeholder="Search reviewers..." />
                                                     <CommandList>
                                                         <CommandEmpty>No reviewers found.</CommandEmpty>
                                                         <CommandGroup>

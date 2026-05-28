@@ -363,13 +363,13 @@ export function CreateRfqClient({ workspaceId, indents, vendors }: CreateRfqClie
                               size="sm"
                               className="h-8 text-xs font-semibold flex items-center gap-1 w-full border-dashed"
                             >
-                              <Plus className="h-3.5 w-3.5" /> Add Vendor {idx + 1}
+                              <Plus className="size-3.5" /> Add Vendor {idx + 1}
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-80 p-0" align="start">
                             <div className="p-3 border-b bg-muted/10 shrink-0">
                               <div className="relative">
-                                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                                <Search className="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
                                 <Input
                                   placeholder="Search vendors..."
                                   value={vendorSearchQuery}
@@ -563,7 +563,7 @@ export function CreateRfqClient({ workspaceId, indents, vendors }: CreateRfqClie
                     onClick={() => handleRemoveMaterial(item.id)}
                     className="size-6 rounded opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-600 text-muted-foreground shrink-0"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Trash2 className="size-3.5" />
                   </Button>
                 </td>
                 <td className="p-2.5 border-r text-center font-mono text-xs text-foreground">
@@ -620,13 +620,13 @@ export function CreateRfqClient({ workspaceId, indents, vendors }: CreateRfqClie
                       size="sm"
                       className="h-7 text-xs font-semibold flex items-center gap-1 border-dashed w-full"
                     >
-                      <Plus className="h-3.5 w-3.5" /> Add Material Row
+                      <Plus className="size-3.5" /> Add Material Row
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-96 p-0" align="start">
                     <div className="p-3 border-b bg-muted/10 shrink-0">
                       <div className="relative">
-                        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                        <Search className="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
                         <Input
                           placeholder="Search pending materials..."
                           value={materialSearchQuery}

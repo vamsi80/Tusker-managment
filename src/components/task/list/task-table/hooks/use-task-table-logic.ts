@@ -18,6 +18,12 @@ import { useWorkspaceTags } from "@/hooks/use-workspace-tags";
 import { useFilterStore } from "@/lib/store/filter-store";
 import { useFilteredFetch } from "@/hooks/use-filtered-fetch";
 
+// Local helper for robust deduplication by ID
+const dedupeTasks = (taskList: TaskWithSubTasks[]) => {
+  if (!taskList) return [];
+  return taskList.filter((t, i, a) => a.findIndex(c => c.id === t.id) === i);
+};
+
 export function useTaskTableLogic({
   initialTasks,
   workspaceId,
@@ -26,11 +32,6 @@ export function useTaskTableLogic({
   projectCounts,
   projects,
 }: any) {
-  // Local helper for robust deduplication by ID
-  const dedupeTasks = (taskList: TaskWithSubTasks[]) => {
-    if (!taskList) return [];
-    return taskList.filter((t, i, a) => a.findIndex(c => c.id === t.id) === i);
-  };
 
   // Initialize state directly from initialTasks (no global cache)
   const tags = useWorkspaceTags(workspaceId);
