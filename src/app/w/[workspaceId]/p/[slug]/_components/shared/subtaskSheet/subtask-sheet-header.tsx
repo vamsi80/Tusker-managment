@@ -48,13 +48,12 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
 
     if (!subTask) return null;
 
-    // Get project name from workspace layout context using slug OR projectId
-    const projectSlug = params.slug as string;
+    // Get project name — always prioritize the task's actual projectId.
+    // The URL slug (params.slug) is the currently viewed page and can mismatch when opened via notifications.
     const currentProject = workspaceData.projects?.find((p: any) => 
-        (projectSlug && p.slug === projectSlug) || 
-        (subTask.projectId && p.id === subTask.projectId)
+        subTask.projectId ? p.id === subTask.projectId : (params.slug && p.slug === params.slug)
     );
-    const projectName = currentProject?.name || subTask.project?.name;
+    const projectName = currentProject?.name || (subTask as any).project?.name;
 
     // Assignee calculation
     const assignee = (subTask.assignee as any)?.workspaceMember?.user || subTask.assignee;

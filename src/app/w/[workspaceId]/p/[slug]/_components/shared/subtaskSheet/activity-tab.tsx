@@ -83,31 +83,68 @@ export function ActivityTab({ activities, isLoadingActivity, hasMore, onLoadMore
                                             <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
                                                 Activity
                                             </Badge>
-                                            {activity.attachment?.previousStatus && activity.attachment?.targetStatus && (
-                                                <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-medium bg-muted px-1.5 py-0.5 rounded-sm whitespace-nowrap border">
-                                                    {activity.attachment.previousStatus.replace("_", " ")}
+                                            {activity.attachment && typeof activity.attachment === "object" && (activity.attachment as any).previousStatus && (activity.attachment as any).targetStatus && (
+                                                <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-medium bg-muted px-1.5 py-0.5 rounded-sm whitespace-nowrap border animate-in fade-in duration-300">
+                                                    {(activity.attachment as any).previousStatus.replace("_", " ")}
                                                     <ArrowRight className="size-3" />
-                                                    {activity.attachment.targetStatus.replace("_", " ")}
+                                                    {(activity.attachment as any).targetStatus.replace("_", " ")}
                                                 </span>
                                             )}
                                         </div>
                                     </div>
 
                                     {/* Activity Text and Attachment Link */}
-                                    <div className="flex flex-col items-start gap-2 mb-2 w-full">
-                                        {activity.text && (
-                                            <p className="text-sm leading-relaxed break-words w-full">
-                                                {activity.text}
-                                            </p>
-                                        )}
-                                        {activity.attachment?.url && (
-                                            <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50/50 px-2.5 py-1.5 rounded-md border border-blue-100 max-w-full overflow-hidden hover:bg-blue-50 transition-colors w-max">
-                                                <LinkIcon className="size-3.5 flex-shrink-0" />
-                                                <a href={activity.attachment.url} target="_blank" rel="noopener noreferrer" className="truncate hover:underline">
-                                                    {activity.attachment.url}
-                                                </a>
-                                            </div>
-                                        )}
+                                    <div className="flex flex-col items-start gap-2.5 w-full">
+                                        {(() => {
+                                            const lines = activity.text?.split("\n") || [];
+                                            const hasTransitionPrefix = lines[0]?.includes(" -> ");
+                                            
+                                            // Fallback to text header only if we don't have structured statuses
+                                            const hasStructuredStatus = activity.attachment && 
+                                                typeof activity.attachment === "object" && 
+                                                (activity.attachment as any).previousStatus && 
+                                                (activity.attachment as any).targetStatus;
+                                                
+                                            const showTransitionHeader = hasTransitionPrefix && !hasStructuredStatus;
+                                            const commentText = hasTransitionPrefix ? lines.slice(1).join("\n").trim() : (activity.text || "").trim();
+
+                                            return (
+                                                <>
+                                                     {showTransitionHeader && (
+                                                         <p className="text-xs font-bold text-muted-foreground bg-muted px-2.5 py-1 rounded-md border border-dashed">
+                                                             {lines[0]}
+                                                         </p>
+                                                     )}
+                                                     {commentText && (
+                                                         <p className="text-sm text-foreground bg-muted/20 border border-border/30 px-3.5 py-2.5 rounded-lg leading-relaxed break-words w-full shadow-inner font-medium">
+                                                             {commentText}
+                                                         </p>
+                                                     )}
+                                                </>
+                                            );
+                                        })()}
+
+                                        {(() => {
+                                            const attachment = activity.attachment;
+                                            let attachmentUrl = "";
+                                            if (attachment) {
+                                                if (typeof attachment === "string") {
+                                                    attachmentUrl = attachment;
+                                                } else if (typeof attachment === "object") {
+                                                    attachmentUrl = (attachment as any).url || (attachment as any).data || "";
+                                                }
+                                            }
+                                            if (!attachmentUrl) return null;
+
+                                            return (
+                                                <div className="flex items-center gap-2 text-sm text-primary bg-primary/5 hover:bg-primary/10 border border-primary/20 px-3 py-2 rounded-md max-w-full overflow-hidden transition-all duration-200 shadow-sm w-max mt-1">
+                                                    <LinkIcon className="size-4 flex-shrink-0 text-primary" />
+                                                    <a href={attachmentUrl} target="_blank" rel="noopener noreferrer" className="truncate hover:underline font-semibold tracking-wide">
+                                                        {attachmentUrl}
+                                                    </a>
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
                                 </div>
                             );
