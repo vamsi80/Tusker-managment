@@ -114,6 +114,7 @@ export function DailyReportModal({ workspaceId, isOpen, onClose, onSubmitted }: 
                                                     variant="outline"
                                                     role="combobox"
                                                     aria-expanded={openPopoverIndex === index}
+                                                    aria-controls={`task-list-${index}`}
                                                     className="w-full justify-between"
                                                 >
                                                     {entry.taskId
@@ -143,7 +144,7 @@ export function DailyReportModal({ workspaceId, isOpen, onClose, onSubmitted }: 
                                                     return value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0;
                                                 }}>
                                                     <CommandInput placeholder="Search tasks and subtasks..." />
-                                                    <CommandList>
+                                                    <CommandList id={`task-list-${index}`}>
                                                         <CommandEmpty className="p-2 text-center text-sm text-muted-foreground">
                                                             No matching tasks. Try "Other Work".
                                                         </CommandEmpty>

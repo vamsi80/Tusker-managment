@@ -268,6 +268,7 @@ export function VendorCapabilities({ vendorId, workspaceId }: VendorCapabilities
                     variant="outline"
                     role="combobox"
                     aria-expanded={popoverOpen}
+                    aria-controls="capabilities-list"
                     className="w-full justify-between h-9 bg-background font-normal text-left border border-input shadow-sm hover:bg-accent hover:text-accent-foreground"
                   >
                     <span className="truncate">
@@ -287,7 +288,7 @@ export function VendorCapabilities({ vendorId, workspaceId }: VendorCapabilities
                       value={searchQuery}
                       onValueChange={setSearchQuery}
                     />
-                    <CommandList className="max-h-[200px] overflow-y-auto">
+                    <CommandList id="capabilities-list" className="max-h-[200px] overflow-y-auto">
                       <CommandEmpty className="py-2 text-center text-xs text-muted-foreground">
                         No materials found. Type to create custom.
                       </CommandEmpty>

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
@@ -44,7 +44,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { COLUMNS, TaskStatus } from "./kanban-board";
+import { COLUMNS, TaskStatus } from "./kanban-constants";
 import { useRemainingDays } from "@/hooks/use-due-date";
 import { getDelayColors, getDelayText } from "@/lib/colors/delay-colors";
 

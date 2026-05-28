@@ -1,6 +1,6 @@
 "use server";
 
-import { requireUser } from "@/lib/auth/require-user";
+import { getSession } from "@/lib/auth/require-user";
 import prisma from "@/lib/db";
 import { revalidateTag } from "next/cache";
 
@@ -9,16 +9,21 @@ import { getDailyReportFormData as getFormData } from "@/data/daily-report/get-d
 import { getDailyReportStatus as getStatus } from "@/data/daily-report/get-daily-report-status";
 
 export async function getDailyReportStatus(workspaceId: string) {
+    const session = await getSession();
+    if (!session) throw new Error("Unauthorized");
     return getStatus(workspaceId);
 }
 
 export async function getDailyReportFormData(workspaceId: string) {
+    const session = await getSession();
+    if (!session) throw new Error("Unauthorized");
     return getFormData(workspaceId);
 }
 
 export async function submitDailyReport(values: DailyReportFormType) {
-    const user = await requireUser();
-    if (!user) throw new Error("Unauthorized");
+    const session = await getSession();
+    if (!session) throw new Error("Unauthorized");
+    const user = session.user;
 
     const validation = dailyReportSchema.safeParse(values);
     if (!validation.success) {

@@ -12,7 +12,7 @@ import {
 import type { SubTaskType } from "@/types/task";
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 import { apiClient } from "@/lib/api-client";
-import { ProjectLayoutContext } from "@/app/w/[workspaceId]/p/[slug]/_components/project-layout-context";
+import { ProjectLayoutContext } from "@/app/w/[workspaceId]/p/[slug]/_components/project-layout-context-object";
 import { useContext } from "react";
 import { useWorkspaceTags } from "@/hooks/use-workspace-tags";
 import { useFilterStore } from "@/lib/store/filter-store";

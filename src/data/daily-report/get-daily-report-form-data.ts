@@ -1,12 +1,12 @@
 "use server";
 
 import prisma from "@/lib/db";
-import { requireUser } from "@/lib/auth/require-user";
+import { getSession } from "@/lib/auth/require-user";
 
 export async function getDailyReportFormData(workspaceId: string) {
-    const user = await requireUser();
-    if (!user) throw new Error("Unauthorized");
-
+    const session = await getSession();
+    if (!session) throw new Error("Unauthorized");
+    const user = session.user;
     const userId = user.id;
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);

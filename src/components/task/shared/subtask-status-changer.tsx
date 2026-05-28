@@ -1,6 +1,6 @@
-﻿"use client";
+"use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useContext } from "react";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useTaskTableContext } from "../list/task-table/context/task-table-context";
+import { TaskTableContext } from "../list/task-table/context/task-table-context-object";
 import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { ActivityDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/activity-form";
 import { cn } from "@/lib/utils";
@@ -44,13 +44,8 @@ export function SubtaskStatusChanger({
     leadProjectIds: propLeadProjectIds,
     coordinatorProjectIds: propCoordinatorProjectIds,
 }: SubtaskStatusChangerProps) {
-    // Attempt to consume from context, fallback to props
-    let context: any = null;
-    try {
-        context = useTaskTableContext();
-    } catch (e) {
-        // Context not available
-    }
+    // Consume from context unconditionally, fallback to props
+    const context = useContext(TaskTableContext);
 
     const workspaceId = context?.workspaceId || propWorkspaceId;
     const projectId = context?.projectId || propProjectId;
@@ -293,4 +288,3 @@ export function SubtaskStatusChanger({
         </>
     );
 }
-

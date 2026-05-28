@@ -133,12 +133,12 @@ model Workspace {
   dailyReports           DailyReport[]
   indents                Indent[]
   leaveRequests          leave_request[]
-  vendorCapabilities     VendorMaterialCapability[]
+  materialCatalog        MaterialCatalog[]
   notifications          notification[]
   publicHolidays         public_holiday[]
-  vendors                Vendor[]
-  materialCatalog        MaterialCatalog[]
   units                  UnitOfMeasure[]
+  vendors                Vendor[]
+  vendorCapabilities     VendorMaterialCapability[]
 }
 
 model WorkspaceMember {
@@ -610,10 +610,10 @@ model MemberTodo {
   memberId    String
   text        String
   completed   Boolean         @default(false)
-  position    Int             @default(0)
   createdAt   DateTime        @default(now())
   completedAt DateTime?
   updatedAt   DateTime        @updatedAt
+  position    Int             @default(0)
   member      WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
   @@index([memberId])
@@ -627,8 +627,8 @@ model VendorMaterialCapability {
   unit         String?
   workspaceId  String
   source       String                @default("MANUAL")
-  serviceType  CapabilityServiceType @default(SUPPLY)
   createdAt    DateTime              @default(now())
+  serviceType  CapabilityServiceType @default(SUPPLY)
   vendor       Vendor                @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   workspace    Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
@@ -642,12 +642,12 @@ model MaterialCatalog {
   workspaceId   String
   name          String
   unit          String?
-  defaultUnitId String?
-  source        String         @default("INDENT") // INDENT | MANUAL
+  source        String         @default("INDENT")
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+  defaultUnitId String?
+  defaultUnit   UnitOfMeasure? @relation(fields: [defaultUnitId], references: [id])
   workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  defaultUnit   UnitOfMeasure? @relation(fields: [defaultUnitId], references: [id], onDelete: SetNull)
 
   @@unique([workspaceId, name])
   @@index([workspaceId])
@@ -662,8 +662,8 @@ model UnitOfMeasure {
   category     String?
   isDefault    Boolean           @default(false)
   createdAt    DateTime          @default(now())
-  workspace    Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   materials    MaterialCatalog[]
+  workspace    Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@unique([workspaceId, abbreviation])
   @@index([workspaceId])
@@ -738,12 +738,6 @@ model Vendor {
   contactPerson String?
   email         String?
   address       String?
-  addressLine1  String?
-  addressLine2  String?
-  city          String?
-  state         String?
-  pincode       String?
-  country       String?                    @default("India")
   gstNumber     String?
   workspaceId   String
   isActive      Boolean                    @default(true)
@@ -751,6 +745,12 @@ model Vendor {
   updatedAt     DateTime                   @updatedAt
   phoneNumber   String?
   status        VendorStatus               @default(ACTIVE)
+  addressLine1  String?
+  addressLine2  String?
+  city          String?
+  country       String?                    @default("India")
+  pincode       String?
+  state         String?
   workspace     Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   capabilities  VendorMaterialCapability[]
   quotes        VendorQuote[]
