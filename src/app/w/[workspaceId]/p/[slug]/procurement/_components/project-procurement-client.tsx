@@ -205,7 +205,7 @@ export function ProjectProcurementClient({
       <div className="flex items-center justify-between border-b border-border/60 pb-3 mb-4 shrink-0">
         <div>
           <h1 className="text-base font-bold text-foreground flex items-center gap-1.5">
-            <AlignLeft className="h-4.5 w-4.5 text-primary" /> Procurement
+            <AlignLeft className="size-4.5 text-primary" /> Procurement
           </h1>
           <p className="text-[11px] text-muted-foreground">
             Manage material requests, track indents, and view required materials.
@@ -215,7 +215,7 @@ export function ProjectProcurementClient({
           onClick={() => router.push(`/w/${workspaceId}/p/${slug}/procurement/create-indent`)}
           className="h-8 text-xs px-3"
         >
-          <Plus className="mr-1.5 h-3.5 w-3.5" /> Create New Indent
+          <Plus className="mr-1.5 size-3.5" /> Create New Indent
         </Button>
       </div>
 
@@ -230,7 +230,7 @@ export function ProjectProcurementClient({
             onClick={() => router.push(`/w/${workspaceId}/p/${slug}/procurement/create-indent`)}
             className="h-8 text-xs mt-4"
           >
-            <Plus className="mr-1.5 h-3.5 w-3.5" /> Create First Indent
+            <Plus className="mr-1.5 size-3.5" /> Create First Indent
           </Button>
         </div>
       ) : (

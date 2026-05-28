@@ -244,7 +244,7 @@ function SortableSubtaskRow({
                             !canManage && "pointer-events-none opacity-0"
                         )}
                     >
-                        <GripVertical className="h-3.5 w-3.5" />
+                        <GripVertical className="size-3.5" />
                     </div>
 
                     <CornerDownRight className="size-3 text-muted-foreground/30 shrink-0" />

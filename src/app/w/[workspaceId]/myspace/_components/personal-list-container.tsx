@@ -130,7 +130,7 @@ function TodoItem({
           todo.completed ? "text-emerald-500" : "text-muted-foreground/60 hover:text-primary"
         )}
       >
-        {todo.completed ? <CheckCircle2 className="h-4.5 w-4.5" /> : <Circle className="h-4.5 w-4.5 stroke-[2px]" />}
+        {todo.completed ? <CheckCircle2 className="size-4.5" /> : <Circle className="size-4.5 stroke-[2px]" />}
       </button>
 
       <div className="flex-1 min-w-0">
@@ -159,7 +159,7 @@ function TodoItem({
               }}
             />
             <button onClick={() => handleEditTodo(todo.id)} className="text-primary hover:text-primary/80 transition-colors">
-              <Check className="h-3.5 w-3.5" />
+              <Check className="size-3.5" />
             </button>
           </div>
         ) : (
@@ -421,7 +421,7 @@ export function PersonalListContainer({
               className="group flex items-start gap-3 py-2 px-3 transition-all mb-3 rounded-2xl border border-border bg-card/50 hover:bg-card focus-within:bg-card focus-within:border-primary/40 focus-within:shadow-[0_0_0_1px_rgba(var(--primary),0.1)]"
             >
               <div className="mt-1 shrink-0 text-muted-foreground/35 group-focus-within:text-primary/50 transition-colors">
-                <Circle className="h-4.5 w-4.5 stroke-[2px]" />
+                <Circle className="size-4.5 stroke-[2px]" />
               </div>
               <textarea
                 placeholder="Add a new task..."

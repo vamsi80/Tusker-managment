@@ -167,7 +167,7 @@ export function DailyReportModal({ workspaceId, isOpen, onClose, onSubmitted }: 
                                                                     <div className="flex flex-col truncate">
                                                                         <div className="flex items-center gap-2">
                                                                             <div
-                                                                                className="w-1.5 h-1.5 rounded-full shrink-0"
+                                                                                className="size-1.5 rounded-full shrink-0"
                                                                                 style={{ backgroundColor: t.project?.color || "#ccc" }}
                                                                             />
                                                                             <span className="font-medium text-[10px] text-muted-foreground uppercase tracking-tight">

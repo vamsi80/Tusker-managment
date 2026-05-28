@@ -314,14 +314,14 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
               disabled={isPending}
               className="h-8 text-xs font-semibold text-red-600 border-red-200 hover:bg-red-50"
             >
-              <X className="mr-1.5 h-3.5 w-3.5" /> Reject
+              <X className="mr-1.5 size-3.5" /> Reject
             </Button>
             <Button
               onClick={handleApprove}
               disabled={isPending}
               className="h-8 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white"
             >
-              <Check className="mr-1.5 h-3.5 w-3.5" /> Approve
+              <Check className="mr-1.5 size-3.5" /> Approve
             </Button>
           </div>
         )}
@@ -332,7 +332,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
               disabled={isPending}
               className="h-8 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5"
             >
-              <FileCheck className="h-3.5 w-3.5" /> Submit for Approval
+              <FileCheck className="size-3.5" /> Submit for Approval
             </Button>
           </div>
         )}
@@ -491,7 +491,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
                                   disabled={isPending}
                                   className="size-7 text-red-600 hover:bg-red-50"
                                 >
-                                  <X className="h-3.5 w-3.5" />
+                                  <X className="size-3.5" />
                                 </Button>
                                 <Button
                                   size="icon"
@@ -499,7 +499,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
                                   disabled={isPending}
                                   className="size-7 bg-emerald-600 hover:bg-emerald-700 text-white"
                                 >
-                                  <Check className="h-3.5 w-3.5" />
+                                  <Check className="size-3.5" />
                                 </Button>
                               </div>
                             </TableCell>
@@ -530,7 +530,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
                                     disabled={isPending}
                                     className="size-7 text-blue-600 hover:bg-blue-50"
                                   >
-                                    <Edit className="h-3.5 w-3.5" />
+                                    <Edit className="size-3.5" />
                                   </Button>
                                   <Button
                                     size="icon"
@@ -539,7 +539,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
                                     disabled={isPending}
                                     className="size-7 text-red-600 hover:bg-red-50"
                                   >
-                                    <Trash2 className="h-3.5 w-3.5" />
+                                    <Trash2 className="size-3.5" />
                                   </Button>
                                 </div>
                               </TableCell>
@@ -603,7 +603,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
                           disabled={isPending}
                           className="h-8 text-xs px-3 bg-primary hover:bg-primary/90 flex items-center gap-1"
                         >
-                          <Plus className="h-3.5 w-3.5" /> Add
+                          <Plus className="size-3.5" /> Add
                         </Button>
                       </TableCell>
                     </TableRow>

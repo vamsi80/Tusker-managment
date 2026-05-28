@@ -95,7 +95,7 @@ export function SendRfqForm({
       {/* Vendor list */}
       <div className="space-y-2">
         <div className="flex items-center gap-2">
-          <Users className="h-3.5 w-3.5 text-muted-foreground" />
+          <Users className="size-3.5 text-muted-foreground" />
           <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
             Select Vendors
           </span>

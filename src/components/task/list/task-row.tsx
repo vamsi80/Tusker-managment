@@ -202,7 +202,7 @@ export const TaskRow = memo(function TaskRow({
                 <TableCell className="w-[40px] md:w-[50px]">
                     {isSubtaskRow ? (
                         <div className="flex items-center justify-center pl-4">
-                            <CornerDownRight className="h-3.5 w-3.5 text-muted-foreground/50" />
+                            <CornerDownRight className="size-3.5 text-muted-foreground/50" />
                         </div>
                     ) : (
                         !isSubtask && (

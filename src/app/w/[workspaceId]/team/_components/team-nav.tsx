@@ -59,7 +59,7 @@ export function TeamNav({ workspaceId, isAdmin }: TeamNavProps) {
         <div className={cn("border-b mt-2", isPending && "opacity-60 pointer-events-none transition-opacity")}>
             <div className="flex h-10 items-center gap-4 overflow-x-auto scrollbar-hide">
                 <div className="flex items-center gap-2 px-3 border-r border-border/50 h-full flex-shrink-0">
-                    <Users className="h-3.5 w-3.5 text-primary" />
+                    <Users className="size-3.5 text-primary" />
                     <span className="text-sm font-bold">Team</span>
                 </div>
 
@@ -90,7 +90,7 @@ export function TeamNav({ workspaceId, isAdmin }: TeamNavProps) {
                         "flex items-center justify-center size-8 rounded-md border border-border/60 bg-background/50 transition-all duration-500 flex-shrink-0",
                         isQuerying && "border-primary/40 bg-primary/5 shadow-sm ring-1 ring-primary/10"
                     )}>
-                        <RefreshCw className={cn("h-3.5 w-3.5 transition-all duration-500", isQuerying ? "text-primary animate-spin" : "text-muted-foreground/40")} />
+                        <RefreshCw className={cn("size-3.5 transition-all duration-500", isQuerying ? "text-primary animate-spin" : "text-muted-foreground/40")} />
                     </div>
                     <LeaveRequestDialog workspaceId={workspaceId}>
                         <Button
@@ -98,7 +98,7 @@ export function TeamNav({ workspaceId, isAdmin }: TeamNavProps) {
                             size="sm"
                             className="h-8 gap-1.5 text-[11px] font-bold uppercase tracking-wider border-border/60 hover:bg-muted/50 transition-all active:scale-95 cursor-pointer"
                         >
-                            <Clock className="h-3.5 w-3.5" />
+                            <Clock className="size-3.5" />
                             Apply Leave
                         </Button>
                     </LeaveRequestDialog>
@@ -110,7 +110,7 @@ export function TeamNav({ workspaceId, isAdmin }: TeamNavProps) {
                                 size="sm"
                                 className="h-8 gap-1.5 text-[11px] font-bold uppercase tracking-wider border-border/60 hover:bg-muted/50 transition-all active:scale-95 cursor-pointer"
                             >
-                                <Users className="h-3.5 w-3.5" />
+                                <Users className="size-3.5" />
                                 Invite Member
                             </Button>
                         </InviteUserForm>

@@ -75,7 +75,7 @@ export function ChatPanel({
               </AvatarFallback>
             </Avatar>
             {otherUser?.lastActiveAt && (new Date().getTime() - new Date(otherUser.lastActiveAt).getTime() < 120000) && (
-              <div className="absolute bottom-0 right-0 h-2.5 w-2.5 bg-emerald-500 rounded-full border-2 border-background" />
+              <div className="absolute bottom-0 right-0 size-2.5 bg-emerald-500 rounded-full border-2 border-background" />
             )}
           </div>
 

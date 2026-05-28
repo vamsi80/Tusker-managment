@@ -51,7 +51,7 @@ export function AbsentMembersWidget({ allMembers, absentRecords }: AbsentMembers
           <span className="text-xs text-muted-foreground">Not in the office today</span>
         </div>
         <div className="p-1.5 rounded-xl bg-rose-500/10 text-rose-500">
-          <UserMinus className="h-4.5 w-4.5" />
+          <UserMinus className="size-4.5" />
         </div>
       </div>
 

@@ -162,7 +162,7 @@ export function DashboardClient({ workspaceId }: DashboardClientProps) {
           <div className="flex gap-3">
             <Link href={`/w/${workspaceId}/procurement/indents`}>
               <Button size="sm" className="h-8 text-xs">
-                Review Indents <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                Review Indents <ArrowRight className="ml-1.5 size-3.5" />
               </Button>
             </Link>
             <Link href={`/w/${workspaceId}/procurement/materials`}>

@@ -261,11 +261,11 @@ export const SubTaskRow = memo(function SubTaskRow({
                                 {...listeners}
                                 className="cursor-grab active:cursor-grabbing p-0.5 text-muted-foreground/30 hover:text-muted-foreground transition-colors shrink-0"
                             >
-                                <GripVertical className="h-3.5 w-3.5" />
+                                <GripVertical className="size-3.5" />
                             </div>
                         )}
                         <div className="size-6 flex items-center justify-center shrink-0">
-                            <CornerDownRight className="h-3.5 w-3.5 text-muted-foreground/50" />
+                            <CornerDownRight className="size-3.5 text-muted-foreground/50" />
                         </div>
                     </div>
                 </TableCell>
@@ -410,7 +410,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                                     </span>
                                 )}
                                 {delayStyles.dotVariant === "solid" && (
-                                    <div className={cn("h-2.5 w-2.5 rounded-full flex-shrink-0", delayStyles.dotColor)} />
+                                    <div className={cn("size-2.5 rounded-full flex-shrink-0", delayStyles.dotColor)} />
                                 )}
                                 <span className={cn("text-[10px] sm:text-xs truncate font-medium", delayStyles.color)}>
                                     {delayText}

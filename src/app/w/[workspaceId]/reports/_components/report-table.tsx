@@ -328,7 +328,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
                             }}
                             title={anyExpanded ? "Collapse All" : "Expand All"}
                         >
-                            {anyExpanded ? <ChevronsDownUp className="h-3.5 w-3.5" /> : <ChevronsUpDown className="h-3.5 w-3.5" />}
+                            {anyExpanded ? <ChevronsDownUp className="size-3.5" /> : <ChevronsUpDown className="size-3.5" />}
                         </Button>
                         <span className="font-semibold text-xs tracking-tight">Date / Assignee</span>
                     </div>
@@ -353,7 +353,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
                             >
                                 {isExpanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
                             </Button>
-                            <CalendarIcon className="h-3.5 w-3.5 text-primary shrink-0" />
+                            <CalendarIcon className="size-3.5 text-primary shrink-0" />
                             <span className="font-bold text-sm text-foreground">
                                 {data.date !== "No Date" ? formatIST(new Date(`${data.date}T12:00:00`)) : "No Date"}
                             </span>

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -107,7 +107,7 @@ export function GanttChart({
                 clearTimeout(timeoutId);
             }
         };
-    }, [groupByProject]);
+    }, [groupByProject, tasks]);
 
     // ðŸš€ Performance: Virtualization & Windowing
     const [scrollX, setScrollX] = useState(0);
@@ -215,7 +215,7 @@ export function GanttChart({
 
         scrollContainerRef.current.scrollLeft = scrollPosition;
         setScrollX(scrollPosition);
-    }, [granularity]);
+    }, [granularity, timelineRange.start]);
 
     const toggleTask = (taskId: string) => {
         const isExpanding = !expandedTasks.has(taskId);
@@ -303,7 +303,7 @@ export function GanttChart({
             if (prev.size === allTaskIds.size && [...allTaskIds].every(id => prev.has(id))) return prev;
             return new Set([...prev, ...allTaskIds]);
         });
-    }, [isExpandAllMode, tasks, groupedTasks, loadingSubtasks, loadingProjects]);
+    }, [isExpandAllMode, tasks, groupedTasks, loadingSubtasks, loadingProjects, onRequestProjectTasks]);
 
     const expandAll = () => {
         setIsExpandAllMode(true);

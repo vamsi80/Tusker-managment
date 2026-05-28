@@ -546,7 +546,7 @@ export function InlineSubTaskForm({
                             {pending ? (
                                 <Loader2 className="size-3 animate-spin" />
                             ) : (
-                                <Check className="h-3.5 w-3.5" />
+                                <Check className="size-3.5" />
                             )}
                         </Button>
                     )}
@@ -558,7 +558,7 @@ export function InlineSubTaskForm({
                         disabled={pending}
                         title="Cancel (Esc)"
                     >
-                        <X className="h-3.5 w-3.5" />
+                        <X className="size-3.5" />
                     </Button>
                 </div>
             </TableCell>

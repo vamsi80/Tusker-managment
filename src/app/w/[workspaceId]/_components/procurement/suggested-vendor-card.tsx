@@ -54,7 +54,7 @@ export function SuggestedVendorCard({
               : "border-muted-foreground/40"
           )}
         >
-          {isSelected && <Check className="h-2.5 w-2.5 text-primary-foreground stroke-[3]" />}
+          {isSelected && <Check className="size-2.5 text-primary-foreground stroke-[3]" />}
         </div>
 
         <div className="flex-1 min-w-0">
@@ -63,11 +63,11 @@ export function SuggestedVendorCard({
             <span className="text-sm font-bold text-foreground truncate">{vendor.name}</span>
             {hasSuppliedBefore ? (
               <Badge className="h-4 px-1.5 text-[9px] font-bold gap-1 bg-emerald-50 text-emerald-700 border-emerald-200 shrink-0">
-                <Check className="h-2.5 w-2.5" /> Supplied Before
+                <Check className="size-2.5" /> Supplied Before
               </Badge>
             ) : (
               <Badge variant="outline" className="h-4 px-1.5 text-[9px] font-bold gap-1 text-muted-foreground shrink-0">
-                <AlertCircle className="h-2.5 w-2.5" /> New
+                <AlertCircle className="size-2.5" /> New
               </Badge>
             )}
           </div>

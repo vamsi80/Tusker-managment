@@ -313,7 +313,7 @@ export function LeavesTable({
                 return (
                     <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-1.5 text-sm font-medium">
-                            <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                            <CalendarIcon className="size-3.5 text-muted-foreground" />
                             {format(start, "MMM d")} - {format(end, "MMM d, yyyy")}
                         </div>
                         <span className="text-[10px] font-medium text-muted-foreground uppercase">

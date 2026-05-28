@@ -354,7 +354,7 @@ export function LineItemTable({
                         </span>
                         {item.specifications && (
                           <span className="text-[10px] text-muted-foreground flex items-center gap-0.5 mt-0.5">
-                            <CornerDownRight className="h-2.5 w-2.5 text-muted-foreground/50" />
+                            <CornerDownRight className="size-2.5 text-muted-foreground/50" />
                             {item.specifications}
                           </span>
                         )}
@@ -405,7 +405,7 @@ export function LineItemTable({
                           onClick={() => handleDeleteItem(item.id)}
                           className="size-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          <Trash2 className="size-3.5" />
                         </Button>
                       </TableCell>
                     )}
@@ -482,7 +482,7 @@ export function LineItemTable({
                           size="sm"
                           className="h-8 text-xs font-bold px-2 w-full gap-1"
                         >
-                          {isAdding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                          {isAdding ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
                         </Button>
                       </div>
                     </form>

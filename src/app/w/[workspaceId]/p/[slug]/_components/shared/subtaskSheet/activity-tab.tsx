@@ -102,7 +102,7 @@ export function ActivityTab({ activities, isLoadingActivity, hasMore, onLoadMore
                                         )}
                                         {activity.attachment?.url && (
                                             <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50/50 px-2.5 py-1.5 rounded-md border border-blue-100 max-w-full overflow-hidden hover:bg-blue-50 transition-colors w-max">
-                                                <LinkIcon className="h-3.5 w-3.5 flex-shrink-0" />
+                                                <LinkIcon className="size-3.5 flex-shrink-0" />
                                                 <a href={activity.attachment.url} target="_blank" rel="noopener noreferrer" className="truncate hover:underline">
                                                     {activity.attachment.url}
                                                 </a>

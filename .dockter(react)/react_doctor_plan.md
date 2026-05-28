@@ -1,5 +1,5 @@
 # 🏥 React Doctor Master Fix Plan — Tusker Management
-> **Current Score: 46 / 100** | **Total Issues: 1,578** | **Critical Errors: 4** | **Warnings: 1,574**
+> **Current Score: 46 / 100** | **Total Issues: 1,465** | **Critical Errors: 4** | **Warnings: 1,461**
 
 ---
 
@@ -42,6 +42,12 @@ The following high-priority correctness, accessibility, and hot-reloading diagno
   7. `getWorkspacePermissions`, `getUserPermissions` in `get-user-permissions.ts`
   8. `getDailyReportFormData` in `get-daily-report-form-data.ts`
 
+### 🔄 Issue 8: `exhaustive-deps` — Missing Effect Dependencies
+* **Description:** Effects were running with external variables that were omitted from their dependency arrays, leading to stale closures or missing updates.
+* **Status:** Resolved ✅. Corrected and stabilized dependencies across all core interactive workspace view components:
+  1. `useTaskTableLogic` in `use-task-table-logic.ts` (Isolated helper functions outside the hook context to achieve absolute closure safety).
+  2. `GanttChart` in `gantt-chart.tsx` (Enforced standard prop function, today-scroll-positioning and memoized boundaries in dependency arrays).
+
 ---
 
 ## 🔴 ACTIVE TIER 1 — Errors (Must Fix Next)
@@ -73,16 +79,6 @@ Tailwind v3.4+ has a shorthand `size-N` that replaces matched dimensions like `w
   * `src/app/w/[workspaceId]/p/page.tsx`
   * `src/components/task/kanban/kanban-card.tsx`
 * **Fix:** Use VS Code Find & Replace (`Ctrl+Shift+H`) to map matching Tailwind dimensions (e.g. `w-4 h-4` ➔ `size-4`).
-
----
-
-### 🔄 Issue 8: `exhaustive-deps` — Missing Effect Dependencies ×58
-Effects are running with external variables that are omitted from the dependency array, leading to stale closures or missing updates.
-
-* **Sample Files:**
-  * `src/app/w/[workspaceId]/p/[slug]/gantt/page.tsx`
-  * `src/components/task/list/task-table/hooks/use-task-table-logic.ts`
-* **Fix:** Add missing local variables to effect dependencies.
 
 ---
 

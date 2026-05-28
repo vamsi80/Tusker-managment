@@ -105,7 +105,7 @@ export function DateTimePicker({
             className
           )}
         >
-          <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+          <CalendarIcon className="mr-2 size-3.5" />
           <span className="truncate text-xs">
             {date ? format(date, `${APP_DATE_FORMAT} HH:mm`) : placeholder}
           </span>

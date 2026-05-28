@@ -125,8 +125,8 @@ export function TimelineHeader({
                                         className="size-6"
                                     >
                                         {allExpanded
-                                            ? <ChevronsDownUp className="h-3.5 w-3.5" />
-                                            : <ChevronsUpDown className="h-3.5 w-3.5" />
+                                            ? <ChevronsDownUp className="size-3.5" />
+                                            : <ChevronsUpDown className="size-3.5" />
                                         }
                                     </Button>
                                 </TooltipTrigger>
@@ -138,7 +138,7 @@ export function TimelineHeader({
 
                         {isBatchLoading && (
                             <div className="flex items-center gap-1 ml-1 px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 animate-in fade-in zoom-in duration-300">
-                                <Loader2 className="h-2.5 w-2.5 animate-spin text-blue-600 dark:text-blue-400" />
+                                <Loader2 className="size-2.5 animate-spin text-blue-600 dark:text-blue-400" />
                                 <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-tighter">Syncing</span>
                             </div>
                         )}
@@ -158,7 +158,7 @@ export function TimelineHeader({
                                                 size="icon"
                                                 className="size-6"
                                             >
-                                                <Download className="h-3.5 w-3.5" />
+                                                <Download className="size-3.5" />
                                             </Button>
                                         </DropdownMenuTrigger>
                                     </TooltipTrigger>
@@ -184,7 +184,7 @@ export function TimelineHeader({
                                 <TooltipTrigger asChild>
                                     <DropdownMenuTrigger asChild>
                                         <Button variant="ghost" size="icon" className="size-6">
-                                            <Calendar className="h-3.5 w-3.5" />
+                                            <Calendar className="size-3.5" />
                                         </Button>
                                     </DropdownMenuTrigger>
                                 </TooltipTrigger>

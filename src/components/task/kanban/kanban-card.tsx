@@ -362,7 +362,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                         size="icon"
                         className="size-6 -mr-1 opacity-0 group-hover:opacity-100 transition-opacity"
                       >
-                        <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+                        <MoreHorizontal className="size-3.5 text-muted-foreground" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-40">
@@ -380,7 +380,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                           }
                           trigger={
                             <div className="flex items-center gap-2 w-full px-2 py-1.5 cursor-pointer hover:bg-accent rounded-sm transition-colors text-xs">
-                              <Edit className="h-3.5 w-3.5" />
+                              <Edit className="size-3.5" />
                               <span>Edit</span>
                             </div>
                           }
@@ -399,7 +399,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                           }}
                           trigger={
                             <div className="flex items-center gap-2 w-full px-2 py-1.5 cursor-pointer hover:bg-destructive/10 text-destructive rounded-sm transition-colors text-xs">
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <Trash2 className="size-3.5" />
                               <span>Delete</span>
                             </div>
                           }
@@ -418,7 +418,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                 className="flex items-center gap-1.5 text-muted-foreground"
                 title="Reviews"
               >
-                <MessageSquare className="h-3.5 w-3.5" />
+                <MessageSquare className="size-3.5" />
                 <span className="text-xs font-medium">{activityCount}</span>
               </div>
 
@@ -469,7 +469,7 @@ export const KanbanCard = React.memo(function KanbanCard({
               {subTask.tags && subTask.tags.length > 0 && (
                 <div className="flex items-center gap-1">
                   <div className="flex items-center gap-0.5 bg-muted/50 px-1.5 py-0.5 rounded text-[9px] font-medium text-muted-foreground border border-border/50 max-w-[80px]">
-                    <Tag className="h-2.5 w-2.5 shrink-0" />
+                    <Tag className="size-2.5 shrink-0" />
                     <span className="truncate">{subTask.tags[0].name}</span>
                   </div>
                   {subTask.tags.length > 1 && (
