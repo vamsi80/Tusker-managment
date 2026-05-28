@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, ChevronDown, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -62,13 +62,22 @@ function AutoCompleteInput({
   const [open, setOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newMaterialName, setNewMaterialName] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const filtered = value
-    ? catalog.filter((c) => c.name.toLowerCase().includes(value.toLowerCase()))
+  // Reset search query when popover opens
+  useEffect(() => {
+    if (open) {
+      setSearchQuery("");
+      if (onFocusTrigger) onFocusTrigger();
+    }
+  }, [open]);
+
+  const filtered = searchQuery
+    ? catalog.filter((c) => c.name.toLowerCase().includes(searchQuery.toLowerCase()))
     : catalog;
 
   const exactMatch = catalog.some(
-    (c) => c.name.toLowerCase() === value.trim().toLowerCase()
+    (c) => c.name.toLowerCase() === searchQuery.trim().toLowerCase()
   );
 
   // Auto-fill unit if the user types or enters the exact name of an existing material
@@ -86,59 +95,98 @@ function AutoCompleteInput({
 
   return (
     <div className="relative w-full">
-      <Popover open={!!(open && (filtered.length > 0 || (value.trim() && !exactMatch)))} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={setOpen}>
         <PopoverAnchor asChild>
-          <Input
-            placeholder={isLoading ? "Loading..." : "e.g. TMT Steel 10mm"}
-            value={value}
-            onChange={(e) => {
-              onChange(e.target.value);
-              if (!open) setOpen(true);
-              if (onFocusTrigger) onFocusTrigger();
-            }}
-            onFocus={() => {
-              setOpen(true);
-              if (onFocusTrigger) onFocusTrigger();
-            }}
+          <button
+            type="button"
+            onClick={() => !disabled && !isLoading && setOpen(true)}
             disabled={disabled || isLoading}
-            className="h-8 text-xs bg-background"
-          />
+            className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-left font-normal"
+          >
+            <span className={value ? "text-foreground font-medium truncate" : "text-muted-foreground truncate"}>
+              {value || "Select material..."}
+            </span>
+            <ChevronDown className="size-3.5 text-muted-foreground/70 shrink-0 ml-2" />
+          </button>
         </PopoverAnchor>
         <PopoverContent
-          onOpenAutoFocus={(e) => e.preventDefault()}
-          onCloseAutoFocus={(e) => e.preventDefault()}
-          className="w-[300px] p-0 bg-popover border border-border/80 rounded-md shadow-lg z-50 max-h-48 overflow-y-auto overflow-x-hidden"
+          onOpenAutoFocus={(e) => {
+            const searchInput = document.getElementById("material-search-input");
+            if (searchInput) searchInput.focus();
+          }}
+          className="w-[300px] p-0 bg-popover border border-border/80 rounded-md shadow-lg z-50 flex flex-col max-h-64 overflow-hidden"
           align="start"
         >
-          {filtered.map((item) => (
+          {/* Search Bar inside popover */}
+          <div className="flex items-center gap-2 border-b border-border/40 px-3 py-2 shrink-0">
+            <Search className="size-3.5 text-muted-foreground/60 shrink-0" />
+            <input
+              id="material-search-input"
+              placeholder="Search materials..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-transparent text-xs focus:outline-none placeholder:text-muted-foreground/60 text-foreground"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="text-muted-foreground/50 hover:text-foreground transition-colors"
+              >
+                <X className="size-3 shrink-0" />
+              </button>
+            )}
+          </div>
+
+          {/* Material List */}
+          <div className="overflow-y-auto max-h-48 divide-y divide-border/20">
+            {isLoading ? (
+              <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+                Loading materials...
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+                No matching materials
+              </div>
+            ) : (
+              filtered.map((item) => (
+                <div
+                  key={item.id}
+                  className="px-3 py-2 text-xs cursor-pointer hover:bg-accent text-popover-foreground flex items-center justify-between transition-colors font-medium"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onChange(item.name);
+                    if (item.defaultUnit?.abbreviation && onUnitAutoFill) {
+                      onUnitAutoFill(item.defaultUnit.abbreviation);
+                    }
+                    setOpen(false);
+                  }}
+                >
+                  <span className="truncate mr-2">{item.name}</span>
+                  {item.defaultUnit?.abbreviation && (
+                    <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded font-mono shrink-0 font-bold uppercase border border-border/30">
+                      {item.defaultUnit.abbreviation}
+                    </span>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Create New Option */}
+          {searchQuery.trim() && !exactMatch && (
             <div
-              key={item.id}
-              className="px-3 py-2 text-xs cursor-pointer hover:bg-accent text-popover-foreground flex items-center transition-colors"
+              className="px-3 py-2.5 text-xs cursor-pointer hover:bg-primary/5 text-primary flex items-center transition-colors font-semibold border-t border-border/40 bg-muted/20 mt-auto shrink-0"
               onMouseDown={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                onChange(item.name);
-                if (item.defaultUnit?.abbreviation && onUnitAutoFill) {
-                  onUnitAutoFill(item.defaultUnit.abbreviation);
-                }
-                setOpen(false);
-              }}
-            >
-              {item.name}
-            </div>
-          ))}
-          {value.trim() && !exactMatch && (
-            <div
-              className="px-3 py-2 text-xs cursor-pointer hover:bg-accent text-primary flex items-center transition-colors font-medium border-t border-border/40"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setNewMaterialName(value.trim());
+                setNewMaterialName(searchQuery.trim());
                 setDialogOpen(true);
                 setOpen(false);
               }}
             >
-              + Create &quot;{value.trim()}&quot;
+              <Plus className="mr-2 size-3 text-primary shrink-0" /> Create &quot;{searchQuery.trim()}&quot;
             </div>
           )}
         </PopoverContent>

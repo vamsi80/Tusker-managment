@@ -7,6 +7,7 @@ import { MaterialsTable } from "./materials-table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { AppLoader } from "@/components/shared/app-loader";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 interface Material {
     id: string;

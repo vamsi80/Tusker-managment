@@ -61,7 +61,8 @@ export function createSelectColumn<T>(): ColumnDef<T> {
     };
 }
 
-import { RowActions, type DataTableCellAction } from "./row-actions";
+import { RowActions } from "./row-actions";
+export { type DataTableCellAction } from "./row-actions";
 
 /**
  * Creates an actions column with dropdown menu
@@ -204,4 +205,3 @@ export function createNumberColumn<T>(
         },
     };
 }
-
