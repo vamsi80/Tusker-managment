@@ -172,6 +172,7 @@ model WorkspaceMember {
   leaveRequests          leave_request[]
   memberTodos            MemberTodo[]
   quotesReviewed         VendorQuote[]     @relation("QuoteReviewer")
+  addedMaterialItems     ProjectMaterialItem[]
 
   @@unique([userId, workspaceId])
   @@index([workspaceId, workspaceRole])
@@ -200,6 +201,7 @@ model Project {
   projectMembers   ProjectMember[]
   tasks            Task[]
   indents          Indent[]
+  materialItems    ProjectMaterialItem[]
 
   @@index([workspaceId, slug])
   @@index([workspaceId, createdAt])
@@ -306,6 +308,7 @@ model Task {
   Task_TaskDependency_A Task[]             @relation("TaskDependency")
   Task_TaskDependency_B Task[]             @relation("TaskDependency")
   tags                  Tag[]              @relation("TaskTags")
+  materialItems         ProjectMaterialItem[]
 
   @@index([projectId, status, isParent, createdAt(sort: Desc)])
   @@index([workspaceId, status, isParent])
@@ -909,4 +912,28 @@ enum CapabilityServiceType {
   SUPPLY
   LABOUR
   LABOUR_WITH_MATERIAL
+}
+
+model ProjectMaterialItem {
+  id                     String           @id @default(uuid())
+  projectId              String
+  subtaskId              String?          // Nullable to allow SetNull on task deletion
+  subtaskNameSnapshot    String?
+  parentTaskNameSnapshot String?
+  materialName           String
+  unit                   String
+  quantity               Float
+  notes                  String?
+  addedById              String
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
+
+  project   Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  subtask   Task?           @relation(fields: [subtaskId], references: [id], onDelete: SetNull)
+  addedBy   WorkspaceMember @relation(fields: [addedById], references: [id])
+
+  @@index([projectId])
+  @@index([subtaskId])
+  @@index([materialName])
+  @@map("project_material_item")
 }

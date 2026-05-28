@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, LayoutList, LayoutGrid, GanttChartSquare, Folder, ShoppingCart } from "lucide-react";
+import { LayoutDashboard, LayoutList, LayoutGrid, GanttChartSquare, Folder, ShoppingCart, Package } from "lucide-react";
 import { useSafeNavigation } from "@/hooks/use-safe-navigation";
 import { CreateTaskForm } from "../forms/create-task-form";
 import { BulkUploadForm } from "../forms/bulk-upload-form";
@@ -67,6 +67,12 @@ export function ProjectNav({
             href: `${baseUrl}/procurement`,
             icon: ShoppingCart,
             value: "procurement"
+        },
+        {
+            name: "Materials",
+            href: `${baseUrl}/materials`,
+            icon: Package,
+            value: "materials"
         },
     ];
 

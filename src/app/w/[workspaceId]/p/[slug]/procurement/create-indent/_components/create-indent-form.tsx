@@ -17,6 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
+import { CreateMaterialDialog } from "../../../materials/_components/create-material-dialog";
 
 const COMMON_UNITS = [
   { value: "pcs", label: "Pieces (pcs)" },
@@ -42,6 +43,9 @@ function AutoCompleteInput({
   isLoading,
   currentUnit,
   onFocusTrigger,
+  workspaceId,
+  unitsList,
+  onCreatedSuccess,
 }: {
   value: string;
   onChange: (val: string) => void;
@@ -51,12 +55,13 @@ function AutoCompleteInput({
   isLoading: boolean;
   currentUnit?: string;
   onFocusTrigger?: () => void;
+  workspaceId: string;
+  unitsList: string[];
+  onCreatedSuccess?: () => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newMaterialName, setNewMaterialName] = useState("");
-  const [selectedUnit, setSelectedUnit] = useState("pcs");
-  const [customUnit, setCustomUnit] = useState("");
 
   const filtered = value
     ? catalog.filter((c) => c.name.toLowerCase().includes(value.toLowerCase()))
@@ -129,8 +134,6 @@ function AutoCompleteInput({
                 e.preventDefault();
                 e.stopPropagation();
                 setNewMaterialName(value.trim());
-                setSelectedUnit("pcs");
-                setCustomUnit("");
                 setDialogOpen(true);
                 setOpen(false);
               }}
@@ -141,92 +144,23 @@ function AutoCompleteInput({
         </PopoverContent>
       </Popover>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle className="text-sm font-bold uppercase tracking-wider text-foreground">
-              Create New Material
-            </DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-col gap-4 py-4">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="new-material-name" className="text-xs font-bold text-muted-foreground uppercase">
-                Material Name
-              </Label>
-              <Input
-                id="new-material-name"
-                value={newMaterialName}
-                onChange={(e) => setNewMaterialName(e.target.value)}
-                className="h-9 text-xs"
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="new-material-unit" className="text-xs font-bold text-muted-foreground uppercase">
-                Default Unit
-              </Label>
-              <select
-                id="new-material-unit"
-                value={selectedUnit}
-                onChange={(e) => setSelectedUnit(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                {COMMON_UNITS.map((u) => (
-                  <option key={u.value} value={u.value}>
-                    {u.label}
-                  </option>
-                ))}
-                <option value="custom">Other / Custom</option>
-              </select>
-            </div>
-            {selectedUnit === "custom" && (
-              <div className="flex flex-col gap-1.5 animate-in fade-in duration-200">
-                <Label htmlFor="custom-unit" className="text-xs font-bold text-muted-foreground uppercase">
-                  Custom Unit Name
-                </Label>
-                <Input
-                  id="custom-unit"
-                  placeholder="e.g. box, roll"
-                  value={customUnit}
-                  onChange={(e) => setCustomUnit(e.target.value)}
-                  className="h-9 text-xs"
-                />
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setDialogOpen(false)}
-              className="h-8 text-xs px-3"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={() => {
-                if (!newMaterialName.trim()) {
-                  toast.error("Please enter a material name");
-                  return;
-                }
-                const unitToUse = selectedUnit === "custom" ? customUnit.trim() : selectedUnit;
-                if (!unitToUse) {
-                  toast.error("Please enter a unit");
-                  return;
-                }
-                onChange(newMaterialName.trim());
-                if (onUnitAutoFill) {
-                  onUnitAutoFill(unitToUse);
-                }
-                setDialogOpen(false);
-              }}
-              className="h-8 text-xs px-3"
-            >
-              Confirm
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CreateMaterialDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        workspaceId={workspaceId}
+        units={unitsList}
+        initialName={newMaterialName}
+        onSuccess={async (created: any) => {
+          onChange(created.name);
+          const unitAbbr = created.defaultUnit?.abbreviation || created.unit;
+          if (onUnitAutoFill && unitAbbr) {
+            onUnitAutoFill(unitAbbr);
+          }
+          if (onCreatedSuccess) {
+            await onCreatedSuccess();
+          }
+        }}
+      />
     </div>
   );
 }
@@ -376,7 +310,7 @@ export function CreateIndentForm({
     const fetchCatalogAndUnits = async () => {
       try {
         const [catalogRes, unitsRes] = await Promise.all([
-          fetch(`/api/v1/procurement/vendors/materials/all?w=${workspaceId}`),
+          fetch(`/api/v1/materials?w=${workspaceId}`),
           fetch(`/api/v1/procurement/indents/units?w=${workspaceId}`)
         ]);
         const catalogJson = await catalogRes.json();
@@ -667,6 +601,15 @@ export function CreateIndentForm({
                         disabled={isSubmitting}
                         catalog={catalog}
                         isLoading={isLoadingCatalog}
+                        workspaceId={workspaceId}
+                        unitsList={displayedUnits.map((u) => u.abbreviation)}
+                        onCreatedSuccess={async () => {
+                          const catalogRes = await fetch(`/api/v1/materials?w=${workspaceId}`);
+                          const catalogJson = await catalogRes.json();
+                          if (catalogJson.success && catalogJson.data) {
+                            setCatalog(catalogJson.data);
+                          }
+                        }}
                       />
                     </TableCell>
                     <TableCell className="py-2">
