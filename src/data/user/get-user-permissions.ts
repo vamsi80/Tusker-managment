@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/db";
-import { requireUser } from "@/lib/auth/require-user";
+import { requireUser, getSession } from "@/lib/auth/require-user";
 
 /**
  * Get workspace-level permissions for the current user
@@ -163,7 +163,12 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
  */
 export const getWorkspacePermissions = async (workspaceId: string, providedUserId?: string, lean: boolean = false) => {
     // If userId is provided (e.g. from a Server Action), bypass requireUser to save ~1s
-    const userId = providedUserId || (await requireUser()).id;
+    let userId = providedUserId;
+    if (!userId) {
+        const session = await getSession();
+        if (!session) throw new Error("Unauthorized");
+        userId = session.user.id;
+    }
     return await _fetchWorkspacePermissionsInternal(workspaceId, userId, lean);
 };
 
@@ -268,7 +273,12 @@ async function _getUserPermissionsInternal(workspaceId: string, projectId: strin
  */
 export const getUserPermissions = async (workspaceId: string, projectId: string, providedUserId?: string) => {
     // If userId is provided (e.g. from a Server Action), bypass requireUser to save ~1s
-    const userId = providedUserId || (await requireUser()).id;
+    let userId = providedUserId;
+    if (!userId) {
+        const session = await getSession();
+        if (!session) throw new Error("Unauthorized");
+        userId = session.user.id;
+    }
     return await _getUserPermissionsInternal(workspaceId, projectId, userId);
 };
 

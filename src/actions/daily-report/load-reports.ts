@@ -3,6 +3,7 @@
 import prisma from "@/lib/db";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { format } from "date-fns";
+import { getSession } from "@/lib/auth/require-user";
 
 export async function loadMoreReportsAction({
     workspaceId,
@@ -17,6 +18,8 @@ export async function loadMoreReportsAction({
     skip?: number;
     take?: number;
 }) {
+    const session = await getSession();
+    if (!session) throw new Error("Unauthorized");
     const { isWorkspaceAdmin, workspaceMember } = await getWorkspacePermissions(workspaceId);
     if (!workspaceMember) throw new Error("Unauthorized");
 

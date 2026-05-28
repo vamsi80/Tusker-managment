@@ -1,20 +1,11 @@
-﻿"use client";
+"use client";
 
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { ChevronsUpDown, ArrowUp, ArrowDown, MoreVertical } from "lucide-react";
+import { ChevronsUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { cn, formatIST, APP_DATE_FORMAT } from "@/lib/utils";
-import { useMounted } from "@/hooks/use-mounted";
 
 /**
  * Creates a sortable header component
@@ -70,76 +61,7 @@ export function createSelectColumn<T>(): ColumnDef<T> {
     };
 }
 
-/**
- * Row actions component to handle hydration
- */
-export interface DataTableCellAction<T> {
-    label: string;
-    onClick: (row: T) => void;
-    icon?: React.ReactNode;
-    variant?: "default" | "destructive";
-    hidden?: (row: T) => boolean;
-}
-
-/**
- * Row actions component to handle hydration
- */
-function RowActions<T>({
-    row,
-    actions
-}: {
-    row: any;
-    actions: DataTableCellAction<T>[];
-}) {
-    const mounted = useMounted();
-
-    if (!mounted) {
-        return (
-            <div className="flex w-full justify-center">
-                <Button variant="ghost" className="size-8 p-0" disabled>
-                    <MoreVertical className="size-4 opacity-50" />
-                </Button>
-            </div>
-        );
-    }
-
-    // Filter out hidden actions
-    const visibleActions = actions.filter(action => !action.hidden?.(row.original));
-
-    if (visibleActions.length === 0) return null;
-
-    return (
-        <div className="flex w-full justify-center">
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                    <Button variant="ghost" className="size-8 p-0">
-                        <span className="sr-only">Open menu</span>
-                        <MoreVertical className="size-4" />
-                    </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {visibleActions.map((action, index) => (
-                        <DropdownMenuItem
-                            key={index}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                action.onClick(row.original);
-                            }}
-                            className={cn(
-                                action.variant === "destructive" && "text-destructive focus:text-destructive"
-                            )}
-                        >
-                            {action.icon && <span className="mr-0">{action.icon}</span>}
-                            {action.label}
-                        </DropdownMenuItem>
-                    ))}
-                </DropdownMenuContent>
-            </DropdownMenu>
-        </div>
-    );
-}
+import { RowActions, type DataTableCellAction } from "./row-actions";
 
 /**
  * Creates an actions column with dropdown menu

@@ -6,6 +6,7 @@ import { z } from "zod";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { tagNameExists } from "@/data/tag/get-tags";
 import { invalidateWorkspaceTags } from "@/lib/cache/invalidation";
+import { getSession } from "@/lib/auth/require-user";
 
 const updateTagSchema = z.object({
     tagId: z.string(),
@@ -16,6 +17,8 @@ const updateTagSchema = z.object({
 
 export async function updateTag(data: z.infer<typeof updateTagSchema>) {
     try {
+        const session = await getSession();
+        if (!session) throw new Error("Unauthorized");
         // Validate input
         const validatedData = updateTagSchema.parse(data);
 

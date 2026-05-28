@@ -5,6 +5,7 @@ import { invalidateWorkspaceTags } from "@/lib/cache/invalidation";
 import { z } from "zod";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { tagNameExists } from "@/data/tag/get-tags";
+import { getSession } from "@/lib/auth/require-user";
 
 const createTagSchema = z.object({
     name: z.string().min(1, "Tag name is required").max(50, "Tag name must be less than 50 characters"),
@@ -14,6 +15,8 @@ const createTagSchema = z.object({
 
 export async function createTag(data: z.infer<typeof createTagSchema>) {
     try {
+        const session = await getSession();
+        if (!session) throw new Error("Unauthorized");
         // Validate input
         const validatedData = createTagSchema.parse(data);
 

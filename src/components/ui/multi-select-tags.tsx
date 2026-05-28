@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import * as React from "react";
 import { Check, ChevronsUpDown, X } from "lucide-react";
@@ -55,6 +55,7 @@ export function MultiSelectTags({
             variant="outline"
             role="combobox"
             aria-expanded={open}
+            aria-controls="tags-listbox"
             className={cn(
               "w-full justify-between h-auto min-h-8 py-1 px-2 transition-all duration-200",
               "border-muted-foreground/20 hover:border-primary/50 hover:bg-accent/50",
@@ -113,7 +114,7 @@ export function MultiSelectTags({
                 className="h-10 border-none focus:ring-0 text-sm"
               />
             </div>
-            <CommandList>
+            <CommandList id="tags-listbox">
               <CommandEmpty className="py-6 text-center text-sm text-muted-foreground animate-in fade-in duration-300">
                 No tags found.
               </CommandEmpty>

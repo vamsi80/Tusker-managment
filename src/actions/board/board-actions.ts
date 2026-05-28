@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/db";
-import { requireUser } from "@/lib/auth/require-user";
+import { getSession } from "@/lib/auth/require-user";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { revalidatePath } from "next/cache";
 import { BoardStatus } from "@/generated/prisma/client";
@@ -9,7 +9,9 @@ import { ApiResponse } from "@/lib/types";
 
 export async function createBoardItem(workspaceId: string, memberId: string, note: string): Promise<ApiResponse> {
     try {
-        const user = await requireUser();
+        const session = await getSession();
+        if (!session) throw new Error("Unauthorized");
+        const user = session.user;
         const perms = await getWorkspacePermissions(workspaceId, user.id);
 
         if (!perms.isWorkspaceAdmin && perms.workspaceMemberId !== memberId) {
@@ -36,7 +38,9 @@ export async function createBoardItem(workspaceId: string, memberId: string, not
 
 export async function toggleBoardItemStatus(workspaceId: string, itemId: string, currentStatus: BoardStatus): Promise<ApiResponse> {
     try {
-        const user = await requireUser();
+        const session = await getSession();
+        if (!session) throw new Error("Unauthorized");
+        const user = session.user;
         const perms = await getWorkspacePermissions(workspaceId, user.id);
 
         const newStatus: BoardStatus = currentStatus === "DONE" ? "NOT_DONE" : "DONE";
@@ -56,7 +60,9 @@ export async function toggleBoardItemStatus(workspaceId: string, itemId: string,
 
 export async function deleteBoardItem(workspaceId: string, itemId: string): Promise<ApiResponse> {
     try {
-        const user = await requireUser();
+        const session = await getSession();
+        if (!session) throw new Error("Unauthorized");
+        const user = session.user;
         const perms = await getWorkspacePermissions(workspaceId, user.id);
 
         // Fetch the item to check its assigner

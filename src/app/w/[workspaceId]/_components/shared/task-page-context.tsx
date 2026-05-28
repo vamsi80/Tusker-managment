@@ -42,14 +42,14 @@ export function useTaskPageData() {
 /**
  * Type guard to check if page data is Project data
  */
-export function isProjectData(data: PageDataType): data is ProjectPageData {
+function isProjectData(data: PageDataType): data is ProjectPageData {
     return 'project' in data;
 }
 
 /**
  * Type guard to check if page data is Workspace data
  */
-export function isWorkspaceData(data: PageDataType): data is WorkspacePageData {
+function isWorkspaceData(data: PageDataType): data is WorkspacePageData {
     return 'workspace' in data;
 }
 

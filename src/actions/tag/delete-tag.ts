@@ -5,6 +5,7 @@ import prisma from "@/lib/db";
 import { z } from "zod";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { invalidateWorkspaceTags } from "@/lib/cache/invalidation";
+import { getSession } from "@/lib/auth/require-user";
 
 const deleteTagSchema = z.object({
     tagId: z.string(),
@@ -13,6 +14,8 @@ const deleteTagSchema = z.object({
 
 export async function deleteTag(data: z.infer<typeof deleteTagSchema>) {
     try {
+        const session = await getSession();
+        if (!session) throw new Error("Unauthorized");
         // Validate input
         const validatedData = deleteTagSchema.parse(data);
 
