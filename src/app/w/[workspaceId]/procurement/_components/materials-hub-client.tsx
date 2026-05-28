@@ -32,7 +32,7 @@ import { Input } from "@/components/ui/input";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 import { DataTable } from "@/components/data-table";
 import { ColumnDef } from "@tanstack/react-table";
-import { Eye, Pencil, Check, X, Send } from "lucide-react";
+import { Eye, Pencil, Check, X, Send, FolderKanban, Truck } from "lucide-react";
 import { toast } from "sonner";
 
 interface Project {
@@ -80,6 +80,8 @@ interface GroupedMaterialRow {
   combinedQuantity: number;
   statuses: string[];
   items: LineItemRow[];
+  projectsCount?: number;
+  vendorCount?: number;
 }
 
 export function MaterialsHubClient({
@@ -105,6 +107,19 @@ export function MaterialsHubClient({
 
   // Loading states
   const [isLoadingItems, setIsLoadingItems] = useState(true);
+  const [vendorCoverages, setVendorCoverages] = useState<any[]>([]);
+
+  const fetchVendorCoverages = async () => {
+    try {
+      const res = await fetch(`/api/v1/procurement/vendors/materials/coverage?w=${workspaceId}`);
+      const data = await res.json();
+      if (data.success) {
+        setVendorCoverages(data.data);
+      }
+    } catch (e) {
+      console.error("Failed to load vendor coverages", e);
+    }
+  };
 
   const fetchLineItems = async () => {
     setIsLoadingItems(true);
@@ -194,6 +209,7 @@ export function MaterialsHubClient({
 
   useEffect(() => {
     fetchLineItems();
+    fetchVendorCoverages();
   }, [workspaceId, projectFilter, statusFilter]);
 
   // Group line items client-side by materialName (case insensitive) and unit
@@ -216,26 +232,44 @@ export function MaterialsHubClient({
       groupedItemsMap[key].statuses.push(item.status);
     }
   });
-  const groupedMaterials = Object.values(groupedItemsMap);
+  const groupedMaterials: GroupedMaterialRow[] = Object.values(groupedItemsMap).map((group) => {
+    const distinctProjects = new Set(
+      group.items
+        .map((i) => i.indent?.project?.id)
+        .filter(Boolean)
+    );
+    const projectsCount = distinctProjects.size;
+
+    const coverage = vendorCoverages.find(
+      (c) => c.materialName.toLowerCase().trim() === group.materialName.toLowerCase().trim()
+    );
+    const vendorCount = coverage ? coverage.vendorCount : 0;
+
+    return {
+      ...group,
+      projectsCount,
+      vendorCount,
+    };
+  });
 
   const selectedGroup = selectedGroupKey ? groupedItemsMap[selectedGroupKey] : null;
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "PENDING":
-        return <Badge variant="outline" className="bg-neutral-100 text-neutral-800 border-neutral-300 font-medium">Pending RFQ</Badge>;
-      case "RFQ_SENT":
-        return <Badge variant="outline" className="bg-sky-50 text-sky-700 border-sky-300 font-medium">RFQ Sent</Badge>;
-      case "QUOTES_RECEIVED":
-        return <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 font-medium">Quotes Recv</Badge>;
-      case "APPROVED":
-        return <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300 font-medium">Approved</Badge>;
-      case "PO_CREATED":
-        return <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-300 font-medium">PO Created</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
-  };
+  // const getStatusBadge = (status: string) => {
+  //   switch (status) {
+  //     case "PENDING":
+  //       return <Badge variant="outline" className="bg-neutral-100 text-neutral-800 border-neutral-300 font-medium">Pending RFQ</Badge>;
+  //     case "RFQ_SENT":
+  //       return <Badge variant="outline" className="bg-sky-50 text-sky-700 border-sky-300 font-medium">RFQ Sent</Badge>;
+  //     case "QUOTES_RECEIVED":
+  //       return <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 font-medium">Quotes Recv</Badge>;
+  //     case "APPROVED":
+  //       return <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300 font-medium">Approved</Badge>;
+  //     case "PO_CREATED":
+  //       return <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-300 font-medium">PO Created</Badge>;
+  //     default:
+  //       return <Badge variant="outline">{status}</Badge>;
+  //   }
+  // };
 
   const getIndentStatusBadge = (status: string) => {
     switch (status) {
@@ -274,6 +308,45 @@ export function MaterialsHubClient({
           {row.original.combinedQuantity} {row.original.unit}
         </span>
       ),
+    },
+    {
+      id: "projectsCount",
+      header: "Projects Using",
+      cell: ({ row }) => {
+        const count = row.original.projectsCount || 0;
+        return (
+          <div className="flex items-center gap-1.5">
+            <FolderKanban className="size-3.5 text-muted-foreground" />
+            <span className="text-xs font-semibold text-foreground">
+              {count}
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              {count === 1 ? "project" : "projects"}
+            </span>
+          </div>
+        );
+      },
+    },
+    {
+      id: "vendorCount",
+      header: "Vendors Providing",
+      cell: ({ row }) => {
+        const count = row.original.vendorCount || 0;
+        return (
+          <div className="flex items-center gap-1.5">
+            <Truck className="size-3.5 text-muted-foreground" />
+            {count > 0 ? (
+              <Badge variant="outline" className="bg-emerald-50/55 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-800 text-[11px] font-semibold px-2 py-0.5">
+                {count} {count === 1 ? "vendor" : "vendors"}
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="bg-neutral-50 text-neutral-400 border-neutral-200 dark:bg-neutral-900 dark:text-neutral-500 dark:border-neutral-800 text-[11px] font-medium px-2 py-0.5">
+                0 vendors
+              </Badge>
+            )}
+          </div>
+        );
+      },
     },
     {
       id: "actions",
@@ -388,7 +461,7 @@ export function MaterialsHubClient({
                       const indentStatus = item.indent.status;
                       const isDraft = indentStatus === "DRAFT";
                       const isSubmittedOrAssigned = indentStatus === "SUBMITTED" || indentStatus === "ASSIGNED";
-                      
+
                       // DRAFT can be edited by any workspace member; SUBMITTED/ASSIGNED can only be edited by OWNER/ADMIN/MANAGER (isApprover)
                       const canUserEdit = isDraft || (isApprover && isSubmittedOrAssigned);
 
