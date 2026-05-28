@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { tryCatch } from "@/hooks/try-catch";
 import { apiClient, type ApiResponse } from "@/lib/api-client";
+import { useReloadView } from "@/hooks/use-reload-view";
 
 // Generic subtask type that works with any subtask structure
 type SubTaskBase = {
@@ -47,6 +48,7 @@ export function DeleteSubTaskForm<T extends SubTaskBase>({
 
     const [pending, startTransition] = useTransition();
     const params = useParams();
+    const reloadView = useReloadView();
     const workspaceId = (params.workspaceId as string) || (subTask as any).workspaceId || "";
     const projectId = (subTask as any).projectId || "";
 
@@ -75,6 +77,7 @@ export function DeleteSubTaskForm<T extends SubTaskBase>({
 
             if (responseStatus === "success") {
                 toast.success(responseMessage);
+                reloadView();
                 setOpen(false);
             } else {
                 // If it failed on server, we might want to reload to sync UI

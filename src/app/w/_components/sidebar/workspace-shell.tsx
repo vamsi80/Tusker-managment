@@ -1,6 +1,6 @@
-﻿"use client";
+"use client";
 
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "./workspace-sidebar";
 import { SiteHeader } from "./header/site-header";
@@ -9,6 +9,8 @@ import { DataLoadReporter } from "@/app/w/[workspaceId]/_components/data-load-re
 import { WorkspaceLayoutProvider } from "../../[workspaceId]/_components/workspace-layout-context";
 import { TopLoader } from "@/components/shared/top-loader";
 import { WorkspaceLayoutData } from "@/types/workspace";
+import { usePathname } from "next/navigation";
+import { useFilterStore } from "@/lib/store/filter-store";
 
 interface WorkspaceShellProps {
   children: React.ReactNode;
@@ -25,6 +27,19 @@ export function WorkspaceShell({ children, workspaceId, initialData }: Workspace
 }
 
 function WorkspaceShellContent({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const clearFilters = useFilterStore((state) => state.clearFilters);
+  const setIsCurrentlyFiltered = useFilterStore((state) => state.setIsCurrentlyFiltered);
+  const lastPathnameRef = useRef(pathname);
+
+  useEffect(() => {
+    if (pathname !== lastPathnameRef.current) {
+      console.log(`[ROUTE_CHANGE] Pathname changed from ${lastPathnameRef.current} to ${pathname}. Resetting task filters...`);
+      clearFilters();
+      setIsCurrentlyFiltered(false);
+      lastPathnameRef.current = pathname;
+    }
+  }, [pathname, clearFilters, setIsCurrentlyFiltered]);
 
   return (
     <WorkspaceClientProviders>
