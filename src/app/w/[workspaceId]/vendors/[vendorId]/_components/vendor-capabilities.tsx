@@ -37,7 +37,7 @@ export function VendorCapabilities({ vendorId, workspaceId }: VendorCapabilities
 
   const fetchExistingTagsAndMaterials = async () => {
     try {
-      const matRes = await fetch(`/api/v1/procurement/vendors/materials/all?w=${workspaceId}`);
+      const matRes = await fetch(`/api/v1/materials?w=${workspaceId}`);
       const matData = await matRes.json();
 
       const tagRes = await fetch(`/api/v1/tags?workspaceId=${workspaceId}`);

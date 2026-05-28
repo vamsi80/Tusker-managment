@@ -2081,6 +2081,29 @@ export class TasksService {
 
     const targetUserIds = await getTaskInvolvedUserIds(taskId);
 
+    // Snapshot project materials subtask and parent task names before deleting the subtask
+    try {
+      const taskToSnapshot = await prisma.task.findUnique({
+        where: { id: taskId },
+        include: {
+          parentTask: { select: { name: true } },
+          materialItems: { select: { id: true } },
+        },
+      });
+
+      if (taskToSnapshot && taskToSnapshot.materialItems.length > 0) {
+        await prisma.projectMaterialItem.updateMany({
+          where: { subtaskId: taskId },
+          data: {
+            subtaskNameSnapshot: taskToSnapshot.name,
+            parentTaskNameSnapshot: taskToSnapshot.parentTask?.name || null,
+          },
+        });
+      }
+    } catch (err) {
+      console.error("[SERVICE_ERROR] Failed to snapshot materials on task delete:", err);
+    }
+
     await TaskRepository.deleteTask({
       taskId,
       parentTaskId: task.parentTaskId,
