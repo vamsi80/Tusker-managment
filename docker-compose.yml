@@ -1,0 +1,17 @@
+services:
+  # Tusker Next.js Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tusker-app
+    restart: always
+    ports:
+      - "3000:3000"
+    # Load all environment variables directly from your local .env file (including Supabase URLs!)
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+    # Directly starts your optimized production server
+    command: ["npx", "next", "start"]
