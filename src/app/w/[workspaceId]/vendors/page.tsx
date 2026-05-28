@@ -163,19 +163,19 @@ export default function VendorsPage() {
               className="h-8 gap-1"
               onClick={() => router.push(`/w/${workspaceId}/vendors/${vendor.id}`)}
             >
-              Capabilities <ExternalLink className="h-3 w-3" />
+              Capabilities <ExternalLink className="size-3" />
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <MoreVertical className="h-4 w-4" />
+                <Button variant="ghost" size="icon" className="size-8">
+                  <MoreVertical className="size-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem
                   onClick={() => router.push(`/w/${workspaceId}/vendors/${vendor.id}/edit`)}
                 >
-                  <Edit className="mr-2 h-4 w-4" /> Edit Vendor Details
+                  <Edit className="mr-2 size-4" /> Edit Vendor Details
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => handleToggleBlacklist(vendor.id, vendor.status)}
@@ -187,11 +187,11 @@ export default function VendorsPage() {
                 >
                   {vendor.status === "BLACKLISTED" ? (
                     <>
-                      <CheckCircle className="mr-2 h-4 w-4" /> Activate Supplier
+                      <CheckCircle className="mr-2 size-4" /> Activate Supplier
                     </>
                   ) : (
                     <>
-                      <Ban className="mr-2 h-4 w-4" /> Blacklist Supplier
+                      <Ban className="mr-2 size-4" /> Blacklist Supplier
                     </>
                   )}
                 </DropdownMenuItem>
@@ -226,7 +226,7 @@ export default function VendorsPage() {
         </h1>
 
         <Button onClick={() => router.push(`/w/${workspaceId}/vendors/new`)} className="gap-2">
-          <Plus className="h-4 w-4" /> Onboard Vendor
+          <Plus className="size-4" /> Onboard Vendor
         </Button>
       </div>
 

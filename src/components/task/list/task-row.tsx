@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -178,16 +178,16 @@ export const TaskRow = memo(function TaskRow({
         return (
             <TableRow className="group">
                 <TableCell>
-                    <Skeleton className="h-4 w-4" />
+                    <Skeleton className="size-4" />
                 </TableCell>
                 <TableCell>
-                    <Skeleton className="h-8 w-8" />
+                    <Skeleton className="size-8" />
                 </TableCell>
                 <TableCell className="font-medium" colSpan={totalColSpan}>
                     <Skeleton className="h-5 w-[200px]" />
                 </TableCell>
                 <TableCell>
-                    <Skeleton className="h-8 w-8" />
+                    <Skeleton className="size-8" />
                 </TableCell>
             </TableRow>
         );
@@ -210,16 +210,16 @@ export const TaskRow = memo(function TaskRow({
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-6 w-6 shrink-0 p-0"
+                                    className="size-6 shrink-0 p-0"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         onToggleExpand();
                                     }}
                                 >
                                     {isExpanded ? (
-                                        <ChevronDown className="h-4 w-4" />
+                                        <ChevronDown className="size-4" />
                                     ) : (
-                                        <ChevronRight className="h-4 w-4" />
+                                        <ChevronRight className="size-4" />
                                     )}
                                 </Button>
                             </div>
@@ -245,8 +245,8 @@ export const TaskRow = memo(function TaskRow({
                             {canEditTask() && (
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-6 w-6">
-                                            <MoreHorizontal className="h-3 w-3" />
+                                        <Button variant="ghost" size="icon" className="size-6">
+                                            <MoreHorizontal className="size-3" />
                                         </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
@@ -304,3 +304,4 @@ export const TaskRow = memo(function TaskRow({
         </>
     );
 });
+

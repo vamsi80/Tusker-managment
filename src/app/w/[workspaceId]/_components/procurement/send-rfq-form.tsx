@@ -142,7 +142,7 @@ export function SendRfqForm({
       {/* Deadline */}
       <div className="space-y-1.5">
         <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-          <CalendarIcon className="h-3 w-3" /> Quote Deadline
+          <CalendarIcon className="size-3" /> Quote Deadline
         </Label>
         <Input
           type="date"
@@ -164,7 +164,7 @@ export function SendRfqForm({
             : "bg-muted text-muted-foreground cursor-not-allowed"
         )}
       >
-        <Send className="h-4 w-4" />
+        <Send className="size-4" />
         {isSending
           ? "Sending RFQ..."
           : selectedVendorIds.size > 0

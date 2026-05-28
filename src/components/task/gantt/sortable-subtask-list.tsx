@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -247,7 +247,7 @@ function SortableSubtaskRow({
                         <GripVertical className="h-3.5 w-3.5" />
                     </div>
 
-                    <CornerDownRight className="h-3 w-3 text-muted-foreground/30 shrink-0" />
+                    <CornerDownRight className="size-3 text-muted-foreground/30 shrink-0" />
 
                     <span
                         className="text-[12px] text-muted-foreground truncate flex-1 cursor-pointer hover:text-foreground hover:underline transition-colors pl-1"
@@ -280,7 +280,7 @@ function SortableSubtaskRow({
                             )}
                             title="Manage Dependencies"
                         >
-                            <Link2 className="h-3 w-3" />
+                            <Link2 className="size-3" />
                         </button>
                     )}
                 </div>
@@ -545,3 +545,4 @@ export function SortableSubtaskList({
         </DndContext>
     );
 }
+

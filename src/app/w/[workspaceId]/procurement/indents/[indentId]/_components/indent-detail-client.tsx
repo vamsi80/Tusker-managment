@@ -290,9 +290,9 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
             variant="outline"
             size="icon"
             onClick={() => router.push(`/w/${workspaceId}/procurement/indents`)}
-            className="h-8 w-8"
+            className="size-8"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="size-4" />
           </Button>
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
@@ -345,7 +345,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
           <Card>
             <CardHeader className="py-3 border-b">
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <FileText className="h-4 w-4" /> Project Context
+                <FileText className="size-4" /> Project Context
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-3.5 flex flex-col gap-3.5">
@@ -366,11 +366,11 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
           <Card>
             <CardHeader className="py-3 border-b">
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <User className="h-4 w-4" /> Requested By
+                <User className="size-4" /> Requested By
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-3.5 flex items-center gap-3">
-              <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xs shrink-0">
+              <div className="size-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xs shrink-0">
                 {indent.requestedBy?.user?.name?.[0]}
                 {indent.requestedBy?.user?.surname?.[0]}
               </div>
@@ -390,11 +390,11 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
             <Card>
               <CardHeader className="py-3 border-b">
                 <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                  <Check className="h-4 w-4 text-emerald-600" /> Approved By
+                  <Check className="size-4 text-emerald-600" /> Approved By
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-3.5 flex items-center gap-3">
-                <div className="h-8 w-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-700 font-bold text-xs shrink-0">
+                <div className="size-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-700 font-bold text-xs shrink-0">
                   {indent.finalApprovedBy.user?.name?.[0]}
                   {indent.finalApprovedBy.user?.surname?.[0]}
                 </div>
@@ -416,7 +416,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
           <Card>
             <CardHeader className="py-3">
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Package className="h-4 w-4 text-primary" /> Requested Materials & Quantities
+                <Package className="size-4 text-primary" /> Requested Materials & Quantities
               </CardTitle>
               <CardDescription className="text-[11px]">
                 List of materials requested in this procurement indent.
@@ -489,7 +489,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
                                   variant="outline"
                                   onClick={handleEditCancel}
                                   disabled={isPending}
-                                  className="h-7 w-7 text-red-600 hover:bg-red-50"
+                                  className="size-7 text-red-600 hover:bg-red-50"
                                 >
                                   <X className="h-3.5 w-3.5" />
                                 </Button>
@@ -497,7 +497,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
                                   size="icon"
                                   onClick={() => handleEditSave(item.id)}
                                   disabled={isPending}
-                                  className="h-7 w-7 bg-emerald-600 hover:bg-emerald-700 text-white"
+                                  className="size-7 bg-emerald-600 hover:bg-emerald-700 text-white"
                                 >
                                   <Check className="h-3.5 w-3.5" />
                                 </Button>
@@ -528,7 +528,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
                                     variant="outline"
                                     onClick={() => handleEditStart(item)}
                                     disabled={isPending}
-                                    className="h-7 w-7 text-blue-600 hover:bg-blue-50"
+                                    className="size-7 text-blue-600 hover:bg-blue-50"
                                   >
                                     <Edit className="h-3.5 w-3.5" />
                                   </Button>
@@ -537,7 +537,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
                                     variant="outline"
                                     onClick={() => handleDeleteItem(item.id)}
                                     disabled={isPending}
-                                    className="h-7 w-7 text-red-600 hover:bg-red-50"
+                                    className="size-7 text-red-600 hover:bg-red-50"
                                   >
                                     <Trash2 className="h-3.5 w-3.5" />
                                   </Button>

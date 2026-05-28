@@ -525,7 +525,7 @@ export function WorkspaceGanttClient({
         {isPending && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/50 backdrop-blur-sm transition-all duration-300">
             <div className="flex flex-col items-center gap-2">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <Loader2 className="size-8 animate-spin text-primary" />
               <span className="text-sm font-medium text-muted-foreground">
                 Filtering...
               </span>

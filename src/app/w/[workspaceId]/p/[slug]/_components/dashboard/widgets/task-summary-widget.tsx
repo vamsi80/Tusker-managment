@@ -76,7 +76,7 @@ export function TaskSummaryWidget({
                 {stat.label}
               </span>
               <div className={cn("p-2 rounded-xl", stat.bgColor)}>
-                <Icon className={cn("h-4 w-4", stat.color)} />
+                <Icon className={cn("size-4", stat.color)} />
               </div>
             </div>
             <div className="text-3xl font-bold tracking-tight">{stat.value}</div>

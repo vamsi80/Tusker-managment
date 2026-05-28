@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -14,7 +14,7 @@ export function TableLoadingSkeleton({ visibleColumnsCount, count = 3 }: TableLo
                 <TableRow key={`skeleton-${i}`}>
                     <TableCell colSpan={visibleColumnsCount} className="p-4">
                         <div className="flex items-center gap-4">
-                            <Skeleton className="h-4 w-4 rounded" />
+                            <Skeleton className="size-4 rounded" />
                             <div className="flex-1 space-y-2">
                                 <Skeleton className="h-4 w-[200px]" />
                             </div>
@@ -40,3 +40,4 @@ export function SingleTableSkeleton({ visibleColumnsCount }: TableLoadingSkeleto
         </TableRow>
     );
 }
+

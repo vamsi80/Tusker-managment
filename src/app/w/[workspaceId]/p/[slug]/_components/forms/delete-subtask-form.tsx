@@ -94,7 +94,7 @@ export function DeleteSubTaskForm<T extends SubTaskBase>({
                             size="sm"
                             className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
                         >
-                            <Trash2 className="mr-2 h-4 w-4" />
+                            <Trash2 className="mr-2 size-4" />
                             Delete SubTask
                         </Button>
                     )}
@@ -103,8 +103,8 @@ export function DeleteSubTaskForm<T extends SubTaskBase>({
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <div className="flex items-center gap-2">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10">
-                            <AlertTriangle className="h-5 w-5 text-destructive" />
+                        <div className="flex size-10 items-center justify-center rounded-full bg-destructive/10">
+                            <AlertTriangle className="size-5 text-destructive" />
                         </div>
                         <AlertDialogTitle>Delete SubTask</AlertDialogTitle>
                     </div>
@@ -132,12 +132,12 @@ export function DeleteSubTaskForm<T extends SubTaskBase>({
                         {pending ? (
                             <>
                                 Deleting...
-                                <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                                <Loader2 className="ml-2 size-4 animate-spin" />
                             </>
                         ) : (
                             <>
                                 Delete SubTask
-                                <Trash2 className="ml-2 h-4 w-4" />
+                                <Trash2 className="ml-2 size-4" />
                             </>
                         )}
                     </AlertDialogAction>

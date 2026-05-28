@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useMemo, useTransition, useRef, useEffect } from "react";
 import {
@@ -85,9 +85,9 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
                 className={`data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground ${isPending ? 'opacity-60' : ''}`}
               >
                 {isPending ? (
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  <Loader2 className="size-5 animate-spin text-muted-foreground" />
                 ) : (
-                  <Avatar className="h-8 w-8 rounded-lg">
+                  <Avatar className="size-8 rounded-lg">
                     <AvatarImage src="/icon.png" alt={selected?.name || "Workspace"} />
                     <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
                       {(selected?.name ?? selected?.id ?? "W").charAt(0).toUpperCase()}
@@ -120,7 +120,7 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
                     disabled={isPending}
                   >
                     <div className="flex flex-row items-center gap-2">
-                      <Avatar className="h-8 w-8 rounded-lg">
+                      <Avatar className="size-8 rounded-lg">
                         <AvatarImage src="/icon.png" alt={ws.name || "Workspace"} />
                         <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
                           {(ws.name ?? ws.id ?? "W").charAt(0).toUpperCase()}
@@ -145,3 +145,4 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
 };
 
 export default NavWorkspacesSelector;
+

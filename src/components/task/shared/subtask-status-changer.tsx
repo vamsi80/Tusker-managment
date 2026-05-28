@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -116,7 +116,7 @@ export function SubtaskStatusChanger({
             }
         }
 
-        // 🔒 COMPLETED rule:
+        // ðŸ”’ COMPLETED rule:
         // - Project Manager / Coordinator (not assigned as worker): always allowed.
         // - Project Lead: allowed ONLY on subtasks they personally created (and not assigned as worker).
         // - Member / others: never allowed.
@@ -247,7 +247,7 @@ export function SubtaskStatusChanger({
                         )}
                     >
                         {isPending ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
+                            <Loader2 className="size-3 animate-spin" />
                         ) : (
                             getStatusLabel(subTask.status)
                         )}
@@ -293,3 +293,4 @@ export function SubtaskStatusChanger({
         </>
     );
 }
+

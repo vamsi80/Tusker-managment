@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
@@ -31,11 +31,11 @@ export function createSortableHeader<T>(
         >
             {title}
             {column.getIsSorted() === "asc" ? (
-                <ArrowUp className="ml-2 h-4 w-4" />
+                <ArrowUp className="ml-2 size-4" />
             ) : column.getIsSorted() === "desc" ? (
-                <ArrowDown className="ml-2 h-4 w-4" />
+                <ArrowDown className="ml-2 size-4" />
             ) : (
-                <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                <ChevronsUpDown className="ml-2 size-4 opacity-50" />
             )}
         </Button>
     );
@@ -96,8 +96,8 @@ function RowActions<T>({
     if (!mounted) {
         return (
             <div className="flex w-full justify-center">
-                <Button variant="ghost" className="h-8 w-8 p-0" disabled>
-                    <MoreVertical className="h-4 w-4 opacity-50" />
+                <Button variant="ghost" className="size-8 p-0" disabled>
+                    <MoreVertical className="size-4 opacity-50" />
                 </Button>
             </div>
         );
@@ -112,9 +112,9 @@ function RowActions<T>({
         <div className="flex w-full justify-center">
             <DropdownMenu>
                 <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                    <Button variant="ghost" className="h-8 w-8 p-0">
+                    <Button variant="ghost" className="size-8 p-0">
                         <span className="sr-only">Open menu</span>
-                        <MoreVertical className="h-4 w-4" />
+                        <MoreVertical className="size-4" />
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -198,7 +198,7 @@ export function createDateColumn<T>(
         header: ({ column }) => createSortableHeader(column, header),
         cell: ({ row }) => {
             const date = row.getValue(accessorKey) as Date | string;
-            if (!date) return <span className="text-muted-foreground">—</span>;
+            if (!date) return <span className="text-muted-foreground">â€”</span>;
 
             const dateObj = typeof date === "string" ? new Date(date) : date;
 
@@ -232,7 +232,7 @@ export function createTextColumn<T>(
         header: ({ column }) => createSortableHeader(column, header),
         cell: ({ row }) => {
             const value = row.getValue(accessorKey) as string;
-            if (!value) return <span className="text-muted-foreground">—</span>;
+            if (!value) return <span className="text-muted-foreground">â€”</span>;
 
             const displayValue = options?.truncate && value.length > options.truncate
                 ? `${value.substring(0, options.truncate)}...`
@@ -265,7 +265,7 @@ export function createNumberColumn<T>(
         cell: ({ row }) => {
             const value = row.getValue(accessorKey) as number;
             if (value === null || value === undefined) {
-                return <span className="text-muted-foreground">—</span>;
+                return <span className="text-muted-foreground">â€”</span>;
             }
 
             const formatted = options?.decimals !== undefined
@@ -282,3 +282,4 @@ export function createNumberColumn<T>(
         },
     };
 }
+

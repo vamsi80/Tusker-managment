@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, memo } from "react";
 import { useRemainingDays } from "@/hooks/use-due-date";
@@ -144,7 +144,7 @@ export const SubTaskRow = memo(function SubTaskRow({
     const delayStyles = getDelayColors(remainingDays, subTask.status);
     const delayText = getDelayText(remainingDays, subTask.status);
 
-    // 👤 Robust Surname Resolver: Prioritizes pre-fetched data, falls back to member list lookup
+    // ðŸ‘¤ Robust Surname Resolver: Prioritizes pre-fetched data, falls back to member list lookup
     const getUserDisplayName = (userObj: any) => {
         if (!userObj) return "";
 
@@ -167,7 +167,7 @@ export const SubTaskRow = memo(function SubTaskRow({
         return (
             <TableRow className="bg-muted/10">
                 <TableCell className="pl-4">
-                    <Skeleton className="h-4 w-4" />
+                    <Skeleton className="size-4" />
                 </TableCell>
                 <TableCell className="pl-4">
                     <Skeleton className="h-4 w-full max-w-xs" />
@@ -184,7 +184,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                 )}
                 {columnVisibility.assignee && (
                     <TableCell>
-                        <Skeleton className="h-8 w-8 rounded-full" />
+                        <Skeleton className="size-8 rounded-full" />
                     </TableCell>
                 )}
                 {columnVisibility.status && (
@@ -213,7 +213,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                     </TableCell>
                 )}
                 <TableCell>
-                    <Skeleton className="h-7 w-7" />
+                    <Skeleton className="size-7" />
                 </TableCell>
             </TableRow>
         );
@@ -264,7 +264,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                                 <GripVertical className="h-3.5 w-3.5" />
                             </div>
                         )}
-                        <div className="h-6 w-6 flex items-center justify-center shrink-0">
+                        <div className="size-6 flex items-center justify-center shrink-0">
                             <CornerDownRight className="h-3.5 w-3.5 text-muted-foreground/50" />
                         </div>
                     </div>
@@ -306,7 +306,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                     <TableCell className="w-[80px] sm:w-[100px]">
                         {assigneeUser ? (
                             <div className="flex items-center gap-2 min-w-0">
-                                <Avatar className="h-5 w-5 flex-shrink-0">
+                                <Avatar className="size-5 flex-shrink-0">
                                     <AvatarFallback className="text-[10px]">
                                         {assigneeDisplayName?.[0]?.toUpperCase() || "U"}
                                     </AvatarFallback>
@@ -340,7 +340,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                     <TableCell className="w-[80px] sm:w-[100px]">
                         {reviewerUser ? (
                             <div className="flex items-center gap-2 min-w-0">
-                                <Avatar className="h-5 w-5 flex-shrink-0">
+                                <Avatar className="size-5 flex-shrink-0">
                                     <AvatarFallback className="text-[10px]">
                                         {reviewerDisplayName?.[0]?.toUpperCase() || "U"}
                                     </AvatarFallback>
@@ -374,7 +374,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                     <TableCell className="w-[120px] sm:w-[150px]">
                         {subTask.startDate ? (
                             <div className="flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs text-muted-foreground">
-                                <Calendar className="h-3 w-3 flex-shrink-0 hidden xs:block" />
+                                <Calendar className="size-3 flex-shrink-0 hidden xs:block" />
                                 <span className="truncate">{formatDateUTC(subTask.startDate)}</span>
                             </div>
                         ) : (
@@ -387,7 +387,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                     <TableCell className="w-[120px] sm:w-[150px]">
                         {dueDate ? (
                             <div className="flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs font-medium">
-                                <Calendar className="h-3 w-3 flex-shrink-0 hidden xs:block" />
+                                <Calendar className="size-3 flex-shrink-0 hidden xs:block" />
                                 <span className="truncate">{formatDateUTC(dueDate)}</span>
                             </div>
                         ) : (
@@ -401,12 +401,12 @@ export const SubTaskRow = memo(function SubTaskRow({
                         {remainingDays !== null || subTask.status === "COMPLETED" || subTask.status === "CANCELLED" ? (
                             <div className="flex items-center gap-2 min-w-0">
                                 {delayStyles.dotVariant === "ring" && (
-                                    <div className={cn("h-3 w-3 rounded-full border-2 border-current bg-transparent flex-shrink-0", delayStyles.color)} />
+                                    <div className={cn("size-3 rounded-full border-2 border-current bg-transparent flex-shrink-0", delayStyles.color)} />
                                 )}
                                 {delayStyles.dotVariant === "blink" && (
-                                    <span className="relative flex h-3 w-3 flex-shrink-0">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
-                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500" />
+                                    <span className="relative flex size-3 flex-shrink-0">
+                                        <span className="animate-ping absolute inline-flex size-full rounded-full bg-rose-400 opacity-75" />
+                                        <span className="relative inline-flex rounded-full size-3 bg-rose-500" />
                                     </span>
                                 )}
                                 {delayStyles.dotVariant === "solid" && (
@@ -447,8 +447,8 @@ export const SubTaskRow = memo(function SubTaskRow({
                     {canEditSubTask() && (
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-6 w-6">
-                                    <MoreHorizontal className="h-2 w-2" />
+                                <Button variant="ghost" size="icon" className="size-6">
+                                    <MoreHorizontal className="size-2" />
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
@@ -488,3 +488,4 @@ export const SubTaskRow = memo(function SubTaskRow({
         </>
     );
 });
+

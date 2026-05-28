@@ -1,4 +1,4 @@
-import { Loader2 } from "lucide-react";
+﻿import { Loader2 } from "lucide-react";
 
 interface AppLoaderProps {
     className?: string;
@@ -8,9 +8,9 @@ interface AppLoaderProps {
 
 export function AppLoader({ className = "", size = "md", fullPage = false }: AppLoaderProps) {
     const sizeClasses = {
-        sm: "h-6 w-6",
-        md: "h-12 w-12",
-        lg: "h-20 w-20",
+        sm: "size-6",
+        md: "size-12",
+        lg: "size-20",
     };
 
     const containerClasses = fullPage
@@ -25,3 +25,4 @@ export function AppLoader({ className = "", size = "md", fullPage = false }: App
         </div>
     );
 }
+

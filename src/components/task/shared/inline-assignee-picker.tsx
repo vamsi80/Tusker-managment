@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useTransition } from "react";
 import { useParams } from "next/navigation";
@@ -28,11 +28,11 @@ import { cn } from "@/lib/utils";
 import type { ProjectMembersType } from "@/types/project";
 import { apiClient } from "@/lib/api-client";
 
-// ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Minimal shape of a subtask that the picker needs.
 // All three contexts (SubTaskType, KanbanSubTaskType, TaskByIdType)
 // satisfy this shape.
-// ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export interface AssignableSubTask {
     id: string;
     name: string;
@@ -77,7 +77,7 @@ interface InlineAssigneePickerProps {
  * Renders a clickable "Unassigned" badge that opens a searchable member list
  * when canEdit=true, or a plain muted span when canEdit=false.
  *
- * Uses the existing `editSubTask` server action — only swaps the assignee
+ * Uses the existing `editSubTask` server action â€” only swaps the assignee
  * while preserving all other subtask fields.
  */
 export function InlineAssigneePicker({
@@ -174,7 +174,7 @@ export function InlineAssigneePicker({
         });
     };
 
-    // ── Non-editable: plain muted label ──────────────────────────
+    // â”€â”€ Non-editable: plain muted label â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if (!canEdit) {
         return (
             <span
@@ -186,13 +186,13 @@ export function InlineAssigneePicker({
                     className
                 )}
             >
-                {!displayInfo.isAssigned && <UserPlus className="h-3 w-3 shrink-0" />}
+                {!displayInfo.isAssigned && <UserPlus className="size-3 shrink-0" />}
                 {displayInfo.isAssigned && displayInfo.name}
             </span>
         );
     }
 
-    // ── Editable: clickable popover ───────────────────────────────
+    // â”€â”€ Editable: clickable popover â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     return (
         <>
             <Popover open={open} onOpenChange={setOpen}>
@@ -212,13 +212,13 @@ export function InlineAssigneePicker({
                         title={displayInfo.isAssigned ? `Assigned to ${displayInfo.name}` : "Click to assign a member"}
                     >
                         {pending ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
+                            <Loader2 className="size-3 animate-spin" />
                         ) : (
-                            <UserPlus className="h-3 w-3 shrink-0" />
+                            <UserPlus className="size-3 shrink-0" />
                         )}
                         {(pending || displayInfo.isAssigned) && (
                             <span className="truncate max-w-[80px] sm:max-w-[120px]">
-                                {pending ? "Saving…" : displayInfo.name}
+                                {pending ? "Savingâ€¦" : displayInfo.name}
                             </span>
                         )}
                     </button>
@@ -231,7 +231,7 @@ export function InlineAssigneePicker({
                     onClick={(e) => e.stopPropagation()}
                 >
                     <Command>
-                        <CommandInput placeholder="Search member…" className="h-8 text-xs" />
+                        <CommandInput placeholder="Search memberâ€¦" className="h-8 text-xs" />
                         <CommandList>
                             <CommandEmpty className="py-4 text-center text-xs text-muted-foreground">
                                 No members found.
@@ -311,3 +311,4 @@ export function InlineAssigneePicker({
         </>
     );
 }
+

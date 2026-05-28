@@ -120,7 +120,7 @@ export function ConversationList({ conversations, isLoading }: ConversationListP
           {isLoading ? (
             Array(5).fill(0).map((_, i) => (
               <div key={i} className="flex items-center gap-3 p-3 animate-pulse">
-                <div className="h-10 w-10 rounded-full bg-muted" />
+                <div className="size-10 rounded-full bg-muted" />
                 <div className="flex-1 space-y-2">
                   <div className="h-3 w-24 bg-muted rounded" />
                   <div className="h-2 w-32 bg-muted rounded" />
@@ -138,7 +138,7 @@ export function ConversationList({ conversations, isLoading }: ConversationListP
                 const content = (
                   <div className="flex items-center gap-3 p-2.5 rounded-2xl transition-all active:scale-[0.98] group relative w-full text-left">
                     <div className="relative">
-                      <Avatar className="h-10 w-10 rounded-full">
+                      <Avatar className="size-10 rounded-full">
                         <AvatarImage src={otherUser?.image} />
                         <AvatarFallback className={cn(
                           "rounded-full font-medium text-xs uppercase transition-colors",
@@ -208,7 +208,7 @@ export function ConversationList({ conversations, isLoading }: ConversationListP
 
               {unifiedList.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-20 px-4 text-center opacity-30">
-                  <MessageSquare className="h-10 w-10 mb-4 text-primary/50" />
+                  <MessageSquare className="size-10 mb-4 text-primary/50" />
                   <p className="text-sm font-bold tracking-tight">No one here yet</p>
                   <p className="text-xs mt-1">Try searching for someone else.</p>
                 </div>

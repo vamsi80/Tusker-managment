@@ -102,7 +102,7 @@ export function TagsManager({ workspaceId, tags, isWorkspaceAdmin = false }: Tag
                         </div>
                         {isWorkspaceAdmin && (
                             <Button onClick={handleCreate}>
-                                <Plus className="mr-2 h-4 w-4" />
+                                <Plus className="mr-2 size-4" />
                                 Add Tag
                             </Button>
                         )}
@@ -134,14 +134,14 @@ export function TagsManager({ workspaceId, tags, isWorkspaceAdmin = false }: Tag
                                                 className="p-1 hover:bg-accent rounded transition-colors"
                                                 aria-label="Edit tag"
                                             >
-                                                <Pencil className="h-3 w-3" />
+                                                <Pencil className="size-3" />
                                             </button>
                                             <button
                                                 onClick={() => handleDeleteClick(tag)}
                                                 className="p-1 hover:bg-destructive/10 rounded transition-colors"
                                                 aria-label="Delete tag"
                                             >
-                                                <X className="h-3 w-3" />
+                                                <X className="size-3" />
                                             </button>
                                         </div>
                                     )}

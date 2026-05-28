@@ -128,7 +128,7 @@ export function TagDialog({ open, onOpenChange, workspaceId, tag, onSuccess, isW
                             Cancel
                         </Button>
                         <Button type="submit" disabled={isButtonDisabled}>
-                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {isSubmitting && <Loader2 className="mr-2 size-4 animate-spin" />}
                             {tag ? "Update" : "Create"}
                         </Button>
                     </DialogFooter>

@@ -11,7 +11,7 @@ export default function MySpaceTodosPage({ params }: PageProps) {
   const { workspaceId } = use(params);
 
   return (
-    <div className="w-full h-full animate-in fade-in slide-in-from-bottom-4 duration-500 px-2">
+    <div className="size-full animate-in fade-in slide-in-from-bottom-4 duration-500 px-2">
       <PersonalListContainer workspaceId={workspaceId} hideHeader />
     </div>
   );

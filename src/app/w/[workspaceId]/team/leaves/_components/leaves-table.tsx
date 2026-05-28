@@ -200,7 +200,7 @@ export function LeavesTable({
                     <Dialog>
                         <DialogTrigger asChild>
                             <div className="flex items-center gap-3 cursor-pointer group">
-                                <Avatar className="h-9 w-9">
+                                <Avatar className="size-9">
                                     <AvatarFallback>{initials}</AvatarFallback>
                                 </Avatar>
                                 <div className="flex flex-col">
@@ -218,7 +218,7 @@ export function LeavesTable({
                         <DialogContent className="sm:max-w-[500px] rounded-3xl border-none shadow-2xl overflow-hidden p-0">
                             <div className="p-8 space-y-6">
                                 <DialogHeader className="flex flex-row items-center gap-4">
-                                    <Avatar className="h-16 w-16 border-2 border-primary/20">
+                                    <Avatar className="size-16 border-2 border-primary/20">
                                         <AvatarFallback className="text-xl font-medium">{initials}</AvatarFallback>
                                     </Avatar>
                                     <div>
@@ -231,7 +231,7 @@ export function LeavesTable({
                                     <div className="p-4 rounded-2xl bg-muted/30 border border-muted-foreground/5 space-y-1">
                                         <p className="text-[10px] font-medium uppercase text-muted-foreground tracking-widest">Leave Type</p>
                                         <p className="font-medium flex items-center gap-2 capitalize">
-                                            <span className={cn("h-2 w-2 rounded-full", leave.type === 'SICK' ? "bg-rose-500" : "bg-blue-500")} />
+                                            <span className={cn("size-2 rounded-full", leave.type === 'SICK' ? "bg-rose-500" : "bg-blue-500")} />
                                             {leave.type.toLowerCase()} Leave
                                         </p>
                                     </div>
@@ -369,7 +369,7 @@ export function LeavesTable({
                 if (!processedByName) return <span className="text-muted-foreground text-[10px]">—</span>;
                 return (
                     <div className="flex items-center gap-1.5">
-                        <User className="h-3 w-3 text-muted-foreground" />
+                        <User className="size-3 text-muted-foreground" />
                         <span className="text-[10px] font-medium text-muted-foreground uppercase">{processedByName}</span>
                     </div>
                 );
@@ -389,18 +389,18 @@ export function LeavesTable({
                         <Button
                             size="sm"
                             variant="outline"
-                            className="h-8 w-8 p-0 rounded-full border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 transition-all active:scale-90"
+                            className="size-8 p-0 rounded-full border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 transition-all active:scale-90"
                             onClick={() => handleUpdateStatus(row.original.id, "APPROVED")}
                         >
-                            <Check className="h-4 w-4" />
+                            <Check className="size-4" />
                         </Button>
                         <Button
                             size="sm"
                             variant="outline"
-                            className="h-8 w-8 p-0 rounded-full border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-all active:scale-90"
+                            className="size-8 p-0 rounded-full border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-all active:scale-90"
                             onClick={() => handleUpdateStatus(row.original.id, "REJECTED")}
                         >
-                            <X className="h-4 w-4" />
+                            <X className="size-4" />
                         </Button>
                     </div>
                 );

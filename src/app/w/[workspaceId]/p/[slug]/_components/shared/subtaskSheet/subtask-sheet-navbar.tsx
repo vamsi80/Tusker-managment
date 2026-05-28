@@ -53,7 +53,7 @@ export function SubtaskSheetNavBar({
                                     : "border-transparent text-muted-foreground"
                             )}
                         >
-                            <Icon className="h-3 w-3" />
+                            <Icon className="size-3" />
                             <span>{tab.name}</span>
                             {tab.count > 0 && (
                                 <span className={cn(

@@ -158,7 +158,7 @@ export function RfqSheet({
               <SheetDescription asChild>
                 <div className="flex items-center gap-3 mt-1 flex-wrap">
                   <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Package className="h-3 w-3" />
+                    <Package className="size-3" />
                     {lineItem.quantity.toLocaleString("en-IN")} {lineItem.unit}
                   </span>
                   {lineItem.estimatedUnitPrice && (
@@ -187,7 +187,7 @@ export function RfqSheet({
                 ? "bg-amber-50/50 text-amber-600 border-amber-200/50"
                 : "bg-muted/40 text-muted-foreground border-border/50"
             )}>
-              <Clock className="h-3 w-3 flex-shrink-0" />
+              <Clock className="size-3 flex-shrink-0" />
               {isDeadlinePast
                 ? `Deadline passed (${deadlineDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short" })})`
                 : daysUntilDeadline === 0
@@ -208,7 +208,7 @@ export function RfqSheet({
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 )}
               >
-                <Send className="h-3 w-3" /> Re-send RFQ
+                <Send className="size-3" /> Re-send RFQ
               </button>
               <button
                 onClick={() => setView("quotes")}
@@ -219,7 +219,7 @@ export function RfqSheet({
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 )}
               >
-                <MessageSquare className="h-3 w-3" /> Quotes
+                <MessageSquare className="size-3" /> Quotes
                 {quotes.length > 0 && (
                   <span className="ml-0.5 text-[9px] bg-primary/10 text-primary rounded-full px-1.5 font-bold">
                     {quotes.length}
@@ -258,7 +258,7 @@ export function RfqSheet({
                     onClick={fetchQuotes}
                     className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    <RefreshCw className="h-3 w-3" /> Refresh
+                    <RefreshCw className="size-3" /> Refresh
                   </button>
                 </div>
 
@@ -303,7 +303,7 @@ export function RfqSheet({
                   </div>
                 ) : (
                   <div className="rounded-lg border border-dashed border-border/60 py-10 text-center">
-                    <MessageSquare className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                    <MessageSquare className="size-8 text-muted-foreground/30 mx-auto mb-2" />
                     <p className="text-xs font-medium text-muted-foreground">No quotes received yet</p>
                     <p className="text-[10px] text-muted-foreground/70 mt-1">
                       Vendors will submit quotes before the deadline

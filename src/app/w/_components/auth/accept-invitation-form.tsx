@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -118,7 +118,7 @@ export function AcceptInvitationForm({ token, email, initialName = "" }: AcceptI
                                         <div className="relative">
                                             <Input
                                                 type={showPassword ? "text" : "password"}
-                                                placeholder="••••••••"
+                                                placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                                                 {...field}
                                                 disabled={isPending}
                                                 className="pr-10"
@@ -132,9 +132,9 @@ export function AcceptInvitationForm({ token, email, initialName = "" }: AcceptI
                                                 disabled={isPending}
                                             >
                                                 {showPassword ? (
-                                                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                                                    <EyeOff className="size-4 text-muted-foreground" />
                                                 ) : (
-                                                    <Eye className="h-4 w-4 text-muted-foreground" />
+                                                    <Eye className="size-4 text-muted-foreground" />
                                                 )}
                                             </Button>
                                         </div>
@@ -157,7 +157,7 @@ export function AcceptInvitationForm({ token, email, initialName = "" }: AcceptI
                                         <div className="relative">
                                             <Input
                                                 type={showPassword ? "text" : "password"}
-                                                placeholder="••••••••"
+                                                placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                                                 {...field}
                                                 disabled={isPending}
                                                 className="pr-10"
@@ -171,9 +171,9 @@ export function AcceptInvitationForm({ token, email, initialName = "" }: AcceptI
                                                 disabled={isPending}
                                             >
                                                 {showPassword ? (
-                                                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                                                    <EyeOff className="size-4 text-muted-foreground" />
                                                 ) : (
-                                                    <Eye className="h-4 w-4 text-muted-foreground" />
+                                                    <Eye className="size-4 text-muted-foreground" />
                                                 )}
                                             </Button>
                                         </div>
@@ -186,7 +186,7 @@ export function AcceptInvitationForm({ token, email, initialName = "" }: AcceptI
                         <Button type="submit" className="w-full" disabled={isPending}>
                             {isPending ? (
                                 <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    <Loader2 className="mr-2 size-4 animate-spin" />
                                     Setting Password...
                                 </>
                             ) : (
@@ -203,3 +203,4 @@ export function AcceptInvitationForm({ token, email, initialName = "" }: AcceptI
         </Card>
     );
 }
+

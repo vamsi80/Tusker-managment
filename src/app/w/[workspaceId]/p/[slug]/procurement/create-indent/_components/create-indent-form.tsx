@@ -638,7 +638,7 @@ export function CreateIndentForm({
               disabled={isSubmitting}
               className="h-7 text-xs flex items-center gap-1 hover:bg-muted"
             >
-              <Plus className="h-3 w-3" /> Add Row
+              <Plus className="size-3" /> Add Row
             </Button>
           </div>
 
@@ -711,9 +711,9 @@ export function CreateIndentForm({
                         size="icon"
                         onClick={() => handleRemoveRow(index)}
                         disabled={lineItems.length === 1 || isSubmitting}
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                        className="size-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-50"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="size-4" />
                       </Button>
                     </TableCell>
                   </TableRow>

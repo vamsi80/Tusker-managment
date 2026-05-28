@@ -246,7 +246,7 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
             description: "Official start of the working window.",
             value: shiftStartTime,
             onChange: setShiftStartTime,
-            icon: <Moon className="h-4 w-4 text-indigo-500" />,
+            icon: <Moon className="size-4 text-indigo-500" />,
             hint: "EARLY / ON-TIME",
             hintClass: "bg-indigo-500/10 text-indigo-600 border-indigo-500/20",
         },
@@ -256,7 +256,7 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
             description: "Mark as LATE after this time.",
             value: lateThreshold,
             onChange: setLateThreshold,
-            icon: <AlertCircle className="h-4 w-4 text-amber-500" />,
+            icon: <AlertCircle className="size-4 text-amber-500" />,
             hint: "LATE",
             hintClass: "bg-amber-500/10 text-amber-600 border-amber-500/20",
         },
@@ -266,7 +266,7 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
             description: "Mark as HALF DAY after this time.",
             value: halfDayThreshold,
             onChange: setHalfDayThreshold,
-            icon: <Timer className="h-4 w-4 text-orange-500" />,
+            icon: <Timer className="size-4 text-orange-500" />,
             hint: "HALF DAY",
             hintClass: "bg-orange-500/10 text-orange-600 border-orange-500/20",
         },
@@ -279,7 +279,7 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                 setOvertimeThreshold(val);
                 setShiftEndTime(val);
             },
-            icon: <Sun className="h-4 w-4 text-purple-500" />,
+            icon: <Sun className="size-4 text-purple-500" />,
             hint: "OT",
             hintClass: "bg-purple-500/10 text-purple-600 border-purple-500/20",
         },
@@ -290,7 +290,7 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
             value: sickLeaveLimit,
             isInput: true,
             onChange: setSickLeaveLimit,
-            icon: <Plus className="h-4 w-4 text-rose-500" />,
+            icon: <Plus className="size-4 text-rose-500" />,
             hint: "SICK",
             hintClass: "bg-rose-500/10 text-rose-600 border-rose-500/20",
         },
@@ -301,7 +301,7 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
             value: casualLeaveAccrualDays,
             isInput: true,
             onChange: setCasualLeaveAccrualDays,
-            icon: <Plus className="h-4 w-4 text-emerald-500" />,
+            icon: <Plus className="size-4 text-emerald-500" />,
             hint: "CASUAL",
             hintClass: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
         },
@@ -314,7 +314,7 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                 <div className="lg:col-span-8 space-y-6">
                     <div className="flex flex-col gap-1">
                         <CardTitle className="text-xl flex items-center gap-2">
-                            <Clock className="h-4 w-4" />
+                            <Clock className="size-4" />
                             Attendance Rules
                         </CardTitle>
                         <CardDescription className="text-base">
@@ -372,7 +372,7 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                 <div className="lg:col-span-4 space-y-6">
                     <div className="flex flex-col gap-1">
                         <CardTitle className="text-xl flex items-center gap-2">
-                            <CalendarIcon className="h-4 w-4" />
+                            <CalendarIcon className="size-4" />
                             Public Holidays
                         </CardTitle>
                         <CardDescription className="text-base">
@@ -422,10 +422,10 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                                                 const newHolidays = publicHolidays.filter((_, i) => i !== idx);
                                                 setPublicHolidays(newHolidays);
                                             }}
-                                            className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                                            className="size-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
                                             disabled={!isAdmin || isLoading}
                                         >
-                                            <Trash2 className="h-4 w-4" />
+                                            <Trash2 className="size-4" />
                                         </Button>
                                     </div>
                                 ))
@@ -440,7 +440,7 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                             }}
                             disabled={!isAdmin || isLoading}
                         >
-                            <Plus className="h-4 w-4" />
+                            <Plus className="size-4" />
                             Add Holiday
                         </Button>
                     </div>
@@ -450,7 +450,7 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                 <div className="lg:col-span-12 space-y-6 pt-4">
                     <div className="flex flex-col gap-1">
                         <CardTitle className="text-xl flex items-center gap-2">
-                            <MapPin className="h-4 w-4" />
+                            <MapPin className="size-4" />
                             Attendance Locations
                         </CardTitle>
                         <CardDescription className="text-base">
@@ -467,10 +467,10 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                                     onClick={() => {
                                         setAttendanceLocations(attendanceLocations.filter((_, i) => i !== idx));
                                     }}
-                                    className="absolute top-2 right-2 h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                                    className="absolute top-2 right-2 size-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
                                     disabled={!isAdmin || isLoading}
                                 >
-                                    <Trash2 className="h-4 w-4" />
+                                    <Trash2 className="size-4" />
                                 </Button>
 
                                 <div className="space-y-3 pt-2">
@@ -497,7 +497,7 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                                             onClick={() => window.open(`https://www.google.com/maps?q=${loc.latitude},${loc.longitude}`, '_blank')}
                                             disabled={!loc.latitude || !loc.longitude}
                                         >
-                                            <MapPin className="h-3 w-3 text-rose-500" />
+                                            <MapPin className="size-3 text-rose-500" />
                                             View Map
                                         </Button>
                                     </div>
@@ -526,12 +526,12 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                                             <Button
                                                 size="icon"
                                                 variant="outline"
-                                                className="h-9 w-9 shrink-0"
+                                                className="size-9 shrink-0"
                                                 onClick={() => handleSearchAddress(idx, loc.address)}
                                                 disabled={!isAdmin || isLoading}
                                                 title="Find Coordinates"
                                             >
-                                                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
+                                                {isLoading ? <Loader2 className="size-4 animate-spin" /> : <MapPin className="size-4" />}
                                             </Button>
                                         </div>
                                     </div>
@@ -630,7 +630,7 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                             disabled={!isAdmin || isLoading}
                         >
                             <div className="p-3 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                                <Plus className="h-6 w-6 text-primary" />
+                                <Plus className="size-6 text-primary" />
                             </div>
                             <span className="text-sm font-bold text-muted-foreground group-hover:text-primary transition-colors">Add New Location</span>
                         </button>
@@ -650,7 +650,7 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                                 : "bg-muted text-muted-foreground shadow-none cursor-not-allowed opacity-50"
                         )}
                     >
-                        {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
+                        {isLoading ? <Loader2 className="size-5 animate-spin" /> : <Save className="size-5" />}
                         Apply All Changes
                     </Button>
                 </div>

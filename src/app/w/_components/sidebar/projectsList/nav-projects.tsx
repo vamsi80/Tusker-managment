@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { toast } from "sonner";
@@ -230,7 +230,7 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <SidebarMenuAction>
-                        <MoreHorizontal className="h-4 w-4" />
+                        <MoreHorizontal className="size-4" />
                         <span className="sr-only">More options</span>
                       </SidebarMenuAction>
                     </DropdownMenuTrigger>
@@ -238,7 +238,7 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
                       {/* View */}
                       <DropdownMenuItem asChild>
                         <Link href={href} className="flex items-center gap-2 cursor-pointer">
-                          <Eye className="h-4 w-4" />
+                          <Eye className="size-4" />
                           <span>View Project</span>
                         </Link>
                       </DropdownMenuItem>
@@ -251,9 +251,9 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
                           onClick={() => handleEditClick(proj.id)}
                         >
                           {isLoadingProject ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <Loader2 className="size-4 animate-spin" />
                           ) : (
-                            <Pencil className="h-4 w-4" />
+                            <Pencil className="size-4" />
                           )}
                           <span>{isLoadingProject ? "Loading..." : "Edit Project"}</span>
                         </DropdownMenuItem>
@@ -267,9 +267,9 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
                           onClick={() => handleManageMembersClick(proj.id)}
                         >
                           {isLoadingProject ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <Loader2 className="size-4 animate-spin" />
                           ) : (
-                            <Users className="h-4 w-4" />
+                            <Users className="size-4" />
                           )}
                           <span>{isLoadingProject ? "Loading..." : "Manage Members"}</span>
                         </DropdownMenuItem>
@@ -284,7 +284,7 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
                             className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive"
                             onClick={() => handleDeleteClick({ id: proj.id, name: proj.name })}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="size-4" />
                             <span>Delete Project</span>
                           </DropdownMenuItem>
                         </>
@@ -354,7 +354,7 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
             >
               {isDeleting ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 size-4 animate-spin" />
                   Deleting...
                 </>
               ) : (
@@ -378,7 +378,7 @@ function NavProjectsSkeleton() {
         {[1, 2, 3, 4].map((i) => (
           <SidebarMenuItem key={i}>
             <div className="flex h-9 w-full items-center gap-2 px-2">
-              <Skeleton className="h-4 w-4 rounded-full bg-sidebar-border/50" />
+              <Skeleton className="size-4 rounded-full bg-sidebar-border/50" />
               <Skeleton className="h-4 flex-1 bg-sidebar-border/50" />
             </div>
           </SidebarMenuItem>
@@ -387,3 +387,4 @@ function NavProjectsSkeleton() {
     </SidebarGroup>
   );
 }
+

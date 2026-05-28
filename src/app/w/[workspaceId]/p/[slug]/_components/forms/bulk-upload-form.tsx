@@ -677,14 +677,14 @@ ${tagList}
         }}>
             <DialogTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2 h-9 border-border/60 hover:bg-muted/50 transition-colors cursor-pointer">
-                    <FileSpreadsheet className="h-4 w-4" />
+                    <FileSpreadsheet className="size-4" />
                     <span>Bulk Upload</span>
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[600px]">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
-                        <Upload className="h-5 w-5 text-primary" />
+                        <Upload className="size-5 text-primary" />
                         Bulk Task Upload
                     </DialogTitle>
                 </DialogHeader>
@@ -694,7 +694,7 @@ ${tagList}
                         <div className="absolute inset-0 bg-background/80 z-[100] flex flex-col items-center justify-center p-6 text-center rounded-lg border shadow-lg">
                             <div className="w-full max-w-xs space-y-6 bg-background p-4 rounded-lg">
                                 <div className="flex items-center justify-center">
-                                    <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                                    <Loader2 className="size-8 text-primary animate-spin" />
                                 </div>
                                 
                                 <div className="space-y-1">
@@ -720,7 +720,7 @@ ${tagList}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-3 border rounded-lg p-4 bg-muted/30">
                             <div className="flex items-center gap-2 mb-1">
-                                <FileText className="h-4 w-4 text-primary" />
+                                <FileText className="size-4 text-primary" />
                                 <h4 className="text-sm font-semibold">Instructions</h4>
                             </div>
                             <p className="text-xs text-muted-foreground leading-relaxed">
@@ -739,7 +739,7 @@ ${tagList}
 
                         <div className="space-y-3 border rounded-lg p-4 bg-muted/30">
                             <div className="flex items-center gap-2 mb-1">
-                                <Download className="h-4 w-4 text-green-600" />
+                                <Download className="size-4 text-green-600" />
                                 <h4 className="text-sm font-semibold">Template File</h4>
                             </div>
                             <p className="text-xs text-muted-foreground leading-relaxed">
@@ -798,9 +798,9 @@ ${tagList}
                             <input {...getInputProps()} />
                             <div className="p-3 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors">
                                 {fileName ? (
-                                    <FileSpreadsheet className="h-8 w-8 text-green-600" />
+                                    <FileSpreadsheet className="size-8 text-green-600" />
                                 ) : (
-                                    <Upload className="h-8 w-8 text-primary" />
+                                    <Upload className="size-8 text-primary" />
                                 )}
                             </div>
                             <div className="text-center">
@@ -836,12 +836,12 @@ ${tagList}
                     >
                         {isProcessing ? (
                             <>
-                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <Loader2 className="size-4 animate-spin" />
                                 <span>Uploading...</span>
                             </>
                         ) : (
                             <>
-                                <Upload className="h-4 w-4" />
+                                <Upload className="size-4" />
                                 <span>Submit</span>
                             </>
                         )}

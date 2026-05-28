@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useRef, useEffect } from "react";
 import { TableCell, TableRow } from "@/components/ui/table";
@@ -221,7 +221,7 @@ export function SubTaskList({
                         <TableRow className="bg-muted/30 hover:bg-muted/20 cursor-pointer" onClick={() => setShowInlineSubTaskForm(true)}>
                             <TableCell colSpan={visibleColumnsCount} className="p-3 pl-12 text-primary">
                                 <div className="flex items-center gap-2">
-                                    <Plus className="h-4 w-4" />
+                                    <Plus className="size-4" />
                                     <span>Add SubTask</span>
                                 </div>
                             </TableCell>
@@ -306,7 +306,7 @@ export function SubTaskList({
                     <TableRow className="bg-muted/30 hover:bg-muted/20 cursor-pointer" onClick={() => setShowInlineSubTaskForm(true)}>
                         <TableCell colSpan={visibleColumnsCount} className="p-3 pl-12 text-primary">
                             <div className="flex items-center gap-2">
-                                <Plus className="h-4 w-4" />
+                                <Plus className="size-4" />
                                 <span>Add SubTask</span>
                             </div>
                         </TableCell>
@@ -316,3 +316,4 @@ export function SubTaskList({
         </>
     );
 }
+

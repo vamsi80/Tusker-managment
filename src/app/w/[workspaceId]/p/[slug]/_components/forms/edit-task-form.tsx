@@ -193,7 +193,7 @@ export function EditTaskDialog({
         >
             <DialogTrigger asChild>
                 <Button variant="ghost" size="sm" className="w-full justify-start">
-                    <Pencil className="mr-2 h-4 w-4" />
+                    <Pencil className="mr-2 size-4" />
                     Edit Task
                 </Button>
             </DialogTrigger>
@@ -283,7 +283,7 @@ export function EditTaskDialog({
                                     {pending ? (
                                         <>
                                             Updating...
-                                            <Loader2 className="ml-1 h-4 w-4 animate-spin" />
+                                            <Loader2 className="ml-1 size-4 animate-spin" />
                                         </>
                                     ) : (
                                         <>

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -42,7 +42,7 @@ export function ColumnVisibility({
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2">
-                    <Settings2 className="h-4 w-4" />
+                    <Settings2 className="size-4" />
                     Columns
                 </Button>
             </DropdownMenuTrigger>
@@ -107,3 +107,4 @@ export function ColumnVisibility({
         </DropdownMenu>
     );
 }
+

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { MoonIcon, SunIcon } from 'lucide-react'
@@ -29,7 +29,7 @@ export default function ThemeToggle() {
               pressed={isDark}
               onPressedChange={toggleTheme}
               aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
-              className="relative inline-flex items-center justify-center w-9 h-9 rounded-full border-none p-0 focus:outline-none"
+              className="relative inline-flex items-center justify-center size-9 rounded-full border-none p-0 focus:outline-none"
             >
               {/* Sun (light) */}
               <SunIcon
@@ -40,7 +40,7 @@ export default function ThemeToggle() {
                 `}
               />
 
-              {/* Moon (dark) — positioned absolutely so they overlap nicely */}
+              {/* Moon (dark) â€” positioned absolutely so they overlap nicely */}
               <MoonIcon
                 size={16}
                 aria-hidden="true"
@@ -58,3 +58,4 @@ export default function ThemeToggle() {
     </>
   )
 }
+

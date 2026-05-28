@@ -119,7 +119,7 @@ function TodoItem({
             WebkitTouchCallout: "none",
           }}
         >
-          <GripVertical className="h-4 w-4" />
+          <GripVertical className="size-4" />
         </div>
       )}
 
@@ -185,13 +185,13 @@ function TodoItem({
           <Button
             variant="ghost"
             size="icon"
-            className="h-5 w-5 p-0 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer flex items-center justify-center"
+            className="size-5 p-0 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer flex items-center justify-center"
             onClick={(e) => {
               e.stopPropagation();
               handleDeleteClick(todo.id);
             }}
           >
-            <Trash2 className="h-3 w-3" />
+            <Trash2 className="size-3" />
           </Button>
         </div>
       )}
@@ -401,10 +401,10 @@ export function PersonalListContainer({
   );
 
   return (
-    <div className="flex flex-col h-full w-full">
+    <div className="flex flex-col size-full">
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground/20">
-          <Loader2 className="h-6 w-6 animate-spin" />
+          <Loader2 className="size-6 animate-spin" />
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 h-full">
@@ -459,11 +459,11 @@ export function PersonalListContainer({
                 aria-label="Add task"
               >
                 {isAdding ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="size-4 animate-spin" />
                 ) : newTodoText.trim() ? (
-                  <Check className="h-4 w-4 stroke-[3px] animate-in zoom-in-50 duration-300" />
+                  <Check className="size-4 stroke-[3px] animate-in zoom-in-50 duration-300" />
                 ) : (
-                  <Plus className="h-4 w-4 stroke-[2.5px] transition-transform duration-300 group-hover:rotate-90" />
+                  <Plus className="size-4 stroke-[2.5px] transition-transform duration-300 group-hover:rotate-90" />
                 )}
               </button>
             </form>

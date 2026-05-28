@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -266,7 +266,7 @@ export const LoginForm = () => {
                   id="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                   required
                 />
               </div>
@@ -375,7 +375,7 @@ export const LoginForm = () => {
           <Button
             disabled={githubPending}
             title="Sign in with GitHub"
-            className="h-8 w-8 flex items-center justify-center rounded-full cursor-pointer"
+            className="size-8 flex items-center justify-center rounded-full cursor-pointer"
             onClick={signInWithGithub}
           >
             {githubPending ? (
@@ -388,7 +388,7 @@ export const LoginForm = () => {
           <Button
             disabled={googlePending}
             title="Sign in with Google"
-            className="h-8 w-8 flex items-center justify-center rounded-full cursor-pointer"
+            className="size-8 flex items-center justify-center rounded-full cursor-pointer"
             onClick={signInWithGoogle}
           >
             {googlePending ? (
@@ -408,3 +408,4 @@ export const LoginForm = () => {
     </Card>
   );
 };
+

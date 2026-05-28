@@ -63,7 +63,7 @@ export function UnassignedMembersWidget({ allMembers }: UnassignedMembersWidgetP
               return (
                 <div key={member.id} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <Avatar className="h-9 w-9">
+                    <Avatar className="size-9">
                       <AvatarFallback className="text-muted-foreground font-semibold text-xs">
                         {displayName.substring(0, 1).toUpperCase()}
                       </AvatarFallback>

@@ -24,7 +24,7 @@ export default function ProjectNotFound({ workspaceId }: ProjectNotFoundProps) {
             <div className="relative">
                 <div className="absolute -inset-4 bg-primary/10 rounded-full blur-2xl" />
                 <div className="relative bg-background border rounded-3xl p-6 shadow-xl">
-                    <AlertCircle className="h-12 w-12 text-primary animate-pulse" />
+                    <AlertCircle className="size-12 text-primary animate-pulse" />
                 </div>
             </div>
             
@@ -44,7 +44,7 @@ export default function ProjectNotFound({ workspaceId }: ProjectNotFoundProps) {
                     size="lg"
                     className="flex-1 gap-2 shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all"
                 >
-                    <RefreshCcw className="h-4 w-4" />
+                    <RefreshCcw className="size-4" />
                     Refresh Hard
                 </Button>
                 <Button 
@@ -53,7 +53,7 @@ export default function ProjectNotFound({ workspaceId }: ProjectNotFoundProps) {
                     size="lg"
                     className="flex-1 gap-2 hover:bg-accent/50 transition-all"
                 >
-                    <LayoutDashboard className="h-4 w-4" />
+                    <LayoutDashboard className="size-4" />
                     Back to Workspace
                 </Button>
             </div>

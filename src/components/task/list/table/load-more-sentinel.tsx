@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLoadMoreSentinel } from "@/hooks/use-load-more-sentinel";
@@ -32,7 +32,7 @@ export function LoadMoreSentinel({
         >
             <TableCell colSpan={visibleColumnsCount} className="py-2 h-10">
                 <div className="flex items-center gap-4 px-2 opacity-60">
-                    <Skeleton className="h-4 w-4 rounded" />
+                    <Skeleton className="size-4 rounded" />
                     <div className="flex-1">
                         <Skeleton className="h-4 w-[150px]" />
                     </div>
@@ -44,3 +44,4 @@ export function LoadMoreSentinel({
 }
 
 LoadMoreSentinel.displayName = "LoadMoreSentinel";
+

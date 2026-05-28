@@ -39,7 +39,7 @@ export function MySpaceNav({ workspaceId }: { workspaceId: string }) {
                     : "border-transparent text-muted-foreground"
                 )}
               >
-                <Icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-muted-foreground/60")} />
+                <Icon className={cn("size-4", isActive ? "text-primary" : "text-muted-foreground/60")} />
                 <span>{tab.name}</span>
               </Link>
             </div>

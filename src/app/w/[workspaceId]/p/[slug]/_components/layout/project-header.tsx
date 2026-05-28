@@ -37,7 +37,7 @@ function ProjectHeader({
                             </span>
                         )}
                         <div
-                            className="h-3 w-3 md:h-4 md:w-4 rounded-full border shadow-sm transition-colors shrink-0"
+                            className="size-3 md:h-4 md:w-4 rounded-full border shadow-sm transition-colors shrink-0"
                             style={{ backgroundColor: projectColor || '#888' }}
                         />
                     </h1>

@@ -109,7 +109,7 @@ export function WorkspaceInfoForm({ workspace }: WorkspaceInfoFormProps) {
                     <Button type="submit" disabled={isPending || !form.formState.isDirty}>
                         {isPending ? (
                             <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                <Loader2 className="mr-2 size-4 animate-spin" />
                                 Saving...
                             </>
                         ) : (
@@ -410,7 +410,7 @@ export function WorkspaceInfoForm({ workspace }: WorkspaceInfoFormProps) {
                 <Separator />
                 <div className="space-y-4">
                     <div className="flex items-center gap-2 text-destructive">
-                        <AlertCircle className="h-5 w-5" />
+                        <AlertCircle className="size-5" />
                         <h3 className="text-xl font-bold tracking-tight">Danger Zone</h3>
                     </div>
                     
@@ -426,7 +426,7 @@ export function WorkspaceInfoForm({ workspace }: WorkspaceInfoFormProps) {
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                     <Button variant="destructive" className="w-full sm:w-auto">
-                                        <Trash2 className="mr-2 h-4 w-4" />
+                                        <Trash2 className="mr-2 size-4" />
                                         Delete this workspace
                                     </Button>
                                 </AlertDialogTrigger>

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import type { SubTasksByStatusResponse, KanbanSubTaskType } from "@/types/task";
@@ -182,7 +182,7 @@ export function KanbanBoard({
     }
   }, [initialData]);
 
-  // 🧹 Filter Reset Logic: Ensures a clean slate when navigating between different views
+  // ðŸ§¹ Filter Reset Logic: Ensures a clean slate when navigating between different views
   const { filters, setFilters, searchQuery, setSearchQuery, clearFilters } =
     useFilterStore();
 
@@ -544,7 +544,7 @@ export function KanbanBoard({
     if (validStatuses.includes(overId as TaskStatus)) {
       setOverInfo({ overId: null, columnId: overId as TaskStatus });
     } else {
-      // overId is a card id — find which column it belongs to
+      // overId is a card id â€” find which column it belongs to
       for (const col of COLUMNS) {
         if (columnData[col.id].subTaskIds.includes(overId)) {
           setOverInfo({ overId, columnId: col.id });
@@ -583,7 +583,7 @@ export function KanbanBoard({
     if (validStatuses.includes(overId as TaskStatus)) {
       newStatus = overId as TaskStatus;
     } else {
-      // over.id is a card id — find its column
+      // over.id is a card id â€” find its column
       for (const col of COLUMNS) {
         if (columnData[col.id].subTaskIds.includes(overId)) {
           newStatus = col.id;
@@ -889,7 +889,7 @@ export function KanbanBoard({
   };
 
   const handleActivityClose = () => {
-    // 🛡️ Guard: If we are closing because of a successful submission, don't revert!
+    // ðŸ›¡ï¸ Guard: If we are closing because of a successful submission, don't revert!
     if (isSubmittingActivityRef.current) {
       console.log("DEBUG [Kanban] Activity Dialog closing due to submission. Skipping reversion and resetting ref.");
       isSubmittingActivityRef.current = false;
@@ -1013,7 +1013,7 @@ export function KanbanBoard({
           {isFiltering && (
             <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/50 backdrop-blur-sm transition-all duration-300 rounded-md">
               <div className="flex flex-col items-center gap-2">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <Loader2 className="size-8 animate-spin text-primary" />
                 <span className="text-sm font-medium text-muted-foreground">
                   {filtersActive ? "Filtering..." : "Loading Board..."}
                 </span>
@@ -1094,3 +1094,4 @@ export function KanbanBoard({
     </div>
   );
 }
+

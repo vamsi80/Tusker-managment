@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -205,7 +205,7 @@ export function DependencyPicker({
         <div className="p-6 pb-4 border-b border-neutral-100 dark:border-neutral-800">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-foreground">
-              <Link2 className="h-5 w-5 text-blue-500" />
+              <Link2 className="size-5 text-blue-500" />
               Manage Dependencies for "{subtask.name}"
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
@@ -215,7 +215,7 @@ export function DependencyPicker({
 
           {/* Search Field */}
           <div className="relative mt-4">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
               placeholder="Find a task to add as a dependency..."
               value={searchQuery}
@@ -232,7 +232,7 @@ export function DependencyPicker({
               {activeDependencies.length > 0 && (
                 <div className="space-y-3">
                   <h3 className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest px-2 flex items-center gap-2">
-                    <Check className="h-3 w-3" />
+                    <Check className="size-3" />
                     Current Dependencies
                   </h3>
                   <div className="grid grid-cols-1 gap-2">
@@ -246,19 +246,19 @@ export function DependencyPicker({
                             {dep.name}
                           </p>
                           <p className="text-[10px] text-muted-foreground">
-                            {dep.start} → {dep.end}
+                            {dep.start} â†’ {dep.end}
                           </p>
                         </div>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          className="size-8 text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleToggleDependency(dep.id);
                           }}
                         >
-                          <X className="h-4 w-4" />
+                          <X className="size-4" />
                         </Button>
                       </div>
                     ))}
@@ -276,7 +276,7 @@ export function DependencyPicker({
                     <Collapsible key={task.id} defaultOpen={true}>
                       <CollapsibleTrigger asChild>
                         <div className="flex items-center gap-2 p-2 hover:bg-neutral-50 dark:hover:bg-neutral-800/30 rounded-lg cursor-pointer group/task">
-                          <ChevronRight className="h-3 w-3 text-neutral-400 group-data-[state=open]:rotate-90 transition-transform" />
+                          <ChevronRight className="size-3 text-neutral-400 group-data-[state=open]:rotate-90 transition-transform" />
                           <span className="text-xs font-bold text-neutral-600 dark:text-neutral-400">
                             {task.name}
                           </span>
@@ -317,7 +317,7 @@ export function DependencyPicker({
                                   {st.name}
                                 </label>
                                 <p className="text-[10px] text-muted-foreground">
-                                  {st.start} → {st.end}
+                                  {st.start} â†’ {st.end}
                                 </p>
                               </div>
                               <Button
@@ -335,7 +335,7 @@ export function DependencyPicker({
                   ))
                 ) : (
                   <div className="flex flex-col items-center justify-center py-10 text-muted-foreground bg-neutral-50/50 dark:bg-neutral-800/20 rounded-lg border border-dashed">
-                    <Search className="h-6 w-6 mb-2 opacity-10" />
+                    <Search className="size-6 mb-2 opacity-10" />
                     <p className="text-[11px]">No eligible tasks found.</p>
                     <p className="text-[9px] mt-1 opacity-60 px-10 text-center">
                       (Note: Tasks must start on or before {subtask.start} to be
@@ -370,7 +370,7 @@ export function DependencyPicker({
               className="bg-blue-600 hover:bg-blue-700 text-white min-w-[100px]"
             >
               {isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="size-4 animate-spin" />
               ) : (
                 "Save Changes"
               )}
@@ -381,3 +381,4 @@ export function DependencyPicker({
     </Dialog>
   );
 }
+

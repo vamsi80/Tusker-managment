@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+﻿import { cn } from "@/lib/utils";
 import { CloudUploadIcon, ImageIcon, Loader, Loader2, XIcon } from "lucide-react";
 import { Button } from "../ui/button";
 import Image from "next/image";
@@ -52,13 +52,13 @@ export function RenderUplodedState({
     fileType: "image" | "video";
 }) {
     return (
-        <div className="relative group w-full h-full flex items-center justify-center">
+        <div className="relative group size-full flex items-center justify-center">
 
             {fileType === "video" ? (
                 <video
                     src={previewUrl}
                     controls
-                    className="rounded-md w-full h-full"
+                    className="rounded-md size-full"
                 />
             ) : (
                 <Image
@@ -77,7 +77,7 @@ export function RenderUplodedState({
                 disabled={isDeleting}
             >
                 {isDeleting ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="mr-2 size-4 animate-spin" />
                 ) : (
                     <XIcon className="size-4" />
                 )}
@@ -98,3 +98,4 @@ export function RenderUplodingState({ progress, file }: { progress: number; file
         </div>
     )
 }
+

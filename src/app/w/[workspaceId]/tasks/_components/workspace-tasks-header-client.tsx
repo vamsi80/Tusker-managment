@@ -100,7 +100,7 @@ export function WorkspaceTasksHeaderClient({
                                     router.isNavigating && "pointer-events-none opacity-50"
                                 )}
                             >
-                                <Icon className="h-3 w-3" />
+                                <Icon className="size-3" />
                                 <span className="text-xs sm:text-xs">{tab.name}</span>
                             </Link>
                         );

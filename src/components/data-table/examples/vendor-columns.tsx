@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { ColumnDef } from "@tanstack/react-table";
 import {
@@ -55,20 +55,20 @@ export function createVendorColumns(
             header: "Contact Person",
             cell: ({ row }) => {
                 const vendor = row.original;
-                if (!vendor.contactPerson) return <span className="text-muted-foreground">—</span>;
+                if (!vendor.contactPerson) return <span className="text-muted-foreground">â€”</span>;
 
                 return (
                     <div className="flex flex-col gap-1">
                         <span className="font-medium">{vendor.contactPerson}</span>
                         {vendor.email && (
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                <Mail className="h-3 w-3" />
+                                <Mail className="size-3" />
                                 {vendor.email}
                             </div>
                         )}
                         {vendor.phone && (
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                <Phone className="h-3 w-3" />
+                                <Phone className="size-3" />
                                 {vendor.phone}
                             </div>
                         )}
@@ -88,7 +88,7 @@ export function createVendorColumns(
             header: "Rating",
             cell: ({ row }) => {
                 const rating = row.getValue("rating") as number | null;
-                if (!rating) return <span className="text-muted-foreground">—</span>;
+                if (!rating) return <span className="text-muted-foreground">â€”</span>;
 
                 return (
                     <div className="flex items-center gap-1">
@@ -97,7 +97,7 @@ export function createVendorColumns(
                                 key={i}
                                 className={i < rating ? "text-yellow-500" : "text-gray-300"}
                             >
-                                ★
+                                â˜…
                             </span>
                         ))}
                         <span className="ml-1 text-sm text-muted-foreground">({rating})</span>
@@ -111,11 +111,11 @@ export function createVendorColumns(
             header: "Location",
             cell: ({ row }) => {
                 const address = row.getValue("address") as string | null;
-                if (!address) return <span className="text-muted-foreground">—</span>;
+                if (!address) return <span className="text-muted-foreground">â€”</span>;
 
                 return (
                     <div className="flex items-start gap-2 max-w-xs">
-                        <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                        <MapPin className="size-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                         <span className="text-sm line-clamp-2" title={address}>
                             {address}
                         </span>
@@ -135,19 +135,20 @@ export function createVendorColumns(
             {
                 label: "View Details",
                 onClick: onView,
-                icon: <Eye className="h-4 w-4" />,
+                icon: <Eye className="size-4" />,
             },
             {
                 label: "Edit",
                 onClick: onEdit,
-                icon: <Edit className="h-4 w-4" />,
+                icon: <Edit className="size-4" />,
             },
             {
                 label: "Delete",
                 onClick: onDelete,
-                icon: <Trash className="h-4 w-4" />,
+                icon: <Trash className="size-4" />,
                 variant: "destructive",
             },
         ]),
     ];
 }
+
